@@ -27,7 +27,7 @@ export default function Map() {
       <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {Data.map((node) => (
-          <Marker icon={customIcon} position={node.coordinates as [number, number]}>
+          <Marker icon={customIcon} position={node.coordinates as [number, number]} key={node.nodeId}>
             <Popup>
               <strong>Node ID:</strong> {node.nodeId}
               <br />
