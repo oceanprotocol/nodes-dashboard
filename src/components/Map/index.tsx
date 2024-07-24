@@ -1,13 +1,16 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useContext } from 'react'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import MarkerIcon from '../../assets/marker_map_icon.png'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Data } from '../../components/Table/data'
+import { DataContext } from '@/context/DataContext'
+import { NodeData } from '@/shared/types/RowDataType'
 
 export default function Map() {
   const [isClient, setIsClient] = useState(false)
+  const { data, loading, error } = useContext(DataContext);
+  console.log('Tsable data: ', data)
 
   useEffect(() => {
     setIsClient(true)
@@ -26,16 +29,16 @@ export default function Map() {
     isClient && (
       <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {Data.map((node) => (
-          <Marker icon={customIcon} position={node.coordinates as [number, number]} key={node.nodeId}>
+        {data.map((node:NodeData) => (
+          <Marker icon={customIcon} position={[node.location.latitude, node.location.longitude]} key={node.id}>
             <Popup>
-              <strong>Node ID:</strong> {node.nodeId}
+              <strong>Node ID:</strong> {node.id}
               <br />
-              <strong>Network:</strong> {node.network}
+              <strong>Network:</strong> {node?.indexer?.[0]?.network}
               <br />
-              <strong>Location:</strong> {node.location}
+              <strong>Location:</strong> {node.location.country}
               <br />
-              <strong>City:</strong> {node.nodeDetails.city}
+              <strong>City:</strong> {node.location.city}
             </Popup>
           </Marker>
         ))}
