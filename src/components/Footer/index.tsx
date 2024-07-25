@@ -11,14 +11,8 @@ const Footer = () => {
         <a href="https://github.com/oceanprotocol" target="_blank">
           GitHub
         </a>
-        <a href="https://oceanprotocol.com/tech-whitepaper.pdf" target="_blank">
-          Whitepaper
-        </a>
         <a href="https://discord.com/invite/TnXjkR5" target="_blank">
           Discord
-        </a>
-        <a href="https://blog.oceanprotocol.com/" target="_blank">
-          Blog
         </a>
       </div>
     </div>

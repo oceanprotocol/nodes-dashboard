@@ -6,6 +6,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { DataContext } from '@/context/DataContext'
 import { NodeData } from '@/shared/types/RowDataType'
+import styles from './style.module.css'
 
 export default function Map() {
   const [isClient, setIsClient] = useState(false)
@@ -31,7 +32,7 @@ export default function Map() {
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {data.map((node:NodeData) => (
           <Marker icon={customIcon} position={[node.location.latitude, node.location.longitude]} key={node.id}>
-            <Popup>
+            <Popup className={styles.popup}>
               <strong>Node ID:</strong> {node.id}
               <br />
               <strong>Network:</strong> {node?.indexer?.[0]?.network}
