@@ -1,13 +1,24 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import axios from 'axios';
 import { NodeData } from '@/shared/types/RowDataType';
 
-export const DataContext = createContext(undefined);
+// Define the shape of your context data
+interface DataContextType {
+  data: NodeData[];
+  loading: boolean;
+  error: any;
+}
 
-export const DataProvider = ({ children }) => {
+interface DataProviderProps {
+  children: ReactNode;
+}
+
+export const DataContext = createContext<DataContextType | undefined>(undefined);
+ 
+export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [data, setData] = useState<NodeData[]>([])
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,4 +45,12 @@ export const DataProvider = ({ children }) => {
       {children}
     </DataContext.Provider>
   );
+};
+
+export const useDataContext = () => {
+  const context = useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useDataContext must be used within a DataProvider');
+  }
+  return context;
 };

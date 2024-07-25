@@ -8,7 +8,7 @@ import NodeDetails from '../NodeDetails'
 import { Data } from './data'
 import {  NodeData } from '../../shared/types/RowDataType'
 import Link from 'next/link'
-import { DataContext } from '@/context/DataContext'
+import { DataContext, useDataContext } from '@/context/DataContext'
 import { IndexerType } from '@/shared/types/dataTypes'
 
 export interface TableOceanColumn<T> extends TableColumn<T> {
@@ -32,7 +32,7 @@ const getAllBlocks = (indexers: IndexerType[]): string => {
 };
 
 export default function Tsable() {
-  const { data, loading, error } = useContext(DataContext);
+  const { data, loading, error } = useDataContext()
   console.log('Tsable data: ', data)
 
   const Columns: TableOceanColumn<NodeData | any>[] = [

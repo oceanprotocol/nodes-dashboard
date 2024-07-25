@@ -4,13 +4,13 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import MarkerIcon from '../../assets/marker_map_icon.png'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { DataContext } from '@/context/DataContext'
+import { DataContext, useDataContext } from '@/context/DataContext'
 import { NodeData } from '@/shared/types/RowDataType'
 import styles from './style.module.css'
 
 export default function Map() {
   const [isClient, setIsClient] = useState(false)
-  const { data, loading, error } = useContext(DataContext);
+  const { data, loading, error } = useDataContext()
   console.log('Tsable data: ', data)
 
   useEffect(() => {
