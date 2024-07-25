@@ -8,7 +8,7 @@ const Footer = () => {
         <a href="https://oceanprotocol.com/" target="_blank">
           Website
         </a>
-        <a href="https://github.com/oceanprotocol" target="_blank">
+        <a href="https://github.com/oceanprotocol/nodes-dashboard" target="_blank">
           GitHub
         </a>
         <a href="https://discord.com/invite/TnXjkR5" target="_blank">
