@@ -8,6 +8,7 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import RootLayout from '../components/Layout';
 import { AdminProvider } from '../context/AdminProvider';
 import { chains } from '../shared/utils/chains';
+import {  DataProvider } from '@/context/DataContext';
 
 export default function App({ Component, pageProps }: AppProps) {
   const config = getDefaultConfig({
@@ -26,9 +27,11 @@ export default function App({ Component, pageProps }: AppProps) {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
           <AdminProvider>
-            <RootLayout>
-              <Component {...pageProps} />
-            </RootLayout>
+            <DataProvider>
+              <RootLayout>
+                <Component {...pageProps} />
+              </RootLayout>
+            </DataProvider>
           </AdminProvider>
         </RainbowKitProvider>
       </QueryClientProvider>

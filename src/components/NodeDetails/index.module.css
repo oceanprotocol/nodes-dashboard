@@ -8,13 +8,15 @@
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
-  max-height: 350px;
-  gap: 24px;
+  /* max-height: 350px; */
+  /* gap: 24px; */
+  gap: 14px;
   background-color: var(--background-secondary);
 }
 
 .item {
-  min-width: 220px;
+  /* min-width: 220px; */
+  width: 100%;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 12px;
   display: flex;
@@ -25,14 +27,17 @@
 }
 
 .key {
-  width: 25%;
+  /* width: 25%; */
+  width: 200px;
   color: var(--color-secondary);
   font-weight: 700;
   text-transform: capitalize;
 }
 
 .value {
-  width: 75%;
+  /* width: 75%; */
+  width: calc(100% - 200px);
   color: var(--gray-500);
   font-weight: 400;
+  word-break: break-word;
 }

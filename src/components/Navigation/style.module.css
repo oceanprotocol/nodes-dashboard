@@ -1,6 +1,7 @@
 .navbarParent {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  /* justify-content: space-between;
   align-items: center;
   color: var(--gray-700);
   background-color: #ffffff;
@@ -9,13 +10,14 @@
   backdrop-filter: blur(10.5px);
   padding: 11px 24px;
   width: 100%;
-  margin: 0 auto;
+  margin: 0 auto; */
 }
 
 .logoWrapper {
   flex-shrink: 0; /* Prevent the logo from shrinking */
-  min-width: 108px; /* Minimum width for the logo */
+  /* min-width: 108px; Minimum width for the logo */
 }
+
 
 .connectButtonWrapper {
   flex-shrink: 0; /* Prevent the connect button from shrinking */
