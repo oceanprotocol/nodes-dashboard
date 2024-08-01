@@ -31,15 +31,16 @@ export default function Map() {
       <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {data.map((node:NodeData) => (
-          <Marker icon={customIcon} position={[node.location.latitude, node.location.longitude]} key={node.id}>
+          (node?.location?.latitude || node?.location?.longitude) &&
+          <Marker icon={customIcon} position={[node.location.latitude, node.location.longitude]} key={node?.id}>
             <Popup className={styles.popup}>
-              <strong>Node ID:</strong> {node.id}
+              <strong>Node ID:</strong> {node?.id}
               <br />
               <strong>Network:</strong> {node?.indexer?.[0]?.network}
               <br />
-              <strong>Location:</strong> {node.location.country}
+              <strong>Location:</strong> {node?.location?.country}
               <br />
-              <strong>City:</strong> {node.location.city}
+              <strong>City:</strong> {node?.location?.city}
             </Popup>
           </Marker>
         ))}
