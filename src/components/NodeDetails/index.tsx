@@ -10,8 +10,6 @@ const NodeDetails: React.FC<ExpanderComponentProps<NodeData>> = ({ data }) => {
     return { key, value: typeof value === 'object' ? JSON.stringify(value) : value };
   });
 
-  console.log('keyValuePairs', keyValuePairs);
-
   return (
     <div className={styles.root}>
       {keyValuePairs.map((item) => (
