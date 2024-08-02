@@ -1,14 +1,11 @@
-import React, { useContext } from 'react'
+import React from 'react'
 import DataTable, { TableColumn } from 'react-data-table-component'
-
 import styles from './index.module.css'
 import { customStyles } from './_styles'
-
 import NodeDetails from '../NodeDetails'
-import { Data } from './data'
 import {  NodeData } from '../../shared/types/RowDataType'
 import Link from 'next/link'
-import { DataContext, useDataContext } from '@/context/DataContext'
+import {  useDataContext } from '@/context/DataContext'
 import { IndexerType } from '@/shared/types/dataTypes'
 
 export interface TableOceanColumn<T> extends TableColumn<T> {
@@ -37,8 +34,8 @@ export default function Tsable() {
 
   const Columns: TableOceanColumn<NodeData | any>[] = [
     { name: 'Node Id', selector: (row: NodeData) => row?.id },
-    { name: 'Network', selector: (row: NodeData) => getAllNetworks(row?.indexer)},
-    { name: 'Block Number', selector: (row: NodeData) => getAllBlocks(row?.indexer)},
+    { name: 'Network', selector: (row: NodeData) => getAllNetworks(row?.indexer || [])},
+    { name: 'Block Number', selector: (row: NodeData) => getAllBlocks(row?.indexer || [])},
     { name: 'IP', selector: (row: NodeData) => row?.ipAndDns?.ip },
     { name: 'Location', selector: (row: NodeData) => row?.location?.city },
     {

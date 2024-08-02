@@ -10,7 +10,7 @@ const NavBar = () => {
     <div className={styles.navbarParent}>
       <div className={styles.logoWrapper}>
         <Link href="/">
-          <Image src={logo} alt="Ocean Node Logo" height={125} />
+          <Image src={logo} alt="Ocean Node Logo" height={100} />
         </Link>
       </div>
       {/* <div className={styles.NavbarLinks}>
