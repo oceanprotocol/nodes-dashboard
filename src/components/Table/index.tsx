@@ -24,6 +24,17 @@ const getAllNetworks = (indexers: IndexerType[]): string => {
   return indexers.map(indexer => indexer.network).join(', ');
 };
 
+export const formatUptime = (uptimeInSeconds: number): string => {
+  const days = Math.floor(uptimeInSeconds / (3600 * 24));
+  const hours = Math.floor((uptimeInSeconds % (3600 * 24)) / 3600);
+  const minutes = Math.floor((uptimeInSeconds % 3600) / 60);
+
+  const dayStr = days > 0 ? `${days} day${days > 1 ? 's' : ''} ` : '';
+  const hourStr = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''} ` : '';
+  const minuteStr = minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : '';
+
+  return `${dayStr}${hourStr}${minuteStr}`.trim();
+};
 // const getAllBlocks = (indexers: IndexerType[]): string => {
 //   return indexers.map(indexer => indexer.block).join(', ');
 // };
@@ -43,7 +54,7 @@ export default function Tsable() {
     { name: 'Location', selector: (row: NodeData) => `${row?.location?.city || ''}  ${row?.location?.country || ''}` },
     {
       name: 'Uptime (s)',
-      selector: (row: NodeData) =>row?.uptime.toFixed(2)
+      selector: (row: NodeData) => formatUptime(row?.uptime)
     },
     // { name: '', selector: (row: NodeData) => <ViewMore id={row.id} /> }
   ]
