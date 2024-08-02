@@ -24,23 +24,26 @@ const getAllNetworks = (indexers: IndexerType[]): string => {
   return indexers.map(indexer => indexer.network).join(', ');
 };
 
-const getAllBlocks = (indexers: IndexerType[]): string => {
-  return indexers.map(indexer => indexer.block).join(', ');
-};
+// const getAllBlocks = (indexers: IndexerType[]): string => {
+//   return indexers.map(indexer => indexer.block).join(', ');
+// };
 
 export default function Tsable() {
   const { data, loading, error } = useDataContext()
-  console.log('Tsable data: ', data)
+
+  data.sort((a, b) => b.uptime - a.uptime);
+
 
   const Columns: TableOceanColumn<NodeData | any>[] = [
     { name: 'Node Id', selector: (row: NodeData) => row?.id },
+    { name: 'Address', selector: (row: NodeData) => row?.address },
     { name: 'Network', selector: (row: NodeData) => getAllNetworks(row?.indexer || [])},
-    { name: 'Block Number', selector: (row: NodeData) => getAllBlocks(row?.indexer || [])},
-    { name: 'IP', selector: (row: NodeData) => row?.ipAndDns?.ip },
-    { name: 'Location', selector: (row: NodeData) => row?.location?.city },
+    // { name: 'Block Number', selector: (row: NodeData) => getAllBlocks(row?.indexer || [])},
+    { name: 'IP & DNS', selector: (row: NodeData) => `${row?.ipAndDns?.ip || ''}  ${row?.ipAndDns?.dns || ''}`  },
+    { name: 'Location', selector: (row: NodeData) => `${row?.location?.city || ''}  ${row?.location?.country || ''}` },
     {
-      name: 'Uptime',
-      selector: (row: NodeData) => row?.uptime
+      name: 'Uptime (s)',
+      selector: (row: NodeData) =>row?.uptime.toFixed(2)
     },
     // { name: '', selector: (row: NodeData) => <ViewMore id={row.id} /> }
   ]
