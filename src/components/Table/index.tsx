@@ -53,7 +53,7 @@ export default function Tsable() {
     { name: 'IP & DNS', selector: (row: NodeData) => `${row?.ipAndDns?.ip || ''}  ${row?.ipAndDns?.dns || ''}`  },
     { name: 'Location', selector: (row: NodeData) => `${row?.location?.city || ''}  ${row?.location?.country || ''}` },
     {
-      name: 'Uptime (s)',
+      name: 'Week Uptime',
       selector: (row: NodeData) => formatUptime(row?.uptime)
     },
     // { name: '', selector: (row: NodeData) => <ViewMore id={row.id} /> }
