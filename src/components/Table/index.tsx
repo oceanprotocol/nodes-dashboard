@@ -46,11 +46,12 @@ export default function Tsable() {
 
 
   const Columns: TableOceanColumn<NodeData | any>[] = [
-    { name: 'Node Id', selector: (row: NodeData) => row?.id },
+    // { name: 'Node Id', selector: (row: NodeData) => row?.id },
     { name: 'Address', selector: (row: NodeData) => row?.address },
     { name: 'Network', selector: (row: NodeData) => getAllNetworks(row?.indexer || [])},
     // { name: 'Block Number', selector: (row: NodeData) => getAllBlocks(row?.indexer || [])},
-    { name: 'IP & DNS', selector: (row: NodeData) => `${row?.ipAndDns?.ip || ''}  ${row?.ipAndDns?.dns || ''}`  },
+    { name: 'IP', selector: (row: NodeData) =>  `${row?.ipAndDns?.ip || ''}` },
+    { name: 'DNS', selector: (row: NodeData) => `${row?.ipAndDns?.dns || ''}`  },
     { name: 'Location', selector: (row: NodeData) => `${row?.location?.city || ''}  ${row?.location?.country || ''}` },
     {
       name: 'Week Uptime',
