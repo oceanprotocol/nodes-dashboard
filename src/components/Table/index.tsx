@@ -46,7 +46,7 @@ export default function Tsable() {
 
 
   const Columns: TableOceanColumn<NodeData | any>[] = [
-    // { name: 'Node Id', selector: (row: NodeData) => row?.id },
+    { name: 'Node Id', selector: (row: NodeData) => row?.id },
     { name: 'Address', selector: (row: NodeData) => row?.address },
     { name: 'Network', selector: (row: NodeData) => getAllNetworks(row?.indexer || [])},
     // { name: 'Block Number', selector: (row: NodeData) => getAllBlocks(row?.indexer || [])},
@@ -65,7 +65,7 @@ export default function Tsable() {
       <DataTable
         data={data}
         columns={Columns}
-        paginationPerPage={5}
+        paginationPerPage={data.length} 
         defaultSortAsc
         expandableRows
         expandableRowsComponent={NodeDetails}
