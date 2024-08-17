@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import DataTable, { TableColumn } from 'react-data-table-component'
 import styles from './index.module.css'
 import { customStyles } from './_styles'
@@ -41,11 +41,27 @@ export const formatUptime = (uptimeInSeconds: number): string => {
 
 export default function Tsable() {
   const { data, loading, error } = useDataContext()
-
+  const [search, setSearch] = useState('');
+  
   data.sort((a, b) => b.uptime - a.uptime);
+  
+  const dataWithIndex = useMemo(() => {
+    return data.map((item, index) => ({ ...item, index: index + 1 }));
+  }, [data]);
 
+  const filteredData = useMemo(() => {
+    return dataWithIndex.filter(item =>
+      Object.values(item).some(value =>
+        String(value).toLowerCase().includes(search.toLowerCase())
+      )
+    );
+  }, [search, dataWithIndex]);
 
   const Columns: TableOceanColumn<NodeData | any>[] = [
+    {
+      name: 'Index',
+      selector: row => row?.index,
+    },
     { name: 'Node Id', selector: (row: NodeData) => row?.id },
     { name: 'Address', selector: (row: NodeData) => row?.address },
     { name: 'Network', selector: (row: NodeData) => getAllNetworks(row?.indexer || [])},
@@ -62,8 +78,15 @@ export default function Tsable() {
 
   return (
     <div className={styles.root}>
+      <input
+        type="text"
+        placeholder="Search..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        className={styles.search}
+      />
       <DataTable
-        data={data}
+        data={filteredData}
         columns={Columns}
         pagination={true}
         paginationPerPage={10}

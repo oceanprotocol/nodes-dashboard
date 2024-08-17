@@ -10,6 +10,14 @@
   gap: 24px;
 }
 
+.search{
+  background: var(--white);
+  color: var(--gray-700);
+  border: none;
+  margin-bottom: '10px';
+  padding: '5px' 
+}
+
 .title {
   color: var(--gray-700);
   font-family: Helvetica;
