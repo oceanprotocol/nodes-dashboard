@@ -65,7 +65,8 @@ export default function Tsable() {
       <DataTable
         data={data}
         columns={Columns}
-        pagination={false}
+        pagination={true}
+        paginationPerPage={10}
         defaultSortAsc
         expandableRows
         expandableRowsComponent={NodeDetails}
