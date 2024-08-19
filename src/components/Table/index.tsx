@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { DataGrid, GridColDef, GridRenderCellParams, GridToolbar } from '@mui/x-data-grid';
 import styles from './index.module.css';
 import { NodeData } from '../../shared/types/RowDataType';
-import Link from 'next/link';
 import { useDataContext } from '@/context/DataContext';
+import NodeDetails from './NodeDetails';
+import { Link } from '@mui/material';
 
 const ViewMore = ({ id }: { id: string }) => {
   return (
@@ -46,6 +47,7 @@ export const formatUptime = (uptimeInSeconds: number): string => {
 
 export default function Tsable() {
   const { data, loading, error } = useDataContext();
+  const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);  // State to track selected node
 
   data.sort((a, b) => b.uptime - a.uptime);
 
@@ -92,6 +94,20 @@ export default function Tsable() {
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{formatUptime(params.row.uptime)}</span>
       ) 
+    },
+    { 
+      field: 'viewMore', 
+      headerName: '', 
+      width: 150, 
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <button 
+          onClick={() => setSelectedNode(params.row)} 
+          className={styles.download}
+        >
+          View More
+        </button>
+      ),
+      sortable: false,
     },
     { field: 'publicKey', headerName: 'Public Key', flex: 1, minWidth: 200 },
     { field: 'version', headerName: 'Version', flex: 1, minWidth: 100 },
@@ -162,6 +178,13 @@ export default function Tsable() {
           getRowId={(row) => row.id}
         />
       </div>
+
+      {selectedNode && (
+        <NodeDetails 
+          nodeData={selectedNode} 
+          onClose={() => setSelectedNode(null)} 
+        />
+      )}
     </div>
   );
 }

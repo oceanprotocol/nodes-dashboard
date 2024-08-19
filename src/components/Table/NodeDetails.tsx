@@ -2,14 +2,14 @@ import { FC } from 'react';
 import { Card, CardContent, Grid, IconButton, Typography, Box } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { NodeData } from '../../shared/types/RowDataType';
-import { formatPlatform, formatSupportedStorage, formatUptime } from '.';
+import { formatPlatform, formatSupportedStorage, formatUptime } from './index';
 
 interface NodeDetailsProps {
   nodeData: NodeData;
   onClose: () => void;
 }
 
-export const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
+const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
   return (
     <Box
       sx={{
@@ -28,7 +28,7 @@ export const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
       <Card sx={{ width: '90%', maxWidth: 800 }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h5" gutterBottom>
               Node Details
             </Typography>
             <IconButton onClick={onClose}>
@@ -42,16 +42,16 @@ export const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Address:</strong> {nodeData.address}</Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Network:</strong> {nodeData.indexer.map(idx => idx.network).join(', ')}</Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>DNS / IP:</strong> {nodeData.ipAndDns?.dns || ''} / {nodeData.ipAndDns?.ip || ''}</Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Location:</strong> {`${nodeData.location?.city || ''} ${nodeData.location?.country || ''}`}</Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Uptime:</strong> {formatUptime(nodeData.uptime)}</Typography>
             </Grid>
             <Grid item xs={12}>
@@ -81,3 +81,5 @@ export const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
     </Box>
   );
 };
+
+export default NodeDetails;
