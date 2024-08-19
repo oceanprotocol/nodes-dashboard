@@ -18,6 +18,7 @@ const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers.map(indexer => indexer.network).join(', ');
 };
 
+
 export const formatUptime = (uptimeInSeconds: number): string => {
   const days = Math.floor(uptimeInSeconds / (3600 * 24));
   const hours = Math.floor((uptimeInSeconds % (3600 * 24)) / 3600);
@@ -49,45 +50,44 @@ export default function Tsable() {
   }, [search, dataWithIndex]);
 
   const columns: GridColDef<NodeData>[] = [
-    { field: 'index', headerName: 'Index', width: 90 },
-    { field: 'id', headerName: 'Node Id', width: 150 },
-    { field: 'address', headerName: 'Address', width: 200 },
+    { field: 'index', headerName: 'Index',
+     width: 20 },
+    { field: 'id', headerName: 'Node Id',
+      flex: 1, minWidth: 150 },
+    { field: 'address', headerName: 'Address',
+      flex: 1, minWidth: 200 },
     { 
       field: 'network', 
-      headerName: 'Network', 
-      width: 150, 
+      headerName: 'Network',
+      flex: 1, 
+      minWidth: 150, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{getAllNetworks(params.row.indexer)}</span>
       ) 
     },
     { 
-      field: 'ip', 
-      headerName: 'IP', 
-      width: 130, 
-      renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{params.row.ipAndDns?.ip || ''}</span>
-      ) 
-    },
-    { 
       field: 'dns', 
-      headerName: 'DNS', 
-      width: 130, 
+      headerName: 'DNS / IP',
+      flex: 1, 
+      minWidth: 130, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{params.row.ipAndDns?.dns || ''}</span>
       ) 
     },
     { 
       field: 'location', 
-      headerName: 'Location', 
-      width: 180, 
+      headerName: 'Location',
+      flex: 1, 
+      minWidth: 180, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{`${params.row.location?.city || ''} ${params.row.location?.country || ''}`}</span>
       ) 
     },
     { 
       field: 'uptime', 
-      headerName: 'Week Uptime', 
-      width: 150, 
+      headerName: 'Week Uptime',
+      flex: 1, 
+      minWidth: 150, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{formatUptime(params.row.uptime)}</span>
       ) 
@@ -95,7 +95,7 @@ export default function Tsable() {
     {
       field: 'viewMore',
       headerName: '',
-      width: 130,
+      width: 85,
       renderCell: (params: GridRenderCellParams<NodeData>) => <ViewMore id={params.row.id} />,
       sortable: false,
     },
@@ -129,8 +129,9 @@ export default function Tsable() {
             },
           }}
           pagination
-          pageSizeOptions={[10, 25, 50, 100]}
+          pageSizeOptions={[10, 25, 50, 100, 200]}
           loading={loading}
+          disableRowSelectionOnClick
           getRowId={(row) => row.id} // Ensures unique row identification by 'id'
         />
       </div>
