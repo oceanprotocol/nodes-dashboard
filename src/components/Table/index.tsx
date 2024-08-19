@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams, GridToolbar } from '@mui/x-data-grid';
 import styles from './index.module.css';
 import NodeDetails from '../NodeDetails';
 import { NodeData } from '../../shared/types/RowDataType';
@@ -110,11 +110,26 @@ export default function Tsable() {
         onChange={e => setSearch(e.target.value)}
         className={styles.search}
       />
-      <div style={{ height: 600, width: '100%' }}>
+      <div style={{ height: '100%', width: '100%' }}>
         <DataGrid
           rows={filteredData}
           columns={columns}
+          slots={{ toolbar: GridToolbar }}
+          slotProps={{
+            toolbar: {
+              showQuickFilter: true,
+              quickFilterProps: { debounceMs: 500 }
+            }
+          }}
+          initialState={{
+            pagination: {
+              paginationModel: {
+                pageSize: 25, // Set the default page size to 50
+              },
+            },
+          }}
           pagination
+          pageSizeOptions={[10, 25, 50, 100]}
           loading={loading}
           getRowId={(row) => row.id} // Ensures unique row identification by 'id'
         />
