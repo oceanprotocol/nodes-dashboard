@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { DataGrid, GridColDef, GridRenderCellParams, GridToolbar } from '@mui/x-data-grid';
 import styles from './index.module.css';
-import NodeDetails from '../NodeDetails';
 import { NodeData } from '../../shared/types/RowDataType';
 import Link from 'next/link';
 import { useDataContext } from '@/context/DataContext';
@@ -17,7 +16,6 @@ const ViewMore = ({ id }: { id: string }) => {
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers.map(indexer => indexer.network).join(', ');
 };
-
 
 export const formatUptime = (uptimeInSeconds: number): string => {
   const days = Math.floor(uptimeInSeconds / (3600 * 24));
@@ -50,12 +48,9 @@ export default function Tsable() {
   }, [search, dataWithIndex]);
 
   const columns: GridColDef<NodeData>[] = [
-    { field: 'index', headerName: 'Index',
-     width: 20 },
-    { field: 'id', headerName: 'Node Id',
-      flex: 1, minWidth: 150 },
-    { field: 'address', headerName: 'Address',
-      flex: 1, minWidth: 200 },
+    { field: 'index', headerName: 'Index', width: 20 },
+    { field: 'id', headerName: 'Node Id', flex: 1, minWidth: 150 },
+    { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
     { 
       field: 'network', 
       headerName: 'Network',
@@ -99,6 +94,16 @@ export default function Tsable() {
       renderCell: (params: GridRenderCellParams<NodeData>) => <ViewMore id={params.row.id} />,
       sortable: false,
     },
+    // Additional columns that might be toggled on/off
+    { field: 'publicKey', headerName: 'Public Key', flex: 1, minWidth: 200 },
+    { field: 'version', headerName: 'Version', flex: 1, minWidth: 100 },
+    { field: 'http', headerName: 'HTTP Enabled', flex: 1, minWidth: 100 },
+    { field: 'p2p', headerName: 'P2P Enabled', flex: 1, minWidth: 100 },
+    { field: 'supportedStorage', headerName: 'Supported Storage', flex: 1, minWidth: 200 },
+    { field: 'platform', headerName: 'Platform', flex: 1, minWidth: 200 },
+    { field: 'codeHash', headerName: 'Code Hash', flex: 1, minWidth: 200 },
+    { field: 'allowedAdmins', headerName: 'Allowed Admins', flex: 1, minWidth: 200 },
+    { field: 'lastCheck', headerName: 'Last Check', flex: 1, minWidth: 150 },
   ];
 
   return (
@@ -122,9 +127,23 @@ export default function Tsable() {
             }
           }}
           initialState={{
+            columns: {
+              columnVisibilityModel: {
+                // Hide these columns by default
+                publicKey: false,
+                version: false,
+                http: false,
+                p2p: false,
+                supportedStorage: false,
+                platform: false,
+                codeHash: false,
+                allowedAdmins: false,
+                lastCheck: false,
+              },
+            },
             pagination: {
               paginationModel: {
-                pageSize: 25, // Set the default page size to 50
+                pageSize: 25,
               },
             },
           }}
@@ -132,7 +151,7 @@ export default function Tsable() {
           pageSizeOptions={[10, 25, 50, 100, 200]}
           loading={loading}
           disableRowSelectionOnClick
-          getRowId={(row) => row.id} // Ensures unique row identification by 'id'
+          getRowId={(row) => row.id}
         />
       </div>
     </div>
