@@ -17,6 +17,16 @@ const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers.map(indexer => indexer.network).join(', ');
 };
 
+const formatSupportedStorage = (supportedStorage: NodeData['supportedStorage']): string => {
+  const storageTypes = [];
+
+  if (supportedStorage.url) storageTypes.push('URL');
+  if (supportedStorage.arwave) storageTypes.push('Arweave');
+  if (supportedStorage.ipfs) storageTypes.push('IPFS');
+
+  return storageTypes.join(', ');
+};
+
 export const formatUptime = (uptimeInSeconds: number): string => {
   const days = Math.floor(uptimeInSeconds / (3600 * 24));
   const hours = Math.floor((uptimeInSeconds % (3600 * 24)) / 3600);
@@ -99,7 +109,15 @@ export default function Tsable() {
     { field: 'version', headerName: 'Version', flex: 1, minWidth: 100 },
     { field: 'http', headerName: 'HTTP Enabled', flex: 1, minWidth: 100 },
     { field: 'p2p', headerName: 'P2P Enabled', flex: 1, minWidth: 100 },
-    { field: 'supportedStorage', headerName: 'Supported Storage', flex: 1, minWidth: 200 },
+    { 
+      field: 'supportedStorage', 
+      headerName: 'Supported Storage', 
+      flex: 1, 
+      minWidth: 200,
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{formatSupportedStorage(params.row.supportedStorage)}</span>
+      )
+    },
     { field: 'platform', headerName: 'Platform', flex: 1, minWidth: 200 },
     { field: 'codeHash', headerName: 'Code Hash', flex: 1, minWidth: 200 },
     { field: 'allowedAdmins', headerName: 'Allowed Admins', flex: 1, minWidth: 200 },
