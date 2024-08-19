@@ -1,24 +1,19 @@
-import React, { useMemo, useState } from 'react'
-import DataTable, { TableColumn } from 'react-data-table-component'
-import styles from './index.module.css'
-import { customStyles } from './_styles'
-import NodeDetails from '../NodeDetails'
-import {  NodeData } from '../../shared/types/RowDataType'
-import Link from 'next/link'
-import {  useDataContext } from '@/context/DataContext'
-import { IndexerType } from '@/shared/types/dataTypes'
-
-export interface TableOceanColumn<T> extends TableColumn<T> {
-  selector?: (row: T) => any
-}
+import React, { useMemo, useState } from 'react';
+import { DataGrid, GridColDef, GridToolbar, GridValueGetter } from '@mui/x-data-grid';
+import styles from './index.module.css';
+import NodeDetails from '../NodeDetails';
+import { NodeData } from '../../shared/types/RowDataType';
+import Link from 'next/link';
+import { useDataContext } from '@/context/DataContext';
+import { IndexerType } from '@/shared/types/dataTypes';
 
 const ViewMore = ({ id }: { id: string }) => {
   return (
     <Link href={`/node/${id}`} className={styles.download}>
       View More
     </Link>
-  )
-}
+  );
+};
 
 const getAllNetworks = (indexers: IndexerType[]): string => {
   return indexers.map(indexer => indexer.network).join(', ');
@@ -35,18 +30,15 @@ export const formatUptime = (uptimeInSeconds: number): string => {
 
   return `${dayStr}${hourStr}${minuteStr}`.trim();
 };
-// const getAllBlocks = (indexers: IndexerType[]): string => {
-//   return indexers.map(indexer => indexer.block).join(', ');
-// };
 
-export default function Tsable() {
-  const { data, loading, error } = useDataContext()
+export default function Table() {
+  const { data, loading, error } = useDataContext();
   const [search, setSearch] = useState('');
-  
+
   data.sort((a, b) => b.uptime - a.uptime);
-  
+
   const dataWithIndex = useMemo(() => {
-    return data.map((item, index) => ({ ...item, index: index + 1 }));
+    return data.map((item, index) => ({ ...item, id: index + 1 }));
   }, [data]);
 
   const filteredData = useMemo(() => {
@@ -57,24 +49,53 @@ export default function Tsable() {
     );
   }, [search, dataWithIndex]);
 
-  const Columns: TableOceanColumn<NodeData | any>[] = [
+  const columns: GridColDef[] = [
+    { field: 'id', headerName: 'Index', width: 90 },
     {
-      name: 'Index',
-      selector: row => row?.index,
+      field: 'nodeId',
+      headerName: 'Node Id',
+      width: 150
     },
-    { name: 'Node Id', selector: (row: NodeData) => row?.id },
-    { name: 'Address', selector: (row: NodeData) => row?.address },
-    { name: 'Network', selector: (row: NodeData) => getAllNetworks(row?.indexer || [])},
-    // { name: 'Block Number', selector: (row: NodeData) => getAllBlocks(row?.indexer || [])},
-    { name: 'IP', selector: (row: NodeData) =>  `${row?.ipAndDns?.ip || ''}` },
-    { name: 'DNS', selector: (row: NodeData) => `${row?.ipAndDns?.dns || ''}`  },
-    { name: 'Location', selector: (row: NodeData) => `${row?.location?.city || ''}  ${row?.location?.country || ''}` },
+    { field: 'address', headerName: 'Address', width: 200 },
     {
-      name: 'Week Uptime',
-      selector: (row: NodeData) => formatUptime(row?.uptime)
+      field: 'network',
+      headerName: 'Network',
+      width: 150
     },
-    // { name: '', selector: (row: NodeData) => <ViewMore id={row.id} /> }
-  ]
+    {
+      field: 'ip',
+      headerName: 'IP',
+      width: 130
+    },
+    {
+      field: 'dns',
+      headerName: 'DNS',
+      width: 130,
+      valueGetter: (row: NodeData) =>
+        `${row?.ipAndDns?.dns || ''}`,
+    },
+    {
+      field: 'location',
+      headerName: 'Location',
+      width: 180,
+      valueGetter: (row: NodeData) =>
+        `${row?.location?.city || ''} ${row?.location?.country || ''}`,
+    },
+    {
+      field: 'uptime',
+      headerName: 'Week Uptime',
+      width: 150,
+      valueGetter: (row: NodeData) =>
+        formatUptime(row?.uptime),
+    }
+    // {
+    //   field: 'viewMore',
+    //   headerName: '',
+    //   width: 130,
+    //   renderCell: (row: NodeData) => <ViewMore id={row?.id} />,
+    //   sortable: false,
+    // },
+  ];
 
   return (
     <div className={styles.root}>
@@ -85,17 +106,23 @@ export default function Tsable() {
         onChange={e => setSearch(e.target.value)}
         className={styles.search}
       />
-      <DataTable
-        data={filteredData}
-        columns={Columns}
-        pagination={true}
-        paginationPerPage={10}
-        defaultSortAsc
-        expandableRows
-        expandableRowsComponent={NodeDetails}
-        theme="custom"
-        customStyles={customStyles}
-      />
+      <div style={{ height: 600, width: '100%' }}>
+        <DataGrid
+          rows={filteredData}
+          columns={columns}
+          slots={{ toolbar: GridToolbar }}
+          initialState={{
+            pagination: {
+              paginationModel: {
+                pageSize: 10
+              }
+            }
+          }}
+          pageSizeOptions={[10]}
+          loading={loading}
+          getRowHeight={() => 'auto'}
+        />
+      </div>
     </div>
-  )
+  );
 }
