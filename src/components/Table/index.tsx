@@ -1,11 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { DataGrid, GridColDef, GridToolbar, GridValueGetter } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import styles from './index.module.css';
 import NodeDetails from '../NodeDetails';
 import { NodeData } from '../../shared/types/RowDataType';
 import Link from 'next/link';
 import { useDataContext } from '@/context/DataContext';
-import { IndexerType } from '@/shared/types/dataTypes';
 
 const ViewMore = ({ id }: { id: string }) => {
   return (
@@ -15,7 +14,7 @@ const ViewMore = ({ id }: { id: string }) => {
   );
 };
 
-const getAllNetworks = (indexers: IndexerType[]): string => {
+const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers.map(indexer => indexer.network).join(', ');
 };
 
@@ -31,14 +30,14 @@ export const formatUptime = (uptimeInSeconds: number): string => {
   return `${dayStr}${hourStr}${minuteStr}`.trim();
 };
 
-export default function Table() {
+export default function Tsable() {
   const { data, loading, error } = useDataContext();
   const [search, setSearch] = useState('');
 
   data.sort((a, b) => b.uptime - a.uptime);
 
   const dataWithIndex = useMemo(() => {
-    return data.map((item, index) => ({ ...item, id: index + 1 }));
+    return data.map((item, index) => ({ ...item, index: index + 1 }));
   }, [data]);
 
   const filteredData = useMemo(() => {
@@ -49,52 +48,57 @@ export default function Table() {
     );
   }, [search, dataWithIndex]);
 
-  const columns: GridColDef[] = [
-    { field: 'id', headerName: 'Index', width: 90 },
-    {
-      field: 'nodeId',
-      headerName: 'Node Id',
-      width: 150
-    },
+  const columns: GridColDef<NodeData>[] = [
+    { field: 'index', headerName: 'Index', width: 90 },
+    { field: 'id', headerName: 'Node Id', width: 150 },
     { field: 'address', headerName: 'Address', width: 200 },
-    {
-      field: 'network',
-      headerName: 'Network',
-      width: 150
+    { 
+      field: 'network', 
+      headerName: 'Network', 
+      width: 150, 
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{getAllNetworks(params.row.indexer)}</span>
+      ) 
+    },
+    { 
+      field: 'ip', 
+      headerName: 'IP', 
+      width: 130, 
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{params.row.ipAndDns?.ip || ''}</span>
+      ) 
+    },
+    { 
+      field: 'dns', 
+      headerName: 'DNS', 
+      width: 130, 
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{params.row.ipAndDns?.dns || ''}</span>
+      ) 
+    },
+    { 
+      field: 'location', 
+      headerName: 'Location', 
+      width: 180, 
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{`${params.row.location?.city || ''} ${params.row.location?.country || ''}`}</span>
+      ) 
+    },
+    { 
+      field: 'uptime', 
+      headerName: 'Week Uptime', 
+      width: 150, 
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{formatUptime(params.row.uptime)}</span>
+      ) 
     },
     {
-      field: 'ip',
-      headerName: 'IP',
-      width: 130
-    },
-    {
-      field: 'dns',
-      headerName: 'DNS',
+      field: 'viewMore',
+      headerName: '',
       width: 130,
-      valueGetter: (row: NodeData) =>
-        `${row?.ipAndDns?.dns || ''}`,
+      renderCell: (params: GridRenderCellParams<NodeData>) => <ViewMore id={params.row.id} />,
+      sortable: false,
     },
-    {
-      field: 'location',
-      headerName: 'Location',
-      width: 180,
-      valueGetter: (row: NodeData) =>
-        `${row?.location?.city || ''} ${row?.location?.country || ''}`,
-    },
-    {
-      field: 'uptime',
-      headerName: 'Week Uptime',
-      width: 150,
-      valueGetter: (row: NodeData) =>
-        formatUptime(row?.uptime),
-    }
-    // {
-    //   field: 'viewMore',
-    //   headerName: '',
-    //   width: 130,
-    //   renderCell: (row: NodeData) => <ViewMore id={row?.id} />,
-    //   sortable: false,
-    // },
   ];
 
   return (
@@ -110,17 +114,9 @@ export default function Table() {
         <DataGrid
           rows={filteredData}
           columns={columns}
-          slots={{ toolbar: GridToolbar }}
-          initialState={{
-            pagination: {
-              paginationModel: {
-                pageSize: 10
-              }
-            }
-          }}
-          pageSizeOptions={[10]}
+          pagination
           loading={loading}
-          getRowHeight={() => 'auto'}
+          getRowId={(row) => row.id} // Ensures unique row identification by 'id'
         />
       </div>
     </div>
