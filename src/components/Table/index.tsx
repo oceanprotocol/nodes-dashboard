@@ -46,21 +46,12 @@ export const formatUptime = (uptimeInSeconds: number): string => {
 
 export default function Tsable() {
   const { data, loading, error } = useDataContext();
-  const [search, setSearch] = useState('');
 
   data.sort((a, b) => b.uptime - a.uptime);
 
   const dataWithIndex = useMemo(() => {
     return data.map((item, index) => ({ ...item, index: index + 1 }));
   }, [data]);
-
-  const filteredData = useMemo(() => {
-    return dataWithIndex.filter(item =>
-      Object.values(item).some(value =>
-        String(value).toLowerCase().includes(search.toLowerCase())
-      )
-    );
-  }, [search, dataWithIndex]);
 
   const columns: GridColDef<NodeData>[] = [
     { field: 'index', headerName: 'Index', width: 20 },
@@ -102,14 +93,6 @@ export default function Tsable() {
         <span>{formatUptime(params.row.uptime)}</span>
       ) 
     },
-    {
-      field: 'viewMore',
-      headerName: '',
-      width: 85,
-      renderCell: (params: GridRenderCellParams<NodeData>) => <ViewMore id={params.row.id} />,
-      sortable: false,
-    },
-    // Additional columns that might be toggled on/off
     { field: 'publicKey', headerName: 'Public Key', flex: 1, minWidth: 200 },
     { field: 'version', headerName: 'Version', flex: 1, minWidth: 100 },
     { field: 'http', headerName: 'HTTP Enabled', flex: 1, minWidth: 100 },
@@ -139,16 +122,9 @@ export default function Tsable() {
 
   return (
     <div className={styles.root}>
-      <input
-        type="text"
-        placeholder="Search..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        className={styles.search}
-      />
       <div style={{ height: '100%', width: '100%' }}>
         <DataGrid
-          rows={filteredData}
+          rows={dataWithIndex}
           columns={columns}
           slots={{ toolbar: GridToolbar }}
           slotProps={{
@@ -161,6 +137,7 @@ export default function Tsable() {
             columns: {
               columnVisibilityModel: {
                 // Hide these columns by default
+                index: false,
                 publicKey: false,
                 version: false,
                 http: false,
