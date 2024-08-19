@@ -17,7 +17,7 @@ const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers.map(indexer => indexer.network).join(', ');
 };
 
-const formatSupportedStorage = (supportedStorage: NodeData['supportedStorage']): string => {
+export const formatSupportedStorage = (supportedStorage: NodeData['supportedStorage']): string => {
   const storageTypes = [];
 
   if (supportedStorage.url) storageTypes.push('URL');
@@ -27,7 +27,7 @@ const formatSupportedStorage = (supportedStorage: NodeData['supportedStorage']):
   return storageTypes.join(', ');
 };
 
-const formatPlatform = (platform: NodeData['platform']): string => {
+export const formatPlatform = (platform: NodeData['platform']): string => {
   const { cpus, arch, machine, platform: platformName, osType, node } = platform;
   return `CPUs: ${cpus}, Architecture: ${arch}, Machine: ${machine}, Platform: ${platformName}, OS Type: ${osType}, Node.js: ${node}`;
 };
