@@ -27,6 +27,11 @@ const formatSupportedStorage = (supportedStorage: NodeData['supportedStorage']):
   return storageTypes.join(', ');
 };
 
+const formatPlatform = (platform: NodeData['platform']): string => {
+  const { cpus, arch, machine, platform: platformName, osType, node } = platform;
+  return `CPUs: ${cpus}, Architecture: ${arch}, Machine: ${machine}, Platform: ${platformName}, OS Type: ${osType}, Node.js: ${node}`;
+};
+
 export const formatUptime = (uptimeInSeconds: number): string => {
   const days = Math.floor(uptimeInSeconds / (3600 * 24));
   const hours = Math.floor((uptimeInSeconds % (3600 * 24)) / 3600);
@@ -118,7 +123,15 @@ export default function Tsable() {
         <span>{formatSupportedStorage(params.row.supportedStorage)}</span>
       )
     },
-    { field: 'platform', headerName: 'Platform', flex: 1, minWidth: 200 },
+    { 
+      field: 'platform', 
+      headerName: 'Platform', 
+      flex: 1, 
+      minWidth: 200,
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{formatPlatform(params.row.platform)}</span>
+      )
+    },
     { field: 'codeHash', headerName: 'Code Hash', flex: 1, minWidth: 200 },
     { field: 'allowedAdmins', headerName: 'Allowed Admins', flex: 1, minWidth: 200 },
     { field: 'lastCheck', headerName: 'Last Check', flex: 1, minWidth: 150 },
