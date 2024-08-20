@@ -5,7 +5,13 @@ import { NodeData } from '../../shared/types/RowDataType';
 import { useDataContext } from '@/context/DataContext';
 import NodeDetails from './NodeDetails';
 import { Link } from '@mui/material';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 
+const NOT_ELIGIBLE_STATUS_CODES = {
+  700: 'No public ip exposed by the node',
+  701: 'Ocean Protocol foundation node'
+}
 const ViewMore = ({ id }: { id: string }) => {
   return (
     <Link href={`/node/${id}`} className={styles.download}>
@@ -45,27 +51,60 @@ export const formatUptime = (uptimeInSeconds: number): string => {
   return `${dayStr}${hourStr}${minuteStr}`.trim();
 };
 
+
+const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
+  return eligible ? (
+    <CheckCircleOutlineIcon style={{ color: 'green' }} />
+  ) : (
+    <CancelOutlinedIcon style={{ color: 'red' }} />
+  );
+};
+
+
+const getNodeEligibilityCause = (cause: number): React.ReactElement => {
+  return cause && cause in NOT_ELIGIBLE_STATUS_CODES ? (
+    <span>NOT_ELIGIBLE_STATUS_CODES[cause]</span>
+  ) : (
+    <span></span>
+  );
+};
+
+
 export default function Tsable() {
   const { data, loading, error } = useDataContext();
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);  // State to track selected node
 
-  data.sort((a, b) => b.uptime - a.uptime);
+  // data.sort((a, b) => b.uptime - a.uptime);
 
   const dataWithIndex = useMemo(() => {
-    return data.map((item, index) => ({ ...item, index: index + 1 }));
+    return data.sort((a, b) => {
+      if (a.eligible !== b.eligible) {
+        return a.eligible ? -1 : 1;
+      }
+      return b.uptime - a.uptime;
+    }).map((item, index) => ({ ...item, index: index + 1 }));
   }, [data]);
+
 
   const columns: GridColDef<NodeData>[] = [
     { field: 'index', headerName: 'Index', width: 20 },
     { field: 'id', headerName: 'Node Id', flex: 1, minWidth: 150 },
-    { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
     { 
-      field: 'network', 
-      headerName: 'Network',
+      field: 'eligible', 
+      headerName: 'Eligible',
+      flex: 1, 
+      width: 20,
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{getEligibleCheckbox(params.row.eligible)}</span>
+      ) 
+    },
+    { 
+      field: 'uptime', 
+      headerName: 'Week Uptime',
       flex: 1, 
       minWidth: 150, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{getAllNetworks(params.row.indexer)}</span>
+        <span>{formatUptime(params.row.uptime)}</span>
       ) 
     },
     { 
@@ -86,15 +125,25 @@ export default function Tsable() {
         <span>{`${params.row.location?.city || ''} ${params.row.location?.country || ''}`}</span>
       ) 
     },
+    { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
     { 
-      field: 'uptime', 
-      headerName: 'Week Uptime',
+      field: 'eligibilityCause', 
+      headerName: 'Eligibility Cause',
+      flex: 1, 
+      minWidth: 180, 
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{getNodeEligibilityCause(params.row.eligibleCause)}</span>
+      ) 
+    },
+    { 
+      field: 'network', 
+      headerName: 'Network',
       flex: 1, 
       minWidth: 150, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{formatUptime(params.row.uptime)}</span>
+        <span>{getAllNetworks(params.row.indexer)}</span>
       ) 
-    },
+    },  
     { 
       field: 'viewMore', 
       headerName: '', 
@@ -153,7 +202,7 @@ export default function Tsable() {
             columns: {
               columnVisibilityModel: {
                 // Hide these columns by default
-                index: false,
+                network: false,
                 publicKey: false,
                 version: false,
                 http: false,
