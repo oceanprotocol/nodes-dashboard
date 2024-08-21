@@ -64,7 +64,7 @@ const getNodeEligibilityCause = (cause: number): React.ReactElement => {
 };
 
 
-export default function Tsable() {
+export default function Table() {
   const { data, loading, error } = useDataContext();
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);  // State to track selected node
 
