@@ -4,7 +4,7 @@ import styles from './index.module.css';
 import { NodeData } from '../../shared/types/RowDataType';
 import { useDataContext } from '@/context/DataContext';
 import NodeDetails from './NodeDetails';
-import { Link } from '@mui/material';
+import { Link, Tooltip } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { NOT_ELIGIBLE_STATUS_CODES } from '@/shared/utils/constants';
@@ -81,13 +81,26 @@ export default function Tsable() {
 
 
   const columns: GridColDef<NodeData>[] = [
-    { field: 'index', headerName: 'Index', width: 20 },
+    {
+      field: 'index',
+      renderHeader: () => (
+        <Tooltip title="The first 50 will receive a soulbound NFT">
+          <span>Index</span>
+        </Tooltip>
+      ),
+      width: 20,
+    },
     { field: 'id', headerName: 'Node Id', flex: 1, minWidth: 150 },
     { 
       field: 'eligible', 
       headerName: 'Eligible',
       flex: 1, 
       width: 20,
+      renderHeader: () => (
+        <Tooltip title="These nodes are eligible to receive rewards in proportion to their uptime.">
+          <span>Eligible</span>
+        </Tooltip>
+      ),
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{getEligibleCheckbox(params.row.eligible)}</span>
       ) 
