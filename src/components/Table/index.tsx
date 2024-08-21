@@ -4,7 +4,7 @@ import styles from './index.module.css';
 import { NodeData } from '../../shared/types/RowDataType';
 import { useDataContext } from '@/context/DataContext';
 import NodeDetails from './NodeDetails';
-import { Link, Tooltip } from '@mui/material';
+import { Button, Link, Tooltip } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { NOT_ELIGIBLE_STATUS_CODES } from '@/shared/utils/constants';
@@ -161,12 +161,12 @@ export default function Tsable() {
       headerName: '', 
       width: 150, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <button 
+        <Button 
           onClick={() => setSelectedNode(params.row)} 
           className={styles.download}
         >
           View More
-        </button>
+        </Button>
       ),
       sortable: false,
     },
