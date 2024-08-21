@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <div className={style.root}>
       <Map />
-      <Alert severity="warning">Please note the the reward incetives provided for running a Node are in Alpha stage and it is possible they may change.</Alert>
+      <Alert severity="warning">Please note the dashboard is currently under review and eligibility indicator might change</Alert>
       <Table />
     </div>
   )
