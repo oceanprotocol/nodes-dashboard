@@ -77,10 +77,10 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
               <Typography variant="subtitle1"><strong>Last Check:</strong> {new Date(nodeData.lastCheck).toLocaleString()}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Eligible:</strong> {nodeData.eligible.toLocaleString()}</Typography>
+              <Typography variant="subtitle1"><strong>Eligible:</strong> {nodeData?.eligible?.toLocaleString()}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Eligible:</strong> {NOT_ELIGIBLE_STATUS_CODES[nodeData.eligibilityCause].toLocaleString()}</Typography>
+              <Typography variant="subtitle1"><strong>Eligiblity Cause:</strong> {NOT_ELIGIBLE_STATUS_CODES[nodeData.eligibilityCause]?.toLocaleString()}</Typography>
             </Grid>
           </Grid>
         </CardContent>
