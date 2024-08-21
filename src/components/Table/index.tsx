@@ -7,11 +7,8 @@ import NodeDetails from './NodeDetails';
 import { Link } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import { NOT_ELIGIBLE_STATUS_CODES } from '@/shared/utils/constants';
 
-const NOT_ELIGIBLE_STATUS_CODES: Record<number, string> = {
-  700: 'No public ip exposed by the node',
-  701: 'Ocean Protocol foundation node'
-}
 const ViewMore = ({ id }: { id: string }) => {
   return (
     <Link href={`/node/${id}`} className={styles.download}>

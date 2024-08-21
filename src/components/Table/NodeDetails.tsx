@@ -3,6 +3,7 @@ import { Card, CardContent, Grid, IconButton, Typography, Box } from '@mui/mater
 import CloseIcon from '@mui/icons-material/Close';
 import { NodeData } from '../../shared/types/RowDataType';
 import { formatPlatform, formatSupportedStorage, formatUptime } from './index';
+import { NOT_ELIGIBLE_STATUS_CODES } from '@/shared/utils/constants';
 
 interface NodeDetailsProps {
   nodeData: NodeData;
@@ -74,6 +75,12 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Last Check:</strong> {new Date(nodeData.lastCheck).toLocaleString()}</Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle1"><strong>Eligible:</strong> {nodeData.eligible.toLocaleString()}</Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle1"><strong>Eligible:</strong> {NOT_ELIGIBLE_STATUS_CODES[nodeData.eligibilityCause].toLocaleString()}</Typography>
             </Grid>
           </Grid>
         </CardContent>
