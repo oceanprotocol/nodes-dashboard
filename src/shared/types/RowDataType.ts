@@ -65,6 +65,8 @@ type IpAndDnsType = {
 export type NodeData = {
 	id: string;
 	publicKey: string;
+	eligible: boolean;
+	eligibilityCause: number;
 	address: string;
 	version: string;
 	http: boolean;
