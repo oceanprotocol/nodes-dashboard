@@ -59,7 +59,7 @@ const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
 
 
 const getNodeEligibilityCause = (cause: number): React.ReactElement => {
-  const eligibilityCause = cause ?  NOT_ELIGIBLE_STATUS_CODES[cause] : " "
+  const eligibilityCause = cause ?  NOT_ELIGIBLE_STATUS_CODES[cause] : "none"
   return <span>{eligibilityCause}</span>
 };
 
@@ -92,20 +92,6 @@ export default function Tsable() {
     },
     { field: 'id', headerName: 'Node Id', flex: 1, minWidth: 150 },
     { 
-      field: 'eligible', 
-      headerName: 'Eligible',
-      flex: 1, 
-      width: 20,
-      renderHeader: () => (
-        <Tooltip title="These nodes are eligible to receive rewards in proportion to their uptime.">
-          <span>Eligible</span>
-        </Tooltip>
-      ),
-      renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{getEligibleCheckbox(params.row.eligible)}</span>
-      ) 
-    },
-    { 
       field: 'uptime', 
       headerName: 'Week Uptime',
       flex: 1, 
@@ -134,10 +120,29 @@ export default function Tsable() {
     },
     { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
     { 
-      field: 'eligibilityCause', 
-      headerName: 'Eligibility Cause',
+      field: 'eligible', 
+      headerName: 'Reward Eligibility',
       flex: 1, 
-      minWidth: 180, 
+      width: 20,
+      renderHeader: () => (
+        <Tooltip title="These nodes are eligible to receive rewards in proportion to their uptime.">
+          <span>Reward Eligibility</span>
+        </Tooltip>
+      ),
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{getEligibleCheckbox(params.row.eligible)}</span>
+      ) 
+    },
+    { 
+      field: 'eligibilityCause', 
+      headerName: 'Eligibility Issue',
+      flex: 1, 
+      minWidth: 120,
+      renderHeader: () => (
+        <Tooltip title="This nodes has the following issues that will prevent it from receiving rewards.">
+          <span>Eligibility Issue</span>
+        </Tooltip>
+      ), 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{getNodeEligibilityCause(params.row.eligibilityCause)}</span>
       ) 
