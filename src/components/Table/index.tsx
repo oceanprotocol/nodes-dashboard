@@ -8,7 +8,7 @@ import { Link } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 
-const NOT_ELIGIBLE_STATUS_CODES = {
+const NOT_ELIGIBLE_STATUS_CODES: Record<number, string> = {
   700: 'No public ip exposed by the node',
   701: 'Ocean Protocol foundation node'
 }
@@ -62,11 +62,8 @@ const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
 
 
 const getNodeEligibilityCause = (cause: number): React.ReactElement => {
-  return cause && cause in NOT_ELIGIBLE_STATUS_CODES ? (
-    <span>NOT_ELIGIBLE_STATUS_CODES[cause]</span>
-  ) : (
-    <span></span>
-  );
+  const eligibilityCause = cause ?  NOT_ELIGIBLE_STATUS_CODES[cause] : " "
+  return <span>{eligibilityCause}</span>
 };
 
 
@@ -132,7 +129,7 @@ export default function Tsable() {
       flex: 1, 
       minWidth: 180, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{getNodeEligibilityCause(params.row.eligibleCause)}</span>
+        <span>{getNodeEligibilityCause(params.row.eligibilityCause)}</span>
       ) 
     },
     { 
