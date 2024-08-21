@@ -76,7 +76,7 @@ export default function Tsable() {
         return a.eligible ? -1 : 1;
       }
       return b.uptime - a.uptime;
-    }).map((item, index) => ({ ...item, index: index + 1 }));
+    }).map((item, index) => ({ ...item, index: index + 1, dns: item.ipAndDns?.dns}));
   }, [data]);
 
 
@@ -108,7 +108,7 @@ export default function Tsable() {
       minWidth: 130, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{params.row.ipAndDns?.dns || ''}</span>
-      ) 
+      )
     },
     { 
       field: 'location', 
