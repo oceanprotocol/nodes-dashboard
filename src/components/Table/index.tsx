@@ -130,7 +130,9 @@ export default function Tsable() {
         </Tooltip>
       ),
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{getEligibleCheckbox(params.row.eligible)}</span>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <span>{getEligibleCheckbox(params.row.eligible)}</span>
+        </div>
       ) 
     },
     { 
