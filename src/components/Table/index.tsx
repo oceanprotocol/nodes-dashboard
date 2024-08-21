@@ -215,7 +215,7 @@ export default function Tsable() {
             },
           }}
           pagination
-          pageSizeOptions={[10, 25, 50, 100, 200]}
+          pageSizeOptions={[10, 25, 50, 100]}
           loading={loading}
           disableRowSelectionOnClick
           getRowId={(row) => row.id}
