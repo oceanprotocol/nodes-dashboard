@@ -7,7 +7,6 @@ import NodeDetails from './NodeDetails';
 import { Button, Link, Tooltip } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import { NOT_ELIGIBLE_STATUS_CODES } from '@/shared/utils/constants';
 
 const ViewMore = ({ id }: { id: string }) => {
   return (
@@ -18,22 +17,25 @@ const ViewMore = ({ id }: { id: string }) => {
 };
 
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
-  return indexers.map(indexer => indexer.network).join(', ');
+  return indexers?.map(indexer => indexer.network).join(', ');
 };
 
 export const formatSupportedStorage = (supportedStorage: NodeData['supportedStorage']): string => {
   const storageTypes = [];
 
-  if (supportedStorage.url) storageTypes.push('URL');
-  if (supportedStorage.arwave) storageTypes.push('Arweave');
-  if (supportedStorage.ipfs) storageTypes.push('IPFS');
+  if (supportedStorage?.url) storageTypes.push('URL');
+  if (supportedStorage?.arwave) storageTypes.push('Arweave');
+  if (supportedStorage?.ipfs) storageTypes.push('IPFS');
 
   return storageTypes.join(', ');
 };
 
 export const formatPlatform = (platform: NodeData['platform']): string => {
-  const { cpus, arch, machine, platform: platformName, osType, node } = platform;
-  return `CPUs: ${cpus}, Architecture: ${arch}, Machine: ${machine}, Platform: ${platformName}, OS Type: ${osType}, Node.js: ${node}`;
+  if(platform){
+    const { cpus, arch, machine, platform: platformName, osType, node } = platform;
+    return `CPUs: ${cpus}, Architecture: ${arch}, Machine: ${machine}, Platform: ${platformName}, OS Type: ${osType}, Node.js: ${node}`;
+  }
+  return ''
 };
 
 export const formatUptime = (uptimeInSeconds: number): string => {
@@ -55,12 +57,6 @@ const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   ) : (
     <CancelOutlinedIcon style={{ color: 'red' }} />
   );
-};
-
-
-const getNodeEligibilityCause = (cause: number): React.ReactElement => {
-  const eligibilityCause = cause ?  NOT_ELIGIBLE_STATUS_CODES[cause] : "none"
-  return <span>{eligibilityCause}</span>
 };
 
 
@@ -106,7 +102,7 @@ export default function Table() {
       flex: 1, 
       minWidth: 130, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{params.row.ipAndDns?.dns || ''}</span>
+        <span>{params.row.ipAndDns?.dns || params.row.ipAndDns?.ip || ''}</span>
       )
     },
     { 
@@ -137,16 +133,11 @@ export default function Table() {
     },
     { 
       field: 'eligibilityCause', 
-      headerName: 'Eligibility Issue',
+      headerName: 'Eligibility Issue ',
       flex: 1, 
-      minWidth: 120,
-      renderHeader: () => (
-        <Tooltip title="This nodes has the following issues that will prevent it from receiving rewards.">
-          <span>Eligibility Issue</span>
-        </Tooltip>
-      ), 
+      width: 50,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{getNodeEligibilityCause(params.row.eligibilityCause)}</span>
+          <span>{params.row.eligibilityCause || 'none' }</span>
       ) 
     },
     { 
