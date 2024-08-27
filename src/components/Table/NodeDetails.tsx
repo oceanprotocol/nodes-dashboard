@@ -3,7 +3,6 @@ import { Card, CardContent, Grid, IconButton, Typography, Box } from '@mui/mater
 import CloseIcon from '@mui/icons-material/Close';
 import { NodeData } from '../../shared/types/RowDataType';
 import { formatPlatform, formatSupportedStorage, formatUptime } from './index';
-import { NOT_ELIGIBLE_STATUS_CODES } from '@/shared/utils/constants';
 
 interface NodeDetailsProps {
   nodeData: NodeData;
@@ -44,10 +43,13 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
               <Typography variant="subtitle1"><strong>Address:</strong> {nodeData.address}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Network:</strong> {nodeData.indexer.map(idx => idx.network).join(', ')}</Typography>
+              <Typography variant="subtitle1"><strong>Network:</strong> {nodeData.indexer?.map(idx => idx.network).join(', ')}</Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>DNS / IP:</strong> {nodeData.ipAndDns?.dns || ''} / {nodeData.ipAndDns?.ip || ''}</Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle1"><strong>Port:</strong> {nodeData.ipAndDns?.port || ''}</Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Location:</strong> {`${nodeData.location?.city || ''} ${nodeData.location?.country || ''}`}</Typography>
@@ -71,16 +73,16 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
               <Typography variant="subtitle1"><strong>Code Hash:</strong> {nodeData.codeHash}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Allowed Admins:</strong> {nodeData.allowedAdmins.join(', ')}</Typography>
+              <Typography variant="subtitle1"><strong>Allowed Admins:</strong> {nodeData.allowedAdmins?.join(', ')}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Last Check:</strong> {new Date(nodeData.lastCheck).toLocaleString()}</Typography>
+              <Typography variant="subtitle1"><strong>Last Check:</strong> {new Date(nodeData.lastCheck)?.toLocaleString()}</Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Reward Eligibility:</strong> {nodeData?.eligible?.toLocaleString()}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Eligiblity Issue:</strong> {NOT_ELIGIBLE_STATUS_CODES[nodeData.eligibilityCause]?.toLocaleString()}</Typography>
+              <Typography variant="subtitle1"><strong>Eligiblity Issue:</strong> {nodeData.eligibilityCauseStr?.toLocaleString()}</Typography>
             </Grid>
           </Grid>
         </CardContent>

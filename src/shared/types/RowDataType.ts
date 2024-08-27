@@ -60,13 +60,14 @@ type LocationType = {
 type IpAndDnsType = {
 	ip: string;
 	dns: string;
+	port: string;
 };
 
 export type NodeData = {
 	id: string;
 	publicKey: string;
 	eligible: boolean;
-	eligibilityCause: number;
+	eligibilityCauseStr: string;
 	address: string;
 	version: string;
 	http: boolean;
