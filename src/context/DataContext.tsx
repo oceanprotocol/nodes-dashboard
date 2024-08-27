@@ -23,7 +23,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://ubuntu@ocean-node3.oceanprotocol.io:8000/nodes');
+        const response = await axios.get('https://incentive-backend.oceanprotocol.com/nodes');
         let sanitizedData: NodeData[] = []
         for (let index = 0; index < response.data.length; index++) {
             const element = response.data[index];
