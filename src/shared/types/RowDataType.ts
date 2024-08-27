@@ -67,7 +67,7 @@ export type NodeData = {
 	id: string;
 	publicKey: string;
 	eligible: boolean;
-	eligibilityCause: number;
+	eligibilityCauseStr: string;
 	address: string;
 	version: string;
 	http: boolean;

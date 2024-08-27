@@ -82,7 +82,7 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
               <Typography variant="subtitle1"><strong>Reward Eligibility:</strong> {nodeData?.eligible?.toLocaleString()}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Eligiblity Issue:</strong> {nodeData.eligibilityCause?.toLocaleString()}</Typography>
+              <Typography variant="subtitle1"><strong>Eligiblity Issue:</strong> {nodeData.eligibilityCauseStr?.toLocaleString()}</Typography>
             </Grid>
           </Grid>
         </CardContent>
