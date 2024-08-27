@@ -102,7 +102,7 @@ export default function Table() {
       flex: 1, 
       minWidth: 130, 
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{(params.row.ipAndDns?.dns || params.row.ipAndDns?.ip || '') +':'+params.row.ipAndDns?.port }</span>
+        <span>{(params.row.ipAndDns?.dns || params.row.ipAndDns?.ip || '') + (params.row.ipAndDns?':'+params.row.ipAndDns?.port : '') }</span>
       )
     },
     { 
