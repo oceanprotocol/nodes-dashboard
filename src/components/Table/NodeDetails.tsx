@@ -49,6 +49,9 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
               <Typography variant="subtitle1"><strong>DNS / IP:</strong> {nodeData.ipAndDns?.dns || ''} / {nodeData.ipAndDns?.ip || ''}</Typography>
             </Grid>
             <Grid item xs={12}>
+              <Typography variant="subtitle1"><strong>Port:</strong> {nodeData.ipAndDns?.port || ''}</Typography>
+            </Grid>
+            <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Location:</strong> {`${nodeData.location?.city || ''} ${nodeData.location?.country || ''}`}</Typography>
             </Grid>
             <Grid item xs={12}>

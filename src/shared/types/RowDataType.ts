@@ -60,6 +60,7 @@ type LocationType = {
 type IpAndDnsType = {
 	ip: string;
 	dns: string;
+	port: string;
 };
 
 export type NodeData = {
