@@ -8,14 +8,6 @@ import { Button, Link, Tooltip } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 
-const ViewMore = ({ id }: { id: string }) => {
-  return (
-    <Link href={`/node/${id}`} className={styles.download}>
-      View More
-    </Link>
-  );
-};
-
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers?.map(indexer => indexer.network).join(', ');
 };
@@ -156,7 +148,6 @@ export default function Table() {
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <Button 
           onClick={() => setSelectedNode(params.row)} 
-          className={styles.download}
         >
           View More
         </Button>
