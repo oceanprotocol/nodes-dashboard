@@ -76,7 +76,11 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
               <Typography variant="subtitle1"><strong>Allowed Admins:</strong> {nodeData.allowedAdmins?.join(', ')}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Last Check:</strong> {new Date(nodeData.lastCheck)?.toLocaleString()}</Typography>
+            <Typography variant="subtitle1">
+              <strong>Last Check:</strong> {new Date(nodeData.lastCheck)?.toLocaleString(undefined, {
+                timeZoneName: 'short'
+              })}
+            </Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Reward Eligibility:</strong> {nodeData?.eligible?.toLocaleString()}</Typography>
