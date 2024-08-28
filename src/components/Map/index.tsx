@@ -35,8 +35,8 @@ export default function Map() {
   }
 
   const groupedNodes = data.reduce((acc, node: NodeData) => {
-    if (node?.location?.latitude && node?.location?.longitude) {
-      const key = `${node.location.latitude},${node.location.longitude}`
+    if (node?.location?.lat && node?.location?.lon) {
+      const key = `${node.location.lat},${node.location.lon}`
       if (!acc[key]) {
         acc[key] = []
       }
@@ -53,7 +53,7 @@ export default function Map() {
           nodes.map((node, index) => (
             <Marker
               icon={customIcon}
-              position={offsetCoordinates(node.location.latitude, node.location.longitude, index, nodes.length)}
+              position={offsetCoordinates(node.location.lat, node.location.lon, index, nodes.length)}
               key={`${node.id}-${index}`}
             >
               <Popup className={styles.popup}>
