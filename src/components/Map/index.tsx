@@ -17,7 +17,7 @@ export default function Map() {
     setIsClient(true)
   }, [])
 
-  const center: [number, number] = [51.505, -0.09]
+  const center: [number, number] = [25, 0]
 
   const customIcon = L.icon({
     iconUrl: MarkerIcon.src,
@@ -26,17 +26,26 @@ export default function Map() {
     popupAnchor: [0, -36]
   })
 
-  const offsetCoordinates = (latitude: number, longitude: number, index: number, total: number): LatLngExpression => {
-    const offset = 0.0003 * index
-    return [
-      latitude + offset,
-      longitude + offset
-    ]
-  }
+  const getRandomOffset = (): number => {
+    const min = 0.0002;
+    const max = 0.0006;
+    const randomValue = Math.random() * (max - min) + min;
+    return Math.random() < 0.5 ? -randomValue : randomValue;
+  };
 
+  const offsetCoordinates = (latitude: number, longitude: number, index: number, total: number): LatLngExpression => {
+  
+    const latOffset = getRandomOffset();
+    const lngOffset = getRandomOffset();
+  
+    return [
+      latitude + latOffset,
+      longitude + lngOffset
+    ];
+  };
   const groupedNodes = data.reduce((acc, node: NodeData) => {
-    if (node?.location?.latitude && node?.location?.longitude) {
-      const key = `${node.location.latitude},${node.location.longitude}`
+    if (node?.location?.lat && node?.location?.lon) {
+      const key = `${node.location.lat},${node.location.lon}`
       if (!acc[key]) {
         acc[key] = []
       }
@@ -53,7 +62,7 @@ export default function Map() {
           nodes.map((node, index) => (
             <Marker
               icon={customIcon}
-              position={offsetCoordinates(node.location.latitude, node.location.longitude, index, nodes.length)}
+              position={offsetCoordinates(node.location.lat, node.location.lon, index, nodes.length)}
               key={`${node.id}-${index}`}
             >
               <Popup className={styles.popup}>
