@@ -8,7 +8,8 @@
     "dev": "next dev",
     "build": "NODE_ENV=production  next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint --ignore-path .gitignore --ext .ts,.tsx .",
+    "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix"
   },
   "dependencies": {
     "@emotion/react": "^11.11.4",
@@ -43,11 +44,15 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-leaflet": "^3.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.2",
-    "eslint": "^8",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.0",
     "eslint-config-next": "14.0.4",
+    "eslint-config-oceanprotocol": "^2.0.4",
     "eslint-config-prettier": "^9.1.0",
-    "prettier": "^3.1.1",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-promise": "^6.6.0",
+    "prettier": "^3.3.3",
     "typescript": "^5"
   }
 }
