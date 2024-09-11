@@ -39,7 +39,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   useEffect(() => {
     const fetchData = async (page: number = 1, size: number = 10) => {
       try {
-        const url = `http://localhost:3000/nodes?page=${page}&size=${size}`
+        const baseUrl =
+          process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com'
+        const url = `${baseUrl}/nodes?page=${page}&size=${size}`
 
         const response = await axios.get(url)
 
