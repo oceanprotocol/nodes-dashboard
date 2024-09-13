@@ -66,6 +66,7 @@ export default function Table() {
     currentPage,
     pageSize,
     totalPages,
+    totalItems,
     setCurrentPage,
     setPageSize,
     setSearchTerm,
@@ -312,7 +313,7 @@ export default function Table() {
           paginationMode="server"
           sortingMode="server"
           onSortModelChange={handleSortModelChange}
-          rowCount={totalPages * pageSize}
+          rowCount={totalItems}
           autoHeight
         />
       </div>

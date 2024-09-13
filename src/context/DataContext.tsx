@@ -68,7 +68,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         let sanitizedData: NodeData[] = []
         for (let index = 0; index < response.data.nodes.length; index++) {
           const element = response.data.nodes[index]
-          sanitizedData.push(element._source)
+          sanitizedData.push({
+            ...element._source,
+            index: (currentPage - 1) * pageSize + index + 1
+          })
         }
 
         const updatedData =
