@@ -1,24 +1,19 @@
-import React, { useState } from 'react'
+import React, { JSXElementConstructor, useState } from 'react'
 import {
   DataGrid,
   GridColDef,
   GridRenderCellParams,
   GridSortModel,
-  GridToolbarColumnsButton,
-  GridToolbarContainer,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-  GridToolbarFilterButton
+  GridToolbarProps
 } from '@mui/x-data-grid'
 import styles from './index.module.css'
 import { NodeData } from '../../shared/types/RowDataType'
 import { useDataContext } from '@/context/DataContext'
 import NodeDetails from './NodeDetails'
-import { Button, Tooltip, TextField, IconButton } from '@mui/material'
+import { Button, Tooltip } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
-import SearchIcon from '@mui/icons-material/Search'
-import ClearIcon from '@mui/icons-material/Clear'
+import CustomToolbar from '../Toolbar'
 
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers?.map((indexer) => indexer.network).join(', ')
@@ -61,37 +56,6 @@ const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
     <CheckCircleOutlineIcon style={{ color: 'green' }} />
   ) : (
     <CancelOutlinedIcon style={{ color: 'red' }} />
-  )
-}
-
-const CustomToolbar: React.FC<{
-  searchTerm: string
-  onSearchChange: (value: string) => void
-  onSearch: () => void
-  onReset: () => void
-}> = ({ searchTerm, onSearchChange, onSearch, onReset }) => {
-  return (
-    <GridToolbarContainer>
-      <GridToolbarColumnsButton />
-      <GridToolbarFilterButton />
-      <GridToolbarDensitySelector />
-      <GridToolbarExport />
-      <TextField
-        variant="outlined"
-        size="small"
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-        placeholder="Search…"
-        style={{ marginLeft: '16px' }}
-      />
-      <IconButton onClick={onSearch} style={{ marginLeft: '8px' }}>
-        <SearchIcon />
-      </IconButton>
-      <IconButton onClick={onReset}>
-        <ClearIcon />
-      </IconButton>
-    </GridToolbarContainer>
   )
 }
 
@@ -306,7 +270,7 @@ export default function Table() {
           rows={data}
           columns={columns}
           slots={{
-            toolbar: CustomToolbar
+            toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps>
           }}
           slotProps={{
             toolbar: {
