@@ -10,6 +10,7 @@ import {
 import { TextField, IconButton } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
+import style from './style.module.css'
 
 interface CustomToolbarProps extends GridToolbarProps {
   searchTerm: string
@@ -25,26 +26,30 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
   onReset
 }) => {
   return (
-    <GridToolbarContainer>
-      <GridToolbarColumnsButton />
-      <GridToolbarFilterButton />
-      <GridToolbarDensitySelector />
-      <GridToolbarExport />
+    <GridToolbarContainer className={style.root}>
+      <div>
+        <GridToolbarColumnsButton />
+        <GridToolbarFilterButton />
+        <GridToolbarDensitySelector />
+        <GridToolbarExport />
+      </div>
 
-      <TextField
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        placeholder="Search..."
-        variant="outlined"
-        size="small"
-        style={{ marginLeft: 8 }}
-      />
-      <IconButton onClick={onSearch} aria-label="search">
-        <SearchIcon />
-      </IconButton>
-      <IconButton onClick={onReset} aria-label="reset">
-        <ClearIcon />
-      </IconButton>
+      <div style={{}}>
+        <TextField
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search..."
+          variant="outlined"
+          size="small"
+          style={{ marginLeft: 8 }}
+        />
+        <IconButton onClick={onSearch} aria-label="search">
+          <SearchIcon />
+        </IconButton>
+        <IconButton onClick={onReset} aria-label="reset">
+          <ClearIcon />
+        </IconButton>
+      </div>
     </GridToolbarContainer>
   )
 }

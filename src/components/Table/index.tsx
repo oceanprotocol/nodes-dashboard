@@ -67,10 +67,12 @@ export default function Table() {
     pageSize,
     totalPages,
     totalItems,
+    filters,
     setCurrentPage,
     setPageSize,
     setSearchTerm,
-    setSortModel
+    setSortModel,
+    setFilters
   } = useDataContext()
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null)
   const [searchTerm, setLocalSearchTerm] = useState<string>('')
@@ -251,6 +253,18 @@ export default function Table() {
     }
   }
 
+  const handleFilterChange = (filterModel: any) => {
+    const newFilters: { [key: string]: string } = {}
+
+    filterModel.items.forEach((item: any) => {
+      if (item.value && item.field) {
+        newFilters[item.field] = String(item.value)
+      }
+    })
+
+    setFilters({ ...newFilters })
+  }
+
   const handleSearchChange = (searchValue: string) => {
     setLocalSearchTerm(searchValue)
   }
@@ -312,7 +326,9 @@ export default function Table() {
           getRowId={(row) => row.id}
           paginationMode="server"
           sortingMode="server"
+          filterMode="server"
           onSortModelChange={handleSortModelChange}
+          onFilterModelChange={handleFilterChange}
           rowCount={totalItems}
           autoHeight
         />

@@ -18,11 +18,13 @@ interface DataContextType {
   totalPages: number
   totalItems: number
   searchTerm: string
-  sortModel: { [key: string]: 'asc' | 'desc' }
+  sortModel: Record<string, 'asc' | 'desc'>
+  filters: Record<string, any>
   nextSearchAfter: any[] | null
   setCurrentPage: (page: number) => void
   setPageSize: (size: number) => void
   setSearchTerm: (term: string) => void
+  setFilters: (filters: { [key: string]: any }) => void
   setSortModel: (model: { [key: string]: 'asc' | 'desc' }) => void
 }
 
@@ -42,6 +44,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [totalItems, setTotalItems] = useState<number>(0)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [sortModel, setSortModel] = useState<{ [key: string]: 'asc' | 'desc' }>({})
+  const [filters, setFilters] = useState<{ [key: string]: any }>({})
   const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null)
 
   const sortParams = useMemo(() => {
@@ -50,14 +53,35 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       .join('&')
   }, [sortModel])
 
+  const filterParams = useMemo(() => {
+    return Object.entries(filters)
+      .map(([key, value]) => `filters[${key}]=${value}`)
+      .join('&')
+  }, [filters])
+
   const fetchUrl = useMemo(() => {
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com'
-    const url = `${baseUrl}/nodes?page=${currentPage}&size=${pageSize}&search=${searchTerm}`
-    return `${url}&${sortParams}${
-      nextSearchAfter ? `&searchAfter=${JSON.stringify(nextSearchAfter)}` : ''
-    }`
-  }, [currentPage, pageSize, searchTerm, sortParams, nextSearchAfter])
+    let url = `${baseUrl}/nodes?page=${currentPage}&size=${pageSize}`
+
+    if (searchTerm) {
+      url += `&search=${encodeURIComponent(searchTerm)}`
+    }
+
+    if (sortParams) {
+      url += `&${sortParams}`
+    }
+
+    if (filterParams && Object.keys(filterParams).length > 0) {
+      url += `&${filterParams}`
+    }
+
+    if (nextSearchAfter) {
+      url += `&searchAfter=${encodeURIComponent(JSON.stringify(nextSearchAfter))}`
+    }
+
+    return url
+  }, [currentPage, pageSize, searchTerm, sortParams, filterParams, nextSearchAfter])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,6 +106,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         setTotalPages(response.data.pagination.totalPages)
         setNextSearchAfter(response.data.pagination.nextSearchAfter)
       } catch (err) {
+        console.log('error', err)
         setError(err)
       } finally {
         setLoading(false)
@@ -113,6 +138,11 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     setNextSearchAfter(null)
   }
 
+  const handleSetFilters = (newFilters: { [key: string]: any }) => {
+    setFilters(newFilters)
+    setCurrentPage(1)
+  }
+
   return (
     <DataContext.Provider
       value={{
@@ -125,11 +155,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         totalItems,
         searchTerm,
         sortModel,
+        filters,
         nextSearchAfter,
         setCurrentPage: handleSetCurrentPage,
         setPageSize: handleSetPageSize,
         setSearchTerm: handleSetSearchTerm,
-        setSortModel: handleSetSortModel
+        setSortModel: handleSetSortModel,
+        setFilters: handleSetFilters
       }}
     >
       {children}
