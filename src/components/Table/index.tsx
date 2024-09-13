@@ -1,12 +1,24 @@
-import React, { useMemo, useState } from 'react';
-import { DataGrid, GridColDef, GridRenderCellParams, GridToolbar } from '@mui/x-data-grid';
-import styles from './index.module.css';
-import { NodeData } from '../../shared/types/RowDataType';
-import { useDataContext } from '@/context/DataContext';
-import NodeDetails from './NodeDetails';
-import { Button, Tooltip } from '@mui/material'
+import React, { useState } from 'react'
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+  GridSortModel,
+  GridToolbarColumnsButton,
+  GridToolbarContainer,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  GridToolbarFilterButton
+} from '@mui/x-data-grid'
+import styles from './index.module.css'
+import { NodeData } from '../../shared/types/RowDataType'
+import { useDataContext } from '@/context/DataContext'
+import NodeDetails from './NodeDetails'
+import { Button, Tooltip, TextField, IconButton } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
+import SearchIcon from '@mui/icons-material/Search'
+import ClearIcon from '@mui/icons-material/Clear'
 
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers?.map((indexer) => indexer.network).join(', ')
@@ -52,18 +64,51 @@ const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   )
 }
 
+const CustomToolbar: React.FC<{
+  searchTerm: string
+  onSearchChange: (value: string) => void
+  onSearch: () => void
+  onReset: () => void
+}> = ({ searchTerm, onSearchChange, onSearch, onReset }) => {
+  return (
+    <GridToolbarContainer>
+      <GridToolbarColumnsButton />
+      <GridToolbarFilterButton />
+      <GridToolbarDensitySelector />
+      <GridToolbarExport />
+      <TextField
+        variant="outlined"
+        size="small"
+        value={searchTerm}
+        onChange={(e) => onSearchChange(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        placeholder="Search…"
+        style={{ marginLeft: '16px' }}
+      />
+      <IconButton onClick={onSearch} style={{ marginLeft: '8px' }}>
+        <SearchIcon />
+      </IconButton>
+      <IconButton onClick={onReset}>
+        <ClearIcon />
+      </IconButton>
+    </GridToolbarContainer>
+  )
+}
+
 export default function Table() {
   const {
     data,
     loading,
-    error,
     currentPage,
     pageSize,
     totalPages,
     setCurrentPage,
-    setPageSize
+    setPageSize,
+    setSearchTerm,
+    setSortModel
   } = useDataContext()
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null)
+  const [searchTerm, setLocalSearchTerm] = useState<string>('')
 
   const columns: GridColDef<NodeData>[] = [
     {
@@ -84,6 +129,7 @@ export default function Table() {
     {
       field: 'uptime',
       headerName: 'Week Uptime',
+      sortable: true,
       flex: 1,
       minWidth: 150,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
@@ -230,17 +276,44 @@ export default function Table() {
     setPageSize(paginationModel.pageSize)
   }
 
+  const handleSortModelChange = (newSortModel: GridSortModel) => {
+    console.log('sorting...')
+    if (newSortModel.length > 0) {
+      const { field, sort } = newSortModel[0]
+      setSortModel({ [field]: sort as 'asc' | 'desc' })
+    } else {
+      setSortModel({})
+    }
+  }
+
+  const handleSearchChange = (searchValue: string) => {
+    setLocalSearchTerm(searchValue)
+  }
+
+  const handleSearch = () => {
+    setSearchTerm(searchTerm)
+  }
+
+  const handleReset = () => {
+    setLocalSearchTerm('')
+    setSearchTerm('')
+  }
+
   return (
     <div className={styles.root}>
       <div style={{ height: '100%', width: '100%' }}>
         <DataGrid
           rows={data}
           columns={columns}
-          slots={{ toolbar: GridToolbar }}
+          slots={{
+            toolbar: CustomToolbar
+          }}
           slotProps={{
             toolbar: {
-              showQuickFilter: true,
-              quickFilterProps: { debounceMs: 500 }
+              searchTerm: searchTerm,
+              onSearchChange: handleSearchChange,
+              onSearch: handleSearch,
+              onReset: handleReset
             }
           }}
           initialState={{
@@ -273,6 +346,8 @@ export default function Table() {
           disableRowSelectionOnClick
           getRowId={(row) => row.id}
           paginationMode="server"
+          sortingMode="server"
+          onSortModelChange={handleSortModelChange}
           rowCount={totalPages * pageSize}
           autoHeight
         />

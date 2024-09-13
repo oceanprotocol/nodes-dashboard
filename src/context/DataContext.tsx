@@ -16,8 +16,14 @@ interface DataContextType {
   currentPage: number
   pageSize: number
   totalPages: number
+  totalItems: number
+  searchTerm: string
+  sortModel: { [key: string]: 'asc' | 'desc' }
+  nextSearchAfter: any[] | null
   setCurrentPage: (page: number) => void
   setPageSize: (size: number) => void
+  setSearchTerm: (term: string) => void
+  setSortModel: (model: { [key: string]: 'asc' | 'desc' }) => void
 }
 
 interface DataProviderProps {
@@ -30,20 +36,34 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [data, setData] = useState<NodeData[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<any>(null)
-
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(10)
   const [totalPages, setTotalPages] = useState<number>(100)
-  const [maxCurrentPage, setMaxCurrentPage] = useState<number>(0)
+  const [totalItems, setTotalItems] = useState<number>(0)
+  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [sortModel, setSortModel] = useState<{ [key: string]: 'asc' | 'desc' }>({})
+  const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null)
+
+  const sortParams = useMemo(() => {
+    return Object.entries(sortModel)
+      .map(([field, order]) => `sort[${field}]=${order}`)
+      .join('&')
+  }, [sortModel])
+
+  const fetchUrl = useMemo(() => {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com'
+    const url = `${baseUrl}/nodes?page=${currentPage}&size=${pageSize}&search=${searchTerm}`
+    return `${url}&${sortParams}${
+      nextSearchAfter ? `&searchAfter=${JSON.stringify(nextSearchAfter)}` : ''
+    }`
+  }, [currentPage, pageSize, searchTerm, sortParams, nextSearchAfter])
 
   useEffect(() => {
-    const fetchData = async (page: number = 1, size: number = 10) => {
+    const fetchData = async () => {
+      setLoading(true)
       try {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com'
-        const url = `${baseUrl}/nodes?page=${page}&size=${size}`
-
-        const response = await axios.get(url)
+        const response = await axios.get(fetchUrl)
 
         let sanitizedData: NodeData[] = []
         for (let index = 0; index < response.data.nodes.length; index++) {
@@ -51,14 +71,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           sanitizedData.push(element._source)
         }
 
-        const updatedData = page === 1 ? sanitizedData : [...data, ...sanitizedData]
+        const updatedData =
+          currentPage === 1 ? sanitizedData : [...data, ...sanitizedData]
 
         setData(updatedData)
-
-        const totalItems = response.data.pagination.totalItems
-        const totalPagesFromResponse = response.data.pagination.totalPages
-        setMaxCurrentPage(page)
-        setTotalPages(totalPagesFromResponse)
+        setTotalItems(response.data.pagination.totalItems)
+        setTotalPages(response.data.pagination.totalPages)
+        setNextSearchAfter(response.data.pagination.nextSearchAfter)
       } catch (err) {
         setError(err)
       } finally {
@@ -66,10 +85,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       }
     }
 
-    if (currentPage > maxCurrentPage || pageSize !== data.length / currentPage) {
-      fetchData(currentPage, pageSize)
-    }
-  }, [currentPage, pageSize])
+    fetchData()
+  }, [fetchUrl])
 
   const handleSetCurrentPage = (page: number) => {
     setCurrentPage(page)
@@ -78,35 +95,38 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const handleSetPageSize = (size: number) => {
     setPageSize(size)
     setData([])
-    setMaxCurrentPage(0)
+    setNextSearchAfter(null)
   }
 
-  const dataWithIndex = useMemo(() => {
-    return data
-      .sort((a, b) => {
-        if (a.eligible !== b.eligible) {
-          return a.eligible ? -1 : 1
-        }
-        return b.uptime - a.uptime
-      })
-      .map((item, idx) => ({
-        ...item,
-        index: (currentPage - 1) * pageSize + idx + 1,
-        dns: item.ipAndDns?.dns
-      }))
-  }, [data, currentPage, pageSize])
+  const handleSetSearchTerm = (term: string) => {
+    setSearchTerm(term)
+    setCurrentPage(1)
+    setNextSearchAfter(null)
+  }
+
+  const handleSetSortModel = (model: { [key: string]: 'asc' | 'desc' }) => {
+    setSortModel(model)
+    setCurrentPage(1)
+    setNextSearchAfter(null)
+  }
 
   return (
     <DataContext.Provider
       value={{
-        data: dataWithIndex,
+        data,
         loading,
         error,
         currentPage,
         pageSize,
         totalPages,
+        totalItems,
+        searchTerm,
+        sortModel,
+        nextSearchAfter,
         setCurrentPage: handleSetCurrentPage,
-        setPageSize: handleSetPageSize
+        setPageSize: handleSetPageSize,
+        setSearchTerm: handleSetSearchTerm,
+        setSortModel: handleSetSortModel
       }}
     >
       {children}
