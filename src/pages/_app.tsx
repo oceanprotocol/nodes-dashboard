@@ -9,6 +9,7 @@ import RootLayout from '../components/Layout';
 import { AdminProvider } from '../context/AdminProvider';
 import { chains } from '../shared/utils/chains';
 import {  DataProvider } from '@/context/DataContext';
+import { MapProvider } from '../context/MapContext'
 
 export default function App({ Component, pageProps }: AppProps) {
   const config = getDefaultConfig({
@@ -28,13 +29,15 @@ export default function App({ Component, pageProps }: AppProps) {
         <RainbowKitProvider>
           <AdminProvider>
             <DataProvider>
-              <RootLayout>
-                <Component {...pageProps} />
-              </RootLayout>
+              <MapProvider>
+                <RootLayout>
+                  <Component {...pageProps} />
+                </RootLayout>
+              </MapProvider>
             </DataProvider>
           </AdminProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
-  );
+  )
 }
