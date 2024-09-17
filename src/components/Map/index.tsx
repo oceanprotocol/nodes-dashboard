@@ -6,8 +6,8 @@ import L, { LatLngExpression } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import styles from './style.module.css'
 import { useMapContext } from '../../context/MapContext'
-import { NodeData } from '../../shared/types/RowDataType'
 import { LinearProgress } from '@mui/material'
+import { LocationNode } from '../../shared/types/locationNodeType'
 
 export default function Map() {
   const [isClient, setIsClient] = useState(false)
@@ -39,32 +39,15 @@ export default function Map() {
     return [latitude + latOffset, longitude + lngOffset]
   }
 
-  const groupedNodesByCity = data.reduce(
-    (acc, node: any) => {
-      const nodeData = node._source
-
-      if (nodeData?.location?.city) {
-        const cityKey = nodeData.location.city
-        if (!acc[cityKey]) {
-          acc[cityKey] = []
-        }
-        acc[cityKey].push(nodeData)
-      }
-      return acc
-    },
-    {} as Record<string, NodeData[]>
-  )
-
   return (
     isClient && (
       <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {!loading &&
           !error &&
-          Object.entries(groupedNodesByCity).map(([city, nodes]) => {
-            const firstNode = nodes[0]
-            if (!firstNode || !firstNode.location) return null
-            const { lat, lon, country } = firstNode.location
+          data.map((node: LocationNode) => {
+            const { lat, lon, country, city } = node._source
+
             if (
               typeof lat !== 'number' ||
               typeof lon !== 'number' ||
@@ -78,13 +61,15 @@ export default function Map() {
             }
 
             return (
-              <Marker key={city} icon={customIcon} position={offsetCoordinates(lat, lon)}>
+              <Marker
+                key={node._id}
+                icon={customIcon}
+                position={offsetCoordinates(lat, lon)}
+              >
                 <Popup className={styles.popup}>
                   <strong>City:</strong> {city}
                   <br />
                   <strong>Country:</strong> {country}
-                  <br />
-                  <strong>Total Nodes:</strong> {nodes.length}
                   <br />
                 </Popup>
               </Marker>

@@ -7,7 +7,7 @@ import React, {
   useMemo
 } from 'react'
 import axios from 'axios'
-import { NodeData } from '@/shared/types/RowDataType'
+import { LocationNode } from '../shared/types/locationNodeType'
 
 interface CountryNodesInfo {
   country: string
@@ -16,7 +16,7 @@ interface CountryNodesInfo {
 }
 
 interface MapContextType {
-  data: NodeData[]
+  data: LocationNode[]
   countryNodesInfo: CountryNodesInfo[]
   loading: boolean
   error: any
@@ -29,7 +29,7 @@ interface MapProviderProps {
 export const MapContext = createContext<MapContextType | undefined>(undefined)
 
 export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
-  const [data, setData] = useState<NodeData[]>([])
+  const [data, setData] = useState<LocationNode[]>([])
   const [countryNodesInfo, setCountryNodesInfo] = useState<CountryNodesInfo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<any>(null)
@@ -37,7 +37,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const fetchUrl = useMemo(() => {
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com'
-    return `${baseUrl}/nodes`
+    return `${baseUrl}/locations`
   }, [])
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       setLoading(true)
       try {
         const response = await axios.get(fetchUrl)
-        const nodes = response.data.nodes
+        const nodes = response.data
 
         setData(nodes)
       } catch (err) {
