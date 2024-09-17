@@ -39,42 +39,64 @@ export default function Map() {
     return [latitude + latOffset, longitude + lngOffset]
   }
 
+  const groupedNodesByCity = data.reduce(
+    (
+      acc: Record<string, { lat: number; lon: number; country: string; count: number }>,
+      node: LocationNode
+    ) => {
+      const { city, lat, lon, country } = node._source
+
+      if (city) {
+        if (!acc[city]) {
+          acc[city] = { lat, lon, country, count: 0 }
+        }
+
+        acc[city].count += 1
+      }
+
+      return acc
+    },
+    {}
+  )
+
   return (
     isClient && (
       <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {!loading &&
           !error &&
-          data.map((node: LocationNode) => {
-            const { lat, lon, country, city } = node._source
+          Object.entries(groupedNodesByCity).map(
+            ([city, { lat, lon, country, count }]) => {
+              if (
+                typeof lat !== 'number' ||
+                typeof lon !== 'number' ||
+                isNaN(lat) ||
+                isNaN(lon)
+              ) {
+                console.warn(
+                  `Invalid coordinates for city: ${city}, lat: ${lat}, lon: ${lon}`
+                )
+                return null
+              }
 
-            if (
-              typeof lat !== 'number' ||
-              typeof lon !== 'number' ||
-              isNaN(lat) ||
-              isNaN(lon)
-            ) {
-              console.warn(
-                `Invalid coordinates for city: ${city}, lat: ${lat}, lon: ${lon}`
+              return (
+                <Marker
+                  key={city}
+                  icon={customIcon}
+                  position={offsetCoordinates(lat, lon)}
+                >
+                  <Popup className={styles.popup}>
+                    <strong>City:</strong> {city}
+                    <br />
+                    <strong>Country:</strong> {country}
+                    <br />
+                    <strong>Total Nodes:</strong> {count}
+                    <br />
+                  </Popup>
+                </Marker>
               )
-              return null
             }
-
-            return (
-              <Marker
-                key={node._id}
-                icon={customIcon}
-                position={offsetCoordinates(lat, lon)}
-              >
-                <Popup className={styles.popup}>
-                  <strong>City:</strong> {city}
-                  <br />
-                  <strong>Country:</strong> {country}
-                  <br />
-                </Popup>
-              </Marker>
-            )
-          })}
+          )}
         {loading && <LinearProgress />}
       </MapContainer>
     )
