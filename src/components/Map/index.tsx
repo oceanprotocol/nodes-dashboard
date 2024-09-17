@@ -4,14 +4,14 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import MarkerIcon from '../../assets/marker_map_icon.png'
 import L, { LatLngExpression } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useDataContext } from '@/context/DataContext'
-import { NodeData } from '@/shared/types/RowDataType'
 import styles from './style.module.css'
+import { useMapContext } from '../../context/MapContext'
+import { LinearProgress } from '@mui/material'
+import { LocationNode } from '../../shared/types/locationNodeType'
 
 export default function Map() {
   const [isClient, setIsClient] = useState(false)
-  const { data, loading, error } = useDataContext()
-  console.log('Table data: ', data)
+  const { data, loading, error } = useMapContext()
 
   useEffect(() => {
     setIsClient(true)
@@ -27,56 +27,77 @@ export default function Map() {
   })
 
   const getRandomOffset = (): number => {
-    const min = 0.0002;
-    const max = 0.0006;
-    const randomValue = Math.random() * (max - min) + min;
-    return Math.random() < 0.5 ? -randomValue : randomValue;
-  };
+    const min = 0.0002
+    const max = 0.0006
+    const randomValue = Math.random() * (max - min) + min
+    return Math.random() < 0.5 ? -randomValue : randomValue
+  }
 
-  const offsetCoordinates = (latitude: number, longitude: number, index: number, total: number): LatLngExpression => {
-  
-    const latOffset = getRandomOffset();
-    const lngOffset = getRandomOffset();
-  
-    return [
-      latitude + latOffset,
-      longitude + lngOffset
-    ];
-  };
-  const groupedNodes = data.reduce((acc, node: NodeData) => {
-    if (node?.location?.lat && node?.location?.lon) {
-      const key = `${node.location.lat},${node.location.lon}`
-      if (!acc[key]) {
-        acc[key] = []
+  const offsetCoordinates = (latitude: number, longitude: number): LatLngExpression => {
+    const latOffset = getRandomOffset()
+    const lngOffset = getRandomOffset()
+    return [latitude + latOffset, longitude + lngOffset]
+  }
+
+  const groupedNodesByCity = data.reduce(
+    (
+      acc: Record<string, { lat: number; lon: number; country: string; count: number }>,
+      node: LocationNode
+    ) => {
+      const { city, lat, lon, country } = node._source
+
+      if (city) {
+        if (!acc[city]) {
+          acc[city] = { lat, lon, country, count: 0 }
+        }
+
+        acc[city].count += 1
       }
-      acc[key].push(node)
-    }
-    return acc
-  }, {} as Record<string, NodeData[]>)
+
+      return acc
+    },
+    {}
+  )
 
   return (
     isClient && (
       <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {Object.entries(groupedNodes).map(([key, nodes]) => (
-          nodes.map((node, index) => (
-            <Marker
-              icon={customIcon}
-              position={offsetCoordinates(node.location.lat, node.location.lon, index, nodes.length)}
-              key={`${node.id}-${index}`}
-            >
-              <Popup className={styles.popup}>
-                <strong>Node ID:</strong> {node.id}
-                <br />
-                <strong>Network:</strong> {node.indexer?.[0]?.network}
-                <br />
-                <strong>Location:</strong> {node.location.country}
-                <br />
-                <strong>City:</strong> {node.location.city}
-              </Popup>
-            </Marker>
-          ))
-        ))}
+        {!loading &&
+          !error &&
+          Object.entries(groupedNodesByCity).map(
+            ([city, { lat, lon, country, count }]) => {
+              if (
+                typeof lat !== 'number' ||
+                typeof lon !== 'number' ||
+                isNaN(lat) ||
+                isNaN(lon)
+              ) {
+                console.warn(
+                  `Invalid coordinates for city: ${city}, lat: ${lat}, lon: ${lon}`
+                )
+                return null
+              }
+
+              return (
+                <Marker
+                  key={city}
+                  icon={customIcon}
+                  position={offsetCoordinates(lat, lon)}
+                >
+                  <Popup className={styles.popup}>
+                    <strong>City:</strong> {city}
+                    <br />
+                    <strong>Country:</strong> {country}
+                    <br />
+                    <strong>Total Nodes:</strong> {count}
+                    <br />
+                  </Popup>
+                </Marker>
+              )
+            }
+          )}
+        {loading && <LinearProgress />}
       </MapContainer>
     )
   )
