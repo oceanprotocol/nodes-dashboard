@@ -11,7 +11,8 @@ import { LocationNode } from '../../shared/types/locationNodeType'
 
 export default function Map() {
   const [isClient, setIsClient] = useState(false)
-  const { data, loading, error } = useMapContext()
+  const { data, loading, error, nodeData, setCityName } = useMapContext()
+  console.log('🚀 ~ Map ~ nodeData:', nodeData)
 
   useEffect(() => {
     setIsClient(true)
@@ -84,13 +85,19 @@ export default function Map() {
                   key={city}
                   icon={customIcon}
                   position={offsetCoordinates(lat, lon)}
+                  eventHandlers={{
+                    click: (e) => {
+                      console.log('marker clicked', e)
+                      setCityName(city)
+                    }
+                  }}
                 >
                   <Popup className={styles.popup}>
                     <strong>City:</strong> {city}
                     <br />
                     <strong>Country:</strong> {country}
                     <br />
-                    <strong>Total Nodes:</strong> {count}
+                    <strong>Total Nodes:</strong> {nodeData.length}
                     <br />
                   </Popup>
                 </Marker>
