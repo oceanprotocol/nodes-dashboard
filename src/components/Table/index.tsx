@@ -81,7 +81,7 @@ export default function Table() {
     {
       field: 'index',
       renderHeader: () => (
-        <Tooltip title="The first 50 will receive a soulbound NFT">
+        <Tooltip title="The first 50 after the 4'th epoch ends will receive a soulbound NFT">
           <span>Index</span>
         </Tooltip>
       ),
@@ -95,7 +95,7 @@ export default function Table() {
     },
     {
       field: 'uptime',
-      headerName: 'Week Uptime',
+      headerName: 'Eligible Week Uptime',
       sortable: true,
       flex: 1,
       minWidth: 150,
@@ -119,7 +119,7 @@ export default function Table() {
       field: 'location',
       headerName: 'Location',
       flex: 1,
-      minWidth: 180,
+      minWidth: 150,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{`${params.row.location?.city || ''} ${params.row.location?.country || ''}`}</span>
       )
@@ -128,16 +128,17 @@ export default function Table() {
       field: 'address',
       headerName: 'Address',
       flex: 1,
-      minWidth: 200
+      minWidth: 150
     },
     {
       field: 'eligible',
-      headerName: 'Reward Eligibility',
+      headerName: 'Last Check Eligibility',
       flex: 1,
-      width: 20,
+      width: 80,
       renderHeader: () => (
-        <Tooltip title="These nodes are eligible to receive rewards in proportion to their uptime.">
-          <span>Reward Eligibility</span>
+        <Tooltip title="These nodes were eligible to receive rewards the proportion of their uptime 
+           at the last round checks.">
+          <span>Last Check Eligibility</span>
         </Tooltip>
       ),
       renderCell: (params: GridRenderCellParams<NodeData>) => (
@@ -150,9 +151,20 @@ export default function Table() {
       field: 'eligibilityCauseStr',
       headerName: 'Eligibility Issue',
       flex: 1,
-      width: 50,
+      width: 100,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{params.row.eligibilityCauseStr || 'none'}</span>
+      )
+    },
+    {
+      field: 'lastCheck',
+      headerName: 'Last Check',
+      flex: 1,
+      minWidth: 140,
+      renderCell: (params: GridRenderCellParams<NodeData>) => (
+        <span>{new Date(params?.row?.lastCheck)?.toLocaleString(undefined, {
+          timeZoneName: 'short'
+        })}</span>
       )
     },
     {
@@ -167,7 +179,7 @@ export default function Table() {
     {
       field: 'viewMore',
       headerName: '',
-      width: 150,
+      width: 120,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <Button onClick={() => setSelectedNode(params.row)}>View More</Button>
       ),
@@ -226,12 +238,6 @@ export default function Table() {
       headerName: 'Allowed Admins',
       flex: 1,
       minWidth: 200
-    },
-    {
-      field: 'lastCheck',
-      headerName: 'Last Check',
-      flex: 1,
-      minWidth: 150
     }
   ]
 
@@ -307,7 +313,7 @@ export default function Table() {
                 platform: false,
                 codeHash: false,
                 allowedAdmins: false,
-                lastCheck: false
+                // lastCheck: false
               }
             },
             pagination: {
