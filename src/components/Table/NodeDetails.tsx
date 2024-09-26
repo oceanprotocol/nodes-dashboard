@@ -55,7 +55,7 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
               <Typography variant="subtitle1"><strong>Location:</strong> {`${nodeData.location?.city || ''} ${nodeData.location?.country || ''}`}</Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Uptime:</strong> {formatUptime(nodeData.uptime)}</Typography>
+              <Typography variant="subtitle1"><strong>Eligible Week Uptime:</strong> {formatUptime(nodeData.uptime)}</Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Supported Storage:</strong> {formatSupportedStorage(nodeData.supportedStorage)}</Typography>
@@ -83,7 +83,7 @@ const NodeDetails: FC<NodeDetailsProps> = ({ nodeData, onClose }) => {
             </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="subtitle1"><strong>Reward Eligibility:</strong> {nodeData?.eligible?.toLocaleString()}</Typography>
+              <Typography variant="subtitle1"><strong>Last Round Eligibility Check:</strong> {nodeData?.eligible?.toLocaleString()}</Typography>
             </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1"><strong>Eligiblity Issue:</strong> {nodeData.eligibilityCauseStr?.toLocaleString()}</Typography>
