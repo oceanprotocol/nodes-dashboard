@@ -12,7 +12,7 @@ import { useDataContext } from '@/context/DataContext'
 import NodeDetails from './NodeDetails'
 import { Button, Tooltip } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
+import ReportIcon from '@mui/icons-material/Report';
 import CustomToolbar from '../Toolbar'
 
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
@@ -55,7 +55,7 @@ const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   return eligible ? (
     <CheckCircleOutlineIcon style={{ color: 'green' }} />
   ) : (
-    <CancelOutlinedIcon style={{ color: 'red' }} />
+    <ReportIcon style={{ color: 'orange' }} />
   )
 }
 
