@@ -1,16 +1,15 @@
 .navbarParent {
   display: flex;
   justify-content: center;
-  /* justify-content: space-between;
+  justify-content: space-between;
   align-items: center;
   color: var(--gray-700);
-  background-color: #ffffff;
   border-radius: 15px;
   box-shadow: 0px 7px 23px 0px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(10.5px);
   padding: 11px 24px;
   width: 100%;
-  margin: 0 auto; */
+  margin: 0 auto;
 }
 
 .logoWrapper {
@@ -29,6 +28,41 @@
   flex-direction: row;
   align-items: center;
   gap: 24px;
+}
+
+.navbarParent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 37px 4px 37px;
+  background-color: #1a0033;
+  border-radius: 20px;
+  box-shadow: 0px 7px 23px 0px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(15px);
+}
+
+.logoWrapper {
+  /* Existing styles */
+}
+
+.navLinks {
+  display: flex;
+  gap: 2rem;
+}
+
+.navLink {
+  color: white;
+  text-decoration: none;
+  font-size: 20px;
+  font-family: 'Sharp Sans Display No1', sans-serif;
+  font-weight: 400;
+  line-height: 26px;
+  letter-spacing: 0em;
+  text-align: left;
+}
+
+.navLink:hover {
+  text-decoration: none;
 }
 
 @media screen and (max-width: 700px) {

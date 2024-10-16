@@ -2,6 +2,8 @@ import Head from 'next/head'
 import NavBar from '../Navigation'
 import Footer from '../Footer'
 import { ReactNode } from 'react'
+import HeroSection from '../HeroSection/HeroSection'
+import styles from './index.module.css'
 
 // import Table from '../components/Table'
 
@@ -18,13 +20,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <header>
-        <NavBar />
-      </header>
-      <main>{children}</main>
-      <footer>
-        <Footer />
-      </footer>
+      <main className={styles.main}>
+        <>
+          <HeroSection />
+          {children}
+          <Footer />
+        </>
+      </main>
     </>
   )
 }

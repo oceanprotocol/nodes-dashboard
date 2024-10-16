@@ -61,7 +61,11 @@ export default function Map() {
 
   return (
     isClient && (
-      <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
+      <MapContainer
+        center={center}
+        zoom={2}
+        style={{ height: '500px', width: '100%', borderRadius: '20px' }}
+      >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {!loading &&
           !error &&

@@ -34,6 +34,7 @@
     "react-leaflet": "^4.2.1",
     "react-paginate": "^8.2.0",
     "react-query": "^3.39.3",
+    "recharts": "^2.13.0",
     "styled-components": "^6.1.1",
     "viem": "^2.8.14",
     "wagmi": "^2.5.11"

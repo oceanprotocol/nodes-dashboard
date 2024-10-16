@@ -78,6 +78,111 @@
   }
 }
 
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-BoldItalic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-Book.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-BookItalic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-Extrabold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-ExtraboldItalic.otf') format('opentype');
+  font-weight: 800;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-LightItalic.otf') format('opentype');
+  font-weight: 300;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-MediumItalic.otf') format('opentype');
+  font-weight: 500;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-Semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-SemiboldItalic.otf') format('opentype');
+  font-weight: 600;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-Thin.otf') format('opentype');
+  font-weight: 100;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sharp Sans';
+  src: url('/fonts/SharpSans-ThinItalic.otf') format('opentype');
+  font-weight: 100;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Sharp Sans Display';
+  src: url('/fonts/SharpSansDispNo1-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -88,19 +193,17 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
-  font-family: Helvetica;
+  font-family: 'Sharp Sans', Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-style: normal;
 }
 
 body {
-  background: #f8f9fa;
-
+  background: #0E001A;
   color: var(--gray-700);
-  font-family: Helvetica;
   font-size: 14px;
   line-height: 150%;
-  font-weight: 700;
+  font-weight: 400;
   margin: 50px;
   margin-left: 5%;
   margin-right: 5%;

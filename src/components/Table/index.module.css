@@ -20,7 +20,7 @@
 
 .title {
   color: var(--gray-700);
-  font-family: Helvetica;
+  font-family: 'Sharp Sans', Helvetica, Arial, sans-serif;
   font-size: 18px;
   font-style: normal;
   font-weight: 700;

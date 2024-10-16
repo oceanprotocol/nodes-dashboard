@@ -1,0 +1,67 @@
+.container {
+  width: 100%;
+  max-width: 1160px;
+  height: 300px;
+  background: linear-gradient(135deg, #000000 0%, #555555 32%, #8A8A8A 40%);
+  border-radius: 20px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  background: blur(10px);
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #0E001A;
+  opacity: 0.66;
+  z-index: 1;
+}
+
+.container h2, .container p, .container button {
+  position: relative;
+  z-index: 2;
+}
+
+.container h2 {
+  font-family: 'Sharp Sans Display', 'Sharp Sans', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.container p {
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 300;
+  max-width: 600px;
+  margin-bottom: 32px;
+}
+
+.runNode {
+  background: linear-gradient(135deg, #0E001A66 0%, #CF1FB166 32%, #A8168F 40%);
+  color: #FFFFFF;
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 16px 32px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  background: blur(10px);
+}
+
+.runNode:hover {
+  background-color: #A8168F;
+}
