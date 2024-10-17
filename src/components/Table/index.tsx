@@ -1,4 +1,4 @@
-import React, { JSXElementConstructor, useState } from 'react'
+import React, { JSXElementConstructor, useEffect, useState } from 'react'
 import {
   DataGrid,
   GridColDef,
@@ -14,6 +14,7 @@ import { Button, Tooltip } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ReportIcon from '@mui/icons-material/Report';
 import CustomToolbar from '../Toolbar'
+import axios from 'axios'
 
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers?.map((indexer) => indexer.network).join(', ')
@@ -50,6 +51,44 @@ export const formatUptime = (uptimeInSeconds: number): string => {
 
   return `${dayStr}${hourStr}${minuteStr}`.trim()
 }
+const formatUptimePercentage = (uptimeInSeconds: number, totalUptime: number): string => {
+  const uptimePercentage = (uptimeInSeconds / totalUptime) * 100;
+  const percentage = uptimePercentage > 100 ? 100 : uptimePercentage;
+  return `${percentage.toFixed(2)}%`;
+};
+
+const UptimeCell: React.FC<{ uptimeInSeconds: number, lastCheck: number }> = ({ uptimeInSeconds, lastCheck}) => {
+  const [totalUptime, setTotalUptime] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTotalUptime = async () => {
+      try {
+        const response = await axios.get(`https://incentive-backend.oceanprotocol.com/weekStats?date=${(lastCheck/ 1000).toFixed(0)}`);
+        const data = response?.data
+        if (data && data.length > 0) {
+          setTotalUptime(data[0]._source.totalUptime);
+        } else {
+          throw new Error('Invalid API response');
+        }
+      } catch (error) {
+        setError('Failed to fetch uptime data');
+      }
+    };
+
+    fetchTotalUptime();
+  }, []);
+
+  if (error) {
+    return <span>{error}</span>;
+  }
+
+  if (totalUptime === null) {
+    return <span>Loading...</span>; 
+  }
+
+  return <span>{formatUptimePercentage(uptimeInSeconds, totalUptime)}</span>;
+};
 
 const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   return eligible ? (
@@ -100,7 +139,7 @@ export default function Table() {
       flex: 1,
       minWidth: 150,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{formatUptime(params.row.uptime)}</span>
+        <UptimeCell uptimeInSeconds={params.row.uptime} lastCheck={params.row.lastCheck} />
       )
     },
     {
