@@ -52,7 +52,11 @@ export const formatUptime = (uptimeInSeconds: number): string => {
   return `${dayStr}${hourStr}${minuteStr}`.trim()
 }
 const formatUptimePercentage = (uptimeInSeconds: number, totalUptime: number): string => {
+  console.log('real uptimeInSeconds: ', uptimeInSeconds)
+  console.log('real totalUptime: ', totalUptime)
+
   const uptimePercentage = (uptimeInSeconds / totalUptime) * 100;
+  console.log('real uptime percentage: ', uptimePercentage)
   const percentage = uptimePercentage > 100 ? 100 : uptimePercentage;
   return `${percentage.toFixed(2)}%`;
 };
@@ -134,7 +138,7 @@ export default function Table() {
     },
     {
       field: 'uptime',
-      headerName: 'Eligible Week Uptime',
+      headerName: "Week Uptime",
       sortable: true,
       flex: 1,
       minWidth: 150,
