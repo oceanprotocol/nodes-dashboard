@@ -138,7 +138,7 @@ export default function Table() {
     },
     {
       field: 'uptime',
-      headerName: "Week Uptime",
+      headerName: "Weekly Uptime",
       sortable: true,
       flex: 1,
       minWidth: 150,
