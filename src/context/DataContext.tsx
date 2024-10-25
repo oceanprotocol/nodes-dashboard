@@ -134,7 +134,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
   const fetchCountryStats = useCallback(async () => {
     try {
-      console.log('Fetching country stats...')
       const response = await axios.get(getApiRoute('countryStats'), {
         params: {
           page: countryCurrentPage,
@@ -142,7 +141,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           search: countrySearchTerm
         }
       })
-      console.log('Raw countryStats response:', response.data)
 
       if (response.data && Array.isArray(response.data.countryStats)) {
         const processedStats = response.data.countryStats.map((country: any) => ({
@@ -152,8 +150,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           citiesWithNodes: country.citiesWithNodes,
           cityWithMostNodes: country.cityWithMostNodes
         }))
-
-        console.log('Processed country stats:', processedStats)
         setCountryStats(processedStats)
         setTotalItems(response.data.pagination.totalItems)
         setTotalPages(response.data.pagination.totalPages)
@@ -172,7 +168,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   }, [countryCurrentPage, countryPageSize, countrySearchTerm])
 
   useEffect(() => {
-    console.log('tableType changed:', tableType)
     if (tableType === 'countries') {
       fetchCountryStats()
     } else {

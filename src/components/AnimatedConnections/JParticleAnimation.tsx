@@ -7,16 +7,14 @@ const JParticleAnimation: React.FC = () => {
   const particleInstanceRef = useRef<any>(null)
 
   useEffect(() => {
-    console.log('JParticleAnimation useEffect triggered')
     if (!containerRef.current) {
-      console.log('Container ref is null')
       return
     }
 
     const initJParticles = async () => {
       try {
         const JParticlesModule = await import('jparticles')
-        console.log('JParticles loaded')
+
         setJParticles(JParticlesModule)
       } catch (error) {
         console.error('Error initializing JParticles:', error)
@@ -33,9 +31,7 @@ const JParticleAnimation: React.FC = () => {
       if (!particleInstanceRef.current) {
         particleInstanceRef.current = new JParticles.Particle(containerRef.current, {
           num: 90,
-          // color: '#bd2881',
           color: ['#7b1173', '#cf1fb14d'],
-          // color: ['#cf1fb14d'],
           lineShape: 'cube',
           lineWidth: 1,
           range: 2000,
@@ -54,7 +50,6 @@ const JParticleAnimation: React.FC = () => {
     createParticle()
 
     const handleResize = () => {
-      console.log('Resize event triggered')
       if (
         particleInstanceRef.current &&
         typeof particleInstanceRef.current.resize === 'function'
@@ -78,7 +73,6 @@ const JParticleAnimation: React.FC = () => {
       }
     }
 
-    console.log('Setting up event listeners')
     window.addEventListener('resize', handleResize)
     window.addEventListener('mousemove', handleMouseMove)
 

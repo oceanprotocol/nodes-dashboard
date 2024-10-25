@@ -170,10 +170,6 @@ export default function Table({
     setTableType(tableType)
   }, [tableType, setTableType])
 
-  useEffect(() => {
-    console.log('CountryStats in Table component:', countryStats)
-  }, [countryStats])
-
   const nodeColumns: GridColDef<NodeData>[] = [
     {
       field: 'index',
@@ -405,7 +401,6 @@ export default function Table({
   )
 
   const handleSortModelChange = (newSortModel: GridSortModel) => {
-    console.log('sorting...')
     if (newSortModel.length > 0) {
       const { field, sort } = newSortModel[0]
       setSortModel({ [field]: sort as 'asc' | 'desc' })
@@ -455,9 +450,6 @@ export default function Table({
 
   const columns = tableType === 'countries' ? countryColumns : nodeColumns
   const data = useMemo(() => {
-    console.log('Table data memo - tableType:', tableType)
-    console.log('Table data memo - countryStats:', countryStats)
-    console.log('Table data memo - nodeData:', nodeData)
     return tableType === 'countries' ? countryStats : nodeData
   }, [tableType, nodeData, countryStats])
 
