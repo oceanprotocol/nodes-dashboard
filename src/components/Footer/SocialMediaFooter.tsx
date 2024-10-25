@@ -1,8 +1,11 @@
 import React from 'react'
 import styles from './SocialMediaFooter.module.css'
 import Image from 'next/image'
+import { getSocialMedia } from '@/config'
 
 const SocialMediaFooter: React.FC = () => {
+  const socialMedia = getSocialMedia()
+
   return (
     <footer className={styles.footer}>
       <div className={styles.content}>
@@ -14,26 +17,45 @@ const SocialMediaFooter: React.FC = () => {
           </p>
         </div>
         <div className={styles.socialIcons}>
-          <a href="#" aria-label="Medium">
+          <a
+            href={socialMedia.medium}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Medium"
+          >
             <Image src="/icons/medium.svg" alt="Medium" width={60} height={60} />
           </a>
-          <a href="#" aria-label="X (Twitter)">
+          <a
+            href={socialMedia.twitter}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="X (Twitter)"
+          >
             <Image src="/icons/twitter.svg" alt="X (Twitter)" width={60} height={60} />
           </a>
-          <a href="#" aria-label="Discord">
+          <a
+            href={socialMedia.discord}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Discord"
+          >
             <Image src="/icons/discord.svg" alt="Discord" width={60} height={60} />
           </a>
-          <a href="#" aria-label="YouTube">
+          <a
+            href={socialMedia.youtube}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="YouTube"
+          >
             <Image src="/icons/youtube.svg" alt="YouTube" width={60} height={60} />
           </a>
-          <a href="#" aria-label="Telegram">
+          <a
+            href={socialMedia.telegram}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Telegram"
+          >
             <Image src="/icons/telegram.svg" alt="Telegram" width={60} height={60} />
-          </a>
-          <a href="#" aria-label="Meetup">
-            <Image src="/icons/meetup.svg" alt="Meetup" width={60} height={60} />
-          </a>
-          <a href="#" aria-label="Instagram">
-            <Image src="/icons/instagram.svg" alt="Instagram" width={60} height={60} />
           </a>
         </div>
       </div>

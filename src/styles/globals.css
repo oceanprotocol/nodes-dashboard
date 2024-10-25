@@ -51,13 +51,13 @@
     --background-start-rgb: 0, 0, 0;
     --background-end-rgb: 0, 0, 0;
 
-    --primary-glow: radial-gradient(rgba(1, 65, 255, 0.4), rgba(1, 65, 255, 0));
+    /* --primary-glow: radial-gradient(rgba(1, 65, 255, 0.4), rgba(1, 65, 255, 0));
     --secondary-glow: linear-gradient(
       to bottom right,
       rgba(1, 65, 255, 0),
       rgba(1, 65, 255, 0),
       rgba(1, 65, 255, 0.3)
-    );
+    ); */
 
     --tile-start-rgb: 2, 13, 46;
     --tile-end-rgb: 2, 5, 19;
@@ -207,26 +207,7 @@ body {
   margin: 50px;
   margin-left: 5%;
   margin-right: 5%;
-}
-
-header {
-  margin-bottom: 25px;
-}
-
-main {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-}
-
-footer {
-  margin-top: 60px;
-  color: var(--gray-gray-400, #a0aec0);
-  font-family: Helvetica;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: 150%;
+  overflow: visible;
 }
 
 a {
@@ -237,5 +218,13 @@ a {
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    margin: 20px;
+    margin-left: 2.5%;
+    margin-right: 2.5%;
   }
 }

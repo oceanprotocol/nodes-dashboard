@@ -43,3 +43,11 @@ export type NodeDataType = {
   provider: ProviderType[]
   supportedStorage: SupportedStorageType
 }
+
+export type CountryStatsType = {
+  id: string
+  country: string
+  totalNodes: number
+  citiesWithNodes: number
+  cityWithMostNodes: string
+}

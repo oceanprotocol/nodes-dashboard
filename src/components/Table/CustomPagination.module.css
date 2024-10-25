@@ -1,0 +1,45 @@
+.pagination {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 30px 90px;
+}
+
+.paginationButton {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.paginationArrowText {
+  color: #000000;
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 18px;
+  text-transform: capitalize;
+  text-decoration: none;
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+
+.pageSizeSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pageSizeLabel {
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 14px;
+  color: #000000;
+}
+
+.paginationCore {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

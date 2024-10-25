@@ -6,6 +6,7 @@
   text-align: center;
   width: 100%;
   max-width: 300px;
+  transition: all 0.3s ease-in-out;
 }
 
 .card h3 {
@@ -22,8 +23,23 @@
   margin-top: 0;
   font-weight: 400;
   line-height: 18px;
+  transition: all 0.3s ease-in-out;
 }
 
 .pieChartContainer {
-  height: 200px;
+  height: 220px;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 16px;
+  }
+
+  .pieChartContainer {
+    height: 180px;
+  }
+}
+
+.pieHover {
+  cursor: pointer;
 }

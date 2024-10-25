@@ -8,6 +8,7 @@ import React, {
 } from 'react'
 import axios from 'axios'
 import { LocationNode } from '../shared/types/locationNodeType'
+import { getApiRoute } from '@/config'
 
 interface CountryNodesInfo {
   country: string
@@ -20,6 +21,7 @@ interface MapContextType {
   countryNodesInfo: CountryNodesInfo[]
   loading: boolean
   error: any
+  totalCountries: number
 }
 
 interface MapProviderProps {
@@ -33,11 +35,10 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [countryNodesInfo, setCountryNodesInfo] = useState<CountryNodesInfo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<any>(null)
+  const [totalCountries, setTotalCountries] = useState<number>(0)
 
   const fetchUrl = useMemo(() => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com'
-    return `${baseUrl}/locations`
+    return getApiRoute('locations')
   }, [])
 
   useEffect(() => {
@@ -45,9 +46,11 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       setLoading(true)
       try {
         const response = await axios.get(fetchUrl)
-        const nodes = response.data
+        const nodes = response.data.locations
+        const totalCountries = response.data.totalCountries
 
         setData(nodes)
+        setTotalCountries(totalCountries)
       } catch (err) {
         console.log('error', err)
         setError(err)
@@ -65,7 +68,8 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
         data,
         countryNodesInfo,
         loading,
-        error
+        error,
+        totalCountries
       }}
     >
       {children}

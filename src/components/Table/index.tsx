@@ -1,10 +1,17 @@
-import React, { JSXElementConstructor, useState } from 'react'
+import React, {
+  JSXElementConstructor,
+  useState,
+  useMemo,
+  useEffect,
+  useCallback
+} from 'react'
 import {
   DataGrid,
   GridColDef,
   GridRenderCellParams,
   GridSortModel,
-  GridToolbarProps
+  GridToolbarProps,
+  GridValidRowModel
 } from '@mui/x-data-grid'
 import styles from './index.module.css'
 import { NodeData } from '../../shared/types/RowDataType'
@@ -12,8 +19,78 @@ import { useDataContext } from '@/context/DataContext'
 import NodeDetails from './NodeDetails'
 import { Button, Tooltip } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
-import ReportIcon from '@mui/icons-material/Report';
+import ReportIcon from '@mui/icons-material/Report'
 import CustomToolbar from '../Toolbar'
+import { styled } from '@mui/material/styles'
+import CustomPagination from './CustomPagination'
+
+const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
+  '& .MuiDataGrid-toolbarContainer': {
+    display: 'flex',
+    gap: '50px',
+    '& .MuiButton-root': {
+      fontFamily: 'Sharp Sans, sans-serif',
+      fontSize: '14px',
+      fontWeight: 400,
+      lineHeight: '21px',
+      textAlign: 'left',
+      color: '#000000',
+      '& .MuiSvgIcon-root': {
+        color: '#CF1FB1'
+      }
+    },
+    '& .MuiBadge-badge': {
+      backgroundColor: '#CF1FB1'
+    }
+  },
+  '& .MuiDataGrid-columnHeaders': {
+    backgroundColor: '#f8f9fa',
+    borderBottom: '1px solid #e9ecef',
+    minHeight: '56px !important'
+  },
+  '& .MuiDataGrid-columnHeaderTitle': {
+    fontFamily: "'Sharp Sans', sans-serif",
+    fontSize: '14px',
+    fontWeight: 600,
+    lineHeight: '21px',
+    textAlign: 'left',
+    color: '#6c757d',
+    textTransform: 'uppercase',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  '& .MuiDataGrid-cell': {
+    fontFamily: "'Sharp Sans', sans-serif",
+    fontSize: '14px',
+    fontWeight: 400,
+    padding: '31px 0',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  '& .MuiDataGrid-row': {
+    minHeight: '56px !important'
+  },
+  '& .MuiDataGrid-columnSeparator': {
+    visibility: 'visible',
+    color: '#E0E0E0'
+  },
+  '& .MuiDataGrid-columnHeader:hover .MuiDataGrid-columnSeparator': {
+    visibility: 'visible',
+    color: '#BDBDBD'
+  },
+  '& .MuiDataGrid-columnHeader:hover': {
+    '& .MuiDataGrid-columnSeparator': {
+      visibility: 'visible'
+    }
+  },
+  '& .MuiDataGrid-cellContent': {
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  }
+}))
 
 const getAllNetworks = (indexers: NodeData['indexer']): string => {
   return indexers?.map((indexer) => indexer.network).join(', ')
@@ -59,44 +136,63 @@ const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   )
 }
 
-export default function Table() {
+export default function Table({
+  tableType = 'nodes'
+}: {
+  tableType?: 'nodes' | 'countries'
+}) {
   const {
-    data,
+    data: nodeData,
+    countryStats,
     loading,
     currentPage,
     pageSize,
-    totalPages,
     totalItems,
-    filters,
     setCurrentPage,
     setPageSize,
-    setSearchTerm,
+    setTableType,
+    filters,
+    setFilters,
     setSortModel,
-    setFilters
+    setSearchTerm,
+    countryCurrentPage,
+    setCountryCurrentPage,
+    countryPageSize,
+    setCountryPageSize,
+    setCountrySearchTerm
   } = useDataContext()
+
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null)
   const [searchTerm, setLocalSearchTerm] = useState<string>('')
+  const [searchTermCountry, setLocalSearchTermCountry] = useState<string>('')
 
-  const columns: GridColDef<NodeData>[] = [
+  useEffect(() => {
+    setTableType(tableType)
+  }, [tableType, setTableType])
+
+  useEffect(() => {
+    console.log('CountryStats in Table component:', countryStats)
+  }, [countryStats])
+
+  const nodeColumns: GridColDef<NodeData>[] = [
     {
       field: 'index',
-      renderHeader: () => (
-        <Tooltip title="The first 50 after the 4'th epoch ends will receive a soulbound NFT">
-          <span>Index</span>
-        </Tooltip>
-      ),
-      width: 20
+      headerName: 'Index',
+      width: 70,
+      align: 'center',
+      headerAlign: 'center',
+      sortable: false
     },
     {
       field: 'id',
-      headerName: 'Node Id',
+      headerName: 'Node ID',
       flex: 1,
-      minWidth: 150
+      minWidth: 300,
+      sortable: false
     },
     {
       field: 'uptime',
-      headerName: 'Eligible Week Uptime',
-      sortable: true,
+      headerName: 'Week Uptime',
       flex: 1,
       minWidth: 150,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
@@ -107,7 +203,8 @@ export default function Table() {
       field: 'dns',
       headerName: 'DNS / IP',
       flex: 1,
-      minWidth: 130,
+      minWidth: 200,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>
           {(params.row.ipAndDns?.dns || params.row.ipAndDns?.ip || '') +
@@ -119,7 +216,8 @@ export default function Table() {
       field: 'location',
       headerName: 'Location',
       flex: 1,
-      minWidth: 150,
+      minWidth: 200,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{`${params.row.location?.city || ''} ${params.row.location?.country || ''}`}</span>
       )
@@ -128,7 +226,8 @@ export default function Table() {
       field: 'address',
       headerName: 'Address',
       flex: 1,
-      minWidth: 150
+      minWidth: 150,
+      sortable: false
     },
     {
       field: 'eligible',
@@ -136,8 +235,10 @@ export default function Table() {
       flex: 1,
       width: 80,
       renderHeader: () => (
-        <Tooltip title="These nodes were eligible to receive rewards the proportion of their uptime 
-           at the last round checks.">
+        <Tooltip
+          title="These nodes were eligible to receive rewards the proportion of their uptime 
+           at the last round checks."
+        >
           <span>Last Check Eligibility</span>
         </Tooltip>
       ),
@@ -152,6 +253,7 @@ export default function Table() {
       headerName: 'Eligibility Issue',
       flex: 1,
       width: 100,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{params.row.eligibilityCauseStr || 'none'}</span>
       )
@@ -162,9 +264,11 @@ export default function Table() {
       flex: 1,
       minWidth: 140,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{new Date(params?.row?.lastCheck)?.toLocaleString(undefined, {
-          timeZoneName: 'short'
-        })}</span>
+        <span>
+          {new Date(params?.row?.lastCheck)?.toLocaleString(undefined, {
+            timeZoneName: 'short'
+          })}
+        </span>
       )
     },
     {
@@ -172,6 +276,7 @@ export default function Table() {
       headerName: 'Network',
       flex: 1,
       minWidth: 150,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{getAllNetworks(params.row.indexer)}</span>
       )
@@ -189,31 +294,36 @@ export default function Table() {
       field: 'publicKey',
       headerName: 'Public Key',
       flex: 1,
+      sortable: false,
       minWidth: 200
     },
     {
       field: 'version',
       headerName: 'Version',
       flex: 1,
-      minWidth: 100
+      minWidth: 100,
+      sortable: false
     },
     {
       field: 'http',
       headerName: 'HTTP Enabled',
       flex: 1,
-      minWidth: 100
+      minWidth: 100,
+      sortable: false
     },
     {
       field: 'p2p',
       headerName: 'P2P Enabled',
       flex: 1,
-      minWidth: 100
+      minWidth: 100,
+      sortable: false
     },
     {
       field: 'supportedStorage',
       headerName: 'Supported Storage',
       flex: 1,
       minWidth: 200,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{formatSupportedStorage(params.row.supportedStorage)}</span>
       )
@@ -223,6 +333,7 @@ export default function Table() {
       headerName: 'Platform',
       flex: 1,
       minWidth: 200,
+      sortable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{formatPlatform(params.row.platform)}</span>
       )
@@ -231,23 +342,67 @@ export default function Table() {
       field: 'codeHash',
       headerName: 'Code Hash',
       flex: 1,
-      minWidth: 200
+      minWidth: 200,
+      sortable: false
     },
     {
       field: 'allowedAdmins',
       headerName: 'Allowed Admins',
       flex: 1,
-      minWidth: 200
+      minWidth: 200,
+      sortable: false
     }
   ]
 
-  const handlePaginationChange = (paginationModel: {
-    page: number
-    pageSize: number
-  }) => {
-    setCurrentPage(paginationModel.page + 1)
-    setPageSize(paginationModel.pageSize)
-  }
+  const countryColumns: GridColDef[] = [
+    {
+      field: 'country',
+      headerName: 'Country',
+      flex: 1,
+      minWidth: 200,
+      align: 'left',
+      headerAlign: 'left'
+    },
+    {
+      field: 'totalNodes',
+      headerName: 'Total Nodes',
+      flex: 1,
+      minWidth: 150,
+      type: 'number',
+      align: 'left',
+      headerAlign: 'left'
+    },
+    {
+      field: 'citiesWithNodes',
+      headerName: 'Cities with Nodes',
+      flex: 1,
+      minWidth: 200,
+      type: 'number',
+      align: 'left',
+      headerAlign: 'left'
+    },
+    {
+      field: 'cityWithMostNodes',
+      headerName: 'City with Most Nodes',
+      flex: 1,
+      minWidth: 200,
+      align: 'left',
+      headerAlign: 'left'
+    }
+  ]
+
+  const handlePaginationChange = useCallback(
+    (paginationModel: { page: number; pageSize: number }) => {
+      if (tableType === 'countries') {
+        setCountryCurrentPage(paginationModel.page + 1)
+        setCountryPageSize(paginationModel.pageSize)
+      } else {
+        setCurrentPage(paginationModel.page + 1)
+        setPageSize(paginationModel.pageSize)
+      }
+    },
+    [tableType, setCurrentPage, setPageSize, setCountryCurrentPage, setCountryPageSize]
+  )
 
   const handleSortModelChange = (newSortModel: GridSortModel) => {
     console.log('sorting...')
@@ -272,33 +427,57 @@ export default function Table() {
   }
 
   const handleSearchChange = (searchValue: string) => {
-    setLocalSearchTerm(searchValue)
+    if (tableType === 'countries') {
+      setLocalSearchTermCountry(searchValue)
+    } else {
+      setLocalSearchTerm(searchValue)
+    }
   }
 
   const handleSearch = () => {
-    setSearchTerm(searchTerm)
+    if (tableType === 'countries') {
+      setCountrySearchTerm(searchTermCountry)
+    } else {
+      setSearchTerm(searchTerm)
+    }
   }
 
   const handleReset = () => {
-    setLocalSearchTerm('')
-    setSearchTerm('')
+    if (tableType === 'countries') {
+      setCountrySearchTerm('')
+    } else {
+      setLocalSearchTerm('')
+      setLocalSearchTermCountry('')
+      setCountrySearchTerm('')
+      setSearchTerm('')
+    }
   }
+
+  const columns = tableType === 'countries' ? countryColumns : nodeColumns
+  const data = useMemo(() => {
+    console.log('Table data memo - tableType:', tableType)
+    console.log('Table data memo - countryStats:', countryStats)
+    console.log('Table data memo - nodeData:', nodeData)
+    return tableType === 'countries' ? countryStats : nodeData
+  }, [tableType, nodeData, countryStats])
 
   return (
     <div className={styles.root}>
-      <div style={{ height: '100%', width: '100%' }}>
-        <DataGrid
+      <div style={{ height: 'calc(100vh - 200px)', width: '100%' }}>
+        <StyledDataGrid
           rows={data}
-          columns={columns}
+          getRowHeight={() => 'auto'}
+          columns={columns as GridColDef<GridValidRowModel>[]}
           slots={{
             toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps>
           }}
           slotProps={{
             toolbar: {
-              searchTerm: searchTerm,
+              searchTerm: tableType === 'countries' ? searchTermCountry : searchTerm,
               onSearchChange: handleSearchChange,
               onSearch: handleSearch,
-              onReset: handleReset
+              onReset: handleReset,
+              tableType: tableType
             }
           }}
           initialState={{
@@ -312,8 +491,7 @@ export default function Table() {
                 supportedStorage: false,
                 platform: false,
                 codeHash: false,
-                allowedAdmins: false,
-                // lastCheck: false
+                allowedAdmins: false
               }
             },
             pagination: {
@@ -324,8 +502,12 @@ export default function Table() {
             }
           }}
           pagination
+          disableColumnMenu
           pageSizeOptions={[10, 25, 50, 100]}
-          paginationModel={{ page: currentPage - 1, pageSize }}
+          paginationModel={{
+            page: currentPage - 1,
+            pageSize
+          }}
           onPaginationModelChange={handlePaginationChange}
           loading={loading}
           disableRowSelectionOnClick
@@ -336,10 +518,21 @@ export default function Table() {
           onSortModelChange={handleSortModelChange}
           onFilterModelChange={handleFilterChange}
           rowCount={totalItems}
-          autoHeight
+          autoHeight={false}
+          hideFooter={true}
         />
       </div>
-
+      <CustomPagination
+        page={tableType === 'countries' ? countryCurrentPage : currentPage}
+        pageSize={tableType === 'countries' ? countryPageSize : pageSize}
+        totalItems={totalItems}
+        onPageChange={(page: number) =>
+          tableType === 'countries' ? setCountryCurrentPage(page) : setCurrentPage(page)
+        }
+        onPageSizeChange={(size: number) =>
+          tableType === 'countries' ? setCountryPageSize(size) : setPageSize(size)
+        }
+      />
       {selectedNode && (
         <NodeDetails nodeData={selectedNode} onClose={() => setSelectedNode(null)} />
       )}

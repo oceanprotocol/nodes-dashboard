@@ -4,8 +4,11 @@ import logo from '../../assets/logo.svg'
 import styles from './style.module.css'
 // import { ConnectButton } from '@rainbow-me/rainbowkit'
 import Link from 'next/link'
+import { getRoutes } from '../../config'
 
 const NavBar = () => {
+  const routes = getRoutes()
+
   return (
     <div className={styles.navbarParent}>
       <div className={styles.logoWrapper}>
@@ -14,18 +17,11 @@ const NavBar = () => {
         </Link>
       </div>
       <div className={styles.navLinks}>
-        <Link href="/" className={styles.navLink}>
-          Home
-        </Link>
-        <Link href="/nodes" className={styles.navLink}>
-          Nodes
-        </Link>
-        <Link href="/countries" className={styles.navLink}>
-          Countries
-        </Link>
-        <Link href="/incentives" className={styles.navLink}>
-          Incentives
-        </Link>
+        {Object.values(routes).map((route) => (
+          <Link key={route.path} href={route.path} className={styles.navLink}>
+            {route.name}
+          </Link>
+        ))}
       </div>
       {/* <div className={styles.NavbarLinks}>
         <div className={styles.connectButtonWrapper}>

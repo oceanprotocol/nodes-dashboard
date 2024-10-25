@@ -1,5 +1,6 @@
 .root {
   width: 100%;
+  height: calc(100vh - 64px);
   margin: 0 auto;
   border-radius: 15px;
   background: var(--white);
@@ -7,7 +8,7 @@
   padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  overflow: hidden;
 }
 
 .search{

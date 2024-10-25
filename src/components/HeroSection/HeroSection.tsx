@@ -2,18 +2,25 @@ import Dashboard from '../Dashboard/Dashboard'
 import NavBar from '../Navigation'
 import styles from './HeroSection.module.css'
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  title: string
+  description: string
+  dashboard?: boolean
+}
+
+const HeroSection: React.FC<HeroSectionProps> = ({
+  title,
+  description,
+  dashboard = true
+}) => {
   return (
     <div className={styles.root}>
       <NavBar />
       <div className={styles.heroSection}>
-        <h1>Ocean Nodes at a Glance</h1>
-        <p>
-          Ocean Node is a decentralized network of nodes that provide <br /> a secure and
-          reliable connection to the Ocean Protocol.
-        </p>
+        <h1>{title}</h1>
+        <p>{description}</p>
       </div>
-      <Dashboard />
+      {dashboard && <Dashboard />}
     </div>
   )
 }

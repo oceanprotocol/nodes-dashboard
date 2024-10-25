@@ -40,6 +40,8 @@
 .socialIcons {
   display: flex;
   gap: 40px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .socialIcons a {
@@ -52,4 +54,34 @@
 
 .socialIcons a:hover {
   background-color: #2D1A3F;
+}
+
+@media (max-width: 768px) {
+  .footer {
+    height: auto;
+    padding: 24px;
+  }
+
+  .content {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .text {
+    max-width: 100%;
+  }
+
+  .socialIcons {
+    justify-content: center;
+  }
+
+  .socialIcons a {
+    width: 20px;
+    height: 20px;
+  }
+
+  .socialIcons a img {
+    width: 20px;
+    height: 20px;
+  }
 }

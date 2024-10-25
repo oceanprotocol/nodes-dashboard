@@ -49,7 +49,7 @@
 }
 
 .runNode {
-  background: linear-gradient(135deg, #0E001A66 0%, #CF1FB166 32%, #A8168F 40%);
+  background: linear-gradient(135deg, #0E001A66 0%, #CF1FB166 45%, #CF1FB1 90%);
   color: #FFFFFF;
   font-family: 'Sharp Sans', sans-serif;
   font-size: 16px;
@@ -64,4 +64,24 @@
 
 .runNode:hover {
   background-color: #A8168F;
+}
+
+@media (max-width: 768px) {
+  .container {
+    height: auto;
+    padding: 24px;
+  }
+
+  .container h2 {
+    font-size: 24px;
+  }
+
+  .container p {
+    font-size: 16px;
+  }
+
+  .runNode {
+    font-size: 14px;
+    padding: 12px 24px;
+  }
 }
