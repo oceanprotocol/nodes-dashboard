@@ -3,14 +3,38 @@ import Card from '../Card/Card'
 import styles from './Dashboard.module.css'
 import { useDataContext } from '@/context/DataContext'
 import { useMapContext } from '../../context/MapContext'
-import { CircularProgress } from '@mui/material'
+import { CircularProgress, Alert, Box } from '@mui/material'
 
 const Dashboard = () => {
   const { data, loading, error, totalNodes, totalEligibleNodes } = useDataContext()
   const { totalCountries } = useMapContext()
 
-  if (loading) return <CircularProgress />
-  if (error) return <div>Error: {error.message}</div>
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress sx={{ color: '#e000cf' }} />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <Alert
+          severity="error"
+          sx={{
+            width: '100%',
+            maxWidth: '500px',
+            '& .MuiAlert-icon': {
+              color: '#e000cf'
+            }
+          }}
+        >
+          Error loading dashboard data: {error?.message || 'Something went wrong'}
+        </Alert>
+      </Box>
+    )
+  }
 
   return (
     <div className={styles.dashboard}>
