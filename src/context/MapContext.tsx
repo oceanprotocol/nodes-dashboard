@@ -45,7 +45,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       setLoading(true)
       try {
         const response = await axios.get(fetchUrl)
-        const nodes = response.data
+        const nodes = response?.data?.locations || response?.data
 
         setData(nodes)
       } catch (err) {
