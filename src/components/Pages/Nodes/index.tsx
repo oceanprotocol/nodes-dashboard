@@ -7,11 +7,7 @@ import HeroSection from '../../HeroSection/HeroSection'
 const NodesPage: React.FC = () => {
   return (
     <div className={styles.root}>
-      <HeroSection
-        title="Explore All Nodes"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
-        dashboard={false}
-      />
+      <HeroSection title="Explore All Nodes" dashboard={false} />
       <Table />
     </div>
   )

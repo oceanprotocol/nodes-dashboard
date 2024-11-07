@@ -10,7 +10,7 @@ import React, {
 import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
 import { getApiRoute } from '@/config' // Import the config and getApiRoute function
-import { CountryStatsType } from '../shared/types/dataTypes'
+import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
 
 interface DataContextType {
   data: NodeData[]
@@ -40,6 +40,7 @@ interface DataContextType {
   setTableType: (type: 'nodes' | 'countries') => void
   countrySearchTerm: string
   setCountrySearchTerm: (term: string) => void
+  systemStats: SystemStats
 }
 
 interface DataProviderProps {
@@ -67,6 +68,11 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [countryPageSize, setCountryPageSize] = useState(10)
   const [tableType, setTableType] = useState<'nodes' | 'countries'>('nodes')
   const [countrySearchTerm, setCountrySearchTerm] = useState<string>('')
+  const [systemStats, setSystemStats] = useState<SystemStats>({
+    cpuCounts: {},
+    operatingSystems: {},
+    cpuArchitectures: {}
+  })
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -134,13 +140,21 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
   const fetchCountryStats = useCallback(async () => {
     try {
-      const response = await axios.get(getApiRoute('countryStats'), {
-        params: {
-          page: countryCurrentPage,
-          pageSize: countryPageSize,
-          search: countrySearchTerm
-        }
-      })
+      const params: Record<string, any> = {
+        page: countryCurrentPage,
+        pageSize: countryPageSize
+      }
+      if (countrySearchTerm) {
+        params['filters[country]'] = countrySearchTerm
+      }
+      if (sortModel && Object.keys(sortModel).length > 0) {
+        const [field, order] = Object.entries(sortModel)[0]
+        const sortField =
+          field === 'cityWithMostNodesCount' ? 'cityWithMostNodesCount' : field
+        params[`sort[${sortField}]`] = order
+      }
+
+      const response = await axios.get(getApiRoute('countryStats'), { params })
 
       if (response.data && Array.isArray(response.data.countryStats)) {
         const processedStats = response.data.countryStats.map((country: any) => ({
@@ -148,7 +162,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           country: country.country,
           totalNodes: country.totalNodes,
           citiesWithNodes: country.citiesWithNodes,
-          cityWithMostNodes: country.cityWithMostNodes
+          cityWithMostNodes: country.cityWithMostNodes,
+          cityWithMostNodesCount: country.cityWithMostNodesCount
         }))
         setCountryStats(processedStats)
         setTotalItems(response.data.pagination.totalItems)
@@ -165,7 +180,25 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       setTotalItems(0)
       setTotalPages(0)
     }
-  }, [countryCurrentPage, countryPageSize, countrySearchTerm])
+  }, [countryCurrentPage, countryPageSize, countrySearchTerm, sortModel])
+
+  const fetchSystemStats = useCallback(async () => {
+    try {
+      const response = await axios.get(getApiRoute('nodeSystemStats'))
+      if (response.data) {
+        setSystemStats(response.data)
+      }
+    } catch (err) {
+      console.error('Error fetching system stats:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchSystemStats()
+    const interval = setInterval(fetchSystemStats, 300000)
+
+    return () => clearInterval(interval)
+  }, [fetchSystemStats])
 
   useEffect(() => {
     if (tableType === 'countries') {
@@ -243,7 +276,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         tableType,
         setTableType: handleSetTableType,
         countrySearchTerm,
-        setCountrySearchTerm
+        setCountrySearchTerm,
+        systemStats
       }}
     >
       {children}

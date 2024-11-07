@@ -51,3 +51,15 @@ export type CountryStatsType = {
   citiesWithNodes: number
   cityWithMostNodes: string
 }
+
+export interface SystemStats {
+  cpuCounts: {
+    [key: string]: number
+  }
+  operatingSystems: {
+    [key: string]: number
+  }
+  cpuArchitectures: {
+    [key: string]: number
+  }
+}

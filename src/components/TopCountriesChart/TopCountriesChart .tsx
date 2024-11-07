@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid } from 'recharts'
 import styles from './TopCountriesChart.module.css'
 import { getRoutes } from '../../config'
+import { useDataContext } from '../../context/DataContext'
 
 interface TopCountriesChartProps {
   data: { country: string; nodes: number }[]
@@ -10,17 +11,20 @@ interface TopCountriesChartProps {
 
 const TopCountriesChart: React.FC<TopCountriesChartProps> = ({ data }) => {
   const routes = getRoutes()
+  const { countryStats } = useDataContext()
+
+  const topCountries = countryStats.slice(0, 5).map((stat) => ({
+    country: stat.country,
+    nodes: stat.totalNodes
+  }))
 
   return (
     <div className={styles.root}>
       <h2 className={styles.title}>Top 5 countries by Ocean Nodes</h2>
-      <p className={styles.description}>
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-      </p>
       <div className={styles.container}>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart
-            data={data}
+            data={topCountries}
             layout="vertical"
             margin={{ left: 20, right: 20, top: 20, bottom: 20 }}
           >

@@ -7,11 +7,7 @@ import HeroSection from '../../HeroSection/HeroSection'
 const CountriesPage: React.FC = () => {
   return (
     <div className={styles.root}>
-      <HeroSection
-        title="Nodes per Countries"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
-        dashboard={false}
-      />
+      <HeroSection title="Nodes per Countries" dashboard={false} />
       <Table tableType="countries" />
     </div>
   )

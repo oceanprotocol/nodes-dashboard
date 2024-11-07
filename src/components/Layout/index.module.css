@@ -26,11 +26,14 @@
 .mainContainer {
   display: flex;
   flex-direction: column;
-  max-width: 1160px;
   margin: 0 auto;
   position: relative;
   z-index: 5;
   gap: 100px;
+}
+
+.mainContainerHome {
+  max-width: 1160px;
 }
 
 @media (max-width: 768px) {

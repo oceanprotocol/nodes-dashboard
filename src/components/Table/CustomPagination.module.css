@@ -5,6 +5,28 @@
   align-items: center;
   gap: 16px;
   padding: 30px 90px;
+  font-family: 'Sharp Sans', sans-serif!important;
+}
+
+@media (max-width: 768px) {
+  .pagination {
+    flex-direction: row;
+    padding: 10px;
+    align-items: center;
+  }
+
+  .paginationButton {
+    flex: 1;
+    margin: 0;
+  }
+
+  .paginationArrowText {
+    display: none;
+  }
+
+  .pageSizeSelector {
+    flex: 1;
+  }
 }
 
 .paginationButton {
@@ -12,6 +34,7 @@
   flex-direction: row;
   align-items: center;
   gap: 8px;
+  font-family: 'Sharp Sans', sans-serif;
 }
 
 .paginationArrowText {
@@ -30,16 +53,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.pageSizeLabel {
   font-family: 'Sharp Sans', sans-serif;
-  font-size: 14px;
-  color: #000000;
 }
 
 .paginationCore {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-family: 'Sharp Sans', sans-serif!important;
 }

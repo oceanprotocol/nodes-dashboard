@@ -48,8 +48,7 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   },
   '& .MuiDataGrid-columnHeaders': {
     backgroundColor: '#f8f9fa',
-    borderBottom: '1px solid #e9ecef',
-    minHeight: '56px !important'
+    borderBottom: '1px solid #e9ecef'
   },
   '& .MuiDataGrid-columnHeaderTitle': {
     fontFamily: "'Sharp Sans', sans-serif",
@@ -67,13 +66,9 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     fontFamily: "'Sharp Sans', sans-serif",
     fontSize: '14px',
     fontWeight: 400,
-    padding: '31px 0',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis'
-  },
-  '& .MuiDataGrid-row': {
-    minHeight: '56px !important'
   },
   '& .MuiDataGrid-columnSeparator': {
     visibility: 'visible',
@@ -134,44 +129,49 @@ const formatUptimePercentage = (uptimeInSeconds: number, totalUptime: number): s
   console.log('real uptimeInSeconds: ', uptimeInSeconds)
   console.log('real totalUptime: ', totalUptime)
 
-  const uptimePercentage = (uptimeInSeconds / totalUptime) * 100;
+  const uptimePercentage = (uptimeInSeconds / totalUptime) * 100
   console.log('real uptime percentage: ', uptimePercentage)
-  const percentage = uptimePercentage > 100 ? 100 : uptimePercentage;
-  return `${percentage.toFixed(2)}%`;
-};
+  const percentage = uptimePercentage > 100 ? 100 : uptimePercentage
+  return `${percentage.toFixed(2)}%`
+}
 
-const UptimeCell: React.FC<{ uptimeInSeconds: number, lastCheck: number }> = ({ uptimeInSeconds, lastCheck}) => {
-  const [totalUptime, setTotalUptime] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+const UptimeCell: React.FC<{ uptimeInSeconds: number; lastCheck: number }> = ({
+  uptimeInSeconds,
+  lastCheck
+}) => {
+  const [totalUptime, setTotalUptime] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchTotalUptime = async () => {
       try {
-        const response = await axios.get(`https://incentive-backend.oceanprotocol.com/weekStats?date=${(lastCheck/ 1000).toFixed(0)}`);
+        const response = await axios.get(
+          `https://incentive-backend.oceanprotocol.com/weekStats?date=${(lastCheck / 1000).toFixed(0)}`
+        )
         const data = response?.data
         if (data && data.length > 0) {
-          setTotalUptime(data[0]._source.totalUptime);
+          setTotalUptime(data[0]._source.totalUptime)
         } else {
-          throw new Error('Invalid API response');
+          throw new Error('Invalid API response')
         }
       } catch (error) {
-        setError('Failed to fetch uptime data');
+        setError('Failed to fetch uptime data')
       }
-    };
+    }
 
-    fetchTotalUptime();
-  }, []);
+    fetchTotalUptime()
+  }, [])
 
   if (error) {
-    return <span>{error}</span>;
+    return <span>{error}</span>
   }
 
   if (totalUptime === null) {
-    return <span>Loading...</span>; 
+    return <span>Loading...</span>
   }
 
-  return <span>{formatUptimePercentage(uptimeInSeconds, totalUptime)}</span>;
-};
+  return <span>{formatUptimePercentage(uptimeInSeconds, totalUptime)}</span>
+}
 
 const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   return eligible ? (
@@ -233,12 +233,15 @@ export default function Table({
     },
     {
       field: 'uptime',
-      headerName: "Weekly Uptime",
+      headerName: 'Weekly Uptime',
       sortable: true,
       flex: 1,
       minWidth: 150,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <UptimeCell uptimeInSeconds={params.row.uptime} lastCheck={params.row.lastCheck} />
+        <UptimeCell
+          uptimeInSeconds={params.row.uptime}
+          lastCheck={params.row.lastCheck}
+        />
       )
     },
     {
@@ -403,7 +406,8 @@ export default function Table({
       flex: 1,
       minWidth: 200,
       align: 'left',
-      headerAlign: 'left'
+      headerAlign: 'left',
+      sortable: false
     },
     {
       field: 'totalNodes',
@@ -412,7 +416,8 @@ export default function Table({
       minWidth: 150,
       type: 'number',
       align: 'left',
-      headerAlign: 'left'
+      headerAlign: 'left',
+      sortable: true
     },
     {
       field: 'citiesWithNodes',
@@ -421,7 +426,8 @@ export default function Table({
       minWidth: 200,
       type: 'number',
       align: 'left',
-      headerAlign: 'left'
+      headerAlign: 'left',
+      sortable: true
     },
     {
       field: 'cityWithMostNodes',
@@ -429,7 +435,13 @@ export default function Table({
       flex: 1,
       minWidth: 200,
       align: 'left',
-      headerAlign: 'left'
+      headerAlign: 'left',
+      sortable: true,
+      renderCell: (params) => (
+        <span>
+          {params.row.cityWithMostNodes} ({params.row.cityWithMostNodesCount} nodes)
+        </span>
+      )
     }
   ]
 
@@ -449,7 +461,19 @@ export default function Table({
   const handleSortModelChange = (newSortModel: GridSortModel) => {
     if (newSortModel.length > 0) {
       const { field, sort } = newSortModel[0]
-      setSortModel({ [field]: sort as 'asc' | 'desc' })
+      if (tableType === 'countries') {
+        const sortField = field === 'cityWithMostNodes' ? 'cityWithMostNodesCount' : field
+        const allowedSortFields = [
+          'totalNodes',
+          'citiesWithNodes',
+          'cityWithMostNodesCount'
+        ]
+        if (allowedSortFields.includes(sortField)) {
+          setSortModel({ [sortField]: sort as 'asc' | 'desc' })
+        }
+      } else if (tableType === 'nodes') {
+        setSortModel({ [field]: sort as 'asc' | 'desc' })
+      }
     } else {
       setSortModel({})
     }
@@ -504,7 +528,6 @@ export default function Table({
       <div style={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <StyledDataGrid
           rows={data}
-          getRowHeight={() => 'auto'}
           columns={columns as GridColDef<GridValidRowModel>[]}
           slots={{
             toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps>

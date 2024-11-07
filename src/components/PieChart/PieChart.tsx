@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector, Tooltip } from 'recharts'
 import styles from './PieChartCard.module.css'
 
 interface PieChartCardProps {
@@ -54,6 +54,30 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
     )
   }
 
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const { name, value } = payload[0].payload
+      const percentage = ((value / totalValue) * 100).toFixed(1)
+
+      return (
+        <div
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            padding: '8px',
+            borderRadius: '4px',
+            color: '#000'
+          }}
+        >
+          <p style={{ margin: 0 }}>{name}</p>
+          <p style={{ margin: 0 }}>
+            {value} nodes ({percentage}%)
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
+
   return (
     <div className={styles.card}>
       <h3>{title}</h3>
@@ -85,6 +109,7 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
               />
             ))}
           </Pie>
+          <Tooltip content={<CustomTooltip />} />
         </PieChart>
       </ResponsiveContainer>
       <p className={styles.tapToSee}>{hoverText}</p>

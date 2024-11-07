@@ -1,14 +1,19 @@
 .navbarParent {
+  position: sticky;
+  top: 40px;
+  z-index: 1000;
   display: flex;
-  justify-content: center;
   justify-content: space-between;
   align-items: center;
-  color: var(--gray-700);
-  border-radius: 15px;
-  box-shadow: 0px 7px 23px 0px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(10.5px);
-  padding: 11px 24px;
+  padding: 9px 37px 4px 37px;
+  background-color: rgba(207, 31, 177, 0.04);
+  border-radius: 20px;
+  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
   width: 100%;
+  margin: 0 auto;
+  box-shadow: 0px 7px 23px 0px rgba(0, 0, 0, 0.05);
+  max-width: 1160px;
   margin: 0 auto;
 }
 
@@ -28,17 +33,6 @@
   gap: 24px;
 }
 
-.navbarParent {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 9px 37px 4px 37px;
-  background-color: rgba(207, 31, 177,0.04);
-  border-radius: 20px;
-  -webkit-backdrop-filter: blur(15px);
-  backdrop-filter: blur(15px)
-}
-
 .navLinks {
   display: flex;
   gap: 2rem;
@@ -48,7 +42,7 @@
   color: white;
   text-decoration: none;
   font-size: 20px;
-  font-family: 'Sharp Sans Display No1', sans-serif;
+  font-family: 'Sharp Sans', sans-serif;
   font-weight: 400;
   line-height: 26px;
   letter-spacing: 0em;

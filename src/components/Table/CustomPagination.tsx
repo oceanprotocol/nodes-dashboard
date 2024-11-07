@@ -23,9 +23,6 @@ const StyledPagination = styled(Pagination)(({ theme }) => ({
     maxHeight: '32px',
     borderRadius: '8px',
     paddingTop: '3px'
-  },
-  '& .MuiPaginationItem-icon': {
-    display: 'none'
   }
 }))
 
@@ -54,7 +51,19 @@ const StyledSelect = styled(Select)(({ theme }) => ({
   },
   '& .MuiSelect-select': {
     paddingTop: 5,
-    paddingBottom: 5
+    paddingBottom: 5,
+    fontFamily: "'Sharp Sans', sans-serif",
+    fontSize: '16px',
+    fontWeight: 400,
+    lineHeight: '24px',
+    color: '#000000'
+  },
+  '& .MuiMenuItem-root': {
+    fontFamily: "'Sharp Sans', sans-serif",
+    fontSize: '16px',
+    fontWeight: 400,
+    lineHeight: '16px',
+    color: '#000000'
   }
 }))
 

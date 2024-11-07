@@ -35,7 +35,8 @@ type Config = {
 const apiRoutes = {
   nodes: '/nodes',
   locations: '/locations',
-  countryStats: '/countryStats'
+  countryStats: '/countryStats',
+  nodeSystemStats: '/nodeSystemStats'
 } as const
 
 type ApiRouteKeys = keyof typeof apiRoutes
