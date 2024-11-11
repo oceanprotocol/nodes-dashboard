@@ -5,11 +5,7 @@ import styles from './TopCountriesChart.module.css'
 import { getRoutes } from '../../config'
 import { useDataContext } from '../../context/DataContext'
 
-interface TopCountriesChartProps {
-  data: { country: string; nodes: number }[]
-}
-
-const TopCountriesChart: React.FC<TopCountriesChartProps> = ({ data }) => {
+const TopCountriesChart: React.FC = () => {
   const routes = getRoutes()
   const { countryStats } = useDataContext()
 

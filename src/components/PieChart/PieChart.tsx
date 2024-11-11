@@ -3,7 +3,12 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Sector, Tooltip } from 'recha
 import styles from './PieChartCard.module.css'
 
 interface PieChartCardProps {
-  data: { name: string; value: number; color: string }[]
+  data: {
+    name: string
+    value: number
+    color: string
+    details?: string[]
+  }[]
   title: string
 }
 
@@ -56,7 +61,7 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-      const { name, value } = payload[0].payload
+      const { name, value, details } = payload[0].payload
       const percentage = ((value / totalValue) * 100).toFixed(1)
 
       return (
@@ -68,10 +73,28 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
             color: '#000'
           }}
         >
-          <p style={{ margin: 0 }}>{name}</p>
-          <p style={{ margin: 0 }}>
-            {value} nodes ({percentage}%)
+          <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>{name}</p>
+          <p style={{ margin: '0 0 8px 0' }}>
+            Total: {value} nodes ({percentage}%)
           </p>
+          {details && (
+            <div
+              style={{
+                fontSize: '12px',
+                maxHeight: '150px',
+                overflowY: 'auto',
+                borderTop: '1px solid #eee',
+                paddingTop: '8px'
+              }}
+            >
+              {Array.isArray(details) &&
+                details.map((detail: string, index: number) => (
+                  <p key={index} style={{ margin: '2px 0' }}>
+                    {detail}
+                  </p>
+                ))}
+            </div>
+          )}
         </div>
       )
     }

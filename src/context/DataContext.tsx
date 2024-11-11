@@ -201,12 +201,20 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   }, [fetchSystemStats])
 
   useEffect(() => {
-    if (tableType === 'countries') {
-      fetchCountryStats()
-    } else {
+    fetchCountryStats()
+
+    if (tableType === 'nodes') {
       fetchData()
     }
   }, [tableType, fetchCountryStats, fetchData])
+
+  useEffect(() => {
+    fetchCountryStats()
+
+    const interval = setInterval(fetchCountryStats, 300000)
+
+    return () => clearInterval(interval)
+  }, [fetchCountryStats])
 
   const handleSetCurrentPage = (page: number) => {
     setCurrentPage(page)
