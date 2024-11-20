@@ -5,6 +5,12 @@ import { useDataContext } from '@/context/DataContext'
 import { useMapContext } from '../../context/MapContext'
 import { CircularProgress, Alert, Box } from '@mui/material'
 
+const formatNumber = (num: number | string | undefined): string => {
+  if (num === undefined) return '0'
+  const numStr = typeof num === 'string' ? num : num.toString()
+  return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
 const Dashboard = () => {
   const { data, loading, error, totalNodes, totalEligibleNodes } = useDataContext()
   const { totalCountries } = useMapContext()
@@ -40,7 +46,7 @@ const Dashboard = () => {
     <div className={styles.dashboard}>
       <Card
         title="Total Eligible Nodes"
-        bigNumber={totalEligibleNodes}
+        bigNumber={formatNumber(totalEligibleNodes)}
         // additionalInfo={
         //   <div className={styles.nodeStats}>
         //     <div className={styles.greenBox}>{eligibleNodes}</div>
@@ -50,10 +56,10 @@ const Dashboard = () => {
         //   </div>
         // }
       />
-      <Card title="Total Countries" bigNumber={totalCountries} />
+      <Card title="Total Countries" bigNumber={formatNumber(totalCountries)} />
       <Card
         title="Total Nodes"
-        bigNumber={totalNodes}
+        bigNumber={formatNumber(totalNodes)}
         // additionalInfo={
         //   <div className={styles.nodeStats}>
         //     <div className={styles.greenBox}>{totalNodes}</div>
@@ -67,7 +73,7 @@ const Dashboard = () => {
         title="Total Rewards"
         additionalInfo={
           <div className={styles.rewardAmount}>
-            <span className={styles.rewardNumber}>{24.356}</span>
+            <span className={styles.rewardNumber}>{formatNumber(24.356)}</span>
             <span className={styles.oceanText}>OCEAN</span>
           </div>
         }
