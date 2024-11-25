@@ -12,7 +12,10 @@ import {
   GridRenderCellParams,
   GridSortModel,
   GridToolbarProps,
-  GridValidRowModel
+  GridValidRowModel,
+  GridFilterInputValue,
+  GridFilterModel,
+  GridValueGetter
 } from '@mui/x-data-grid'
 
 import styles from './index.module.css'
@@ -26,6 +29,7 @@ import ReportIcon from '@mui/icons-material/Report'
 import CustomToolbar from '../Toolbar'
 import { styled } from '@mui/material/styles'
 import CustomPagination from './CustomPagination'
+import { FilterOperator, CountryStatsFilters } from '../../types/filters'
 
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-toolbarContainer': {
@@ -160,7 +164,7 @@ const UptimeCell: React.FC<{ uptimeInSeconds: number; lastCheck: number }> = ({
     }
 
     fetchTotalUptime()
-  }, [])
+  }, [lastCheck])
 
   if (error) {
     return <span>{error}</span>
@@ -407,7 +411,33 @@ export default function Table({
       minWidth: 200,
       align: 'left',
       headerAlign: 'left',
-      sortable: false
+      sortable: false,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'contains',
+          value: 'contains',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              return params.value?.toLowerCase().includes(filterItem.value.toLowerCase())
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        },
+        {
+          label: 'equals',
+          value: 'eq',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value === filterItem.value
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        }
+      ]
     },
     {
       field: 'totalNodes',
@@ -417,7 +447,43 @@ export default function Table({
       type: 'number',
       align: 'left',
       headerAlign: 'left',
-      sortable: true
+      sortable: true,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'equals',
+          value: 'eq',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value === Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        },
+        {
+          label: 'greater than',
+          value: 'gt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value > Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        },
+        {
+          label: 'less than',
+          value: 'lt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value < Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        }
+      ]
     },
     {
       field: 'citiesWithNodes',
@@ -427,7 +493,43 @@ export default function Table({
       type: 'number',
       align: 'left',
       headerAlign: 'left',
-      sortable: true
+      sortable: true,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'equals',
+          value: 'eq',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value === Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        },
+        {
+          label: 'greater than',
+          value: 'gt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value > Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        },
+        {
+          label: 'less than',
+          value: 'lt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value < Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        }
+      ]
     },
     {
       field: 'cityWithMostNodes',
@@ -437,7 +539,46 @@ export default function Table({
       align: 'left',
       headerAlign: 'left',
       sortable: true,
-      renderCell: (params) => (
+      filterable: true,
+      valueGetter: (params: { row: any }) => {
+        return params.row?.cityWithMostNodesCount || 0
+      },
+      filterOperators: [
+        {
+          label: 'equals',
+          value: 'eq',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value === Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        },
+        {
+          label: 'greater than',
+          value: 'gt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value > Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        },
+        {
+          label: 'less than',
+          value: 'lt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              return params.value < Number(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'number' }
+        }
+      ],
+      renderCell: (params: GridRenderCellParams) => (
         <span>
           {params.row.cityWithMostNodes} ({params.row.cityWithMostNodesCount} nodes)
         </span>
@@ -479,16 +620,22 @@ export default function Table({
     }
   }
 
-  const handleFilterChange = (filterModel: any) => {
-    const newFilters: { [key: string]: string } = {}
+  const handleFilterChange = (filterModel: GridFilterModel) => {
+    const newFilters: CountryStatsFilters = {}
 
-    filterModel.items.forEach((item: any) => {
+    filterModel.items.forEach((item) => {
       if (item.value && item.field) {
-        newFilters[item.field] = String(item.value)
+        const fieldName =
+          item.field === 'cityWithMostNodes' ? 'cityWithMostNodesCount' : item.field
+
+        ;(newFilters as any)[fieldName] = {
+          value: String(item.value),
+          operator: item.operator as FilterOperator
+        }
       }
     })
 
-    setFilters({ ...newFilters })
+    setFilters(newFilters)
   }
 
   const handleSearchChange = (searchValue: string) => {
@@ -560,7 +707,8 @@ export default function Table({
                 pageSize: pageSize,
                 page: currentPage - 1
               }
-            }
+            },
+            density: 'comfortable'
           }}
           pagination
           disableColumnMenu

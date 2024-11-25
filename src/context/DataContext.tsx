@@ -11,6 +11,8 @@ import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
 import { getApiRoute } from '@/config' // Import the config and getApiRoute function
 import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
+import { CountryStatsFilters } from '../types/filters'
+import { buildCountryStatsUrl } from '../shared/utils/urlBuilder'
 
 interface DataContextType {
   data: NodeData[]
@@ -80,10 +82,20 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       .join('&')
   }, [sortModel])
 
+  const buildFilterParams = (filters: CountryStatsFilters): Record<string, string> => {
+    const params: Record<string, string> = {}
+
+    Object.entries(filters).forEach(([field, filterData]) => {
+      const { value, operator } = filterData
+      params[`filters[${field}][value]`] = value
+      params[`filters[${field}][operator]`] = operator
+    })
+
+    return params
+  }
+
   const filterParams = useMemo(() => {
-    return Object.entries(filters)
-      .map(([key, value]) => `filters[${key}]=${value}`)
-      .join('&')
+    return buildFilterParams(filters)
   }, [filters])
 
   const fetchUrl = useMemo(() => {
@@ -144,13 +156,23 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         page: countryCurrentPage,
         pageSize: countryPageSize
       }
+
       if (countrySearchTerm) {
-        params['filters[country]'] = countrySearchTerm
+        params['filters[country][value]'] = countrySearchTerm
+        params['filters[country][operator]'] = 'contains'
       }
+
+      if (filters && Object.keys(filters).length > 0) {
+        Object.entries(filters).forEach(([field, filterData]) => {
+          const { value, operator } = filterData
+          params[`filters[${field}][value]`] = value
+          params[`filters[${field}][operator]`] = operator
+        })
+      }
+
       if (sortModel && Object.keys(sortModel).length > 0) {
         const [field, order] = Object.entries(sortModel)[0]
-        const sortField =
-          field === 'cityWithMostNodesCount' ? 'cityWithMostNodesCount' : field
+        const sortField = field === 'cityWithMostNodes' ? 'cityWithMostNodesCount' : field
         params[`sort[${sortField}]`] = order
       }
 
@@ -180,7 +202,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       setTotalItems(0)
       setTotalPages(0)
     }
-  }, [countryCurrentPage, countryPageSize, countrySearchTerm, sortModel])
+  }, [countryCurrentPage, countryPageSize, countrySearchTerm, filters, sortModel])
 
   const fetchSystemStats = useCallback(async () => {
     try {
@@ -254,6 +276,30 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const handleSetTableType = (type: 'nodes' | 'countries') => {
     setTableType(type)
   }
+
+  const buildUrl = useCallback(() => {
+    const pagination = {
+      page: tableType === 'countries' ? countryCurrentPage : currentPage,
+      pageSize: tableType === 'countries' ? countryPageSize : pageSize
+    }
+
+    const baseUrl = tableType === 'countries' ? '/api/countryStats' : '/api/nodes'
+
+    return buildCountryStatsUrl(
+      baseUrl,
+      pagination,
+      filters as CountryStatsFilters,
+      sortModel
+    )
+  }, [
+    tableType,
+    currentPage,
+    countryCurrentPage,
+    pageSize,
+    countryPageSize,
+    filters,
+    sortModel
+  ])
 
   return (
     <DataContext.Provider
