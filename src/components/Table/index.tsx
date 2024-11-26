@@ -588,15 +588,30 @@ export default function Table({
 
   const handlePaginationChange = useCallback(
     (paginationModel: { page: number; pageSize: number }) => {
+      const newPage = paginationModel.page + 1
+      const newPageSize = paginationModel.pageSize
+
       if (tableType === 'countries') {
-        setCountryCurrentPage(paginationModel.page + 1)
-        setCountryPageSize(paginationModel.pageSize)
+        setCountryCurrentPage(newPage)
+        if (newPageSize !== countryPageSize) {
+          setCountryPageSize(newPageSize)
+        }
       } else {
-        setCurrentPage(paginationModel.page + 1)
-        setPageSize(paginationModel.pageSize)
+        setCurrentPage(newPage)
+        if (newPageSize !== pageSize) {
+          setPageSize(newPageSize)
+        }
       }
     },
-    [tableType, setCurrentPage, setPageSize, setCountryCurrentPage, setCountryPageSize]
+    [
+      tableType,
+      setCurrentPage,
+      setPageSize,
+      setCountryCurrentPage,
+      setCountryPageSize,
+      countryPageSize,
+      pageSize
+    ]
   )
 
   const handleSortModelChange = (newSortModel: GridSortModel) => {
@@ -714,8 +729,8 @@ export default function Table({
           disableColumnMenu
           pageSizeOptions={[10, 25, 50, 100]}
           paginationModel={{
-            page: currentPage - 1,
-            pageSize
+            page: (tableType === 'countries' ? countryCurrentPage : currentPage) - 1,
+            pageSize: tableType === 'countries' ? countryPageSize : pageSize
           }}
           onPaginationModelChange={handlePaginationChange}
           loading={loading}

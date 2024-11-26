@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { Pagination, styled, Button, Typography, Select, MenuItem } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
@@ -75,7 +75,7 @@ interface CustomPaginationProps {
   onPageSizeChange: (pageSize: number) => void
 }
 
-function CustomPagination({
+const CustomPagination = React.memo(function CustomPagination({
   page,
   pageSize,
   totalItems,
@@ -84,13 +84,19 @@ function CustomPagination({
 }: CustomPaginationProps) {
   const pageCount = Math.ceil(totalItems / pageSize)
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    onPageChange(value)
-  }
+  const handlePageChange = useCallback(
+    (event: React.ChangeEvent<unknown>, value: number) => {
+      onPageChange(value)
+    },
+    [onPageChange]
+  )
 
-  const handlePageSizeChange = (event: any) => {
-    onPageSizeChange(event.target.value)
-  }
+  const handlePageSizeChange = useCallback(
+    (event: any) => {
+      onPageSizeChange(Number(event.target.value))
+    },
+    [onPageSizeChange]
+  )
 
   return (
     <div className={styles.pagination}>
@@ -130,6 +136,6 @@ function CustomPagination({
       </NavButton>
     </div>
   )
-}
+})
 
 export default CustomPagination

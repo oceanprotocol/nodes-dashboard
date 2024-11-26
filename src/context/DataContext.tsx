@@ -216,27 +216,43 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    fetchSystemStats()
-    const interval = setInterval(fetchSystemStats, 300000)
+    let mounted = true
+    const controller = new AbortController()
 
-    return () => clearInterval(interval)
-  }, [fetchSystemStats])
+    const fetchAllData = async () => {
+      if (!mounted) return
 
-  useEffect(() => {
-    fetchCountryStats()
-
-    if (tableType === 'nodes') {
-      fetchData()
+      try {
+        if (tableType === 'nodes') {
+          await fetchData()
+        } else {
+          await fetchCountryStats()
+        }
+        if (!systemStats.cpuCounts || Object.keys(systemStats.cpuCounts).length === 0) {
+          await fetchSystemStats()
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      }
     }
-  }, [tableType, fetchCountryStats, fetchData])
 
-  useEffect(() => {
-    fetchCountryStats()
+    fetchAllData()
 
-    const interval = setInterval(fetchCountryStats, 300000)
-
-    return () => clearInterval(interval)
-  }, [fetchCountryStats])
+    return () => {
+      mounted = false
+      controller.abort()
+    }
+  }, [
+    tableType,
+    currentPage,
+    pageSize,
+    countryCurrentPage,
+    countryPageSize,
+    filters,
+    sortModel,
+    searchTerm,
+    countrySearchTerm
+  ])
 
   const handleSetCurrentPage = (page: number) => {
     setCurrentPage(page)
