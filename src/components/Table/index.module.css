@@ -28,6 +28,15 @@
   line-height: 140%;
 }
 
+.headerTitle {
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 21px;
+  color: #6c757d;
+  text-transform: uppercase;
+}
+
 .dropdownTriggerBox {
   width: 100%;
   display: flex;

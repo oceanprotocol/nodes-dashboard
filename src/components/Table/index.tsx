@@ -288,7 +288,7 @@ export default function Table({
           title="These nodes were eligible to receive rewards the proportion of their uptime 
            at the last round checks."
         >
-          <span>Last Check Eligibility</span>
+          <span className={styles.headerTitle}>Last Check Eligibility</span>
         </Tooltip>
       ),
       renderCell: (params: GridRenderCellParams<NodeData>) => (
