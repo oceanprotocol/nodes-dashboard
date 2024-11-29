@@ -29,7 +29,7 @@ import ReportIcon from '@mui/icons-material/Report'
 import CustomToolbar from '../Toolbar'
 import { styled } from '@mui/material/styles'
 import CustomPagination from './CustomPagination'
-import { FilterOperator, CountryStatsFilters } from '../../types/filters'
+import { FilterOperator, CountryStatsFilters, NodeFilters } from '../../types/filters'
 
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-toolbarContainer': {
@@ -226,14 +226,30 @@ export default function Table({
       width: 70,
       align: 'center',
       headerAlign: 'center',
-      sortable: false
+      sortable: false,
+      filterable: false
     },
     {
       field: 'id',
       headerName: 'Node ID',
       flex: 1,
       minWidth: 300,
-      sortable: false
+      sortable: false,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'contains',
+          value: 'contains',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              return params.value?.toLowerCase().includes(filterItem.value.toLowerCase())
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        }
+      ]
     },
     {
       field: 'uptime',
@@ -241,6 +257,21 @@ export default function Table({
       sortable: true,
       flex: 1,
       minWidth: 150,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'contains',
+          value: 'contains',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              return params.value?.toLowerCase().includes(filterItem.value.toLowerCase())
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        }
+      ],
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <UptimeCell
           uptimeInSeconds={params.row.uptime}
@@ -254,6 +285,7 @@ export default function Table({
       flex: 1,
       minWidth: 200,
       sortable: false,
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>
           {(params.row.ipAndDns?.dns || params.row.ipAndDns?.ip || '') +
@@ -262,21 +294,98 @@ export default function Table({
       )
     },
     {
+      field: 'dnsFilter',
+      headerName: 'DNS / IP',
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'contains',
+          value: 'contains',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              const dnsIpString =
+                (params.row.ipAndDns?.dns || params.row.ipAndDns?.ip || '') +
+                (params.row.ipAndDns?.port ? ':' + params.row.ipAndDns?.port : '')
+              return dnsIpString.includes(filterItem.value)
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        }
+      ]
+    },
+    {
       field: 'location',
       headerName: 'Location',
       flex: 1,
       minWidth: 200,
       sortable: false,
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{`${params.row.location?.city || ''} ${params.row.location?.country || ''}`}</span>
+        <span>
+          {`${params.row.location?.city || ''} ${params.row.location?.country || ''}`}
+        </span>
       )
+    },
+    {
+      field: 'city',
+      headerName: 'City',
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'contains',
+          value: 'contains',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              return (params.row.location?.city || '')
+                .toLowerCase()
+                .includes(filterItem.value.toLowerCase())
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        }
+      ]
+    },
+    {
+      field: 'country',
+      headerName: 'Country',
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'contains',
+          value: 'contains',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              return (params.row.location?.country || '')
+                .toLowerCase()
+                .includes(filterItem.value.toLowerCase())
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        }
+      ]
     },
     {
       field: 'address',
       headerName: 'Address',
       flex: 1,
       minWidth: 150,
-      sortable: false
+      sortable: false,
+      filterable: false
     },
     {
       field: 'eligible',
@@ -303,6 +412,23 @@ export default function Table({
       flex: 1,
       width: 100,
       sortable: false,
+      filterable: true,
+      filterOperators: [
+        {
+          label: 'contains',
+          value: 'contains',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              return (params.row.eligibilityCauseStr || 'none')
+                .toLowerCase()
+                .includes(filterItem.value.toLowerCase())
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'text' }
+        }
+      ],
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{params.row.eligibilityCauseStr || 'none'}</span>
       )
@@ -312,6 +438,7 @@ export default function Table({
       headerName: 'Last Check',
       flex: 1,
       minWidth: 140,
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>
           {new Date(params?.row?.lastCheck)?.toLocaleString(undefined, {
@@ -326,6 +453,7 @@ export default function Table({
       flex: 1,
       minWidth: 150,
       sortable: false,
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{getAllNetworks(params.row.indexer)}</span>
       )
@@ -334,38 +462,43 @@ export default function Table({
       field: 'viewMore',
       headerName: '',
       width: 120,
+      sortable: false,
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <Button onClick={() => setSelectedNode(params.row)}>View More</Button>
-      ),
-      sortable: false
+      )
     },
     {
       field: 'publicKey',
       headerName: 'Public Key',
       flex: 1,
       sortable: false,
-      minWidth: 200
+      minWidth: 200,
+      filterable: false
     },
     {
       field: 'version',
       headerName: 'Version',
       flex: 1,
       minWidth: 100,
-      sortable: false
+      sortable: false,
+      filterable: false
     },
     {
       field: 'http',
       headerName: 'HTTP Enabled',
       flex: 1,
       minWidth: 100,
-      sortable: false
+      sortable: false,
+      filterable: false
     },
     {
       field: 'p2p',
       headerName: 'P2P Enabled',
       flex: 1,
       minWidth: 100,
-      sortable: false
+      sortable: false,
+      filterable: false
     },
     {
       field: 'supportedStorage',
@@ -373,6 +506,7 @@ export default function Table({
       flex: 1,
       minWidth: 200,
       sortable: false,
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{formatSupportedStorage(params.row.supportedStorage)}</span>
       )
@@ -383,6 +517,7 @@ export default function Table({
       flex: 1,
       minWidth: 200,
       sortable: false,
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{formatPlatform(params.row.platform)}</span>
       )
@@ -392,18 +527,29 @@ export default function Table({
       headerName: 'Code Hash',
       flex: 1,
       minWidth: 200,
-      sortable: false
+      sortable: false,
+      filterable: false
     },
     {
       field: 'allowedAdmins',
       headerName: 'Allowed Admins',
       flex: 1,
       minWidth: 200,
-      sortable: false
+      sortable: false,
+      filterable: false
     }
   ]
 
   const countryColumns: GridColDef[] = [
+    {
+      field: 'index',
+      headerName: 'Index',
+      width: 70,
+      align: 'center',
+      headerAlign: 'center',
+      sortable: false,
+      filterable: false
+    },
     {
       field: 'country',
       headerName: 'Country',
@@ -636,16 +782,25 @@ export default function Table({
   }
 
   const handleFilterChange = (filterModel: GridFilterModel) => {
-    const newFilters: CountryStatsFilters = {}
+    const newFilters: NodeFilters = {}
 
     filterModel.items.forEach((item) => {
       if (item.value && item.field) {
-        const fieldName =
-          item.field === 'cityWithMostNodes' ? 'cityWithMostNodesCount' : item.field
-
-        ;(newFilters as any)[fieldName] = {
-          value: String(item.value),
-          operator: item.operator as FilterOperator
+        if (item.field === 'dnsFilter') {
+          newFilters.dns = {
+            value: String(item.value),
+            operator: 'contains' as FilterOperator
+          }
+        } else if (item.field === 'city' || item.field === 'country') {
+          newFilters[item.field] = {
+            value: String(item.value),
+            operator: item.operator as FilterOperator
+          }
+        } else {
+          newFilters[item.field as keyof NodeFilters] = {
+            value: String(item.value),
+            operator: item.operator as FilterOperator
+          }
         }
       }
     })
@@ -705,17 +860,23 @@ export default function Table({
           }}
           initialState={{
             columns: {
-              columnVisibilityModel: {
-                network: false,
-                publicKey: false,
-                version: false,
-                http: false,
-                p2p: false,
-                supportedStorage: false,
-                platform: false,
-                codeHash: false,
-                allowedAdmins: false
-              }
+              columnVisibilityModel:
+                tableType === 'nodes'
+                  ? {
+                      network: false,
+                      publicKey: false,
+                      version: false,
+                      http: false,
+                      p2p: false,
+                      supportedStorage: false,
+                      platform: false,
+                      codeHash: false,
+                      allowedAdmins: false,
+                      dnsFilter: false,
+                      city: false,
+                      country: false
+                    }
+                  : {}
             },
             pagination: {
               paginationModel: {

@@ -11,7 +11,7 @@ import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
 import { getApiRoute } from '@/config' // Import the config and getApiRoute function
 import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
-import { CountryStatsFilters } from '../types/filters'
+import { CountryStatsFilters, NodeFilters } from '../types/filters'
 import { buildCountryStatsUrl } from '../shared/utils/urlBuilder'
 
 interface DataContextType {
@@ -82,43 +82,31 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       .join('&')
   }, [sortModel])
 
-  const buildFilterParams = (filters: CountryStatsFilters): Record<string, string> => {
-    const params: Record<string, string> = {}
+  const buildFilterParams = (filters: NodeFilters): string => {
+    if (!filters || Object.keys(filters).length === 0) return ''
 
-    Object.entries(filters).forEach(([field, filterData]) => {
-      const { value, operator } = filterData
-      params[`filters[${field}][value]`] = value
-      params[`filters[${field}][operator]`] = operator
-    })
-
-    return params
+    return Object.entries(filters)
+      .filter(([_, filterData]) => filterData?.value && filterData?.operator)
+      .map(([field, filterData]) => {
+        return `filters[${field}][${filterData.operator}]=${filterData.value}`
+      })
+      .join('&')
   }
 
-  const filterParams = useMemo(() => {
-    return buildFilterParams(filters)
-  }, [filters])
-
   const fetchUrl = useMemo(() => {
-    let url = getApiRoute('nodes') + `?page=${currentPage}&size=${pageSize}`
-
-    if (searchTerm) {
-      url += `&search=${encodeURIComponent(searchTerm)}`
-    }
+    let url = `${getApiRoute('nodes')}?page=${currentPage}&size=${pageSize}`
 
     if (sortParams) {
       url += `&${sortParams}`
     }
 
-    if (filterParams && Object.keys(filterParams).length > 0) {
-      url += `&${filterParams}`
-    }
-
-    if (nextSearchAfter) {
-      url += `&searchAfter=${encodeURIComponent(JSON.stringify(nextSearchAfter))}`
+    const filterString = buildFilterParams(filters)
+    if (filterString) {
+      url += `&${filterString}`
     }
 
     return url
-  }, [currentPage, pageSize, searchTerm, sortParams, filterParams, nextSearchAfter])
+  }, [currentPage, pageSize, sortParams, filters])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
