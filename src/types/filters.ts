@@ -45,5 +45,5 @@ export interface NodeFilters {
   dns?: FilterValue
   city?: FilterValue
   country?: FilterValue
-  eligibilityCauseStr?: FilterValue
+  eligible?: FilterValue
 }

@@ -43,6 +43,7 @@ interface DataContextType {
   countrySearchTerm: string
   setCountrySearchTerm: (term: string) => void
   systemStats: SystemStats
+  totalUptime: number | null
 }
 
 interface DataProviderProps {
@@ -75,6 +76,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     operatingSystems: {},
     cpuArchitectures: {}
   })
+  const [totalUptime, setTotalUptime] = useState<number | null>(null)
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -105,8 +107,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       url += `&${filterString}`
     }
 
+    if (searchTerm) {
+      url += `&search=${encodeURIComponent(searchTerm)}`
+    }
+
     return url
-  }, [currentPage, pageSize, sortParams, filters])
+  }, [currentPage, pageSize, sortParams, filters, searchTerm])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -116,13 +122,16 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       let sanitizedData: NodeData[] = []
       for (let index = 0; index < response.data.nodes.length; index++) {
         const element = response.data.nodes[index]
+
+        console.groupEnd()
+
         sanitizedData.push({
           ...element._source,
           index: (currentPage - 1) * pageSize + index + 1
         })
       }
 
-      const updatedData = currentPage === 1 ? sanitizedData : [...data, ...sanitizedData]
+      console.groupEnd()
 
       setData(sanitizedData)
       setTotalItems(response.data.pagination.totalItems)
@@ -242,6 +251,28 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     countrySearchTerm
   ])
 
+  useEffect(() => {
+    const fetchTotalUptime = async () => {
+      try {
+        const now = Math.floor(Date.now() / 1000)
+
+        const response = await axios.get(
+          `https://incentive-backend.oceanprotocol.com/weekStats?date=${now}`
+        )
+
+        if (response?.data && response.data.length > 0) {
+          const totalUptimeValue = response.data[0]._source.totalUptime
+
+          setTotalUptime(totalUptimeValue)
+        }
+      } catch (error) {
+        console.error('Failed to fetch total uptime:', error)
+      }
+    }
+
+    fetchTotalUptime()
+  }, [])
+
   const handleSetCurrentPage = (page: number) => {
     setCurrentPage(page)
   }
@@ -335,7 +366,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         setTableType: handleSetTableType,
         countrySearchTerm,
         setCountrySearchTerm,
-        systemStats
+        systemStats,
+        totalUptime
       }}
     >
       {children}

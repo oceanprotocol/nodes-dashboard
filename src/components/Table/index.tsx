@@ -129,47 +129,30 @@ export const formatUptime = (uptimeInSeconds: number): string => {
 
   return `${dayStr}${hourStr}${minuteStr}`.trim()
 }
-const formatUptimePercentage = (uptimeInSeconds: number, totalUptime: number): string => {
-  console.log('real uptimeInSeconds: ', uptimeInSeconds)
-  console.log('real totalUptime: ', totalUptime)
+const formatUptimePercentage = (
+  uptimeInSeconds: number,
+  totalUptime: number | null
+): string => {
+  if (totalUptime === null) return '0.00%'
+
+  console.group('Uptime Calculation')
+  console.log('Input uptimeInSeconds:', uptimeInSeconds)
+  console.log('Input totalUptime:', totalUptime)
 
   const uptimePercentage = (uptimeInSeconds / totalUptime) * 100
-  console.log('real uptime percentage: ', uptimePercentage)
+  console.log('Calculated percentage:', uptimePercentage)
+
   const percentage = uptimePercentage > 100 ? 100 : uptimePercentage
+  console.log('Final percentage (capped at 100):', percentage)
+  console.groupEnd()
+
   return `${percentage.toFixed(2)}%`
 }
 
-const UptimeCell: React.FC<{ uptimeInSeconds: number; lastCheck: number }> = ({
-  uptimeInSeconds,
-  lastCheck
-}) => {
-  const [totalUptime, setTotalUptime] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchTotalUptime = async () => {
-      try {
-        const response = await axios.get(
-          `https://incentive-backend.oceanprotocol.com/weekStats?date=${(lastCheck / 1000).toFixed(0)}`
-        )
-        const data = response?.data
-        if (data && data.length > 0) {
-          setTotalUptime(data[0]._source.totalUptime)
-        } else {
-          throw new Error('Invalid API response')
-        }
-      } catch (error) {
-        setError('Failed to fetch uptime data')
-      }
-    }
-
-    fetchTotalUptime()
-  }, [lastCheck])
-
-  if (error) {
-    return <span>{error}</span>
-  }
-
+const UptimeCell: React.FC<{
+  uptimeInSeconds: number
+  totalUptime: number | null
+}> = ({ uptimeInSeconds, totalUptime }) => {
   if (totalUptime === null) {
     return <span>Loading...</span>
   }
@@ -208,7 +191,8 @@ export default function Table({
     setCountryCurrentPage,
     countryPageSize,
     setCountryPageSize,
-    setCountrySearchTerm
+    setCountrySearchTerm,
+    totalUptime
   } = useDataContext()
 
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null)
@@ -260,23 +244,79 @@ export default function Table({
       filterable: true,
       filterOperators: [
         {
-          label: 'contains',
-          value: 'contains',
+          label: 'equals',
+          value: 'eq',
           getApplyFilterFn: (filterItem) => {
             return (params) => {
               if (!filterItem.value) return true
-              return params.value?.toLowerCase().includes(filterItem.value.toLowerCase())
+              const filterValue = Number(filterItem.value) / 100
+              const uptimePercentage = params.value / params.row.totalUptime
+              return Math.abs(uptimePercentage - filterValue) <= 0.001
             }
           },
           InputComponent: GridFilterInputValue,
-          InputComponentProps: { type: 'text' }
+          InputComponentProps: {
+            type: 'number',
+            step: '0.01',
+            min: '0',
+            max: '100',
+            placeholder: 'Enter percentage (0-100)',
+            error: !totalUptime,
+            helperText: !totalUptime ? 'Loading uptime data...' : undefined
+          }
+        },
+        {
+          label: 'greater than',
+          value: 'gt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              const filterValue = Number(filterItem.value) / 100
+              const uptimePercentage = params.value / params.row.totalUptime
+              return uptimePercentage > filterValue
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: {
+            type: 'number',
+            step: '0.01',
+            min: '0',
+            max: '100',
+            placeholder: 'Enter percentage (0-100)',
+            error: !totalUptime,
+            helperText: !totalUptime ? 'Loading uptime data...' : undefined
+          }
+        },
+        {
+          label: 'less than',
+          value: 'lt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              const filterValue = Number(filterItem.value) / 100
+              const uptimePercentage = params.value / params.row.totalUptime
+              return uptimePercentage < filterValue
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: {
+            type: 'number',
+            step: '0.01',
+            min: '0',
+            max: '100',
+            placeholder: 'Enter percentage (0-100)',
+            error: !totalUptime,
+            helperText: !totalUptime ? 'Loading uptime data...' : undefined
+          }
         }
       ],
       renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <UptimeCell
-          uptimeInSeconds={params.row.uptime}
-          lastCheck={params.row.lastCheck}
-        />
+        <UptimeCell uptimeInSeconds={params.row.uptime} totalUptime={totalUptime} />
+      ),
+      renderHeader: () => (
+        <Tooltip title="Filter by uptime percentage (0-100)">
+          <span>Weekly Uptime</span>
+        </Tooltip>
       )
     },
     {
@@ -392,14 +432,33 @@ export default function Table({
       headerName: 'Last Check Eligibility',
       flex: 1,
       width: 80,
+      filterable: true,
+      sortable: true,
       renderHeader: () => (
-        <Tooltip
-          title="These nodes were eligible to receive rewards the proportion of their uptime 
-           at the last round checks."
-        >
+        <Tooltip title="These nodes were eligible to receive rewards the proportion of their uptime at the last round checks.">
           <span className={styles.headerTitle}>Last Check Eligibility</span>
         </Tooltip>
       ),
+      filterOperators: [
+        {
+          label: 'equals',
+          value: 'eq',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              return params.value === (filterItem.value === 'true')
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: {
+            type: 'singleSelect',
+            valueOptions: [
+              { value: 'true', label: 'Eligible' },
+              { value: 'false', label: 'Not Eligible' }
+            ]
+          }
+        }
+      ],
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <span>{getEligibleCheckbox(params.row.eligible)}</span>
@@ -412,23 +471,7 @@ export default function Table({
       flex: 1,
       width: 100,
       sortable: false,
-      filterable: true,
-      filterOperators: [
-        {
-          label: 'contains',
-          value: 'contains',
-          getApplyFilterFn: (filterItem) => {
-            return (params) => {
-              if (!filterItem.value) return true
-              return (params.row.eligibilityCauseStr || 'none')
-                .toLowerCase()
-                .includes(filterItem.value.toLowerCase())
-            }
-          },
-          InputComponent: GridFilterInputValue,
-          InputComponentProps: { type: 'text' }
-        }
-      ],
+      filterable: false,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>{params.row.eligibilityCauseStr || 'none'}</span>
       )
@@ -438,14 +481,58 @@ export default function Table({
       headerName: 'Last Check',
       flex: 1,
       minWidth: 140,
-      filterable: false,
+      filterable: true,
       renderCell: (params: GridRenderCellParams<NodeData>) => (
         <span>
           {new Date(params?.row?.lastCheck)?.toLocaleString(undefined, {
             timeZoneName: 'short'
           })}
         </span>
-      )
+      ),
+      filterOperators: [
+        {
+          label: 'equals',
+          value: 'eq',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              const filterDate = new Date(filterItem.value).getTime()
+              const cellDate = new Date(params.value).getTime()
+              return cellDate === filterDate
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'datetime-local' }
+        },
+        {
+          label: 'after',
+          value: 'gt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              const filterDate = new Date(filterItem.value).getTime()
+              const cellDate = new Date(params.value).getTime()
+              return cellDate > filterDate
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'datetime-local' }
+        },
+        {
+          label: 'before',
+          value: 'lt',
+          getApplyFilterFn: (filterItem) => {
+            return (params) => {
+              if (!filterItem.value) return true
+              const filterDate = new Date(filterItem.value).getTime()
+              const cellDate = new Date(params.value).getTime()
+              return cellDate < filterDate
+            }
+          },
+          InputComponent: GridFilterInputValue,
+          InputComponentProps: { type: 'datetime-local' }
+        }
+      ]
     },
     {
       field: 'network',
@@ -790,6 +877,13 @@ export default function Table({
           newFilters.dns = {
             value: String(item.value),
             operator: 'contains' as FilterOperator
+          }
+        } else if (item.field === 'uptime' && totalUptime !== null) {
+          const percentageValue = Number(item.value)
+          const rawSeconds = (percentageValue / 100) * totalUptime
+          newFilters.uptime = {
+            value: rawSeconds.toString(),
+            operator: item.operator as FilterOperator
           }
         } else if (item.field === 'city' || item.field === 'country') {
           newFilters[item.field] = {
