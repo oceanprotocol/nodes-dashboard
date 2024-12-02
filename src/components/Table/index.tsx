@@ -432,7 +432,7 @@ export default function Table({
       headerName: 'Last Check Eligibility',
       flex: 1,
       width: 80,
-      filterable: true,
+      filterable: false,
       sortable: true,
       renderHeader: () => (
         <Tooltip title="These nodes were eligible to receive rewards the proportion of their uptime at the last round checks.">
