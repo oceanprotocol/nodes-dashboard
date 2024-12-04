@@ -30,6 +30,7 @@ import CustomToolbar from '../Toolbar'
 import { styled } from '@mui/material/styles'
 import CustomPagination from './CustomPagination'
 import { FilterOperator, CountryStatsFilters, NodeFilters } from '../../types/filters'
+import { debounce } from '../../shared/utils/debounce'
 
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-toolbarContainer': {
@@ -868,39 +869,50 @@ export default function Table({
     }
   }
 
-  const handleFilterChange = (filterModel: GridFilterModel) => {
-    const newFilters: NodeFilters = {}
-
-    filterModel.items.forEach((item) => {
-      if (item.value && item.field) {
-        if (item.field === 'dnsFilter') {
-          newFilters.dns = {
-            value: String(item.value),
-            operator: 'contains' as FilterOperator
-          }
-        } else if (item.field === 'uptime' && totalUptime !== null) {
-          const percentageValue = Number(item.value)
-          const rawSeconds = (percentageValue / 100) * totalUptime
-          newFilters.uptime = {
-            value: rawSeconds.toString(),
-            operator: item.operator as FilterOperator
-          }
-        } else if (item.field === 'city' || item.field === 'country') {
-          newFilters[item.field] = {
-            value: String(item.value),
-            operator: item.operator as FilterOperator
-          }
-        } else {
-          newFilters[item.field as keyof NodeFilters] = {
-            value: String(item.value),
-            operator: item.operator as FilterOperator
-          }
-        }
+  const debouncedHandleFilterChange = useCallback(
+    (filterModel: GridFilterModel) => {
+      if (!filterModel.items.some((item) => item.value)) {
+        return
       }
-    })
 
-    setFilters(newFilters)
-  }
+      const debouncedFilter = debounce((model: GridFilterModel) => {
+        const newFilters: NodeFilters = {}
+
+        model.items.forEach((item) => {
+          if (item.value && item.field) {
+            if (item.field === 'dnsFilter') {
+              newFilters.dns = {
+                value: String(item.value),
+                operator: 'contains' as FilterOperator
+              }
+            } else if (item.field === 'uptime' && totalUptime !== null) {
+              const percentageValue = Number(item.value)
+              const rawSeconds = (percentageValue / 100) * totalUptime
+              newFilters.uptime = {
+                value: rawSeconds.toString(),
+                operator: item.operator as FilterOperator
+              }
+            } else if (item.field === 'city' || item.field === 'country') {
+              newFilters[item.field] = {
+                value: String(item.value),
+                operator: item.operator as FilterOperator
+              }
+            } else {
+              newFilters[item.field as keyof NodeFilters] = {
+                value: String(item.value),
+                operator: item.operator as FilterOperator
+              }
+            }
+          }
+        })
+
+        setFilters(newFilters)
+      }, 1000)
+
+      debouncedFilter(filterModel)
+    },
+    [setFilters, totalUptime]
+  )
 
   const handleSearchChange = (searchValue: string) => {
     if (tableType === 'countries') {
@@ -995,7 +1007,7 @@ export default function Table({
           sortingMode="server"
           filterMode="server"
           onSortModelChange={handleSortModelChange}
-          onFilterModelChange={handleFilterChange}
+          onFilterModelChange={debouncedHandleFilterChange}
           rowCount={totalItems}
           autoHeight={false}
           hideFooter={true}
