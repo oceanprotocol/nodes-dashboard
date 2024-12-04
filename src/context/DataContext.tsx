@@ -33,6 +33,7 @@ interface DataContextType {
   setSortModel: (model: { [key: string]: 'asc' | 'desc' }) => void
   totalNodes: number
   totalEligibleNodes: number
+  totalRewards: number
   countryStats: CountryStatsType[]
   countryCurrentPage: number
   countryPageSize: number
@@ -65,6 +66,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null)
   const [totalNodes, setTotalNodes] = useState<number>(0)
   const [totalEligibleNodes, setTotalEligibleNodes] = useState<number>(0)
+  const [totalRewards, setTotalRewards] = useState<number>(0)
   const [countryStats, setCountryStats] = useState<CountryStatsType[]>([])
   const [countryCurrentPage, setCountryCurrentPage] = useState(1)
   const [countryPageSize, setCountryPageSize] = useState(10)
@@ -141,7 +143,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       setTotalPages(response.data.pagination.totalPages)
       setNextSearchAfter(response.data.pagination.nextSearchAfter)
       setTotalNodes(response.data.pagination.totalItems)
-      setTotalEligibleNodes(response.data.totalEligibleNodes)
+      // setTotalEligibleNodes(response.data.totalEligibleNodes)
     } catch (err) {
       console.error('Error fetching data:', err)
       setError(err)
@@ -149,6 +151,38 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       setLoading(false)
     }
   }, [fetchUrl])
+
+  const getTotalEligible =  useCallback(async () => {
+    setLoading(true)
+    try {
+      const date = Date.now(); 
+      const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+      const oneWeekAgo = new Date(date - oneWeekInMs);
+      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`)
+      
+      setTotalEligibleNodes(response.data.numberOfRows)
+    } catch (err) {
+      console.error('Error total eligible nodes data:', err)
+      setError(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+
+  const getTotalRewards =  useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/all-summary`)
+      
+      setTotalRewards(response.data.cumulativeTotalAmount)
+    } catch (err) {
+      console.error('Error total eligible nodes data:', err)
+      setError(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const fetchCountryStats = useCallback(async () => {
     try {
@@ -231,6 +265,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (!systemStats.cpuCounts || Object.keys(systemStats.cpuCounts).length === 0) {
           await fetchSystemStats()
         }
+        await getTotalEligible()
+        await getTotalRewards()
       } catch (error) {
         console.error('Error fetching data:', error)
       }
@@ -333,6 +369,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         nextSearchAfter,
         totalNodes,
         totalEligibleNodes,
+        totalRewards,
         setCurrentPage: handleSetCurrentPage,
         setPageSize: handleSetPageSize,
         setSearchTerm: handleSetSearchTerm,
