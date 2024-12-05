@@ -12,7 +12,7 @@ const formatNumber = (num: number | string | undefined): string => {
 }
 
 const Dashboard = () => {
-  const { data, loading, error, totalNodes, totalEligibleNodes } = useDataContext()
+  const { data, loading, error, totalNodes, totalEligibleNodes, totalRewards } = useDataContext()
   const { totalCountries } = useMapContext()
 
   if (loading) {
@@ -73,8 +73,8 @@ const Dashboard = () => {
         title="Total Rewards"
         additionalInfo={
           <div className={styles.rewardAmount}>
-            <span className={styles.rewardNumber}>{formatNumber(24.356)}</span>
-            <span className={styles.oceanText}>OCEAN</span>
+            <span className={styles.rewardNumber}>{formatNumber(totalRewards)}</span>
+            <span className={styles.oceanText}>ROSE</span>
           </div>
         }
       />
