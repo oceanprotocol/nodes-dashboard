@@ -871,11 +871,12 @@ export default function Table({
 
   const debouncedHandleFilterChange = useCallback(
     (filterModel: GridFilterModel) => {
-      if (!filterModel.items.some((item) => item.value)) {
-        return
-      }
-
       const debouncedFilter = debounce((model: GridFilterModel) => {
+        if (!model.items.some((item) => item.value)) {
+          setFilters({})
+          return
+        }
+
         const newFilters: NodeFilters = {}
 
         model.items.forEach((item) => {
