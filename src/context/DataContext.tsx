@@ -9,7 +9,7 @@ import React, {
 } from 'react'
 import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
-import { getApiRoute } from '@/config' // Import the config and getApiRoute function
+import { getApiRoute } from '@/config'
 import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
 import { CountryStatsFilters, NodeFilters } from '../types/filters'
 import { buildCountryStatsUrl } from '../shared/utils/urlBuilder'
@@ -216,14 +216,17 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       const response = await axios.get(getApiRoute('countryStats'), { params })
 
       if (response.data && Array.isArray(response.data.countryStats)) {
-        const processedStats = response.data.countryStats.map((country: any) => ({
-          id: country.country,
-          country: country.country,
-          totalNodes: country.totalNodes,
-          citiesWithNodes: country.citiesWithNodes,
-          cityWithMostNodes: country.cityWithMostNodes,
-          cityWithMostNodesCount: country.cityWithMostNodesCount
-        }))
+        const processedStats = response.data.countryStats.map(
+          (country: any, index: number) => ({
+            id: country.country,
+            index: (countryCurrentPage - 1) * countryPageSize + index + 1,
+            country: country.country,
+            totalNodes: country.totalNodes,
+            citiesWithNodes: country.citiesWithNodes,
+            cityWithMostNodes: country.cityWithMostNodes,
+            cityWithMostNodesCount: country.cityWithMostNodesCount
+          })
+        )
         setCountryStats(processedStats)
         setTotalItems(response.data.pagination.totalItems)
         setTotalPages(response.data.pagination.totalPages)
