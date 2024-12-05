@@ -154,16 +154,22 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
   const getTotalEligible =  useCallback(async () => {
     setLoading(true)
+    const date = Date.now(); 
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
     try {
-      const date = Date.now(); 
-      const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
-      const oneWeekAgo = new Date(date - oneWeekInMs);
+      const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000);
       const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`)
-      
+    
       setTotalEligibleNodes(response.data.numberOfRows)
     } catch (err) {
       console.error('Error total eligible nodes data:', err)
-      setError(err)
+      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000);
+      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/summary?date=${twoWeekAgo}`)
+      if(response){
+        setTotalEligibleNodes(response.data.numberOfRows)
+      }else{
+        setError(err)
+      }
     } finally {
       setLoading(false)
     }
