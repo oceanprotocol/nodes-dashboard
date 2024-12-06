@@ -1,0 +1,55 @@
+.card {
+  background-color: white;
+  border-radius: 16px;
+  padding: 24px;
+  color: #FFFFFF;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 238px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.header h3 {
+  font-size: 18px;
+  color: #0E001A;
+}
+
+.viewAll {
+  background: none;
+  border: none;
+  color: #3E60F7;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.total {
+  font-size: 80px;
+  font-weight: bold;
+  color: #CF1FB1;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 16px;
+  }
+
+  .total {
+    font-size: 60px;
+    min-height: 200px;
+  }
+}

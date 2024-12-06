@@ -1,5 +1,6 @@
 .root {
   width: 100%;
+  height: calc(100vh - 64px);
   margin: 0 auto;
   border-radius: 15px;
   background: var(--white);
@@ -7,7 +8,7 @@
   padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  overflow: hidden;
 }
 
 .search{
@@ -20,11 +21,20 @@
 
 .title {
   color: var(--gray-700);
-  font-family: Helvetica;
+  font-family: 'Sharp Sans', Helvetica, Arial, sans-serif;
   font-size: 18px;
   font-style: normal;
   font-weight: 700;
   line-height: 140%;
+}
+
+.headerTitle {
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 21px;
+  color: #6c757d;
+  text-transform: uppercase;
 }
 
 .dropdownTriggerBox {

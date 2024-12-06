@@ -19,38 +19,44 @@ createTheme('custom', theme)
 
 // https://github.com/jbetancur/react-data-table-component/blob/master/src/DataTable/styles.ts
 export const customStyles: TableStyles = {
-  expanderButton: {
-    style: {
-      WebkitAppearance: 'none',
-      width: '30px !important',
-      height: '30px !important',
-      background: 'transparent !important',
-      border: 'transparent !important',
-      color: '#A0AEC0 !important'
-    }
-  },
   table: {
     style: {
-      scrollbarWidth: 'thin'
+      backgroundColor: 'white',
+      borderRadius: '16px',
+      overflow: 'hidden'
     }
   },
   head: {
     style: {
-      fontWeight: '700'
+      backgroundColor: '#f8f9fa',
+      color: '#6c757d',
+      fontWeight: '500',
+      textTransform: 'uppercase',
+      fontSize: '12px'
     }
   },
   headCells: {
     style: {
-      textTransform: 'uppercase',
-      color: 'var(--color-secondary)',
-      fontSize: 'var(--font-size-small)'
+      borderBottom: '1px solid #e9ecef',
+      padding: '32px 87px'
     }
   },
   rows: {
     style: {
-      color: 'var(--gray-500)',
-      paddingTop: '24px',
-      paddingBottom: '24px'
+      fontSize: '14px',
+      color: '#212529',
+      fontFamily: "'Sharp Sans', sans-serif",
+      fontWeight: 400,
+      lineHeight: '21px',
+      '&:not(:last-of-type)': {
+        borderBottom: '1px solid #e9ecef'
+      }
+    }
+  },
+  cells: {
+    style: {
+      padding: '32px 87px',
+      textAlign: 'left'
     }
   }
 }

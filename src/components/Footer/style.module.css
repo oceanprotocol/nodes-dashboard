@@ -1,9 +1,22 @@
+.footer {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .footerContainer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   max-width: 1244px;
   margin: 0 auto;
+  color: white;
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  gap: 100px;
 }
 
 .footerLinks {
@@ -14,6 +27,10 @@
 }
 
 @media screen and (max-width: 700px) {
+  .footer {
+    padding: 20px;
+  }
+
   .footerContainer {
     flex-direction: column;
   }

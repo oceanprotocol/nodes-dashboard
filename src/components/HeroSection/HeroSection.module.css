@@ -1,0 +1,50 @@
+.root {
+  max-width: 1160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: transparent;
+  gap: 80px;
+}
+
+.heroSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: transparent;
+}
+
+.heroSection h1 {
+  font-family: 'Sharp Sans Display', 'Sharp Sans', sans-serif;
+  font-size: 50px;
+  font-weight: 700;
+  line-height: 62px;
+  letter-spacing: 0em;
+  text-align: center;
+  color: white;
+}
+
+.heroSection p {
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 30px;
+  letter-spacing: 0em;
+  text-align: center;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .heroSection h1 {
+    font-size: 36px;
+    line-height: 44px;
+  }
+
+  .heroSection p {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}

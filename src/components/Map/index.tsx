@@ -6,7 +6,7 @@ import L, { LatLngExpression } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import styles from './style.module.css'
 import { useMapContext } from '../../context/MapContext'
-import { LinearProgress } from '@mui/material'
+import { CircularProgress, Alert, Box, LinearProgress } from '@mui/material'
 import { LocationNode } from '../../shared/types/locationNodeType'
 
 export default function Map() {
@@ -16,6 +16,33 @@ export default function Map() {
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  if (loading || !data) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress sx={{ color: '#e000cf' }} />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <Alert
+          severity="error"
+          sx={{
+            width: '100%',
+            maxWidth: '500px',
+            '& .MuiAlert-icon': {
+              color: '#e000cf'
+            }
+          }}
+        >
+          Error loading map data: {error?.message || 'Something went wrong'}
+        </Alert>
+      </Box>
+    )
+  }
 
   const center: [number, number] = [25, 0]
 
@@ -61,7 +88,11 @@ export default function Map() {
 
   return (
     isClient && (
-      <MapContainer center={center} zoom={2} style={{ height: '500px', width: '100%' }}>
+      <MapContainer
+        center={center}
+        zoom={2}
+        style={{ height: '500px', width: '100%', borderRadius: '20px' }}
+      >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {!loading &&
           !error &&

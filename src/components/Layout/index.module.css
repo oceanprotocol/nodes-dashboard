@@ -1,0 +1,43 @@
+.main {
+  position: relative;
+  min-height: 100vh;
+}
+
+.topBackground,
+.bottomBackground {
+  position: absolute;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.topBackground {
+  top: -50px;
+  left: -50px;
+}
+
+.bottomBackground {
+  bottom: -50px;
+  left: -50px;
+}
+
+.mainContainer {
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  position: relative;
+  z-index: 5;
+  gap: 100px;
+}
+
+.mainContainerHome {
+  max-width: 1160px;
+}
+
+@media (max-width: 768px) {
+  .mainContainer {
+    gap: 50px;
+  }
+}

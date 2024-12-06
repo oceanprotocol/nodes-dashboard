@@ -1,27 +1,28 @@
 .navbarParent {
+  top: 40px;
+  z-index: 1000;
   display: flex;
-  justify-content: center;
-  /* justify-content: space-between;
+  justify-content: space-between;
   align-items: center;
-  color: var(--gray-700);
-  background-color: #ffffff;
-  border-radius: 15px;
-  box-shadow: 0px 7px 23px 0px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(10.5px);
-  padding: 11px 24px;
+  padding: 9px 37px 4px 37px;
+  background-color: rgba(207, 31, 177, 0.04);
+  border-radius: 20px;
+  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
   width: 100%;
-  margin: 0 auto; */
+  margin: 0 auto;
+  box-shadow: 0px 7px 23px 0px rgba(0, 0, 0, 0.05);
+  max-width: 1160px;
+  margin: 0 auto;
 }
 
 .logoWrapper {
-  flex-shrink: 0; /* Prevent the logo from shrinking */
-  /* min-width: 108px; Minimum width for the logo */
+  flex-shrink: 0;
 }
 
 
 .connectButtonWrapper {
-  flex-shrink: 0; /* Prevent the connect button from shrinking */
-  /* Optionally, you can set a min-width here as well */
+  flex-shrink: 0;
 }
 
 .NavbarLinks {
@@ -31,9 +32,47 @@
   gap: 24px;
 }
 
+.navLinks {
+  display: flex;
+  gap: 2rem;
+}
+
+.navLink {
+  color: white;
+  text-decoration: none;
+  font-size: 20px;
+  font-family: 'Sharp Sans', sans-serif;
+  font-weight: 400;
+  line-height: 26px;
+  letter-spacing: 0em;
+  text-align: left;
+}
+
+.navLink:hover {
+  text-decoration: none;
+}
+
 @media screen and (max-width: 700px) {
   .navbarParent {
     width: 90vw;
     margin: 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbarParent {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .NavbarLinks {
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .navLink {
+    font-size: 16px;
   }
 }

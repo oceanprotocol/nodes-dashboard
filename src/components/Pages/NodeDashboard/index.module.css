@@ -14,7 +14,7 @@
 .body {
   padding: 40px 72px;
   border-radius: 12px;
-  background: #fff;
+  background: #0E001A;
   width: 100%;
 }
 
@@ -51,7 +51,7 @@
   gap: 15px;
 
   color: var(--gray-500);
-  font-family: Helvetica;
+  font-family: 'Sharp Sans', Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-style: normal;
   font-weight: 400;
