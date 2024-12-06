@@ -45,6 +45,12 @@ interface DataContextType {
   setCountrySearchTerm: (term: string) => void
   systemStats: SystemStats
   totalUptime: number | null
+  rewardsHistory: Array<{
+    date: string
+    nrEligibleNodes: number
+    totalAmount: number
+  }>
+  fetchRewardsHistory: () => Promise<any>
 }
 
 interface DataProviderProps {
@@ -79,6 +85,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     cpuArchitectures: {}
   })
   const [totalUptime, setTotalUptime] = useState<number | null>(null)
+  const [rewardsHistory, setRewardsHistory] = useState<
+    Array<{
+      date: string
+      nrEligibleNodes: number
+      totalAmount: number
+    }>
+  >([])
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -149,22 +162,26 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [fetchUrl])
 
-  const getTotalEligible =  useCallback(async () => {
+  const getTotalEligible = useCallback(async () => {
     setLoading(true)
-    const date = Date.now(); 
-    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+    const date = Date.now()
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000
     try {
-      const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000);
-      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`)
-    
+      const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000)
+      const response = await axios.get(
+        `https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`
+      )
+
       setTotalEligibleNodes(response.data.numberOfRows)
     } catch (err) {
       console.error('Error total eligible nodes data:', err)
-      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000);
-      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/summary?date=${twoWeekAgo}`)
-      if(response){
+      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000)
+      const response = await axios.get(
+        `https://analytics.nodes.oceanprotocol.com/summary?date=${twoWeekAgo}`
+      )
+      if (response) {
         setTotalEligibleNodes(response.data.numberOfRows)
-      }else{
+      } else {
         setError(err)
       }
     } finally {
@@ -172,12 +189,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [])
 
-
-  const getTotalRewards =  useCallback(async () => {
+  const getTotalRewards = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/all-summary`)
-      
+      const response = await axios.get(
+        `https://analytics.nodes.oceanprotocol.com/all-summary`
+      )
+
       setTotalRewards(response.data.cumulativeTotalAmount)
     } catch (err) {
       console.error('Error total eligible nodes data:', err)
@@ -255,6 +273,23 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [])
 
+  const fetchRewardsHistory = async () => {
+    try {
+      const response = await fetch(
+        'https://analytics.nodes.oceanprotocol.com/rewards-history'
+      )
+      const data = await response.json()
+      const formattedData = data.rewards.map((item: any) => ({
+        date: item.date,
+        background: { value: item.nrEligibleNodes },
+        foreground: { value: item.totalAmount }
+      }))
+      setRewardsHistory(formattedData)
+    } catch (error) {
+      console.error('Error fetching rewards history:', error)
+    }
+  }
+
   useEffect(() => {
     let mounted = true
     const controller = new AbortController()
@@ -273,6 +308,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         await getTotalEligible()
         await getTotalRewards()
+        await fetchRewardsHistory()
       } catch (error) {
         console.error('Error fetching data:', error)
       }
@@ -413,7 +449,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         countrySearchTerm,
         setCountrySearchTerm,
         systemStats,
-        totalUptime
+        totalUptime,
+        rewardsHistory,
+        fetchRewardsHistory
       }}
     >
       {children}
