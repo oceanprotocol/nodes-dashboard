@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic'
+import { useEffect } from 'react'
 
 import styles from './style.module.css'
 
@@ -92,7 +93,11 @@ const processCpuArchData = (stats: SystemStats): ChartDataItem[] => {
 }
 
 export default function HomePage() {
-  const { systemStats } = useDataContext()
+  const { systemStats, setTableType } = useDataContext()
+
+  useEffect(() => {
+    setTableType('countries')
+  }, [setTableType])
 
   return (
     <div className={styles.root}>

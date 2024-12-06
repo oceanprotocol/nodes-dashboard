@@ -38,3 +38,12 @@ export interface PaginationParams {
 export interface SortModel {
   [field: string]: 'asc' | 'desc'
 }
+
+export interface NodeFilters {
+  id?: FilterValue
+  uptime?: FilterValue
+  dns?: FilterValue
+  city?: FilterValue
+  country?: FilterValue
+  eligible?: FilterValue
+}

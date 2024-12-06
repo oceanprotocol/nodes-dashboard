@@ -9,9 +9,9 @@ import React, {
 } from 'react'
 import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
-import { getApiRoute } from '@/config' // Import the config and getApiRoute function
+import { getApiRoute } from '@/config'
 import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
-import { CountryStatsFilters } from '../types/filters'
+import { CountryStatsFilters, NodeFilters } from '../types/filters'
 import { buildCountryStatsUrl } from '../shared/utils/urlBuilder'
 
 interface DataContextType {
@@ -44,6 +44,13 @@ interface DataContextType {
   countrySearchTerm: string
   setCountrySearchTerm: (term: string) => void
   systemStats: SystemStats
+  totalUptime: number | null
+  rewardsHistory: Array<{
+    date: string
+    nrEligibleNodes: number
+    totalAmount: number
+  }>
+  fetchRewardsHistory: () => Promise<any>
 }
 
 interface DataProviderProps {
@@ -77,6 +84,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     operatingSystems: {},
     cpuArchitectures: {}
   })
+  const [totalUptime, setTotalUptime] = useState<number | null>(null)
+  const [rewardsHistory, setRewardsHistory] = useState<
+    Array<{
+      date: string
+      nrEligibleNodes: number
+      totalAmount: number
+    }>
+  >([])
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -84,43 +99,35 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       .join('&')
   }, [sortModel])
 
-  const buildFilterParams = (filters: CountryStatsFilters): Record<string, string> => {
-    const params: Record<string, string> = {}
+  const buildFilterParams = (filters: NodeFilters): string => {
+    if (!filters || Object.keys(filters).length === 0) return ''
 
-    Object.entries(filters).forEach(([field, filterData]) => {
-      const { value, operator } = filterData
-      params[`filters[${field}][value]`] = value
-      params[`filters[${field}][operator]`] = operator
-    })
-
-    return params
+    return Object.entries(filters)
+      .filter(([_, filterData]) => filterData?.value && filterData?.operator)
+      .map(([field, filterData]) => {
+        return `filters[${field}][${filterData.operator}]=${filterData.value}`
+      })
+      .join('&')
   }
 
-  const filterParams = useMemo(() => {
-    return buildFilterParams(filters)
-  }, [filters])
-
   const fetchUrl = useMemo(() => {
-    let url = getApiRoute('nodes') + `?page=${currentPage}&size=${pageSize}`
-
-    if (searchTerm) {
-      url += `&search=${encodeURIComponent(searchTerm)}`
-    }
+    let url = `${getApiRoute('nodes')}?page=${currentPage}&size=${pageSize}`
 
     if (sortParams) {
       url += `&${sortParams}`
     }
 
-    if (filterParams && Object.keys(filterParams).length > 0) {
-      url += `&${filterParams}`
+    const filterString = buildFilterParams(filters)
+    if (filterString) {
+      url += `&${filterString}`
     }
 
-    if (nextSearchAfter) {
-      url += `&searchAfter=${encodeURIComponent(JSON.stringify(nextSearchAfter))}`
+    if (searchTerm) {
+      url += `&search=${encodeURIComponent(searchTerm)}`
     }
 
     return url
-  }, [currentPage, pageSize, searchTerm, sortParams, filterParams, nextSearchAfter])
+  }, [currentPage, pageSize, sortParams, filters, searchTerm])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -130,13 +137,16 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       let sanitizedData: NodeData[] = []
       for (let index = 0; index < response.data.nodes.length; index++) {
         const element = response.data.nodes[index]
+
+        console.groupEnd()
+
         sanitizedData.push({
           ...element._source,
           index: (currentPage - 1) * pageSize + index + 1
         })
       }
 
-      const updatedData = currentPage === 1 ? sanitizedData : [...data, ...sanitizedData]
+      console.groupEnd()
 
       setData(sanitizedData)
       setTotalItems(response.data.pagination.totalItems)
@@ -152,22 +162,26 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [fetchUrl])
 
-  const getTotalEligible =  useCallback(async () => {
+  const getTotalEligible = useCallback(async () => {
     setLoading(true)
-    const date = Date.now(); 
-    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+    const date = Date.now()
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000
     try {
-      const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000);
-      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`)
-    
+      const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000)
+      const response = await axios.get(
+        `https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`
+      )
+
       setTotalEligibleNodes(response.data.numberOfRows)
     } catch (err) {
       console.error('Error total eligible nodes data:', err)
-      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000);
-      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/summary?date=${twoWeekAgo}`)
-      if(response){
+      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000)
+      const response = await axios.get(
+        `https://analytics.nodes.oceanprotocol.com/summary?date=${twoWeekAgo}`
+      )
+      if (response) {
         setTotalEligibleNodes(response.data.numberOfRows)
-      }else{
+      } else {
         setError(err)
       }
     } finally {
@@ -175,12 +189,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [])
 
-
-  const getTotalRewards =  useCallback(async () => {
+  const getTotalRewards = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await axios.get(`https://analytics.nodes.oceanprotocol.com/all-summary`)
-      
+      const response = await axios.get(
+        `https://analytics.nodes.oceanprotocol.com/all-summary`
+      )
+
       setTotalRewards(response.data.cumulativeTotalAmount)
     } catch (err) {
       console.error('Error total eligible nodes data:', err)
@@ -219,14 +234,17 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       const response = await axios.get(getApiRoute('countryStats'), { params })
 
       if (response.data && Array.isArray(response.data.countryStats)) {
-        const processedStats = response.data.countryStats.map((country: any) => ({
-          id: country.country,
-          country: country.country,
-          totalNodes: country.totalNodes,
-          citiesWithNodes: country.citiesWithNodes,
-          cityWithMostNodes: country.cityWithMostNodes,
-          cityWithMostNodesCount: country.cityWithMostNodesCount
-        }))
+        const processedStats = response.data.countryStats.map(
+          (country: any, index: number) => ({
+            id: country.country,
+            index: (countryCurrentPage - 1) * countryPageSize + index + 1,
+            country: country.country,
+            totalNodes: country.totalNodes,
+            citiesWithNodes: country.citiesWithNodes,
+            cityWithMostNodes: country.cityWithMostNodes,
+            cityWithMostNodesCount: country.cityWithMostNodesCount
+          })
+        )
         setCountryStats(processedStats)
         setTotalItems(response.data.pagination.totalItems)
         setTotalPages(response.data.pagination.totalPages)
@@ -255,6 +273,23 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [])
 
+  const fetchRewardsHistory = async () => {
+    try {
+      const response = await fetch(
+        'https://analytics.nodes.oceanprotocol.com/rewards-history'
+      )
+      const data = await response.json()
+      const formattedData = data.rewards.map((item: any) => ({
+        date: item.date,
+        background: { value: item.nrEligibleNodes },
+        foreground: { value: item.totalAmount }
+      }))
+      setRewardsHistory(formattedData)
+    } catch (error) {
+      console.error('Error fetching rewards history:', error)
+    }
+  }
+
   useEffect(() => {
     let mounted = true
     const controller = new AbortController()
@@ -273,6 +308,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
         await getTotalEligible()
         await getTotalRewards()
+        await fetchRewardsHistory()
       } catch (error) {
         console.error('Error fetching data:', error)
       }
@@ -295,6 +331,28 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     searchTerm,
     countrySearchTerm
   ])
+
+  useEffect(() => {
+    const fetchTotalUptime = async () => {
+      try {
+        const now = Math.floor(Date.now() / 1000)
+
+        const response = await axios.get(
+          `https://incentive-backend.oceanprotocol.com/weekStats?date=${now}`
+        )
+
+        if (response?.data && response.data.length > 0) {
+          const totalUptimeValue = response.data[0]._source.totalUptime
+
+          setTotalUptime(totalUptimeValue)
+        }
+      } catch (error) {
+        console.error('Failed to fetch total uptime:', error)
+      }
+    }
+
+    fetchTotalUptime()
+  }, [])
 
   const handleSetCurrentPage = (page: number) => {
     setCurrentPage(page)
@@ -390,7 +448,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         setTableType: handleSetTableType,
         countrySearchTerm,
         setCountrySearchTerm,
-        systemStats
+        systemStats,
+        totalUptime,
+        rewardsHistory,
+        fetchRewardsHistory
       }}
     >
       {children}
