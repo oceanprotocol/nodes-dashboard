@@ -17,12 +17,15 @@ const formatRewardsNumber = (num: number | string | undefined): string => {
   const number = typeof num === 'string' ? parseFloat(num) : num
 
   if (number >= 1000000) {
-    return (number / 1000000).toFixed(1) + 'M'
+    const millions = Math.floor((number / 1000000) * 100) / 100
+    return millions.toFixed(2) + 'M'
   }
   if (number >= 1000) {
-    return (number / 1000).toFixed(1) + 'K'
+    const thousands = Math.floor((number / 1000) * 100) / 100
+    return thousands.toFixed(2) + 'K'
   }
-  return number.toString()
+  const value = Math.floor(number * 100) / 100
+  return value.toFixed(2)
 }
 
 const Dashboard = () => {
