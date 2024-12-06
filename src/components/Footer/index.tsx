@@ -17,9 +17,6 @@ const Footer = () => {
           <a href={links.website} target="_blank" rel="noopener noreferrer">
             Website
           </a>
-          <a href={links.github} target="_blank" rel="noopener noreferrer">
-            GitHub
-          </a>
         </div>
       </div>
     </div>
