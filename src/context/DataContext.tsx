@@ -20,7 +20,6 @@ interface DataContextType {
   error: any
   currentPage: number
   pageSize: number
-  totalPages: number
   totalItems: number
   searchTerm: string
   sortModel: Record<string, 'asc' | 'desc'>
@@ -64,8 +63,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<any>(null)
   const [currentPage, setCurrentPage] = useState<number>(1)
-  const [pageSize, setPageSize] = useState<number>(100)
-  const [totalPages, setTotalPages] = useState<number>(100)
+  const [pageSize, setPageSize] = useState<number>(10)
   const [totalItems, setTotalItems] = useState<number>(0)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [sortModel, setSortModel] = useState<{ [key: string]: 'asc' | 'desc' }>({})
@@ -150,7 +148,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
       setData(sanitizedData)
       setTotalItems(response.data.pagination.totalItems)
-      setTotalPages(response.data.pagination.totalPages)
       setNextSearchAfter(response.data.pagination.nextSearchAfter)
       setTotalNodes(response.data.pagination.totalItems)
       // setTotalEligibleNodes(response.data.totalEligibleNodes)
@@ -247,18 +244,15 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         )
         setCountryStats(processedStats)
         setTotalItems(response.data.pagination.totalItems)
-        setTotalPages(response.data.pagination.totalPages)
       } else {
         console.error('Unexpected data structure:', response.data)
         setCountryStats([])
         setTotalItems(0)
-        setTotalPages(0)
       }
     } catch (err) {
       console.error('Error fetching country stats:', err)
       setCountryStats([])
       setTotalItems(0)
-      setTotalPages(0)
     }
   }, [countryCurrentPage, countryPageSize, countrySearchTerm, filters, sortModel])
 
@@ -425,7 +419,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         error,
         currentPage,
         pageSize,
-        totalPages,
         totalItems,
         searchTerm,
         sortModel,
