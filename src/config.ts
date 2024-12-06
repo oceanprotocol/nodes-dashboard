@@ -22,6 +22,7 @@ type Config = {
   socialMedia: SocialMedia
   links: {
     website: string
+    github: string
   }
   queryParams: {
     [key: string]: string
@@ -66,7 +67,8 @@ const config: Config = {
     telegram: 'https://t.me/oceanprotocol'
   },
   links: {
-    website: 'https://oceanprotocol.com/'
+    website: 'https://oceanprotocol.com/',
+    github: 'https://github.com/oceanprotocol/ocean-node'
   },
   queryParams: {
     accessToken: 'access_token',
