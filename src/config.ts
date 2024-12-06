@@ -68,7 +68,7 @@ const config: Config = {
   },
   links: {
     website: 'https://oceanprotocol.com/',
-    github: 'https://github.com/oceanprotocol/incentive-backend'
+    github: 'https://github.com/oceanprotocol/ocean-node'
   },
   queryParams: {
     accessToken: 'access_token',
