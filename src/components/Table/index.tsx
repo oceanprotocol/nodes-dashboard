@@ -243,6 +243,7 @@ export default function Table({
       flex: 1,
       minWidth: 150,
       filterable: true,
+      headerClassName: styles.headerTitle,
       filterOperators: [
         {
           label: 'equals',
