@@ -62,7 +62,7 @@ const config: Config = {
   socialMedia: {
     medium: 'https://medium.com/oceanprotocol',
     twitter: 'https://twitter.com/oceanprotocol',
-    discord: 'https://discord.gg/oceanprotocol',
+    discord: 'https://discord.gg/TnXjkR5',
     youtube: 'https://www.youtube.com/channel/UCH8TXwmWWAE9TZO0yTBHB3A',
     telegram: 'https://t.me/oceanprotocol'
   },
