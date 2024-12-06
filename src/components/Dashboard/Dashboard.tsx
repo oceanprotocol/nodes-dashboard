@@ -30,7 +30,8 @@ const Dashboard = () => {
     useDataContext()
   const { totalCountries } = useMapContext()
   const pathname = usePathname()
-  const isNodesPage = pathname === '/nodes'
+  
+  if (pathname === '/nodes') return null
 
   if (loading) {
     return (
@@ -64,21 +65,17 @@ const Dashboard = () => {
       <Card title="Total Eligible Nodes" bigNumber={formatNumber(totalEligibleNodes)} />
       <Card title="Total Countries" bigNumber={formatNumber(totalCountries)} />
       <Card title="Total Nodes" bigNumber={formatNumber(totalNodes)} />
-      {isNodesPage ? (
-        <Card title="Eligible Nodes History" chartType="bar" chartData={rewardsHistory} />
-      ) : (
-        <Card
-          title="Total Rewards"
-          additionalInfo={
-            <div className={styles.rewardAmount}>
-              <span className={styles.rewardNumber}>
-                {formatRewardsNumber(totalRewards)}
-              </span>
-              <span className={styles.oceanText}>ROSE</span>
-            </div>
-          }
-        />
-      )}
+      <Card
+        title="Total Rewards"
+        additionalInfo={
+          <div className={styles.rewardAmount}>
+            <span className={styles.rewardNumber}>
+              {formatRewardsNumber(totalRewards)}
+            </span>
+            <span className={styles.oceanText}>ROSE</span>
+          </div>
+        }
+      />
     </div>
   )
 }
