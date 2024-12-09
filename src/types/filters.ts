@@ -1,4 +1,4 @@
-export type StringFilterOperator = 'contains' | 'eq'
+export type StringFilterOperator = 'contains' | 'eq' | 'value'
 export type NumberFilterOperator = 'eq' | 'gt' | 'lt'
 export type FilterOperator = StringFilterOperator | NumberFilterOperator
 
