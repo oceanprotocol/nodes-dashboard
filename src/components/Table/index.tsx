@@ -223,16 +223,20 @@ export default function Table({
       filterable: true,
       filterOperators: [
         {
-          label: 'contains',
-          value: 'contains',
+          label: 'equals',
+          value: 'value',
           getApplyFilterFn: (filterItem) => {
             return (params) => {
               if (!filterItem.value) return true
-              return params.value?.toLowerCase().includes(filterItem.value.toLowerCase())
+              const ids = filterItem.value.split(',').map((id: string) => id.trim())
+              return ids.includes(params.value)
             }
           },
           InputComponent: GridFilterInputValue,
-          InputComponentProps: { type: 'text' }
+          InputComponentProps: {
+            type: 'text',
+            placeholder: 'Enter ID(s), comma separated'
+          }
         }
       ]
     },
