@@ -919,8 +919,14 @@ export default function Table({
   const handleSearchChange = (searchValue: string) => {
     if (tableType === 'countries') {
       setLocalSearchTermCountry(searchValue)
+      if (searchValue === '') {
+        setCountrySearchTerm('')
+      }
     } else {
       setLocalSearchTerm(searchValue)
+      if (searchValue === '') {
+        setSearchTerm('')
+      }
     }
   }
 
