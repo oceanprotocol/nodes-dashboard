@@ -342,6 +342,7 @@ export default function Table({
       minWidth: 200,
       sortable: false,
       filterable: true,
+      hideable: false,
       filterOperators: [
         {
           label: 'contains',
@@ -380,6 +381,7 @@ export default function Table({
       minWidth: 200,
       sortable: false,
       filterable: true,
+      hideable: false,
       filterOperators: [
         {
           label: 'contains',
@@ -404,6 +406,7 @@ export default function Table({
       minWidth: 200,
       sortable: false,
       filterable: true,
+      hideable: false,
       filterOperators: [
         {
           label: 'contains',
@@ -968,23 +971,20 @@ export default function Table({
           }}
           initialState={{
             columns: {
-              columnVisibilityModel:
-                tableType === 'nodes'
-                  ? {
-                      network: false,
-                      publicKey: false,
-                      version: false,
-                      http: false,
-                      p2p: false,
-                      supportedStorage: false,
-                      platform: false,
-                      codeHash: false,
-                      allowedAdmins: false,
-                      dnsFilter: false,
-                      city: false,
-                      country: false
-                    }
-                  : {}
+              columnVisibilityModel: {
+                network: false,
+                publicKey: false,
+                version: false,
+                http: false,
+                p2p: false,
+                supportedStorage: false,
+                platform: false,
+                codeHash: false,
+                allowedAdmins: false,
+                dnsFilter: false,
+                city: false,
+                country: false
+              }
             },
             pagination: {
               paginationModel: {
