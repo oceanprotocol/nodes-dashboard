@@ -25,6 +25,7 @@ type NodeData = {
   codeHash: string
   allowedAdmins: string[]
   indexer?: Array<{ network: string }>
+  provider?: Array<{ network: string }>
 }
 
 interface CountryData {
@@ -133,6 +134,10 @@ export const exportToCsv = (
         formattedRow[column.headerName || field] = value.join(', ')
       } else if (field === 'eligibilityCauseStr') {
         formattedRow[column.headerName || field] = value || 'none'
+      } else if (field === 'network') {
+        const networks =
+          row.provider?.map((p: { network: string }) => p.network).join(', ') || ''
+        formattedRow[column.headerName || field] = networks
       } else {
         formattedRow[column.headerName || field] = String(value || '')
       }

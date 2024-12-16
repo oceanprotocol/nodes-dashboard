@@ -490,12 +490,13 @@ export default function Table({
       field: 'network',
       headerName: 'Network',
       flex: 1,
-      minWidth: 150,
+      minWidth: 200,
       sortable: false,
-      filterable: false,
-      renderCell: (params: GridRenderCellParams<NodeData>) => (
-        <span>{getAllNetworks(params.row.indexer)}</span>
-      )
+      filterable: true,
+      renderCell: (params: GridRenderCellParams<NodeData>) => {
+        const networks = params.row.provider?.map((p) => p.network).join(', ') || ''
+        return <span>{networks}</span>
+      }
     },
     {
       field: 'viewMore',
