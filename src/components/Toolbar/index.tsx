@@ -5,12 +5,15 @@ import {
   GridToolbarColumnsButton,
   GridToolbarFilterButton,
   GridToolbarDensitySelector,
-  GridToolbarProps
+  GridToolbarProps,
+  GridApi
 } from '@mui/x-data-grid'
-import { TextField, IconButton, styled } from '@mui/material'
+import { TextField, IconButton, styled, Button } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
 import style from './style.module.css'
+import { exportToCsv } from '../Table/utils'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 
 const StyledTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
@@ -40,6 +43,8 @@ interface CustomToolbarProps extends GridToolbarProps {
   onSearchChange: (value: string) => void
   onSearch: () => void
   onReset: () => void
+  tableType: 'nodes' | 'countries'
+  apiRef?: GridApi
 }
 
 const CustomToolbar: React.FC<CustomToolbarProps> = ({
@@ -47,26 +52,45 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
   onSearchChange,
   onSearch,
   onReset,
-  ...props
+  apiRef,
+  tableType
 }) => {
+  const handleExport = () => {
+    console.log('Export clicked')
+    console.log('apiRef available:', !!apiRef)
+    if (apiRef) {
+      exportToCsv(apiRef, tableType)
+    }
+  }
+
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && searchTerm) {
+      event.preventDefault()
+      onSearchChange(searchTerm)
+    }
+  }
+
   return (
     <GridToolbarContainer className={style.root}>
       <div className={style.buttons}>
         <GridToolbarColumnsButton />
         <GridToolbarFilterButton />
         <GridToolbarDensitySelector />
-        <GridToolbarExport style={{ color: '#3f51b5' }} />
+        <Button
+          color="inherit"
+          startIcon={<FileDownloadIcon />}
+          onClick={handleExport}
+          size="small"
+        >
+          Export
+        </Button>
       </div>
 
       <div className={style.search}>
         <StyledTextField
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === 'Enter') {
-              onSearch()
-            }
-          }}
+          onKeyPress={handleKeyPress}
           placeholder="Search..."
           variant="outlined"
           size="small"
@@ -74,16 +98,15 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
             endAdornment: (
               <>
                 <IconButton onClick={onSearch} size="small">
-                  <SearchIcon style={{ color: '#CF1FB1' }} />
+                  <SearchIcon />
                 </IconButton>
                 {searchTerm && (
                   <IconButton onClick={onReset} size="small">
-                    <ClearIcon style={{ color: '#CF1FB1' }} />
+                    <ClearIcon />
                   </IconButton>
                 )}
               </>
-            ),
-            style: { paddingRight: '8px' }
+            )
           }}
         />
       </div>

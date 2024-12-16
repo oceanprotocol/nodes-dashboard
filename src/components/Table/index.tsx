@@ -3,9 +3,9 @@ import React, {
   useState,
   useMemo,
   useEffect,
-  useCallback
+  useCallback,
+  useRef
 } from 'react'
-import axios from 'axios'
 import {
   DataGrid,
   GridColDef,
@@ -15,7 +15,7 @@ import {
   GridValidRowModel,
   GridFilterInputValue,
   GridFilterModel,
-  GridValueGetter
+  useGridApiRef
 } from '@mui/x-data-grid'
 
 import styles from './index.module.css'
@@ -29,8 +29,14 @@ import ReportIcon from '@mui/icons-material/Report'
 import CustomToolbar from '../Toolbar'
 import { styled } from '@mui/material/styles'
 import CustomPagination from './CustomPagination'
-import { FilterOperator, CountryStatsFilters, NodeFilters } from '../../types/filters'
+import { FilterOperator, NodeFilters } from '../../types/filters'
 import { debounce } from '../../shared/utils/debounce'
+import {
+  getAllNetworks,
+  formatSupportedStorage,
+  formatPlatform,
+  formatUptimePercentage
+} from './utils'
 
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-toolbarContainer': {
@@ -95,78 +101,17 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   }
 }))
 
-const getAllNetworks = (indexers: NodeData['indexer']): string => {
-  return indexers?.map((indexer) => indexer.network).join(', ')
-}
-
-export const formatSupportedStorage = (
-  supportedStorage: NodeData['supportedStorage']
-): string => {
-  const storageTypes = []
-
-  if (supportedStorage?.url) storageTypes.push('URL')
-  if (supportedStorage?.arwave) storageTypes.push('Arweave')
-  if (supportedStorage?.ipfs) storageTypes.push('IPFS')
-
-  return storageTypes.join(', ')
-}
-
-export const formatPlatform = (platform: NodeData['platform']): string => {
-  if (platform) {
-    const { cpus, arch, machine, platform: platformName, osType, node } = platform
-    return `CPUs: ${cpus}, Architecture: ${arch}, Machine: ${machine}, Platform: ${platformName}, OS Type: ${osType}, Node.js: ${node}`
-  }
-  return ''
-}
-
-export const formatUptime = (uptimeInSeconds: number): string => {
-  const days = Math.floor(uptimeInSeconds / (3600 * 24))
-  const hours = Math.floor((uptimeInSeconds % (3600 * 24)) / 3600)
-  const minutes = Math.floor((uptimeInSeconds % 3600) / 60)
-
-  const dayStr = days > 0 ? `${days} day${days > 1 ? 's' : ''} ` : ''
-  const hourStr = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''} ` : ''
-  const minuteStr = minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : ''
-
-  return `${dayStr}${hourStr}${minuteStr}`.trim()
-}
-const formatUptimePercentage = (
-  uptimeInSeconds: number,
-  totalUptime: number | null
-): string => {
-  if (totalUptime === null) return '0.00%'
-
-  console.group('Uptime Calculation')
-  console.log('Input uptimeInSeconds:', uptimeInSeconds)
-  console.log('Input totalUptime:', totalUptime)
-
-  const uptimePercentage = (uptimeInSeconds / totalUptime) * 100
-  console.log('Calculated percentage:', uptimePercentage)
-
-  const percentage = uptimePercentage > 100 ? 100 : uptimePercentage
-  console.log('Final percentage (capped at 100):', percentage)
-  console.groupEnd()
-
-  return `${percentage.toFixed(2)}%`
-}
-
-const UptimeCell: React.FC<{
-  uptimeInSeconds: number
-  totalUptime: number | null
-}> = ({ uptimeInSeconds, totalUptime }) => {
-  if (totalUptime === null) {
-    return <span>Loading...</span>
-  }
-
-  return <span>{formatUptimePercentage(uptimeInSeconds, totalUptime)}</span>
-}
-
 const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   return eligible ? (
     <CheckCircleOutlineIcon style={{ color: 'green' }} />
   ) : (
     <ReportIcon style={{ color: 'orange' }} />
   )
+}
+
+interface DebouncedFunction {
+  (value: string): void
+  cancel: () => void
 }
 
 export default function Table({
@@ -199,6 +144,8 @@ export default function Table({
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null)
   const [searchTerm, setLocalSearchTerm] = useState<string>('')
   const [searchTermCountry, setLocalSearchTermCountry] = useState<string>('')
+  const apiRef = useGridApiRef()
+  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     setTableType(tableType)
@@ -649,7 +596,7 @@ export default function Table({
       minWidth: 200,
       align: 'left',
       headerAlign: 'left',
-      sortable: false,
+      sortable: true,
       filterable: true,
       filterOperators: [
         {
@@ -824,6 +771,17 @@ export default function Table({
     }
   ]
 
+  const UptimeCell: React.FC<{
+    uptimeInSeconds: number
+    totalUptime: number | null
+  }> = ({ uptimeInSeconds, totalUptime }) => {
+    if (totalUptime === null) {
+      return <span>Loading...</span>
+    }
+
+    return <span>{formatUptimePercentage(uptimeInSeconds, totalUptime)}</span>
+  }
+
   const handlePaginationChange = useCallback(
     (paginationModel: { page: number; pageSize: number }) => {
       const newPage = paginationModel.page + 1
@@ -919,30 +877,58 @@ export default function Table({
     [setFilters, totalUptime]
   )
 
-  const handleSearchChange = (searchValue: string) => {
-    if (tableType === 'countries') {
-      setLocalSearchTermCountry(searchValue)
-    } else {
-      setLocalSearchTerm(searchValue)
-    }
-  }
+  const debouncedSearchFn = useMemo<DebouncedFunction>(() => {
+    const debouncedFn = (value: string) => {
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current)
+      }
 
-  const handleSearch = () => {
-    if (tableType === 'countries') {
-      setCountrySearchTerm(searchTermCountry)
-    } else {
-      setSearchTerm(searchTerm)
+      timeoutIdRef.current = setTimeout(() => {
+        const setContextSearchTerm =
+          tableType === 'countries' ? setCountrySearchTerm : setSearchTerm
+        setContextSearchTerm(value)
+        timeoutIdRef.current = null
+      }, 1000)
     }
+
+    debouncedFn.cancel = () => {
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current)
+        timeoutIdRef.current = null
+      }
+    }
+
+    return debouncedFn
+  }, [tableType, setCountrySearchTerm, setSearchTerm])
+
+  const handleSearchChange = (searchValue: string) => {
+    const setLocalTerm =
+      tableType === 'countries' ? setLocalSearchTermCountry : setLocalSearchTerm
+    setLocalTerm(searchValue)
+
+    if (!searchValue) {
+      debouncedSearchFn.cancel()
+      const setContextTerm =
+        tableType === 'countries' ? setCountrySearchTerm : setSearchTerm
+      setContextTerm('')
+      return
+    }
+
+    debouncedSearchFn(searchValue)
   }
 
   const handleReset = () => {
-    if (tableType === 'countries') {
-      setCountrySearchTerm('')
-    } else {
-      setLocalSearchTerm('')
-      setLocalSearchTermCountry('')
-      setCountrySearchTerm('')
-      setSearchTerm('')
+    const currentSearchTerm = tableType === 'countries' ? searchTermCountry : searchTerm
+
+    if (currentSearchTerm) {
+      const setLocalTerm =
+        tableType === 'countries' ? setLocalSearchTermCountry : setLocalSearchTerm
+      const setContextTerm =
+        tableType === 'countries' ? setCountrySearchTerm : setSearchTerm
+
+      setLocalTerm('')
+      setContextTerm('')
+      debouncedSearchFn.cancel()
     }
   }
 
@@ -964,32 +950,35 @@ export default function Table({
             toolbar: {
               searchTerm: tableType === 'countries' ? searchTermCountry : searchTerm,
               onSearchChange: handleSearchChange,
-              onSearch: handleSearch,
               onReset: handleReset,
-              tableType: tableType
+              tableType: tableType,
+              apiRef: apiRef.current
             }
           }}
           initialState={{
             columns: {
-              columnVisibilityModel: {
-                network: false,
-                publicKey: false,
-                version: false,
-                http: false,
-                p2p: false,
-                supportedStorage: false,
-                platform: false,
-                codeHash: false,
-                allowedAdmins: false,
-                dnsFilter: false,
-                city: false,
-                country: false
-              }
+              columnVisibilityModel:
+                tableType === 'nodes'
+                  ? {
+                      network: false,
+                      publicKey: false,
+                      version: false,
+                      http: false,
+                      p2p: false,
+                      supportedStorage: false,
+                      platform: false,
+                      codeHash: false,
+                      allowedAdmins: false,
+                      dnsFilter: false,
+                      city: false,
+                      country: false
+                    }
+                  : {}
             },
             pagination: {
               paginationModel: {
-                pageSize: pageSize,
-                page: currentPage - 1
+                pageSize: tableType === 'countries' ? countryPageSize : pageSize,
+                page: (tableType === 'countries' ? countryCurrentPage : currentPage) - 1
               }
             },
             density: 'comfortable'
@@ -1013,6 +1002,30 @@ export default function Table({
           rowCount={totalItems}
           autoHeight={false}
           hideFooter={true}
+          processRowUpdate={(
+            newRow: GridValidRowModel,
+            oldRow: GridValidRowModel
+          ): GridValidRowModel => {
+            const processCell = (value: unknown) => {
+              if (typeof value === 'object' && value !== null) {
+                if ('dns' in value || 'ip' in value) {
+                  const dnsIpObj = value as { dns?: string; ip?: string; port?: string }
+                  return `${dnsIpObj.dns || dnsIpObj.ip}${dnsIpObj.port ? ':' + dnsIpObj.port : ''}`
+                }
+
+                if ('city' in value || 'country' in value) {
+                  const locationObj = value as { city?: string; country?: string }
+                  return `${locationObj.city} ${locationObj.country}`
+                }
+              }
+              return value
+            }
+
+            return Object.fromEntries(
+              Object.entries(newRow).map(([key, value]) => [key, processCell(value)])
+            ) as GridValidRowModel
+          }}
+          apiRef={apiRef}
         />
       </div>
       <CustomPagination
