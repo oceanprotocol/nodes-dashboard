@@ -72,23 +72,28 @@ export const formatUptime = (uptimeInSeconds: number): string => {
 
 export const formatUptimePercentage = (
   uptimeInSeconds: number,
-  totalUptime: number | null
+  totalUptime: number | null | undefined
 ): string => {
-  if (totalUptime === null) return '0.00%'
+  const defaultTotalUptime = 7 * 24 * 60 * 60
 
-  const uptimePercentage = (uptimeInSeconds / totalUptime) * 100
+  const actualTotalUptime = totalUptime || defaultTotalUptime
+
+  const uptimePercentage = (uptimeInSeconds / actualTotalUptime) * 100
   const percentage = uptimePercentage > 100 ? 100 : uptimePercentage
   return `${percentage.toFixed(2)}%`
 }
 
-export const exportToCsv = (apiRef: GridApi, tableType: 'nodes' | 'countries') => {
+export const exportToCsv = (
+  apiRef: GridApi,
+  tableType: 'nodes' | 'countries',
+  totalUptime: number | null
+) => {
   if (!apiRef) return
 
   const columns = apiRef.getAllColumns().filter((col) => {
     if (tableType === 'nodes') {
       return col.field !== 'viewMore' && col.field !== 'location'
     }
-    // For countries table, keep all columns
     return true
   })
 
@@ -101,10 +106,10 @@ export const exportToCsv = (apiRef: GridApi, tableType: 'nodes' | 'countries') =
       const field = column.field
       const value = row[field]
 
-      if (field === 'weeklyUptime') {
+      if (field === 'uptime') {
         formattedRow[column.headerName || field] = formatUptimePercentage(
           value,
-          row.totalUptime
+          totalUptime
         )
       } else if (field === 'dnsFilter') {
         const ipAndDns = row.ipAndDns as { dns?: string; ip?: string; port?: string }
@@ -126,6 +131,8 @@ export const exportToCsv = (apiRef: GridApi, tableType: 'nodes' | 'countries') =
         formattedRow[column.headerName || field] = value ? 'Yes' : 'No'
       } else if (Array.isArray(value)) {
         formattedRow[column.headerName || field] = value.join(', ')
+      } else if (field === 'eligibilityCauseStr') {
+        formattedRow[column.headerName || field] = value || 'none'
       } else {
         formattedRow[column.headerName || field] = String(value || '')
       }

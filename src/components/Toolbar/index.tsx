@@ -45,6 +45,7 @@ interface CustomToolbarProps extends GridToolbarProps {
   onReset: () => void
   tableType: 'nodes' | 'countries'
   apiRef?: GridApi
+  totalUptime: number | null
 }
 
 const CustomToolbar: React.FC<CustomToolbarProps> = ({
@@ -53,13 +54,14 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
   onSearch,
   onReset,
   apiRef,
-  tableType
+  tableType,
+  totalUptime
 }) => {
   const handleExport = () => {
     console.log('Export clicked')
     console.log('apiRef available:', !!apiRef)
     if (apiRef) {
-      exportToCsv(apiRef, tableType)
+      exportToCsv(apiRef, tableType, totalUptime)
     }
   }
 

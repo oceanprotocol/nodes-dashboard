@@ -952,7 +952,8 @@ export default function Table({
               onSearchChange: handleSearchChange,
               onReset: handleReset,
               tableType: tableType,
-              apiRef: apiRef.current
+              apiRef: apiRef.current,
+              totalUptime: totalUptime
             }
           }}
           initialState={{
