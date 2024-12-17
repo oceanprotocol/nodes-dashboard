@@ -369,7 +369,7 @@ export const nodeColumns = (
     flex: 1,
     minWidth: 200,
     sortable: false,
-    filterable: true,
+    filterable: false,
     renderCell: (params: GridRenderCellParams<NodeData>) => {
       const networks = params.row.provider?.map((p) => p.network).join(', ') || ''
       return <span>{networks}</span>
