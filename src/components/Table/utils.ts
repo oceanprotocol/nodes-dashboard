@@ -1,4 +1,5 @@
 import { GridApi } from '@mui/x-data-grid'
+import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
 
 type NodeData = {
   id: string
@@ -86,13 +87,13 @@ export const formatUptimePercentage = (
 
 export const exportToCsv = (
   apiRef: GridApi,
-  tableType: 'nodes' | 'countries',
+  tableType: TableTypeEnum,
   totalUptime: number | null
 ) => {
   if (!apiRef) return
 
   const columns = apiRef.getAllColumns().filter((col) => {
-    if (tableType === 'nodes') {
+    if (tableType === TableTypeEnum.NODES) {
       return col.field !== 'viewMore' && col.field !== 'location'
     }
     return true
@@ -107,7 +108,7 @@ export const exportToCsv = (
       const field = column.field
       const value = row[field]
 
-      if (tableType === 'countries') {
+      if (tableType === TableTypeEnum.COUNTRIES) {
         if (field === 'cityWithMostNodes') {
           const cityName = row.cityWithMostNodes || ''
           const nodeCount = row.cityWithMostNodesCount || 0

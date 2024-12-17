@@ -14,7 +14,7 @@ import ClearIcon from '@mui/icons-material/Clear'
 import style from './style.module.css'
 import { exportToCsv } from '../Table/utils'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
-
+import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
 const StyledTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
     backgroundColor: '#CF1FB11A',
@@ -43,7 +43,7 @@ interface CustomToolbarProps extends GridToolbarProps {
   onSearchChange: (value: string) => void
   onSearch: () => void
   onReset: () => void
-  tableType: 'nodes' | 'countries'
+  tableType: TableTypeEnum
   apiRef?: GridApi
   totalUptime: number | null
 }
