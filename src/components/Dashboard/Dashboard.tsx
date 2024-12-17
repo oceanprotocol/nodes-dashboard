@@ -33,16 +33,8 @@ const Dashboard = () => {
     useDataContext()
   const { totalCountries } = useMapContext()
   const pathname = usePathname()
-  
-  if (pathname === '/nodes') return null
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress sx={{ color: '#e000cf' }} />
-      </Box>
-    )
-  }
+  if (pathname === '/nodes') return null
 
   if (error) {
     return (
@@ -65,9 +57,21 @@ const Dashboard = () => {
 
   return (
     <div className={styles.dashboard}>
-      <Card title="Total Eligible Nodes" bigNumber={formatNumber(totalEligibleNodes)} />
-      <Card title="Total Countries" bigNumber={formatNumber(totalCountries)} />
-      <Card title="Total Nodes" bigNumber={formatNumber(totalNodes)} />
+      <Card
+        title="Total Eligible Nodes"
+        bigNumber={formatNumber(totalEligibleNodes)}
+        isLoading={loading}
+      />
+      <Card
+        title="Total Countries"
+        bigNumber={formatNumber(totalCountries)}
+        isLoading={loading}
+      />
+      <Card
+        title="Total Nodes"
+        bigNumber={formatNumber(totalNodes)}
+        isLoading={loading}
+      />
       <Card
         title="Total Rewards"
         additionalInfo={
@@ -78,6 +82,7 @@ const Dashboard = () => {
             <span className={styles.oceanText}>ROSE</span>
           </div>
         }
+        isLoading={loading}
       />
     </div>
   )

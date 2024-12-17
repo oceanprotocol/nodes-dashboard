@@ -5,8 +5,21 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 238px;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  position: relative;
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .cardContent {
@@ -14,6 +27,8 @@
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
+  position: absolute;
+  inset: 20px;
 }
 
 .cardTitle {
@@ -64,4 +79,89 @@
     font-size: 18px;
     line-height: 24px;
   }
+}
+
+.cardLoading {
+  position: relative;
+  overflow: hidden;
+}
+
+.cardLoading .cardTitle,
+.cardLoading .bigNumber,
+.cardLoading .subText {
+  position: relative;
+  background: #f6f7f8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cardLoading .cardTitle {
+  height: 24px;
+  width: 70%;
+}
+
+.cardLoading .bigNumber {
+  height: 60px;
+  width: 50%;
+  margin: 100px auto;
+}
+
+.cardLoading .subText {
+  height: 20px;
+  width: 40%;
+  margin-left: auto;
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+.cardLoading .cardTitle::after,
+.cardLoading .bigNumber::after,
+.cardLoading .subText::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(207, 31, 177, 0.2) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite linear;
+  transform: translateX(-100%);
+}
+
+.cardLoading .bigNumber::after {
+  animation-delay: 0.1s;
+}
+
+.cardLoading .subText::after {
+  animation-delay: 0.2s;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(50%);
+  }
+}
+
+.skeletonText {
+  background: #f0f0f0;
+  border-radius: 4px;
+  height: 24px;
+  width: 80%;
+  margin-bottom: 15px;
+}
+
+.skeletonNumber {
+  background: #f0f0f0;
+  border-radius: 4px;
+  height: 60px;
+  width: 60%;
+  margin: 20px auto;
 }

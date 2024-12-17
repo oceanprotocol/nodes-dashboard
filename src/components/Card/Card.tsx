@@ -22,10 +22,7 @@ interface CardProps {
   bigNumber?: string | number
   subText?: string
   additionalInfo?: React.ReactNode
-}
-
-const getStrokeColor = ({ channel }: { channel: string }) => {
-  return channel === 'foreground' ? 'url(#gradient)' : '#E0E0E0'
+  isLoading?: boolean
 }
 
 const CustomBar = (props: any) => {
@@ -74,58 +71,86 @@ const Card: React.FC<CardProps> = ({
   chartData,
   bigNumber,
   subText,
-  additionalInfo
+  additionalInfo,
+  isLoading = false
 }) => {
+  const formatNumber = (num: string | number) => {
+    if (typeof num === 'string') return num
+
+    if (num >= 1000 && num < 1000000) {
+      return `${(num / 1000).toFixed(1)}K`
+    }
+    if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(2)}M`
+    }
+    return new Intl.NumberFormat('en-US').format(num)
+  }
+
   return (
-    <div className={styles.card}>
-      <h3 className={styles.cardTitle}>{title}</h3>
+    <div className={`${styles.card} ${isLoading ? styles.cardLoading : ''}`}>
       <div className={styles.cardContent}>
-        {chartType === 'bar' && chartData && (
-          <ResponsiveContainer width="100%" height={100}>
-            <BarChart data={chartData} barSize={15}>
-              <defs>
-                <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#CF1FB1" />
-                  <stop offset="100%" stopColor="#DA4A8C" />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date" hide />
-              <Bar
-                dataKey="background.value"
-                shape={(props: any) => (
-                  <CustomBar
-                    {...props}
-                    foregroundValue={props.payload.foreground.value}
-                    backgroundValue={props.payload.background.value}
-                  />
-                )}
-              />
-              <Tooltip />
-            </BarChart>
-          </ResponsiveContainer>
+        {isLoading ? (
+          <>
+            <div className={styles.cardTitle} aria-hidden="true" />
+            <div className={styles.bigNumber} aria-hidden="true" />
+            {chartType && <div className={styles.chartSkeleton} aria-hidden="true" />}
+            {subText && <div className={styles.subText} aria-hidden="true" />}
+          </>
+        ) : (
+          <>
+            <h3 className={styles.cardTitle}>{title}</h3>
+            <div className={styles.cardContent}>
+              {chartType === 'bar' && chartData && (
+                <ResponsiveContainer width="100%" height={100}>
+                  <BarChart data={chartData} barSize={15}>
+                    <defs>
+                      <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#CF1FB1" />
+                        <stop offset="100%" stopColor="#DA4A8C" />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" hide />
+                    <Bar
+                      dataKey="background.value"
+                      shape={(props: any) => (
+                        <CustomBar
+                          {...props}
+                          foregroundValue={props.payload.foreground.value}
+                          backgroundValue={props.payload.background.value}
+                        />
+                      )}
+                    />
+                    <Tooltip />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+              {chartType === 'line' && chartData && (
+                <ResponsiveContainer width="100%" height={100}>
+                  <LineChart data={chartData}>
+                    <defs>
+                      <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="20%" stopColor="#CF1FB1" stopOpacity={1} />
+                      </linearGradient>
+                    </defs>
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="url(#lineGradient)"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Tooltip />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+              {bigNumber && (
+                <div className={styles.bigNumber}>{formatNumber(bigNumber)}</div>
+              )}
+              {subText && <p className={styles.subText}>{subText}</p>}
+              {additionalInfo}
+            </div>
+          </>
         )}
-        {chartType === 'line' && chartData && (
-          <ResponsiveContainer width="100%" height={100}>
-            <LineChart data={chartData}>
-              <defs>
-                <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="20%" stopColor="#CF1FB1" stopOpacity={1} />
-                </linearGradient>
-              </defs>
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="url(#lineGradient)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Tooltip />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-        {bigNumber && <div className={styles.bigNumber}>{bigNumber}</div>}
-        {subText && <p className={styles.subText}>{subText}</p>}
-        {additionalInfo}
       </div>
     </div>
   )

@@ -6,7 +6,7 @@ import L, { LatLngExpression } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import styles from './style.module.css'
 import { useMapContext } from '../../context/MapContext'
-import { CircularProgress, Alert, Box, LinearProgress } from '@mui/material'
+import { Alert, Box, LinearProgress, Skeleton } from '@mui/material'
 import { LocationNode } from '../../shared/types/locationNodeType'
 
 export default function Map() {
@@ -20,7 +20,15 @@ export default function Map() {
   if (loading || !data) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress sx={{ color: '#e000cf' }} />
+        <Skeleton
+          variant="rectangular"
+          width="100%"
+          height={500}
+          sx={{
+            borderRadius: '20px',
+            bgcolor: 'rgba(207, 31, 177, 0.1)' // Matches our theme
+          }}
+        />
       </Box>
     )
   }
@@ -91,6 +99,7 @@ export default function Map() {
       <MapContainer
         center={center}
         zoom={2}
+        className={styles.mapContainer}
         style={{ height: '500px', width: '100%', borderRadius: '20px' }}
       >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
