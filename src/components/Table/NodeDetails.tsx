@@ -2,7 +2,7 @@ import { FC } from 'react';
 import { Card, CardContent, Grid, IconButton, Typography, Box } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { NodeData } from '../../shared/types/RowDataType';
-import { formatPlatform, formatSupportedStorage, formatUptime } from './index';
+import { formatPlatform, formatSupportedStorage, formatUptime } from './utils'
 
 interface NodeDetailsProps {
   nodeData: NodeData;

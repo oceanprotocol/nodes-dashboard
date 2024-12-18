@@ -11,7 +11,7 @@ import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
 import { getApiRoute } from '@/config'
 import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
-import { CountryStatsFilters, NodeFilters } from '../types/filters'
+import { CountryStatsFilters, NodeFilters } from '../shared/types/filters'
 import { buildCountryStatsUrl } from '../shared/utils/urlBuilder'
 
 interface DataContextType {

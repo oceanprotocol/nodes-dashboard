@@ -19,10 +19,10 @@ const StyledPagination = styled(Pagination)(({ theme }) => ({
     '&:hover': {
       backgroundColor: '#CF1FB1'
     },
-    maxWidth: '32px',
-    maxHeight: '32px',
+    minWidth: '32px',
+    height: '32px',
     borderRadius: '8px',
-    paddingTop: '3px'
+    padding: '3px 8px'
   }
 }))
 

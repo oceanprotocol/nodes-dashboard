@@ -1,4 +1,4 @@
-import { CountryStatsFilters, PaginationParams, SortModel } from '../../types/filters'
+import { CountryStatsFilters, PaginationParams, SortModel } from '../types/filters'
 
 export function buildCountryStatsUrl(
   baseUrl: string,
