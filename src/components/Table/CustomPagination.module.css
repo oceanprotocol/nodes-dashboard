@@ -37,7 +37,7 @@
   font-family: 'Sharp Sans', sans-serif;
 }
 
-.paginationArrowText {
+body .paginationArrowText {
   color: #000000;
   font-family: 'Sharp Sans', sans-serif;
   font-size: 18px;
