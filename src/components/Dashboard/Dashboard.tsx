@@ -31,7 +31,7 @@ const formatRewardsNumber = (num: number | string | undefined): string => {
 const Dashboard = () => {
   const { loading, error, totalNodes, totalEligibleNodes, totalRewards, rewardsHistory } =
     useDataContext()
-  const { totalCountries } = useMapContext()
+  const { totalCountries, loading: mapLoading } = useMapContext()
   const pathname = usePathname()
 
   if (pathname === '/nodes') return null
@@ -66,6 +66,7 @@ const Dashboard = () => {
         title="Total Countries"
         bigNumber={formatNumber(totalCountries)}
         isLoading={loading}
+        dataLoading={mapLoading}
       />
       <Card
         title="Total Nodes"

@@ -165,3 +165,30 @@
   width: 60%;
   margin: 20px auto;
 }
+
+.dataLoading {
+  position: relative;
+  background: #f6f7f8;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 60px;
+  width: 50%;
+  margin: 95px auto;
+}
+
+.dataLoading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(207, 31, 177, 0.2) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite linear;
+  transform: translateX(-100%);
+}
