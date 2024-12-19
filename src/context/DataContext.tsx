@@ -103,6 +103,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     return Object.entries(filters)
       .filter(([_, filterData]) => filterData?.value && filterData?.operator)
       .map(([field, filterData]) => {
+        if (field === 'id') {
+          const ids = filterData.value.split(',').map((id: string) => id.trim())
+          return `filters[${field}][value]=${ids.join(',')}`
+        }
         return `filters[${field}][${filterData.operator}]=${filterData.value}`
       })
       .join('&')
