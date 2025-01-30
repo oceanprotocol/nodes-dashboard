@@ -61,6 +61,12 @@ const Dashboard = () => {
         isLoading={loading}
       />
 
+      <Card
+        title="Total Nodes"
+        bigNumber={formatNumber(totalNodes)}
+        isLoading={loading}
+      />
+
       {pathname === '/nodes' ? (
         <Card
           title="Rewards History"
@@ -77,11 +83,6 @@ const Dashboard = () => {
         />
       )}
 
-      <Card
-        title="Total Nodes"
-        bigNumber={formatNumber(totalNodes)}
-        isLoading={loading}
-      />
       <Card
         title="Total Rewards"
         additionalInfo={
