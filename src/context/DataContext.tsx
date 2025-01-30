@@ -14,6 +14,12 @@ import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
 import { CountryStatsFilters, NodeFilters } from '../shared/types/filters'
 import { buildCountryStatsUrl } from '../shared/utils/urlBuilder'
 
+interface RewardHistoryItem {
+  date: string
+  background: { value: number }
+  foreground: { value: number }
+}
+
 interface DataContextType {
   data: NodeData[]
   loading: boolean
@@ -44,11 +50,7 @@ interface DataContextType {
   setCountrySearchTerm: (term: string) => void
   systemStats: SystemStats
   totalUptime: number | null
-  rewardsHistory: Array<{
-    date: string
-    nrEligibleNodes: number
-    totalAmount: number
-  }>
+  rewardsHistory: RewardHistoryItem[]
   fetchRewardsHistory: () => Promise<any>
 }
 
@@ -83,13 +85,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     cpuArchitectures: {}
   })
   const [totalUptime, setTotalUptime] = useState<number | null>(null)
-  const [rewardsHistory, setRewardsHistory] = useState<
-    Array<{
-      date: string
-      nrEligibleNodes: number
-      totalAmount: number
-    }>
-  >([])
+  const [rewardsHistory, setRewardsHistory] = useState<RewardHistoryItem[]>([])
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -161,7 +157,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     } finally {
       setLoading(false)
     }
-  }, [fetchUrl])
+  }, [currentPage, fetchUrl, pageSize])
 
   const getTotalEligible = useCallback(async () => {
     setLoading(true)
@@ -199,7 +195,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
       setTotalRewards(response.data.cumulativeTotalAmount)
     } catch (err) {
-      console.error('Error total eligible nodes data:', err)
+      console.error('Error fetching rewards data:', err)
       setError(err)
     } finally {
       setLoading(false)
@@ -271,7 +267,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [])
 
-  const fetchRewardsHistory = async () => {
+  const fetchRewardsHistory = useCallback(async () => {
     try {
       const response = await fetch(
         'https://analytics.nodes.oceanprotocol.com/rewards-history'
@@ -286,7 +282,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Error fetching rewards history:', error)
     }
-  }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -327,7 +323,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     filters,
     sortModel,
     searchTerm,
-    countrySearchTerm
+    countrySearchTerm,
+    systemStats.cpuCounts,
+    getTotalEligible,
+    getTotalRewards,
+    fetchRewardsHistory,
+    fetchData,
+    fetchCountryStats,
+    fetchSystemStats
   ])
 
   useEffect(() => {

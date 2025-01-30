@@ -34,8 +34,6 @@ const Dashboard = () => {
   const { totalCountries, loading: mapLoading } = useMapContext()
   const pathname = usePathname()
 
-  if (pathname === '/nodes') return null
-
   if (error) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -62,12 +60,23 @@ const Dashboard = () => {
         bigNumber={formatNumber(totalEligibleNodes)}
         isLoading={loading}
       />
-      <Card
-        title="Total Countries"
-        bigNumber={formatNumber(totalCountries)}
-        isLoading={loading}
-        dataLoading={mapLoading}
-      />
+
+      {pathname === '/nodes' ? (
+        <Card
+          title="Rewards History"
+          chartType="line"
+          chartData={rewardsHistory}
+          isLoading={loading || !rewardsHistory}
+        />
+      ) : (
+        <Card
+          title="Total Countries"
+          bigNumber={formatNumber(totalCountries)}
+          isLoading={loading}
+          dataLoading={mapLoading}
+        />
+      )}
+
       <Card
         title="Total Nodes"
         bigNumber={formatNumber(totalNodes)}
