@@ -8,7 +8,9 @@ import {
   MenuItem,
   TextField,
   InputAdornment,
-  IconButton
+  IconButton,
+  useTheme,
+  useMediaQuery
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
@@ -140,6 +142,9 @@ const CustomPagination = React.memo(function CustomPagination({
   const [pageInput, setPageInput] = useState('')
   const totalPages = Math.ceil(totalItems / pageSize)
 
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
   const handlePageChange = useCallback(
     (event: React.ChangeEvent<unknown>, value: number) => {
       onPageChange(value)
@@ -176,6 +181,114 @@ const CustomPagination = React.memo(function CustomPagination({
       }
     }
   }, [page])
+
+  if (isMobile) {
+    return (
+      <div className={styles.pagination}>
+        <div className={styles.mobileArrowsRow}>
+          <NavButton
+            className={styles.paginationButton}
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 1}
+          >
+            <ArrowBackIcon style={{ color: '#CF1FB1' }} />
+          </NavButton>
+          <Typography className={styles.pageInfo}>
+            Page {page} of {totalPages}
+          </Typography>
+          <NavButton
+            className={styles.paginationButton}
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages}
+          >
+            <ArrowForwardIcon style={{ color: '#CF1FB1' }} />
+          </NavButton>
+        </div>
+        <div className={styles.mobileControlsRow}>
+          <StyledSelect
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            variant="outlined"
+          >
+            {[10, 25, 50, 100].map((size) => (
+              <MenuItem key={size} value={size}>
+                {size}
+              </MenuItem>
+            ))}
+          </StyledSelect>
+          <div className={styles.pageJumpContainer}>
+            <StyledTextField
+              size="small"
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              placeholder="Page"
+              type="number"
+              inputProps={{
+                min: 1,
+                max: totalPages
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0px',
+                        margin: '-4px -8px -4px 0'
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setPageInput(
+                            String(Math.min(Number(pageInput || 1) + 1, totalPages))
+                          )
+                        }
+                        sx={{
+                          color: '#CF1FB1',
+                          padding: '4px 2px 0 2px',
+                          '&:hover': { backgroundColor: 'transparent' }
+                        }}
+                      >
+                        <ArrowDropUpIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setPageInput(String(Math.max(Number(pageInput || 1) - 1, 1)))
+                        }
+                        sx={{
+                          color: '#CF1FB1',
+                          padding: '0 2px 4px 2px',
+                          '&:hover': { backgroundColor: 'transparent' }
+                        }}
+                      >
+                        <ArrowDropDownIcon fontSize="small" />
+                      </IconButton>
+                    </div>
+                  </InputAdornment>
+                )
+              }}
+              onKeyPress={(e) => e.key === 'Enter' && handlePageJump()}
+            />
+            <Button
+              variant="contained"
+              onClick={handlePageJump}
+              sx={{
+                backgroundColor: '#CF1FB1',
+                '&:hover': { backgroundColor: '#A8188D' },
+                ml: 1,
+                fontFamily: "'Sharp Sans', sans-serif"
+              }}
+            >
+              Go
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.pagination}>
