@@ -175,12 +175,15 @@ const CustomPagination = React.memo(function CustomPagination({
     const searchParams = new URLSearchParams(window.location.search)
     const urlPage = searchParams.get('page')
     if (urlPage) {
-      const pageNumber = parseInt(urlPage)
-      if (!isNaN(pageNumber) && pageNumber >= 1) {
-        setPageInput(String(pageNumber))
+      const parsedPage = parseInt(urlPage)
+      if (!isNaN(parsedPage) && parsedPage >= 1 && parsedPage <= totalPages) {
+        if (parsedPage !== page) {
+          onPageChange(parsedPage)
+        }
+        setPageInput(String(parsedPage))
       }
     }
-  }, [page])
+  }, [onPageChange, page, totalPages])
 
   if (isMobile) {
     return (
