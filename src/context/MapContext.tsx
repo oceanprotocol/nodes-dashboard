@@ -7,18 +7,11 @@ import React, {
   useMemo
 } from 'react'
 import axios from 'axios'
-import { LocationNode } from '../shared/types/locationNodeType'
 import { getApiRoute } from '@/config'
-
-interface CountryNodesInfo {
-  country: string
-  nodeIds: string[]
-  totalNodes: number
-}
+import { LocationNode } from '../shared/types/locationNodeType'
 
 interface MapContextType {
   data: LocationNode[]
-  countryNodesInfo: CountryNodesInfo[]
   loading: boolean
   error: any
   totalCountries: number
@@ -32,7 +25,6 @@ export const MapContext = createContext<MapContextType | undefined>(undefined)
 
 export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   const [data, setData] = useState<LocationNode[]>([])
-  const [countryNodesInfo, setCountryNodesInfo] = useState<CountryNodesInfo[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<any>(null)
   const [totalCountries, setTotalCountries] = useState<number>(0)
@@ -46,13 +38,21 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       setLoading(true)
       try {
         const response = await axios.get(fetchUrl)
-        const nodes = response.data.locations
+        const locationsFromAPI = response.data.locations
         const totalCountries = response.data.totalCountries
 
-        setData(nodes)
+        const transformedNodes = locationsFromAPI.map((location: any) => ({
+          city: location.location,
+          lat: location.coordinates.lat,
+          lon: location.coordinates.lon,
+          country: location.country || location.location,
+          count: location.count
+        }))
+
+        setData(transformedNodes)
         setTotalCountries(totalCountries)
       } catch (err) {
-        console.log('error', err)
+        console.error('Error fetching locations:', err)
         setError(err)
       } finally {
         setLoading(false)
@@ -66,7 +66,6 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     <MapContext.Provider
       value={{
         data,
-        countryNodesInfo,
         loading,
         error,
         totalCountries
