@@ -79,14 +79,14 @@ export default function Map() {
       acc: Record<string, { lat: number; lon: number; country: string; count: number }>,
       node: LocationNode
     ) => {
-      const { city, lat, lon, country } = node._source
+      const { city, lat, lon, country, count } = node
 
       if (city) {
         if (!acc[city]) {
-          acc[city] = { lat, lon, country, count: 0 }
+          acc[city] = { lat, lon, country, count }
+        } else {
+          acc[city].count += count
         }
-
-        acc[city].count += 1
       }
 
       return acc
