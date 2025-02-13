@@ -126,13 +126,21 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
                 fill={entry.color}
                 stroke="none"
                 style={{
-                  transition: 'all 0.3s ease-in-out',
-                  filter: activeIndex === index ? 'url(#glow)' : 'none'
+                  transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                  filter: activeIndex === index ? 'url(#glow)' : 'none',
+                  transform: activeIndex === index ? 'scale(1.05)' : 'scale(1)'
                 }}
               />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip
+            content={<CustomTooltip />}
+            position={{ y: 250 }}
+            wrapperStyle={{
+              transition: 'opacity 0.3s ease-in-out',
+              opacity: activeIndex !== undefined ? 1 : 0
+            }}
+          />
         </PieChart>
       </ResponsiveContainer>
       <p className={styles.tapToSee}>{hoverText}</p>
