@@ -138,7 +138,8 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
             position={{ y: 250 }}
             wrapperStyle={{
               transition: 'opacity 0.3s ease-in-out',
-              opacity: activeIndex !== undefined ? 1 : 0
+              opacity: activeIndex !== undefined ? 1 : 0,
+              zIndex: 1000
             }}
           />
         </PieChart>
