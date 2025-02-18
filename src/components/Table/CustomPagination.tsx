@@ -45,6 +45,12 @@ const NavButton = styled(Button)(({ theme }) => ({
   padding: '6px',
   '&.Mui-disabled': {
     opacity: 0.5
+  },
+  '& .MuiTypography-root': {
+    fontFamily: "'Sharp Sans', sans-serif",
+    fontSize: '16px',
+    fontWeight: 400,
+    lineHeight: '24px'
   }
 }))
 
@@ -100,7 +106,8 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     fontSize: '16px',
     fontWeight: 400,
     lineHeight: '24px',
-    color: '#000000'
+    color: '#000000',
+    minWidth: '42px'
   },
   '& .MuiInputBase-input::placeholder': {
     color: '#A0AEC0',
@@ -219,7 +226,7 @@ const CustomPagination = React.memo(function CustomPagination({
               </MenuItem>
             ))}
           </StyledSelect>
-          <div className={styles.pageJumpContainer}>
+          <div>
             <StyledTextField
               size="small"
               value={pageInput}
@@ -320,7 +327,7 @@ const CustomPagination = React.memo(function CustomPagination({
             </MenuItem>
           ))}
         </StyledSelect>
-        <div className={styles.pageJumpContainer}>
+        <div>
           <StyledTextField
             size="small"
             value={pageInput}
