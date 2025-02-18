@@ -31,34 +31,38 @@ interface DataContextType {
   sortModel: Record<string, 'asc' | 'desc'>
   filters: Record<string, any>
   nextSearchAfter: any[] | null
+  totalNodes: number | null
+  totalEligibleNodes: number | null
+  totalRewards: number | null
+  countryStats: CountryStatsType[]
+  countryCurrentPage: number
+  countryPageSize: number
+  tableType: 'nodes' | 'countries'
+  countrySearchTerm: string
+  systemStats: SystemStats
+  totalUptime: number | null
+  rewardsHistory: RewardHistoryItem[]
+  loadingTotalNodes: boolean
+  loadingRewardsHistory: boolean
+  loadingTotalEligible: boolean
+  loadingTotalRewards: boolean
   setCurrentPage: (page: number) => void
   setPageSize: (size: number) => void
   setSearchTerm: (term: string) => void
   setFilters: (filters: { [key: string]: any }) => void
   setSortModel: (model: { [key: string]: 'asc' | 'desc' }) => void
-  totalNodes: number
-  totalEligibleNodes: number
-  totalRewards: number
-  countryStats: CountryStatsType[]
-  countryCurrentPage: number
-  countryPageSize: number
   setCountryCurrentPage: (page: number) => void
   setCountryPageSize: (size: number) => void
-  tableType: 'nodes' | 'countries'
   setTableType: (type: 'nodes' | 'countries') => void
-  countrySearchTerm: string
   setCountrySearchTerm: (term: string) => void
-  systemStats: SystemStats
-  totalUptime: number | null
-  rewardsHistory: RewardHistoryItem[]
   fetchRewardsHistory: () => Promise<any>
 }
+
+const DataContext = createContext<DataContextType | undefined>(undefined)
 
 interface DataProviderProps {
   children: ReactNode
 }
-
-export const DataContext = createContext<DataContextType | undefined>(undefined)
 
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [data, setData] = useState<NodeData[]>([])
@@ -68,15 +72,16 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [pageSize, setPageSize] = useState<number>(10)
   const [totalItems, setTotalItems] = useState<number>(0)
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [sortModel, setSortModel] = useState<{ [key: string]: 'asc' | 'desc' }>({})
-  const [filters, setFilters] = useState<{ [key: string]: any }>({})
+  const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({})
+  const [filters, setFilters] = useState<Record<string, any>>({})
   const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null)
-  const [totalNodes, setTotalNodes] = useState<number>(0)
-  const [totalEligibleNodes, setTotalEligibleNodes] = useState<number>(0)
-  const [totalRewards, setTotalRewards] = useState<number>(0)
+
+  const [totalNodes, setTotalNodes] = useState<number | null>(null)
+  const [totalEligibleNodes, setTotalEligibleNodes] = useState<number | null>(null)
+  const [totalRewards, setTotalRewards] = useState<number | null>(null)
   const [countryStats, setCountryStats] = useState<CountryStatsType[]>([])
-  const [countryCurrentPage, setCountryCurrentPage] = useState(1)
-  const [countryPageSize, setCountryPageSize] = useState(10)
+  const [countryCurrentPage, setCountryCurrentPage] = useState<number>(1)
+  const [countryPageSize, setCountryPageSize] = useState<number>(10)
   const [tableType, setTableType] = useState<'nodes' | 'countries'>('nodes')
   const [countrySearchTerm, setCountrySearchTerm] = useState<string>('')
   const [systemStats, setSystemStats] = useState<SystemStats>({
@@ -86,6 +91,11 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   })
   const [totalUptime, setTotalUptime] = useState<number | null>(null)
   const [rewardsHistory, setRewardsHistory] = useState<RewardHistoryItem[]>([])
+  const [loadingTotalNodes, setLoadingTotalNodes] = useState<boolean>(false)
+  const [loadingRewardsHistory, setLoadingRewardsHistory] = useState<boolean>(false)
+  const [loadingTotalEligible, setLoadingTotalEligible] = useState<boolean>(false)
+  const [loadingTotalRewards, setLoadingTotalRewards] = useState<boolean>(false)
+  const [metricsLoaded, setMetricsLoaded] = useState<boolean>(false)
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -95,7 +105,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
   const buildFilterParams = (filters: NodeFilters): string => {
     if (!filters || Object.keys(filters).length === 0) return ''
-
     return Object.entries(filters)
       .filter(([_, filterData]) => filterData?.value && filterData?.operator)
       .map(([field, filterData]) => {
@@ -110,97 +119,82 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
   const fetchUrl = useMemo(() => {
     let url = `${getApiRoute('nodes')}?page=${currentPage}&size=${pageSize}`
-
     if (sortParams) {
       url += `&${sortParams}`
     }
-
     const filterString = buildFilterParams(filters)
     if (filterString) {
       url += `&${filterString}`
     }
-
     if (searchTerm) {
       url += `&search=${encodeURIComponent(searchTerm)}`
     }
-
     return url
   }, [currentPage, pageSize, sortParams, filters, searchTerm])
 
   const fetchData = useCallback(async () => {
+    const isDefaultView =
+      (!searchTerm || searchTerm.trim() === '') &&
+      (Object.keys(filters).length === 0 ||
+        Object.values(filters).every((filter: any) => !filter || !filter.value))
     setLoading(true)
+    if (isDefaultView && !metricsLoaded) {
+      setLoadingTotalNodes(true)
+    }
     try {
       const response = await axios.get(fetchUrl)
-
-      let sanitizedData: NodeData[] = []
-      for (let index = 0; index < response.data.nodes.length; index++) {
-        const element = response.data.nodes[index]
-
-        console.groupEnd()
-
-        sanitizedData.push({
-          ...element._source,
-          index: (currentPage - 1) * pageSize + index + 1
-        })
-      }
-
-      console.groupEnd()
-
+      const sanitizedData = response.data.nodes.map((element: any, index: number) => ({
+        ...element._source,
+        index: (currentPage - 1) * pageSize + index + 1
+      }))
       setData(sanitizedData)
       setTotalItems(response.data.pagination.totalItems)
       setNextSearchAfter(response.data.pagination.nextSearchAfter)
-      setTotalNodes(response.data.pagination.totalItems)
-      // setTotalEligibleNodes(response.data.totalEligibleNodes)
+      if (isDefaultView && !metricsLoaded) {
+        setTotalNodes(response.data.pagination.totalItems)
+      }
     } catch (err) {
       console.error('Error fetching data:', err)
       setError(err)
     } finally {
       setLoading(false)
+      if (isDefaultView && !metricsLoaded) {
+        setLoadingTotalNodes(false)
+      }
     }
-  }, [currentPage, fetchUrl, pageSize])
+  }, [currentPage, fetchUrl, pageSize, searchTerm, filters, metricsLoaded])
 
   const getTotalEligible = useCallback(async () => {
-    setLoading(true)
+    if (!metricsLoaded) setLoadingTotalEligible(true)
     const date = Date.now()
     const oneWeekInMs = 7 * 24 * 60 * 60 * 1000
+    const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000)
     try {
-      const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000)
       const response = await axios.get(
         `https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`
       )
-
       setTotalEligibleNodes(response.data.numberOfRows)
     } catch (err) {
       console.error('Error total eligible nodes data:', err)
-      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000)
-      const response = await axios.get(
-        `https://analytics.nodes.oceanprotocol.com/summary?date=${twoWeekAgo}`
-      )
-      if (response) {
-        setTotalEligibleNodes(response.data.numberOfRows)
-      } else {
-        setError(err)
-      }
     } finally {
-      setLoading(false)
+      if (!metricsLoaded) setLoadingTotalEligible(false)
     }
-  }, [])
+  }, [metricsLoaded])
 
   const getTotalRewards = useCallback(async () => {
-    setLoading(true)
+    if (!metricsLoaded) setLoadingTotalRewards(true)
     try {
       const response = await axios.get(
         `https://analytics.nodes.oceanprotocol.com/all-summary`
       )
-
       setTotalRewards(response.data.cumulativeTotalAmount)
     } catch (err) {
       console.error('Error fetching rewards data:', err)
       setError(err)
     } finally {
-      setLoading(false)
+      if (!metricsLoaded) setLoadingTotalRewards(false)
     }
-  }, [])
+  }, [metricsLoaded])
 
   const fetchCountryStats = useCallback(async () => {
     try {
@@ -208,12 +202,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         page: countryCurrentPage,
         pageSize: countryPageSize
       }
-
       if (countrySearchTerm) {
         params['filters[country][value]'] = countrySearchTerm
         params['filters[country][operator]'] = 'contains'
       }
-
       if (filters && Object.keys(filters).length > 0) {
         Object.entries(filters).forEach(([field, filterData]) => {
           const { value, operator } = filterData
@@ -221,15 +213,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           params[`filters[${field}][operator]`] = operator
         })
       }
-
       if (sortModel && Object.keys(sortModel).length > 0) {
         const [field, order] = Object.entries(sortModel)[0]
         const sortField = field === 'cityWithMostNodes' ? 'cityWithMostNodesCount' : field
         params[`sort[${sortField}]`] = order
       }
-
       const response = await axios.get(getApiRoute('countryStats'), { params })
-
       if (response.data && Array.isArray(response.data.countryStats)) {
         const processedStats = response.data.countryStats.map(
           (country: any, index: number) => ({
@@ -279,8 +268,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         foreground: { value: item.totalAmount }
       }))
       setRewardsHistory(formattedData)
+      setLoadingRewardsHistory(false)
     } catch (error) {
       console.error('Error fetching rewards history:', error)
+      setLoadingRewardsHistory(false)
     }
   }, [])
 
@@ -290,7 +281,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
     const fetchAllData = async () => {
       if (!mounted) return
-
       try {
         if (tableType === 'nodes') {
           await fetchData()
@@ -300,8 +290,15 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         if (!systemStats.cpuCounts || Object.keys(systemStats.cpuCounts).length === 0) {
           await fetchSystemStats()
         }
-        await getTotalEligible()
-        await getTotalRewards()
+        const isDefaultView =
+          (!searchTerm || searchTerm.trim() === '') &&
+          (Object.keys(filters).length === 0 ||
+            Object.values(filters).every((filter: any) => !filter || !filter.value))
+        if (isDefaultView && !metricsLoaded) {
+          await getTotalEligible()
+          await getTotalRewards()
+          setMetricsLoaded(true)
+        }
         await fetchRewardsHistory()
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -325,6 +322,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     searchTerm,
     countrySearchTerm,
     systemStats.cpuCounts,
+    metricsLoaded,
     getTotalEligible,
     getTotalRewards,
     fetchRewardsHistory,
@@ -337,21 +335,17 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const fetchTotalUptime = async () => {
       try {
         const now = Math.floor(Date.now() / 1000)
-
         const response = await axios.get(
           `https://incentive-backend.oceanprotocol.com/weekStats?date=${now}`
         )
-
         if (response?.data && response.data.length > 0) {
           const totalUptimeValue = response.data[0]._source.totalUptime
-
           setTotalUptime(totalUptimeValue)
         }
       } catch (error) {
         console.error('Failed to fetch total uptime:', error)
       }
     }
-
     fetchTotalUptime()
   }, [])
 
@@ -399,9 +393,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       page: tableType === 'countries' ? countryCurrentPage : currentPage,
       pageSize: tableType === 'countries' ? countryPageSize : pageSize
     }
-
     const baseUrl = tableType === 'countries' ? '/api/countryStats' : '/api/nodes'
-
     return buildCountryStatsUrl(
       baseUrl,
       pagination,
@@ -434,23 +426,27 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         totalNodes,
         totalEligibleNodes,
         totalRewards,
+        loadingTotalNodes,
+        countryStats,
+        countryCurrentPage,
+        countryPageSize,
+        tableType,
+        countrySearchTerm,
+        systemStats,
+        totalUptime,
+        rewardsHistory,
+        loadingRewardsHistory,
+        loadingTotalEligible,
+        loadingTotalRewards,
         setCurrentPage: handleSetCurrentPage,
         setPageSize: handleSetPageSize,
         setSearchTerm: handleSetSearchTerm,
         setSortModel: handleSetSortModel,
         setFilters: handleSetFilters,
-        countryStats,
-        countryCurrentPage,
-        countryPageSize,
         setCountryCurrentPage: handleSetCountryCurrentPage,
         setCountryPageSize: handleSetCountryPageSize,
-        tableType,
         setTableType: handleSetTableType,
-        countrySearchTerm,
         setCountrySearchTerm,
-        systemStats,
-        totalUptime,
-        rewardsHistory,
         fetchRewardsHistory
       }}
     >

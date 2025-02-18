@@ -1,19 +1,19 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Card from '../Card/Card'
 import styles from './Dashboard.module.css'
 import { useDataContext } from '@/context/DataContext'
 import { useMapContext } from '../../context/MapContext'
-import { CircularProgress, Alert, Box } from '@mui/material'
+import { Alert, Box } from '@mui/material'
 import { usePathname } from 'next/navigation'
 
-const formatNumber = (num: number | string | undefined): string => {
-  if (num === undefined) return '0'
+const formatNumber = (num: number | string | null | undefined): string => {
+  if (num === null || num === undefined) return '-'
   const numStr = typeof num === 'string' ? num : num.toString()
   return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-const formatRewardsNumber = (num: number | string | undefined): string => {
-  if (num === undefined) return '0'
+const formatRewardsNumber = (num: number | string | null | undefined): string => {
+  if (num === null || num === undefined) return '-'
   const number = typeof num === 'string' ? parseFloat(num) : num
 
   if (number >= 1000000) {
@@ -29,10 +29,38 @@ const formatRewardsNumber = (num: number | string | undefined): string => {
 }
 
 const Dashboard = () => {
-  const { loading, error, totalNodes, totalEligibleNodes, totalRewards, rewardsHistory } =
-    useDataContext()
+  const {
+    loadingTotalNodes,
+    loadingTotalEligible,
+    loadingTotalRewards,
+    loadingRewardsHistory,
+    error,
+    totalNodes,
+    totalEligibleNodes,
+    totalRewards,
+    rewardsHistory
+  } = useDataContext()
   const { totalCountries, loading: mapLoading } = useMapContext()
   const pathname = usePathname()
+
+  const combinedLoading =
+    loadingTotalNodes ||
+    loadingTotalEligible ||
+    loadingTotalRewards ||
+    loadingRewardsHistory
+
+  const [overallDashboardLoading, setOverallDashboardLoading] = useState(combinedLoading)
+
+  useEffect(() => {
+    if (combinedLoading) {
+      setOverallDashboardLoading(true)
+    } else {
+      const timer = setTimeout(() => {
+        setOverallDashboardLoading(false)
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [combinedLoading])
 
   if (error) {
     return (
@@ -58,13 +86,13 @@ const Dashboard = () => {
       <Card
         title="Total Eligible Nodes"
         bigNumber={formatNumber(totalEligibleNodes)}
-        isLoading={loading}
+        isLoading={overallDashboardLoading}
       />
 
       <Card
         title="Total Nodes"
         bigNumber={formatNumber(totalNodes)}
-        isLoading={loading}
+        isLoading={overallDashboardLoading}
       />
 
       {pathname === '/nodes' ? (
@@ -72,13 +100,14 @@ const Dashboard = () => {
           title="Rewards History"
           chartType="line"
           chartData={rewardsHistory}
-          isLoading={loading || !rewardsHistory}
+          isLoading={overallDashboardLoading}
+          dataLoading={overallDashboardLoading}
         />
       ) : (
         <Card
           title="Total Countries"
           bigNumber={formatNumber(totalCountries)}
-          isLoading={loading}
+          isLoading={overallDashboardLoading || mapLoading}
           dataLoading={mapLoading}
         />
       )}
@@ -93,7 +122,7 @@ const Dashboard = () => {
             <span className={styles.oceanText}>ROSE</span>
           </div>
         }
-        isLoading={loading}
+        isLoading={overallDashboardLoading}
       />
     </div>
   )
