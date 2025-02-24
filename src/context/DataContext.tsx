@@ -171,11 +171,23 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000)
     try {
       const response = await axios.get(
-        `https://analytics.nodes.oceanprotocol.com/summary?date=${oneWeekAgo}`
+        `${getApiRoute('analyticsSummary')}?date=${oneWeekAgo}`
       )
       setTotalEligibleNodes(response.data.numberOfRows)
     } catch (err) {
       console.error('Error total eligible nodes data:', err)
+      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000)
+      try {
+        const response = await axios.get(
+          `${getApiRoute('analyticsSummary')}?date=${twoWeekAgo}`
+        )
+        if (response) {
+          setTotalEligibleNodes(response.data.numberOfRows)
+        }
+      } catch (fallbackErr) {
+        console.error('Error in fallback fetch:', fallbackErr)
+        setError(err)
+      }
     } finally {
       if (!metricsLoaded) setLoadingTotalEligible(false)
     }
@@ -184,9 +196,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const getTotalRewards = useCallback(async () => {
     if (!metricsLoaded) setLoadingTotalRewards(true)
     try {
-      const response = await axios.get(
-        `https://analytics.nodes.oceanprotocol.com/all-summary`
-      )
+      const response = await axios.get(getApiRoute('analyticsAllSummary'))
       setTotalRewards(response.data.cumulativeTotalAmount)
     } catch (err) {
       console.error('Error fetching rewards data:', err)
@@ -258,9 +268,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
 
   const fetchRewardsHistory = useCallback(async () => {
     try {
-      const response = await fetch(
-        'https://analytics.nodes.oceanprotocol.com/rewards-history'
-      )
+      const response = await fetch(getApiRoute('analyticsRewardsHistory'))
       const data = await response.json()
       const formattedData = data.rewards.map((item: any) => ({
         date: item.date,
@@ -335,9 +343,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const fetchTotalUptime = async () => {
       try {
         const now = Math.floor(Date.now() / 1000)
-        const response = await axios.get(
-          `https://incentive-backend.oceanprotocol.com/weekStats?date=${now}`
-        )
+        const response = await axios.get(`${getApiRoute('weekStats')}?date=${now}`)
         if (response?.data && response.data.length > 0) {
           const totalUptimeValue = response.data[0]._source.totalUptime
           setTotalUptime(totalUptimeValue)

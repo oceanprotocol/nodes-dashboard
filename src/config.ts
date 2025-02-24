@@ -7,12 +7,17 @@ type Routes = {
   [key: string]: Route
 }
 
-type SocialMedia = {
-  [key: string]: string
+type ApiRoute = {
+  root: 'incentive' | 'analytics'
+  path: string
 }
 
 type ApiRoutes = {
-  [key: string]: string | ((param: string | number) => string)
+  [key: string]: ApiRoute
+}
+
+type SocialMedia = {
+  [key: string]: string
 }
 
 type Config = {
@@ -32,11 +37,23 @@ type Config = {
   }
 }
 
+const API_ROOTS = {
+  incentive: 'https://incentive-backend.oceanprotocol.com',
+  analytics: 'https://analytics.nodes.oceanprotocol.com'
+} as const
+
 const apiRoutes = {
-  nodes: '/nodes',
-  locations: '/locations',
-  countryStats: '/countryStats',
-  nodeSystemStats: '/nodeSystemStats'
+  // Incentive API routes
+  nodes: { root: 'incentive', path: '/nodes' },
+  locations: { root: 'incentive', path: '/locations' },
+  countryStats: { root: 'incentive', path: '/countryStats' },
+  nodeSystemStats: { root: 'incentive', path: '/nodeSystemStats' },
+  weekStats: { root: 'incentive', path: '/weekStats' },
+
+  // Analytics API routes
+  analyticsSummary: { root: 'analytics', path: '/summary' },
+  analyticsAllSummary: { root: 'analytics', path: '/all-summary' },
+  analyticsRewardsHistory: { root: 'analytics', path: '/rewards-history' }
 } as const
 
 type ApiRouteKeys = keyof typeof apiRoutes
@@ -85,9 +102,7 @@ export const getRoutes = (): Routes => config.routes
 export const getSocialMedia = (): SocialMedia => config.socialMedia
 export const getLinks = () => config.links
 export const getApiRoute = (key: ApiRouteKeys, param?: string | number): string => {
-  const route = config.apiRoutes[key]
-  if (typeof route === 'function' && param !== undefined) {
-    return `${config.backendUrl}${route(param)}`
-  }
-  return `${config.backendUrl}${route}`
+  const route = apiRoutes[key]
+  const baseUrl = API_ROOTS[route.root]
+  return `${baseUrl}${route.path}`
 }
