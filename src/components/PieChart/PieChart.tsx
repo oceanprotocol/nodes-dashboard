@@ -14,6 +14,7 @@ interface PieChartCardProps {
 
 const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined)
+  const [lockedIndex, setLockedIndex] = useState<number | undefined>(undefined)
   const [hoverText, setHoverText] = useState('Hover to see details')
 
   const totalValue = useMemo(
@@ -22,14 +23,31 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
   )
 
   const onPieEnter = (_: any, index: number) => {
-    setActiveIndex(index)
-    const percentage = ((data[index].value / totalValue) * 100).toFixed(2)
-    setHoverText(`${data[index].name}: ${percentage}%`)
+    if (lockedIndex === undefined) {
+      setActiveIndex(index)
+      const percentage = ((data[index].value / totalValue) * 100).toFixed(2)
+      setHoverText(`${data[index].name}: ${percentage}%`)
+    }
   }
 
   const onPieLeave = () => {
-    setActiveIndex(undefined)
-    setHoverText('Hover to see details')
+    if (lockedIndex === undefined) {
+      setActiveIndex(undefined)
+      setHoverText('Hover to see details')
+    }
+  }
+
+  const onPieClick = (_: any, index: number) => {
+    if (lockedIndex === index) {
+      setLockedIndex(undefined)
+      setActiveIndex(undefined)
+      setHoverText('Hover to see details')
+    } else {
+      setLockedIndex(index)
+      setActiveIndex(index)
+      const percentage = ((data[index].value / totalValue) * 100).toFixed(2)
+      setHoverText(`${data[index].name}: ${percentage}%`)
+    }
   }
 
   const renderActiveShape = (props: any) => {
@@ -60,10 +78,15 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
   }
 
   const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const { name, value, details } = payload[0].payload
-      const percentage = ((value / totalValue) * 100).toFixed(1)
-
+    const isActive = active || lockedIndex !== undefined
+    let item
+    if (lockedIndex !== undefined) {
+      item = data[lockedIndex]
+    } else if (payload && payload.length > 0) {
+      item = payload[0].payload
+    }
+    if (isActive && item) {
+      const percentage = ((item.value / totalValue) * 100).toFixed(1)
       return (
         <div
           style={{
@@ -73,25 +96,26 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
             color: '#000'
           }}
         >
-          <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>{name}</p>
+          <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>{item.name}</p>
           <p style={{ margin: '0 0 8px 0' }}>
-            Total: {value} nodes ({percentage}%)
+            Total: {item.value} nodes ({percentage}%)
           </p>
-          {details && (
+          {item.details && (
             <div
               style={{
                 fontSize: '12px',
-                maxHeight: '150px',
+                height: '150px',
                 overflowY: 'auto',
                 borderTop: '1px solid #eee',
-                paddingTop: '8px'
+                paddingTop: '8px',
+                pointerEvents: 'auto'
               }}
             >
-              {Array.isArray(details) &&
-                details.map((detail: string, index: number) => (
-                  <p key={index} style={{ margin: '2px 0' }}>
-                    {detail}
-                  </p>
+              {Array.isArray(item.details) &&
+                item.details.map((detail: string, index: number) => (
+                  <div key={index}>
+                    <p style={{ margin: '2px 0' }}>{detail}</p>
+                  </div>
                 ))}
             </div>
           )}
@@ -118,6 +142,7 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
             dataKey="value"
             onMouseEnter={onPieEnter}
             onMouseLeave={onPieLeave}
+            onClick={onPieClick}
             className={styles.pieHover}
           >
             {data.map((entry, index) => (
@@ -126,16 +151,32 @@ const PieChartCard: React.FC<PieChartCardProps> = ({ data, title }) => {
                 fill={entry.color}
                 stroke="none"
                 style={{
-                  transition: 'all 0.3s ease-in-out',
-                  filter: activeIndex === index ? 'url(#glow)' : 'none'
+                  transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                  filter:
+                    activeIndex === index || lockedIndex === index
+                      ? 'url(#glow)'
+                      : 'none',
+                  transform:
+                    activeIndex === index || lockedIndex === index
+                      ? 'scale(1.05)'
+                      : 'scale(1)'
                 }}
               />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip
+            active={lockedIndex !== undefined ? true : undefined}
+            content={<CustomTooltip />}
+            position={{ y: 250 }}
+            wrapperStyle={{
+              transition: 'opacity 0.3s ease-in-out',
+              opacity: activeIndex !== undefined || lockedIndex !== undefined ? 1 : 0,
+              zIndex: 1000
+            }}
+          />
         </PieChart>
       </ResponsiveContainer>
-      <p className={styles.tapToSee}>{hoverText}</p>
+      <div style={{ textAlign: 'center', marginTop: '8px' }}>{hoverText}</div>
     </div>
   )
 }

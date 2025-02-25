@@ -14,6 +14,12 @@ const TopCountriesChart: React.FC = () => {
     nodes: stat.totalNodes
   }))
 
+  const maxNodes = Math.max(...topCountries.map((country) => country.nodes))
+
+  const tickInterval = maxNodes > 50000 ? 5000 : 1000
+  const roundedMax = Math.ceil(maxNodes / tickInterval) * tickInterval
+  const tickValues = Array.from({ length: 6 }, (_, i) => Math.round((roundedMax / 5) * i))
+
   return (
     <div className={styles.root}>
       <h2 className={styles.title}>Top 5 countries by Ocean Nodes</h2>
@@ -30,8 +36,8 @@ const TopCountriesChart: React.FC = () => {
               axisLine={false}
               tickLine={false}
               tick={<CustomXAxisTick />}
-              domain={[0, 10000]}
-              ticks={[0, 2000, 4000, 6000, 8000, 10000]}
+              domain={[0, roundedMax]}
+              ticks={tickValues}
             />
             <YAxis
               dataKey="country"
