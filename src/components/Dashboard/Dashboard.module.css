@@ -87,6 +87,31 @@
   font-weight: 500;
 }
 
+.chartBottomInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  position: absolute;
+  bottom: 30px;
+  width: 100%;
+}
+
+.percentChangeContainer {
+  display: flex;
+  align-items: center;
+}
+
+.percentChange {
+  background-color: rgba(100, 255, 100, 0.2);
+  color: rgb(100, 210, 100);
+  padding: 4px 8px;
+  border-radius: 15px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+
 @media (max-width: 1024px) {
   .dashboard {
     grid-template-columns: repeat(2, 1fr);
