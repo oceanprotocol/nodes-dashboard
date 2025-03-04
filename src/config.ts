@@ -73,6 +73,10 @@ const config: Config = {
     countries: {
       path: '/countries',
       name: 'Countries'
+    },
+    history: {
+      path: '/history',
+      name: 'History'
     }
   },
   apiRoutes,

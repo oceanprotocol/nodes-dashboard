@@ -1,4 +1,4 @@
-import React, { JSXElementConstructor, useMemo } from 'react'
+import React, { JSXElementConstructor, useMemo, useEffect } from 'react'
 import {
   DataGrid,
   GridColDef,
@@ -13,9 +13,10 @@ import NodeDetails from './NodeDetails'
 import CustomToolbar from '../Toolbar'
 import { styled } from '@mui/material/styles'
 import CustomPagination from './CustomPagination'
-import { nodeColumns, countryColumns } from './columns'
+import { nodeColumns, countryColumns, historyColumns } from './columns'
 import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
 import { useTable } from './hooks/useTable'
+import { useDataContext } from '../../context/DataContext'
 
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-toolbarContainer': {
@@ -80,7 +81,17 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   }
 }))
 
-export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?: TableTypeEnum }) {
+interface TableProps {
+  tableType?: TableTypeEnum
+  historyMode?: boolean
+  nodeAddress?: string
+}
+
+const Table: React.FC<TableProps> = ({
+  tableType = TableTypeEnum.NODES,
+  historyMode = false,
+  nodeAddress = ''
+}) => {
   const {
     data,
     loading,
@@ -107,13 +118,40 @@ export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?:
 
   const apiRef = useGridApiRef()
 
-  const columns = useMemo(
-    () =>
-      tableType === TableTypeEnum.NODES
-        ? nodeColumns(totalUptime, setSelectedNode)
-        : countryColumns,
-    [tableType, totalUptime, setSelectedNode]
-  )
+  const { filters, setFilters } = useDataContext()
+
+  // Add a ref to track previous address
+  const prevNodeAddressRef = React.useRef<string>('')
+
+  const columns = useMemo(() => {
+    if (historyMode) {
+      return historyColumns
+    }
+    return tableType === TableTypeEnum.NODES
+      ? nodeColumns(totalUptime, setSelectedNode)
+      : countryColumns
+  }, [tableType, historyMode, totalUptime, setSelectedNode])
+
+  useEffect(() => {
+    // Only update filters if nodeAddress has changed and isn't empty
+    if (
+      historyMode &&
+      nodeAddress &&
+      setFilters &&
+      prevNodeAddressRef.current !== nodeAddress
+    ) {
+      // Update the ref to current address
+      prevNodeAddressRef.current = nodeAddress
+
+      setFilters({
+        ...filters,
+        address: {
+          operator: 'eq',
+          value: nodeAddress
+        }
+      })
+    }
+  }, [historyMode, nodeAddress, setFilters])
 
   return (
     <div className={styles.root}>
@@ -235,3 +273,5 @@ export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?:
     </div>
   )
 }
+
+export default Table

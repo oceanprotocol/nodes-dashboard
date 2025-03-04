@@ -1,10 +1,19 @@
-import { GridColDef, GridFilterInputValue, GridRenderCellParams } from '@mui/x-data-grid'
+import {
+  GridColDef,
+  GridFilterInputValue,
+  GridRenderCellParams,
+  GridFilterItem
+} from '@mui/x-data-grid'
 import { Button, Tooltip } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ReportIcon from '@mui/icons-material/Report'
 import { NodeData } from '../../shared/types/RowDataType'
 import { formatSupportedStorage, formatPlatform, formatUptimePercentage } from './utils'
 import styles from './index.module.css'
+import Link from 'next/link'
+import HistoryIcon from '@mui/icons-material/History'
+import InfoIcon from '@mui/icons-material/Info'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 
 const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   return eligible ? (
@@ -376,14 +385,38 @@ export const nodeColumns = (
     }
   },
   {
-    field: 'viewMore',
-    headerName: '',
-    width: 120,
+    field: 'actions',
+    headerName: 'Actions',
     sortable: false,
-    filterable: false,
-    renderCell: (params: GridRenderCellParams<NodeData>) => (
-      <Button onClick={() => setSelectedNode(params.row)}>View More</Button>
-    )
+    width: 130,
+    align: 'center',
+    headerAlign: 'center',
+    renderCell: (params: GridRenderCellParams<NodeData>) => {
+      const node = params.row
+      return (
+        <div className={styles.actionButtons}>
+          <Tooltip title="View Node Details" arrow>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setSelectedNode(node)}
+              className={styles.actionButton}
+            >
+              <InfoIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+
+          <Tooltip title="View Node History" arrow>
+            <Link href={`/history?address=${encodeURIComponent(node.address)}`} passHref>
+              <Button variant="outlined" size="small" className={styles.actionButton}>
+                <HistoryIcon fontSize="small" />
+              </Button>
+            </Link>
+          </Tooltip>
+        </div>
+      )
+    },
+    cellClassName: styles.actionCell
   },
   {
     field: 'publicKey',
@@ -646,5 +679,103 @@ export const countryColumns: GridColDef[] = [
         {params.row.cityWithMostNodes} ({params.row.cityWithMostNodesCount} nodes)
       </span>
     )
+  }
+]
+
+export const historyColumns: GridColDef[] = [
+  {
+    field: 'roundNo',
+    headerName: 'Round no.',
+    width: 120,
+    sortable: true,
+    align: 'left',
+    headerAlign: 'left'
+  },
+  {
+    field: 'timestamp',
+    headerName: 'Timestamp',
+    width: 160,
+    sortable: true,
+    align: 'left',
+    headerAlign: 'left',
+    valueFormatter: (params: GridRenderCellParams) => {
+      return params.value ? `${params.value} UTC` : ''
+    }
+  },
+  {
+    field: 'reason',
+    headerName: 'Reason for Issue',
+    flex: 1,
+    minWidth: 200,
+    sortable: true,
+    align: 'left',
+    headerAlign: 'left'
+  },
+  {
+    field: 'status',
+    headerName: 'Status',
+    width: 140,
+    sortable: true,
+    align: 'center',
+    headerAlign: 'center',
+    renderCell: (params: GridRenderCellParams) => {
+      let statusColor
+      let statusText
+
+      switch (params.value?.toLowerCase()) {
+        case 'failed':
+          statusColor = '#FF5252'
+          statusText = 'Failed'
+          break
+        case 'success':
+          statusColor = '#4CAF50'
+          statusText = 'Success'
+          break
+        case 'progress':
+          statusColor = '#FFC107'
+          statusText = 'Progress'
+          break
+        default:
+          statusColor = '#9E9E9E'
+          statusText = params.value || 'Unknown'
+      }
+
+      return (
+        <div className={styles.statusContainer}>
+          <span className={styles.statusDot} style={{ backgroundColor: statusColor }} />
+          <span>{statusText}</span>
+        </div>
+      )
+    },
+    filterOperators: [
+      {
+        label: 'equals',
+        value: 'eq',
+        getApplyFilterFn: (filterItem: GridFilterItem) => {
+          return (params) => {
+            if (
+              filterItem.value === undefined ||
+              filterItem.value === null ||
+              filterItem.value === ''
+            ) {
+              return true
+            }
+            return (
+              String(params.value).toLowerCase() ===
+              String(filterItem.value).toLowerCase()
+            )
+          }
+        },
+        InputComponent: GridFilterInputValue,
+        InputComponentProps: {
+          type: 'singleSelect',
+          valueOptions: [
+            { value: 'success', label: 'Success' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'progress', label: 'Progress' }
+          ]
+        }
+      }
+    ]
   }
 ]
