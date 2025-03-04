@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import styles from './Card.module.css'
 import {
   BarChart,
@@ -11,6 +11,7 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts'
+import ReactDOM from 'react-dom'
 
 interface CardProps {
   title: string
@@ -78,7 +79,24 @@ const Card: React.FC<CardProps> = ({
   isLoading = false,
   dataLoading = false
 }) => {
-  console.log('🚀 ~ chartData:', chartData)
+  const [tooltipInfo, setTooltipInfo] = useState<{
+    show: boolean
+    x: number
+    y: number
+    data: any
+  }>({
+    show: false,
+    x: 0,
+    y: 0,
+    data: null
+  })
+
+  const mousePositionRef = useRef({ x: 0, y: 0 })
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    mousePositionRef.current = { x: e.clientX, y: e.clientY }
+  }
+
   const formatNumber = (num: string | number) => {
     if (typeof num === 'string') return num
 
@@ -91,8 +109,143 @@ const Card: React.FC<CardProps> = ({
     return new Intl.NumberFormat('en-US').format(num)
   }
 
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    const prevActiveRef = useRef(active)
+    const prevPayloadRef = useRef(payload)
+    const cardIdRef = useRef(`card-${Math.random().toString(36).substring(2, 9)}`)
+
+    useEffect(() => {
+      if (
+        prevActiveRef.current !== active ||
+        (active && JSON.stringify(prevPayloadRef.current) !== JSON.stringify(payload))
+      ) {
+        prevActiveRef.current = active
+        prevPayloadRef.current = payload
+
+        if (active && payload && payload.length) {
+          const data = payload[0]
+
+          ;(window as any).__activeTooltipCard = cardIdRef.current
+
+          setTimeout(() => {
+            if ((window as any).__activeTooltipCard === cardIdRef.current) {
+              setTooltipInfo({
+                show: true,
+                x: mousePositionRef.current.x,
+                y: mousePositionRef.current.y,
+                data: {
+                  value: data.value,
+                  payload: data.payload
+                }
+              })
+            }
+          }, 0)
+        } else {
+          if ((window as any).__activeTooltipCard === cardIdRef.current) {
+            ;(window as any).__activeTooltipCard = null
+
+            setTimeout(() => {
+              setTooltipInfo((prev) => ({ ...prev, show: false }))
+            }, 0)
+          }
+        }
+      }
+    }, [active, payload, label])
+
+    return null
+  }
+
+  const renderTooltip = () => {
+    if (!tooltipInfo.show || !tooltipInfo.data) return null
+
+    const data = tooltipInfo.data.payload
+    const value = tooltipInfo.data.value
+
+    let tooltipContent
+
+    if (title === 'Rewards History') {
+      tooltipContent = (
+        <>
+          <div style={{ color: '#9F8FA6' }}>
+            Step: {Number(data.weeklyAmount || 0).toLocaleString()} ROSE
+          </div>
+          <div style={{ color: '#CF1FB1' }}>
+            Total: {Number(value).toLocaleString()} ROSE
+          </div>
+        </>
+      )
+    } else if (title === 'Average Incentive') {
+      tooltipContent = (
+        <>
+          <div style={{ color: '#9F8FA6' }}>
+            Total Rewards: {Number(data.totalRewards || 0).toLocaleString()} ROSE
+          </div>
+          <div style={{ color: '#9F8FA6' }}>
+            Total Eligible Nodes: {Number(data.totalNodes || 0).toLocaleString()}
+          </div>
+          <div style={{ color: '#CF1FB1' }}>
+            Average: {Number(value).toLocaleString()} ROSE/node
+          </div>
+        </>
+      )
+    } else if (title === 'Total Incentives 24h') {
+      tooltipContent = (
+        <>
+          <div style={{ color: '#9F8FA6' }}>Period: {data.date.split(' ')[1]}</div>
+          <div style={{ color: '#9F8FA6' }}>
+            Total Nodes: {Number(data.background?.value || 0).toLocaleString()}
+          </div>
+          <div style={{ color: '#CF1FB1' }}>
+            Rewarded Nodes: {Number(data.foreground?.value || 0).toLocaleString()}
+          </div>
+        </>
+      )
+    } else if (title === 'Total Rewards') {
+      tooltipContent = (
+        <div style={{ color: '#CF1FB1' }}>
+          Total Rewards: {Number(value).toLocaleString()} ROSE
+        </div>
+      )
+    } else {
+      tooltipContent = (
+        <div style={{ color: '#CF1FB1' }}>Value: {Number(value).toLocaleString()}</div>
+      )
+    }
+
+    return ReactDOM.createPortal(
+      <div
+        style={{
+          position: 'fixed',
+          top: tooltipInfo.y + 10,
+          left: tooltipInfo.x + 10,
+          backgroundColor: '#1A0820',
+          border: '1px solid rgba(207, 31, 177, 0.3)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 20px rgba(207, 31, 177, 0.3)',
+          padding: '8px 12px',
+          zIndex: 9999999,
+          pointerEvents: 'none'
+        }}
+      >
+        {tooltipContent}
+      </div>,
+      document.body
+    )
+  }
+
+  const handleMouseLeave = () => {
+    setTooltipInfo((prev) => ({ ...prev, show: false }))
+    ;(window as any).__activeTooltipCard = null
+  }
+
+  console.log('Card rendering:', title)
+
   return (
-    <div className={`${styles.card} ${isLoading ? styles.cardLoading : ''}`}>
+    <div
+      className={`${styles.card} ${isLoading ? styles.cardLoading : ''}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className={styles.cardContent}>
         {isLoading ? (
           <>
@@ -109,97 +262,85 @@ const Card: React.FC<CardProps> = ({
             ) : (
               <>
                 {chartType === 'bar' && chartData && (
-                  <ResponsiveContainer width="100%" height={100}>
-                    <BarChart data={chartData} barSize={15}>
-                      <defs>
-                        <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#CF1FB1" />
-                          <stop offset="100%" stopColor="#DA4A8C" />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="date" hide />
-                      <Bar
-                        dataKey="background.value"
-                        shape={(props: any) => (
-                          <CustomBar
-                            {...props}
-                            foregroundValue={props.payload.foreground.value}
-                            backgroundValue={props.payload.background.value}
-                          />
-                        )}
-                      />
-                      <Tooltip />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className={styles.chartContainer}>
+                    <ResponsiveContainer width="100%" height="85%">
+                      <BarChart
+                        data={chartData}
+                        barSize={8}
+                        margin={{ top: 10, right: 5, bottom: 5, left: 5 }}
+                      >
+                        <defs>
+                          <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#CF1FB1" />
+                            <stop offset="100%" stopColor="#DA4A8C" />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" hide />
+                        <Bar
+                          dataKey="background.value"
+                          shape={(props: any) => (
+                            <CustomBar
+                              {...props}
+                              foregroundValue={props.payload.foreground?.value || 0}
+                              backgroundValue={props.payload.background?.value || 0}
+                            />
+                          )}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={false} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
                 {chartType === 'line' && chartData && chartData.length > 0 && (
-                  <ResponsiveContainer width="100%" height={170}>
-                    <LineChart
-                      data={chartData}
-                      margin={{ top: 10, right: 0, bottom: 10, left: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="lineWave" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#7b1173" stopOpacity={0.8} />
-                          <stop offset="30%" stopColor="#bd2881" stopOpacity={0.6} />
-                          <stop offset="60%" stopColor="#CF1FB1" stopOpacity={1} />
-                        </linearGradient>
-                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                          <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
-                          <feOffset dx="0" dy="4" result="offsetblur" />
-                          <feComponentTransfer>
-                            <feFuncA type="linear" slope="0.2" />
-                          </feComponentTransfer>
-                          <feMerge>
-                            <feMergeNode />
-                            <feMergeNode in="SourceGraphic" />
-                          </feMerge>
-                        </filter>
-                      </defs>
-                      <CartesianGrid opacity={0} />
-                      <XAxis hide />
-                      <Line
-                        type="basis"
-                        dataKey="foreground.value"
-                        stroke="url(#lineWave)"
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        dot={false}
-                        activeDot={{
-                          r: 8,
-                          fill: '#CF1FB1',
-                          stroke: '#ffffff',
-                          strokeWidth: 2
-                        }}
-                      />
-                      <Area
-                        type="basis"
-                        dataKey="foreground.value"
-                        fill="url(#lineWave)"
-                        strokeWidth={0}
-                        opacity={0.1}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: '#1A0820',
-                          border: '1px solid rgba(207, 31, 177, 0.3)',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 20px rgba(207, 31, 177, 0.3)',
-                          cursor: 'none'
-                        }}
-                        cursor={false}
-                        formatter={(value) => [
-                          <span key="value" style={{ color: '#CF1FB1' }}>
-                            {Number(value).toLocaleString()} ROSE
-                          </span>
-                        ]}
-                        labelFormatter={(label) => (
-                          <span style={{ color: '#CF1FB1' }}>Week {label}</span>
-                        )}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className={styles.chartContainer}>
+                    <ResponsiveContainer width="100%" height="85%">
+                      <LineChart
+                        data={chartData}
+                        margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                      >
+                        <defs>
+                          <linearGradient id="lineWave" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor="#7b1173" stopOpacity={0.8} />
+                            <stop offset="30%" stopColor="#bd2881" stopOpacity={0.6} />
+                            <stop offset="60%" stopColor="#CF1FB1" stopOpacity={1} />
+                          </linearGradient>
+                          <filter
+                            id="shadow"
+                            x="-50%"
+                            y="-50%"
+                            width="200%"
+                            height="200%"
+                          >
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
+                            <feOffset dx="0" dy="4" result="offsetblur" />
+                            <feComponentTransfer>
+                              <feFuncA type="linear" slope="0.2" />
+                            </feComponentTransfer>
+                            <feMerge>
+                              <feMergeNode />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
+                        <CartesianGrid opacity={0} />
+                        <XAxis hide />
+                        <Line
+                          type="monotone"
+                          dataKey="foreground.value"
+                          stroke="#CF1FB1"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{
+                            r: 6,
+                            fill: '#CF1FB1',
+                            stroke: '#ffffff',
+                            strokeWidth: 2
+                          }}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
                 {bigNumber && (
                   <div className={styles.bigNumber}>{formatNumber(bigNumber)}</div>
@@ -211,6 +352,8 @@ const Card: React.FC<CardProps> = ({
           </>
         )}
       </div>
+
+      {renderTooltip()}
     </div>
   )
 }

@@ -18,6 +18,14 @@ interface RewardHistoryItem {
   date: string
   background: { value: number }
   foreground: { value: number }
+  weeklyAmount: number
+}
+
+interface AverageIncentiveDataItem {
+  date: string
+  foreground: { value: number }
+  totalRewards: number
+  totalNodes: number
 }
 
 interface DataContextType {
@@ -46,6 +54,7 @@ interface DataContextType {
   loadingRewardsHistory: boolean
   loadingTotalEligible: boolean
   loadingTotalRewards: boolean
+  averageIncentiveData: AverageIncentiveDataItem[]
   setCurrentPage: (page: number) => void
   setPageSize: (size: number) => void
   setSearchTerm: (term: string) => void
@@ -96,6 +105,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [loadingTotalEligible, setLoadingTotalEligible] = useState<boolean>(false)
   const [loadingTotalRewards, setLoadingTotalRewards] = useState<boolean>(false)
   const [metricsLoaded, setMetricsLoaded] = useState<boolean>(false)
+  const [averageIncentiveData, setAverageIncentiveData] = useState<
+    AverageIncentiveDataItem[]
+  >([])
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -270,12 +282,36 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     try {
       const response = await fetch(getApiRoute('analyticsRewardsHistory'))
       const data = await response.json()
-      const formattedData = data.rewards.map((item: any) => ({
-        date: item.date,
-        background: { value: item.nrEligibleNodes },
-        foreground: { value: item.totalAmount }
-      }))
+
+      const sortedRewardsForCumulative = [...data.rewards].sort(
+        (a, b) => parseInt(a.date) - parseInt(b.date)
+      )
+
+      let cumulativeAmount = 0
+      const formattedData = sortedRewardsForCumulative.map((item) => {
+        cumulativeAmount += item.totalAmount
+        return {
+          date: item.date,
+          background: { value: item.nrEligibleNodes },
+          foreground: { value: cumulativeAmount },
+          weeklyAmount: item.totalAmount
+        }
+      })
+
+      const averageData = data.rewards.map((item: any) => {
+        const average =
+          item.nrEligibleNodes > 0 ? item.totalAmount / item.nrEligibleNodes : 0
+
+        return {
+          date: item.date,
+          foreground: { value: average },
+          totalRewards: item.totalAmount,
+          totalNodes: item.nrEligibleNodes
+        }
+      })
+
       setRewardsHistory(formattedData)
+      setAverageIncentiveData(averageData)
       setLoadingRewardsHistory(false)
     } catch (error) {
       console.error('Error fetching rewards history:', error)
@@ -444,6 +480,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         loadingRewardsHistory,
         loadingTotalEligible,
         loadingTotalRewards,
+        averageIncentiveData,
         setCurrentPage: handleSetCurrentPage,
         setPageSize: handleSetPageSize,
         setSearchTerm: handleSetSearchTerm,

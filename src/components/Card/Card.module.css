@@ -9,6 +9,8 @@
   width: 100%;
   position: relative;
   animation: fadeIn 0.5s ease-in;
+  overflow: visible;
+  z-index: 1;
 }
 
 @keyframes fadeIn {
@@ -25,7 +27,6 @@
 .cardContent {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   height: 100%;
   position: absolute;
   inset: 20px;
@@ -35,7 +36,7 @@
   font-size: 18px;
   font-weight: 500;
   line-height: 24px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   color: #0E001A;
 }
 
@@ -192,3 +193,11 @@
   animation: shimmer 2s infinite linear;
   transform: translateX(-100%);
 }
+
+.chartContainer {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  overflow: visible;
+}
+
