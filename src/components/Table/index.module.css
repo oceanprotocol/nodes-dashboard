@@ -119,3 +119,46 @@
   border-radius: 50%;
   display: inline-block;
 }
+
+/* History table specific styles */
+.historyTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.historyTable th {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.historyTable td {
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+  color: #212529;
+}
+
+.historyTable tr:last-child td {
+  border-bottom: none;
+}
+
+/* Status colors */
+.statusDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.statusText {
+  font-weight: 500;
+}
+
+.fixedWidth {
+  max-width: 1240px;
+}

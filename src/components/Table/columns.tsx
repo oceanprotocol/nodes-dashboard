@@ -1,19 +1,13 @@
-import {
-  GridColDef,
-  GridFilterInputValue,
-  GridRenderCellParams,
-  GridFilterItem
-} from '@mui/x-data-grid'
+import { GridColDef, GridFilterInputValue, GridRenderCellParams } from '@mui/x-data-grid'
 import { Button, Tooltip } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ReportIcon from '@mui/icons-material/Report'
-import { NodeData } from '../../shared/types/RowDataType'
+import { NodeData } from '@/shared/types/RowDataType'
 import { formatSupportedStorage, formatPlatform, formatUptimePercentage } from './utils'
 import styles from './index.module.css'
 import Link from 'next/link'
 import HistoryIcon from '@mui/icons-material/History'
 import InfoIcon from '@mui/icons-material/Info'
-import VisibilityIcon from '@mui/icons-material/Visibility'
 
 const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   return eligible ? (
@@ -407,7 +401,7 @@ export const nodeColumns = (
           </Tooltip>
 
           <Tooltip title="View Node History" arrow>
-            <Link href={`/history?address=${encodeURIComponent(node.address)}`} passHref>
+            <Link href={`/history?id=${encodeURIComponent(node.id)}`} passHref>
               <Button variant="outlined" size="small" className={styles.actionButton}>
                 <HistoryIcon fontSize="small" />
               </Button>
@@ -686,96 +680,58 @@ export const historyColumns: GridColDef[] = [
   {
     field: 'roundNo',
     headerName: 'Round no.',
-    width: 120,
-    sortable: true,
+    flex: 0.5,
+    minWidth: 100,
     align: 'left',
     headerAlign: 'left'
   },
   {
     field: 'timestamp',
     headerName: 'Timestamp',
-    width: 160,
-    sortable: true,
+    flex: 1,
+    minWidth: 150,
     align: 'left',
     headerAlign: 'left',
-    valueFormatter: (params: GridRenderCellParams) => {
-      return params.value ? `${params.value} UTC` : ''
-    }
+    valueFormatter: (params: { value: string | null }) =>
+      params.value ? `${params.value} UTC` : ''
   },
   {
     field: 'reason',
     headerName: 'Reason for Issue',
     flex: 1,
     minWidth: 200,
-    sortable: true,
     align: 'left',
     headerAlign: 'left'
   },
   {
     field: 'status',
     headerName: 'Status',
-    width: 140,
-    sortable: true,
-    align: 'center',
-    headerAlign: 'center',
-    renderCell: (params: GridRenderCellParams) => {
-      let statusColor
-      let statusText
-
-      switch (params.value?.toLowerCase()) {
-        case 'failed':
-          statusColor = '#FF5252'
-          statusText = 'Failed'
-          break
-        case 'success':
-          statusColor = '#4CAF50'
-          statusText = 'Success'
-          break
-        case 'progress':
-          statusColor = '#FFC107'
-          statusText = 'Progress'
-          break
-        default:
-          statusColor = '#9E9E9E'
-          statusText = params.value || 'Unknown'
+    flex: 0.5,
+    minWidth: 120,
+    align: 'left',
+    headerAlign: 'left',
+    renderCell: (params: GridRenderCellParams<any, any, string>) => {
+      const status = params.value?.toLowerCase()
+      const colorMap = {
+        failed: '#FF4444',
+        success: '#4CAF50',
+        progress: '#FFA726'
       }
+      const color = colorMap[status as keyof typeof colorMap] || '#757575'
 
       return (
-        <div className={styles.statusContainer}>
-          <span className={styles.statusDot} style={{ backgroundColor: statusColor }} />
-          <span>{statusText}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: color
+            }}
+          />
+          <span>{params.value}</span>
         </div>
       )
-    },
-    filterOperators: [
-      {
-        label: 'equals',
-        value: 'eq',
-        getApplyFilterFn: (filterItem: GridFilterItem) => {
-          return (params) => {
-            if (
-              filterItem.value === undefined ||
-              filterItem.value === null ||
-              filterItem.value === ''
-            ) {
-              return true
-            }
-            return (
-              String(params.value).toLowerCase() ===
-              String(filterItem.value).toLowerCase()
-            )
-          }
-        },
-        InputComponent: GridFilterInputValue,
-        InputComponentProps: {
-          type: 'singleSelect',
-          valueOptions: [
-            { value: 'success', label: 'Success' },
-            { value: 'failed', label: 'Failed' },
-            { value: 'progress', label: 'Progress' }
-          ]
-        }
-      }
-    ]
+    }
   }
 ]

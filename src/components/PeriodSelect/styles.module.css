@@ -1,0 +1,452 @@
+.container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: fit-content;
+}
+
+.container :global(.MuiFormControl-root) {
+  width: 100% !important;
+}
+
+.container :global(.MuiBox-root) {
+  width: 100% !important;
+}
+
+.selectWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.select {
+  width: 100%;
+  min-width: 200px;
+  height: 48px;
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 500;
+  color: white;
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+  border-radius: 20px;
+  padding: 8px 16px;
+  padding-right: 48px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.dateText {
+  font-family: 'Sharp Sans', sans-serif !important;
+  font-size: 16px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  color: white !important;
+  flex: 1;
+}
+
+.iconWrapper {
+  position: absolute;
+  left: 90%;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.selectIcon {
+  color: white !important;
+  font-size: 24px !important;
+  transition: transform 0.2s ease;
+}
+
+.select[aria-expanded="true"] ~ .iconWrapper .selectIcon {
+  transform: rotate(180deg);
+}
+
+.resetButton {
+  position: absolute !important;
+  right: 40px !important;
+  color: white !important;
+  padding: 4px !important;
+}
+
+.resetButton:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.select :global(.MuiOutlinedInput-notchedOutline) {
+  border: none !important;
+}
+
+.select:hover {
+  cursor: pointer;
+}
+
+.select :global(.MuiSelect-icon) {
+  display: none;
+}
+
+.menu {
+  margin-top: 8px;
+  background: #0E001A;
+  border-radius: 12px;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.menuItem {
+  font-family: 'Sharp Sans', sans-serif;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  padding: 12px 16px;
+  color: white;
+}
+
+.menuItem:hover {
+  background-color: rgba(207, 31, 177, 0.1) !important;
+}
+
+.menuItem.Mui-selected {
+  background-color: rgba(207, 31, 177, 0.2) !important;
+}
+
+.datePickerContainer {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1000;
+  background: rgba(14, 0, 26, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.datePickerContainer :global(.MuiPickersLayout-root) {
+  background: transparent;
+  color: white;
+}
+
+.datePickerContainer :global(.MuiPickersCalendarHeader-root) {
+  color: white;
+}
+
+.datePickerContainer :global(.MuiPickersDay-root) {
+  color: white;
+}
+
+.datePickerContainer :global(.MuiPickersDay-root.Mui-selected) {
+  background-color: #CF1FB1;
+}
+
+.datePickerContainer :global(.MuiPickersDay-root:hover) {
+  background-color: rgba(207, 31, 177, 0.2);
+}
+
+.datePickerContainer :global(.MuiDayCalendar-weekDayLabel) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.datePickerContainer :global(.MuiPickersLayout-root),
+.datePickerContainer :global(.MuiPickersLayout-contentWrapper) {
+  background: transparent !important;
+}
+
+.datePickerContainer :global(.MuiTextField-root) {
+  background: transparent !important;
+}
+
+.datePickerContainer :global(.MuiOutlinedInput-root) {
+  background: transparent !important;
+}
+
+.customDateContainer {
+  min-width: 200px;
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+  border-radius: 20px;
+  padding: 8px 16px;
+  padding-right: 48px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.datePickersContainer {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.inlineDatePicker {
+  flex: 1;
+}
+
+.inlineDatePicker :global(.MuiInputBase-root) {
+  height: 32px;
+  font-family: 'Sharp Sans', sans-serif !important;
+  font-size: 16px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  padding: 0;
+}
+
+.inlineDatePicker :global(.MuiOutlinedInput-notchedOutline) {
+  border: none !important;
+}
+
+.datePickerPopover {
+  background: linear-gradient(135deg, rgba(14, 0, 26, 0.95) 0%, rgba(14, 0, 26, 0.85) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  margin-top: 8px;
+  overflow: hidden;
+  box-shadow: 
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    inset 0 0 40px rgba(207, 31, 177, 0.1);
+}
+
+.dayPicker {
+  background: transparent;
+  color: white;
+  padding: 24px;
+  font-family: 'Sharp Sans', sans-serif;
+}
+
+/* Month header styling */
+.dayPicker :global(.rdp-caption) {
+  position: relative;
+  padding: 8px 0;
+  margin-bottom: 16px;
+}
+
+.dayPicker :global(.rdp-caption_label) {
+  font-size: 24px;
+  font-weight: 500;
+  color: white;
+  margin: 0;
+  padding: 8px 0;
+  text-align: left;
+}
+
+/* Navigation buttons */
+.dayPicker :global(.rdp-nav) {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.dayPicker :global(.rdp-nav > button > svg) {
+  fill: #CF1FB1;
+}
+
+.dayPicker :global(.rdp-nav_button) {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.dayPicker :global(.rdp-nav_button:disabled) {
+  opacity: 0.5;
+}
+
+.dayPicker :global(.rdp-nav_button:hover) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dayPicker :global(.rdp-nav_button svg) {
+  width: 24px;
+  height: 24px;
+  fill: white;
+}
+
+/* Week day headers */
+.dayPicker :global(.rdp-head_cell) {
+  font-weight: 500;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 0;
+}
+
+/* Calendar days */
+.dayPicker :global(.rdp-button) {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+  color: white;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.dayPicker :global(.rdp-day_today:not(.rdp-day_selected)) {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: bold;
+}
+
+.dayPicker :global(.rdp-button:hover:not([disabled])) {
+  background: rgba(207, 31, 177, 0.2);
+}
+
+/* Range selection wrapper */
+.dayPicker :global(.rdp-row) {
+  position: relative;
+}
+
+/* Range selection background */
+.dayPicker :global(.rdp-row:has(.rdp-day_range_start)),
+.dayPicker :global(.rdp-row:has(.rdp-day_range_middle)),
+.dayPicker :global(.rdp-row:has(.rdp-day_range_end)) {
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+  border-radius: 0;
+}
+
+/* First row with selection */
+.dayPicker :global(.rdp-row:has(.rdp-day_range_start)) {
+  border-top-left-radius: 20px;
+  border-bottom-left-radius: 20px;
+}
+
+/* Last row with selection */
+.dayPicker :global(.rdp-row:has(.rdp-day_range_end)) {
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+/* Selected days */
+.dayPicker :global(.rdp-day_selected),
+.dayPicker :global(.rdp-day_range_start),
+.dayPicker :global(.rdp-day_range_middle),
+.dayPicker :global(.rdp-day_range_end) {
+  color: white;
+  font-weight: bold;
+  background: transparent !important;
+}
+
+/* Single day selection */
+.dayPicker :global(.rdp-day_selected:not(.rdp-day_range_start):not(.rdp-day_range_middle):not(.rdp-day_range_end)) {
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%) !important;
+  border-radius: 50%;
+}
+
+/* Disabled days */
+.dayPicker :global(.rdp-button[disabled]) {
+  opacity: 0.3;
+}
+
+/* Table layout */
+.dayPicker :global(.rdp-table) {
+  margin: 0;
+  border-spacing: 0;
+}
+
+/* Selected range container */
+.dayPicker :global(.rdp-day_range_start),
+.dayPicker :global(.rdp-day_range_end),
+.dayPicker :global(.rdp-day_range_middle) {
+  position: relative;
+  background: transparent !important;
+  color: white;
+  font-weight: bold;
+}
+
+/* Continuous gradient background */
+.dayPicker :global(.rdp-day_range_start)::before,
+.dayPicker :global(.rdp-day_range_end)::before,
+.dayPicker :global(.rdp-day_range_middle)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+  z-index: -1;
+}
+
+/* Range start specific styles */
+.dayPicker :global(.rdp-day_range_start)::before {
+  border-top-left-radius: 50%;
+  border-bottom-left-radius: 50%;
+}
+
+/* Range end specific styles */
+.dayPicker :global(.rdp-day_range_end)::before {
+  border-top-right-radius: 50%;
+  border-bottom-right-radius: 50%;
+}
+
+/* Single selected day */
+.dayPicker :global(.rdp-day_selected:not(.rdp-day_range_start):not(.rdp-day_range_end):not(.rdp-day_range_middle)) {
+  position: relative;
+  background: transparent !important;
+}
+
+.dayPicker :global(.rdp-day_selected:not(.rdp-day_range_start):not(.rdp-day_range_end):not(.rdp-day_range_middle))::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+  border-radius: 50%;
+  z-index: -1;
+}
+
+/* Ensure text remains visible */
+.dayPicker :global(.rdp-button) {
+  position: relative;
+  z-index: 1;
+} 
+/* 
+.dayPicker :global(.rdp-today:not(.rdp-outside)) {
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+} */
+
+.dayPicker :global(.rdp-range_start) {
+  border-radius: 0;
+  background:  linear-gradient(var(--rdp-gradient-direction), transparent 50%, #CF1FB190 50%);
+}
+
+.dayPicker :global(.rdp-range_end) {
+  border-radius: 0;
+  background:  linear-gradient(var(--rdp-gradient-direction), #CF1FB190 50%, transparent 50%);
+}
+
+.dayPicker :global(.rdp-range_middle) {
+  border-radius: 0;
+  background: #CF1FB190!important;
+}
+
+.dayPicker :global(.rdp-range_start .rdp-day_button) {
+  border: 0;
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+}
+
+.dayPicker :global(.rdp-range_end .rdp-day_button) {
+  border: 0;
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+}
+
+.dayPicker :global(.rdp-today:not(.rdp-outside)) {
+  color: #CF1FB1;
+  font-weight: 800;
+}
+

@@ -53,6 +53,14 @@
   white-space: nowrap;
 }
 
+.statsCardsContainer {
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
 @media (max-width: 768px) {
   .searchBarCenter, .searchBarTop {
     padding: 0 15px;
@@ -61,4 +69,67 @@
   .resultsContainer {
     padding: 0 15px 30px 15px;
   }
+} 
+.root {
+  width: 100%;
+}
+
+.dashboardContainer {
+  max-width: 1280px;
+  margin: 0 auto 2rem;
+  padding: 1rem;
+  background-color: #0D0318;
+  background-image: radial-gradient(circle at 10% 20%, rgba(207, 31, 177, 0.1) 0%, transparent 20%),
+                   radial-gradient(circle at 90% 50%, rgba(207, 31, 177, 0.1) 0%, transparent 20%),
+                   radial-gradient(circle at 50% 80%, rgba(207, 31, 177, 0.1) 0%, transparent 20%);
+  border-radius: 0.5rem;
+}
+
+.searchBarCenter {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.searchForm {
+  width: 100%;
+  max-width: 600px;
+}
+
+.resultsContainer {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.dateRangeContainer {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto 20px;
+  padding: 0 16px;
+  display: flex;
+  justify-content: flex-end;
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure the date picker shows clearly */
+.dateRangeContainer > div {
+  min-width: 300px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Responsive styles for date picker */
+@media (max-width: 768px) {
+  .dateRangeContainer {
+    padding: 0 12px;
+  }
+  
+  .dateRangeContainer > div {
+    min-width: 260px;
+  }
+}
+
+.dashboardContainer {
+  margin-top: 20px;
 } 

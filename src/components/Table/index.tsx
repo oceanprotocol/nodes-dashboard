@@ -4,19 +4,20 @@ import {
   GridColDef,
   GridToolbarProps,
   GridValidRowModel,
-  useGridApiRef
+  useGridApiRef,
+  GridSortModel,
+  GridFilterModel
 } from '@mui/x-data-grid'
+import { useTable } from './hooks/useTable'
+import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
+import { nodeColumns, countryColumns, historyColumns } from './columns'
+import { styled } from '@mui/material/styles'
 
 import styles from './index.module.css'
 
 import NodeDetails from './NodeDetails'
 import CustomToolbar from '../Toolbar'
-import { styled } from '@mui/material/styles'
 import CustomPagination from './CustomPagination'
-import { nodeColumns, countryColumns, historyColumns } from './columns'
-import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
-import { useTable } from './hooks/useTable'
-import { useDataContext } from '../../context/DataContext'
 
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-toolbarContainer': {
@@ -82,32 +83,40 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
 }))
 
 interface TableProps {
-  tableType?: TableTypeEnum
-  historyMode?: boolean
-  nodeAddress?: string
+  data?: any[]
+  loading?: boolean
+  currentPage?: number
+  pageSize?: number
+  totalItems?: number
+  nodeId?: string
+  tableType: TableTypeEnum
+  onPaginationChange?: (page: number, pageSize: number) => void
+  onSortModelChange?: (model: GridSortModel) => void
+  onFilterChange?: (model: GridFilterModel) => void
 }
 
-const Table: React.FC<TableProps> = ({
-  tableType = TableTypeEnum.NODES,
-  historyMode = false,
-  nodeAddress = ''
+export const Table: React.FC<TableProps> = ({
+  data: propsData,
+  loading: propsLoading,
+  currentPage: propCurrentPage,
+  pageSize: propPageSize,
+  totalItems: propTotalItems,
+  nodeId,
+  tableType,
+  onPaginationChange,
+  onSortModelChange,
+  onFilterChange
 }) => {
   const {
-    data,
-    loading,
+    data: hookData,
+    loading: hookLoading,
+    currentPage: hookCurrentPage,
+    pageSize: hookPageSize,
+    totalItems: hookTotalItems,
     selectedNode,
     setSelectedNode,
     searchTerm,
     searchTermCountry,
-    currentPage,
-    pageSize,
-    countryCurrentPage,
-    countryPageSize,
-    setCurrentPage,
-    setPageSize,
-    setCountryCurrentPage,
-    setCountryPageSize,
-    totalItems,
     totalUptime,
     handlePaginationChange,
     handleSortModelChange,
@@ -118,46 +127,57 @@ const Table: React.FC<TableProps> = ({
 
   const apiRef = useGridApiRef()
 
-  const { filters, setFilters } = useDataContext()
-
   // Add a ref to track previous address
   const prevNodeAddressRef = React.useRef<string>('')
 
+  // Use props data if provided, otherwise use hook data
+  const data = propsData || hookData
+  const loading = propsLoading || hookLoading
+  const currentPage = propCurrentPage || hookCurrentPage
+  const pageSize = propPageSize || hookPageSize
+  const totalItems = propTotalItems || hookTotalItems
+
   const columns = useMemo(() => {
-    if (historyMode) {
-      return historyColumns
+    switch (tableType) {
+      case TableTypeEnum.NODES:
+        return nodeColumns(totalUptime, setSelectedNode)
+      case TableTypeEnum.COUNTRIES:
+        return countryColumns
+      case TableTypeEnum.HISTORY:
+        return historyColumns
+      default:
+        return []
     }
-    return tableType === TableTypeEnum.NODES
-      ? nodeColumns(totalUptime, setSelectedNode)
-      : countryColumns
-  }, [tableType, historyMode, totalUptime, setSelectedNode])
+  }, [tableType, totalUptime, setSelectedNode])
 
   useEffect(() => {
-    // Only update filters if nodeAddress has changed and isn't empty
-    if (
-      historyMode &&
-      nodeAddress &&
-      setFilters &&
-      prevNodeAddressRef.current !== nodeAddress
-    ) {
-      // Update the ref to current address
-      prevNodeAddressRef.current = nodeAddress
-
-      setFilters({
-        ...filters,
-        address: {
-          operator: 'eq',
-          value: nodeAddress
-        }
+    if (nodeId && onFilterChange) {
+      onFilterChange({
+        items: [
+          {
+            id: 1,
+            field: 'id',
+            operator: 'equals',
+            value: nodeId
+          }
+        ]
       })
     }
-  }, [historyMode, nodeAddress, setFilters])
+  }, [nodeId, onFilterChange])
+
+  const handlePaginationModelChange = (model: { page: number; pageSize: number }) => {
+    if (onPaginationChange) {
+      onPaginationChange(model.page + 1, model.pageSize)
+    } else {
+      handlePaginationChange(model)
+    }
+  }
 
   return (
     <div className={styles.root}>
       <div style={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <StyledDataGrid
-          rows={data}
+          rows={data || []}
           columns={columns as GridColDef<GridValidRowModel>[]}
           slots={{
             toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps>
@@ -195,12 +215,8 @@ const Table: React.FC<TableProps> = ({
             },
             pagination: {
               paginationModel: {
-                pageSize:
-                  tableType === TableTypeEnum.COUNTRIES ? countryPageSize : pageSize,
-                page:
-                  (tableType === TableTypeEnum.COUNTRIES
-                    ? countryCurrentPage
-                    : currentPage) - 1
+                pageSize: pageSize,
+                page: currentPage - 1
               }
             },
             density: 'comfortable'
@@ -209,12 +225,10 @@ const Table: React.FC<TableProps> = ({
           disableColumnMenu
           pageSizeOptions={[10, 25, 50, 100]}
           paginationModel={{
-            page:
-              (tableType === TableTypeEnum.COUNTRIES ? countryCurrentPage : currentPage) -
-              1,
-            pageSize: tableType === TableTypeEnum.COUNTRIES ? countryPageSize : pageSize
+            page: currentPage - 1,
+            pageSize: pageSize
           }}
-          onPaginationModelChange={handlePaginationChange}
+          onPaginationModelChange={handlePaginationModelChange}
           loading={loading}
           disableRowSelectionOnClick
           getRowId={(row) => row.id}
@@ -253,18 +267,19 @@ const Table: React.FC<TableProps> = ({
         />
       </div>
       <CustomPagination
-        page={tableType === TableTypeEnum.COUNTRIES ? countryCurrentPage : currentPage}
-        pageSize={tableType === TableTypeEnum.COUNTRIES ? countryPageSize : pageSize}
+        page={currentPage}
+        pageSize={pageSize}
         totalItems={totalItems}
-        onPageChange={(page: number) =>
-          tableType === TableTypeEnum.COUNTRIES
-            ? setCountryCurrentPage(page)
-            : setCurrentPage(page)
+        onPageChange={
+          onPaginationChange
+            ? (page: number) => onPaginationChange(page, pageSize)
+            : (page: number) => handlePaginationChange({ page: page - 1, pageSize })
         }
-        onPageSizeChange={(size: number) =>
-          tableType === TableTypeEnum.COUNTRIES
-            ? setCountryPageSize(size)
-            : setPageSize(size)
+        onPageSizeChange={
+          onPaginationChange
+            ? (size: number) => onPaginationChange(currentPage, size)
+            : (size: number) =>
+                handlePaginationChange({ page: currentPage - 1, pageSize: size })
         }
       />
       {selectedNode && (

@@ -1,7 +1,7 @@
 .card {
   background-color: #ffffff;
   border-radius: 10px;
-  padding: 20px;
+  padding: 25px 30px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
@@ -28,8 +28,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  position: absolute;
-  inset: 20px;
+  position: relative;
 }
 
 .cardTitle {
@@ -53,17 +52,23 @@
 }
 
 .subText {
-  font-size: 14px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
   color: #CF1FB1;
-  font-weight: 100;
   margin-top: auto;
   text-align: right;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
 }
 
 .subText span {
-  font-weight: 100;
+  font-weight: 500;
   font-size: 20px;
-  line-height: 32px;
+  line-height: 20px;
   color: #0E001A;
 }
 
@@ -201,3 +206,19 @@
   overflow: visible;
 }
 
+.titleContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.tooltipIcon {
+  cursor: pointer;
+  color: white;
+}
+
+.tooltipIcon svg {
+  stroke: black;
+  fill: black;
+}

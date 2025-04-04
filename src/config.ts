@@ -38,7 +38,7 @@ type Config = {
 }
 
 const API_ROOTS = {
-  incentive: 'https://incentive-backend.oceanprotocol.com',
+  incentive: 'https://incentive-backend.oceanprotocol.io',
   analytics: 'https://analytics.nodes.oceanprotocol.com'
 } as const
 
@@ -48,6 +48,7 @@ const apiRoutes = {
   locations: { root: 'incentive', path: '/locations' },
   countryStats: { root: 'incentive', path: '/countryStats' },
   nodeSystemStats: { root: 'incentive', path: '/nodeSystemStats' },
+  history: { root: 'incentive', path: '/history' },
   weekStats: { root: 'incentive', path: '/weekStats' },
 
   // Analytics API routes
@@ -60,7 +61,7 @@ type ApiRouteKeys = keyof typeof apiRoutes
 
 const config: Config = {
   backendUrl:
-    process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com',
+    process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.io',
   routes: {
     home: {
       path: '/',

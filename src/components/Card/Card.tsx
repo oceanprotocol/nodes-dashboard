@@ -12,6 +12,8 @@ import {
   CartesianGrid
 } from 'recharts'
 import ReactDOM from 'react-dom'
+import Image from 'next/image'
+import InfoIcon from '@/assets/info.svg'
 
 interface CardProps {
   title: string
@@ -23,10 +25,11 @@ interface CardProps {
     value?: number
   }>
   bigNumber?: string | number
-  subText?: string
+  subText?: React.ReactNode
   additionalInfo?: React.ReactNode
   isLoading?: boolean
   dataLoading?: boolean
+  tooltip?: string
 }
 
 const CustomBar = (props: any) => {
@@ -77,7 +80,8 @@ const Card: React.FC<CardProps> = ({
   subText,
   additionalInfo,
   isLoading = false,
-  dataLoading = false
+  dataLoading = false,
+  tooltip
 }) => {
   const [tooltipInfo, setTooltipInfo] = useState<{
     show: boolean
@@ -256,7 +260,14 @@ const Card: React.FC<CardProps> = ({
           </>
         ) : (
           <>
-            <h3 className={styles.cardTitle}>{title}</h3>
+            <div className={styles.titleContainer}>
+              <h3 className={styles.cardTitle}>{title}</h3>
+              {tooltip && (
+                <div className={styles.tooltipIcon} title={tooltip}>
+                  <Image src={InfoIcon} alt="info" width={16} height={16} />
+                </div>
+              )}
+            </div>
             {dataLoading ? (
               <div className={styles.dataLoading} aria-hidden="true" />
             ) : (
@@ -345,8 +356,8 @@ const Card: React.FC<CardProps> = ({
                 {bigNumber && (
                   <div className={styles.bigNumber}>{formatNumber(bigNumber)}</div>
                 )}
-                {subText && <p className={styles.subText}>{subText}</p>}
                 {additionalInfo}
+                {subText && <p className={styles.subText}>{subText}</p>}
               </>
             )}
           </>

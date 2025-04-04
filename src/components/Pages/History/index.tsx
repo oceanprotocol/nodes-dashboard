@@ -1,70 +1,74 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { TextField, Box, InputAdornment, IconButton } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
-import Table from '../../Table'
-import { TableTypeEnum } from '../../../shared/enums/TableTypeEnum'
 import styles from './index.module.css'
+import Table from '../../Table'
 import HeroSection from '../../HeroSection/HeroSection'
-import { useDataContext } from '../../../context/DataContext'
+import { TableTypeEnum } from '../../../shared/enums/TableTypeEnum'
+import { useHistoryContext } from '../../../context/HistoryContext'
+import { HistoryDashboard } from '../../Dashboard'
+import PeriodSelect from '../../PeriodSelect'
 
 const HistoryPage: React.FC = () => {
   const router = useRouter()
-  const { query } = router
-  const [nodeAddress, setNodeAddress] = useState<string>('')
-  const [isSearching, setIsSearching] = useState<boolean>(false)
-  const [isInitialized, setIsInitialized] = useState<boolean>(false)
-  const { setFilters } = useDataContext()
+  const {
+    data,
+    loading,
+    currentPage,
+    pageSize,
+    totalItems,
+    nodeId,
+    setNodeId,
+    setCurrentPage,
+    setPageSize,
+    dateRange,
+    setDateRange,
+    setIsSearching
+  } = useHistoryContext()
 
   useEffect(() => {
-    if (!isInitialized && query.address && typeof query.address === 'string') {
-      setNodeAddress(query.address)
+    const nodeIdFromUrl = router.query.id || router.query.nodeid
+    if (nodeIdFromUrl) {
+      setNodeId(nodeIdFromUrl as string)
       setIsSearching(true)
-      setIsInitialized(true)
     }
-  }, [query.address, isInitialized])
+  }, [router.query.id, router.query.nodeid, setNodeId, setIsSearching])
 
-  const handleSearch = useCallback(
-    (e?: React.FormEvent) => {
-      if (e) e.preventDefault()
+  const handleSearch = () => {
+    if (nodeId.trim()) {
+      router.push({
+        pathname: router.pathname,
+        query: { id: nodeId }
+      })
+      setIsSearching(true)
+    }
+  }
 
-      if (nodeAddress.trim()) {
-        setIsSearching(true)
+  const handleClear = () => {
+    setNodeId('')
+    router.push({
+      pathname: router.pathname
+    })
+  }
 
-        router.push(
-          {
-            pathname: '/history',
-            query: { address: nodeAddress }
-          },
-          undefined,
-          { shallow: true }
-        )
-      }
-    },
-    [nodeAddress, router]
-  )
-
-  const handleClear = useCallback(() => {
-    setNodeAddress('')
-    setIsSearching(false)
-
-    router.push('/history', undefined, { shallow: true })
-
-    setFilters && setFilters({})
-  }, [router, setFilters])
+  const handleDateRangeChange = (newRange: any) => {
+    setDateRange(newRange)
+    setCurrentPage(1)
+  }
 
   return (
     <div className={styles.root}>
-      <HeroSection title="Search Node History" />
-      <div className={styles.searchBarCenter}>
-        <form onSubmit={handleSearch} className={styles.searchForm}>
-          <Box sx={{ width: '600px', maxWidth: '100%' }}>
+      <HeroSection title="History">
+        <div className={styles.searchBarCenter}>
+          <Box sx={{ width: '700px', maxWidth: '100%' }}>
             <TextField
               fullWidth
-              placeholder="Enter node address..."
-              value={nodeAddress}
-              onChange={(e) => setNodeAddress(e.target.value)}
+              value={nodeId}
+              onChange={(e) => setNodeId(e.target.value)}
+              placeholder="Enter node ID..."
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               variant="outlined"
               InputProps={{
                 startAdornment: (
@@ -72,7 +76,7 @@ const HistoryPage: React.FC = () => {
                     <SearchIcon />
                   </InputAdornment>
                 ),
-                endAdornment: nodeAddress && (
+                endAdornment: nodeId && (
                   <InputAdornment position="end">
                     <IconButton onClick={handleClear} edge="end">
                       <ClearIcon />
@@ -80,28 +84,42 @@ const HistoryPage: React.FC = () => {
                   </InputAdornment>
                 ),
                 sx: {
-                  borderRadius: '24px',
-                  backgroundColor: '#fff',
+                  borderRadius: '20px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
                   '&.Mui-focused': {
                     boxShadow: '0 1px 6px rgba(32, 33, 36, 0.28)'
                   },
-                  boxShadow: '0 1px 3px rgba(32, 33, 36, 0.28)'
+                  boxShadow: '0 1px 3px rgba(32, 33, 36, 0.28)',
+                  height: '40px',
+                  maxHeight: '40px'
                 }
               }}
             />
           </Box>
-        </form>
-      </div>
-
-      {isSearching && (
-        <div className={styles.resultsContainer}>
-          <Table
-            tableType={TableTypeEnum.NODES}
-            historyMode={true}
-            nodeAddress={nodeAddress}
-            key={`history-${nodeAddress}`}
-          />
         </div>
+      </HeroSection>
+
+      {router.query.id && (
+        <>
+          <div className={styles.dateRangeContainer}>
+            <PeriodSelect onChange={handleDateRangeChange} initialRange={dateRange} />
+          </div>
+          <div className={styles.dashboardContainer}>
+            <HistoryDashboard />
+          </div>
+          <Table
+            tableType={TableTypeEnum.HISTORY}
+            data={data}
+            loading={loading}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPaginationChange={(page, size) => {
+              setCurrentPage(page)
+              setPageSize(size)
+            }}
+          />
+        </>
       )}
     </div>
   )
