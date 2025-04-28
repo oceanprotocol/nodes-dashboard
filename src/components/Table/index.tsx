@@ -1,21 +1,23 @@
-import React, { JSXElementConstructor, useMemo } from 'react'
+import React, { JSXElementConstructor, useMemo, useEffect } from 'react'
 import {
   DataGrid,
   GridColDef,
   GridToolbarProps,
   GridValidRowModel,
-  useGridApiRef
+  useGridApiRef,
+  GridSortModel,
+  GridFilterModel
 } from '@mui/x-data-grid'
+import { useTable } from './hooks/useTable'
+import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
+import { nodeColumns, countryColumns, historyColumns } from './columns'
+import { styled } from '@mui/material/styles'
 
 import styles from './index.module.css'
 
 import NodeDetails from './NodeDetails'
 import CustomToolbar from '../Toolbar'
-import { styled } from '@mui/material/styles'
 import CustomPagination from './CustomPagination'
-import { nodeColumns, countryColumns } from './columns'
-import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
-import { useTable } from './hooks/useTable'
 
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-toolbarContainer': {
@@ -80,23 +82,41 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   }
 }))
 
-export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?: TableTypeEnum }) {
+interface TableProps {
+  data?: any[]
+  loading?: boolean
+  currentPage?: number
+  pageSize?: number
+  totalItems?: number
+  nodeId?: string
+  tableType: TableTypeEnum
+  onPaginationChange?: (page: number, pageSize: number) => void
+  onSortModelChange?: (model: GridSortModel) => void
+  onFilterChange?: (model: GridFilterModel) => void
+}
+
+export const Table: React.FC<TableProps> = ({
+  data: propsData,
+  loading: propsLoading,
+  currentPage: propCurrentPage,
+  pageSize: propPageSize,
+  totalItems: propTotalItems,
+  nodeId,
+  tableType,
+  onPaginationChange,
+  onSortModelChange,
+  onFilterChange
+}) => {
   const {
-    data,
-    loading,
+    data: hookData,
+    loading: hookLoading,
+    currentPage: hookCurrentPage,
+    pageSize: hookPageSize,
+    totalItems: hookTotalItems,
     selectedNode,
     setSelectedNode,
     searchTerm,
     searchTermCountry,
-    currentPage,
-    pageSize,
-    countryCurrentPage,
-    countryPageSize,
-    setCurrentPage,
-    setPageSize,
-    setCountryCurrentPage,
-    setCountryPageSize,
-    totalItems,
     totalUptime,
     handlePaginationChange,
     handleSortModelChange,
@@ -107,19 +127,57 @@ export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?:
 
   const apiRef = useGridApiRef()
 
-  const columns = useMemo(
-    () =>
-      tableType === TableTypeEnum.NODES
-        ? nodeColumns(totalUptime, setSelectedNode)
-        : countryColumns,
-    [tableType, totalUptime, setSelectedNode]
-  )
+  // Add a ref to track previous address
+  const prevNodeAddressRef = React.useRef<string>('')
+
+  // Use props data if provided, otherwise use hook data
+  const data = propsData || hookData
+  const loading = propsLoading || hookLoading
+  const currentPage = propCurrentPage || hookCurrentPage
+  const pageSize = propPageSize || hookPageSize
+  const totalItems = propTotalItems || hookTotalItems
+
+  const columns = useMemo(() => {
+    switch (tableType) {
+      case TableTypeEnum.NODES:
+        return nodeColumns(totalUptime, setSelectedNode)
+      case TableTypeEnum.COUNTRIES:
+        return countryColumns
+      case TableTypeEnum.HISTORY:
+        return historyColumns
+      default:
+        return []
+    }
+  }, [tableType, totalUptime, setSelectedNode])
+
+  useEffect(() => {
+    if (nodeId && onFilterChange) {
+      onFilterChange({
+        items: [
+          {
+            id: 1,
+            field: 'id',
+            operator: 'equals',
+            value: nodeId
+          }
+        ]
+      })
+    }
+  }, [nodeId, onFilterChange])
+
+  const handlePaginationModelChange = (model: { page: number; pageSize: number }) => {
+    if (onPaginationChange) {
+      onPaginationChange(model.page + 1, model.pageSize)
+    } else {
+      handlePaginationChange(model)
+    }
+  }
 
   return (
     <div className={styles.root}>
       <div style={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <StyledDataGrid
-          rows={data}
+          rows={data || []}
           columns={columns as GridColDef<GridValidRowModel>[]}
           slots={{
             toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps>
@@ -157,12 +215,8 @@ export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?:
             },
             pagination: {
               paginationModel: {
-                pageSize:
-                  tableType === TableTypeEnum.COUNTRIES ? countryPageSize : pageSize,
-                page:
-                  (tableType === TableTypeEnum.COUNTRIES
-                    ? countryCurrentPage
-                    : currentPage) - 1
+                pageSize: pageSize,
+                page: currentPage - 1
               }
             },
             density: 'comfortable'
@@ -171,15 +225,15 @@ export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?:
           disableColumnMenu
           pageSizeOptions={[10, 25, 50, 100]}
           paginationModel={{
-            page:
-              (tableType === TableTypeEnum.COUNTRIES ? countryCurrentPage : currentPage) -
-              1,
-            pageSize: tableType === TableTypeEnum.COUNTRIES ? countryPageSize : pageSize
+            page: currentPage - 1,
+            pageSize: pageSize
           }}
-          onPaginationModelChange={handlePaginationChange}
+          onPaginationModelChange={handlePaginationModelChange}
           loading={loading}
           disableRowSelectionOnClick
-          getRowId={(row) => row.id}
+          getRowId={(row) =>
+            tableType === TableTypeEnum.HISTORY ? row.timestamp : row.id
+          }
           paginationMode="server"
           sortingMode="server"
           filterMode="server"
@@ -215,18 +269,19 @@ export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?:
         />
       </div>
       <CustomPagination
-        page={tableType === TableTypeEnum.COUNTRIES ? countryCurrentPage : currentPage}
-        pageSize={tableType === TableTypeEnum.COUNTRIES ? countryPageSize : pageSize}
+        page={currentPage}
+        pageSize={pageSize}
         totalItems={totalItems}
-        onPageChange={(page: number) =>
-          tableType === TableTypeEnum.COUNTRIES
-            ? setCountryCurrentPage(page)
-            : setCurrentPage(page)
+        onPageChange={
+          onPaginationChange
+            ? (page: number) => onPaginationChange(page, pageSize)
+            : (page: number) => handlePaginationChange({ page: page - 1, pageSize })
         }
-        onPageSizeChange={(size: number) =>
-          tableType === TableTypeEnum.COUNTRIES
-            ? setCountryPageSize(size)
-            : setPageSize(size)
+        onPageSizeChange={
+          onPaginationChange
+            ? (size: number) => onPaginationChange(currentPage, size)
+            : (size: number) =>
+                handlePaginationChange({ page: currentPage - 1, pageSize: size })
         }
       />
       {selectedNode && (
@@ -235,3 +290,5 @@ export default function Table({ tableType = TableTypeEnum.NODES }: { tableType?:
     </div>
   )
 }
+
+export default Table
