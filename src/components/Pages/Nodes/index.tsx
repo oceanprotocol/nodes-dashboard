@@ -20,21 +20,23 @@ const NodesPage: React.FC = () => {
   return (
     <div className={styles.root}>
       <HeroSection title="Nodes" />
-      <div className={styles.dashboardContainer}>
-        <NodesDashboard />
+      <div className={styles.mainContainer}>
+        <div className={styles.dashboardContainer}>
+          <NodesDashboard />
+        </div>
+        <Table
+          tableType={TableTypeEnum.NODES}
+          data={data}
+          loading={loading}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPaginationChange={(page, size) => {
+            setCurrentPage(page)
+            setPageSize(size)
+          }}
+        />
       </div>
-      <Table
-        tableType={TableTypeEnum.NODES}
-        data={data}
-        loading={loading}
-        currentPage={currentPage}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPaginationChange={(page, size) => {
-          setCurrentPage(page)
-          setPageSize(size)
-        }}
-      />
     </div>
   )
 }

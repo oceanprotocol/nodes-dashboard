@@ -1,7 +1,7 @@
 import React from 'react'
 import styles from './index.module.css'
 
-import Table from '../../Table'
+// import Table from '../../Table'
 import HeroSection from '../../HeroSection/HeroSection'
 
 const IncentivesPage: React.FC = () => {
@@ -11,7 +11,7 @@ const IncentivesPage: React.FC = () => {
         title="Incentives"
         description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
       />
-      <Table />
+      {/* <Table /> */}
     </div>
   )
 }

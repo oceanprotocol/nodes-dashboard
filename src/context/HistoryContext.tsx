@@ -6,9 +6,18 @@ import React, {
   ReactNode,
   useCallback
 } from 'react'
-import { getNodeHistory } from '@/services/historyService'
+import { getNodeHistory, getWeekStats } from '@/services/historyService'
 import dayjs from 'dayjs'
 import { DateRange } from '@/components/PeriodSelect'
+
+interface WeekStatsSource {
+  id: number
+  week: number
+  totalUptime: number
+  lastRun: number
+  round: number
+  timestamp: number
+}
 
 interface HistoryContextType {
   data: any[]
@@ -27,6 +36,10 @@ interface HistoryContextType {
   setIsSearching: (isSearching: boolean) => void
   clearHistory: () => void
   fetchHistoryData: () => Promise<void>
+  weekStats: WeekStatsSource | null
+  loadingWeekStats: boolean
+  errorWeekStats: any
+  fetchWeekStats: () => Promise<void>
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
@@ -49,35 +62,80 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
     endDate: dayjs()
   })
 
+  const [weekStats, setWeekStats] = useState<WeekStatsSource | null>(null)
+  const [loadingWeekStats, setLoadingWeekStats] = useState<boolean>(false)
+  const [errorWeekStats, setErrorWeekStats] = useState<any>(null)
+
   const fetchHistoryData = useCallback(async () => {
-    if (!nodeId || !dateRange.startDate || !dateRange.endDate) return
+    if (!nodeId) return
+
+    console.log(
+      `[HistoryContext] Attempting fetchHistoryData for nodeId: ${nodeId}, page: ${currentPage}, size: ${pageSize}`
+    )
 
     setLoading(true)
+    setError(null)
     try {
-      const response = await getNodeHistory(
-        nodeId,
-        dateRange.startDate.unix(),
-        currentPage,
-        pageSize
-      )
-      setData(response.items || [])
-      setTotalItems(response.total || 0)
-      setError(null)
+      const response = await getNodeHistory(nodeId, currentPage, pageSize)
+      console.log('[HistoryContext] Received history data:', response)
+      setData(response.data || [])
+      setTotalItems(response.pagination.totalCount || 0)
     } catch (error) {
-      console.error('Error fetching node history:', error)
+      console.error('[HistoryContext] Error during fetchHistoryData:', error)
       setData([])
       setTotalItems(0)
       setError(error)
     } finally {
+      console.log('[HistoryContext] Finished fetchHistoryData attempt.')
       setLoading(false)
     }
-  }, [nodeId, dateRange, currentPage, pageSize])
+  }, [nodeId, currentPage, pageSize])
+
+  const fetchWeekStats = useCallback(async () => {
+    if (!nodeId || !dateRange.endDate) {
+      console.log('[HistoryContext] Skipping fetchWeekStats: Missing nodeId or endDate')
+      return
+    }
+
+    const targetDate = dateRange.endDate.unix()
+    console.log(
+      `[HistoryContext] Attempting fetchWeekStats for nodeId: ${nodeId}, date: ${targetDate}`
+    )
+
+    setLoadingWeekStats(true)
+    setErrorWeekStats(null)
+    setWeekStats(null)
+    try {
+      const stats = await getWeekStats(targetDate)
+      console.log('[HistoryContext] Received weekStats data:', stats)
+      setWeekStats(stats)
+    } catch (err) {
+      console.error('[HistoryContext] Error during fetchWeekStats:', err)
+      setWeekStats(null)
+      setErrorWeekStats(err)
+    } finally {
+      console.log('[HistoryContext] Finished fetchWeekStats attempt.')
+      setLoadingWeekStats(false)
+    }
+  }, [nodeId, dateRange])
 
   useEffect(() => {
     if (isSearching && nodeId) {
+      console.log(
+        '[HistoryContext] Triggering fetches due to search/nodeId/dependencies change.'
+      )
       fetchHistoryData()
+      fetchWeekStats()
     }
-  }, [isSearching, nodeId, dateRange, currentPage, pageSize, fetchHistoryData])
+  }, [
+    isSearching,
+    nodeId,
+    dateRange,
+    currentPage,
+    pageSize,
+    fetchHistoryData,
+    fetchWeekStats
+  ])
 
   const clearHistory = useCallback(() => {
     setNodeId('')
@@ -86,6 +144,8 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
     setTotalItems(0)
     setCurrentPage(1)
     setError(null)
+    setWeekStats(null)
+    setErrorWeekStats(null)
   }, [])
 
   const value: HistoryContextType = {
@@ -104,7 +164,11 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
     setPageSize,
     setIsSearching,
     clearHistory,
-    fetchHistoryData
+    fetchHistoryData,
+    weekStats,
+    loadingWeekStats,
+    errorWeekStats,
+    fetchWeekStats
   }
 
   return <HistoryContext.Provider value={value}>{children}</HistoryContext.Provider>

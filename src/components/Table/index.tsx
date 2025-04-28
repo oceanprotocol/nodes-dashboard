@@ -231,7 +231,9 @@ export const Table: React.FC<TableProps> = ({
           onPaginationModelChange={handlePaginationModelChange}
           loading={loading}
           disableRowSelectionOnClick
-          getRowId={(row) => row.id}
+          getRowId={(row) =>
+            tableType === TableTypeEnum.HISTORY ? row.timestamp : row.id
+          }
           paginationMode="server"
           sortingMode="server"
           filterMode="server"

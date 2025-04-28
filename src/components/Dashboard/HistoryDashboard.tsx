@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react'
 import Card from '@/components/Card/Card'
 import styles from './Dashboard.module.css'
-import { useNodesContext } from '@/context/NodesContext'
+import { useHistoryContext } from '@/context/HistoryContext'
+import { formatUptimePercentage } from '@/components/Table/utils'
 import { Box, Alert } from '@mui/material'
+import dayjs from 'dayjs'
 
-const formatTimeShort = (date: Date): string => {
+const formatTimeShort = (timestampMillis: number): string => {
+  if (!timestampMillis) return '-'
+  const date = new Date(timestampMillis)
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (diffInSeconds < 0) return 'in the future'
 
   const hours = Math.floor(diffInSeconds / 3600)
   const minutes = Math.floor((diffInSeconds % 3600) / 60)
@@ -20,71 +26,77 @@ const formatTimeShort = (date: Date): string => {
   }
 }
 
-const isLive = (
-  timestamp: Date,
-  additionalParams: any = {}
-): { status: boolean; color: string } => {
+const isLive = (timestampMillis: number): { status: boolean; color: string } => {
+  if (!timestampMillis) return { status: false, color: '#F70C0C' }
   const now = new Date()
-  const diffInMinutes = (now.getTime() - timestamp.getTime()) / (1000 * 60)
-  const isRecent = diffInMinutes < 60
+  const diffInMinutes = (now.getTime() - timestampMillis) / (1000 * 60)
+  const isRecent = diffInMinutes < 15
   return {
     status: isRecent,
     color: isRecent ? '#23EF2C' : '#F70C0C'
   }
 }
 
+const getWeekLabel = (startTimestampMillis: number): string => {
+  if (!startTimestampMillis) return 'Current Week'
+  const startDate = dayjs(startTimestampMillis)
+  const startOfWeek = startDate.day(4)
+  const endOfWeek = startOfWeek.add(7, 'day')
+  return `${startOfWeek.format('MMM D')} - ${endOfWeek.format('MMM D')}`
+}
+
 const HistoryDashboard: React.FC = () => {
   const {
-    loadingTotalNodes,
-    loadingTotalEligible,
-    loadingTotalRewards,
-    loadingRewardsHistory,
-    error,
-    rewardsHistory,
-    fetchRewardsHistory,
-    totalUptime
-  } = useNodesContext()
+    loading: loadingHistory,
+    error: errorHistory,
+    weekStats,
+    loadingWeekStats,
+    errorWeekStats
+  } = useHistoryContext()
 
-  const combinedLoading =
-    loadingTotalNodes ||
-    loadingTotalEligible ||
-    loadingTotalRewards ||
-    loadingRewardsHistory
+  console.log('HistoryDashboard Context:', {
+    loadingHistory,
+    errorHistory,
+    weekStats,
+    loadingWeekStats,
+    errorWeekStats
+  })
 
-  const [overallDashboardLoading, setOverallDashboardLoading] = useState(combinedLoading)
+  const isLoading = loadingHistory || loadingWeekStats
 
-  let uptimePercentage
-  if (totalUptime !== null && totalUptime !== undefined) {
-    if (totalUptime >= 0 && totalUptime <= 1) {
-      uptimePercentage = (totalUptime * 100).toFixed(1)
-    } else if (totalUptime > 1 && totalUptime < 1000) {
-      uptimePercentage = Math.min(totalUptime, 100).toFixed(1)
-    } else {
-      console.error('Invalid totalUptime value:', totalUptime)
-      uptimePercentage = '87.9'
-    }
-  } else {
-    uptimePercentage = '0.0'
-  }
+  const error = errorHistory || errorWeekStats
 
-  const isLowPercentage = parseFloat(uptimePercentage) <= 15
+  const uptimePercentage = weekStats?.totalUptime
+    ? formatUptimePercentage(weekStats.totalUptime, null)
+    : '0.00%'
+  const uptimeValue = parseFloat(uptimePercentage) || 0
+  const isLowPercentage = uptimeValue <= 15
 
-  useEffect(() => {
-    fetchRewardsHistory()
-  }, [fetchRewardsHistory])
-
-  useEffect(() => {
-    setOverallDashboardLoading(combinedLoading)
-  }, [combinedLoading])
-
-  const isLoading = overallDashboardLoading
-
-  const currentRoundStartTime = new Date(Date.now() - 2 * 60 * 60 * 1000)
+  const currentRoundStartTime = weekStats?.timestamp || 0
   const startedTimeAgoShort = formatTimeShort(currentRoundStartTime)
+  const roundStartStatus = isLive(currentRoundStartTime)
 
-  const roundStatus = isLive(currentRoundStartTime)
+  const updatedLiveStatus = isLive(weekStats?.lastRun || 0)
+
+  const trackedPeriodLabel = getWeekLabel(weekStats?.timestamp || 0)
+
+  // Log derived values before rendering
+  console.log('HistoryDashboard Derived Values:', {
+    isLoading,
+    error,
+    uptimePercentage,
+    uptimeValue,
+    isLowPercentage,
+    currentRound: weekStats?.round,
+    completedRounds: weekStats?.round ? Math.max(0, weekStats.round - 1) : undefined,
+    startedTimeAgoShort,
+    roundStartStatus,
+    updatedLiveStatus,
+    trackedPeriodLabel
+  })
 
   if (error) {
+    const errorMessage = error?.message || 'Something went wrong loading history data'
     return (
       <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
         <Alert
@@ -97,7 +109,7 @@ const HistoryDashboard: React.FC = () => {
             }
           }}
         >
-          Error loading dashboard data: {error?.message || 'Something went wrong'}
+          Error loading dashboard data: {errorMessage}
         </Alert>
       </Box>
     )
@@ -107,14 +119,14 @@ const HistoryDashboard: React.FC = () => {
     <div className={styles.dashboard}>
       <Card
         title="Current Round"
-        bigNumber={rewardsHistory.length > 0 ? rewardsHistory.length : 0}
+        bigNumber={weekStats?.round ?? '-'}
         isLoading={isLoading}
         subText={
           <>
             Started {startedTimeAgoShort} ago
             <span
               className={styles.statusIndicator}
-              style={{ backgroundColor: roundStatus.color }}
+              style={{ backgroundColor: roundStartStatus.color }}
             ></span>
           </>
         }
@@ -128,12 +140,12 @@ const HistoryDashboard: React.FC = () => {
               <div className={styles.progressBarContainer}>
                 <div
                   className={styles.progressBar}
-                  style={{ width: `${uptimePercentage}%` }}
+                  style={{ width: `${uptimeValue}%` }}
                 ></div>
                 <span
                   className={`${styles.percentageText} ${isLowPercentage ? styles.percentageTextLow : ''}`}
                 >
-                  {uptimePercentage}%
+                  {uptimePercentage}
                 </span>
               </div>
             </div>
@@ -142,20 +154,20 @@ const HistoryDashboard: React.FC = () => {
         subText={
           <>
             <div className={styles.trackedLabel}>Tracked over:</div>
-            <span>30 days</span>
+            <span>{trackedPeriodLabel}</span>
           </>
         }
       />
       <Card
         title="Total Completed Rounds"
-        bigNumber={Math.max(0, (rewardsHistory.length || 0) - 1)}
+        bigNumber={weekStats?.round ? Math.max(0, weekStats.round - 1) : '-'}
         isLoading={isLoading}
         subText={
           <>
             <div className={styles.trackedLabel}>Updated Live</div>
             <span
               className={styles.statusIndicator}
-              style={{ backgroundColor: roundStatus.color }}
+              style={{ backgroundColor: updatedLiveStatus.color }}
             ></span>
           </>
         }
@@ -169,11 +181,11 @@ const HistoryDashboard: React.FC = () => {
             <div className={styles.rewardsLabels}>
               <div className={styles.rewardsValues}>
                 <div className={styles.grayBox}>Round</div>
-                <div className={styles.rewardNumber}>18</div>
+                <div className={styles.rewardNumber}>-</div>
               </div>
               <div className={styles.rewardsValues}>
                 <div className={styles.grayBox}>Winnings</div>
-                <div className={styles.rewardAmount}>2K ROSE</div>
+                <div className={styles.rewardAmount}>- ROSE</div>
               </div>
             </div>
           </div>
@@ -181,7 +193,7 @@ const HistoryDashboard: React.FC = () => {
         subText={
           <>
             <div>Total:</div>
-            <span>27.3K ROSE</span>
+            <span>- ROSE</span>
           </>
         }
       />

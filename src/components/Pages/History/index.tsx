@@ -60,7 +60,7 @@ const HistoryPage: React.FC = () => {
 
   return (
     <div className={styles.root}>
-      <HeroSection title="History">
+      <HeroSection title="Rewards History">
         <div className={styles.searchBarCenter}>
           <Box sx={{ width: '700px', maxWidth: '100%' }}>
             <TextField

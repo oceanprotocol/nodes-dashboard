@@ -76,13 +76,8 @@
 
 .dashboardContainer {
   max-width: 1280px;
-  margin: 0 auto 2rem;
-  padding: 1rem;
-  background-color: #0D0318;
-  background-image: radial-gradient(circle at 10% 20%, rgba(207, 31, 177, 0.1) 0%, transparent 20%),
-                   radial-gradient(circle at 90% 50%, rgba(207, 31, 177, 0.1) 0%, transparent 20%),
-                   radial-gradient(circle at 50% 80%, rgba(207, 31, 177, 0.1) 0%, transparent 20%);
-  border-radius: 0.5rem;
+  margin: 0 auto 50px;
+  width: 100%;
 }
 
 .searchBarCenter {

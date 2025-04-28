@@ -3,6 +3,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 32px;
   width: 100%;
+  min-height: 238px;
 }
 
 .countryStats, .nodeStats {

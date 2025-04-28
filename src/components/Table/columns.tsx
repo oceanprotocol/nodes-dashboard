@@ -678,46 +678,62 @@ export const countryColumns: GridColDef[] = [
 
 export const historyColumns: GridColDef[] = [
   {
-    field: 'roundNo',
+    field: 'round',
     headerName: 'Round no.',
     flex: 0.5,
     minWidth: 100,
     align: 'left',
-    headerAlign: 'left'
+    headerAlign: 'left',
+    renderCell: (params: GridRenderCellParams<any>) => {
+      return params?.row?.round ?? '-'
+    }
   },
   {
     field: 'timestamp',
     headerName: 'Timestamp',
     flex: 1,
-    minWidth: 150,
+    minWidth: 180,
     align: 'left',
     headerAlign: 'left',
-    valueFormatter: (params: { value: string | null }) =>
-      params.value ? `${params.value} UTC` : ''
+    renderCell: (params: GridRenderCellParams<any, number>) => {
+      if (params.value == null) {
+        return '-'
+      }
+      try {
+        const date = new Date(params.value)
+        const hours = String(date.getUTCHours()).padStart(2, '0')
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0')
+        return `${hours}:${minutes}:${seconds} UTC`
+      } catch (e) {
+        console.error('Error formatting timestamp:', e)
+        return 'Invalid Date'
+      }
+    }
   },
   {
-    field: 'reason',
+    field: 'errorCause',
     headerName: 'Reason for Issue',
     flex: 1,
     minWidth: 200,
     align: 'left',
-    headerAlign: 'left'
+    headerAlign: 'left',
+    renderCell: (params: GridRenderCellParams<any>) => {
+      return params?.row?.errorCause || '-'
+    }
   },
   {
-    field: 'status',
+    field: 'derivedStatus',
     headerName: 'Status',
     flex: 0.5,
     minWidth: 120,
     align: 'left',
     headerAlign: 'left',
-    renderCell: (params: GridRenderCellParams<any, any, string>) => {
-      const status = params.value?.toLowerCase()
-      const colorMap = {
-        failed: '#FF4444',
-        success: '#4CAF50',
-        progress: '#FFA726'
-      }
-      const color = colorMap[status as keyof typeof colorMap] || '#757575'
+    sortable: false,
+    renderCell: (params: GridRenderCellParams<any>) => {
+      const hasError = !!params?.row?.errorCause
+      const statusText = hasError ? 'Failed' : 'Success'
+      const color = hasError ? '#FF4444' : '#4CAF50'
 
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -729,7 +745,7 @@ export const historyColumns: GridColDef[] = [
               backgroundColor: color
             }}
           />
-          <span>{params.value}</span>
+          <span>{statusText}</span>
         </div>
       )
     }
