@@ -198,8 +198,19 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
       } catch (fallbackErr) {
         console.error('Error in fallback fetch:', fallbackErr)
+        const threeWeeksAgo = Math.floor(new Date(date - 3 * oneWeekInMs).getTime() / 1000)
+        try {
+        const response = await axios.get(
+          `${getApiRoute('analyticsSummary')}?date=${threeWeeksAgo}`
+        )
+        if (response) {
+          setTotalEligibleNodes(response.data.numberOfRows)
+        }
+      } catch (fallbackErr) {
+        console.error('Error in fallback fetch:', fallbackErr)
         setError(err)
       }
+    }
     } finally {
       if (!metricsLoaded) setLoadingTotalEligible(false)
     }
