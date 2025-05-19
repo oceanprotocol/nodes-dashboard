@@ -3,10 +3,11 @@ import { useEffect } from 'react'
 
 import styles from './style.module.css'
 
-import PieChartCard from '../../PieChart/PieChart'
-import HeroSection from '../../HeroSection/HeroSection'
-import { useDataContext } from '../../../context/DataContext'
-import TopCountriesChart from '../../TopCountriesChart/TopCountriesChart '
+import PieChartCard from '@/components/PieChart/PieChart'
+import HeroSection from '@/components/HeroSection/HeroSection'
+import { useNodesContext } from '@/context/NodesContext'
+import TopCountriesChart from '@/components/TopCountriesChart/TopCountriesChart '
+import { NodesDashboard } from '@/components/Dashboard'
 
 const Map = dynamic(() => import('../../Map'), { ssr: false })
 
@@ -93,15 +94,13 @@ const processCpuArchData = (stats: SystemStats): ChartDataItem[] => {
 }
 
 export default function HomePage() {
-  const { systemStats, setTableType } = useDataContext()
-
-  useEffect(() => {
-    setTableType('countries')
-  }, [setTableType])
+  const { systemStats } = useNodesContext()
 
   return (
     <div className={styles.root}>
-      <HeroSection title="Ocean Nodes at a Glance" />
+      <HeroSection title="Ocean Nodes at a Glance">
+        <NodesDashboard />
+      </HeroSection>
       <Map />
       <div className={styles.pieCharts}>
         <PieChartCard data={processCpuData(systemStats)} title="CPU Cores Distribution" />

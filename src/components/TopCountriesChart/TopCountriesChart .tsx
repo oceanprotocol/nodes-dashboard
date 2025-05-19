@@ -3,13 +3,14 @@ import Link from 'next/link'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid } from 'recharts'
 import styles from './TopCountriesChart.module.css'
 import { getRoutes } from '../../config'
-import { useDataContext } from '../../context/DataContext'
+import { useCountriesContext } from '@/context/CountriesContext'
+import { CountryStatsType } from '@/shared/types/dataTypes'
 
 const TopCountriesChart: React.FC = () => {
   const routes = getRoutes()
-  const { countryStats } = useDataContext()
+  const { data: countryStats } = useCountriesContext()
 
-  const topCountries = countryStats.slice(0, 5).map((stat) => ({
+  const topCountries = countryStats.slice(0, 5).map((stat: CountryStatsType) => ({
     country: stat.country,
     nodes: stat.totalNodes
   }))

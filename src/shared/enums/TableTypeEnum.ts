@@ -1,4 +1,5 @@
 export enum TableTypeEnum {
   NODES = 'nodes',
-  COUNTRIES = 'countries'
+  COUNTRIES = 'countries',
+  HISTORY = 'history'
 }

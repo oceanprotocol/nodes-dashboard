@@ -68,3 +68,97 @@
   outline: none;
   background-color: rgba(0, 0, 0, 0.1);
 }
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.actionButton {
+  min-width: 36px !important;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border-radius: 50% !important;
+  color: #CF1FB1 !important;
+  border-color: #CF1FB1 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionButton:hover {
+  background-color: rgba(207, 31, 177, 0.04) !important;
+}
+
+.actionButton svg {
+  font-size: 18px;
+}
+
+.actionCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.statusContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* History table specific styles */
+.historyTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.historyTable th {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.historyTable td {
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+  color: #212529;
+}
+
+.historyTable tr:last-child td {
+  border-bottom: none;
+}
+
+/* Status colors */
+.statusDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.statusText {
+  font-weight: 500;
+}
+
+.fixedWidth {
+  max-width: 1240px;
+}

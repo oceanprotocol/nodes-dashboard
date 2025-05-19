@@ -6,10 +6,12 @@ import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import RootLayout from '../components/Layout';
-import { AdminProvider } from '../context/AdminProvider';
-import { chains } from '../shared/utils/chains';
-import {  DataProvider } from '@/context/DataContext';
-import { MapProvider } from '../context/MapContext'
+import { AdminProvider } from '@/context/AdminProvider'
+import { chains } from '@/shared/utils/chains'
+import { MapProvider } from '@/context/MapContext'
+import { NodesProvider } from '@/context/NodesContext'
+import { CountriesProvider } from '@/context/CountriesContext'
+import { HistoryProvider } from '@/context/HistoryContext'
 
 export default function App({ Component, pageProps }: AppProps) {
   const config = getDefaultConfig({
@@ -18,23 +20,27 @@ export default function App({ Component, pageProps }: AppProps) {
       ? process.env.NEXT_PUBLIC_WALLET_CONNECT_ID
       : 'da267f7e1897e2cf92a7710f92e8f660',
     chains,
-    ssr: true,
-  });
+    ssr: true
+  })
 
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient()
 
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
           <AdminProvider>
-            <DataProvider>
-              <MapProvider>
-                <RootLayout>
-                  <Component {...pageProps} />
-                </RootLayout>
-              </MapProvider>
-            </DataProvider>
+            <NodesProvider>
+              <CountriesProvider>
+                <MapProvider>
+                  <HistoryProvider>
+                    <RootLayout>
+                      <Component {...pageProps} />
+                    </RootLayout>
+                  </HistoryProvider>
+                </MapProvider>
+              </CountriesProvider>
+            </NodesProvider>
           </AdminProvider>
         </RainbowKitProvider>
       </QueryClientProvider>

@@ -5,6 +5,20 @@
   gap: 100px;
 }
 
+.mainContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 50px;
+  width: 100%;
+}
+
+.dashboardContainer {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   .root {
     gap: 50px;
