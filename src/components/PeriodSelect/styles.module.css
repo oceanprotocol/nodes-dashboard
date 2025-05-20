@@ -92,7 +92,26 @@
   display: none;
 }
 
-.menu {
+.select :global(.MuiInput-underline)::before {
+  border-bottom: none !important;
+}
+
+.select :global(.MuiInput-underline)::after {
+  border-bottom: none !important;
+}
+
+.select:global(.MuiInputBase-root.MuiInput-root.MuiInput-underline),
+.select:global(.MuiInputBase-root.MuiInput-root.MuiInput-underline)::before,
+.select:global(.MuiInputBase-root.MuiInput-root.MuiInput-underline)::after,
+.select:global(.MuiInputBase-root.MuiInput-root.MuiInput-underline.MuiInputBase-colorPrimary.MuiInputBase-formControl),
+.select:global(.MuiInputBase-root.MuiInput-root.MuiInput-underline.MuiInputBase-colorPrimary.MuiInputBase-formControl)::before,
+.select:global(.MuiInputBase-root.MuiInput-root.MuiInput-underline.MuiInputBase-colorPrimary.MuiInputBase-formControl)::after {
+  border-bottom: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.menuPaper {
   margin-top: 8px;
   background: #0E001A;
   border-radius: 12px;

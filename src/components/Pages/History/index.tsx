@@ -9,7 +9,7 @@ import HeroSection from '../../HeroSection/HeroSection'
 import { TableTypeEnum } from '../../../shared/enums/TableTypeEnum'
 import { useHistoryContext } from '../../../context/HistoryContext'
 import { HistoryDashboard } from '../../Dashboard'
-import PeriodSelect from '../../PeriodSelect'
+import PeriodSelect, { DateRange } from '../../PeriodSelect'
 
 const HistoryPage: React.FC = () => {
   const router = useRouter()
@@ -25,22 +25,36 @@ const HistoryPage: React.FC = () => {
     setPageSize,
     dateRange,
     setDateRange,
-    setIsSearching
+    setIsSearching,
+    availablePeriods,
+    periodsLoading
   } = useHistoryContext()
 
   useEffect(() => {
     const nodeIdFromUrl = router.query.id || router.query.nodeid
-    if (nodeIdFromUrl) {
-      setNodeId(nodeIdFromUrl as string)
-      setIsSearching(true)
+    if (typeof nodeIdFromUrl === 'string' && nodeIdFromUrl) {
+      setNodeId(nodeIdFromUrl)
+      if (!nodeId) {
+        setIsSearching(true)
+      }
+    } else if (!nodeIdFromUrl && nodeId) {
+      setNodeId('')
     }
-  }, [router.query.id, router.query.nodeid, setNodeId, setIsSearching])
+  }, [router.query, setNodeId, nodeId])
 
   const handleSearch = () => {
-    if (nodeId.trim()) {
+    const trimmedNodeId = nodeId.trim()
+    if (trimmedNodeId) {
+      const currentQuery = { ...router.query }
+      const newQuery: { [key: string]: string | string[] | undefined } = {
+        ...currentQuery,
+        id: trimmedNodeId
+      }
+      delete newQuery.nodeid
+
       router.push({
         pathname: router.pathname,
-        query: { id: nodeId }
+        query: newQuery
       })
       setIsSearching(true)
     }
@@ -48,14 +62,21 @@ const HistoryPage: React.FC = () => {
 
   const handleClear = () => {
     setNodeId('')
+    const newQuery = { ...router.query }
+    delete newQuery.id
+    delete newQuery.nodeid
     router.push({
-      pathname: router.pathname
+      pathname: router.pathname,
+      query: newQuery
     })
   }
 
-  const handleDateRangeChange = (newRange: any) => {
+  const handleDateRangeChange = (newRange: DateRange) => {
     setDateRange(newRange)
     setCurrentPage(1)
+    if (nodeId && nodeId.trim() !== '') {
+      setIsSearching(true)
+    }
   }
 
   return (
@@ -99,10 +120,15 @@ const HistoryPage: React.FC = () => {
         </div>
       </HeroSection>
 
-      {router.query.id && (
+      {nodeId && nodeId.trim() !== '' && (
         <>
           <div className={styles.dateRangeContainer}>
-            <PeriodSelect onChange={handleDateRangeChange} initialRange={dateRange} />
+            <PeriodSelect
+              onChange={handleDateRangeChange}
+              initialRange={dateRange}
+              availablePeriods={availablePeriods}
+              periodsLoading={periodsLoading}
+            />
           </div>
           <div className={styles.dashboardContainer}>
             <HistoryDashboard />

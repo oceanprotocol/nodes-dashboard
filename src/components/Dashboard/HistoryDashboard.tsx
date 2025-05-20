@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import Card from '@/components/Card/Card'
 import styles from './Dashboard.module.css'
 import { useHistoryContext } from '@/context/HistoryContext'
 import { formatUptimePercentage } from '@/components/Table/utils'
-import { Box, Alert } from '@mui/material'
+import { Box, Alert, Typography } from '@mui/material'
 import dayjs from 'dayjs'
 
 const formatTimeShort = (timestampMillis: number): string => {
@@ -37,11 +37,35 @@ const isLive = (timestampMillis: number): { status: boolean; color: string } => 
   }
 }
 
-const getWeekLabel = (startTimestampMillis: number): string => {
+const getWeekLabel = (startTimestampMillis: number, dateRange?: any): string => {
   if (!startTimestampMillis) return 'Current Week'
+
+  const now = dayjs()
   const startDate = dayjs(startTimestampMillis)
+
+  if (startDate.isAfter(now)) {
+    const endOfWeek = startDate.add(6, 'day')
+    return `${startDate.format('MMM D')} - ${endOfWeek.format('MMM D')}`
+  }
+
+  if (dateRange?.startDate && dateRange?.endDate) {
+    const diffDays = dateRange.endDate.diff(dateRange.startDate, 'day')
+
+    if (diffDays >= 28 && diffDays <= 31) {
+      return '30 days'
+    }
+
+    if (diffDays >= 6 && diffDays <= 8) {
+      return '7 days'
+    }
+
+    if (diffDays > 0) {
+      return `${diffDays} days`
+    }
+  }
+
   const startOfWeek = startDate.day(4)
-  const endOfWeek = startOfWeek.add(7, 'day')
+  const endOfWeek = startOfWeek.add(6, 'day')
   return `${startOfWeek.format('MMM D')} - ${endOfWeek.format('MMM D')}`
 }
 
@@ -51,7 +75,13 @@ const HistoryDashboard: React.FC = () => {
     error: errorHistory,
     weekStats,
     loadingWeekStats,
-    errorWeekStats
+    errorWeekStats,
+    getRewardsForPeriod,
+    loadingRewards,
+    totalProgramDistribution,
+    currentRoundStats,
+    loadingCurrentRound,
+    dateRange
   } = useHistoryContext()
 
   console.log('HistoryDashboard Context:', {
@@ -59,18 +89,28 @@ const HistoryDashboard: React.FC = () => {
     errorHistory,
     weekStats,
     loadingWeekStats,
-    errorWeekStats
+    errorWeekStats,
+    currentRoundStats,
+    loadingCurrentRound
   })
 
-  const isLoading = loadingHistory || loadingWeekStats
+  const isLoading = loadingHistory || loadingWeekStats || loadingRewards
 
   const error = errorHistory || errorWeekStats
+
+  const hasNoDataForPeriod =
+    !isLoading &&
+    !error &&
+    weekStats &&
+    (weekStats.totalUptime === 0 ||
+      weekStats.totalUptime === null ||
+      weekStats.totalUptime === undefined)
 
   const uptimePercentage = weekStats?.totalUptime
     ? formatUptimePercentage(weekStats.totalUptime, null)
     : '0.00%'
   const uptimeValue = parseFloat(uptimePercentage) || 0
-  const isLowPercentage = uptimeValue <= 15
+  const isLowPercentage = uptimeValue < 30
 
   const currentRoundStartTime = weekStats?.timestamp || 0
   const startedTimeAgoShort = formatTimeShort(currentRoundStartTime)
@@ -78,21 +118,33 @@ const HistoryDashboard: React.FC = () => {
 
   const updatedLiveStatus = isLive(weekStats?.lastRun || 0)
 
-  const trackedPeriodLabel = getWeekLabel(weekStats?.timestamp || 0)
+  const trackedPeriodLabel = getWeekLabel(weekStats?.timestamp || 0, dateRange)
 
-  // Log derived values before rendering
+  const periodRewards = weekStats?.week ? getRewardsForPeriod(weekStats.week) : null
+
+  const formattedAverageReward = periodRewards?.averageReward
+    ? periodRewards.averageReward.toFixed(2)
+    : '-'
+
+  const formattedAllTimeTotalDistribution = totalProgramDistribution
+    ? (totalProgramDistribution / 1000).toFixed(0) + 'K'
+    : '-'
+
   console.log('HistoryDashboard Derived Values:', {
     isLoading,
     error,
+    hasNoDataForPeriod,
     uptimePercentage,
     uptimeValue,
     isLowPercentage,
     currentRound: weekStats?.round,
     completedRounds: weekStats?.round ? Math.max(0, weekStats.round - 1) : undefined,
-    startedTimeAgoShort,
-    roundStartStatus,
+    startedTimeAgoShort: startedTimeAgoShort,
+    roundStartStatus: roundStartStatus,
     updatedLiveStatus,
-    trackedPeriodLabel
+    trackedPeriodLabel,
+    periodRewards,
+    formattedAverageReward
   })
 
   if (error) {
@@ -111,6 +163,37 @@ const HistoryDashboard: React.FC = () => {
         >
           Error loading dashboard data: {errorMessage}
         </Alert>
+      </Box>
+    )
+  }
+
+  if (hasNoDataForPeriod) {
+    return (
+      <Box
+        sx={{
+          mt: 4,
+          display: 'flex',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}
+      >
+        <Alert
+          severity="info"
+          sx={{
+            width: '100%',
+            maxWidth: '500px',
+            mb: 2,
+            '& .MuiAlert-icon': {
+              color: '#8624e1'
+            }
+          }}
+        >
+          No history data available for this period and node
+        </Alert>
+        <Typography variant="body2" color="text.secondary">
+          Please try selecting a different time period from the dropdown above.
+        </Typography>
       </Box>
     )
   }
@@ -175,17 +258,17 @@ const HistoryDashboard: React.FC = () => {
       <Card
         title="Rewards History"
         isLoading={isLoading}
-        tooltip="Total ROSE tokens rewarded to nodes"
+        tooltip="Estimated rewards based on average distribution per eligible node. Calculation: Total ROSE tokens distributed in the round divided by the number of eligible nodes."
         additionalInfo={
           <div className={styles.rewardsHistoryContent}>
             <div className={styles.rewardsLabels}>
               <div className={styles.rewardsValues}>
                 <div className={styles.grayBox}>Round</div>
-                <div className={styles.rewardNumber}>-</div>
+                <div className={styles.rewardNumber}>{weekStats?.round ?? '-'}</div>
               </div>
               <div className={styles.rewardsValues}>
                 <div className={styles.grayBox}>Winnings</div>
-                <div className={styles.rewardAmount}>- ROSE</div>
+                <div className={styles.rewardAmount}>{formattedAverageReward} ROSE</div>
               </div>
             </div>
           </div>
@@ -193,7 +276,7 @@ const HistoryDashboard: React.FC = () => {
         subText={
           <>
             <div>Total:</div>
-            <span>- ROSE</span>
+            <span>{formattedAllTimeTotalDistribution} ROSE</span>
           </>
         }
       />

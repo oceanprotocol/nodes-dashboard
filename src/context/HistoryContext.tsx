@@ -4,19 +4,29 @@ import React, {
   useEffect,
   useContext,
   ReactNode,
-  useCallback
+  useCallback,
+  useMemo,
+  PropsWithChildren
 } from 'react'
-import { getNodeHistory, getWeekStats } from '@/services/historyService'
-import dayjs from 'dayjs'
+import {
+  getNodeHistory,
+  getWeekStats,
+  getAllHistoricalWeeklyPeriods,
+  PeriodOption,
+  RewardsData,
+  getAllHistoricalRewards,
+  getCurrentWeekStats
+} from '@/services/historyService'
 import { DateRange } from '@/components/PeriodSelect'
+import dayjs, { Dayjs } from 'dayjs'
 
 interface WeekStatsSource {
   id: number
   week: number
   totalUptime: number
   lastRun: number
-  round: number
-  timestamp: number
+  round?: number
+  timestamp?: number
 }
 
 interface HistoryContextType {
@@ -40,6 +50,20 @@ interface HistoryContextType {
   loadingWeekStats: boolean
   errorWeekStats: any
   fetchWeekStats: () => Promise<void>
+  availablePeriods: PeriodOption[]
+  periodsLoading: boolean
+  getRewardsForPeriod: (periodId: string | number) => {
+    averageReward: number
+    totalDistributed: number
+    nrEligibleNodes: number
+  } | null
+  rewardsData: RewardsData[]
+  loadingRewards: boolean
+  errorRewards: Error | null
+  totalProgramDistribution: number
+  currentRoundStats: any
+  loadingCurrentRound: boolean
+  errorCurrentRound: Error | null
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
@@ -48,7 +72,7 @@ interface HistoryProviderProps {
   children: ReactNode
 }
 
-export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) => {
+export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<any>(null)
@@ -58,19 +82,57 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
   const [nodeId, setNodeId] = useState<string>('')
   const [isSearching, setIsSearching] = useState<boolean>(false)
   const [dateRange, setDateRange] = useState<DateRange>({
-    startDate: dayjs().subtract(30, 'day'),
-    endDate: dayjs()
+    startDate: null,
+    endDate: null
   })
 
   const [weekStats, setWeekStats] = useState<WeekStatsSource | null>(null)
   const [loadingWeekStats, setLoadingWeekStats] = useState<boolean>(false)
   const [errorWeekStats, setErrorWeekStats] = useState<any>(null)
 
+  const [availablePeriods, setAvailablePeriods] = useState<PeriodOption[]>([])
+  const [periodsLoading, setPeriodsLoading] = useState<boolean>(true)
+
+  const [rewardsData, setRewardsData] = useState<RewardsData[]>([])
+  const [loadingRewards, setLoadingRewards] = useState<boolean>(false)
+  const [errorRewards, setErrorRewards] = useState<Error | null>(null)
+
+  const [currentRoundStats, setCurrentRoundStats] = useState<any>(null)
+  const [loadingCurrentRound, setLoadingCurrentRound] = useState<boolean>(false)
+  const [errorCurrentRound, setErrorCurrentRound] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const fetchPeriods = async () => {
+      setPeriodsLoading(true)
+      try {
+        const periods = await getAllHistoricalWeeklyPeriods()
+        setAvailablePeriods(periods)
+        if (periods.length > 0) {
+          const mostRecentPeriod = periods[0]
+          setDateRange({
+            startDate: mostRecentPeriod.startDate,
+            endDate: mostRecentPeriod.endDate
+          })
+        }
+      } catch (err) {
+        console.error('[HistoryContext] Error fetching available periods:', err)
+      } finally {
+        setPeriodsLoading(false)
+      }
+    }
+    fetchPeriods()
+  }, [])
+
   const fetchHistoryData = useCallback(async () => {
-    if (!nodeId) return
+    if (!nodeId || !dateRange.startDate || !dateRange.endDate) {
+      console.log(
+        '[HistoryContext] Skipping fetchHistoryData: Missing nodeId or dateRange.'
+      )
+      return
+    }
 
     console.log(
-      `[HistoryContext] Attempting fetchHistoryData for nodeId: ${nodeId}, page: ${currentPage}, size: ${pageSize}`
+      `[HistoryContext] Attempting fetchHistoryData for nodeId: ${nodeId}, page: ${currentPage}, size: ${pageSize}, range: ${dateRange.startDate?.format()} - ${dateRange.endDate?.format()}`
     )
 
     setLoading(true)
@@ -89,7 +151,7 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
       console.log('[HistoryContext] Finished fetchHistoryData attempt.')
       setLoading(false)
     }
-  }, [nodeId, currentPage, pageSize])
+  }, [nodeId, currentPage, pageSize, dateRange])
 
   const fetchWeekStats = useCallback(async () => {
     if (!nodeId || !dateRange.endDate) {
@@ -120,12 +182,16 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
   }, [nodeId, dateRange])
 
   useEffect(() => {
-    if (isSearching && nodeId) {
+    if (isSearching && nodeId && dateRange.startDate && dateRange.endDate) {
       console.log(
         '[HistoryContext] Triggering fetches due to search/nodeId/dependencies change.'
       )
       fetchHistoryData()
       fetchWeekStats()
+    } else if (isSearching && nodeId && (!dateRange.startDate || !dateRange.endDate)) {
+      console.log(
+        '[HistoryContext] Waiting for initial date range to be set after periods load.'
+      )
     }
   }, [
     isSearching,
@@ -146,7 +212,86 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
     setError(null)
     setWeekStats(null)
     setErrorWeekStats(null)
+    if (availablePeriods.length > 0) {
+      const mostRecentPeriod = availablePeriods[0]
+      setDateRange({
+        startDate: mostRecentPeriod.startDate,
+        endDate: mostRecentPeriod.endDate
+      })
+    } else {
+      setDateRange({ startDate: null, endDate: null })
+    }
+  }, [availablePeriods])
+
+  const handleSetDateRange = useCallback((newRange: DateRange) => {
+    setDateRange(newRange)
   }, [])
+
+  useEffect(() => {
+    const fetchRewardsData = async () => {
+      try {
+        setLoadingRewards(true)
+        const data = await getAllHistoricalRewards()
+        setRewardsData(data)
+        setErrorRewards(null)
+      } catch (error) {
+        console.error('Error fetching rewards data:', error)
+        setErrorRewards(error as Error)
+      } finally {
+        setLoadingRewards(false)
+      }
+    }
+
+    fetchRewardsData()
+  }, [])
+
+  useEffect(() => {
+    const fetchCurrentRound = async () => {
+      try {
+        setLoadingCurrentRound(true)
+        const data = await getCurrentWeekStats()
+        setCurrentRoundStats(data)
+        setErrorCurrentRound(null)
+      } catch (error) {
+        console.error('Error fetching current round:', error)
+        setErrorCurrentRound(error as Error)
+      } finally {
+        setLoadingCurrentRound(false)
+      }
+    }
+
+    fetchCurrentRound()
+  }, [])
+
+  const getRewardsForPeriod = (
+    periodId: string | number
+  ): {
+    averageReward: number
+    totalDistributed: number
+    nrEligibleNodes: number
+  } | null => {
+    if (!periodId || rewardsData.length === 0) return null
+
+    const periodIdStr = periodId.toString()
+    const periodRewards = rewardsData.find((reward) => reward.date === periodIdStr)
+
+    if (!periodRewards) return null
+
+    const averageReward = periodRewards.totalAmount / periodRewards.nrEligibleNodes
+
+    return {
+      averageReward,
+      totalDistributed: periodRewards.totalAmount,
+      nrEligibleNodes: periodRewards.nrEligibleNodes
+    }
+  }
+
+  const totalProgramDistribution = useMemo(() => {
+    if (!Array.isArray(rewardsData) || rewardsData.length === 0) return 0
+    return rewardsData.reduce((sum, reward) => {
+      return sum + (reward?.totalAmount || 0)
+    }, 0)
+  }, [rewardsData])
 
   const value: HistoryContextType = {
     data,
@@ -159,7 +304,7 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
     dateRange,
     isSearching,
     setNodeId,
-    setDateRange,
+    setDateRange: handleSetDateRange,
     setCurrentPage,
     setPageSize,
     setIsSearching,
@@ -168,7 +313,17 @@ export const HistoryProvider: React.FC<HistoryProviderProps> = ({ children }) =>
     weekStats,
     loadingWeekStats,
     errorWeekStats,
-    fetchWeekStats
+    fetchWeekStats,
+    availablePeriods,
+    periodsLoading,
+    getRewardsForPeriod,
+    rewardsData,
+    loadingRewards,
+    errorRewards,
+    totalProgramDistribution,
+    currentRoundStats,
+    loadingCurrentRound,
+    errorCurrentRound
   }
 
   return <HistoryContext.Provider value={value}>{children}</HistoryContext.Provider>

@@ -8,12 +8,13 @@ import {
   Area,
   ResponsiveContainer,
   XAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   CartesianGrid
 } from 'recharts'
 import ReactDOM from 'react-dom'
 import Image from 'next/image'
 import InfoIcon from '@/assets/info.svg'
+import { Tooltip } from '@mui/material'
 
 interface CardProps {
   title: string
@@ -263,9 +264,29 @@ const Card: React.FC<CardProps> = ({
             <div className={styles.titleContainer}>
               <h3 className={styles.cardTitle}>{title}</h3>
               {tooltip && (
-                <div className={styles.tooltipIcon} title={tooltip}>
-                  <Image src={InfoIcon} alt="info" width={16} height={16} />
-                </div>
+                <Tooltip
+                  title={tooltip}
+                  arrow
+                  placement="top"
+                  sx={{
+                    '& .MuiTooltip-tooltip': {
+                      backgroundColor: '#1A0820',
+                      color: 'white',
+                      fontSize: '0.8rem',
+                      padding: '8px 12px',
+                      maxWidth: 300,
+                      border: '1px solid rgba(207, 31, 177, 0.3)',
+                      boxShadow: '0 4px 20px rgba(207, 31, 177, 0.3)'
+                    },
+                    '& .MuiTooltip-arrow': {
+                      color: '#1A0820'
+                    }
+                  }}
+                >
+                  <div className={styles.tooltipIcon}>
+                    <Image src={InfoIcon} alt="info" width={16} height={16} />
+                  </div>
+                </Tooltip>
               )}
             </div>
             {dataLoading ? (
@@ -297,7 +318,7 @@ const Card: React.FC<CardProps> = ({
                             />
                           )}
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={false} />
+                        <RechartsTooltip content={<CustomTooltip />} cursor={false} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -348,7 +369,7 @@ const Card: React.FC<CardProps> = ({
                             strokeWidth: 2
                           }}
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={false} />
+                        <RechartsTooltip content={<CustomTooltip />} cursor={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
