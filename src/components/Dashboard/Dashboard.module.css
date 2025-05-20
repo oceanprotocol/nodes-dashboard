@@ -45,9 +45,9 @@
 
 .lastYear {
   color: #CF1FB1;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 400;
-  line-height: 18px;
+  line-height: 12px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -62,6 +62,10 @@
   font-weight: 500;
 }
 
+.lastYearText {
+  max-width: 50px;
+  text-align: left;
+}
 .rewardAmount {
   font-size: 24px;
   font-weight: bold;
@@ -111,6 +115,25 @@
   font-weight: 500;
 }
 
+.periodAverage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+}
+
+.periodAverage span {
+  margin-bottom: 0;
+  line-height: 18px;
+}
+
+body .rose {
+  color: #CF1FB1;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 12px;
+}
 
 @media (max-width: 1024px) {
   .dashboard {

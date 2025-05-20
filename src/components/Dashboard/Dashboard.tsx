@@ -189,12 +189,7 @@ const Dashboard = () => {
 
   return (
     <div className={styles.dashboard}>
-      <Card
-        title="Total Nodes"
-        bigNumber={totalNodes ?? 0}
-        isLoading={isLoading}
-        subText="nodes"
-      />
+      <Card title="Total Nodes" bigNumber={totalNodes ?? 0} isLoading={isLoading} />
 
       <Card
         title="Average Incentive"
@@ -222,8 +217,11 @@ const Dashboard = () => {
               </div>
             </div>
             <div className={styles.lastYear}>
-              Per Period
-              <span>{periodAverage.toFixed(3)}</span>
+              <div className={styles.lastYearText}>Per Period</div>
+              <div className={styles.periodAverage}>
+                <span>{periodAverage.toFixed(3)} </span>
+                <span className={styles.rose}>Rose</span>
+              </div>
             </div>
           </div>
         }
