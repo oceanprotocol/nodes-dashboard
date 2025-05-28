@@ -106,8 +106,16 @@ const HistoryDashboard: React.FC = () => {
       weekStats.totalUptime === null ||
       weekStats.totalUptime === undefined)
 
+  let periodDurationInSeconds: number | null = null
+  if (dateRange && dateRange.startDate && dateRange.endDate) {
+    const duration = dateRange.endDate.unix() - dateRange.startDate.unix()
+    if (duration > 0) {
+      periodDurationInSeconds = duration
+    }
+  }
+
   const uptimePercentage = weekStats?.totalUptime
-    ? formatUptimePercentage(weekStats.totalUptime, null)
+    ? formatUptimePercentage(weekStats.totalUptime, periodDurationInSeconds)
     : '0.00%'
   const uptimeValue = parseFloat(uptimePercentage) || 0
   const isLowPercentage = uptimeValue < 30
