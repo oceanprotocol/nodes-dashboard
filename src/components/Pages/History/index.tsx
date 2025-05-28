@@ -72,10 +72,11 @@ const HistoryPage: React.FC = () => {
   }
 
   const handleDateRangeChange = (newRange: DateRange) => {
-    setDateRange(newRange)
-    setCurrentPage(1)
-    if (nodeId && nodeId.trim() !== '') {
-      setIsSearching(true)
+    if (newRange.startDate && newRange.endDate) {
+      setDateRange(newRange)
+      setCurrentPage(1)
+    } else {
+      console.log('[HistoryPage] Ignoring invalid date range change (missing dates)')
     }
   }
 

@@ -48,12 +48,21 @@ export interface PeriodOption {
 export const getNodeHistory = async (
   nodeId: string,
   page = 1,
-  size = 100
+  size = 100,
+  startDate?: Dayjs | null,
+  endDate?: Dayjs | null
 ): Promise<HistoryApiResponse> => {
   try {
-    const response = await axios.get<HistoryApiResponse>(
-      `${getApiRoute('history')}?nodeId=${nodeId}&page=${page}&size=${size}`
-    )
+    let url = `${getApiRoute('history')}?nodeId=${nodeId}&page=${page}&size=${size}`
+
+    if (startDate && endDate) {
+      url += `&startDate=${startDate.unix()}&endDate=${endDate.unix()}`
+    } else {
+      console.log(`[historyService] No date range provided`)
+    }
+
+    const response = await axios.get<HistoryApiResponse>(url)
+
     return response.data
   } catch (error) {
     console.error('Error fetching node history:', error)
@@ -169,48 +178,54 @@ export const getAllHistoricalRewards = async (): Promise<RewardsData[]> => {
 }
 
 /**
- * Fetches the current week's stats (live round)
- * @returns Current week stats
+ * Fetches the latest successfully processed week's stats (live round data).
+ * This targets the Wednesday on or before the most recent Thursday.
+ * @returns WeekStatsSource object or null if not found or in case of error.
  */
-export const getCurrentWeekStats = async (): Promise<any> => {
+export const getCurrentWeekStats = async (): Promise<WeekStatsSource | null> => {
   try {
-    const allRewards = await getAllHistoricalRewards()
+    const today = dayjs()
+    let lastThursday = today.clone()
 
-    let latestRound = '0'
-    allRewards.forEach((reward) => {
-      if (parseInt(reward.date) > parseInt(latestRound)) {
-        latestRound = reward.date
-      }
-    })
+    if (lastThursday.day() < 4) {
+      lastThursday = lastThursday.subtract(lastThursday.day() + 3, 'days')
+    } else {
+      lastThursday = lastThursday.subtract(lastThursday.day() - 4, 'days')
+    }
+    lastThursday = lastThursday.startOf('day')
 
-    console.log(`Latest round from rewards data: ${latestRound}`)
+    const targetWednesday = lastThursday.subtract(1, 'day').startOf('day')
 
-    const response = await axios.get<ApiWeekStatItem[]>(
-      `https://incentive-backend.oceanprotocol.io/weekStats?date=${latestRound}`
+    const targetEpochSeconds = targetWednesday.unix()
+
+    console.log(
+      `[getCurrentWeekStats] Determined target Wednesday for fetching latest round: ${targetWednesday.format(
+        'YYYY-MM-DD HH:mm:ss'
+      )}, Epoch: ${targetEpochSeconds}`
     )
 
-    if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
-      throw new Error('Invalid response from weekStats endpoint')
+    const response = await axios.get<ApiWeekStatItem[]>(
+      `https://incentive-backend.oceanprotocol.io/weekStats?date=${targetEpochSeconds}`
+    )
+
+    if (!response.data || !Array.isArray(response.data)) {
+      console.error(
+        '[getCurrentWeekStats] Unexpected response structure from weekStats. Data:',
+        response.data
+      )
+      return null
+    }
+    if (response.data.length === 0) {
+      console.warn(
+        `[getCurrentWeekStats] Empty array received from weekStats for target Wednesday (epoch ${targetEpochSeconds}). No data for this period. Data:`,
+        response.data
+      )
+      return null
     }
 
     return response.data[0]._source
   } catch (error) {
-    console.error('Error fetching current week stats:', error)
-
-    try {
-      const currentTimestamp = Date.now()
-      const response = await axios.get<ApiWeekStatItem[]>(
-        `https://incentive-backend.oceanprotocol.io/weekStats?date=${currentTimestamp}`
-      )
-
-      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
-        throw new Error('Invalid response from weekStats endpoint')
-      }
-
-      return response.data[0]._source
-    } catch (fallbackError) {
-      console.error('Error in fallback current week stats:', fallbackError)
-      throw fallbackError
-    }
+    console.error('[getCurrentWeekStats] Error fetching current week stats:', error)
+    return null
   }
 }

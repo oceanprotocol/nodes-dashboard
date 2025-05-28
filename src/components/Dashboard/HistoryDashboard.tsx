@@ -112,9 +112,14 @@ const HistoryDashboard: React.FC = () => {
   const uptimeValue = parseFloat(uptimePercentage) || 0
   const isLowPercentage = uptimeValue < 30
 
-  const currentRoundStartTime = weekStats?.timestamp || 0
-  const startedTimeAgoShort = formatTimeShort(currentRoundStartTime)
-  const roundStartStatus = isLive(currentRoundStartTime)
+  const selectedPeriodRoundStartTime = weekStats?.timestamp || 0
+  const selectedPeriodStartedTimeAgoShort = formatTimeShort(selectedPeriodRoundStartTime)
+  const selectedPeriodRoundStartStatus = isLive(selectedPeriodRoundStartTime)
+
+  const liveCurrentRoundTimestamp = currentRoundStats?.timestamp || 0
+  const liveCurrentRoundStartedAgo = formatTimeShort(liveCurrentRoundTimestamp)
+  const liveCurrentRoundStatus = isLive(liveCurrentRoundTimestamp)
+  const liveCurrentRoundNumber = currentRoundStats?.round?.toString() ?? '-'
 
   const updatedLiveStatus = isLive(weekStats?.lastRun || 0)
 
@@ -139,8 +144,8 @@ const HistoryDashboard: React.FC = () => {
     isLowPercentage,
     currentRound: weekStats?.round,
     completedRounds: weekStats?.round ? Math.max(0, weekStats.round - 1) : undefined,
-    startedTimeAgoShort: startedTimeAgoShort,
-    roundStartStatus: roundStartStatus,
+    startedTimeAgoShort: selectedPeriodStartedTimeAgoShort,
+    roundStartStatus: selectedPeriodRoundStartStatus,
     updatedLiveStatus,
     trackedPeriodLabel,
     periodRewards,
@@ -202,14 +207,14 @@ const HistoryDashboard: React.FC = () => {
     <div className={styles.dashboard}>
       <Card
         title="Current Round"
-        bigNumber={weekStats?.round ?? '-'}
-        isLoading={isLoading}
+        bigNumber={liveCurrentRoundNumber}
+        isLoading={loadingCurrentRound}
         subText={
           <>
-            Started {startedTimeAgoShort} ago
+            Started {liveCurrentRoundStartedAgo} ago
             <span
               className={styles.statusIndicator}
-              style={{ backgroundColor: roundStartStatus.color }}
+              style={{ backgroundColor: liveCurrentRoundStatus.color }}
             ></span>
           </>
         }

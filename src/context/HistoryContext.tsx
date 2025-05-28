@@ -18,7 +18,6 @@ import {
   getCurrentWeekStats
 } from '@/services/historyService'
 import { DateRange } from '@/components/PeriodSelect'
-import dayjs, { Dayjs } from 'dayjs'
 
 interface WeekStatsSource {
   id: number
@@ -67,10 +66,6 @@ interface HistoryContextType {
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
-
-interface HistoryProviderProps {
-  children: ReactNode
-}
 
 export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const [data, setData] = useState<any[]>([])
@@ -125,9 +120,6 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
 
   const fetchHistoryData = useCallback(async () => {
     if (!nodeId || !dateRange.startDate || !dateRange.endDate) {
-      console.log(
-        '[HistoryContext] Skipping fetchHistoryData: Missing nodeId or dateRange.'
-      )
       return
     }
 
@@ -138,7 +130,13 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
     setLoading(true)
     setError(null)
     try {
-      const response = await getNodeHistory(nodeId, currentPage, pageSize)
+      const response = await getNodeHistory(
+        nodeId,
+        currentPage,
+        pageSize,
+        dateRange.startDate,
+        dateRange.endDate
+      )
       console.log('[HistoryContext] Received history data:', response)
       setData(response.data || [])
       setTotalItems(response.pagination.totalCount || 0)
@@ -148,46 +146,41 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
       setTotalItems(0)
       setError(error)
     } finally {
-      console.log('[HistoryContext] Finished fetchHistoryData attempt.')
       setLoading(false)
     }
   }, [nodeId, currentPage, pageSize, dateRange])
 
   const fetchWeekStats = useCallback(async () => {
     if (!nodeId || !dateRange.endDate) {
-      console.log('[HistoryContext] Skipping fetchWeekStats: Missing nodeId or endDate')
       return
     }
 
     const targetDate = dateRange.endDate.unix()
-    console.log(
-      `[HistoryContext] Attempting fetchWeekStats for nodeId: ${nodeId}, date: ${targetDate}`
-    )
 
     setLoadingWeekStats(true)
     setErrorWeekStats(null)
     setWeekStats(null)
     try {
       const stats = await getWeekStats(targetDate)
-      console.log('[HistoryContext] Received weekStats data:', stats)
       setWeekStats(stats)
     } catch (err) {
       console.error('[HistoryContext] Error during fetchWeekStats:', err)
       setWeekStats(null)
       setErrorWeekStats(err)
     } finally {
-      console.log('[HistoryContext] Finished fetchWeekStats attempt.')
       setLoadingWeekStats(false)
     }
   }, [nodeId, dateRange])
 
   useEffect(() => {
     if (isSearching && nodeId && dateRange.startDate && dateRange.endDate) {
-      console.log(
-        '[HistoryContext] Triggering fetches due to search/nodeId/dependencies change.'
-      )
-      fetchHistoryData()
-      fetchWeekStats()
+      const fetchData = async () => {
+        await fetchHistoryData()
+        await fetchWeekStats()
+        setIsSearching(false)
+      }
+
+      fetchData()
     } else if (isSearching && nodeId && (!dateRange.startDate || !dateRange.endDate)) {
       console.log(
         '[HistoryContext] Waiting for initial date range to be set after periods load.'
@@ -223,9 +216,24 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
     }
   }, [availablePeriods])
 
-  const handleSetDateRange = useCallback((newRange: DateRange) => {
-    setDateRange(newRange)
-  }, [])
+  const handleSetDateRange = useCallback(
+    (newRange: DateRange) => {
+      console.log(
+        `[HistoryContext] Setting new date range: ${newRange.startDate?.format('YYYY-MM-DD')} to ${newRange.endDate?.format('YYYY-MM-DD')}`
+      )
+
+      if (newRange.startDate && newRange.endDate) {
+        setDateRange(newRange)
+
+        if (nodeId && nodeId.trim() !== '') {
+          setIsSearching(true)
+        }
+      } else {
+        console.log('[HistoryContext] Ignoring invalid date range (missing dates)')
+      }
+    },
+    [nodeId]
+  )
 
   useEffect(() => {
     const fetchRewardsData = async () => {
@@ -250,6 +258,7 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
       try {
         setLoadingCurrentRound(true)
         const data = await getCurrentWeekStats()
+        console.log('🚀 ~ data:', data)
         setCurrentRoundStats(data)
         setErrorCurrentRound(null)
       } catch (error) {
