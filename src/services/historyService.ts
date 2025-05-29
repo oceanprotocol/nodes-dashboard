@@ -195,37 +195,76 @@ export const getCurrentWeekStats = async (): Promise<WeekStatsSource | null> => 
     lastThursday = lastThursday.startOf('day')
 
     const targetWednesday = lastThursday.subtract(1, 'day').startOf('day')
-
     const targetEpochSeconds = targetWednesday.unix()
 
     console.log(
-      `[getCurrentWeekStats] Determined target Wednesday for fetching latest round: ${targetWednesday.format(
+      `[getCurrentWeekStats] Attempting to fetch stats for latest round: ${targetWednesday.format(
         'YYYY-MM-DD HH:mm:ss'
       )}, Epoch: ${targetEpochSeconds}`
     )
 
-    const response = await axios.get<ApiWeekStatItem[]>(
-      `https://incentive-backend.oceanprotocol.io/weekStats?date=${targetEpochSeconds}`
-    )
-
-    if (!response.data || !Array.isArray(response.data)) {
-      console.error(
-        '[getCurrentWeekStats] Unexpected response structure from weekStats. Data:',
-        response.data
+    let initialResponseData: ApiWeekStatItem[] | null = null
+    try {
+      const response = await axios.get<ApiWeekStatItem[]>(
+        `${getApiRoute('weekStats')}?date=${targetEpochSeconds}`
       )
-      return null
-    }
-    if (response.data.length === 0) {
+      if (response.data && Array.isArray(response.data)) {
+        initialResponseData = response.data
+      }
+    } catch (initialError) {
       console.warn(
-        `[getCurrentWeekStats] Empty array received from weekStats for target Wednesday (epoch ${targetEpochSeconds}). No data for this period. Data:`,
-        response.data
+        `[getCurrentWeekStats] Error fetching stats for target epoch ${targetEpochSeconds}:`,
+        initialError
       )
-      return null
     }
 
-    return response.data[0]._source
+    if (initialResponseData && initialResponseData.length > 0) {
+      console.log(
+        `[getCurrentWeekStats] Successfully fetched stats for target epoch ${targetEpochSeconds}.`
+      )
+      return initialResponseData[0]._source
+    } else {
+      console.warn(
+        `[getCurrentWeekStats] No data for target epoch ${targetEpochSeconds} or initial fetch failed. Falling back to fetching latest available round.`
+      )
+
+      const fallbackResponse = await axios.get<ApiWeekStatItem[]>(
+        getApiRoute('weekStats')
+      )
+
+      if (
+        fallbackResponse.data &&
+        Array.isArray(fallbackResponse.data) &&
+        fallbackResponse.data.length > 0
+      ) {
+        const allRounds = fallbackResponse.data
+
+        allRounds.sort((a, b) => (b._source.timestamp || 0) - (a._source.timestamp || 0))
+
+        if (allRounds.length > 0) {
+          console.log(
+            `[getCurrentWeekStats] Successfully fetched latest available round via fallback. Latest round ID: ${allRounds[0]._id}, Timestamp: ${allRounds[0]._source.timestamp}`
+          )
+          return allRounds[0]._source
+        } else {
+          console.warn(
+            '[getCurrentWeekStats] Fallback fetch returned empty data or no sortable rounds.'
+          )
+          return null
+        }
+      } else {
+        console.error(
+          '[getCurrentWeekStats] Fallback fetch failed or returned unexpected data structure. Data:',
+          fallbackResponse.data
+        )
+        return null
+      }
+    }
   } catch (error) {
-    console.error('[getCurrentWeekStats] Error fetching current week stats:', error)
+    console.error(
+      '[getCurrentWeekStats] Overall error fetching current week stats:',
+      error
+    )
     return null
   }
 }

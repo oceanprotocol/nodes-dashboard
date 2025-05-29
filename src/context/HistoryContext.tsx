@@ -19,7 +19,7 @@ import {
 } from '@/services/historyService'
 import { DateRange } from '@/components/PeriodSelect'
 
-interface WeekStatsSource {
+export interface WeekStatsSource {
   id: number
   week: number
   totalUptime: number
