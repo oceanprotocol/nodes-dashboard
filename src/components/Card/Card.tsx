@@ -193,16 +193,18 @@ const Card: React.FC<CardProps> = ({
           </div>
         </>
       )
-    } else if (title === 'Total Incentives 24h') {
+    } else if (title === 'Eligible Nodes per Round') {
       tooltipContent = (
         <>
-          <div style={{ color: '#9F8FA6' }}>Period: {data.date.split(' ')[1]}</div>
-          <div style={{ color: '#9F8FA6' }}>
-            Total Nodes: {Number(data.background?.value || 0).toLocaleString()}
-          </div>
+          <div style={{ color: '#9F8FA6' }}>Round: {data.date.replace('Round ', '')}</div>
           <div style={{ color: '#CF1FB1' }}>
-            Rewarded Nodes: {Number(data.foreground?.value || 0).toLocaleString()}
+            Eligible Nodes: {Number(data.background?.value || 0).toLocaleString()}
           </div>
+          {typeof data.totalAmount === 'number' && (
+            <div style={{ color: '#CF1FB1' }}>
+              Total Nodes: {Number(data.totalAmount).toLocaleString()}
+            </div>
+          )}
         </>
       )
     } else if (title === 'Total Rewards') {

@@ -4,28 +4,6 @@ import styles from './Dashboard.module.css'
 import { useNodesContext } from '../../context/NodesContext'
 import { Alert, Box } from '@mui/material'
 
-const createMockTotalIncentivesData = () => {
-  const data = []
-
-  let totalNodes = 950
-
-  for (let hour = 0; hour < 24; hour++) {
-    const growthRate = 1 + (0.005 + Math.random() * 0.003)
-    totalNodes = Math.round(totalNodes * growthRate)
-
-    const rewardPercentage = 0.85 + (hour / 24) * 0.07
-    const rewardedNodes = Math.round(totalNodes * rewardPercentage)
-
-    data.push({
-      date: `Hour ${hour}`,
-      background: { value: totalNodes },
-      foreground: { value: rewardedNodes }
-    })
-  }
-
-  return data
-}
-
 const calculateTrendInfo = (averageIncentiveData: any) => {
   if (!averageIncentiveData || averageIncentiveData.length < 2) {
     return { percentage: 0, value: 0, trend: 'neutral' }
@@ -73,6 +51,71 @@ const calculatePeriodAverage = (data: any[]) => {
   return sum / data.length
 }
 
+const formatEligibleNodesChartData = (transformedRewardsHistory: any[] | undefined) => {
+  if (
+    !transformedRewardsHistory ||
+    !Array.isArray(transformedRewardsHistory) ||
+    transformedRewardsHistory.length === 0
+  ) {
+    console.warn(
+      '[formatEligibleNodesChartData] Input data (transformedRewardsHistory) is invalid or empty.'
+    )
+    return []
+  }
+  try {
+    const chartData = transformedRewardsHistory
+      .map((item) => {
+        const dateStr = item?.date ? String(item.date) : null
+        const eligibleNodes = item?.background?.value
+        const totalAmountForRound =
+          typeof item?.weeklyAmount === 'number' ? item.weeklyAmount : 0
+
+        if (
+          dateStr === null ||
+          typeof eligibleNodes !== 'number' ||
+          isNaN(eligibleNodes) ||
+          eligibleNodes < 0
+        ) {
+          console.warn(
+            '[formatEligibleNodesChartData] Skipping invalid item from transformedRewardsHistory:',
+            item
+          )
+          return null
+        }
+
+        const numericDate = parseInt(dateStr, 10)
+        if (isNaN(numericDate)) {
+          console.warn(
+            '[formatEligibleNodesChartData] Skipping item with non-numeric date from transformedRewardsHistory:',
+            item
+          )
+          return null
+        }
+
+        return {
+          dateForSort: numericDate,
+          label: `Round ${dateStr}`,
+          value: eligibleNodes,
+          totalAmount: totalAmountForRound
+        }
+      })
+      .filter((item) => item !== null)
+      .sort((a, b) => a!.dateForSort - b!.dateForSort)
+      .map((item) => ({
+        xAxisValue: item!.dateForSort,
+        date: item!.label,
+        background: { value: item!.totalAmount },
+        foreground: { value: item!.value },
+        totalAmount: item!.totalAmount
+      }))
+
+    return chartData
+  } catch (error) {
+    console.error('[formatEligibleNodesChartData] Error formatting data:', error)
+    return []
+  }
+}
+
 const NodesDashboard = () => {
   const {
     loadingTotalNodes,
@@ -95,8 +138,6 @@ const NodesDashboard = () => {
 
   const [overallDashboardLoading, setOverallDashboardLoading] = useState(combinedLoading)
 
-  const totalIncentivesData = useMemo(() => createMockTotalIncentivesData(), [])
-
   const averageTrendInfo = useMemo(
     () => calculateTrendInfo(averageIncentiveData),
     [averageIncentiveData]
@@ -105,6 +146,11 @@ const NodesDashboard = () => {
   const periodAverage = useMemo(() => {
     return calculatePeriodAverage(averageIncentiveData)
   }, [averageIncentiveData])
+
+  const eligibleNodesChartData = useMemo(
+    () => formatEligibleNodesChartData(rewardsHistory),
+    [rewardsHistory]
+  )
 
   let uptimePercentage
   if (totalUptime !== null && totalUptime !== undefined) {
@@ -185,9 +231,9 @@ const NodesDashboard = () => {
         }
       />
       <Card
-        title="Total Incentives 24h"
+        title="Eligible Nodes per Round"
         chartType="bar"
-        chartData={totalIncentivesData}
+        chartData={eligibleNodesChartData}
         isLoading={isLoading}
       />
       <Card
