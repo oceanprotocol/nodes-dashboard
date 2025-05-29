@@ -224,8 +224,11 @@ const NodesDashboard = () => {
               </div>
             </div>
             <div className={styles.lastYear}>
-              Per Period
-              <span>{periodAverage.toFixed(3)}</span>
+              <div className={styles.lastYearText}>Per Period</div>
+              <div className={styles.periodAverage}>
+                <span>{periodAverage.toFixed(3)} </span>
+                <span className={styles.rose}>Rose</span>
+              </div>
             </div>
           </div>
         }
