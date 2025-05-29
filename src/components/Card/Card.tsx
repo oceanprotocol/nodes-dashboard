@@ -198,7 +198,7 @@ const Card: React.FC<CardProps> = ({
         <>
           <div style={{ color: '#9F8FA6' }}>Round: {data.date.replace('Round ', '')}</div>
           <div style={{ color: '#CF1FB1' }}>
-            Eligible Nodes: {Number(data.background?.value || 0).toLocaleString()}
+            Eligible Nodes: {Number(data?.foreground?.value || 0).toLocaleString()}
           </div>
           {typeof data.totalAmount === 'number' && (
             <div style={{ color: '#CF1FB1' }}>
@@ -244,8 +244,6 @@ const Card: React.FC<CardProps> = ({
     setTooltipInfo((prev) => ({ ...prev, show: false }))
     ;(window as any).__activeTooltipCard = null
   }
-
-  console.log('Card rendering:', title)
 
   return (
     <div
