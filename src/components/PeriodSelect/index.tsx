@@ -30,13 +30,15 @@ interface PeriodSelectProps {
   initialRange?: DateRange
   availablePeriods: PeriodOption[]
   periodsLoading?: boolean
+  isContextInitialising?: boolean
 }
 
 const PeriodSelect: React.FC<PeriodSelectProps> = ({
   onChange,
   initialRange,
   availablePeriods,
-  periodsLoading = false
+  periodsLoading = false,
+  isContextInitialising = false
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
     if (initialRange?.startDate && availablePeriods.length > 0) {
@@ -153,7 +155,7 @@ const PeriodSelect: React.FC<PeriodSelectProps> = ({
   return (
     <Box className={styles.container}>
       <FormControl variant="standard" className={styles.formControl}>
-        {periodsLoading ? (
+        {isContextInitialising || periodsLoading ? (
           <Box
             className={styles.select}
             sx={{ paddingLeft: '12px', paddingRight: '12px' }}

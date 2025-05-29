@@ -63,6 +63,7 @@ interface HistoryContextType {
   currentRoundStats: any
   loadingCurrentRound: boolean
   errorCurrentRound: Error | null
+  isInitialising: boolean
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
@@ -95,27 +96,70 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
   const [currentRoundStats, setCurrentRoundStats] = useState<any>(null)
   const [loadingCurrentRound, setLoadingCurrentRound] = useState<boolean>(false)
   const [errorCurrentRound, setErrorCurrentRound] = useState<Error | null>(null)
+  const [isInitialising, setIsInitialising] = useState<boolean>(true)
 
   useEffect(() => {
-    const fetchPeriods = async () => {
-      setPeriodsLoading(true)
+    const fetchInitialData = async () => {
+      setIsInitialising(true)
       try {
-        const periods = await getAllHistoricalWeeklyPeriods()
-        setAvailablePeriods(periods)
-        if (periods.length > 0) {
-          const mostRecentPeriod = periods[0]
-          setDateRange({
-            startDate: mostRecentPeriod.startDate,
-            endDate: mostRecentPeriod.endDate
-          })
+        const doFetchPeriods = async () => {
+          setPeriodsLoading(true)
+          try {
+            const periods = await getAllHistoricalWeeklyPeriods()
+            setAvailablePeriods(periods)
+            if (periods.length > 0) {
+              const mostRecentPeriod = periods[0]
+              setDateRange({
+                startDate: mostRecentPeriod.startDate,
+                endDate: mostRecentPeriod.endDate
+              })
+            }
+          } catch (err) {
+            console.error('[HistoryContext] Error fetching available periods:', err)
+          } finally {
+            setPeriodsLoading(false)
+          }
         }
-      } catch (err) {
-        console.error('[HistoryContext] Error fetching available periods:', err)
+
+        const doFetchRewardsData = async () => {
+          setLoadingRewards(true)
+          try {
+            const data = await getAllHistoricalRewards()
+            setRewardsData(data)
+            setErrorRewards(null)
+          } catch (error) {
+            console.error('Error fetching rewards data:', error)
+            setErrorRewards(error as Error)
+          } finally {
+            setLoadingRewards(false)
+          }
+        }
+
+        const doFetchCurrentRound = async () => {
+          setLoadingCurrentRound(true)
+          try {
+            const data = await getCurrentWeekStats()
+            setCurrentRoundStats(data)
+            setErrorCurrentRound(null)
+          } catch (error) {
+            console.error('Error fetching current round in initial:', error)
+            setErrorCurrentRound(error as Error)
+          } finally {
+            setLoadingCurrentRound(false)
+          }
+        }
+
+        await Promise.all([doFetchPeriods(), doFetchRewardsData(), doFetchCurrentRound()])
+      } catch (error) {
+        console.error(
+          '[HistoryContext] Error during initial parallel fetches (Promise.all):',
+          error
+        )
       } finally {
-        setPeriodsLoading(false)
+        setIsInitialising(false)
       }
     }
-    fetchPeriods()
+    fetchInitialData()
   }, [])
 
   const fetchHistoryData = useCallback(async () => {
@@ -235,43 +279,6 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
     [nodeId]
   )
 
-  useEffect(() => {
-    const fetchRewardsData = async () => {
-      try {
-        setLoadingRewards(true)
-        const data = await getAllHistoricalRewards()
-        setRewardsData(data)
-        setErrorRewards(null)
-      } catch (error) {
-        console.error('Error fetching rewards data:', error)
-        setErrorRewards(error as Error)
-      } finally {
-        setLoadingRewards(false)
-      }
-    }
-
-    fetchRewardsData()
-  }, [])
-
-  useEffect(() => {
-    const fetchCurrentRound = async () => {
-      try {
-        setLoadingCurrentRound(true)
-        const data = await getCurrentWeekStats()
-        console.log('🚀 ~ data:', data)
-        setCurrentRoundStats(data)
-        setErrorCurrentRound(null)
-      } catch (error) {
-        console.error('Error fetching current round:', error)
-        setErrorCurrentRound(error as Error)
-      } finally {
-        setLoadingCurrentRound(false)
-      }
-    }
-
-    fetchCurrentRound()
-  }, [])
-
   const getRewardsForPeriod = (
     periodId: string | number
   ): {
@@ -332,7 +339,8 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
     totalProgramDistribution,
     currentRoundStats,
     loadingCurrentRound,
-    errorCurrentRound
+    errorCurrentRound,
+    isInitialising
   }
 
   return <HistoryContext.Provider value={value}>{children}</HistoryContext.Provider>

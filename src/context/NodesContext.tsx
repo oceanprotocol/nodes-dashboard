@@ -49,6 +49,7 @@ interface NodesContextType {
   loadingRewardsHistory: boolean
   loadingTotalEligible: boolean
   loadingTotalRewards: boolean
+  overallDashboardLoading: boolean
   averageIncentiveData: AverageIncentiveDataItem[]
   setCurrentPage: (page: number) => void
   setPageSize: (size: number) => void
@@ -92,6 +93,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
   const [loadingTotalEligible, setLoadingTotalEligible] = useState<boolean>(false)
   const [loadingTotalRewards, setLoadingTotalRewards] = useState<boolean>(false)
   const [metricsLoaded, setMetricsLoaded] = useState<boolean>(false)
+  const [overallDashboardLoading, setOverallDashboardLoading] = useState<boolean>(true)
   const [averageIncentiveData, setAverageIncentiveData] = useState<
     AverageIncentiveDataItem[]
   >([])
@@ -185,19 +187,21 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
         }
       } catch (fallbackErr) {
         console.error('Error in fallback fetch:', fallbackErr)
-        const threeWeeksAgo = Math.floor(new Date(date - 3 * oneWeekInMs).getTime() / 1000)
-        try {
-        const response = await axios.get(
-          `${getApiRoute('analyticsSummary')}?date=${threeWeeksAgo}`
+        const threeWeeksAgo = Math.floor(
+          new Date(date - 3 * oneWeekInMs).getTime() / 1000
         )
-        if (response) {
-          setTotalEligibleNodes(response.data.numberOfRows)
+        try {
+          const response = await axios.get(
+            `${getApiRoute('analyticsSummary')}?date=${threeWeeksAgo}`
+          )
+          if (response) {
+            setTotalEligibleNodes(response.data.numberOfRows)
+          }
+        } catch (fallbackErr) {
+          console.error('Error in fallback fetch:', fallbackErr)
+          setError(err)
         }
-      } catch (fallbackErr) {
-        console.error('Error in fallback fetch:', fallbackErr)
-        setError(err)
       }
-    }
     } finally {
       if (!metricsLoaded) setLoadingTotalEligible(false)
     }
@@ -276,21 +280,35 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
       if (!mounted) return
       try {
         await fetchData()
+        const initialSetupPromises: Promise<any>[] = []
+
         if (!systemStats.cpuCounts || Object.keys(systemStats.cpuCounts).length === 0) {
-          await fetchSystemStats()
+          initialSetupPromises.push(fetchSystemStats())
         }
+
         const isDefaultView =
           (!searchTerm || searchTerm.trim() === '') &&
           (Object.keys(filters).length === 0 ||
             Object.values(filters).every((filter: any) => !filter || !filter.value))
+
         if (isDefaultView && !metricsLoaded) {
-          await getTotalEligible()
-          await getTotalRewards()
+          initialSetupPromises.push(getTotalEligible())
+          initialSetupPromises.push(getTotalRewards())
+        }
+
+        initialSetupPromises.push(fetchRewardsHistory())
+
+        await Promise.all(initialSetupPromises)
+
+        if (isDefaultView && !metricsLoaded) {
           setMetricsLoaded(true)
         }
-        await fetchRewardsHistory()
       } catch (error) {
-        console.error('Error fetching data:', error)
+        console.error('Error fetching initial dashboard data:', error)
+      } finally {
+        if (mounted) {
+          setOverallDashboardLoading(false)
+        }
       }
     }
 
@@ -385,6 +403,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
         loadingRewardsHistory,
         loadingTotalEligible,
         loadingTotalRewards,
+        overallDashboardLoading,
         averageIncentiveData,
         setCurrentPage: handleSetCurrentPage,
         setPageSize: handleSetPageSize,

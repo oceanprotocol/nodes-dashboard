@@ -127,16 +127,9 @@ const NodesDashboard = () => {
     rewardsHistory,
     averageIncentiveData,
     fetchRewardsHistory,
-    totalUptime
+    totalUptime,
+    overallDashboardLoading
   } = useNodesContext()
-
-  const combinedLoading =
-    loadingTotalNodes ||
-    loadingTotalEligible ||
-    loadingTotalRewards ||
-    loadingRewardsHistory
-
-  const [overallDashboardLoading, setOverallDashboardLoading] = useState(combinedLoading)
 
   const averageTrendInfo = useMemo(
     () => calculateTrendInfo(averageIncentiveData),
@@ -170,12 +163,6 @@ const NodesDashboard = () => {
     fetchRewardsHistory()
   }, [fetchRewardsHistory])
 
-  useEffect(() => {
-    setOverallDashboardLoading(combinedLoading)
-  }, [combinedLoading])
-
-  const isLoading = overallDashboardLoading
-
   if (error) {
     return (
       <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -197,12 +184,16 @@ const NodesDashboard = () => {
 
   return (
     <div className={styles.dashboard}>
-      <Card title="Total Nodes" bigNumber={totalNodes ?? 0} isLoading={isLoading} />
+      <Card
+        title="Total Nodes"
+        bigNumber={totalNodes ?? 0}
+        isLoading={overallDashboardLoading}
+      />
       <Card
         title="Average Incentive"
         chartType="line"
         chartData={averageIncentiveData}
-        isLoading={isLoading}
+        isLoading={overallDashboardLoading}
         additionalInfo={
           <div className={styles.chartBottomInfo}>
             <div className={styles.percentChangeContainer}>
@@ -237,13 +228,13 @@ const NodesDashboard = () => {
         title="Eligible Nodes per Round"
         chartType="bar"
         chartData={eligibleNodesChartData}
-        isLoading={isLoading}
+        isLoading={overallDashboardLoading}
       />
       <Card
         title="Rewards History"
         chartType="line"
         chartData={rewardsHistory}
-        isLoading={isLoading}
+        isLoading={overallDashboardLoading}
       />
     </div>
   )

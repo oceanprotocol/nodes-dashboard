@@ -81,7 +81,8 @@ const HistoryDashboard: React.FC = () => {
     totalProgramDistribution,
     currentRoundStats,
     loadingCurrentRound,
-    dateRange
+    dateRange,
+    isInitialising
   } = useHistoryContext()
 
   console.log('HistoryDashboard Context:', {
@@ -91,15 +92,18 @@ const HistoryDashboard: React.FC = () => {
     loadingWeekStats,
     errorWeekStats,
     currentRoundStats,
-    loadingCurrentRound
+    loadingCurrentRound,
+    isInitialising
   })
 
-  const isLoading = loadingHistory || loadingWeekStats || loadingRewards
+  const dashboardOverallLoading =
+    isInitialising || loadingHistory || loadingWeekStats || loadingRewards
+  const currentRoundCardLoading = isInitialising || loadingCurrentRound
 
   const error = errorHistory || errorWeekStats
 
   const hasNoDataForPeriod =
-    !isLoading &&
+    !dashboardOverallLoading &&
     !error &&
     weekStats &&
     (weekStats.totalUptime === 0 ||
@@ -144,7 +148,7 @@ const HistoryDashboard: React.FC = () => {
     : '-'
 
   console.log('HistoryDashboard Derived Values:', {
-    isLoading,
+    dashboardOverallLoading,
     error,
     hasNoDataForPeriod,
     uptimePercentage,
@@ -216,7 +220,7 @@ const HistoryDashboard: React.FC = () => {
       <Card
         title="Current Round"
         bigNumber={liveCurrentRoundNumber}
-        isLoading={loadingCurrentRound}
+        isLoading={currentRoundCardLoading}
         subText={
           <>
             Started {liveCurrentRoundStartedAgo} ago
@@ -229,7 +233,7 @@ const HistoryDashboard: React.FC = () => {
       />
       <Card
         title="Uptime Percentage"
-        isLoading={isLoading}
+        isLoading={dashboardOverallLoading}
         additionalInfo={
           <>
             <div className={styles.uptimeContainer}>
@@ -257,7 +261,7 @@ const HistoryDashboard: React.FC = () => {
       <Card
         title="Total Completed Rounds"
         bigNumber={weekStats?.round ? Math.max(0, weekStats.round - 1) : '-'}
-        isLoading={isLoading}
+        isLoading={dashboardOverallLoading}
         subText={
           <>
             <div className={styles.trackedLabel}>Updated Live</div>
@@ -270,7 +274,7 @@ const HistoryDashboard: React.FC = () => {
       />
       <Card
         title="Rewards History"
-        isLoading={isLoading}
+        isLoading={dashboardOverallLoading}
         tooltip="Estimated rewards based on average distribution per eligible node. Calculation: Total ROSE tokens distributed in the round divided by the number of eligible nodes."
         additionalInfo={
           <div className={styles.rewardsHistoryContent}>

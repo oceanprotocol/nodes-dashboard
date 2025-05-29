@@ -27,7 +27,8 @@ const HistoryPage: React.FC = () => {
     setDateRange,
     setIsSearching,
     availablePeriods,
-    periodsLoading
+    periodsLoading,
+    isInitialising
   } = useHistoryContext()
 
   useEffect(() => {
@@ -129,6 +130,7 @@ const HistoryPage: React.FC = () => {
               initialRange={dateRange}
               availablePeriods={availablePeriods}
               periodsLoading={periodsLoading}
+              isContextInitialising={isInitialising}
             />
           </div>
           <div className={styles.dashboardContainer}>
