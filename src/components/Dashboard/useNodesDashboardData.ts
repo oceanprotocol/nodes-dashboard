@@ -117,20 +117,19 @@ const formatEligibleNodesChartData = (
 interface NodesDashboardDataProps {
   averageIncentiveData: any[] | undefined
   rewardsHistory: TransformedRewardItem[] | undefined
-  totalUptime: number | null | undefined
 }
 
 export interface NodesDashboardData {
   averageTrendInfo: { percentage: string | number; value: number; trend: string }
   periodAverage: number
   eligibleNodesChartData: ChartDataItem[]
-  uptimePercentage: string
+  totalRewardsSumFromEligibleNodesChart: number
 }
 
 export const useNodesDashboardData = (
   props: NodesDashboardDataProps
 ): NodesDashboardData => {
-  const { averageIncentiveData, rewardsHistory, totalUptime } = props
+  const { averageIncentiveData, rewardsHistory } = props
 
   const averageTrendInfo = useMemo(
     () => calculateTrendInfo(averageIncentiveData),
@@ -147,27 +146,17 @@ export const useNodesDashboardData = (
     [rewardsHistory]
   )
 
-  const uptimePercentage = useMemo(() => {
-    let calculatedUptimePercentage = '0.0'
-    if (totalUptime !== null && totalUptime !== undefined) {
-      if (totalUptime >= 0 && totalUptime <= 1) {
-        calculatedUptimePercentage = (totalUptime * 100).toFixed(1)
-      } else if (totalUptime > 1 && totalUptime < 1000) {
-        calculatedUptimePercentage = Math.min(totalUptime, 100).toFixed(1)
-      } else {
-        console.error('Invalid totalUptime value:', totalUptime)
-        // Fallback to a default or last known good, rather than a hardcoded string if possible
-        // For now, matching original behavior:
-        calculatedUptimePercentage = '87.9'
-      }
+  const totalRewardsSumFromEligibleNodesChart = useMemo(() => {
+    if (!eligibleNodesChartData || eligibleNodesChartData.length === 0) {
+      return 0
     }
-    return calculatedUptimePercentage
-  }, [totalUptime])
+    return eligibleNodesChartData.reduce((sum, item) => sum + (item.totalAmount || 0), 0)
+  }, [eligibleNodesChartData])
 
   return {
     averageTrendInfo,
     periodAverage,
     eligibleNodesChartData,
-    uptimePercentage
+    totalRewardsSumFromEligibleNodesChart
   }
 }

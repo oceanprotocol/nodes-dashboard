@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import dayjs from 'dayjs'
 import { formatUptimePercentage } from '@/components/Table/utils'
 import { DateRange } from '@/components/PeriodSelect'
+import { formatNumber } from '../../utils/formatters'
 
 const formatTimeShort = (timestampMillis: number): string => {
   if (!timestampMillis) return '-'
@@ -179,8 +180,7 @@ export const useHistoryDashboardData = (
   )
 
   const formattedAllTimeTotalDistribution = useMemo(
-    () =>
-      totalProgramDistribution ? (totalProgramDistribution / 1000).toFixed(0) + 'K' : '-',
+    () => (totalProgramDistribution ? formatNumber(totalProgramDistribution) : '-'),
     [totalProgramDistribution]
   )
 

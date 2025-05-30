@@ -5,7 +5,7 @@ import { useHistoryContext, HistoryContextType } from '@/context/HistoryContext'
 import { Box, Alert, Typography } from '@mui/material'
 import DashboardErrorDisplay from './DashboardErrorDisplay'
 import { useHistoryDashboardData } from './useHistoryDashboardData'
-
+import { formatNumber } from '@/utils/formatters'
 const HistoryDashboard: React.FC = () => {
   const contextValues: HistoryContextType = useHistoryContext()
 
@@ -149,7 +149,7 @@ const HistoryDashboard: React.FC = () => {
         subText={
           <>
             <div>Total:</div>
-            <span>{formattedAllTimeTotalDistribution} ROSE</span>
+            <span>{formatNumber(formattedAllTimeTotalDistribution)} ROSE</span>
           </>
         }
       />

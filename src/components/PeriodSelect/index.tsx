@@ -74,7 +74,7 @@ const PeriodSelect: React.FC<PeriodSelectProps> = ({
             sx={{ paddingLeft: '12px', paddingRight: '12px' }}
           >
             <CircularProgress size={20} sx={{ marginRight: '8px' }} />
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="white">
               Loading periods...
             </Typography>
           </Box>
@@ -98,7 +98,7 @@ const PeriodSelect: React.FC<PeriodSelectProps> = ({
                 className={styles.resetButtonAdornment}
                 size="small"
               >
-                <RestartAltIcon />
+                <RestartAltIcon sx={{ color: 'white' }} />
               </IconButton>
             }
           >

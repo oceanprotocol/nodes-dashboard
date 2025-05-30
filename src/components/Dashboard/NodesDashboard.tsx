@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect } from 'react'
 import Card from '../Card/Card'
 import styles from './Dashboard.module.css'
 import { useNodesContext } from '../../context/NodesContext'
 import DashboardErrorDisplay from './DashboardErrorDisplay'
 import { useNodesDashboardData } from './useNodesDashboardData'
+import { formatNumber } from '../../utils/formatters'
 
 const NodesDashboard = () => {
   const {
@@ -12,16 +13,18 @@ const NodesDashboard = () => {
     rewardsHistory,
     averageIncentiveData,
     fetchRewardsHistory,
-    totalUptime,
     overallDashboardLoading
   } = useNodesContext()
 
-  const { averageTrendInfo, periodAverage, eligibleNodesChartData, uptimePercentage } =
-    useNodesDashboardData({
-      averageIncentiveData,
-      rewardsHistory,
-      totalUptime
-    })
+  const {
+    averageTrendInfo,
+    periodAverage,
+    eligibleNodesChartData,
+    totalRewardsSumFromEligibleNodesChart
+  } = useNodesDashboardData({
+    averageIncentiveData,
+    rewardsHistory
+  })
 
   useEffect(() => {
     fetchRewardsHistory()
@@ -74,7 +77,7 @@ const NodesDashboard = () => {
         }
       />
       <Card
-        title="Eligible Nodes per Round"
+        title="Eligible Nodes per Epoch"
         chartType="bar"
         chartData={eligibleNodesChartData}
         isLoading={overallDashboardLoading}
@@ -84,6 +87,19 @@ const NodesDashboard = () => {
         chartType="line"
         chartData={rewardsHistory}
         isLoading={overallDashboardLoading}
+        additionalInfo={
+          <div className={styles.chartBottomInfo}>
+            <div className={styles.totalRewardsContainer}>
+              <div className={styles.lastYearText}>Total Rewards</div>
+              <div className={styles.periodAverage}>
+                <span className={styles.totalRewards}>
+                  {formatNumber(totalRewardsSumFromEligibleNodesChart)}
+                </span>
+                <span className={styles.rose}>ROSE</span>
+              </div>
+            </div>
+          </div>
+        }
       />
     </div>
   )
