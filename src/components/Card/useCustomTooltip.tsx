@@ -119,7 +119,7 @@ export const useCustomTooltip = ({ cardTitle }: UseCustomTooltipProps) => {
           <div style={{ color: '#9F8FA6' }}>
             Total Rewards: {Number(data.totalRewards || 0).toLocaleString()} ROSE
           </div>
-          <div style={{ color: '#9F8FA6' }}>
+          <div style={{ color: '#CF1FB1' }}>
             Total Eligible Nodes: {Number(data.totalNodes || 0).toLocaleString()}
           </div>
           <div style={{ color: '#CF1FB1' }}>
@@ -130,9 +130,9 @@ export const useCustomTooltip = ({ cardTitle }: UseCustomTooltipProps) => {
     } else if (cardTitle === 'Eligible Nodes per Epoch') {
       tooltipContent = (
         <React.Fragment>
-          <div style={{ color: '#9F8FA6' }}>Epoch: {data.date.replace('Epoch ', '')}</div>
+          <div style={{ color: '#9F8FA6' }}>Epoch: {data.date}</div>
           <div style={{ color: '#CF1FB1' }}>
-            Eligible Nodes: {Number(data?.foreground?.value || 0).toLocaleString()}
+            Total Eligible Nodes: {Number(data?.foreground?.value || 0).toLocaleString()}
           </div>
           {typeof data.totalAmount === 'number' && (
             <div style={{ color: '#CF1FB1' }}>

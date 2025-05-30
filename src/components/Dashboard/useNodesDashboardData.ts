@@ -84,7 +84,7 @@ const formatEligibleNodesChartData = (
         }
         return {
           dateForSort: numericDate,
-          label: `Round ${dateStr}`,
+          label: `${dateStr}`,
           value: eligibleNodes,
           totalAmount: totalAmountForRound
         }
