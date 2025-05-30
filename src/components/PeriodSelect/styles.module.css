@@ -40,6 +40,10 @@
   position: relative;
 }
 
+.select :global(.MuiSelect-select) {
+  color: white !important; 
+}
+
 .dateText {
   font-family: 'Sharp Sans', sans-serif !important;
   font-size: 16px !important;

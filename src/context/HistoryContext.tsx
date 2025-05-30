@@ -28,7 +28,7 @@ export interface WeekStatsSource {
   timestamp?: number
 }
 
-interface HistoryContextType {
+export interface HistoryContextType {
   data: any[]
   loading: boolean
   error: any
