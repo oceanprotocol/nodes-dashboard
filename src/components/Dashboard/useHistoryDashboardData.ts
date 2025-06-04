@@ -159,12 +159,11 @@ export const useHistoryDashboardData = (
     [liveCurrentRoundTimestamp]
   )
   const liveCurrentRoundNumber = useMemo(
-    () => currentRoundStats?.round?.toString() ?? '-',
+    () => (currentRoundStats?.round + 1)?.toString() ?? '-',
     [currentRoundStats]
   )
 
   const updatedLiveStatus = useMemo(() => isLive(weekStats?.lastRun || 0), [weekStats])
-  console.log('Updated live status:', weekStats?.timestamp)
   const trackedPeriodLabel = useMemo(
     () => getElapsedSinceLastThursday(weekStats?.timestamp || 0),
     [weekStats]
@@ -186,11 +185,14 @@ export const useHistoryDashboardData = (
   )
 
   const completedRounds = useMemo(
-    () => (weekStats?.round ? Math.max(0, weekStats.round - 1) : '-'),
+    () => (weekStats?.round ? Math.max(0, weekStats.round) : '-'),
     [weekStats]
   )
 
-  const currentRoundForCard = useMemo(() => weekStats?.round?.toString(), [weekStats])
+  const currentRoundForCard = useMemo(
+    () => (weekStats?.round + 1)?.toString(),
+    [weekStats]
+  )
 
   const dashboardOverallLoadingState = loading || isInitialising
   const combinedErrorState = error
