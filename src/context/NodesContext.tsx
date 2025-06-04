@@ -237,7 +237,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
       const data = await response.json()
 
       const sortedRewardsForCumulative = [...data.rewards].sort(
-        (a, b) => parseInt(a.date) - parseInt(b.date)
+        (a, b) => parseInt(a.date, 10) - parseInt(b.date, 10)
       )
 
       let cumulativeAmount = 0
@@ -251,7 +251,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
         }
       })
 
-      const averageData = data.rewards.map((item: any) => {
+      const averageData = sortedRewardsForCumulative.map((item: any) => {
         const average =
           item.nrEligibleNodes > 0 ? item.totalAmount / item.nrEligibleNodes : 0
 
@@ -262,6 +262,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
           totalNodes: item.nrEligibleNodes
         }
       })
+
 
       setRewardsHistory(formattedData)
       setAverageIncentiveData(averageData)

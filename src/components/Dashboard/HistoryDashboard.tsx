@@ -136,7 +136,7 @@ const HistoryDashboard: React.FC = () => {
               <div className={styles.rewardsValues}>
                 <div className={styles.grayBox}>Epoch</div>
                 <div className={styles.rewardNumber}>
-                  {contextValues.weekStats?.round ?? '-'}
+                  {contextValues.weekStats?.id ?? '-'}
                 </div>
               </div>
               <div className={styles.rewardsValues}>
