@@ -5,12 +5,17 @@ import {
   Bar,
   LineChart,
   Line,
-  Area,
   ResponsiveContainer,
   XAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   CartesianGrid
 } from 'recharts'
+import Image from 'next/image'
+import InfoIcon from '@/assets/info.svg'
+import { Tooltip } from '@mui/material'
+import { useCustomTooltip } from '@/components/Card/useCustomTooltip'
+import { formatNumber } from '@/utils/formatters'
+import CustomBar from '@/components/CustomBar/CustomBar'
 
 interface CardProps {
   title: string
@@ -22,50 +27,11 @@ interface CardProps {
     value?: number
   }>
   bigNumber?: string | number
-  subText?: string
+  subText?: React.ReactNode
   additionalInfo?: React.ReactNode
   isLoading?: boolean
   dataLoading?: boolean
-}
-
-const CustomBar = (props: any) => {
-  const { x, y, width, height, foregroundValue, backgroundValue } = props
-  const gapWidth = 3
-  const barWidth = width - gapWidth
-  const radius = 3
-
-  const totalHeight = backgroundValue
-  const foregroundHeight = (foregroundValue / totalHeight) * height
-  const backgroundHeight = height - foregroundHeight
-
-  return (
-    <g>
-      <path
-        d={`
-          M${x},${y + height}
-          L${x},${y + backgroundHeight + radius}
-          Q${x},${y + backgroundHeight} ${x + radius},${y + backgroundHeight}
-          L${x + barWidth - radius},${y + backgroundHeight}
-          Q${x + barWidth},${y + backgroundHeight} ${x + barWidth},${y + backgroundHeight + radius}
-          L${x + barWidth},${y + height}
-          Z
-        `}
-        fill="url(#gradient)"
-      />
-      <path
-        d={`
-          M${x},${y + backgroundHeight}
-          L${x},${y + radius}
-          Q${x},${y} ${x + radius},${y}
-          L${x + barWidth - radius},${y}
-          Q${x + barWidth},${y} ${x + barWidth},${y + radius}
-          L${x + barWidth},${y + backgroundHeight}
-          Z
-        `}
-        fill="#E0E0E0"
-      />
-    </g>
-  )
+  tooltip?: string
 }
 
 const Card: React.FC<CardProps> = ({
@@ -76,23 +42,22 @@ const Card: React.FC<CardProps> = ({
   subText,
   additionalInfo,
   isLoading = false,
-  dataLoading = false
+  dataLoading = false,
+  tooltip
 }) => {
-  console.log('🚀 ~ chartData:', chartData)
-  const formatNumber = (num: string | number) => {
-    if (typeof num === 'string') return num
-
-    if (num >= 1000 && num < 1000000) {
-      return `${(num / 1000).toFixed(1)}K`
-    }
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(2)}M`
-    }
-    return new Intl.NumberFormat('en-US').format(num)
-  }
+  const {
+    handleMouseMove,
+    handleMouseLeave,
+    CustomRechartsTooltipComponent,
+    renderTooltipPortal
+  } = useCustomTooltip({ cardTitle: title })
 
   return (
-    <div className={`${styles.card} ${isLoading ? styles.cardLoading : ''}`}>
+    <div
+      className={`${styles.card} ${isLoading ? styles.cardLoading : ''}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className={styles.cardContent}>
         {isLoading ? (
           <>
@@ -103,114 +68,137 @@ const Card: React.FC<CardProps> = ({
           </>
         ) : (
           <>
-            <h3 className={styles.cardTitle}>{title}</h3>
+            <div className={styles.titleContainer}>
+              <h3 className={styles.cardTitle}>{title}</h3>
+              {tooltip && (
+                <Tooltip
+                  title={tooltip}
+                  arrow
+                  placement="top"
+                  sx={{
+                    '& .MuiTooltip-tooltip': {
+                      backgroundColor: '#1A0820',
+                      color: 'white',
+                      fontSize: '0.8rem',
+                      padding: '8px 12px',
+                      maxWidth: 300,
+                      border: '1px solid rgba(207, 31, 177, 0.3)',
+                      boxShadow: '0 4px 20px rgba(207, 31, 177, 0.3)'
+                    },
+                    '& .MuiTooltip-arrow': {
+                      color: '#1A0820'
+                    }
+                  }}
+                >
+                  <div className={styles.tooltipIcon}>
+                    <Image src={InfoIcon} alt="info" width={16} height={16} />
+                  </div>
+                </Tooltip>
+              )}
+            </div>
             {dataLoading ? (
               <div className={styles.dataLoading} aria-hidden="true" />
             ) : (
               <>
                 {chartType === 'bar' && chartData && (
-                  <ResponsiveContainer width="100%" height={100}>
-                    <BarChart data={chartData} barSize={15}>
-                      <defs>
-                        <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#CF1FB1" />
-                          <stop offset="100%" stopColor="#DA4A8C" />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="date" hide />
-                      <Bar
-                        dataKey="background.value"
-                        shape={(props: any) => (
-                          <CustomBar
-                            {...props}
-                            foregroundValue={props.payload.foreground.value}
-                            backgroundValue={props.payload.background.value}
-                          />
-                        )}
-                      />
-                      <Tooltip />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className={styles.chartContainer}>
+                    <ResponsiveContainer width="100%" height="85%">
+                      <BarChart
+                        data={chartData}
+                        barSize={8}
+                        margin={{ top: 10, right: 5, bottom: 5, left: 5 }}
+                      >
+                        <defs>
+                          <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#CF1FB1" />
+                            <stop offset="100%" stopColor="#DA4A8C" />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" hide />
+                        <Bar
+                          dataKey="background.value"
+                          shape={(props: any) => (
+                            <CustomBar
+                              {...props}
+                              foregroundValue={props.payload.foreground?.value || 0}
+                              backgroundValue={props.payload.background?.value || 0}
+                            />
+                          )}
+                        />
+                        <RechartsTooltip
+                          content={<CustomRechartsTooltipComponent />}
+                          cursor={false}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
                 {chartType === 'line' && chartData && chartData.length > 0 && (
-                  <ResponsiveContainer width="100%" height={170}>
-                    <LineChart
-                      data={chartData}
-                      margin={{ top: 10, right: 0, bottom: 10, left: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="lineWave" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#7b1173" stopOpacity={0.8} />
-                          <stop offset="30%" stopColor="#bd2881" stopOpacity={0.6} />
-                          <stop offset="60%" stopColor="#CF1FB1" stopOpacity={1} />
-                        </linearGradient>
-                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                          <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
-                          <feOffset dx="0" dy="4" result="offsetblur" />
-                          <feComponentTransfer>
-                            <feFuncA type="linear" slope="0.2" />
-                          </feComponentTransfer>
-                          <feMerge>
-                            <feMergeNode />
-                            <feMergeNode in="SourceGraphic" />
-                          </feMerge>
-                        </filter>
-                      </defs>
-                      <CartesianGrid opacity={0} />
-                      <XAxis hide />
-                      <Line
-                        type="basis"
-                        dataKey="foreground.value"
-                        stroke="url(#lineWave)"
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        dot={false}
-                        activeDot={{
-                          r: 8,
-                          fill: '#CF1FB1',
-                          stroke: '#ffffff',
-                          strokeWidth: 2
-                        }}
-                      />
-                      <Area
-                        type="basis"
-                        dataKey="foreground.value"
-                        fill="url(#lineWave)"
-                        strokeWidth={0}
-                        opacity={0.1}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: '#1A0820',
-                          border: '1px solid rgba(207, 31, 177, 0.3)',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 20px rgba(207, 31, 177, 0.3)',
-                          cursor: 'none'
-                        }}
-                        cursor={false}
-                        formatter={(value) => [
-                          <span key="value" style={{ color: '#CF1FB1' }}>
-                            {Number(value).toLocaleString()} ROSE
-                          </span>
-                        ]}
-                        labelFormatter={(label) => (
-                          <span style={{ color: '#CF1FB1' }}>Week {label}</span>
-                        )}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className={styles.chartContainer}>
+                    <ResponsiveContainer width="100%" height="85%">
+                      <LineChart
+                        data={chartData}
+                        margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                      >
+                        <defs>
+                          <linearGradient id="lineWave" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor="#7b1173" stopOpacity={0.8} />
+                            <stop offset="30%" stopColor="#bd2881" stopOpacity={0.6} />
+                            <stop offset="60%" stopColor="#CF1FB1" stopOpacity={1} />
+                          </linearGradient>
+                          <filter
+                            id="shadow"
+                            x="-50%"
+                            y="-50%"
+                            width="200%"
+                            height="200%"
+                          >
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
+                            <feOffset dx="0" dy="4" result="offsetblur" />
+                            <feComponentTransfer>
+                              <feFuncA type="linear" slope="0.2" />
+                            </feComponentTransfer>
+                            <feMerge>
+                              <feMergeNode />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
+                        <CartesianGrid opacity={0} />
+                        <XAxis hide />
+                        <Line
+                          type="monotone"
+                          dataKey="foreground.value"
+                          stroke="#CF1FB1"
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{
+                            r: 6,
+                            fill: '#CF1FB1',
+                            stroke: '#ffffff',
+                            strokeWidth: 2
+                          }}
+                        />
+                        <RechartsTooltip
+                          content={<CustomRechartsTooltipComponent />}
+                          cursor={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
                 {bigNumber && (
                   <div className={styles.bigNumber}>{formatNumber(bigNumber)}</div>
                 )}
-                {subText && <p className={styles.subText}>{subText}</p>}
                 {additionalInfo}
+                {subText && <p className={styles.subText}>{subText}</p>}
               </>
             )}
           </>
         )}
       </div>
+
+      {renderTooltipPortal()}
     </div>
   )
 }

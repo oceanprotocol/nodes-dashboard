@@ -2,9 +2,12 @@ import { GridColDef, GridFilterInputValue, GridRenderCellParams } from '@mui/x-d
 import { Button, Tooltip } from '@mui/material'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ReportIcon from '@mui/icons-material/Report'
-import { NodeData } from '../../shared/types/RowDataType'
+import { NodeData } from '@/shared/types/RowDataType'
 import { formatSupportedStorage, formatPlatform, formatUptimePercentage } from './utils'
 import styles from './index.module.css'
+import Link from 'next/link'
+import HistoryIcon from '@mui/icons-material/History'
+import InfoIcon from '@mui/icons-material/Info'
 
 const getEligibleCheckbox = (eligible: boolean): React.ReactElement => {
   return eligible ? (
@@ -376,14 +379,38 @@ export const nodeColumns = (
     }
   },
   {
-    field: 'viewMore',
-    headerName: '',
-    width: 120,
+    field: 'actions',
+    headerName: 'Actions',
     sortable: false,
-    filterable: false,
-    renderCell: (params: GridRenderCellParams<NodeData>) => (
-      <Button onClick={() => setSelectedNode(params.row)}>View More</Button>
-    )
+    width: 130,
+    align: 'center',
+    headerAlign: 'center',
+    renderCell: (params: GridRenderCellParams<NodeData>) => {
+      const node = params.row
+      return (
+        <div className={styles.actionButtons}>
+          <Tooltip title="View Node Details" arrow>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setSelectedNode(node)}
+              className={styles.actionButton}
+            >
+              <InfoIcon fontSize="small" />
+            </Button>
+          </Tooltip>
+
+          <Tooltip title="View Node History" arrow>
+            <Link href={`/history?id=${encodeURIComponent(node.id)}`} passHref>
+              <Button variant="outlined" size="small" className={styles.actionButton}>
+                <HistoryIcon fontSize="small" />
+              </Button>
+            </Link>
+          </Tooltip>
+        </div>
+      )
+    },
+    cellClassName: styles.actionCell
   },
   {
     field: 'publicKey',
@@ -646,5 +673,81 @@ export const countryColumns: GridColDef[] = [
         {params.row.cityWithMostNodes} ({params.row.cityWithMostNodesCount} nodes)
       </span>
     )
+  }
+]
+
+export const historyColumns: GridColDef[] = [
+  {
+    field: 'round',
+    headerName: 'Round no.',
+    flex: 0.5,
+    minWidth: 100,
+    align: 'left',
+    headerAlign: 'left',
+    renderCell: (params: GridRenderCellParams<any>) => {
+      return params?.row?.round ?? '-'
+    }
+  },
+  {
+    field: 'timestamp',
+    headerName: 'Timestamp',
+    flex: 1,
+    minWidth: 180,
+    align: 'left',
+    headerAlign: 'left',
+    renderCell: (params: GridRenderCellParams<any, number>) => {
+      if (params.value == null) {
+        return '-'
+      }
+      try {
+        const date = new Date(params.value)
+        const hours = String(date.getUTCHours()).padStart(2, '0')
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0')
+        return `${hours}:${minutes}:${seconds} UTC`
+      } catch (e) {
+        console.error('Error formatting timestamp:', e)
+        return 'Invalid Date'
+      }
+    }
+  },
+  {
+    field: 'errorCause',
+    headerName: 'Reason for Issue',
+    flex: 1,
+    minWidth: 200,
+    align: 'left',
+    headerAlign: 'left',
+    renderCell: (params: GridRenderCellParams<any>) => {
+      return params?.row?.errorCause || '-'
+    }
+  },
+  {
+    field: 'derivedStatus',
+    headerName: 'Status',
+    flex: 0.5,
+    minWidth: 120,
+    align: 'left',
+    headerAlign: 'left',
+    sortable: false,
+    renderCell: (params: GridRenderCellParams<any>) => {
+      const hasError = !!params?.row?.errorCause
+      const statusText = hasError ? 'Failed' : 'Success'
+      const color = hasError ? '#FF4444' : '#4CAF50'
+
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: color
+            }}
+          />
+          <span>{statusText}</span>
+        </div>
+      )
+    }
   }
 ]
