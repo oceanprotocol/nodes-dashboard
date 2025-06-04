@@ -85,7 +85,7 @@ export const getWeekStats = async (date: number): Promise<WeekStatsSource | null
 export const getAllHistoricalWeeklyPeriods = async (): Promise<PeriodOption[]> => {
   try {
     const response = await axios.get<ApiWeekStatItem[]>(
-      'https://incentive-backend.oceanprotocol.io/weekStats'
+      'https://incentive-backend.oceanprotocol.com/weekStats'
     )
 
     if (!response.data || !Array.isArray(response.data)) {
