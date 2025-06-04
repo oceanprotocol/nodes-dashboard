@@ -103,7 +103,7 @@ const formatEligibleNodesChartData = (
       .map((item) => ({
         xAxisValue: item.dateForSort,
         date: item.label,
-        background: { value: item.totalAmount },
+        background: { value: item.value },
         foreground: { value: item.value },
         totalAmount: item.totalAmount
       }))

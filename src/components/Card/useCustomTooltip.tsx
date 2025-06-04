@@ -136,7 +136,7 @@ export const useCustomTooltip = ({ cardTitle }: UseCustomTooltipProps) => {
           </div>
           {typeof data.totalAmount === 'number' && (
             <div style={{ color: '#CF1FB1' }}>
-              Total Nodes: {Number(data.totalAmount).toLocaleString()}
+              Rewards (ROSE): {Number(data.totalAmount).toLocaleString()}
             </div>
           )}
         </React.Fragment>
