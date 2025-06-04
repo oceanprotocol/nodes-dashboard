@@ -185,20 +185,13 @@ export const getAllHistoricalRewards = async (): Promise<RewardsData[]> => {
 export const getCurrentWeekStats = async (): Promise<WeekStatsSource | null> => {
   try {
     const today = dayjs()
-    let lastThursday = today.clone()
+    let lastSunday = today.day() === 0 ? today.subtract(7, 'day') : today.day(0)
 
-    if (lastThursday.day() < 4) {
-      lastThursday = lastThursday.subtract(lastThursday.day() + 3, 'days')
-    } else {
-      lastThursday = lastThursday.subtract(lastThursday.day() - 4, 'days')
-    }
-    lastThursday = lastThursday.startOf('day')
-
-    const targetWednesday = lastThursday.subtract(1, 'day').startOf('day')
-    const targetEpochSeconds = targetWednesday.unix()
+    lastSunday = lastSunday.startOf('day')
+    const targetEpochSeconds = lastSunday.unix()
 
     console.log(
-      `[getCurrentWeekStats] Attempting to fetch stats for latest round: ${targetWednesday.format(
+      `[getCurrentWeekStats] Attempting to fetch stats for last Sunday: ${lastSunday.format(
         'YYYY-MM-DD HH:mm:ss'
       )}, Epoch: ${targetEpochSeconds}`
     )

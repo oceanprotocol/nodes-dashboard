@@ -139,6 +139,10 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
           setLoadingCurrentRound(true)
           try {
             const data = await getCurrentWeekStats()
+            console.log(
+              '[HistoryContext] Current round stats fetched successfully:',
+              data
+            )
             setCurrentRoundStats(data)
             setErrorCurrentRound(null)
           } catch (error) {
