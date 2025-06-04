@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+import duration from 'dayjs/plugin/duration'
 import { formatUptimePercentage } from '@/components/Table/utils'
 import { DateRange } from '@/components/PeriodSelect'
 import { formatNumber } from '../../utils/formatters'
@@ -33,36 +36,31 @@ const isLive = (timestampMillis: number): { status: boolean; color: string } => 
   }
 }
 
-const getWeekLabel = (startTimestampMillis: number, dateRange?: DateRange): string => {
-  if (!startTimestampMillis) return 'Current Week'
-  const now = dayjs()
-  const startDate = dayjs(startTimestampMillis)
-  if (startDate.isAfter(now)) {
-    const endOfWeek = startDate.add(6, 'day')
-    return `${startDate.format('MMM D')} - ${endOfWeek.format('MMM D')}`
-  }
-  if (dateRange?.startDate && dateRange?.endDate) {
-    const diffDays = dateRange.endDate.diff(dateRange.startDate, 'day')
-    if (diffDays >= 28 && diffDays <= 31) {
-      return '30 days'
-    }
-    if (diffDays >= 6 && diffDays <= 8) {
-      return '7 days'
-    }
-    if (diffDays > 0) {
-      return `${diffDays} days`
-    }
-  }
-  let startOfWeekCalc = startDate
-  if (startDate.day() >= 4) {
-    startOfWeekCalc = startDate.day(4)
-  } else {
-    startOfWeekCalc = startDate.subtract(1, 'week').day(4)
-  }
-  const endOfWeekCalc = startOfWeekCalc.add(6, 'day')
-  return `${startOfWeekCalc.format('MMM D')} - ${endOfWeekCalc.format('MMM D')}`
-}
+export const getElapsedSinceLastThursday = (startTimestampMillis: number): string => {
+  dayjs.extend(utc)
+  dayjs.extend(timezone)
+  dayjs.extend(duration)
 
+  const CET = 'Europe/Berlin'
+
+  if (!startTimestampMillis) return 'Invalid timestamp'
+
+  const timestamp = dayjs(startTimestampMillis).tz(CET)
+
+  // Calculate the previous Thursday 00:00 CET
+  let previousThursday =
+    timestamp.day() >= 4 ? timestamp.day(4) : timestamp.subtract(1, 'week').day(4)
+  previousThursday = previousThursday.startOf('day')
+
+  const diffMs = timestamp.diff(previousThursday)
+
+  if (diffMs < 0) return 'Before previous Thursday'
+
+  const d = dayjs.duration(diffMs)
+  const formatted = `${d.days()}d:${d.hours()}h:${d.minutes()}m`
+
+  return formatted
+}
 interface HistoryDataContextValues {
   weekStats: any
   currentRoundStats: any
@@ -129,7 +127,7 @@ export const useHistoryDashboardData = (
       weekStats?.totalUptime
         ? formatUptimePercentage(nodesData?.uptime ?? 0, weekStats.totalUptime)
         : '0.00%',
-    [weekStats]
+    [nodesData?.uptime, weekStats?.totalUptime]
   )
 
   const uptimeValue = useMemo(() => parseFloat(uptimePercentage) || 0, [uptimePercentage])
@@ -166,10 +164,10 @@ export const useHistoryDashboardData = (
   )
 
   const updatedLiveStatus = useMemo(() => isLive(weekStats?.lastRun || 0), [weekStats])
+  console.log('Updated live status:', weekStats?.timestamp)
   const trackedPeriodLabel = useMemo(
-    () =>
-      getWeekLabel(weekStats?.timestamp || 0, dateRange === null ? undefined : dateRange),
-    [weekStats, dateRange]
+    () => getElapsedSinceLastThursday(weekStats?.timestamp || 0),
+    [weekStats]
   )
 
   const periodRewards = useMemo(
