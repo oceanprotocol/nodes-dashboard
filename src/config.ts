@@ -48,6 +48,7 @@ const apiRoutes = {
   locations: { root: 'incentive', path: '/locations' },
   countryStats: { root: 'incentive', path: '/countryStats' },
   nodeSystemStats: { root: 'incentive', path: '/nodeSystemStats' },
+  history: { root: 'incentive', path: '/history' },
   weekStats: { root: 'incentive', path: '/weekStats' },
 
   // Analytics API routes
@@ -73,6 +74,10 @@ const config: Config = {
     countries: {
       path: '/countries',
       name: 'Countries'
+    },
+    history: {
+      path: '/history',
+      name: 'History'
     }
   },
   apiRoutes,

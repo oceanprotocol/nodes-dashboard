@@ -10,9 +10,9 @@ import React, {
 import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
 import { getApiRoute } from '@/config'
-import { CountryStatsType, SystemStats } from '../shared/types/dataTypes'
-import { CountryStatsFilters, NodeFilters } from '../shared/types/filters'
-import { buildCountryStatsUrl } from '../shared/utils/urlBuilder'
+import { SystemStats } from '@/shared/types/dataTypes'
+import { NodeFilters } from '@/shared/types/filters'
+import { GridFilterModel } from '@mui/x-data-grid'
 
 interface RewardHistoryItem {
   date: string
@@ -28,7 +28,7 @@ interface AverageIncentiveDataItem {
   totalNodes: number
 }
 
-interface DataContextType {
+interface NodesContextType {
   data: NodeData[]
   loading: boolean
   error: any
@@ -42,11 +42,6 @@ interface DataContextType {
   totalNodes: number | null
   totalEligibleNodes: number | null
   totalRewards: number | null
-  countryStats: CountryStatsType[]
-  countryCurrentPage: number
-  countryPageSize: number
-  tableType: 'nodes' | 'countries'
-  countrySearchTerm: string
   systemStats: SystemStats
   totalUptime: number | null
   rewardsHistory: RewardHistoryItem[]
@@ -54,31 +49,29 @@ interface DataContextType {
   loadingRewardsHistory: boolean
   loadingTotalEligible: boolean
   loadingTotalRewards: boolean
+  overallDashboardLoading: boolean
   averageIncentiveData: AverageIncentiveDataItem[]
   setCurrentPage: (page: number) => void
   setPageSize: (size: number) => void
   setSearchTerm: (term: string) => void
   setFilters: (filters: { [key: string]: any }) => void
   setSortModel: (model: { [key: string]: 'asc' | 'desc' }) => void
-  setCountryCurrentPage: (page: number) => void
-  setCountryPageSize: (size: number) => void
-  setTableType: (type: 'nodes' | 'countries') => void
-  setCountrySearchTerm: (term: string) => void
+  setFilter: (filter: GridFilterModel) => void
   fetchRewardsHistory: () => Promise<any>
 }
 
-const DataContext = createContext<DataContextType | undefined>(undefined)
+const NodesContext = createContext<NodesContextType | undefined>(undefined)
 
-interface DataProviderProps {
+interface NodesProviderProps {
   children: ReactNode
 }
 
-export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
+export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
   const [data, setData] = useState<NodeData[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<any>(null)
   const [currentPage, setCurrentPage] = useState<number>(1)
-  const [pageSize, setPageSize] = useState<number>(10)
+  const [pageSize, setPageSize] = useState<number>(100)
   const [totalItems, setTotalItems] = useState<number>(0)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({})
@@ -88,11 +81,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [totalNodes, setTotalNodes] = useState<number | null>(null)
   const [totalEligibleNodes, setTotalEligibleNodes] = useState<number | null>(null)
   const [totalRewards, setTotalRewards] = useState<number | null>(null)
-  const [countryStats, setCountryStats] = useState<CountryStatsType[]>([])
-  const [countryCurrentPage, setCountryCurrentPage] = useState<number>(1)
-  const [countryPageSize, setCountryPageSize] = useState<number>(10)
-  const [tableType, setTableType] = useState<'nodes' | 'countries'>('nodes')
-  const [countrySearchTerm, setCountrySearchTerm] = useState<string>('')
   const [systemStats, setSystemStats] = useState<SystemStats>({
     cpuCounts: {},
     operatingSystems: {},
@@ -105,6 +93,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [loadingTotalEligible, setLoadingTotalEligible] = useState<boolean>(false)
   const [loadingTotalRewards, setLoadingTotalRewards] = useState<boolean>(false)
   const [metricsLoaded, setMetricsLoaded] = useState<boolean>(false)
+  const [overallDashboardLoading, setOverallDashboardLoading] = useState<boolean>(true)
   const [averageIncentiveData, setAverageIncentiveData] = useState<
     AverageIncentiveDataItem[]
   >([])
@@ -198,19 +187,21 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
       } catch (fallbackErr) {
         console.error('Error in fallback fetch:', fallbackErr)
-        const threeWeeksAgo = Math.floor(new Date(date - 3 * oneWeekInMs).getTime() / 1000)
-        try {
-        const response = await axios.get(
-          `${getApiRoute('analyticsSummary')}?date=${threeWeeksAgo}`
+        const threeWeeksAgo = Math.floor(
+          new Date(date - 3 * oneWeekInMs).getTime() / 1000
         )
-        if (response) {
-          setTotalEligibleNodes(response.data.numberOfRows)
+        try {
+          const response = await axios.get(
+            `${getApiRoute('analyticsSummary')}?date=${threeWeeksAgo}`
+          )
+          if (response) {
+            setTotalEligibleNodes(response.data.numberOfRows)
+          }
+        } catch (fallbackErr) {
+          console.error('Error in fallback fetch:', fallbackErr)
+          setError(err)
         }
-      } catch (fallbackErr) {
-        console.error('Error in fallback fetch:', fallbackErr)
-        setError(err)
       }
-    }
     } finally {
       if (!metricsLoaded) setLoadingTotalEligible(false)
     }
@@ -229,55 +220,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   }, [metricsLoaded])
 
-  const fetchCountryStats = useCallback(async () => {
-    try {
-      const params: Record<string, any> = {
-        page: countryCurrentPage,
-        pageSize: countryPageSize
-      }
-      if (countrySearchTerm) {
-        params['filters[country][value]'] = countrySearchTerm
-        params['filters[country][operator]'] = 'contains'
-      }
-      if (filters && Object.keys(filters).length > 0) {
-        Object.entries(filters).forEach(([field, filterData]) => {
-          const { value, operator } = filterData
-          params[`filters[${field}][value]`] = value
-          params[`filters[${field}][operator]`] = operator
-        })
-      }
-      if (sortModel && Object.keys(sortModel).length > 0) {
-        const [field, order] = Object.entries(sortModel)[0]
-        const sortField = field === 'cityWithMostNodes' ? 'cityWithMostNodesCount' : field
-        params[`sort[${sortField}]`] = order
-      }
-      const response = await axios.get(getApiRoute('countryStats'), { params })
-      if (response.data && Array.isArray(response.data.countryStats)) {
-        const processedStats = response.data.countryStats.map(
-          (country: any, index: number) => ({
-            id: country.country,
-            index: (countryCurrentPage - 1) * countryPageSize + index + 1,
-            country: country.country,
-            totalNodes: country.totalNodes,
-            citiesWithNodes: country.citiesWithNodes,
-            cityWithMostNodes: country.cityWithMostNodes,
-            cityWithMostNodesCount: country.cityWithMostNodesCount
-          })
-        )
-        setCountryStats(processedStats)
-        setTotalItems(response.data.pagination.totalItems)
-      } else {
-        console.error('Unexpected data structure:', response.data)
-        setCountryStats([])
-        setTotalItems(0)
-      }
-    } catch (err) {
-      console.error('Error fetching country stats:', err)
-      setCountryStats([])
-      setTotalItems(0)
-    }
-  }, [countryCurrentPage, countryPageSize, countrySearchTerm, filters, sortModel])
-
   const fetchSystemStats = useCallback(async () => {
     try {
       const response = await axios.get(getApiRoute('nodeSystemStats'))
@@ -295,7 +237,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       const data = await response.json()
 
       const sortedRewardsForCumulative = [...data.rewards].sort(
-        (a, b) => parseInt(a.date) - parseInt(b.date)
+        (a, b) => parseInt(a.date, 10) - parseInt(b.date, 10)
       )
 
       let cumulativeAmount = 0
@@ -309,7 +251,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         }
       })
 
-      const averageData = data.rewards.map((item: any) => {
+      const averageData = sortedRewardsForCumulative.map((item: any) => {
         const average =
           item.nrEligibleNodes > 0 ? item.totalAmount / item.nrEligibleNodes : 0
 
@@ -320,6 +262,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           totalNodes: item.nrEligibleNodes
         }
       })
+
 
       setRewardsHistory(formattedData)
       setAverageIncentiveData(averageData)
@@ -337,26 +280,36 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     const fetchAllData = async () => {
       if (!mounted) return
       try {
-        if (tableType === 'nodes') {
-          await fetchData()
-        } else {
-          await fetchCountryStats()
-        }
+        await fetchData()
+        const initialSetupPromises: Promise<any>[] = []
+
         if (!systemStats.cpuCounts || Object.keys(systemStats.cpuCounts).length === 0) {
-          await fetchSystemStats()
+          initialSetupPromises.push(fetchSystemStats())
         }
+
         const isDefaultView =
           (!searchTerm || searchTerm.trim() === '') &&
           (Object.keys(filters).length === 0 ||
             Object.values(filters).every((filter: any) => !filter || !filter.value))
+
         if (isDefaultView && !metricsLoaded) {
-          await getTotalEligible()
-          await getTotalRewards()
+          initialSetupPromises.push(getTotalEligible())
+          initialSetupPromises.push(getTotalRewards())
+        }
+
+        initialSetupPromises.push(fetchRewardsHistory())
+
+        await Promise.all(initialSetupPromises)
+
+        if (isDefaultView && !metricsLoaded) {
           setMetricsLoaded(true)
         }
-        await fetchRewardsHistory()
       } catch (error) {
-        console.error('Error fetching data:', error)
+        console.error('Error fetching initial dashboard data:', error)
+      } finally {
+        if (mounted) {
+          setOverallDashboardLoading(false)
+        }
       }
     }
 
@@ -367,22 +320,17 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       controller.abort()
     }
   }, [
-    tableType,
     currentPage,
     pageSize,
-    countryCurrentPage,
-    countryPageSize,
     filters,
     sortModel,
     searchTerm,
-    countrySearchTerm,
     systemStats.cpuCounts,
     metricsLoaded,
     getTotalEligible,
     getTotalRewards,
     fetchRewardsHistory,
     fetchData,
-    fetchCountryStats,
     fetchSystemStats
   ])
 
@@ -429,42 +377,12 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     setCurrentPage(1)
   }
 
-  const handleSetCountryCurrentPage = (page: number) => {
-    setCountryCurrentPage(page)
+  const handleSetFilter = (filter: GridFilterModel) => {
+    // Implementation of handleSetFilter
   }
-
-  const handleSetCountryPageSize = (size: number) => {
-    setCountryPageSize(size)
-  }
-
-  const handleSetTableType = (type: 'nodes' | 'countries') => {
-    setTableType(type)
-  }
-
-  const buildUrl = useCallback(() => {
-    const pagination = {
-      page: tableType === 'countries' ? countryCurrentPage : currentPage,
-      pageSize: tableType === 'countries' ? countryPageSize : pageSize
-    }
-    const baseUrl = tableType === 'countries' ? '/api/countryStats' : '/api/nodes'
-    return buildCountryStatsUrl(
-      baseUrl,
-      pagination,
-      filters as CountryStatsFilters,
-      sortModel
-    )
-  }, [
-    tableType,
-    currentPage,
-    countryCurrentPage,
-    pageSize,
-    countryPageSize,
-    filters,
-    sortModel
-  ])
 
   return (
-    <DataContext.Provider
+    <NodesContext.Provider
       value={{
         data,
         loading,
@@ -480,39 +398,32 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         totalEligibleNodes,
         totalRewards,
         loadingTotalNodes,
-        countryStats,
-        countryCurrentPage,
-        countryPageSize,
-        tableType,
-        countrySearchTerm,
         systemStats,
         totalUptime,
         rewardsHistory,
         loadingRewardsHistory,
         loadingTotalEligible,
         loadingTotalRewards,
+        overallDashboardLoading,
         averageIncentiveData,
         setCurrentPage: handleSetCurrentPage,
         setPageSize: handleSetPageSize,
         setSearchTerm: handleSetSearchTerm,
         setSortModel: handleSetSortModel,
         setFilters: handleSetFilters,
-        setCountryCurrentPage: handleSetCountryCurrentPage,
-        setCountryPageSize: handleSetCountryPageSize,
-        setTableType: handleSetTableType,
-        setCountrySearchTerm,
+        setFilter: handleSetFilter,
         fetchRewardsHistory
       }}
     >
       {children}
-    </DataContext.Provider>
+    </NodesContext.Provider>
   )
 }
 
-export const useDataContext = () => {
-  const context = useContext(DataContext)
+export const useNodesContext = () => {
+  const context = useContext(NodesContext)
   if (context === undefined) {
-    throw new Error('useDataContext must be used within a DataProvider')
+    throw new Error('useNodesContext must be used within a NodesProvider')
   }
   return context
 }

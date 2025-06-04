@@ -3,6 +3,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 32px;
   width: 100%;
+  min-height: 238px;
 }
 
 .countryStats, .nodeStats {
@@ -12,7 +13,7 @@
   margin-top: 10px;
 }
 
-.blueBox, .grayBox, .greenBox {
+.blueBox, .greenBox {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -24,8 +25,15 @@
 }
 
 .grayBox {
-  background-color: #e2e8f0;
-  color: #4a5568;
+  background-color: rgba(176, 176, 176, 0.1);
+  color: #B0B0B0;
+  border: 1px solid #B0B0B0;
+  border-radius: 2px;
+  padding: 1px 2px;
+  width: fit-content;
+  font-size: 8px;
+  line-height: 8px;
+  font-weight: 600;
 }
 
 .greenBox {
@@ -68,7 +76,7 @@
 }
 .rewardAmount {
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 500;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -86,8 +94,8 @@
 
 .rewardNumber {
   color: #CF1FB1;
-  font-size: 60px;
-  line-height: 49px;
+  font-size: 28px;
+  line-height: 28px;
   font-weight: 500;
 }
 
@@ -95,9 +103,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
   position: absolute;
-  bottom: 30px;
+  bottom: -10px;
   width: 100%;
 }
 
@@ -113,6 +120,136 @@
   border-radius: 15px;
   font-size: 14px;
   font-weight: 500;
+}
+
+/* Styles from HEAD */
+.uptimeContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+/* Progress bar styles */
+.progressBarContainer {
+  width: 100%;
+  height: 16px;
+  background-color: rgba(14, 0, 26, 0.2);
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  position: relative;
+  margin: 1rem 0 2rem 0;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 16px;
+  background: linear-gradient(135deg, #0E001A 0%, #CF1FB1 100%);
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progressBar::after {
+  content: attr(data-percentage);
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.progressValue {
+  position: absolute;
+  right: 0;
+  top: -1.5rem;
+  font-weight: 600;
+  color: #CF1FB1;
+}
+
+.trackedInfo {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: auto;
+  gap: 5px;
+}
+
+.totalRewardsContainer {
+  display: flex;
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+
+  color: #CF1FB1;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 12px;
+}
+
+.totalRewards {
+  color: #0E001A;
+  font-size: 20px;
+  line-height: 32px;
+  font-weight: 500;
+}
+
+body .trackedLabel {
+  color: #CF1FB1;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  margin-right: 6px;
+}
+
+body .dashboard p.subText {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+body .dashboard p.subText span {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0E001A;
+  line-height: 28px;
+}
+
+body .percentageText {
+  position: absolute;
+  right: 38px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  line-height: 12px;
+  font-weight: 500;
+  color: white;
+  font-family: 'Sharp Sans';
+  z-index: 2;
+}
+
+body .percentageTextLow {
+  background-color: rgba(255, 255, 255, 0.85);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-shadow: none;
+  color: #0E001A;
+  box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+}
+
+.statusIndicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-bottom: 10px;
 }
 
 .periodAverage {
@@ -164,5 +301,61 @@ body .rose {
   .rewardNumber {
     font-size: 60px;
     line-height: 36px;
+  }
+}
+
+.rewardsHistoryContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%; 
+}
+
+.rewardsLabels {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rewardsValues {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rewardsTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.totalLabel {
+  color: #CF1FB1;
+  font-size: 14px;
+}
+
+.totalAmount {
+  font-size: 18px;
+  font-weight: 500;
+  color: #333;
+}
+
+.datePickerContainer {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.datePickerContainer > div {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .datePickerContainer {
+    margin-top: 0.5rem;
   }
 }

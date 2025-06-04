@@ -1,7 +1,7 @@
 .card {
   background-color: #ffffff;
   border-radius: 10px;
-  padding: 20px;
+  padding: 25px 30px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
@@ -11,6 +11,7 @@
   animation: fadeIn 0.5s ease-in;
   overflow: visible;
   z-index: 1;
+  max-height: 233px;
 }
 
 @keyframes fadeIn {
@@ -28,8 +29,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  position: absolute;
-  inset: 20px;
+  position: relative;
 }
 
 .cardTitle {
@@ -53,17 +53,23 @@
 }
 
 .subText {
-  font-size: 14px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
   color: #CF1FB1;
-  font-weight: 100;
   margin-top: auto;
   text-align: right;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
 }
 
 .subText span {
-  font-weight: 100;
+  font-weight: 500;
   font-size: 20px;
-  line-height: 32px;
+  line-height: 20px;
   color: #0E001A;
 }
 
@@ -102,9 +108,9 @@
 }
 
 .cardLoading .bigNumber {
-  height: 60px;
-  width: 50%;
-  margin: 100px auto;
+  height: 80px;
+  width: 60%;
+  margin: 0 auto;
 }
 
 .cardLoading .subText {
@@ -112,7 +118,6 @@
   width: 40%;
   margin-left: auto;
   margin-top: auto;
-  margin-bottom: 0;
 }
 
 .cardLoading .cardTitle::after,
@@ -172,9 +177,9 @@
   background: #f6f7f8;
   border-radius: 4px;
   overflow: hidden;
-  height: 60px;
-  width: 50%;
-  margin: 95px auto;
+  height: 60%;
+  width: 100%;
+  margin: 20px auto;
 }
 
 .dataLoading::after {
@@ -201,3 +206,46 @@
   overflow: visible;
 }
 
+.titleContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.tooltipIcon {
+  cursor: pointer;
+  color: white;
+}
+
+.tooltipIcon svg {
+  stroke: black;
+  fill: black;
+}
+
+.chartSkeleton {
+  position: relative;
+  background: #f6f7f8;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 180px;
+  width: 100%;
+  margin: 20px 0;
+}
+
+.chartSkeleton::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(207, 31, 177, 0.2) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite linear;
+  transform: translateX(-100%);
+}
