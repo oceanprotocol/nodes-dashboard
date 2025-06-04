@@ -18,6 +18,8 @@ import {
   getCurrentWeekStats
 } from '@/services/historyService'
 import { DateRange } from '@/components/PeriodSelect'
+import { NodeData } from '@/shared/types/RowDataType'
+import axios from 'axios'
 
 export interface WeekStatsSource {
   id: number
@@ -63,7 +65,10 @@ export interface HistoryContextType {
   currentRoundStats: any
   loadingCurrentRound: boolean
   errorCurrentRound: Error | null
-  isInitialising: boolean
+  isInitialising: boolean,
+  nodesData: NodeData
+  loadingNodeData: boolean
+  errorNodeData: Error | null
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
@@ -92,6 +97,10 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
   const [rewardsData, setRewardsData] = useState<RewardsData[]>([])
   const [loadingRewards, setLoadingRewards] = useState<boolean>(false)
   const [errorRewards, setErrorRewards] = useState<Error | null>(null)
+
+  const [nodesData, setNodesData] = useState<NodeData>({} as NodeData)
+  const [loadingNodeData, setLoadingNodeData] = useState<boolean>(false)
+  const [errorNodeData, setErrorNodeData] = useState<Error | null>(null)
 
   const [currentRoundStats, setCurrentRoundStats] = useState<any>(null)
   const [loadingCurrentRound, setLoadingCurrentRound] = useState<boolean>(false)
@@ -153,7 +162,35 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
           }
         }
 
-        await Promise.all([doFetchPeriods(), doFetchRewardsData(), doFetchCurrentRound()])
+        const doFetchNodeData = async () => {
+          if (!nodeId) return
+
+          try {
+            setLoadingNodeData(true)
+
+            const data = await getNodeData(nodeId)
+            console.log(
+              '[HistoryContext] Node data fetched successfully:',
+              data
+            )
+            if (!data) {
+              setErrorNodeData(new Error('Node data is empty or undefined'))
+              console.error(
+                '[HistoryContext] Node data is empty or undefined for nodeId:',
+                nodeId
+              )
+            } else {
+              setNodesData(data)
+              setErrorNodeData(null)
+            }
+            setLoadingNodeData(false)
+          } catch (error) {
+            console.error('Error fetching node data in initial:', error)
+            setErrorNodeData(error as Error)
+          }
+        }
+
+        await Promise.all([doFetchPeriods(), doFetchRewardsData(), doFetchCurrentRound(), doFetchNodeData()])
       } catch (error) {
         console.error(
           '[HistoryContext] Error during initial parallel fetches (Promise.all):',
@@ -164,7 +201,7 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
       }
     }
     fetchInitialData()
-  }, [])
+  }, [nodeId])
 
   const fetchHistoryData = useCallback(async () => {
     if (!nodeId || !dateRange.startDate || !dateRange.endDate) {
@@ -344,7 +381,10 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
     currentRoundStats,
     loadingCurrentRound,
     errorCurrentRound,
-    isInitialising
+    isInitialising,
+    nodesData, 
+    loadingNodeData,
+    errorNodeData
   }
 
   return <HistoryContext.Provider value={value}>{children}</HistoryContext.Provider>
@@ -357,3 +397,19 @@ export const useHistoryContext = () => {
   }
   return context
 }
+
+export const getNodeData = async (
+  nodeId: string,
+): Promise<NodeData> => {
+  try {
+    let url = `https://incentive-backend.oceanprotocol.com/nodes?nodeId=${nodeId}`
+    
+    const response = await axios.get(url)
+    console.log('[getNodeDetails] Response from node data API:', response)
+    return response?.data?.nodes[0]?._source as NodeData
+  } catch (error) {
+    console.error('[getNodeDetails] Error fetching node details:', error)
+    throw error
+  }
+}
+

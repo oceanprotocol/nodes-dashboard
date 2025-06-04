@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { formatUptimePercentage } from '@/components/Table/utils'
 import { DateRange } from '@/components/PeriodSelect'
 import { formatNumber } from '../../utils/formatters'
+import { NodeData } from '@/shared/types/RowDataType'
 
 const formatTimeShort = (timestampMillis: number): string => {
   if (!timestampMillis) return '-'
@@ -71,6 +72,7 @@ interface HistoryDataContextValues {
   loading: boolean
   error: Error | null
   isInitialising: boolean
+  nodesData: NodeData | null
 }
 
 export interface HistoryDashboardData {
@@ -108,7 +110,8 @@ export const useHistoryDashboardData = (
     totalProgramDistribution,
     loading,
     error,
-    isInitialising
+    isInitialising,
+    nodesData
   } = contextValues
 
   const periodDurationInSeconds = useMemo(() => {
@@ -124,9 +127,9 @@ export const useHistoryDashboardData = (
   const uptimePercentage = useMemo(
     () =>
       weekStats?.totalUptime
-        ? formatUptimePercentage(weekStats.totalUptime, periodDurationInSeconds)
+        ? formatUptimePercentage(nodesData?.uptime ?? 0, weekStats.totalUptime)
         : '0.00%',
-    [weekStats, periodDurationInSeconds]
+    [weekStats]
   )
 
   const uptimeValue = useMemo(() => parseFloat(uptimePercentage) || 0, [uptimePercentage])

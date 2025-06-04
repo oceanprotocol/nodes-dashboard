@@ -23,7 +23,7 @@ const HistoryDashboard: React.FC = () => {
     completedRounds,
     hasNoDataForPeriod,
     combinedError,
-    dashboardOverallLoading
+    dashboardOverallLoading,
   } = useHistoryDashboardData(contextValues)
 
   const currentRoundCardLoading =
