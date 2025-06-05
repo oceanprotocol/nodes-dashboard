@@ -94,26 +94,22 @@ export const getAllHistoricalWeeklyPeriods = async (): Promise<PeriodOption[]> =
     }
 
     const periods: PeriodOption[] = response.data.map((item) => {
-      const startDate = dayjs(item._source.lastRun)
+      // Subtract 3.5 days from lastRun
+      const shiftedDate = dayjs(item._source.lastRun).subtract(3.5, 'day').tz('CET')
 
-      const currentDay = startDate.day()
-      let adjustedStartDate = startDate
-      if (currentDay !== 4) {
-        adjustedStartDate = startDate
-          .subtract((currentDay + 7 - 4) % 7, 'day')
-          .startOf('day')
-      } else {
-        adjustedStartDate = startDate.startOf('day')
-      }
+      // Find closest previous Thursday 00:00 CET
+      const dayOfWeek = shiftedDate.day() // 0 (Sun) to 6 (Sat)
+      const daysToSubtract = (dayOfWeek + 7 - 4) % 7 // 4 = Thursday
+      const startDate = shiftedDate.subtract(daysToSubtract, 'day').startOf('day')
 
-      const endDate = adjustedStartDate.add(6, 'days').endOf('day')
+      const endDate = startDate.add(7, 'day') // up to next Thursday 00:00 CET
 
       const weekIdentifier = item._source.week || parseInt(item._id, 10)
 
       return {
-        label: `Round ${weekIdentifier} (Week of ${adjustedStartDate.format('MMM D, YYYY')})`,
-        value: adjustedStartDate.valueOf().toString(),
-        startDate: adjustedStartDate,
+        label: `Round ${weekIdentifier} (Week of ${startDate.format('MMM D, YYYY')})`,
+        value: startDate.valueOf().toString(),
+        startDate: startDate,
         endDate: endDate,
         weekIdentifier: weekIdentifier
       }

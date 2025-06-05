@@ -115,6 +115,10 @@ export const HistoryProvider: React.FC<PropsWithChildren<{}>> = ({ children }) =
           setPeriodsLoading(true)
           try {
             const periods = await getAllHistoricalWeeklyPeriods()
+            console.log(
+              '[HistoryContext] Available periods fetched successfully:',
+              periods
+            )
             setAvailablePeriods(periods)
             if (periods.length > 0) {
               const mostRecentPeriod = periods[0]
