@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { TextField, Box, InputAdornment, IconButton } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
@@ -11,8 +11,12 @@ import { useHistoryContext } from '../../../context/HistoryContext'
 import { HistoryDashboard } from '../../Dashboard'
 import PeriodSelect, { DateRange } from '../../PeriodSelect'
 
+const DEBOUNCE_DELAY = 1000 
+
 const HistoryPage: React.FC = () => {
   const router = useRouter()
+  const [debounceTimeout, setDebounceTimeout] = useState<NodeJS.Timeout | null>(null)
+
   const {
     data,
     loading,
@@ -28,20 +32,33 @@ const HistoryPage: React.FC = () => {
     setIsSearching,
     availablePeriods,
     periodsLoading,
-    isInitialising
+    isInitialising,
+    isSearching
   } = useHistoryContext()
+
 
   useEffect(() => {
     const nodeIdFromUrl = router.query.id || router.query.nodeid
+
     if (typeof nodeIdFromUrl === 'string' && nodeIdFromUrl) {
       setNodeId(nodeIdFromUrl)
-      if (!nodeId) {
-        setIsSearching(true)
+      if (!isSearching) {
+        if (debounceTimeout) clearTimeout(debounceTimeout)
+
+        const timeout = setTimeout(() => {
+          setIsSearching(true)
+        }, DEBOUNCE_DELAY)
+
+        setDebounceTimeout(timeout)
       }
     } else if (!nodeIdFromUrl && nodeId) {
       setNodeId('')
     }
-  }, [router.query, setNodeId, nodeId])
+
+    return () => {
+      if (debounceTimeout) clearTimeout(debounceTimeout)
+    }
+  }, [router.query])
 
   const handleSearch = () => {
     const trimmedNodeId = nodeId.trim()
@@ -70,7 +87,9 @@ const HistoryPage: React.FC = () => {
       pathname: router.pathname,
       query: newQuery
     })
+    setIsSearching(false)
   }
+
 
   const handleDateRangeChange = (newRange: DateRange) => {
     if (newRange.startDate && newRange.endDate) {
