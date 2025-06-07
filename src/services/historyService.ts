@@ -94,15 +94,13 @@ export const getAllHistoricalWeeklyPeriods = async (): Promise<PeriodOption[]> =
     }
 
     const periods: PeriodOption[] = response.data.map((item) => {
-      // Subtract 3.5 days from lastRun
-      const shiftedDate = dayjs(item._source.lastRun).subtract(3.5, 'day').tz('CET')
+      const shiftedDate = dayjs(item._source.lastRun)
 
-      // Find closest previous Thursday 00:00 CET
-      const dayOfWeek = shiftedDate.day() // 0 (Sun) to 6 (Sat)
-      const daysToSubtract = (dayOfWeek + 7 - 4) % 7 // 4 = Thursday
+      const dayOfWeek = shiftedDate.day()
+      const daysToSubtract = (dayOfWeek + 7 - 4) % 7
       const startDate = shiftedDate.subtract(daysToSubtract, 'day').startOf('day')
 
-      const endDate = startDate.add(7, 'day') // up to next Thursday 00:00 CET
+      const endDate = startDate.add(7, 'day')
 
       const weekIdentifier = item._source.week || parseInt(item._id, 10)
 

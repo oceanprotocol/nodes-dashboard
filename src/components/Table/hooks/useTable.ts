@@ -16,7 +16,9 @@ export const useTable = (tableType: TableTypeEnum) => {
     setCurrentPage: setNodesCurrentPage,
     setPageSize: setNodesPageSize,
     setFilter: setNodesFilter,
-    totalUptime
+    totalUptime,
+    searchTerm,
+    setSearchTerm
   } = useNodesContext()
 
   const {
@@ -43,7 +45,7 @@ export const useTable = (tableType: TableTypeEnum) => {
   } = useHistoryContext()
 
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null)
-  const [searchTerm, setSearchTerm] = useState<string>('')
+  // const [searchTerm, setSearchTerm] = useState<string>('')
   const [searchTermCountry, setSearchTermCountry] = useState<string>('')
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
 
@@ -192,7 +194,9 @@ export const useTable = (tableType: TableTypeEnum) => {
       const filterModel: GridFilterModel = {
         items: [{ field: 'name', operator: 'contains', value: term }]
       }
-
+      console.log(
+        `[useTable] handleSearchChange called with term: "${term}" for tableType: ${tableType}`
+      )
       if (tableType === TableTypeEnum.COUNTRIES) {
         setSearchTermCountry(term)
         if (searchTimeout.current) {
