@@ -94,22 +94,31 @@ export const getAllHistoricalWeeklyPeriods = async (): Promise<PeriodOption[]> =
     }
 
     const periods: PeriodOption[] = response.data.map((item) => {
-      const shiftedDate = dayjs(item._source.lastRun)
-
-      const dayOfWeek = shiftedDate.day()
-      const daysToSubtract = (dayOfWeek + 7 - 4) % 7
-      const startDate = shiftedDate.subtract(daysToSubtract, 'day').startOf('day')
-
-      const endDate = startDate.add(7, 'day')
-
+      const lastRun = dayjs(item._source.lastRun).tz('CET')
       const weekIdentifier = item._source.week || parseInt(item._id, 10)
+
+      const epochStart = dayjs('1970-01-01T00:00:00Z')
+        .add(weekIdentifier * 7, 'day')
+        .tz('CET')
+      const epochEnd = epochStart.add(7, 'day')
+
+      // Adjust lastRun if it's after the current epoch week
+      const correctedDate = lastRun.isAfter(epochEnd)
+        ? lastRun.subtract(3, 'day')
+        : lastRun
+
+      // Get the Thursday of that (corrected) week
+      const dayOfWeek = correctedDate.day()
+      const daysToSubtract = (dayOfWeek + 7 - 4) % 7 // back to previous Thursday
+      const startDate = correctedDate.subtract(daysToSubtract, 'day').startOf('day')
+      const endDate = startDate.add(7, 'day')
 
       return {
         label: `Round ${weekIdentifier} (Week of ${startDate.format('MMM D, YYYY')})`,
         value: startDate.valueOf().toString(),
-        startDate: startDate,
-        endDate: endDate,
-        weekIdentifier: weekIdentifier
+        startDate,
+        endDate,
+        weekIdentifier
       }
     })
 
