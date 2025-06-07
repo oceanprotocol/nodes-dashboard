@@ -102,14 +102,12 @@ export const getAllHistoricalWeeklyPeriods = async (): Promise<PeriodOption[]> =
         .tz('CET')
       const epochEnd = epochStart.add(7, 'day')
 
-      // Adjust lastRun if it's after the current epoch week
       const correctedDate = lastRun.isAfter(epochEnd)
         ? lastRun.subtract(3, 'day')
         : lastRun
 
-      // Get the Thursday of that (corrected) week
       const dayOfWeek = correctedDate.day()
-      const daysToSubtract = (dayOfWeek + 7 - 4) % 7 // back to previous Thursday
+      const daysToSubtract = (dayOfWeek + 7 - 4) % 7
       const startDate = correctedDate.subtract(daysToSubtract, 'day').startOf('day')
       const endDate = startDate.add(7, 'day')
 
