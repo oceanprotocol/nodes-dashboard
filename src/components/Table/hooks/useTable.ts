@@ -215,7 +215,7 @@ export const useTable = (tableType: TableTypeEnum) => {
         }, 500)
       }
     },
-    [tableType, setNodesFilter, setCountriesFilter]
+    [tableType, setCountriesFilter, setSearchTerm, setNodesFilter]
   )
 
   const handleReset = useCallback(() => {
@@ -232,7 +232,7 @@ export const useTable = (tableType: TableTypeEnum) => {
     if (searchTimeout.current) {
       clearTimeout(searchTimeout.current)
     }
-  }, [tableType, setNodesFilter, setCountriesFilter])
+  }, [tableType, setCountriesFilter, setSearchTerm, setNodesFilter])
 
   return {
     data,

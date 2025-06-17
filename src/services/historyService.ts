@@ -1,6 +1,11 @@
 import axios from 'axios'
 import { getApiRoute } from '@/config'
 import dayjs, { Dayjs } from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 export interface NodeHistoryItem {
   peerId: string
@@ -94,6 +99,13 @@ export const getAllHistoricalWeeklyPeriods = async (): Promise<PeriodOption[]> =
     }
 
     const periods: PeriodOption[] = response.data.map((item) => {
+      if (!item._source || !item._source.lastRun) {
+        console.warn(`Skipping item with missing lastRun: ${JSON.stringify(item)}`)
+        return null
+      }
+      console.log(
+        `Processing item with ID: ${item._id}, lastRun: ${dayjs(item._source.lastRun).format('YYYY-MM-DD HH:mm:ss')}`
+      )
       const lastRun = dayjs(item._source.lastRun).tz('CET')
       const weekIdentifier = item._source.week || parseInt(item._id, 10)
 
