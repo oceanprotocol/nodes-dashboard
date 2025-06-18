@@ -11,7 +11,14 @@ import axios from 'axios'
 import { NodeData } from '@/shared/types/RowDataType'
 import { getApiRoute } from '@/config'
 import { SystemStats } from '@/shared/types/dataTypes'
-import { NodeFilters } from '@/shared/types/filters'
+import { NodeFilters as OriginalNodeFilters } from '@/shared/types/filters'
+
+type NodeFilters = {
+  [key: string]: {
+    value: any
+    operator: string
+  }
+}
 import { GridFilterModel } from '@mui/x-data-grid'
 
 interface RewardHistoryItem {
@@ -76,6 +83,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({})
   const [filters, setFilters] = useState<Record<string, any>>({})
+  const [filter, setFilter] = useState<GridFilterModel>({ items: [] })
   const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null)
 
   const [totalNodes, setTotalNodes] = useState<number | null>(null)
@@ -123,7 +131,19 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
     if (sortParams) {
       url += `&${sortParams}`
     }
-    const filterString = buildFilterParams(filters)
+    const gridFilterToNodeFilters = (gridFilter: GridFilterModel): NodeFilters => {
+      const nodeFilters: NodeFilters = {}
+      gridFilter.items.forEach((item) => {
+        if (item.field && item.value !== undefined && item.operator) {
+          nodeFilters[item.field] = {
+            value: item.value,
+            operator: item.operator
+          }
+        }
+      })
+      return nodeFilters
+    }
+    const filterString = buildFilterParams(gridFilterToNodeFilters(filter))
     if (filterString) {
       url += `&${filterString}`
     }
@@ -131,7 +151,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
       url += `&search=${encodeURIComponent(searchTerm)}`
     }
     return url
-  }, [currentPage, pageSize, sortParams, filters, searchTerm])
+  }, [currentPage, pageSize, sortParams, filter, searchTerm])
 
   const fetchData = useCallback(async () => {
     const isDefaultView =
@@ -373,12 +393,15 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
   }
 
   const handleSetFilters = (newFilters: { [key: string]: any }) => {
+    console.log('Setting filters:', newFilters)
     setFilters(newFilters)
     setCurrentPage(1)
   }
 
   const handleSetFilter = (filter: GridFilterModel) => {
-    // Implementation of handleSetFilter
+    console.log('Setting filter:', filter)
+    setFilter(filter)
+    setCurrentPage(1)
   }
 
   return (
