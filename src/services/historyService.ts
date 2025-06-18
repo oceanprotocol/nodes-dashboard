@@ -98,40 +98,43 @@ export const getAllHistoricalWeeklyPeriods = async (): Promise<PeriodOption[]> =
       return []
     }
 
-    const periods: PeriodOption[] = response.data.map((item) => {
-      if (!item._source || !item._source.lastRun) {
-        console.warn(`Skipping item with missing lastRun: ${JSON.stringify(item)}`)
-        return null
-      }
-      console.log(
-        `Processing item with ID: ${item._id}, lastRun: ${dayjs(item._source.lastRun).format('YYYY-MM-DD HH:mm:ss')}`
-      )
-      const lastRun = dayjs(item._source.lastRun).tz('CET')
-      const weekIdentifier = item._source.week || parseInt(item._id, 10)
+    const periods: PeriodOption[] = response.data
+      .map((item) => {
+        if (!item._source || !item._source.lastRun) {
+          console.warn(`Skipping item with missing lastRun: ${JSON.stringify(item)}`)
+          return null
+        }
 
-      const epochStart = dayjs('1970-01-01T00:00:00Z')
-        .add(weekIdentifier * 7, 'day')
-        .tz('CET')
-      const epochEnd = epochStart.add(7, 'day')
+        console.log(
+          `Processing item with ID: ${item._id}, lastRun: ${dayjs(item._source.lastRun).format('YYYY-MM-DD HH:mm:ss')}`
+        )
 
-      const correctedDate = lastRun.isAfter(epochEnd)
-        ? lastRun.subtract(3, 'day')
-        : lastRun
+        const lastRun = dayjs(item._source.lastRun).tz('CET')
+        const weekIdentifier = item._source.week || parseInt(item._id, 10)
 
-      const dayOfWeek = correctedDate.day()
-      const daysToSubtract = (dayOfWeek + 7 - 4) % 7
-      const startDate = correctedDate.subtract(daysToSubtract, 'day').startOf('day')
-      const endDate = startDate.add(7, 'day')
+        const epochStart = dayjs('1970-01-01T00:00:00Z')
+          .add(weekIdentifier * 7, 'day')
+          .tz('CET')
+        const epochEnd = epochStart.add(7, 'day')
 
-      return {
-        label: `Round ${weekIdentifier} (Week of ${startDate.format('MMM D, YYYY')})`,
-        value: startDate.valueOf().toString(),
-        startDate,
-        endDate,
-        weekIdentifier
-      }
-    })
+        const correctedDate = lastRun.isAfter(epochEnd)
+          ? lastRun.subtract(3, 'day')
+          : lastRun
 
+        const dayOfWeek = correctedDate.day()
+        const daysToSubtract = (dayOfWeek + 7 - 4) % 7
+        const startDate = correctedDate.subtract(daysToSubtract, 'day').startOf('day')
+        const endDate = startDate.add(7, 'day')
+
+        return {
+          label: `Round ${weekIdentifier} (Week of ${startDate.format('MMM D, YYYY')})`,
+          value: startDate.valueOf().toString(),
+          startDate,
+          endDate,
+          weekIdentifier
+        }
+      })
+      .filter((item): item is PeriodOption => item !== null) // 👈 Key fix
     periods.sort((a, b) => b.startDate.valueOf() - a.startDate.valueOf())
 
     return periods
