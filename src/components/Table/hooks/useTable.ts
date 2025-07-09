@@ -191,9 +191,9 @@ export const useTable = (tableType: TableTypeEnum) => {
 
   const handleSearchChange = useCallback(
     (term: string) => {
-      const filterModel: GridFilterModel = {
-        items: [{ field: 'name', operator: 'contains', value: term }]
-      }
+      // const filterModel: GridFilterModel = {
+      //   items: [{ field: 'name', operator: 'contains', value: term }]
+      // }
       console.log(
         `[useTable] handleSearchChange called with term: "${term}" for tableType: ${tableType}`
       )
@@ -202,17 +202,17 @@ export const useTable = (tableType: TableTypeEnum) => {
         if (searchTimeout.current) {
           clearTimeout(searchTimeout.current)
         }
-        searchTimeout.current = setTimeout(() => {
-          setCountriesFilter(filterModel)
-        }, 500)
+        // searchTimeout.current = setTimeout(() => {
+        //   setCountriesFilter(filterModel)
+        // }, 500)
       } else {
         setSearchTerm(term)
         if (searchTimeout.current) {
           clearTimeout(searchTimeout.current)
         }
-        searchTimeout.current = setTimeout(() => {
-          setNodesFilter(filterModel)
-        }, 500)
+        // searchTimeout.current = setTimeout(() => {
+        //   setNodesFilter(filterModel)
+        // }, 500)
       }
     },
     [tableType, setCountriesFilter, setSearchTerm, setNodesFilter]
