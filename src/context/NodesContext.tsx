@@ -219,7 +219,20 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
           }
         } catch (fallbackErr) {
           console.error('Error in fallback fetch:', fallbackErr)
-          setError(err)
+          const fourWeeksAgo = Math.floor(
+            new Date(date - 4 * oneWeekInMs).getTime() / 1000
+          )
+          try {
+            const response = await axios.get(
+              `${getApiRoute('analyticsSummary')}?date=${fourWeeksAgo}`
+            )
+            if (response) {
+              setTotalEligibleNodes(response.data.numberOfRows)
+            }
+          } catch (fallbackErr) {
+            console.error('Error in fallback fetch:', fallbackErr)
+            setError(err)
+          }
         }
       }
     } finally {
@@ -282,7 +295,6 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
           totalNodes: item.nrEligibleNodes
         }
       })
-
 
       setRewardsHistory(formattedData)
       setAverageIncentiveData(averageData)
