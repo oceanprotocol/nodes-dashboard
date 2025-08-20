@@ -187,53 +187,37 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
 
   const getTotalEligible = useCallback(async () => {
     if (!metricsLoaded) setLoadingTotalEligible(true)
-    const date = Date.now()
-    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000
-    const oneWeekAgo = Math.floor(new Date(date - oneWeekInMs).getTime() / 1000)
+
     try {
-      const response = await axios.get(
-        `${getApiRoute('analyticsSummary')}?date=${oneWeekAgo}`
-      )
-      setTotalEligibleNodes(response.data.numberOfRows)
-    } catch (err) {
-      console.error('Error total eligible nodes data:', err)
-      const twoWeekAgo = Math.floor(new Date(date - 2 * oneWeekInMs).getTime() / 1000)
-      try {
-        const response = await axios.get(
-          `${getApiRoute('analyticsSummary')}?date=${twoWeekAgo}`
-        )
-        if (response) {
-          setTotalEligibleNodes(response.data.numberOfRows)
-        }
-      } catch (fallbackErr) {
-        console.error('Error in fallback fetch:', fallbackErr)
-        const threeWeeksAgo = Math.floor(
-          new Date(date - 3 * oneWeekInMs).getTime() / 1000
-        )
+      const date = Date.now()
+      const oneWeekInMs = 7 * 24 * 60 * 60 * 1000
+      const maxWeeksToTry = 20
+
+      let lastError: any = null
+
+      for (let weekOffset = 1; weekOffset <= maxWeeksToTry; weekOffset++) {
         try {
+          const targetDate = Math.floor(
+            new Date(date - weekOffset * oneWeekInMs).getTime() / 1000
+          )
           const response = await axios.get(
-            `${getApiRoute('analyticsSummary')}?date=${threeWeeksAgo}`
+            `${getApiRoute('analyticsSummary')}?date=${targetDate}`
           )
-          if (response) {
+
+          if (response?.data?.numberOfRows) {
             setTotalEligibleNodes(response.data.numberOfRows)
+            return
           }
-        } catch (fallbackErr) {
-          console.error('Error in fallback fetch:', fallbackErr)
-          const fourWeeksAgo = Math.floor(
-            new Date(date - 4 * oneWeekInMs).getTime() / 1000
-          )
-          try {
-            const response = await axios.get(
-              `${getApiRoute('analyticsSummary')}?date=${fourWeeksAgo}`
-            )
-            if (response) {
-              setTotalEligibleNodes(response.data.numberOfRows)
-            }
-          } catch (fallbackErr) {
-            console.error('Error in fallback fetch:', fallbackErr)
-            setError(err)
-          }
+        } catch (err) {
+          console.error(`Error fetching data for ${weekOffset} week(s) ago:`, err)
+          lastError = err
         }
+      }
+
+      // If we get here, all attempts failed
+      console.error('All weekly fallback attempts failed')
+      if (lastError) {
+        setError(lastError)
       }
     } finally {
       if (!metricsLoaded) setLoadingTotalEligible(false)
