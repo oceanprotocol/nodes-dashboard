@@ -43,7 +43,7 @@
     "three": "^0.169.0",
     "vanta": "^0.5.24",
     "viem": "^2.8.14",
-    "wagmi": "^2.5.11"
+    "wagmi": "^2.16.9"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.12",
