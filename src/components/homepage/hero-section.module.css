@@ -1,0 +1,67 @@
+.root {
+  position: relative;
+  padding-top: 150px;
+}
+
+.title {
+  font-size: 88px;
+  line-height: 1;
+  margin: 0;
+}
+
+.title span {
+  color: #009bff;
+}
+
+.backgroundAnimation {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  height: 100%;
+}
+
+.backgorundImage {
+  width: auto;
+  max-height: 100%;
+}
+
+.relative {
+  position: relative;
+}
+
+.titleWrapper {
+  display: flex;
+  gap: 15px;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.subTitle {
+  font-size: 24px;
+  max-width: 580px;
+}
+
+.actionsAndTextWrapper {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.textBadge {
+  font-size: 70px;
+  text-align: right;
+  line-height: 1;
+  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+}
+
+.textBadge span {
+  color: #009bff;
+}

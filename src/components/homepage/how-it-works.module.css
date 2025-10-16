@@ -1,0 +1,47 @@
+.root {
+  background-color: #040a12;
+  padding: 50px;
+}
+
+.twoSections {
+  display: flex;
+  gap: 50px;
+  justify-content: center;
+  margin-top: 50px;
+}
+
+.featuresWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  flex: 1;
+}
+
+.featureItem {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  color: rgba(255, 255, 255, 0.4);
+  transition: 0.2s all ease-in-out;
+}
+
+.featureItem:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.featureItem:hover .indexNumber {
+  color: #be00ff;
+}
+
+.indexNumber {
+  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+  font-size: 18px;
+  transition: 0.2s all ease-in-out;
+  font-weight: bold;
+}
+
+.featureTextWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}

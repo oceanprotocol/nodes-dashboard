@@ -1,0 +1,42 @@
+.container {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 5;
+}
+
+.navLinks {
+  display: flex;
+  gap: 10px;
+  font-size: 16px;
+  background-color: rgba(0, 153, 255, 0.2);
+  border: 1px solid rgba(0, 153, 255, 0.2);
+  padding: 16px 24px;
+  border-radius: 100px;
+  backdrop-filter: blur(10px);
+}
+
+.navLink {
+  padding: 8px 16px;
+  border-radius: 100px;
+  transition: all 0.2s ease-in-out;
+}
+
+.navLink.active {
+  background-color: #be00ff;
+}
+
+.navLink:hover {
+  background-color: rgba(0, 153, 255, 0.3);
+}
+
+.sideActions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: flex-end;
+}
