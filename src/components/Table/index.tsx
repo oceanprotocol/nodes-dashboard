@@ -10,7 +10,12 @@ import {
 } from '@mui/x-data-grid'
 import { useTable } from './hooks/useTable'
 import { TableTypeEnum } from '../../shared/enums/TableTypeEnum'
-import { nodeColumns, countryColumns, historyColumns } from './columns'
+import {
+  nodeColumns,
+  countryColumns,
+  historyColumns,
+  nodeLeaderboardColumns
+} from './columns'
 import { styled } from '@mui/material/styles'
 
 import styles from './index.module.css'
@@ -139,6 +144,8 @@ export const Table: React.FC<TableProps> = ({
 
   const columns = useMemo(() => {
     switch (tableType) {
+      case TableTypeEnum.NODES_LEADERBOARD:
+        return nodeLeaderboardColumns
       case TableTypeEnum.NODES:
         return nodeColumns(totalUptime, setSelectedNode)
       case TableTypeEnum.COUNTRIES:
