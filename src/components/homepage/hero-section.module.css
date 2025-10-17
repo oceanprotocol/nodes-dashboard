@@ -1,6 +1,7 @@
 .root {
   position: relative;
-  padding-top: 150px;
+  padding: 140px 0 120px;
+  overflow: hidden;
 }
 
 .title {
@@ -47,6 +48,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  gap: 40px;
 }
 
 .actions {
@@ -64,4 +66,80 @@
 
 .textBadge span {
   color: #009bff;
+}
+
+@media (max-width: 1200px) {
+  .title {
+    font-size: 72px;
+  }
+
+  .textBadge {
+    font-size: 60px;
+  }
+}
+
+@media (max-width: 992px) {
+  .root {
+    padding: 120px 0 90px;
+  }
+
+  .backgroundAnimation {
+    opacity: 0.4;
+  }
+
+  .title {
+    font-size: 64px;
+  }
+
+  .subTitle {
+    font-size: 22px;
+  }
+
+  .textBadge {
+    font-size: 52px;
+  }
+}
+
+@media (max-width: 768px) {
+  .root {
+    padding: 110px 0 80px;
+  }
+
+  .actionsAndTextWrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 30px;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .textBadge {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .backgroundAnimation {
+    display: none;
+  }
+
+  .title {
+    font-size: 48px;
+  }
+
+  .subTitle {
+    font-size: 18px;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .textBadge {
+    font-size: 42px;
+  }
 }

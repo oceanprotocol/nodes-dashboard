@@ -1,6 +1,6 @@
 .root {
   background-color: #040a12;
-  padding: 50px;
+  padding: 60px 50px;
 }
 
 .twoSections {
@@ -15,6 +15,18 @@
   flex-direction: column;
   gap: 40px;
   flex: 1;
+}
+
+.animation {
+  flex: 0 0 auto;
+  max-width: 480px;
+}
+
+.animation img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 32px;
 }
 
 .featureItem {
@@ -44,4 +56,58 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+@media (max-width: 1100px) {
+  .root {
+    padding: 50px 40px;
+  }
+
+  .twoSections {
+    gap: 32px;
+  }
+}
+
+@media (max-width: 900px) {
+  .twoSections {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .animation {
+    align-self: center;
+    max-width: 360px;
+  }
+}
+
+@media (max-width: 768px) {
+  .root {
+    padding: 40px 24px;
+  }
+
+  .featuresWrapper {
+    gap: 28px;
+  }
+
+  .featureItem {
+    gap: 12px;
+  }
+
+  .animation {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .root {
+    padding: 32px 18px;
+  }
+
+  .twoSections {
+    margin-top: 36px;
+  }
+
+  .indexNumber {
+    font-size: 16px;
+  }
 }

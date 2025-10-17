@@ -67,3 +67,46 @@
     animation: none;
   }
 }
+
+@media (max-width: 900px) {
+  .root {
+    margin: 90px 0 40px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+
+  .marquee {
+    --gap: 1.5rem;
+  }
+
+  .logoWrapper,
+  .logoImage {
+    width: 64px;
+    height: 64px;
+  }
+
+  .name {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .root {
+    margin: 70px 0 30px;
+  }
+
+  .marquee {
+    --gap: 1.25rem;
+    --duration: 24s;
+  }
+
+  .logoWrapper,
+  .logoImage {
+    width: 52px;
+    height: 52px;
+  }
+
+  .name {
+    font-size: 16px;
+  }
+}

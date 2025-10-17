@@ -1,6 +1,5 @@
 import Head from 'next/head';
 import { ReactNode } from 'react';
-import Footer from '../Footer';
 import Navigation from '../Navigation/navigation';
 import styles from './index.module.css';
 
@@ -20,7 +19,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <div className={styles.main}>
         <Navigation />
         {children}
-        <Footer />
       </div>
     </>
   );
