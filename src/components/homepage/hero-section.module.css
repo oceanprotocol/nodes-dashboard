@@ -1,6 +1,8 @@
 .root {
   position: relative;
-  padding: 140px 0 120px;
+  --nav-overlap: 120px;
+  margin-top: calc(var(--nav-overlap) * -1);
+  padding: calc(140px + var(--nav-overlap)) 0 120px;
   overflow: hidden;
 }
 
@@ -18,7 +20,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 0;
+  right: 15%;
   height: 100%;
 }
 
@@ -80,7 +82,8 @@
 
 @media (max-width: 992px) {
   .root {
-    padding: 120px 0 90px;
+    --nav-overlap: 100px;
+    padding: calc(110px + var(--nav-overlap)) 0 90px;
   }
 
   .backgroundAnimation {
@@ -102,7 +105,8 @@
 
 @media (max-width: 768px) {
   .root {
-    padding: 110px 0 80px;
+    --nav-overlap: 90px;
+    padding: calc(100px + var(--nav-overlap)) 0 80px;
   }
 
   .actionsAndTextWrapper {

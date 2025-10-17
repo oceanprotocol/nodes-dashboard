@@ -2,8 +2,10 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(12px);
-  background: linear-gradient(180deg, rgba(3, 7, 19, 0.85), rgba(3, 7, 19, 0.4));
+}
+
+.loginButton {
+  font-weight: 500;
 }
 
 .container {
