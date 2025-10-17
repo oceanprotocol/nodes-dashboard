@@ -1,3 +1,5 @@
+import { getRoutes } from '@/config';
+import Link from 'next/link';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
 import styles from './leaderboard.module.css';
@@ -43,6 +45,8 @@ const itemsList: LeaderboardItem[] = [
 ];
 
 export default function LeaderboardSection() {
+  const routes = getRoutes();
+
   return (
     <div className={styles.root}>
       <Container className={styles.relative}>
@@ -64,6 +68,11 @@ export default function LeaderboardSection() {
               ))}
             </div>
           ))}
+        </div>
+        <div className={styles.leaderboardFooter}>
+          <Link href={routes.leaderbord.path} className={styles.viewButton}>
+            View Full Leaderboard
+          </Link>
         </div>
       </Container>
     </div>

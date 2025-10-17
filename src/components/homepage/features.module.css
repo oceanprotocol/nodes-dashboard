@@ -1,6 +1,29 @@
 .root {
   background-color: #040a12;
   padding: 60px 50px;
+  position: relative;
+  overflow: hidden;
+}
+
+.root::before,
+.root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 70%;
+  opacity: 0.45;
+}
+
+.root::before {
+  background-image: url('/circuit-left.svg');
+  background-position: left 0;
+}
+
+.root::after {
+  background-image: url('/circuit-right.svg');
+  background-position: right 60%;
 }
 
 .featuresWrapper {

@@ -25,7 +25,7 @@
   position: absolute;
   inset: 0;
   background: url('/build-the-future.svg') no-repeat left center;
-  background-size: min(520px, 60%);
+  background-size: min(680px, 60%);
   pointer-events: none;
 }
 
@@ -33,7 +33,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.65) 50%, rgba(255, 255, 255, 0));
+  /* background: linear-gradient(115deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.65) 50%, rgba(255, 255, 255, 0)); */
   pointer-events: none;
 }
 
@@ -48,13 +48,15 @@
 }
 
 .title {
-  font-size: clamp(36px, 5vw, 60px);
-  line-height: 1.08;
+  font-family: var(--font-orbitron), sans-serif;
+  font-weight: 700;
+  font-style: normal;
+  font-size: clamp(42px, 5vw, 56px);
+  line-height: clamp(46px, 5.4vw, 60px);
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
   max-width: 780px;
   margin: 0;
-  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
-  text-transform: capitalize;
-  letter-spacing: 0.01em;
 }
 
 .docsButton {
@@ -64,11 +66,15 @@
   gap: 12px;
   padding: 18px 46px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #00a7ff, #007eff);
+  background: #009bff;
   color: #ffffff;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--font-orbitron), sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 22px;
+  letter-spacing: 0;
+  text-transform: capitalize;
+  vertical-align: middle;
   box-shadow: 0 18px 40px rgba(0, 114, 255, 0.35);
   transition:
     transform 0.2s ease,
