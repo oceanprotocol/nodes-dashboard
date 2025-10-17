@@ -174,8 +174,11 @@
   }
 
   .tableCell:nth-child(5) {
-    text-align: right;
-    justify-content: flex-end;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
   }
 }
 
@@ -195,5 +198,7 @@
 
   .viewButton {
     width: 100%;
+    text-align: center;
+    justify-content: center;
   }
 }
