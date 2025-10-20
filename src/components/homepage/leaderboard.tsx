@@ -70,7 +70,7 @@ export default function LeaderboardSection() {
           ))}
         </div>
         <div className={styles.leaderboardFooter}>
-          <Link href={routes.leaderbord.path} className={styles.viewButton}>
+          <Link href={routes.leaderboard.path} className={styles.viewButton}>
             View Full Leaderboard
           </Link>
         </div>

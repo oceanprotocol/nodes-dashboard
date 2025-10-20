@@ -43,7 +43,7 @@ export default function HowItWorksSection() {
               <div key={item.title} className={styles.featureItem}>
                 <div className={styles.indexNumber}>0{index + 1}</div>
                 <div className={styles.featureTextWrapper}>
-                  <h3 className={styles.featureTitle}>{item.title}</h3>
+                  <h4 className={styles.featureTitle}>{item.title}</h4>
                   <p className={styles.featureDescription}>{item.description}</p>
                 </div>
               </div>

@@ -12,6 +12,15 @@
 
   --background-black: #000000;
   --text-base-color: #e1e1e1;
+
+  --accent1: #009bff;
+  --accent2: #be00ff;
+  --backdrop-filter-glass: blur(10px);
+  --background-glass: #009bff29;
+  --border-glass: #009bff66;
+  --inner-shadow-glass:
+    inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa, inset -1px -1px 2px -1px #000000aa;
+  --text-white-muted: #ffffffb3;
 }
 
 * {
@@ -34,8 +43,16 @@ body {
 
 h1,
 h2,
-h3 {
+h4 {
   font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+}
+h4 {
+  font-size: 18px;
+}
+
+h3 {
+  font-size: 20px;
+  font-weight: 600;
 }
 
 a {

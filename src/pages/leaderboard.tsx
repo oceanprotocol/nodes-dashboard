@@ -1,7 +1,7 @@
-import LeaderboardPage from '@/components/Pages/Leaderboard'
+import LeaderboardPage from '@/components/leaderboard/leaderboard-page';
 
 const LeaderboardPageWrapper: React.FC = () => {
-  return <LeaderboardPage />
-}
+  return <LeaderboardPage />;
+};
 
-export default LeaderboardPageWrapper
+export default LeaderboardPageWrapper;

@@ -46,9 +46,9 @@ const config: Config = {
       path: '/docs',
       name: 'Docs',
     },
-    leaderbord: {
-      path: '/leaderbord',
-      name: 'Leaderbord',
+    leaderboard: {
+      path: '/leaderboard',
+      name: 'Leaderboard',
     },
     runNode: {
       path: '/run-node',

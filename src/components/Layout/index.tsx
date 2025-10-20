@@ -1,6 +1,8 @@
+import DocsCtaSection from '@/components/homepage/docs-cta-section';
+import FooterSection from '@/components/homepage/footer-section';
+import Navigation from '@/components/Navigation/navigation';
 import Head from 'next/head';
 import { ReactNode } from 'react';
-import Navigation from '../Navigation/navigation';
 import styles from './index.module.css';
 
 type RootLayoutProps = {
@@ -19,6 +21,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <div className={styles.main}>
         <Navigation />
         {children}
+        <DocsCtaSection />
+        <FooterSection />
       </div>
     </>
   );

@@ -74,7 +74,7 @@ export default function FeaturesSection() {
             <div key={item.title} className={cx(styles.featureItem, item.isBlue && styles.featureItemBlue)}>
               <div className={styles.iconWrapper}>{item.icon}</div>
               <div className={styles.featureTextWrapper}>
-                <h3 className={styles.featureTitle}>{item.title}</h3>
+                <h4 className={styles.featureTitle}>{item.title}</h4>
                 <p className={styles.featureDescription}>{item.description}</p>
               </div>
             </div>
