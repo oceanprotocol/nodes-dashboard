@@ -1,0 +1,249 @@
+.root {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.loginButton {
+  font-weight: 500;
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 0;
+}
+
+.logoWrapper {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.desktopNav {
+  display: flex;
+  gap: 10px;
+  font-size: 16px;
+  background: rgba(0, 155, 255, 0.1);
+  border: 1px solid rgba(0, 155, 255, 0.2);
+  padding: 16px 24px;
+  border-radius: 40px;
+  backdrop-filter: blur(10px);
+}
+
+.navLink {
+  padding: 8px 16px;
+  border-radius: 100px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.navLink:hover {
+  background-color: rgba(0, 153, 255, 0.3);
+}
+
+.active {
+  background-color: #be00ff;
+  color: #ffffff;
+}
+
+.sideActions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.actionIconLink {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(190, 0, 255, 0.12);
+  transition: background-color 0.2s ease;
+}
+
+.actionIconLink:hover {
+  background: rgba(190, 0, 255, 0.3);
+}
+
+.loginButton {
+  min-width: max-content;
+}
+
+.menuToggle {
+  display: none;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-direction: column;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.menuToggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: #ffffff;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.menuToggleOpen span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.menuToggleOpen span:nth-child(2) {
+  opacity: 0;
+}
+
+.menuToggleOpen span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+.mobileMenu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(360px, 100vw);
+  height: 100vh;
+  background: #030713;
+  padding: 30px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 95;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.4);
+  overflow-y: auto;
+}
+
+.mobileMenuOpen {
+  transform: translateX(0);
+}
+
+.mobileMenuHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.closeButton {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(190, 0, 255, 0.2);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 2px;
+  background: #ffffff;
+  transform-origin: center;
+}
+
+.closeButton span:first-child {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.closeButton span:last-child {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.mobileNavLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobileNavLink {
+  display: block;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 153, 255, 0.16);
+  background: rgba(0, 153, 255, 0.08);
+  text-transform: uppercase;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.mobileNavLink:hover {
+  background: rgba(190, 0, 255, 0.2);
+  border-color: rgba(190, 0, 255, 0.4);
+}
+
+.mobileActions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: auto;
+}
+
+.mobileActions .actionIconLink {
+  width: 44px;
+  height: 44px;
+}
+
+.mobileActions .loginButton {
+  width: 100%;
+  text-align: center;
+}
+
+.mobileBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
+  z-index: 90;
+}
+
+.mobileBackdropVisible {
+  visibility: visible;
+}
+
+@media (max-width: 1100px) {
+  .desktopNav {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 940px) {
+  .desktopNav,
+  .sideActions {
+    display: none;
+  }
+
+  .menuToggle {
+    display: inline-flex;
+  }
+}
