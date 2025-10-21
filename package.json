@@ -12,7 +12,13 @@
     "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.4",
+    "@mui/material": "^7.3.4",
+    "@mui/x-data-grid": "^8.14.1",
     "@tanstack/react-query": "^5.28.4",
+    "axios": "^1.12.2",
     "classnames": "^2.5.0",
     "next": "^15.2.4",
     "normalize.css": "^8.0.1",

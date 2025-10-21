@@ -1,5 +1,5 @@
 import RootLayout from '@/components/Layout';
-import { NodesProvider } from '@/context/nodes-context';
+import { LeaderboardProvider } from '@/context/leaderboard-context';
 import { StatsProvider } from '@/context/stats-context';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -35,13 +35,13 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
-        <NodesProvider>
+        <LeaderboardProvider>
           <StatsProvider>
             <RootLayout>
               <Component {...pageProps} />
             </RootLayout>
           </StatsProvider>
-        </NodesProvider>
+        </LeaderboardProvider>
       </QueryClientProvider>
     </main>
   );

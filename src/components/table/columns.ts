@@ -1,4 +1,6 @@
-export const nodeLeaderboardColumns /*: GridColDef[]*/ = [
+import { GridColDef } from '@mui/x-data-grid';
+
+export const nodesLeaderboardColumns: GridColDef[] = [
   {
     align: 'center',
     field: 'index', // TODO

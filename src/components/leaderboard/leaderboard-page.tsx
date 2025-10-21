@@ -2,6 +2,8 @@ import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import SectionTitle from '@/components/section-title/section-title';
 import JobsRevenueStats from '@/components/stats/jobs-revenue-stats';
+import { Table } from '@/components/table/table';
+import { TableTypeEnum } from '@/components/table/table-type';
 import styles from './leaderboard-page.module.css';
 
 const LeaderboardPage = () => {
@@ -11,7 +13,7 @@ const LeaderboardPage = () => {
       <div className={styles.content}>
         <JobsRevenueStats />
         <Card padding="md" radius="md" variant="glass-shaded">
-          Table
+          <Table tableType={TableTypeEnum.NODES_LEADERBOARD} />
         </Card>
       </div>
     </Container>
