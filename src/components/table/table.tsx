@@ -1,12 +1,12 @@
 import { nodesLeaderboardColumns } from '@/components/table/columns';
+import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
 import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { useTable } from '@/components/table/use-table';
 import styled from '@emotion/styled';
-import { DataGrid, GridValidRowModel, useGridApiRef } from '@mui/x-data-grid';
+import { DataGrid, GridFilterModel, GridSortModel, GridValidRowModel, useGridApiRef } from '@mui/x-data-grid';
 import { GridToolbarProps } from '@mui/x-data-grid/internals';
-import { JSXElementConstructor, useMemo } from 'react';
+import { JSXElementConstructor, useCallback, useMemo, useRef, useState } from 'react';
 
 const StyledRoot = styled('div')({
   display: 'flex',
@@ -78,7 +78,24 @@ const StyledDataGrid = styled(DataGrid)({
   },
 });
 
-type TableProps = {
+// type TableWithContext<T> = {
+//   source: 'context';
+//   context: TableContextType<T>;
+// };
+
+// type TableWithoutContext<T> = {
+//   source: 'props';
+//   currentPage?: number;
+//   data?: T[];
+//   loading?: boolean;
+//   pageSize?: number;
+//   totalItems?: number;
+//   tableType: TableTypeEnum;
+//   onPaginationChange?: (page: number, pageSize: number) => void;
+// };
+
+type TableProps<T> = {
+  context?: TableContextType<T>;
   currentPage?: number;
   data?: any[];
   loading?: boolean;
@@ -88,7 +105,10 @@ type TableProps = {
   onPaginationChange?: (page: number, pageSize: number) => void;
 };
 
-export const Table = ({
+// type TableProps = TableWithContext | TableWithoutContext;
+
+export const Table = <T,>({
+  context,
   currentPage: propCurrentPage,
   data: propsData,
   loading: propsLoading,
@@ -96,29 +116,19 @@ export const Table = ({
   totalItems: propTotalItems,
   tableType,
   onPaginationChange,
-}: TableProps) => {
-  const {
-    data: hookData,
-    loading: hookLoading,
-    currentPage: hookCurrentPage,
-    pageSize: hookPageSize,
-    totalItems: hookTotalItems,
-    searchTerm,
-    handlePaginationChange,
-    handleSortModelChange,
-    handleFilterModelChange,
-    handleSearchChange,
-    handleReset,
-  } = useTable(tableType);
-
+}: TableProps<T>) => {
   const apiRef = useGridApiRef();
 
-  const data = propsData || hookData;
-  const loading = propsLoading || hookLoading;
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const currentPage = propCurrentPage || hookCurrentPage;
-  const pageSize = propPageSize || hookPageSize;
-  const totalItems = propTotalItems || hookTotalItems;
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  const data = propsData ?? context?.data ?? [];
+  const loading = propsLoading ?? context?.loading;
+
+  const currentPage = propCurrentPage ?? context?.crtPage ?? 1;
+  const pageSize = propPageSize ?? context?.pageSize ?? 10;
+  const totalItems = propTotalItems ?? context?.totalItems ?? 0;
 
   const columns = useMemo(() => {
     switch (tableType) {
@@ -128,18 +138,75 @@ export const Table = ({
     }
   }, [tableType]);
 
-  const handlePaginationModelChange = (model: { page: number; pageSize: number }) => {
-    if (onPaginationChange) {
-      onPaginationChange(model.page + 1, model.pageSize);
-    } else {
-      handlePaginationChange(model);
+  const handlePaginationChange = useCallback(
+    (model: { page: number; pageSize: number }) => {
+      if (onPaginationChange) {
+        onPaginationChange(model.page, model.pageSize);
+      }
+      if (context) {
+        context.setCrtPage(model.page);
+        context.setPageSize(model.pageSize);
+      }
+    },
+    [context, onPaginationChange]
+  );
+
+  const handleSortModelChange = useCallback(
+    (model: GridSortModel) => {
+      if (context) {
+        if (model.length > 0) {
+          const { field, sort } = model[0];
+          const filterModel: GridFilterModel = {
+            items: [
+              {
+                id: 1,
+                field,
+                operator: 'sort',
+                value: sort,
+              },
+            ],
+          };
+          context.setFilterModel(filterModel);
+        }
+      }
+    },
+    [context]
+  );
+
+  const handleFilterModelChange = useCallback(
+    (model: GridFilterModel) => {
+      if (context) {
+        context.setFilterModel(model);
+      }
+    },
+    [context]
+  );
+
+  const handleSearchChange = useCallback(
+    (term: string) => {
+      setSearchTerm(term);
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+    },
+    [setSearchTerm]
+  );
+
+  const handleResetFilters = useCallback(() => {
+    if (context) {
+      setSearchTerm('');
+      const emptyFilter: GridFilterModel = { items: [] };
+      context.setFilterModel(emptyFilter);
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
     }
-  };
+  }, [context]);
 
   const customToolbarProps: Partial<CustomToolbarProps> = {
     searchTerm,
     onSearchChange: handleSearchChange,
-    onReset: handleReset,
+    onReset: handleResetFilters,
     tableType: tableType,
     apiRef: apiRef.current ?? undefined,
     // totalUptime: totalUptime,
@@ -149,21 +216,13 @@ export const Table = ({
     <StyledRoot>
       <StyledDataGridWrapper>
         <StyledDataGrid
-          rows={data || []}
+          apiRef={apiRef}
           columns={columns}
-          slots={{ toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps> }}
-          slotProps={{
-            toolbar: customToolbarProps,
-            loadingOverlay: {
-              variant: 'skeleton',
-              noRowsVariant: 'skeleton',
-            },
-            basePopper: {
-              style: {
-                color: '#000',
-              },
-            },
-          }}
+          disableColumnMenu
+          disableRowSelectionOnClick
+          filterMode="server"
+          getRowId={(row) => row.id}
+          hideFooter
           initialState={{
             columns: {
               columnVisibilityModel:
@@ -184,33 +243,25 @@ export const Table = ({
                     }
                   : {},
             },
+            density: 'comfortable',
             pagination: {
               paginationModel: {
                 pageSize: pageSize,
                 page: currentPage - 1,
               },
             },
-            density: 'comfortable',
           }}
-          pagination
-          disableColumnMenu
+          loading={loading ?? context?.loading}
+          onFilterModelChange={handleFilterModelChange}
+          onPaginationModelChange={handlePaginationChange}
+          onSortModelChange={handleSortModelChange}
           pageSizeOptions={[10, 25, 50, 100]}
+          pagination
+          paginationMode="server"
           paginationModel={{
             page: currentPage - 1,
             pageSize: pageSize,
           }}
-          showToolbar
-          onPaginationModelChange={handlePaginationModelChange}
-          loading={loading}
-          disableRowSelectionOnClick
-          getRowId={(row) => row.id}
-          paginationMode="server"
-          sortingMode="server"
-          filterMode="server"
-          onSortModelChange={handleSortModelChange}
-          onFilterModelChange={handleFilterModelChange}
-          rowCount={totalItems}
-          hideFooter
           processRowUpdate={(newRow: GridValidRowModel, oldRow: GridValidRowModel): GridValidRowModel => {
             const processCell = (value: unknown) => {
               if (typeof value === 'object' && value !== null) {
@@ -226,28 +277,35 @@ export const Table = ({
               }
               return value;
             };
-
             return Object.fromEntries(
               Object.entries(newRow).map(([key, value]) => [key, processCell(value)])
             ) as GridValidRowModel;
           }}
-          apiRef={apiRef}
+          rowCount={totalItems}
+          rows={data}
+          showToolbar
+          slots={{ toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps> }}
+          slotProps={{
+            basePopper: {
+              style: {
+                color: '#000000',
+              },
+            },
+            loadingOverlay: {
+              variant: 'skeleton',
+              noRowsVariant: 'skeleton',
+            },
+            toolbar: customToolbarProps,
+          }}
+          sortingMode="server"
         />
       </StyledDataGridWrapper>
       <CustomPagination
         page={currentPage}
         pageSize={pageSize}
         totalItems={totalItems}
-        onPageChange={
-          onPaginationChange
-            ? (page: number) => onPaginationChange(page, pageSize)
-            : (page: number) => handlePaginationChange({ page: page - 1, pageSize })
-        }
-        onPageSizeChange={
-          onPaginationChange
-            ? (size: number) => onPaginationChange(currentPage, size)
-            : (size: number) => handlePaginationChange({ page: currentPage - 1, pageSize: size })
-        }
+        onPageChange={(page: number) => handlePaginationChange({ page, pageSize })}
+        onPageSizeChange={(pageSize: number) => handlePaginationChange({ page: currentPage, pageSize })}
       />
     </StyledRoot>
   );

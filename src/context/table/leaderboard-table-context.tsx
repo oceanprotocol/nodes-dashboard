@@ -1,46 +1,28 @@
+import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
 import { MOCK_NODES } from '@/mock/nodes';
 import { FilterOperator, NodeFilters } from '@/types/filters';
 import { Node } from '@/types/nodes';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-type LeaderboardContextType = {
-  crtPage: number;
-  data: Node[];
-  error: any;
-  filterModel: GridFilterModel;
-  filters: Record<string, any>;
-  loading: boolean;
-  pageSize: number;
-  searchTerm: string;
-  sortModel: Record<string, 'asc' | 'desc'>;
-  totalItems: number;
-  fetchData: () => Promise<void>;
-  setCrtPage: (page: LeaderboardContextType['crtPage']) => void;
-  setFilterModel: (filter: LeaderboardContextType['filterModel']) => void;
-  setFilters: (filters: LeaderboardContextType['filters']) => void;
-  setPageSize: (size: LeaderboardContextType['pageSize']) => void;
-  setSearchTerm: (term: string) => void;
-  setSortModel: (model: LeaderboardContextType['sortModel']) => void;
-};
+type CtxType = TableContextType<Node>;
 
-export const LeaderboardContext = createContext<LeaderboardContextType | undefined>(undefined);
+const LeaderboardTableContext = createContext<CtxType | undefined>(undefined);
 
-export const LeaderboardProvider = ({ children }: { children: ReactNode }) => {
-  // TODO - check if nextSearchAfter  needed/used;
-  const [crtPage, setCrtPage] = useState<LeaderboardContextType['crtPage']>(1);
-  const [data, setData] = useState<LeaderboardContextType['data']>([]);
-  const [error, setError] = useState<LeaderboardContextType['error']>(null);
-  const [filterModel, setFilterModel] = useState<LeaderboardContextType['filterModel']>({ items: [] });
-  const [filters, setFilters] = useState<LeaderboardContextType['filters']>({});
-  const [loading, setLoading] = useState<LeaderboardContextType['loading']>(false);
-  const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null);
-  const [pageSize, setPageSize] = useState<LeaderboardContextType['pageSize']>(100);
-  const [searchTerm, setSearchTerm] = useState<LeaderboardContextType['searchTerm']>('');
+export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) => {
+  const [crtPage, setCrtPage] = useState<CtxType['crtPage']>(1);
+  const [data, setData] = useState<CtxType['data']>([]);
+  const [error, setError] = useState<CtxType['error']>(null);
+  const [filterModel, setFilterModel] = useState<CtxType['filterModel']>({ items: [] });
+  const [filters, setFilters] = useState<CtxType['filters']>({});
+  const [loading, setLoading] = useState<CtxType['loading']>(false);
+  // const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null);
+  const [pageSize, setPageSize] = useState<CtxType['pageSize']>(100);
+  const [searchTerm, setSearchTerm] = useState<CtxType['searchTerm']>('');
   const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({});
-  const [totalItems, setTotalItems] = useState<LeaderboardContextType['totalItems']>(0);
+  const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
 
   const sortParams = useMemo(() => {
     return Object.entries(sortModel)
@@ -104,7 +86,7 @@ export const LeaderboardProvider = ({ children }: { children: ReactNode }) => {
       }));
       setData(dataWithMockFields);
       setTotalItems(response.data.pagination.totalItems);
-      setNextSearchAfter(response.data.pagination.nextSearchAfter);
+      // setNextSearchAfter(response.data.pagination.nextSearchAfter);
     } catch (error) {
       setError(error);
     } finally {
@@ -160,40 +142,36 @@ export const LeaderboardProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [fetchData]);
 
-  const handleSetCrtPage: LeaderboardContextType['setCrtPage'] = (page) => {
-    setCrtPage(page);
-  };
-
-  const handleSetFilterModel: LeaderboardContextType['setFilterModel'] = (filter) => {
+  const handleSetFilterModel: CtxType['setFilterModel'] = (filter) => {
     setFilterModel(filter);
     setCrtPage(1);
   };
 
-  const handleSetFilters: LeaderboardContextType['setFilters'] = (newFilters: { [key: string]: any }) => {
+  const handleSetFilters: CtxType['setFilters'] = (newFilters: { [key: string]: any }) => {
     setFilters(newFilters);
     setCrtPage(1);
   };
 
-  const handleSetPageSize: LeaderboardContextType['setPageSize'] = (size) => {
+  const handleSetPageSize: CtxType['setPageSize'] = (size) => {
     setPageSize(size);
     setData([]);
-    setNextSearchAfter(null);
+    // setNextSearchAfter(null);
   };
 
-  const handleSetSearchTerm: LeaderboardContextType['setSearchTerm'] = (term) => {
+  const handleSetSearchTerm: CtxType['setSearchTerm'] = (term) => {
     setSearchTerm(term);
     setCrtPage(1);
-    setNextSearchAfter(null);
+    // setNextSearchAfter(null);
   };
 
-  const handleSetSortModel: LeaderboardContextType['setSortModel'] = (model) => {
+  const handleSetSortModel: CtxType['setSortModel'] = (model) => {
     setSortModel(model);
     setCrtPage(1);
-    setNextSearchAfter(null);
+    // setNextSearchAfter(null);
   };
 
   return (
-    <LeaderboardContext.Provider
+    <LeaderboardTableContext.Provider
       value={{
         crtPage,
         data,
@@ -206,7 +184,7 @@ export const LeaderboardProvider = ({ children }: { children: ReactNode }) => {
         searchTerm,
         sortModel,
         totalItems,
-        setCrtPage: handleSetCrtPage,
+        setCrtPage,
         setFilterModel: handleSetFilterModel,
         setFilters: handleSetFilters,
         setPageSize: handleSetPageSize,
@@ -215,14 +193,14 @@ export const LeaderboardProvider = ({ children }: { children: ReactNode }) => {
       }}
     >
       {children}
-    </LeaderboardContext.Provider>
+    </LeaderboardTableContext.Provider>
   );
 };
 
-export const useLeaderboardContext = () => {
-  const context = useContext(LeaderboardContext);
+export const useLeaderboardTableContext = () => {
+  const context = useContext(LeaderboardTableContext);
   if (!context) {
-    throw new Error('useLeaderboardContext must be used within a LeaderboardProvider');
+    throw new Error('useLeaderboardTableContext must be used within a LeaderboardTableProvider');
   }
   return context;
 };
