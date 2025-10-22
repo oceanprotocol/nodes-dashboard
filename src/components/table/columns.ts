@@ -1,6 +1,7 @@
+import { Node } from '@/types/nodes';
 import { GridColDef } from '@mui/x-data-grid';
 
-export const nodesLeaderboardColumns: GridColDef[] = [
+export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   {
     align: 'center',
     field: 'index', // TODO
@@ -14,21 +15,21 @@ export const nodesLeaderboardColumns: GridColDef[] = [
     filterable: false,
     flex: 1,
     headerName: 'Name',
-    sortable: false,
+    sortable: true,
   },
   {
     field: 'region', // TODO
     filterable: false,
     flex: 1,
     headerName: 'Region',
-    sortable: false,
+    sortable: true,
   },
   {
     field: 'eligible', // TODO
     filterable: false,
     flex: 1,
     headerName: 'Reward eligibility',
-    sortable: false,
+    sortable: true,
     // renderCell: (params: GridRenderCellParams<NodeData>) => (
     //   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
     //     {getEligibleCheckbox(params.row.eligible)}
@@ -41,21 +42,24 @@ export const nodesLeaderboardColumns: GridColDef[] = [
     filterable: false,
     flex: 1,
     headerName: 'GPU Score',
-    sortable: false,
+    sortable: true,
+    valueGetter: (_value, row) => row.latestBenchmarkResults.gpuScore,
   },
   {
     field: 'latestBenchmarkResults.cpuScore', // TODO
     filterable: false,
     flex: 1,
     headerName: 'CPU Score',
-    sortable: false,
+    sortable: true,
+    valueGetter: (_value, row) => row.latestBenchmarkResults.cpuScore,
   },
   {
     field: 'latestBenchmarkResults.bandwidth', // TODO
     filterable: false,
     flex: 1,
     headerName: 'Bandwidth',
-    sortable: false,
+    sortable: true,
+    valueGetter: (_value, row) => row.latestBenchmarkResults.bandwidth,
   },
   {
     field: 'gpus', // TODO
@@ -63,5 +67,6 @@ export const nodesLeaderboardColumns: GridColDef[] = [
     flex: 1,
     headerName: 'GPUs',
     sortable: false,
+    renderCell: (params) => params.value.join(', '),
   },
 ];

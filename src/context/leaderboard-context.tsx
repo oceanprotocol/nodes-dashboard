@@ -1,4 +1,5 @@
 import { getApiRoute } from '@/config';
+import { MOCK_NODES } from '@/mock/nodes';
 import { FilterOperator, NodeFilters } from '@/types/filters';
 import { Node } from '@/types/nodes';
 import { GridFilterModel } from '@mui/x-data-grid';
@@ -96,7 +97,12 @@ export const LeaderboardProvider = ({ children }: { children: ReactNode }) => {
         ...element._source,
         index: (crtPage - 1) * pageSize + index + 1,
       }));
-      setData(sanitizedData);
+      // TODO - remove mock data addition
+      const dataWithMockFields = sanitizedData.map((node: Node, index: number) => ({
+        ...MOCK_NODES[index % MOCK_NODES.length],
+        ...node,
+      }));
+      setData(dataWithMockFields);
       setTotalItems(response.data.pagination.totalItems);
       setNextSearchAfter(response.data.pagination.nextSearchAfter);
     } catch (error) {

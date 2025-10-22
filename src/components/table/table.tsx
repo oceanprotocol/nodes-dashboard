@@ -39,6 +39,7 @@ const StyledDataGrid = styled(DataGrid)({
       '& .MuiDataGrid-columnHeaderTitle': {
         fontSize: 14,
         fontWeight: 600,
+        whiteSpace: 'normal',
       },
 
       '& .MuiDataGrid-columnSeparator': {
