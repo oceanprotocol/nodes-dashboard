@@ -21,7 +21,7 @@ const VBarChart = ({ axisKey, barKey, data }: VBarChartProps) => {
       <ResponsiveContainer width="100%" height="100%">
         <RechartsBarChart barSize={8} data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
           <XAxis dataKey={axisKey} hide />
-          <Bar fill="#009bff" dataKey={barKey} />
+          <Bar fill="var(--accent1)" dataKey={barKey} />
           <RechartsTooltip content={<CustomRechartsTooltipComponent />} cursor={false} />
         </RechartsBarChart>
       </ResponsiveContainer>
