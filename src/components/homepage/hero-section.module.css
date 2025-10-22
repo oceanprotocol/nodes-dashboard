@@ -16,7 +16,7 @@
   color: #009bff;
 }
 
-.backgroundAnimation {
+/* .backgroundAnimation {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -27,7 +27,7 @@
 .backgorundImage {
   width: auto;
   max-height: 100%;
-}
+} */
 
 .relative {
   position: relative;
@@ -86,9 +86,9 @@
     padding: calc(110px + var(--nav-overlap)) 0 90px;
   }
 
-  .backgroundAnimation {
+  /* .backgroundAnimation {
     opacity: 0.4;
-  }
+  } */
 
   .title {
     font-size: 64px;
@@ -125,9 +125,9 @@
 }
 
 @media (max-width: 640px) {
-  .backgroundAnimation {
+  /* .backgroundAnimation {
     display: none;
-  }
+  } */
 
   .title {
     font-size: 48px;

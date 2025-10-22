@@ -18,6 +18,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={styles.main}>
+        <div className={styles.backgroundAnimation}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img alt="Background animation" src={'/banner-video.jpg'} className={styles.backgorundImage} />
+        </div>
         <Navigation />
         {children}
         <FooterSection />
