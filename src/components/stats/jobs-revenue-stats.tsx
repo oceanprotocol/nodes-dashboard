@@ -1,5 +1,5 @@
 import Card from '@/components/card/card';
-import VBarChart from '@/components/chart/vbar-chart';
+import VBarChart from '@/components/chart/v-bar-chart';
 import { useStatsContext } from '@/context/stats-context';
 import { formatNumber } from '@/utils/formatters';
 import styles from './jobs-revenue-stats.module.css';
