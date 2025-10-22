@@ -9,6 +9,7 @@
   bottom: 0;
   right: 15%;
   height: 100%;
+  z-index: -1;
 
   .backgorundImage {
     width: auto;
