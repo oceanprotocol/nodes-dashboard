@@ -1,13 +1,13 @@
 import { useCustomTooltip } from '@/components/chart/use-custom-tooltip';
 import { Bar, BarChart as RechartsBarChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis } from 'recharts';
 
-type ChartProps = {
+type VBarChartProps = {
   axisKey: string;
   barKey: string;
   data: any[];
 };
 
-const BarChart = ({ axisKey, barKey, data }: ChartProps) => {
+const VBarChart = ({ axisKey, barKey, data }: VBarChartProps) => {
   const { handleMouseMove, handleMouseLeave, CustomRechartsTooltipComponent, renderTooltipPortal } = useCustomTooltip({
     cardTitle: 'title',
   });
@@ -30,4 +30,4 @@ const BarChart = ({ axisKey, barKey, data }: ChartProps) => {
   );
 };
 
-export default BarChart;
+export default VBarChart;

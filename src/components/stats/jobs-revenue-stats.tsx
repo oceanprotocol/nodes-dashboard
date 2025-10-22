@@ -1,5 +1,5 @@
 import Card from '@/components/card/card';
-import BarChart from '@/components/chart/bar-chart';
+import VBarChart from '@/components/chart/vbar-chart';
 import { useStatsContext } from '@/context/stats-context';
 import { formatNumber } from '@/utils/formatters';
 import styles from './jobs-revenue-stats.module.css';
@@ -18,11 +18,11 @@ const JobsRevenueStats = () => {
       </div>
       <div className={styles.chartWrapper}>
         <h3 className={styles.heading}>Revenue per epoch</h3>
-        <BarChart axisKey="epoch" barKey="revenue" data={revenuePerEpoch} />
+        <VBarChart axisKey="epoch" barKey="revenue" data={revenuePerEpoch} />
       </div>
       <div className={styles.chartWrapper}>
         <h3 className={styles.heading}>Jobs per epoch</h3>
-        <BarChart axisKey="epoch" barKey="jobs" data={jobsPerEpoch} />
+        <VBarChart axisKey="epoch" barKey="jobs" data={jobsPerEpoch} />
         <div className={styles.totalJobs}>
           <div className={styles.label}>Total jobs</div>
           <div className={styles.amount}>{formatNumber(totalJobs)}</div>
