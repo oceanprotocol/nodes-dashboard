@@ -18,6 +18,7 @@ const StyledRoot = styled('div')({
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
+  marginBottom: 16,
 });
 
 const StyledButtonsWrapper = styled('div')({

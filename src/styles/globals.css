@@ -15,10 +15,10 @@
   --backdrop-filter-glass: blur(10px);
   --background-black: #000000;
   --background-glass: #009bff29;
-  --background-glass-opaque: #021929;
+  --background-glass-opaque: #05263d;
   --border-glass: #009bff66;
-  --inner-shadow-glass:
-    inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa, inset -1px -1px 2px -1px #000000aa;
+  --inner-shadow-glass: inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa,
+    inset -1px -1px 2px -1px #000000aa;
   --text-primary: #e1e1e1;
   --text-secondary: #e1e1e1aa;
 }
