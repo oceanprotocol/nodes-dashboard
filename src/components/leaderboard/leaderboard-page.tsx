@@ -16,7 +16,12 @@ const LeaderboardPage = () => {
       <div className={styles.content}>
         <JobsRevenueStats />
         <Card padding="md" radius="md" variant="glass-shaded">
-          <Table<Node> context={leaderboardTableContext} tableType={TableTypeEnum.NODES_LEADERBOARD} />
+          <Table<Node>
+            context={leaderboardTableContext}
+            paginationType="context"
+            showToolbar
+            tableType={TableTypeEnum.NODES_LEADERBOARD}
+          />
         </Card>
       </div>
     </Container>
