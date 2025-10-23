@@ -1,9 +1,18 @@
+import { ChartTypeEnum } from '@/components/chart/chart-type';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 
-interface UseCustomTooltipProps {
-  // cardTitle: string;
-}
+type TooltipInfo = {
+  show: boolean;
+  x: number;
+  y: number;
+  data: any;
+};
+
+type UseCustomTooltipProps = {
+  chartType?: ChartTypeEnum;
+  labelKey: string;
+};
 
 const RechartsTooltipContent = ({ active, payload, label, cardIdRef, setTooltipInfo, mousePositionRef }: any) => {
   const prevActiveRef = useRef(active);
@@ -48,13 +57,8 @@ const RechartsTooltipContent = ({ active, payload, label, cardIdRef, setTooltipI
   return null;
 };
 
-export const useCustomTooltip = ({} /*cardTitle*/ : UseCustomTooltipProps) => {
-  const [tooltipInfo, setTooltipInfo] = useState<{
-    show: boolean;
-    x: number;
-    y: number;
-    data: any;
-  }>({
+export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps) => {
+  const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo>({
     show: false,
     x: 0,
     y: 0,
@@ -90,42 +94,66 @@ export const useCustomTooltip = ({} /*cardTitle*/ : UseCustomTooltipProps) => {
   const renderTooltipPortal = useCallback(() => {
     if (!tooltipInfo.show || !tooltipInfo.data) return null;
 
-    const data = tooltipInfo.data.payload;
+    const payload = tooltipInfo.data.payload;
     const value = tooltipInfo.data.value;
+    const label = payload[labelKey];
+
     let tooltipContent: React.ReactNode;
 
-    // if (cardTitle === 'Rewards History') {
-    //   tooltipContent = (
-    //     <React.Fragment>
-    //       <div style={{ color: '#9F8FA6' }}>Step: {Number(data.weeklyAmount || 0).toLocaleString()} ROSE</div>
-    //       <div style={{ color: '#CF1FB1' }}>Total: {Number(value).toLocaleString()} ROSE</div>
-    //     </React.Fragment>
-    //   );
-    // } else if (cardTitle === 'Average Incentive') {
-    //   tooltipContent = (
-    //     <React.Fragment>
-    //       <div style={{ color: '#9F8FA6' }}>Total Rewards: {Number(data.totalRewards || 0).toLocaleString()} ROSE</div>
-    //       <div style={{ color: '#CF1FB1' }}>Total Eligible Nodes: {Number(data.totalNodes || 0).toLocaleString()}</div>
-    //       <div style={{ color: '#CF1FB1' }}>Average: {Number(value).toLocaleString()} ROSE/node</div>
-    //     </React.Fragment>
-    //   );
-    // } else if (cardTitle === 'Eligible Nodes per Epoch') {
-    //   tooltipContent = (
-    //     <React.Fragment>
-    //       <div style={{ color: '#9F8FA6' }}>Epoch: {data.date}</div>
-    //       <div style={{ color: '#CF1FB1' }}>
-    //         Total Eligible Nodes: {Number(data?.foreground?.value || 0).toLocaleString()}
-    //       </div>
-    //       {typeof data.totalAmount === 'number' && (
-    //         <div style={{ color: '#CF1FB1' }}>Rewards (ROSE): {Number(data.totalAmount).toLocaleString()}</div>
-    //       )}
-    //     </React.Fragment>
-    //   );
-    // } else if (cardTitle === 'Total Rewards') {
-    //   tooltipContent = <div style={{ color: '#CF1FB1' }}>Total Rewards: {Number(value).toLocaleString()} ROSE</div>;
-    // } else {
-    tooltipContent = <div style={{ color: 'var(--text-primary)' }}>Value: {Number(value).toLocaleString()}</div>;
-    // }
+    console.log(chartType);
+
+    switch (chartType) {
+      case ChartTypeEnum.CPU_ARCH_DISTRIBUTION:
+      case ChartTypeEnum.CPU_CORES_DISTRIBUTION:
+      case ChartTypeEnum.OS_DISTRIBUTION: {
+        tooltipContent = (
+          <div>
+            <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>{label}</p>
+            <p style={{ margin: '0 0 8px 0' }}>Total: {value} nodes</p>
+            {payload.details && (
+              <div
+                style={{
+                  fontSize: '12px',
+                  height: '150px',
+                  overflowY: 'auto',
+                  borderTop: '1px solid var(--border-glass)',
+                  paddingTop: '8px',
+                  pointerEvents: 'auto',
+                }}
+              >
+                {Array.isArray(payload.details)
+                  ? payload.details.map((detail: string, index: number) => (
+                      <div key={index}>
+                        <p style={{ margin: '2px 0' }}>{detail}</p>
+                      </div>
+                    ))
+                  : null}
+              </div>
+            )}
+          </div>
+        );
+        break;
+      }
+      case ChartTypeEnum.JOBS_PER_EPOCH: {
+        tooltipContent = (
+          <div>
+            Epoch {label}: {Number(value).toLocaleString()} jobs
+          </div>
+        );
+        break;
+      }
+      case ChartTypeEnum.REVENUE_PER_EPOCH: {
+        tooltipContent = (
+          <div>
+            Epoch {label}: OCEAN {Number(value).toLocaleString()}
+          </div>
+        );
+        break;
+      }
+      default: {
+        tooltipContent = <div>Value: {Number(value).toLocaleString()}</div>;
+      }
+    }
 
     return ReactDOM.createPortal(
       <div
@@ -133,10 +161,11 @@ export const useCustomTooltip = ({} /*cardTitle*/ : UseCustomTooltipProps) => {
           position: 'fixed',
           top: tooltipInfo.y + 10,
           left: tooltipInfo.x + 10,
-          backgroundColor: 'var(--background-glass-opaque)',
-          border: '1px solid var(--border-glass)',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'var(--backdrop-filter-glass)',
+          boxShadow: 'var(--inner-shadow-glass)',
           borderRadius: '8px',
-          // boxShadow: '0 4px 20px rgba(207, 31, 177, 0.3)',
+          color: 'var(--text-primary)',
           padding: '8px 16px',
           zIndex: 9999999,
           pointerEvents: 'none',

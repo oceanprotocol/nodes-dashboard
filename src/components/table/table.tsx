@@ -147,7 +147,8 @@ export const Table = <T,>({
   const columns = useMemo(() => {
     switch (tableType) {
       case TableTypeEnum.NODES_LEADERBOARD:
-      case TableTypeEnum.NODES_TOP: {
+      case TableTypeEnum.NODES_TOP_JOBS:
+      case TableTypeEnum.NODES_TOP_REVENUE: {
         return nodesLeaderboardColumns;
       }
     }
