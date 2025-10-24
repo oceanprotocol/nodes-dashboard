@@ -22,13 +22,11 @@ export default function HomePage() {
   const { walletProvider } = useAppKitProvider<Provider>('eip155');
 
   const provider = useMemo(() => {
-    console.log({ walletProvider, chainId });
     if (!walletProvider || !chainId) return null;
     return new BrowserProvider(walletProvider, chainId);
   }, [walletProvider, chainId]);
 
   const ocean = useMemo(() => {
-    console.log({ provider, chainId });
     if (!provider || !chainId) return null;
     return new OceanProvider(Number(chainId), provider);
   }, [provider, chainId]);

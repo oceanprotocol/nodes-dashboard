@@ -1,4 +1,4 @@
-import { ComputeEnvFees, ComputeEnvironment, ComputeResourceRequest, ProviderInstance } from '@oceanprotocol/lib';
+import { ComputeEnvFees, ComputeEnvironment, ProviderInstance } from '@oceanprotocol/lib';
 
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
@@ -204,62 +204,5 @@ export class OceanProvider {
     this.saveJWTToStorage(token, address, nodeUrl);
 
     return token;
-  }
-
-  async initializeCompute(
-    environment: ComputeEnvironment,
-    tokenAddress: string,
-    validUntil: number,
-    nodeUrl: string,
-    address: string,
-    resources: ComputeResourceRequest[]
-  ): Promise<any> {
-    const endpoint = await this.getEndpointByName(nodeUrl, 'initializeCompute');
-    const response = await axios.post(endpoint, {
-      datasets: [],
-      algorithm: { meta: { rawcode: 'rawcode' } },
-      environment: environment.id,
-      payment: {
-        chainId: this.chainId,
-        token: tokenAddress,
-        resources,
-      },
-      maxJobDuration: validUntil,
-      consumerAddress: address,
-      signature: '',
-    });
-
-    const cost = response.data.payment.amount;
-    const denominatedCost = this.denominateNumber(cost, 18);
-
-    return denominatedCost;
-  }
-
-  async updateConfiguration(
-    authToken: string,
-    address: string,
-    nodeUrl: string,
-    isFreeCompute: boolean,
-    environmentId: string,
-    feeToken: string,
-    jobDuration: number,
-    resources: ComputeResourceRequest[],
-    ide: string
-  ) {
-    const extensionUrl = `${ide}://oceanprotocol.ocean-protocol-vscode-extension/updateConfiguration`;
-    const url = new URL(extensionUrl);
-    url.searchParams.set('authToken', authToken);
-    url.searchParams.set('nodeUrl', nodeUrl);
-    url.searchParams.set('isFreeCompute', isFreeCompute.toString());
-    url.searchParams.set('environmentId', environmentId);
-    url.searchParams.set('feeToken', feeToken);
-    url.searchParams.set('jobDuration', jobDuration.toString());
-    url.searchParams.set('resources', JSON.stringify(resources));
-    url.searchParams.set('address', address);
-    url.searchParams.set('chainId', this.chainId.toString());
-
-    if (typeof window !== 'undefined') {
-      window.open(url.toString(), '_self');
-    }
   }
 }
