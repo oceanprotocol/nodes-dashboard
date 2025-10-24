@@ -62,12 +62,16 @@ export class OceanProvider {
   async getNodeBalance(nodeUrl: string) {
     const environments = await this.getEnvironmentsByNode(nodeUrl);
 
-    const res = new Map<string, string>();
+    const res = new Map<string, Map<string, string>>();
     for (const env of environments) {
       const fees = this.getFeesByChainId(this.chainId, env);
-      const balance = await this.getBalance(fees[0].feeToken, env.consumerAddress);
+      const balances = new Map<string, string>()
+      for (const fee of fees) {
+          const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
+          balances.set(fee.feeToken, balance)
+      }
 
-      res.set(env.id, balance);
+      res.set(env.id, balances);
     }
 
     return res;
