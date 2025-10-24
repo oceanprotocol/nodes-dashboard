@@ -19,6 +19,7 @@ const NavBar = () => {
           Join us as an <strong>Alpha GPU Node Tester</strong> and help build the
           decentralized GPU network of tomorrow.{' '}
           <a
+            className={styles.link}
             href="https://github.com/oceanprotocol/community-initiatives/blob/main/alfa-testers/README.md"
             target="_blank"
           >
