@@ -37,7 +37,7 @@ const NodesDashboard = () => {
   return (
     <div className={styles.dashboard}>
       <Card
-        title="Total Nodes"
+        title="Phase 1 Participant Nodes"
         bigNumber={totalNodes ?? 0}
         isLoading={overallDashboardLoading}
       />
