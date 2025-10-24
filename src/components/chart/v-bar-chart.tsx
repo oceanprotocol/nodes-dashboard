@@ -1,15 +1,18 @@
+import { ChartTypeEnum } from '@/components/chart/chart-type';
 import { useCustomTooltip } from '@/components/chart/use-custom-tooltip';
 import { Bar, BarChart as RechartsBarChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis } from 'recharts';
 
 type VBarChartProps = {
   axisKey: string;
   barKey: string;
+  chartType?: ChartTypeEnum;
   data: any[];
 };
 
-const VBarChart = ({ axisKey, barKey, data }: VBarChartProps) => {
+const VBarChart = ({ axisKey, barKey, chartType, data }: VBarChartProps) => {
   const { handleMouseMove, handleMouseLeave, CustomRechartsTooltipComponent, renderTooltipPortal } = useCustomTooltip({
-    cardTitle: 'title',
+    chartType,
+    labelKey: axisKey,
   });
 
   return (
