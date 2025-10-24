@@ -1,3 +1,26 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.banner {
+  background: #fff;
+  border-radius: 20px;
+  padding: 16px 32px;
+
+  .heading {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  a {
+    color: #cf1fb1;
+    text-decoration: underline;
+  }
+}
+
 .navbarParent {
   top: 40px;
   z-index: 1000;
@@ -19,7 +42,6 @@
 .logoWrapper {
   flex-shrink: 0;
 }
-
 
 .connectButtonWrapper {
   flex-shrink: 0;
