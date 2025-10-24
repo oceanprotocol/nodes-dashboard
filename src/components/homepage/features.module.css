@@ -1,0 +1,117 @@
+.root {
+  background-color: #040a12;
+  padding: 60px 50px;
+  position: relative;
+  overflow: hidden;
+}
+
+.root::before,
+.root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 70%;
+  opacity: 0.45;
+}
+
+.root::before {
+  background-image: url('/circuit-left.svg');
+  background-position: left 0;
+}
+
+.root::after {
+  background-image: url('/circuit-right.svg');
+  background-position: right 60%;
+}
+
+.featuresWrapper {
+  margin-top: 50px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.featureItem {
+  box-sizing: border-box;
+  background-color: rgba(0, 153, 255, 0.16);
+  padding: 24px;
+  border-radius: 40px;
+  border: 1px solid rgba(0, 153, 255, 0.16);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.featureItemBlue {
+  background-color: #009bff;
+  border-color: #009bff;
+}
+
+.featuresWrapper > *:nth-child(4n + 1) {
+  flex: 0 0 calc(66% - 20px);
+}
+
+.featuresWrapper > *:nth-child(4n + 2),
+.featuresWrapper > *:nth-child(4n + 3) {
+  flex: 0 0 calc(34% - 20px);
+}
+
+.featuresWrapper > *:nth-child(4n + 4) {
+  flex: 0 0 calc(66% - 20px);
+}
+
+.featureTextWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .root {
+    padding: 50px 40px;
+  }
+
+  .featuresWrapper > *:nth-child(4n + 1),
+  .featuresWrapper > *:nth-child(4n + 2),
+  .featuresWrapper > *:nth-child(4n + 3),
+  .featuresWrapper > *:nth-child(4n + 4) {
+    flex: 1 1 calc(50% - 20px);
+  }
+}
+
+@media (max-width: 768px) {
+  .root {
+    padding: 40px 24px;
+  }
+
+  .featureItem {
+    border-radius: 28px;
+  }
+
+  .featuresWrapper {
+    gap: 16px;
+  }
+
+  .featuresWrapper > *:nth-child(4n + 1),
+  .featuresWrapper > *:nth-child(4n + 2),
+  .featuresWrapper > *:nth-child(4n + 3),
+  .featuresWrapper > *:nth-child(4n + 4) {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .root {
+    padding: 32px 18px;
+  }
+
+  .featureItem {
+    padding: 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}

@@ -1,0 +1,13 @@
+.root {
+  border: none;
+  background-color: white;
+  color: black;
+  padding: 8px 16px;
+  border-radius: 100px;
+  cursor: pointer;
+}
+
+.primary {
+  background-color: #be00ff;
+  color: white;
+}
