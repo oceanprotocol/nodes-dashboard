@@ -92,8 +92,6 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
   totalUptime,
 }) => {
   const handleExport = () => {
-    console.log('Export clicked');
-    console.log('apiRef available:', !!apiRef);
     if (apiRef) {
       exportToCsv(apiRef, tableType, totalUptime);
     }

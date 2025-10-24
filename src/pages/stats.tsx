@@ -1,8 +1,7 @@
-import React from 'react'
-import StatsPage from '../components/Pages/Stats'
+import StatsPage from '@/components/stats/stats-page';
 
 const StatsPageWrapper: React.FC = () => {
-  return <StatsPage />
-}
+  return <StatsPage />;
+};
 
-export default StatsPageWrapper
+export default StatsPageWrapper;

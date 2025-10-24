@@ -1,0 +1,8 @@
+.root {
+  column-gap: 16px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  row-gap: 32px;
+}
