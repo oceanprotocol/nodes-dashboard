@@ -1,10 +1,11 @@
+import RootLayout from '@/components/Layout';
+import { StatsProvider } from '@/context/stats-context';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
 import type { AppProps } from 'next/app';
 import { Inter, Orbitron } from 'next/font/google';
 import { useEffect, useRef } from 'react';
-import RootLayout from '../components/Layout';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -33,9 +34,11 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
-        <RootLayout>
-          <Component {...pageProps} />
-        </RootLayout>
+        <StatsProvider>
+          <RootLayout>
+            <Component {...pageProps} />
+          </RootLayout>
+        </StatsProvider>
       </QueryClientProvider>
     </main>
   );

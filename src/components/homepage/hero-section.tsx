@@ -7,10 +7,6 @@ import LogoSlider from './logo-slider';
 export default function HeroSection() {
   return (
     <div className={styles.root}>
-      <div className={styles.backgroundAnimation}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img alt="Background animation" src={'/banner-video.jpg'} className={styles.backgorundImage} />
-      </div>
       <Container className={styles.relative}>
         <div className={styles.titleWrapper}>
           <h1 className={styles.title}>

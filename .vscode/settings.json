@@ -8,5 +8,6 @@
   "search.exclude": {
     "**/.next": true,
     "**/out": true
-  }
+  },
+  "typescript.preferences.importModuleSpecifier": "non-relative"
 }

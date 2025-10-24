@@ -10,8 +10,17 @@
   --border-color: #e2e8f0;
   --primary: #cf1fb1;
 
+  --accent1: #009bff;
+  --accent2: #be00ff;
+  --backdrop-filter-glass: blur(10px);
   --background-black: #000000;
-  --text-base-color: #e1e1e1;
+  --background-glass: #009bff29;
+  --background-glass-opaque: #05263d;
+  --border-glass: #009bff66;
+  --inner-shadow-glass: inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa,
+    inset -1px -1px 2px -1px #000000aa;
+  --text-primary: #e1e1e1;
+  --text-secondary: #e1e1e1aa;
 }
 
 * {
@@ -20,6 +29,9 @@
   margin: 0;
 }
 
+html {
+  background-color: var(--background-black);
+}
 html,
 body {
   max-width: 100vw;
@@ -28,14 +40,21 @@ body {
   font-size: 14px;
   line-height: 1.5;
   font-style: normal;
-  background-color: var(--background-black);
-  color: var(--text-base-color);
+  color: var(--text-primary);
 }
 
 h1,
 h2,
-h3 {
+h4 {
   font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+}
+h4 {
+  font-size: 18px;
+}
+
+h3 {
+  font-size: 20px;
+  font-weight: 600;
 }
 
 a {

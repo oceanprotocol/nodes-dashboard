@@ -9,7 +9,7 @@ const FooterSection = () => {
   const links = getLinks();
   const routes = getRoutes();
 
-  const pageKeys = ['runJob', 'stats', 'docs', 'leaderbord', 'runNode'] as const;
+  const pageKeys = ['runJob', 'stats', 'docs', 'leaderboard', 'runNode'] as const;
 
   return (
     <section className={styles.root}>
