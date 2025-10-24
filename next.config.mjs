@@ -5,6 +5,12 @@ const nextConfig = {
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     });
+    config.externals.push('pino-pretty', 'lokijs', 'encoding');
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      'rdf-canonize-native': false,
+    };
 
     return config;
   },
