@@ -62,19 +62,32 @@ export class OceanProvider {
   async getNodeBalance(nodeUrl: string) {
     const environments = await this.getEnvironmentsByNode(nodeUrl);
 
-    const res = new Map<string, Map<string, string>>();
+    const result = new Map<string, number>();
+    const balancesMap = new Map<string, string[]>();
     for (const env of environments) {
       const fees = this.getFeesByChainId(this.chainId, env);
-      const balances = new Map<string, string>()
       for (const fee of fees) {
-          const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
-          balances.set(fee.feeToken, balance)
-      }
+        const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
 
-      res.set(env.id, balances);
+        if (balancesMap.has(fee.feeToken)) {
+          const balances = balancesMap.get(fee.feeToken) || [];
+          balances.push(balance);
+          balancesMap.set(fee.feeToken, balances);
+
+          continue;
+        }
+
+        balancesMap.set(fee.feeToken, [balance]);
+      }
     }
 
-    return res;
+    for (const [key, value] of balancesMap) {
+      const sum = value.map((val) => new BigNumber(val)).reduce((acc, val) => acc.plus(val), new BigNumber(0));
+
+      result.set(key, sum.toNumber());
+    }
+
+    return result;
   }
 
   getFeesByChainId(chainId: number, environment: ComputeEnvironment): ComputeEnvFees[] {

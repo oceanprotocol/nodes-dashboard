@@ -1,12 +1,6 @@
 import DocsCtaSection from '@/components/homepage/docs-cta-section';
 import { OceanProvider } from '@/lib/OceanProvider';
-import {
-  useAppKit,
-  useAppKitAccount,
-  useAppKitNetworkCore,
-  useAppKitProvider,
-  type Provider,
-} from '@reown/appkit/react';
+import { useAppKit, useAppKitAccount, useAppKitProvider, type Provider } from '@reown/appkit/react';
 import { BrowserProvider } from 'ethers';
 import { useEffect, useMemo } from 'react';
 import FeaturesSection from './features';
@@ -15,10 +9,13 @@ import styles from './homepage.module.css';
 import HowItWorksSection from './how-it-works';
 import LeaderboardSection from './leaderboard';
 
+const BASE_CHAIN_ID = 8453;
+const ETH_SEPOLIA_CHAIN_ID = 11155111;
+
 export default function HomePage() {
   const { open } = useAppKit();
   const account = useAppKitAccount();
-  const { chainId } = useAppKitNetworkCore();
+  const chainId = process.env.NODE_ENV === 'production' ? BASE_CHAIN_ID : ETH_SEPOLIA_CHAIN_ID;
   const { walletProvider } = useAppKitProvider<Provider>('eip155');
 
   const provider = useMemo(() => {
