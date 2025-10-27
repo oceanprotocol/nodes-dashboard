@@ -1,5 +1,3 @@
-"use client"
-
 import DocsCtaSection from '@/components/homepage/docs-cta-section';
 import { OceanProvider } from '@/lib/OceanProvider';
 import { useAppKit, useAppKitAccount, useAppKitProvider, type Provider } from '@reown/appkit/react';
