@@ -1,5 +1,6 @@
 import FooterSection from '@/components/homepage/footer-section';
 import Navigation from '@/components/Navigation/navigation';
+import { AppKit } from '@/context/app-kit';
 import Head from 'next/head';
 import { ReactNode } from 'react';
 import styles from './index.module.css';
@@ -11,6 +12,9 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <>
+      <AppKit>
+        <></>
+      </AppKit>
       <Head>
         <title>Ocean Network</title>
         <meta name="description" content="Ocean network" />
