@@ -100,8 +100,6 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
 
     let tooltipContent: React.ReactNode;
 
-    console.log(chartType);
-
     switch (chartType) {
       case ChartTypeEnum.CPU_ARCH_DISTRIBUTION:
       case ChartTypeEnum.CPU_CORES_DISTRIBUTION:
