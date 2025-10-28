@@ -17,10 +17,16 @@
   --background-glass: #009bff29;
   --background-glass-opaque: #05263d;
   --border-glass: #009bff66;
+  --error: #ff4444;
+  --error-darker: #c92121;
   --inner-shadow-glass:
     inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa, inset -1px -1px 2px -1px #000000aa;
+  --success: #28d930;
+  --success-darker: #199f1f;
   --text-primary: #e1e1e1;
   --text-secondary: #e1e1e1aa;
+  --warning: #ff9225;
+  --warning-darker: #dd7813;
 }
 
 * {
