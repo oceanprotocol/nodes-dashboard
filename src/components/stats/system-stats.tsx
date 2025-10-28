@@ -86,7 +86,7 @@ const SystemStats = () => {
   }, [fetchSystemStats, systemStats.cpuCounts]);
 
   return (
-    <Card className={styles.root} paddingX="lg" paddingY="sm" radius="md" variant="glass-shaded">
+    <Card className={styles.root} paddingX="lg" paddingY="sm" radius="lg" variant="glass-shaded">
       <PieChart
         chartType={ChartTypeEnum.CPU_CORES_DISTRIBUTION}
         data={processCpuData(systemStats)}

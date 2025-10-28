@@ -9,7 +9,7 @@ const JobsRevenueStats = () => {
   const { jobsPerEpoch, revenuePerEpoch, totalJobs, totalRevenue } = useStatsContext();
 
   return (
-    <Card className={styles.root} paddingX="lg" paddingY="sm" radius="md" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
       <div className={styles.revenueWrapper}>
         <h3 className={styles.heading}>Total revenue</h3>
         <div className={styles.revenue}>

@@ -15,7 +15,7 @@ const LeaderboardPage = () => {
       <SectionTitle title="Leaderboard" subTitle="Explore the most active nodes in the Ocean Network" />
       <div className={styles.content}>
         <JobsRevenueStats />
-        <Card padding="md" radius="md" variant="glass-shaded">
+        <Card padding="md" radius="lg" variant="glass-shaded">
           <Table<Node>
             context={leaderboardTableContext}
             paginationType="context"
