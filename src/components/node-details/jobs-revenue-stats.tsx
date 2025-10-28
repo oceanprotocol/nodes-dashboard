@@ -10,7 +10,7 @@ const JobsRevenueStats = () => {
   const { jobsPerEpoch, revenuePerEpoch, totalJobs, totalRevenue } = useStatsContext();
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="md" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
       <VBarChart
         axisKey="epoch"
         barKey="revenue"
