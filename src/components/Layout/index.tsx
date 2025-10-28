@@ -13,7 +13,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <>
       <AppKit>
-        <div></div>
+        <></>
       </AppKit>
       <Head>
         <title>Ocean Network</title>

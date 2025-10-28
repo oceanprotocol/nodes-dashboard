@@ -28,10 +28,6 @@ export class OceanProvider {
     return new BigNumber(number).div(new BigNumber(10).pow(decimals)).toFixed(0);
   }
 
-  static denominateNumber(number: string, decimals: number) {
-    return new BigNumber(number).div(new BigNumber(10).pow(decimals)).toFixed(0);
-  }
-
   private normalizeNumber(number: string, decimals: number) {
     return new BigNumber(number).multipliedBy(new BigNumber(10).pow(decimals)).toFixed(0);
   }
@@ -67,17 +63,17 @@ export class OceanProvider {
     for (const env of environments) {
       const fees = this.getFeesByChainId(this.chainId, env);
       for (const fee of fees) {
-        const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
+        const { symbol, balance } = await this.getBalance(fee.feeToken, env.consumerAddress);
 
-        if (balancesMap.has(fee.feeToken)) {
-          const balances = balancesMap.get(fee.feeToken) || [];
+        if (balancesMap.has(symbol)) {
+          const balances = balancesMap.get(symbol) || [];
           balances.push(balance);
-          balancesMap.set(fee.feeToken, balances);
+          balancesMap.set(symbol, balances);
 
           continue;
         }
 
-        balancesMap.set(fee.feeToken, [balance]);
+        balancesMap.set(symbol, [balance]);
       }
     }
 
@@ -101,12 +97,13 @@ export class OceanProvider {
     return environment.fees[config] as unknown as ComputeEnvFees[];
   }
 
-  async getBalance(tokenAddress: string, address: string): Promise<string> {
+  async getBalance(tokenAddress: string, address: string): Promise<{ symbol: string; balance: string }> {
     const token = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
     const balance = await token.balanceOf(address);
+    const symbol = await token.symbol() || tokenAddress;
     const decimals = await token.decimals();
     const balanceString = this.denominateNumber(balance.toString(), decimals);
-    return balanceString;
+    return { symbol, balance: balanceString };
   }
 
   async getAuthorizations(tokenAddress: string, payer: string, payee: string) {
