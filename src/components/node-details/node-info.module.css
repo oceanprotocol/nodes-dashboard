@@ -1,9 +1,13 @@
 .root {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 32px;
-  justify-content: space-between;
+
+  @media (min-width: 992px) {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    padding: 40px 24px;
+  }
 
   .infoWrapper {
     display: flex;
