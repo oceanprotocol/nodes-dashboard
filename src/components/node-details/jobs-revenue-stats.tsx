@@ -6,21 +6,11 @@ import { useStatsContext } from '@/context/stats-context';
 import { formatNumber } from '@/utils/formatters';
 import styles from './jobs-revenue-stats.module.css';
 
-type ChartWrapperProps = {
-  title: string;
-  children: React.ReactNode;
-  footer?: {
-    amount: string;
-    currency?: string;
-    label: string;
-  };
-};
-
 const JobsRevenueStats = () => {
   const { jobsPerEpoch, revenuePerEpoch, totalJobs, totalRevenue } = useStatsContext();
 
   return (
-    <Card className={styles.root} paddingX="lg" paddingY="sm" radius="md" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="md" variant="glass-shaded">
       <VBarChart
         axisKey="epoch"
         barKey="revenue"
@@ -33,8 +23,6 @@ const JobsRevenueStats = () => {
           label: 'Total revenue',
         }}
       />
-      <Gauge label="Latest" max={5415} min={100} title="Benchmark results" value={3000} />
-      <Gauge label="Running" max={100} min={0} title="Queued jobs" value={63} />
       <VBarChart
         axisKey="epoch"
         barKey="jobs"
@@ -46,6 +34,8 @@ const JobsRevenueStats = () => {
           label: 'Total jobs',
         }}
       />
+      <Gauge label="Running" max={100} min={0} title="Queued jobs" value={63} />
+      <Gauge label="Latest" max={5415} min={100} title="Benchmark results" value={3000} />
     </Card>
   );
 };
