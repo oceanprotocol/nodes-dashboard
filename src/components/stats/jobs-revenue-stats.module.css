@@ -4,46 +4,28 @@
   gap: 48px;
 }
 
-.heading {
-  margin-bottom: 16px;
-  text-align: center;
-}
-
-.chartWrapper {
+.revenueWrapper {
   align-content: start;
   align-items: center;
   display: grid;
-  grid-template-rows: auto 110px auto;
-  gap: 8px;
-}
+  grid-template-rows: auto 110px;
+  gap: 24px;
 
-.revenue {
-  text-align: center;
-
-  .token {
-    color: var(--text-secondary);
-    font-size: 14px;
+  .heading {
+    text-align: center;
   }
 
-  .amount {
-    font-size: 48px;
-    font-weight: 600;
-  }
-}
+  .revenue {
+    text-align: center;
 
-.totalJobs {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 4px;
+    .token {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
 
-  .label {
-    color: var(--text-secondary);
-    font-size: 14px;
-  }
-
-  .amount {
-    font-size: 20px;
-    font-weight: 600;
+    .amount {
+      font-size: 48px;
+      font-weight: 600;
+    }
   }
 }
