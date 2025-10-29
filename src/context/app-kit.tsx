@@ -4,7 +4,7 @@ import { EthersAdapter } from '@reown/appkit-adapter-ethers';
 import { sepolia } from '@reown/appkit/networks';
 import { createAppKit } from '@reown/appkit/react';
 
-const projectId = '555782ec07321ad166d432d993bfc8f3';
+const projectId = 'd183b001e7936222f3cc1e75cbc375e0';
 
 const metadata = {
   name: 'Ocean nodes Dashboard',
