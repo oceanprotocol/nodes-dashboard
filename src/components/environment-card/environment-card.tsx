@@ -13,7 +13,10 @@ import styles from './environment-card.module.css';
 
 const MOCK_ENV = {
   maxJobDuration: 7000,
-  minPricePerMinute: 350,
+  minPricePerMinute: {
+    OCEAN: 350,
+    USDC: 125,
+  } as Record<string, number>,
   cpu: {
     max: 32,
     name: 'Intel Xeon E5-2673 v4',
@@ -241,7 +244,7 @@ const EnvironmentCard = () => {
             value={token}
           />
           <Button>Try it</Button>
-          <Button>From {MOCK_ENV.minPricePerMinute}/min</Button>
+          <Button>From {MOCK_ENV.minPricePerMinute[token]}/min</Button>
         </div>
       </div>
     </Card>
