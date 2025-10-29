@@ -27,8 +27,11 @@
     "dayjs": "^1.11.10",
     "ethers": "^6.10.0",
     "express": "^4.21.2",
+    "it-pipe": "^3.0.1",
     "jparticles": "^3.5.0",
     "leaflet": "^1.9.4",
+    "libp2p": "^1.8.0",
+    "@multiformats/multiaddr": "^12",
     "micromodal": "^0.4.10",
     "next": "^15.2.4",
     "react": "^18",
@@ -41,9 +44,13 @@
     "recharts": "^2.13.0",
     "styled-components": "^6.1.1",
     "three": "^0.169.0",
+    "uint8arrays": "^4.0.6",
     "vanta": "^0.5.24",
     "viem": "^2.8.14",
-    "wagmi": "^2.16.9"
+    "wagmi": "^2.16.9",
+    "@libp2p/websockets": "^8.1.1",
+    "@chainsafe/libp2p-noise": "^15.1.0",
+    "@chainsafe/libp2p-yamux": "^6.0.2"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.12",
@@ -62,5 +69,8 @@
     "eslint-plugin-promise": "^6.6.0",
     "prettier": "^3.3.3",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@multiformats/multiaddr": "^12"
   }
 }
