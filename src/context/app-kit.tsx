@@ -1,7 +1,7 @@
 'use client';
 
 import { EthersAdapter } from '@reown/appkit-adapter-ethers';
-import { base, sepolia } from '@reown/appkit/networks';
+import { sepolia } from '@reown/appkit/networks';
 import { createAppKit } from '@reown/appkit/react';
 
 const projectId = '555782ec07321ad166d432d993bfc8f3';
@@ -16,7 +16,8 @@ const metadata = {
 createAppKit({
   adapters: [new EthersAdapter()],
   metadata,
-  networks: process.env.NODE_ENV === 'production' ? [base] : [sepolia],
+  //networks: process.env.NODE_ENV === 'production' ? [base] : [sepolia],
+  networks: [sepolia],
   projectId,
   features: {
     analytics: false,
