@@ -100,7 +100,7 @@ export class OceanProvider {
   async getBalance(tokenAddress: string, address: string): Promise<{ symbol: string; balance: string }> {
     const token = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
     const balance = await token.balanceOf(address);
-    const symbol = await token.symbol() || tokenAddress;
+    const symbol = (await token.symbol()) || tokenAddress;
     const decimals = await token.decimals();
     const balanceString = this.denominateNumber(balance.toString(), decimals);
     return { symbol, balance: balanceString };

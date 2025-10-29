@@ -1,6 +1,7 @@
 import DiscordIcon from '@/assets/discord.svg';
 import Logo from '@/assets/logo.svg';
 import XIcon from '@/assets/x.svg';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import cx from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -12,9 +13,17 @@ import styles from './navigation.module.css';
 
 const Navigation = () => {
   const router = useRouter();
+  const { open } = useAppKit();
+  const account = useAppKitAccount();
   const routes = getRoutes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const scrollPositionRef = useRef(0);
+
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -75,8 +84,19 @@ const Navigation = () => {
       <Link href={config.socialMedia.twitter} className={styles.actionIconLink} target="_blank" rel="noreferrer">
         <XIcon width={30} height={28} />
       </Link>
-      <Button href={config.socialMedia.discord} className={styles.loginButton}>
-        Log in
+      <Button
+        className={styles.loginButton}
+        onClick={() => {
+          open();
+        }}
+      >
+        {!isClient
+          ? 'Log In'
+          : account.status === 'connected'
+            ? 'Open Wallet'
+            : account.status === 'connecting'
+              ? 'Connecting...'
+              : 'Log In'}
       </Button>
     </div>
   );
