@@ -1,9 +1,9 @@
-import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import BenchmarkJobs from '@/components/node-details/benchmark-jobs';
 import Environments from '@/components/node-details/environments';
 import JobsRevenueStats from '@/components/node-details/jobs-revenue-stats';
 import NodeInfo from '@/components/node-details/node-info';
-import { UnbanRequests } from '@/components/node-details/unban-requests';
+import UnbanRequests from '@/components/node-details/unban-requests';
 import SectionTitle from '@/components/section-title/section-title';
 import { NodeEligibility } from '@/types/nodes';
 import styles from './node-details-page.module.css';
@@ -23,9 +23,7 @@ const NodeDetailsPage = () => {
         <NodeInfo eligibility={RANDOM_ELIGIBILITY_MOCK} />
         {RANDOM_ELIGIBILITY_MOCK === NodeEligibility.BANNED ? <UnbanRequests /> : null}
         <JobsRevenueStats />
-        <Card padding="md" radius="lg" variant="glass-shaded">
-          <h3>Benchmark jobs history</h3>
-        </Card>
+        <BenchmarkJobs />
         <Environments />
       </div>
     </Container>
