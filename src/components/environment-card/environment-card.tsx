@@ -234,6 +234,7 @@ const EnvironmentCard = () => {
         </div>
         <div className={styles.buttons}>
           <Select
+            className={styles.select}
             onChange={(e) => setToken(e.target.value)}
             options={MOCK_ENV.supportedTokens.map((token) => ({ label: token, value: token }))}
             value={token}
