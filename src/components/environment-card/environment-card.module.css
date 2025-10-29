@@ -1,0 +1,57 @@
+.gridWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px 32px;
+
+    @media (min-width: 768px) {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (min-width: 1100px) {
+      &.specsWithoutGpus,
+      &.gpuSpecs {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  }
+}
+
+.label {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 14px;
+
+  &.em,
+  .em {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+
+  .icon {
+    color: var(--accent1);
+    margin-right: 4px;
+  }
+}
+
+.footer {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+
+  .buttons {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

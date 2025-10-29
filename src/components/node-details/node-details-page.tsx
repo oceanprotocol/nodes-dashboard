@@ -1,5 +1,6 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import Environments from '@/components/node-details/environments';
 import JobsRevenueStats from '@/components/node-details/jobs-revenue-stats';
 import NodeInfo from '@/components/node-details/node-info';
 import { UnbanRequests } from '@/components/node-details/unban-requests';
@@ -25,9 +26,7 @@ const NodeDetailsPage = () => {
         <Card padding="md" radius="lg" variant="glass-shaded">
           <h3>Benchmark jobs history</h3>
         </Card>
-        <Card padding="md" radius="lg" variant="glass-shaded">
-          <h3>Environments</h3>
-        </Card>
+        <Environments />
       </div>
     </Container>
   );
