@@ -27,18 +27,18 @@ const StyledTopRight = styled('div')({
 const StyledSelect = styled(MaterialSelect)<{ small?: boolean }>(({ small }) => ({
   background: 'var(--background-glass)',
   border: '1px solid var(--border-glass)',
-  borderRadius: 20,
+  borderRadius: 24,
   color: 'var(--text-primary)',
   fontFamily: 'var(--font-inter), sans-serif',
   fontSize: 16,
-  lineHeight: 1.2,
+  lineHeight: '18px',
 
   fieldset: {
     border: 'none',
   },
 
   [`& .${selectClasses.select}`]: {
-    padding: small ? '12px 16px' : '6px 16px',
+    padding: small ? '6px 16px' : '12px 16px',
     minHeight: 0,
   },
 
