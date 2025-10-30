@@ -19,9 +19,13 @@ const StyledLabel = styled('label')({
   color: 'var(--text-primary)',
 });
 
-const StyledTopRight = styled('div')({
+const StyledHint = styled('div')({
   fontSize: 14,
   color: 'var(--text-secondary)',
+});
+
+const StyledFooterHint = styled(StyledHint)({
+  padding: '0 16px',
 });
 
 const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ customSize }) => ({
@@ -50,6 +54,7 @@ const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ cus
 type SelectProps<T> = {
   className?: string;
   fullWidth?: boolean;
+  hint?: string;
   label?: string;
   name?: string;
   options?: { label: string; value: T }[];
@@ -70,6 +75,7 @@ type SelectProps<T> = {
 
 const Select = <T extends string | number = string>({
   className,
+  hint,
   label,
   multiple,
   name,
@@ -83,7 +89,7 @@ const Select = <T extends string | number = string>({
     {label || topRight ? (
       <StyledLabelWrapper>
         <StyledLabel>{label}</StyledLabel>
-        {topRight ? <StyledTopRight>{topRight}</StyledTopRight> : null}
+        {topRight ? <StyledHint>{topRight}</StyledHint> : null}
       </StyledLabelWrapper>
     ) : null}
     <FormControl fullWidth>
@@ -95,6 +101,7 @@ const Select = <T extends string | number = string>({
         ))}
       </StyledSelect>
     </FormControl>
+    {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
   </StyledRoot>
 );
 

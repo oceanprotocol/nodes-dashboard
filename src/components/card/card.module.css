@@ -97,3 +97,6 @@
   border: 2px solid var(--error);
   box-shadow: 0 8px 80px -20px var(--error);
 }
+.variant-accent1-outline {
+  border: 2px solid var(--accent1);
+}

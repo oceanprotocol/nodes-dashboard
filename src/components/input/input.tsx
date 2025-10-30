@@ -19,9 +19,13 @@ const StyledLabel = styled('label')({
   color: 'var(--text-primary)',
 });
 
-const StyledTopRight = styled('div')({
+const StyledHint = styled('div')({
   fontSize: 14,
   color: 'var(--text-secondary)',
+});
+
+const StyledFooterHint = styled(StyledHint)({
+  padding: '0 16px',
 });
 
 const StyledTextField = styled(TextField)<{ customSize?: 'sm' | 'md' }>(({ customSize }) => ({
@@ -51,6 +55,7 @@ const StyledTextField = styled(TextField)<{ customSize?: 'sm' | 'md' }>(({ custo
 type InputProps = {
   className?: string;
   endAdornment?: React.ReactNode;
+  hint?: string;
   label?: string;
   name?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -64,6 +69,7 @@ type InputProps = {
 const Input = ({
   className,
   endAdornment,
+  hint,
   label,
   name,
   onChange,
@@ -77,7 +83,7 @@ const Input = ({
     {label || topRight ? (
       <StyledLabelWrapper>
         <StyledLabel>{label}</StyledLabel>
-        {topRight ? <StyledTopRight>{topRight}</StyledTopRight> : null}
+        {topRight ? <StyledHint>{topRight}</StyledHint> : null}
       </StyledLabelWrapper>
     ) : null}
     <FormControl>
@@ -91,6 +97,7 @@ const Input = ({
         variant="outlined"
       />
     </FormControl>
+    {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
   </StyledRoot>
 );
 

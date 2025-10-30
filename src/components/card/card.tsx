@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 import styles from './card.module.css';
 
 type Size = 'sm' | 'md' | 'lg';
-type Variant = 'glass' | 'glass-shaded' | 'glass-outline' | 'success' | 'warning' | 'error';
+type Variant = 'glass' | 'glass-shaded' | 'glass-outline' | 'success' | 'warning' | 'error' | 'accent1-outline';
 
 type CardProps = {
   children: ReactNode;
@@ -17,17 +17,7 @@ type CardProps = {
   variant?: Variant;
 };
 
-const Card = ({
-  children,
-  className,
-  direction = 'column',
-  padding,
-  paddingX,
-  paddingY,
-  radius,
-  spacing,
-  variant,
-}: CardProps) => (
+const Card = ({ children, className, direction, padding, paddingX, paddingY, radius, spacing, variant }: CardProps) => (
   <div
     className={cx(
       styles.root,

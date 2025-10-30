@@ -16,7 +16,7 @@ const Eligibility = ({ eligibility }: EligibilityProps) => {
       return (
         <Card className={styles.root} padding="sm" radius="md" variant="success">
           <CheckCircleOutlineIcon className={styles.icon} />
-          <div className={styles.heading}>Eligible</div>
+          <h3>Eligible</h3>
           <div className={styles.content}>This node is active and can receive rewards</div>
         </Card>
       );
@@ -24,7 +24,7 @@ const Eligibility = ({ eligibility }: EligibilityProps) => {
       return (
         <Card className={styles.root} padding="sm" radius="md" variant="warning">
           <ErrorOutlineIcon className={styles.icon} />
-          <div className={styles.heading}>Not eligible</div>
+          <h3>Not eligible</h3>
           <div className={styles.content}>
             This node is active, but does not meet the criteria for receiving rewards
           </div>
@@ -34,7 +34,7 @@ const Eligibility = ({ eligibility }: EligibilityProps) => {
       return (
         <Card className={styles.root} padding="sm" radius="md" variant="error">
           <HighlightOffIcon className={styles.icon} />
-          <div className={styles.heading}>Banned</div>
+          <h3>Banned</h3>
           <div className={styles.content}>
             <div>This node is excluded from all operations and rewards</div>
             {/* TODO replace ban reason text */}
