@@ -1,6 +1,6 @@
 import DocsCtaSection from '@/components/homepage/docs-cta-section';
 import { OceanProvider } from '@/lib/OceanProvider';
-import { useAppKitProvider, type Provider } from '@reown/appkit/react';
+import { useAppKitAccount, useAppKitProvider, type Provider } from '@reown/appkit/react';
 import { BrowserProvider } from 'ethers';
 import { useEffect, useMemo } from 'react';
 import FeaturesSection from './features';
@@ -15,6 +15,7 @@ const ETH_SEPOLIA_CHAIN_ID = 11155111;
 export default function HomePage() {
   const chainId = process.env.NODE_ENV === 'production' ? BASE_CHAIN_ID : ETH_SEPOLIA_CHAIN_ID;
   const { walletProvider } = useAppKitProvider<Provider>('eip155');
+  const account = useAppKitAccount();
 
   const provider = useMemo(() => {
     if (!walletProvider || !chainId) return null;
@@ -29,8 +30,26 @@ export default function HomePage() {
   useEffect(() => {
     if (ocean) {
       ocean.getNodeBalance('https://compute1.oceanprotocol.com/').then((res) => console.log(res));
+
+      /* Code snippet below demonstrates basic signature usage for requests that
+       * need user authorization.
+       */
+      //if (provider && account?.address) {
+      //  const signer = new JsonRpcSigner(provider, account.address);
+      //  const nodeUrl = 'http://localhost:8001'
+      //  const expiryTimestamp = new Date(new Date().getTime() + 60 * 60 * 1000).getTime();
+      //  let signature;
+      //  signer?.signMessage(`${expiryTimestamp}`).then((res) => {
+      //    signature = res;
+      //    console.log({ signature });
+
+      //    axios
+      //      .post(`${nodeUrl}/logs`, { signature, expiryTimestamp: `${expiryTimestamp}` }, {})
+      //      .then((res) => console.log('logs response: ', res));
+      //  });
+      //}
     }
-  }, [ocean]);
+  }, [ocean, account.address, provider]);
 
   return (
     <div className={styles.root}>
