@@ -1,3 +1,4 @@
+import Button from '@/components/button/button';
 import { Node } from '@/types/nodes';
 import { GridColDef } from '@mui/x-data-grid';
 
@@ -68,6 +69,17 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'GPUs',
     sortable: false,
     renderCell: (params) => params.value.join(', '),
+  },
+  {
+    align: 'right',
+    field: 'actions',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Actions',
+    sortable: false,
+    renderCell: (params) => {
+      return <Button href={`/nodes/${params.row.id}`}>Info</Button>;
+    },
   },
 ];
 

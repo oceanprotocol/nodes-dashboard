@@ -1,5 +1,5 @@
-import { ButtonStyle } from '../button/butoon-style.enum';
 import Button from '../button/button';
+import { ButtonStyle } from '../button/button-style.enum';
 import Container from '../container/container';
 import styles from './hero-section.module.css';
 import LogoSlider from './logo-slider';

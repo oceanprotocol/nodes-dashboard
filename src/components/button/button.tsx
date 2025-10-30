@@ -1,7 +1,7 @@
 import cx from 'classnames';
 import Link from 'next/link';
 import { ReactNode } from 'react';
-import { ButtonStyle } from './butoon-style.enum';
+import { ButtonStyle } from './button-style.enum';
 import styles from './button.module.css';
 
 interface ButtonProps {
