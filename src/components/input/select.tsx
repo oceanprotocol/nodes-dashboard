@@ -24,7 +24,7 @@ const StyledTopRight = styled('div')({
   color: 'var(--text-secondary)',
 });
 
-const StyledSelect = styled(MaterialSelect)<{ small?: boolean }>(({ small }) => ({
+const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ customSize }) => ({
   background: 'var(--background-glass)',
   border: '1px solid var(--border-glass)',
   borderRadius: 24,
@@ -38,7 +38,7 @@ const StyledSelect = styled(MaterialSelect)<{ small?: boolean }>(({ small }) => 
   },
 
   [`& .${selectClasses.select}`]: {
-    padding: small ? '6px 16px' : '12px 16px',
+    padding: customSize === 'sm' ? '6px 16px' : '12px 16px',
     minHeight: 0,
   },
 
@@ -52,7 +52,7 @@ type InputProps<T> = {
   fullWidth?: boolean;
   label?: string;
   options?: { label: string; value: T }[];
-  small?: boolean;
+  size?: 'sm' | 'md';
   topRight?: React.ReactNode;
 } & (
   | {
@@ -74,7 +74,7 @@ const Select = <T extends string | number = string>({
   multiple,
   onChange,
   options,
-  small,
+  size = 'md',
   topRight,
   value,
 }: InputProps<T>) => (
@@ -86,7 +86,7 @@ const Select = <T extends string | number = string>({
       </StyledLabelWrapper>
     ) : null}
     <FormControl fullWidth={fullWidth}>
-      <StyledSelect value={value} label="Age" multiple={multiple} onChange={onChange} small={small}>
+      <StyledSelect value={value} label="Age" multiple={multiple} onChange={onChange} customSize={size}>
         {options?.map((option) => (
           <MenuItem key={option.value as string} value={option.value}>
             {option.label}

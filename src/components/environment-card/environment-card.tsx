@@ -240,7 +240,7 @@ const EnvironmentCard = () => {
             className={styles.select}
             onChange={(e) => setToken(e.target.value)}
             options={MOCK_ENV.supportedTokens.map((token) => ({ label: token, value: token }))}
-            small
+            size="sm"
             value={token}
           />
           <Button color="accent2" variant="outlined">
