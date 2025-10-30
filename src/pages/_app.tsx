@@ -1,4 +1,5 @@
 import RootLayout from '@/components/Layout';
+import { AppKit } from '@/context/app-kit';
 import { StatsProvider } from '@/context/stats-context';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -35,9 +36,11 @@ export default function App({ Component, pageProps }: AppProps) {
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
         <StatsProvider>
-          <RootLayout>
-            <Component {...pageProps} />
-          </RootLayout>
+          <AppKit>
+            <RootLayout>
+              <Component {...pageProps} />
+            </RootLayout>
+          </AppKit>
         </StatsProvider>
       </QueryClientProvider>
     </main>
