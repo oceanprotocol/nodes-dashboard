@@ -15,7 +15,7 @@ const StyledLabelWrapper = styled('div')({
 
 const StyledLabel = styled('label')({
   fontSize: 14,
-  fontWeight: 700,
+  fontWeight: 600,
   color: 'var(--text-primary)',
 });
 
@@ -38,7 +38,7 @@ const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ cus
   },
 
   [`& .${selectClasses.select}`]: {
-    padding: customSize === 'sm' ? '6px 16px' : '12px 16px',
+    padding: customSize === 'sm' ? '4px 16px' : '12px 16px',
     minHeight: 0,
   },
 
