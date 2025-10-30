@@ -47,10 +47,11 @@ const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ cus
   },
 }));
 
-type InputProps<T> = {
+type SelectProps<T> = {
   className?: string;
   fullWidth?: boolean;
   label?: string;
+  name?: string;
   options?: { label: string; value: T }[];
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
@@ -72,12 +73,13 @@ const Select = <T extends string | number = string>({
   fullWidth,
   label,
   multiple,
+  name,
   onChange,
   options,
   size = 'md',
   topRight,
   value,
-}: InputProps<T>) => (
+}: SelectProps<T>) => (
   <StyledRoot className={className}>
     {label || topRight ? (
       <StyledLabelWrapper>
@@ -86,7 +88,7 @@ const Select = <T extends string | number = string>({
       </StyledLabelWrapper>
     ) : null}
     <FormControl fullWidth={fullWidth}>
-      <StyledSelect value={value} label="Age" multiple={multiple} onChange={onChange} customSize={size}>
+      <StyledSelect customSize={size} label="Age" multiple={multiple} name={name} onChange={onChange} value={value}>
         {options?.map((option) => (
           <MenuItem key={option.value as string} value={option.value}>
             {option.label}
