@@ -5,15 +5,14 @@ import JobsRevenueStats from '@/components/stats/jobs-revenue-stats';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useLeaderboardTableContext } from '@/context/table/leaderboard-table-context';
-import styles from './leaderboard-page.module.css';
 
 const LeaderboardPage = () => {
   const leaderboardTableContext = useLeaderboardTableContext();
 
   return (
-    <Container className={styles.root}>
+    <Container className="pageRoot">
       <SectionTitle title="Leaderboard" subTitle="Explore the most active nodes in the Ocean Network" />
-      <div className={styles.content}>
+      <div className="pageContentWrapper">
         <JobsRevenueStats />
         <Card padding="md" radius="lg" variant="glass-shaded">
           <Table<Node>

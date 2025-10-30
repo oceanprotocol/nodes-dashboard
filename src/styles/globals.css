@@ -67,3 +67,18 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Reusable classes */
+
+.pageRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  padding-bottom: 60px;
+}
+
+.pageContentWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
