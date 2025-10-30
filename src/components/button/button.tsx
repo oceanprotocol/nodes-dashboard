@@ -1,19 +1,34 @@
 import cx from 'classnames';
 import Link from 'next/link';
 import { ReactNode } from 'react';
-import { ButtonStyle } from './button-style.enum';
 import styles from './button.module.css';
 
-interface ButtonProps {
+type ButtonProps = {
   children?: ReactNode;
   className?: string;
+  color?: 'accent1' | 'accent2' | 'primary';
   href?: string;
   target?: '_blank' | '_self';
-  style?: ButtonStyle;
-}
+  size?: 'md' | 'lg';
+  variant?: 'filled' | 'outlined';
+};
 
-const Button = ({ className, href, target, children, style }: ButtonProps) => {
-  const classes = cx(styles.root, className, style === ButtonStyle.PRIMARY && styles.primary);
+const Button = ({
+  className,
+  color = 'primary',
+  href,
+  target,
+  children,
+  size = 'md',
+  variant = 'filled',
+}: ButtonProps) => {
+  const classes = cx(
+    styles.root,
+    styles[`color-${color}`],
+    styles[`size-${size}`],
+    styles[`variant-${variant}`],
+    className
+  );
 
   if (href) {
     return (

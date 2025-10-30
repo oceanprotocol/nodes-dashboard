@@ -12,7 +12,7 @@ const UnbanRequests = () => {
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Unban requests</h3>
-        <Button>Request unban</Button>
+        <Button color="accent1">Request unban</Button>
       </div>
       <Table<Job> data={MOCK_JOBS} paginationType="none" tableType={TableTypeEnum.UNBAN_REQUESTS} />
     </Card>

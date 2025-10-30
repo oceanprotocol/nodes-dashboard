@@ -1,5 +1,4 @@
 import Button from '../button/button';
-import { ButtonStyle } from '../button/button-style.enum';
 import Container from '../container/container';
 import styles from './hero-section.module.css';
 import LogoSlider from './logo-slider';
@@ -20,8 +19,10 @@ export default function HeroSection() {
         </div>
         <div className={styles.actionsAndTextWrapper}>
           <div className={styles.actions}>
-            <Button style={ButtonStyle.PRIMARY}>Run Compute Job</Button>
-            <Button>Run a Node</Button>
+            <Button color="accent2" size="lg">
+              Run Compute Job
+            </Button>
+            <Button size="lg">Run a Node</Button>
           </div>
           <div className={styles.textBadge}>
             ONE <br />

@@ -40,7 +40,9 @@ export const Balance = () => {
       </div>
       <div className={styles.buttons}>
         <a>Send tokens for gas fee</a>
-        <Button>Withdraw funds</Button>
+        <Button color="accent2" size="lg">
+          Withdraw funds
+        </Button>
       </div>
     </Card>
   );

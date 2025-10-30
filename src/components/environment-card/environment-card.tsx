@@ -62,15 +62,15 @@ const MOCK_ENV = {
       } as Record<string, number>,
       used: 2,
     },
-    {
-      max: 32,
-      name: 'nVIDIA RTX 4080',
-      unitPrice: {
-        OCEAN: 30,
-        USDC: 10.51,
-      } as Record<string, number>,
-      used: 8,
-    },
+    // {
+    //   max: 32,
+    //   name: 'nVIDIA RTX 4080',
+    //   unitPrice: {
+    //     OCEAN: 30,
+    //     USDC: 10.51,
+    //   } as Record<string, number>,
+    //   used: 8,
+    // },
   ],
   ram: {
     max: 32,
@@ -103,7 +103,7 @@ const EnvironmentCard = () => {
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token} / core
+            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/core
           </span>
         }
         bottomRightContent={
@@ -134,7 +134,7 @@ const EnvironmentCard = () => {
           }
           bottomLeftContent={
             <span className={styles.label}>
-              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token} / GPU
+              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/GPU
             </span>
           }
           bottomRightContent={
@@ -164,7 +164,7 @@ const EnvironmentCard = () => {
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token} / GB
+            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/GB
           </span>
         }
         bottomRightContent={
@@ -193,7 +193,7 @@ const EnvironmentCard = () => {
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token} / GB
+            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/GB
           </span>
         }
         bottomRightContent={
@@ -243,8 +243,10 @@ const EnvironmentCard = () => {
             small
             value={token}
           />
-          <Button>Try it</Button>
-          <Button>From {MOCK_ENV.minPricePerMinute[token]}/min</Button>
+          <Button color="accent2" variant="outlined">
+            Try it
+          </Button>
+          <Button color="accent2">From {MOCK_ENV.minPricePerMinute[token]}/min</Button>
         </div>
       </div>
     </Card>

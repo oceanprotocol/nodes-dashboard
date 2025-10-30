@@ -78,7 +78,11 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'Actions',
     sortable: false,
     renderCell: (params) => {
-      return <Button href={`/nodes/${params.row.id}`}>Info</Button>;
+      return (
+        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.id}`}>
+          Info
+        </Button>
+      );
     },
   },
 ];

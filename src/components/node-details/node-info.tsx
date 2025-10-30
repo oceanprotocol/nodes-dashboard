@@ -31,7 +31,7 @@ const NodeInfo = ({ eligibility }: NodeInfoProps) => {
             <div>Warsaw, Poland</div>
           </div>
           <div className={styles.buttons}>
-            <Button>Get node config</Button>
+            <Button variant="outlined">Get node config</Button>
             <Button>Set node config</Button>
           </div>
         </div>
