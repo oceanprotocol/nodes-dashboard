@@ -70,7 +70,6 @@ type SelectProps<T> = {
 
 const Select = <T extends string | number = string>({
   className,
-  fullWidth,
   label,
   multiple,
   name,
@@ -87,8 +86,8 @@ const Select = <T extends string | number = string>({
         {topRight ? <StyledTopRight>{topRight}</StyledTopRight> : null}
       </StyledLabelWrapper>
     ) : null}
-    <FormControl fullWidth={fullWidth}>
-      <StyledSelect customSize={size} label="Age" multiple={multiple} name={name} onChange={onChange} value={value}>
+    <FormControl fullWidth>
+      <StyledSelect customSize={size} multiple={multiple} name={name} onChange={onChange} value={value}>
         {options?.map((option) => (
           <MenuItem key={option.value as string} value={option.value}>
             {option.label}
