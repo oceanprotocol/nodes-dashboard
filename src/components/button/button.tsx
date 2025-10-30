@@ -1,6 +1,6 @@
 import cx from 'classnames';
 import Link from 'next/link';
-import { ReactNode } from 'react';
+import { MouseEventHandler, ReactNode } from 'react';
 import styles from './button.module.css';
 
 type ButtonProps = {
@@ -8,7 +8,7 @@ type ButtonProps = {
   className?: string;
   color?: 'accent1' | 'accent2' | 'primary';
   href?: string;
-  onClick?: (e: any) => any;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';
   size?: 'md' | 'lg';
   type?: 'button' | 'submit' | 'reset';
