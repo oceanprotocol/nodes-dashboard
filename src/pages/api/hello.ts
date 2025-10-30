@@ -143,7 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               } catch {}
               continue
             }
-            console.log("str=", str)
+            console.log('str=', str)
             body += str
           }
         })()
@@ -187,9 +187,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     else if (action === 'list') {
       const activeConnections = Array.from(connections.keys())
       res.status(200).json({ connections: activeConnections })
-    }
-    else {
-      res.status(400).json({ error: 'Invalid action. Use: connect, command, disconnect, or list' })
+    } else {
+      res
+        .status(400)
+        .json({ error: 'Invalid action. Use: connect, command, disconnect, or list' })
     }
   } catch (e: any) {
     res.status(500).json({ error: e?.message || String(e) })

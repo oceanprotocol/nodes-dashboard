@@ -9,7 +9,8 @@
     "build": "NODE_ENV=production  next build",
     "start": "next start",
     "lint": "eslint --ignore-path .gitignore --ext .ts,.tsx .",
-    "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix"
+    "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix",
+    "format": "prettier --parser typescript --ignore-path .gitignore --write '**/*.{js,jsx,ts,tsx}'"
   },
   "dependencies": {
     "@emotion/react": "^11.11.4",
@@ -49,6 +50,9 @@
     "viem": "^2.8.14",
     "wagmi": "^2.16.9",
     "@libp2p/websockets": "^8.1.1",
+    "@libp2p/bootstrap": "^10.1.1",
+    "@libp2p/identify": "^2.1.1",
+    "@libp2p/kad-dht": "^12.1.1",
     "@chainsafe/libp2p-noise": "^15.1.0",
     "@chainsafe/libp2p-yamux": "^6.0.2"
   },
