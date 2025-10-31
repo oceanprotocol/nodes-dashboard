@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { formatNumber } from '@/utils/formatters';
+import DownloadIcon from '@mui/icons-material/Download';
 import styles from './balance.module.css';
 
 // TODO replace mock data
@@ -40,7 +41,7 @@ export const Balance = () => {
       </div>
       <div className={styles.buttons}>
         <a>Send tokens for gas fee</a>
-        <Button color="accent2" size="lg">
+        <Button color="accent2" contentBefore={<DownloadIcon />} size="lg">
           Withdraw funds
         </Button>
       </div>
