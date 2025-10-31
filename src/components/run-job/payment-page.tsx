@@ -7,7 +7,7 @@ const PaymentPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
-        title="Run a job"
+        title="Run job"
         // TODO: replace with actual subtitle
         subTitle="Payment description text"
         contentBetween={<Stepper currentStep={3} />}

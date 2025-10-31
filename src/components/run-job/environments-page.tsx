@@ -7,7 +7,7 @@ const EnvironmentsPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
-        title="Run a job"
+        title="Run job"
         // TODO: replace with actual subtitle
         subTitle="Select environment description text"
         contentBetween={<Stepper currentStep={1} />}

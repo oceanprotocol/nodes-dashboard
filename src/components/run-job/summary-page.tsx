@@ -7,7 +7,7 @@ const SummaryPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
-        title="Run a job"
+        title="Run job"
         subTitle="Everything is set up. Below is a summary of your selection"
         contentBetween={<Stepper currentStep={4} />}
       />
