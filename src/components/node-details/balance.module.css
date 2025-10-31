@@ -20,16 +20,8 @@
       .listItem {
         align-items: center;
         display: flex;
+        font-size: 18px;
         justify-content: space-between;
-
-        .amount {
-          font-size: 18px;
-        }
-
-        .token {
-          color: var(--text-secondary);
-          font-size: 12px;
-        }
       }
     }
   }

@@ -29,12 +29,8 @@ export const Balance = () => {
         <div className={styles.list}>
           {MOCK_ENVS.map((env) => (
             <div className={styles.listItem} key={env.id}>
-              <strong>{env.name}</strong>
-              <div>
-                <span className={styles.token}>{env.token}</span>
-                &nbsp;
-                <strong className={styles.amount}>{formatNumber(env.amount)}</strong>
-              </div>
+              <div>{env.token}</div>
+              <strong>{formatNumber(env.amount)}</strong>
             </div>
           ))}
         </div>
