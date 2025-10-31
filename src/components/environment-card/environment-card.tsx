@@ -31,11 +31,13 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
             <span className={styles.heading}>{MOCK_ENV.cpu.name}</span>
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/core
+            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/min
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{available}</span>/<span className={styles.em}>{MOCK_ENV.cpu.max}</span>&nbsp;
-            available
+            <span className={styles.em}>
+              {available}/{MOCK_ENV.cpu.max}
+            </span>
+            &nbsp; available
           </div>
         </div>
       );
@@ -56,7 +58,7 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/core
+            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/min
           </span>
         }
         bottomRightContent={
@@ -79,10 +81,12 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
               <span className={styles.heading}>{gpu.name}</span>
             </div>
             <div className={styles.label}>
-              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/GPU
+              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/min
             </div>
             <div className={styles.label}>
-              <span className={styles.em}>{available}</span>/<span className={styles.em}>{gpu.max}</span>
+              <span className={styles.em}>
+                {available}/{gpu.max}
+              </span>
               &nbsp;available
             </div>
           </div>
@@ -105,7 +109,7 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
           }
           bottomLeftContent={
             <span className={styles.label}>
-              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/GPU
+              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/min
             </span>
           }
           bottomRightContent={
@@ -125,13 +129,15 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
         <div>
           <div className={styles.label}>
             <SdStorageIcon className={styles.icon} />
-            <span className={styles.heading}>RAM capacity</span>
+            <span className={styles.heading}>GB RAM capacity</span>
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/GB
+            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/min
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{available}</span>/<span className={styles.em}>{MOCK_ENV.ram.max}</span>
+            <span className={styles.em}>
+              {available}/{MOCK_ENV.ram.max}
+            </span>
             &nbsp;available
           </div>
         </div>
@@ -153,7 +159,7 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/GB
+            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/min
           </span>
         }
         bottomRightContent={
@@ -172,13 +178,15 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
         <div>
           <div className={styles.label}>
             <DnsIcon className={styles.icon} />
-            <span className={styles.heading}>Disk space</span>
+            <span className={styles.heading}>GB Disk space</span>
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/GB
+            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/min
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{available}</span>/<span className={styles.em}>{MOCK_ENV.disk.max}</span>
+            <span className={styles.em}>
+              {available}/{MOCK_ENV.disk.max}
+            </span>
             &nbsp;available
           </div>
         </div>
@@ -200,7 +208,7 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/GB
+            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/min
           </span>
         }
         bottomRightContent={
