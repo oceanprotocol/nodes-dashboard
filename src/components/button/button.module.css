@@ -4,7 +4,7 @@
   border: none;
   border-radius: 100px;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   font-weight: 600;
   justify-content: center;
   text-align: center;
