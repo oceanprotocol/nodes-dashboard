@@ -1,7 +1,8 @@
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { webSockets } from '@libp2p/websockets'
-import { createLibp2p } from 'libp2p'
+import { all } from '@libp2p/websockets/filters'
+import { createLibp2p, Libp2p } from 'libp2p'
 import { pipe } from 'it-pipe'
 import { fromString } from 'uint8arrays/from-string'
 import { toString } from 'uint8arrays/to-string'
@@ -14,7 +15,7 @@ export class OceanClientNode {
   private node: any
   async initialize() {
     this.node = await createLibp2p({
-      transports: [webSockets()],
+      transports: [webSockets({ filter: all })],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],
       peerDiscovery: [
@@ -87,6 +88,8 @@ export class OceanClientNode {
     }
   }
   async stop() {
-    await this.node.stop()
+    if (this.node) {
+      await this.node.stop()
+    }
   }
 }
