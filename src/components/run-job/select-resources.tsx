@@ -29,7 +29,6 @@ const SelectResources = () => {
             endAdornment="seconds"
             hint={`${MOCK_ENV.minPricePerMinute[token]} ${token}/min`}
             label="Job duration"
-            topRight={`${0}-${MOCK_ENV.maxJobDuration}`}
           />
           <Input
             endAdornment="cores"
