@@ -2,8 +2,10 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Select from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import { MOCK_ENV } from '@/mock/environments';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
 import { useState } from 'react';
@@ -11,82 +13,33 @@ import styles from './environment-card.module.css';
 
 // TODO replace mock data
 
-const MOCK_ENV = {
-  maxJobDuration: 7000,
-  minPricePerMinute: {
-    OCEAN: 350,
-    USDC: 125,
-  } as Record<string, number>,
-  cpu: {
-    max: 32,
-    name: 'Intel Xeon E5-2673 v4',
-    unitPrice: {
-      OCEAN: 3,
-      USDC: 1.51,
-    } as Record<string, number>,
-    used: 12,
-  },
-  disk: {
-    max: 32,
-    unitPrice: {
-      OCEAN: 6,
-      USDC: 2.51,
-    } as Record<string, number>,
-    used: 8,
-  },
-  gpu: [
-    {
-      max: 32,
-      name: 'nVIDIA RTX 5090',
-      unitPrice: {
-        OCEAN: 100,
-        USDC: 50,
-      } as Record<string, number>,
-      used: 30,
-    },
-    {
-      max: 32,
-      name: 'nVIDIA RTX 4090',
-      unitPrice: {
-        OCEAN: 3,
-        USDC: 1.51,
-      } as Record<string, number>,
-      used: 3,
-    },
-    {
-      max: 32,
-      name: 'nVIDIA RTX 5080',
-      unitPrice: {
-        OCEAN: 6,
-        USDC: 2.51,
-      } as Record<string, number>,
-      used: 2,
-    },
-    // {
-    //   max: 32,
-    //   name: 'nVIDIA RTX 4080',
-    //   unitPrice: {
-    //     OCEAN: 30,
-    //     USDC: 10.51,
-    //   } as Record<string, number>,
-    //   used: 8,
-    // },
-  ],
-  ram: {
-    max: 32,
-    unitPrice: {
-      OCEAN: 30,
-      USDC: 10.51,
-    } as Record<string, number>,
-    used: 20,
-  },
-  supportedTokens: ['OCEAN', 'USDC'],
+type EnvironmentCardProps = {
+  compact?: boolean;
+  showNodeName?: boolean;
 };
 
-const EnvironmentCard = () => {
+const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
   const [token, setToken] = useState(MOCK_ENV.supportedTokens[0]);
 
   const getCpuProgressBar = () => {
+    if (compact) {
+      const available = MOCK_ENV.cpu.max - MOCK_ENV.cpu.used;
+      return (
+        <div>
+          <div className={styles.label}>
+            <MemoryIcon className={styles.icon} />
+            <span className={styles.heading}>{MOCK_ENV.cpu.name}</span>
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/core
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{available}</span>/<span className={styles.em}>{MOCK_ENV.cpu.max}</span>&nbsp;
+            available
+          </div>
+        </div>
+      );
+    }
     const percentage = (100 * MOCK_ENV.cpu.used) / MOCK_ENV.cpu.max;
     return (
       <ProgressBar
@@ -117,6 +70,24 @@ const EnvironmentCard = () => {
 
   const getGpuProgressBars = () => {
     return MOCK_ENV.gpu.map((gpu, index) => {
+      if (compact) {
+        const available = gpu.max - gpu.used;
+        return (
+          <div key={gpu.name}>
+            <div className={styles.label}>
+              <MemoryIcon className={styles.icon} />
+              <span className={styles.heading}>{gpu.name}</span>
+            </div>
+            <div className={styles.label}>
+              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/GPU
+            </div>
+            <div className={styles.label}>
+              <span className={styles.em}>{available}</span>/<span className={styles.em}>{gpu.max}</span>
+              &nbsp;available
+            </div>
+          </div>
+        );
+      }
       const percentage = (100 * gpu.used) / gpu.max;
       return (
         <ProgressBar
@@ -148,6 +119,24 @@ const EnvironmentCard = () => {
   };
 
   const getRamProgressBar = () => {
+    if (compact) {
+      const available = MOCK_ENV.ram.max - MOCK_ENV.ram.used;
+      return (
+        <div>
+          <div className={styles.label}>
+            <SdStorageIcon className={styles.icon} />
+            <span className={styles.heading}>RAM capacity</span>
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/GB
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{available}</span>/<span className={styles.em}>{MOCK_ENV.ram.max}</span>
+            &nbsp;available
+          </div>
+        </div>
+      );
+    }
     const percentage = (100 * MOCK_ENV.ram.used) / MOCK_ENV.ram.max;
     return (
       <ProgressBar
@@ -177,6 +166,24 @@ const EnvironmentCard = () => {
   };
 
   const getDiskProgressBar = () => {
+    if (compact) {
+      const available = MOCK_ENV.disk.max - MOCK_ENV.disk.used;
+      return (
+        <div>
+          <div className={styles.label}>
+            <DnsIcon className={styles.icon} />
+            <span className={styles.heading}>Disk space</span>
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/GB
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{available}</span>/<span className={styles.em}>{MOCK_ENV.disk.max}</span>
+            &nbsp;available
+          </div>
+        </div>
+      );
+    }
     const percentage = (100 * MOCK_ENV.disk.used) / MOCK_ENV.disk.max;
     return (
       <ProgressBar
@@ -208,10 +215,17 @@ const EnvironmentCard = () => {
   return (
     <Card direction="column" padding="sm" radius="md" spacing="lg" variant="glass">
       <div className={styles.gridWrapper}>
-        {MOCK_ENV.gpu.length === 1 ? (
+        {compact ? (
+          <div className={classNames(styles.compactGrid)}>
+            {getGpuProgressBars()}
+            {getCpuProgressBar()}
+            {getRamProgressBar()}
+            {getDiskProgressBar()}
+          </div>
+        ) : MOCK_ENV.gpu.length === 1 ? (
           <>
             <h4>Specs</h4>
-            <div className={classNames(styles.grid, styles.allSpecs)}>
+            <div className={classNames(styles.grid)}>
               {getGpuProgressBars()}
               {getCpuProgressBar()}
               {getRamProgressBar()}
@@ -233,7 +247,14 @@ const EnvironmentCard = () => {
       </div>
       <div className={styles.footer}>
         <div>
-          Max job duration: <strong>{MOCK_ENV.maxJobDuration}</strong> seconds
+          <div>
+            Max job duration: <strong>{MOCK_ENV.maxJobDuration}</strong> seconds
+          </div>
+          {showNodeName ? (
+            <div>
+              Node: <strong>Friendly node name</strong>
+            </div>
+          ) : null}
         </div>
         <div className={styles.buttons}>
           <Select
@@ -243,10 +264,14 @@ const EnvironmentCard = () => {
             size="sm"
             value={token}
           />
-          <Button color="accent2" variant="outlined">
-            Try it
+          {MOCK_ENV.freeComputeEnvId ? (
+            <Button color="accent2" href="/run-job/resources" variant="outlined">
+              Try it
+            </Button>
+          ) : null}
+          <Button color="accent2" contentBefore={<PlayArrowIcon />} href="/run-job/resources">
+            From {MOCK_ENV.minPricePerMinute[token]}/min
           </Button>
-          <Button color="accent2">From {MOCK_ENV.minPricePerMinute[token]}/min</Button>
         </div>
       </div>
     </Card>
