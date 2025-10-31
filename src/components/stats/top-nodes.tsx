@@ -9,7 +9,7 @@ const TopNodes = () => {
 
   return (
     <>
-      <Card direction="column" padding="md" radius="md" spacing="md" variant="glass-shaded">
+      <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
         <h3>Top nodes by revenue</h3>
         <Table<Node>
           autoHeight
@@ -18,7 +18,7 @@ const TopNodes = () => {
           tableType={TableTypeEnum.NODES_TOP_REVENUE}
         />
       </Card>
-      <Card direction="column" padding="md" radius="md" spacing="md" variant="glass-shaded">
+      <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
         <h3>Top nodes by number of jobs</h3>
         <Table<Node> autoHeight data={topNodesByJobs} paginationType="none" tableType={TableTypeEnum.NODES_TOP_JOBS} />
       </Card>

@@ -1,5 +1,6 @@
 import Card from '@/components/card/card';
 import { ChartTypeEnum } from '@/components/chart/chart-type';
+import Gauge from '@/components/chart/gauge';
 import VBarChart from '@/components/chart/v-bar-chart';
 import { useStatsContext } from '@/context/stats-context';
 import { formatNumber } from '@/utils/formatters';
@@ -10,31 +11,31 @@ const JobsRevenueStats = () => {
 
   return (
     <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
-      <div className={styles.revenueWrapper}>
-        <h3 className={styles.heading}>Total revenue</h3>
-        <div className={styles.revenue}>
-          <span className={styles.token}>OCEAN</span>{' '}
-          <span className={styles.amount}>{formatNumber(totalRevenue)}</span>
-        </div>
-      </div>
       <VBarChart
         axisKey="epoch"
         barKey="revenue"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={revenuePerEpoch}
         title="Revenue per epoch"
+        footer={{
+          amount: formatNumber(totalRevenue),
+          currency: 'OCEAN',
+          label: 'Total revenue',
+        }}
       />
       <VBarChart
         axisKey="epoch"
         barKey="jobs"
         chartType={ChartTypeEnum.JOBS_PER_EPOCH}
         data={jobsPerEpoch}
+        title="Jobs per epoch"
         footer={{
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
-        title="Jobs per epoch"
       />
+      <Gauge label="Running" max={100} min={0} title="Queued jobs" value={63} />
+      <Gauge label="Latest" max={5415} min={100} title="Benchmark results" value={3000} />
     </Card>
   );
 };

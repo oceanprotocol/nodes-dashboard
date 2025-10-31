@@ -1,0 +1,43 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    .heading {
+      text-align: center;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .listItem {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+
+        .amount {
+          font-size: 18px;
+        }
+
+        .token {
+          color: var(--text-secondary);
+          font-size: 12px;
+        }
+      }
+    }
+  }
+
+  .buttons {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}

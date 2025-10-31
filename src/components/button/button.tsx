@@ -1,20 +1,38 @@
 import cx from 'classnames';
 import Link from 'next/link';
 import { MouseEventHandler, ReactNode } from 'react';
-import { ButtonStyle } from './butoon-style.enum';
 import styles from './button.module.css';
 
-interface ButtonProps {
+type ButtonProps = {
   children?: ReactNode;
   className?: string;
+  color?: 'accent1' | 'accent2' | 'primary';
   href?: string;
-  target?: '_blank' | '_self';
-  style?: ButtonStyle;
   onClick?: MouseEventHandler<HTMLButtonElement>;
-}
+  target?: '_blank' | '_self';
+  size?: 'md' | 'lg';
+  type?: 'button' | 'submit' | 'reset';
+  variant?: 'filled' | 'outlined';
+};
 
-const Button = ({ className, href, target, children, style, onClick }: ButtonProps) => {
-  const classes = cx(styles.root, className, style === ButtonStyle.PRIMARY && styles.primary);
+const Button = ({
+  children,
+  className,
+  color = 'primary',
+  href,
+  onClick,
+  target,
+  size = 'md',
+  type = 'button',
+  variant = 'filled',
+}: ButtonProps) => {
+  const classes = cx(
+    styles.root,
+    styles[`color-${color}`],
+    styles[`size-${size}`],
+    styles[`variant-${variant}`],
+    className
+  );
 
   if (href) {
     return (
@@ -25,7 +43,7 @@ const Button = ({ className, href, target, children, style, onClick }: ButtonPro
   }
 
   return (
-    <button className={classes} onClick={onClick}>
+    <button className={classes} onClick={onClick} type={type}>
       {children}
     </button>
   );

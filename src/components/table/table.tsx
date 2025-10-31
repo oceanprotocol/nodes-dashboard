@@ -1,4 +1,4 @@
-import { nodesLeaderboardColumns } from '@/components/table/columns';
+import { jobsColumns, nodesLeaderboardColumns } from '@/components/table/columns';
 import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
 import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';
@@ -146,6 +146,10 @@ export const Table = <T,>({
 
   const columns = useMemo(() => {
     switch (tableType) {
+      case TableTypeEnum.BENCHMARK_JOBS:
+      case TableTypeEnum.UNBAN_REQUESTS: {
+        return jobsColumns;
+      }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.NODES_TOP_JOBS:
       case TableTypeEnum.NODES_TOP_REVENUE: {
