@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { formatNumber } from '@/utils/formatters';
+import DownloadIcon from '@mui/icons-material/Download';
 import styles from './balance.module.css';
 
 // TODO replace mock data
@@ -28,19 +29,15 @@ export const Balance = () => {
         <div className={styles.list}>
           {MOCK_ENVS.map((env) => (
             <div className={styles.listItem} key={env.id}>
-              <strong>{env.name}</strong>
-              <div>
-                <span className={styles.token}>{env.token}</span>
-                &nbsp;
-                <strong className={styles.amount}>{formatNumber(env.amount)}</strong>
-              </div>
+              <div>{env.token}</div>
+              <strong>{formatNumber(env.amount)}</strong>
             </div>
           ))}
         </div>
       </div>
       <div className={styles.buttons}>
         <a>Send tokens for gas fee</a>
-        <Button color="accent2" size="lg">
+        <Button color="accent2" contentBefore={<DownloadIcon />} size="lg">
           Withdraw funds
         </Button>
       </div>

@@ -4,8 +4,10 @@ import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
 import { NodeEligibility } from '@/types/nodes';
 import DnsIcon from '@mui/icons-material/Dns';
+import DownloadIcon from '@mui/icons-material/Download';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
+import UploadIcon from '@mui/icons-material/Upload';
 import styles from './node-info.module.css';
 
 type NodeInfoProps = {
@@ -31,8 +33,10 @@ const NodeInfo = ({ eligibility }: NodeInfoProps) => {
             <div>Warsaw, Poland</div>
           </div>
           <div className={styles.buttons}>
-            <Button variant="outlined">Get node config</Button>
-            <Button>Set node config</Button>
+            <Button contentBefore={<DownloadIcon />} variant="outlined">
+              Get node config
+            </Button>
+            <Button contentBefore={<UploadIcon />}>Set node config</Button>
           </div>
         </div>
         <div className={styles.infoFooter}>
