@@ -120,19 +120,6 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
   return { node: nodeInstance, modules }
 }
 
-async function toMultiaddrArray(addrs: string[]) {
-  const multiaddr = await getMultiaddrConstructor()
-  const parsed: any[] = []
-  for (const s of addrs) {
-    try {
-      parsed.push(multiaddr(s))
-    } catch (e) {
-      console.warn('Skipping invalid multiaddr:', s)
-    }
-  }
-  return parsed
-}
-
 export async function getNodeEnvsBrowser(peerId: string, bootstrapNodes: string[]) {
   try {
     const { node, modules } = await ensureNodeStarted(bootstrapNodes)
@@ -145,6 +132,7 @@ export async function getNodeEnvsBrowser(peerId: string, bootstrapNodes: string[
     }
 
     // Normalize multiaddrs and filter to WebSocket for browser
+    console.log('discovered', discovered)
     const normalized = await normalizeMultiAddr(discovered, peerId)
     const wsMultiaddrs = normalized.filter((ma: any) => {
       const str = ma.toString()
@@ -171,40 +159,6 @@ export async function stopNodeBrowser() {
   if (nodeInstance) {
     await nodeInstance.stop()
     nodeInstance = null
-  }
-}
-
-export async function sendP2PCommandBrowser(
-  peerId: string,
-  bootstrapNodes: string[],
-  command: any
-) {
-  try {
-    const { node, modules } = await ensureNodeStarted(bootstrapNodes)
-
-    // Discover peer addresses
-    const discovered = await discoverPeerAddresses(node, peerId)
-
-    if (discovered.length === 0) {
-      throw new Error(`Could not find peer ${peerId} in peerStore or DHT`)
-    }
-
-    // Normalize and filter to WebSocket
-    const normalized = await normalizeMultiAddr(discovered, peerId)
-    const wsMultiaddrs = normalized.filter((ma: any) => {
-      const str = ma.toString()
-      return str.includes('/ws') || str.includes('/wss')
-    })
-
-    if (wsMultiaddrs.length === 0) {
-      throw new Error('No WebSocket addresses found for peer (browser requires WS)')
-    }
-
-    // Send command and get response
-    return await sendCommandToPeer(node, modules, peerId, wsMultiaddrs, command)
-  } catch (error) {
-    console.error('Error sending P2P command:', error)
-    throw error
   }
 }
 
@@ -248,22 +202,20 @@ async function normalizeMultiAddr(multiAddrs: any, peerId: string) {
     : multiAddrsWithoutPeerId
 }
 
-async function discoverPeerAddresses(node: any, peerId: string) {
+async function discoverPeerAddresses(node: any, peer: string) {
   const multiaddr = await getMultiaddrConstructor()
   const allMultiaddrs: any[] = []
 
-  let peerIdObj: any
+  let peerId: any
   try {
-    if (window.libp2pModules?.peerIdFromString) {
-      peerIdObj = window.libp2pModules.peerIdFromString(peerId)
-    }
+    peerId = window.libp2pModules.peerIdFromString(peer)
   } catch (e) {
     console.error('Failed to parse peerId:', e)
-    throw new Error(`Invalid peerId format: ${peerId}`)
+    throw new Error(`Invalid peerId format: ${peer}`)
   }
 
   try {
-    const peerData = await node.peerStore.get(peerIdObj, {
+    const peerData = await node.peerStore.get(peerId, {
       signal: AbortSignal.timeout(2000)
     })
 
@@ -275,15 +227,15 @@ async function discoverPeerAddresses(node: any, peerId: string) {
       }
     }
   } catch (e) {
-    console.error('Error discovering peer addresses in PeerStore:', e)
+    console.log('No peer data found in PeerStore for:', peer)
   }
 
   if (allMultiaddrs.length === 0) {
     try {
       console.log('peerRouting', node.peerRouting)
 
-      const peerInfo = await node.peerRouting.findPeer(peerIdObj, {
-        signal: AbortSignal.timeout(10000),
+      const peerInfo = await node.peerRouting.findPeer(peerId, {
+        signal: AbortSignal.timeout(5000),
         useCache: false,
         useNetwork: true
       })
@@ -297,12 +249,12 @@ async function discoverPeerAddresses(node: any, peerId: string) {
         }
       }
     } catch (e) {
-      console.error('Error discovering peer addresses via DHT:', e)
+      console.log('No peer info found via DHT for:', peer)
     }
   }
 
   if (allMultiaddrs.length === 0) {
-    console.error('No peer addresses found for:', peerId)
+    console.error('No peer addresses found for:', peer)
     return []
   }
 
@@ -409,12 +361,9 @@ async function sendCommandToPeer(
 
       return response
     } finally {
-      // Cleanup stream
       try {
         await stream.close()
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      } catch (e) {}
     }
   } finally {
     // Cleanup connection
