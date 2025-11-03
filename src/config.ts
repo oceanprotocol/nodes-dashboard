@@ -82,8 +82,8 @@ export const getSocialMedia = (): SocialMedia => config.socialMedia;
 export const getLinks = () => config.links;
 
 const API_ROOTS = {
-  incentive: 'https://incentive-backend.oceanprotocol.com',
-  analytics: 'https://analytics.nodes.oceanprotocol.com',
+  incentive: 'https://incentive-backend.oceanprotocol.io',
+  analytics: 'https://analytics.nodes.oceanprotocol.io',
 } as const;
 
 const apiRoutes = {
@@ -99,6 +99,7 @@ const apiRoutes = {
   analyticsSummary: { root: 'analytics', path: '/summary' },
   analyticsAllSummary: { root: 'analytics', path: '/all-summary' },
   analyticsRewardsHistory: { root: 'analytics', path: '/rewards-history' },
+  analyticsGlobalStats: { root: 'analytics', path: '/global-stats' },
 } as const;
 
 type ApiRouteKeys = keyof typeof apiRoutes;
