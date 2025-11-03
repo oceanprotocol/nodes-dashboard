@@ -120,7 +120,7 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
   return { node: nodeInstance, modules }
 }
 
-export async function getNodeEnvsBrowser(peerId: string, bootstrapNodes: string[]) {
+export async function getNodeEnvs(peerId: string, bootstrapNodes: string[]) {
   try {
     const { node, modules } = await ensureNodeStarted(bootstrapNodes)
 
@@ -155,7 +155,7 @@ export async function getNodeEnvsBrowser(peerId: string, bootstrapNodes: string[
   }
 }
 
-export async function stopNodeBrowser() {
+export async function stopNode() {
   if (nodeInstance) {
     await nodeInstance.stop()
     nodeInstance = null
