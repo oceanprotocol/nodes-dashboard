@@ -13,13 +13,19 @@ import styles from './environment-card.module.css';
 
 // TODO replace mock data
 
+// TODO show balance + withdraw button
+
 type EnvironmentCardProps = {
   compact?: boolean;
+  showBalance?: boolean;
   showNodeName?: boolean;
 };
 
-const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
+const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCardProps) => {
   const [token, setToken] = useState(MOCK_ENV.supportedTokens[0]);
+
+  // TODO replace random with real check
+  const hasBalance = Math.random() > 0.5;
 
   const getCpuProgressBar = () => {
     if (compact) {
@@ -253,6 +259,19 @@ const EnvironmentCard = ({ compact, showNodeName }: EnvironmentCardProps) => {
           </>
         )}
       </div>
+      {showBalance ? (
+        <div className={styles.balance}>
+          {hasBalance ? (
+            <div className="chip chipSuccess">Funds available</div>
+          ) : (
+            <div className="chip chipError">Top-up required</div>
+          )}
+          <div>
+            Balance: <strong>{hasBalance ? 100 : 0}</strong> OCEAN
+          </div>
+          {hasBalance ? <a className={styles.link}>Withdraw</a> : null}
+        </div>
+      ) : null}
       <div className={styles.footer}>
         <div>
           <div>
