@@ -82,3 +82,22 @@ a {
   flex-direction: column;
   gap: 24px;
 }
+
+.chip {
+  border-radius: 16px;
+  font-weight: 600;
+  padding: 2px 16px;
+
+  &.chipError {
+    background: var(--error-darker);
+    color: var(--text-primary);
+  }
+  &.chipSuccess {
+    background: var(--success-darker);
+    color: var(--text-primary);
+  }
+  &.chipWarning {
+    background: var(--warning-darker);
+    color: var(--text-primary);
+  }
+}
