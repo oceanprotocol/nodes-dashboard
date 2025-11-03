@@ -9,9 +9,10 @@ type GaugeProps = {
   min: number;
   title: string;
   value: number;
+  valueSuffix?: string;
 };
 
-const Gauge = ({ label, max, min, title, value }: GaugeProps) => {
+const Gauge = ({ label, max, min, title, value, valueSuffix }: GaugeProps) => {
   const slices = useMemo(() => {
     const offsetValue = value - min;
     const offsetMax = max - offsetValue;
@@ -44,13 +45,22 @@ const Gauge = ({ label, max, min, title, value }: GaugeProps) => {
             </PieChart>
           </ResponsiveContainer>
           <div className={styles.valueWrapper}>
-            <div className={styles.value}>{formatNumber(value)}</div>
+            <div className={styles.value}>
+              {formatNumber(value)}
+              {valueSuffix}
+            </div>
             {label ? <div className={styles.label}>{label}</div> : null}
           </div>
         </div>
         <div className={styles.footer}>
-          <div>{formatNumber(min)}</div>
-          <div>{formatNumber(max)}</div>
+          <div>
+            {formatNumber(min)}
+            {valueSuffix}
+          </div>
+          <div>
+            {formatNumber(max)}
+            {valueSuffix}
+          </div>
         </div>
       </div>
     </div>
