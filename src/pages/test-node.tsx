@@ -26,8 +26,8 @@ const TestNodePage: React.FC = () => {
       window.OCEAN_BOOTSTRAP_NODES = mod.OCEAN_BOOTSTRAP_NODES
 
       const cdnGetNodeEnvs = async (peerId: string, directAddr?: string) => {
-        const { getNodeEnvsBrowser } = await import('../services/nodeServiceBrowser')
-        return getNodeEnvsBrowser(peerId, window.OCEAN_BOOTSTRAP_NODES)
+        const { getNodeEnvs } = await import('../services/nodeService')
+        return getNodeEnvs(peerId, window.OCEAN_BOOTSTRAP_NODES)
       }
 
       setGetNodeEnvs(() => cdnGetNodeEnvs)
