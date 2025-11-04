@@ -89,9 +89,13 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
         })
       },
       connectionManager: {
+        minConnections: 2,
         maxConnections: 100,
         dialTimeout: 10000,
+        autoDialInterval: 5000,
+        autoDialConcurrency: 500,
         maxPeerAddrsToDial: 25,
+        autoDialPeerRetryThreshold: 120000,
         maxParallelDials: 2500
       }
     })
@@ -103,7 +107,48 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
     nodeInstance.addEventListener('peer:discovery', async (evt: any) => {
       const peerId = evt.detail.id
       const peerIdStr = peerId.toString()
-      console.log(`🔍 Discovered peer: ${peerIdStr}`)
+      console.log('Event: ' + JSON.stringify(evt))
+      console.log('Event details: ' + JSON.stringify(evt.detail))
+
+      // CRITICAL: Bootstrap discovery doesn't include addresses in browser
+      // Look up the address from bootstrap list
+      for (const bootstrapAddr of bootstrapNodes) {
+        try {
+          const ma = multiaddr(bootstrapAddr)
+          if (ma.getPeerId() === peerIdStr) {
+            console.log(`  📝 Adding bootstrap address from list: ${bootstrapAddr}`)
+
+            await nodeInstance!.peerStore.save(peerId, {
+              addresses: [
+                {
+                  multiaddr: ma,
+                  isCertified: false
+                }
+              ]
+            })
+
+            // Verify
+            const check = await nodeInstance!.peerStore.get(peerId)
+            console.log(
+              `  ✓ PeerStore now has ${check.addresses?.length || 0} address(es)`
+            )
+
+            // With autoDial: true, connectionManager will dial automatically
+            // OR manually dial if autoDial isn't working:
+            if (check.addresses?.length === 0) {
+              // Manual dial as fallback
+              console.log(`  🔌 Manually dialing...`)
+              nodeInstance!
+                .dial(ma)
+                .catch((e: any) => console.error(`  ❌ Dial failed: ${e.message}`))
+            }
+
+            break
+          }
+        } catch (e) {
+          // Not a match
+        }
+      }
     })
 
     nodeInstance.addEventListener('peer:connect', (evt: any) => {
@@ -307,12 +352,10 @@ export async function sendCommandToPeerById(
     // Discover peer addresses via peerStore + DHT + connections
     const discovered = await discoverPeerAddresses(node, peerId)
 
-    console.log(`Dialing peer with ${discovered.length} address(es)...`)
     const connection = await node.dial(discovered, {
       signal: AbortSignal.timeout(10000)
     })
 
-    console.log(`Connected, opening stream on ${protocol}...`)
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(10000)
     })
@@ -320,12 +363,23 @@ export async function sendCommandToPeerById(
     const message = JSON.stringify(command)
     let response = ''
 
-    // Send message
     await stream.sink([uint8ArrayFromString(message)])
 
-    // Read response from stream.source
+    let firstChunk = true
     for await (const chunk of stream.source) {
-      response += uint8ArrayToString(chunk.subarray())
+      const str = uint8ArrayToString(chunk.subarray())
+
+      if (firstChunk) {
+        firstChunk = false
+        try {
+          const parsed = JSON.parse(str)
+          if (parsed.httpStatus !== undefined) {
+            continue
+          }
+        } catch (e) {}
+      }
+
+      response += str
     }
 
     await stream.close()
