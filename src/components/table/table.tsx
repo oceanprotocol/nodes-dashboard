@@ -1,4 +1,5 @@
 import { jobsColumns, nodesLeaderboardColumns } from '@/components/table/columns';
+import { topNodesByJobsColumns, topNodesByRevenueColumns } from '@/components/stats/columns';
 import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
 import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';
@@ -6,6 +7,7 @@ import { TableTypeEnum } from '@/components/table/table-type';
 import styled from '@emotion/styled';
 import {
   DataGrid,
+  GridColDef,
   GridFilterModel,
   GridInitialState,
   GridSortModel,
@@ -150,10 +152,14 @@ export const Table = <T,>({
       case TableTypeEnum.UNBAN_REQUESTS: {
         return jobsColumns;
       }
-      case TableTypeEnum.NODES_LEADERBOARD:
-      case TableTypeEnum.NODES_TOP_JOBS:
-      case TableTypeEnum.NODES_TOP_REVENUE: {
+      case TableTypeEnum.NODES_LEADERBOARD: {
         return nodesLeaderboardColumns;
+      }
+      case TableTypeEnum.NODES_TOP_JOBS: {
+        return topNodesByJobsColumns;
+      }
+      case TableTypeEnum.NODES_TOP_REVENUE: {
+        return topNodesByRevenueColumns;
       }
     }
   }, [tableType]);
@@ -288,11 +294,11 @@ export const Table = <T,>({
       <StyledDataGridWrapper autoHeight={autoHeight}>
         <StyledDataGrid
           apiRef={apiRef}
-          columns={columns}
+          columns={columns as GridColDef<GridValidRowModel>[]}
           disableColumnMenu
           disableRowSelectionOnClick
           filterMode={paginationType === 'none' ? 'client' : 'server'}
-          getRowId={(row) => row.id}
+          getRowId={(row) => row.id || row.node_id}
           hideFooter
           initialState={initialState}
           loading={loading ?? context?.loading}

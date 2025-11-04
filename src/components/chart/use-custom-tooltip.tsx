@@ -173,7 +173,7 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
       </div>,
       document.body
     );
-  }, [tooltipInfo /*cardTitle*/]);
+  }, [tooltipInfo, chartType, labelKey /*cardTitle*/]);
 
   return {
     handleMouseMove,

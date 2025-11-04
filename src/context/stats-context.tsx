@@ -1,16 +1,14 @@
-import { getApiRoute } from '@/config';
-import { MOCK_NODES } from '@/mock/nodes';
-import { MOCK_TOP_GPU_MODELS } from '@/mock/stats';
-import { Node } from '@/types/nodes';
-import { AnalyticsGlobalStats, JobsPerEpochType, RevenuePerEpochType, SystemStatsData } from '@/types/stats';
-import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useState } from 'react';
+import axios from 'axios';
+import { getApiRoute } from '@/config';
+import { GPUPopularity, GPUPopularityStats, Node } from '@/types/nodes';
+import { AnalyticsGlobalStats, JobsPerEpochType, RevenuePerEpochType, SystemStatsData } from '@/types/stats';
 
 type StatsContextType = {
   jobsPerEpoch: JobsPerEpochType[];
   revenuePerEpoch: RevenuePerEpochType[];
   systemStats: SystemStatsData;
-  topGpuModels: any[];
+  topGpuModels: GPUPopularity[];
   topNodesByJobs: Node[];
   topNodesByRevenue: Node[];
   totalNetworkJobs: number;
@@ -21,6 +19,9 @@ type StatsContextType = {
   totalRevenue: number;
   fetchSystemStats: () => Promise<void>;
   fetchAnalyticsGlobalStats: () => Promise<void>;
+  fetchTopGpus: () => Promise<void>;
+  fetchTopNodesByRevenue: () => Promise<void>;
+  fetchTopNodesByJobCount: () => Promise<void>;
 };
 
 const StatsContext = createContext<StatsContextType | undefined>(undefined);
@@ -39,6 +40,57 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
   const [totalBenchmarkJobs, setTotalBenchmarkJobs] = useState<number>(0);
   const [jobsPerEpoch, setJobsPerEpoch] = useState<JobsPerEpochType[]>([]);
   const [revenuePerEpoch, setRevenuePerEpoch] = useState<RevenuePerEpochType[]>([]);
+  const [topGpuModels, setTopGpuModels] = useState<GPUPopularityStats>([]);
+  const [topNodesByRevenue, setTopNodesByRevenue] = useState<Node[]>([]);
+  const [topNodesByJobs, setTopNodesByJobs] = useState<Node[]>([]);
+
+  const fetchTopNodesByRevenue = useCallback(async () => {
+    try {
+      const response = await axios.get<Node[]>(getApiRoute('topNodesByRevenue'), {
+          params: {
+              size: 5,
+              page: 1,
+              sort: {
+                  total_revenue: 'desc'
+              }
+          }
+      });
+      if (response.data) {
+        setTopNodesByRevenue(response.data)
+      }
+    } catch (err) {
+      console.error('Error fetching system stats:', err);
+    }
+  }, [])
+
+  const fetchTopNodesByJobCount = useCallback(async () => {
+    try {
+      const response = await axios.get<Node[]>(getApiRoute('topNodesByJobCount'), {
+          params: {
+              size: 5,
+              page: 1,
+              sort: {
+                  total_jobs: 'desc'
+              }
+          }
+      });
+      if (response.data) {
+        setTopNodesByJobs(response.data)
+      }
+    } catch (err) {
+      console.error('Error fetching system stats:', err);
+    }
+  }, [])
+
+  const fetchTopGpus = useCallback(async () => {
+    try {
+      const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
+        setTopGpuModels(response.data)
+      }
+    catch (err) {
+      console.error('Error fetching system stats:', err);
+    }
+  }, [])
 
   const fetchSystemStats = useCallback(async () => {
     try {
@@ -96,13 +148,16 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
         totalBenchmarkJobs,
         totalNetworkJobs,
         systemStats,
-        topGpuModels: MOCK_TOP_GPU_MODELS,
-        topNodesByJobs: MOCK_NODES,
-        topNodesByRevenue: MOCK_NODES,
+        topGpuModels,
+        topNodesByJobs,
+        topNodesByRevenue,
         totalJobs,
         totalRevenue,
         fetchSystemStats,
         fetchAnalyticsGlobalStats,
+        fetchTopGpus,
+        fetchTopNodesByRevenue,
+        fetchTopNodesByJobCount
       }}
     >
       {children}

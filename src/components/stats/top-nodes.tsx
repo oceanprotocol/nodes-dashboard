@@ -3,9 +3,18 @@ import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useStatsContext } from '@/context/stats-context';
 import { Node } from '@/types/nodes';
+import { useEffect } from 'react';
 
 const TopNodes = () => {
-  const { topNodesByJobs, topNodesByRevenue } = useStatsContext();
+  const { topNodesByJobs, topNodesByRevenue, fetchTopNodesByRevenue, fetchTopNodesByJobCount } = useStatsContext();
+
+  useEffect(() => {
+      fetchTopNodesByRevenue()
+  }, [fetchTopNodesByRevenue])
+
+  useEffect(() => {
+      fetchTopNodesByJobCount()
+  }, [fetchTopNodesByJobCount])
 
   return (
     <>
