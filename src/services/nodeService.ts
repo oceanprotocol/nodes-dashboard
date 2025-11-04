@@ -57,10 +57,8 @@ async function warmUpNode(
   })
 }
 
-async function ensureNodeStarted(bootstrapNodes: string[]) {
+export async function initializeNode(bootstrapNodes: string[]) {
   if (!nodeInstance) {
-    console.log('🚀 Creating libp2p node (bundled)...')
-
     nodeInstance = await createLibp2p({
       transports: [webSockets({ filter: all })],
       connectionEncryption: [noise()],
@@ -101,17 +99,13 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
     })
 
     await nodeInstance.start()
-    console.log('✓ Node started')
 
-    // Peer Discovery & Connection Events
     nodeInstance.addEventListener('peer:discovery', async (evt: any) => {
       const peerId = evt.detail.id
       const peerIdStr = peerId.toString()
-      console.log('Event: ' + JSON.stringify(evt))
-      console.log('Event details: ' + JSON.stringify(evt.detail))
 
-      // CRITICAL: Bootstrap discovery doesn't include addresses in browser
-      // Look up the address from bootstrap list
+      // Workaround in browser: populate the peerstore
+      // dependency on bootstrapNodes list
       for (const bootstrapAddr of bootstrapNodes) {
         try {
           const ma = multiaddr(bootstrapAddr)
@@ -129,9 +123,7 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
 
             // Verify
             const check = await nodeInstance!.peerStore.get(peerId)
-            console.log(
-              `  ✓ PeerStore now has ${check.addresses?.length || 0} address(es)`
-            )
+            console.log(`PeerStore now has ${check.addresses?.length || 0} address(es)`)
 
             // With autoDial: true, connectionManager will dial automatically
             // OR manually dial if autoDial isn't working:
@@ -140,7 +132,7 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
               console.log(`  🔌 Manually dialing...`)
               nodeInstance!
                 .dial(ma)
-                .catch((e: any) => console.error(`  ❌ Dial failed: ${e.message}`))
+                .catch((e: any) => console.error(`Dial failed: ${e.message}`))
             }
 
             break
@@ -150,62 +142,6 @@ async function ensureNodeStarted(bootstrapNodes: string[]) {
         }
       }
     })
-
-    nodeInstance.addEventListener('peer:connect', (evt: any) => {
-      console.log(`✅ CONNECTED to peer: ${evt.detail.toString()}`)
-    })
-
-    nodeInstance.addEventListener('peer:disconnect', (evt: any) => {
-      console.log(`⚠️ Disconnected from peer: ${evt.detail.toString()}`)
-    })
-
-    // Connection Lifecycle Events
-    nodeInstance.addEventListener('connection:open', (evt: any) => {
-      console.log(
-        `🔓 Connection opened: ${evt.detail.remotePeer?.toString() || 'unknown'}`
-      )
-      console.log(`   Direction: ${evt.detail.direction}`)
-    })
-
-    nodeInstance.addEventListener('connection:close', (evt: any) => {
-      console.log(
-        `🔒 Connection closed: ${evt.detail.remotePeer?.toString() || 'unknown'}`
-      )
-    })
-
-    // Protocol Events
-    nodeInstance.addEventListener('peer:identify', (evt: any) => {
-      console.log(`🆔 Identified peer: ${evt.detail.peerId.toString()}`)
-      console.log(`   Protocols:`, evt.detail.protocols)
-      console.log(
-        `   Addresses:`,
-        evt.detail.listenAddrs?.map((a: any) => a.toString())
-      )
-    })
-
-    nodeInstance.addEventListener('peer:update', (evt: any) => {
-      console.log(`📝 Peer updated: ${evt.detail.peer.id.toString()}`)
-      if (evt.detail.peer.addresses) {
-        console.log(`   Addresses: ${evt.detail.peer.addresses.length}`)
-      }
-    })
-
-    // Self Update Events
-    nodeInstance.addEventListener('self:peer:update', (evt: any) => {
-      console.log(`📝 Self peer updated:`, evt.detail)
-    })
-
-    // Log initial state
-    console.log(`\n📊 Initial State:`)
-    console.log(`   Peer ID: ${nodeInstance.peerId.toString()}`)
-    console.log(
-      `   Multiaddrs: ${nodeInstance
-        .getMultiaddrs()
-        .map((m) => m.toString())
-        .join(', ')}`
-    )
-    console.log(`   Protocols: ${nodeInstance.getProtocols().join(', ')}`)
-    console.log('')
 
     // Wait for warmup
     if (!isWarmedUp) {
@@ -337,22 +273,20 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
   return wsAddrs
 }
 
-export async function sendCommandToPeerById(
+export async function sendCommandToPeer(
   peerId: string,
   command: any,
-  bootstrapNodes: string[],
   protocol: string = '/ocean/nodes/1.0.0'
 ): Promise<any> {
   try {
-    console.log(`Target peer: ${peerId}`)
-    console.log(`Command: ${command.command}`)
-
-    const node = await ensureNodeStarted(bootstrapNodes)
+    if (!nodeInstance) {
+      throw new Error('Node not initialized')
+    }
 
     // Discover peer addresses via peerStore + DHT + connections
-    const discovered = await discoverPeerAddresses(node, peerId)
+    const discovered = await discoverPeerAddresses(nodeInstance, peerId)
 
-    const connection = await node.dial(discovered, {
+    const connection = await nodeInstance.dial(discovered, {
       signal: AbortSignal.timeout(10000)
     })
 
@@ -392,12 +326,8 @@ export async function sendCommandToPeerById(
   }
 }
 
-export async function getNodeEnvs(peerId: string, bootstrapNodes: string[]) {
-  return sendCommandToPeerById(
-    peerId,
-    { command: 'getComputeEnvironments', node: peerId },
-    bootstrapNodes
-  )
+export async function getNodeEnvs(peerId: string) {
+  return sendCommandToPeer(peerId, { command: 'getComputeEnvironments', node: peerId })
 }
 
 export async function stopNode() {
@@ -406,4 +336,12 @@ export async function stopNode() {
     nodeInstance = null
     isWarmedUp = false
   }
+}
+
+export function getNodeInstance(): Libp2p | null {
+  return nodeInstance
+}
+
+export function getConnectedPeerCount(): number {
+  return nodeInstance?.getPeers().length || 0
 }

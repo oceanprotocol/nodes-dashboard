@@ -1,17 +1,18 @@
-import '@/styles/globals.css';
-import 'leaflet/dist/leaflet.css';
-import type { AppProps } from 'next/app';
-import '@rainbow-me/rainbowkit/styles.css';
-import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { WagmiProvider } from 'wagmi';
-import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import RootLayout from '../components/Layout';
+import '@/styles/globals.css'
+import 'leaflet/dist/leaflet.css'
+import type { AppProps } from 'next/app'
+import '@rainbow-me/rainbowkit/styles.css'
+import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit'
+import { WagmiProvider } from 'wagmi'
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
+import RootLayout from '../components/Layout'
 import { AdminProvider } from '@/context/AdminProvider'
 import { chains } from '@/shared/utils/chains'
 import { MapProvider } from '@/context/MapContext'
 import { NodesProvider } from '@/context/NodesContext'
 import { CountriesProvider } from '@/context/CountriesContext'
 import { HistoryProvider } from '@/context/HistoryContext'
+import { P2PProvider } from '@/contexts/P2PContext'
 
 export default function App({ Component, pageProps }: AppProps) {
   const config = getDefaultConfig({
@@ -34,9 +35,11 @@ export default function App({ Component, pageProps }: AppProps) {
               <CountriesProvider>
                 <MapProvider>
                   <HistoryProvider>
-                    <RootLayout>
-                      <Component {...pageProps} />
-                    </RootLayout>
+                    <P2PProvider>
+                      <RootLayout>
+                        <Component {...pageProps} />
+                      </RootLayout>
+                    </P2PProvider>
                   </HistoryProvider>
                 </MapProvider>
               </CountriesProvider>
