@@ -1,376 +1,355 @@
-// Browser-only service that loads libp2p from CDN
-declare global {
-  interface Window {
-    libp2pModules: any
-  }
+// This runs client-side only with bundled npm packages
+import { createLibp2p, Libp2p } from 'libp2p'
+import { webSockets } from '@libp2p/websockets'
+import { noise } from '@chainsafe/libp2p-noise'
+import { yamux } from '@chainsafe/libp2p-yamux'
+import { bootstrap } from '@libp2p/bootstrap'
+import { kadDHT, passthroughMapper } from '@libp2p/kad-dht'
+import { pipe } from 'it-pipe'
+import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
+import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
+import { peerIdFromString } from '@libp2p/peer-id'
+import { identify } from '@libp2p/identify'
+import { ping } from '@libp2p/ping'
+import { multiaddr } from '@multiformats/multiaddr'
+import { all } from '@libp2p/websockets/filters'
+
+let nodeInstance: Libp2p | null = null
+let isWarmedUp = false
+
+const permissiveConnectionGater = {
+  denyDialPeer: async () => false,
+  denyDialMultiaddr: async () => false,
+  denyInboundConnection: async () => false,
+  denyOutboundConnection: async () => false,
+  denyInboundEncryptedConnection: async () => false,
+  denyOutboundEncryptedConnection: async () => false,
+  denyInboundUpgradedConnection: async () => false,
+  denyOutboundUpgradedConnection: async () => false,
+  filterMultiaddrForPeer: async (peer: any) => peer.multiaddrs
 }
 
-export async function loadLibp2pFromCDN(): Promise<void> {
-  if (window.libp2pModules) {
-    return
-  }
+async function warmUpNode(
+  node: Libp2p,
+  minPeers: number = 2,
+  maxWaitMs: number = 15000
+): Promise<boolean> {
+  console.log('🔥 Warming up P2P node...')
+  const startTime = Date.now()
 
-  // Create a script to load libp2p modules from CDN
-  const script = document.createElement('script')
-  script.type = 'module'
-  script.textContent = `
-    import { createLibp2p } from 'https://esm.sh/libp2p@1.2.0';
-    import { webSockets } from 'https://esm.sh/@libp2p/websockets@8.0.12';
-    import { all } from 'https://esm.sh/@libp2p/websockets@8.0.12/filters';
-    import { noise } from 'https://esm.sh/@chainsafe/libp2p-noise@15.0.0';
-    import { yamux } from 'https://esm.sh/@chainsafe/libp2p-yamux@6.0.1';
-    import { bootstrap } from 'https://esm.sh/@libp2p/bootstrap@10.0.10';
-    import { kadDHT, passthroughMapper } from 'https://esm.sh/@libp2p/kad-dht@12.0.2';
-    import { pipe } from 'https://esm.sh/it-pipe@3.0.1';
-    import { fromString } from 'https://esm.sh/uint8arrays@5.0.1/from-string';
-    import { toString } from 'https://esm.sh/uint8arrays@5.0.1/to-string';
-    import { mdns } from 'https://esm.sh/@libp2p/mdns@10.1.1';
-    import { peerIdFromString } from 'https://esm.sh/@libp2p/peer-id@4.1.4';
-
-
-
-    // Create a permissive connection gater that allows all addresses (including localhost)
-    const permissiveConnectionGater = {
-      denyDialPeer: async () => false,
-      denyDialMultiaddr: async () => false,
-      denyInboundConnection: async () => false,
-      denyOutboundConnection: async () => false,
-      denyInboundEncryptedConnection: async () => false,
-      denyOutboundEncryptedConnection: async () => false,
-      denyInboundUpgradedConnection: async () => false,
-      denyOutboundUpgradedConnection: async () => false,
-      filterMultiaddrForPeer: async (peer) => peer.multiaddrs
-    };
-
-    window.libp2pModules = {
-      createLibp2p,
-      webSockets,
-      all,
-      noise,
-      yamux,
-      bootstrap,
-      kadDHT,
-      pipe,
-      fromString,
-      toString,
-      permissiveConnectionGater,
-      passthroughMapper,
-      mdns,
-      peerIdFromString
-    };
-    
-    window.dispatchEvent(new Event('libp2p-loaded'));
-  `
-
-  document.head.appendChild(script)
-
-  // Wait for modules to load
   return new Promise((resolve) => {
-    window.addEventListener('libp2p-loaded', () => resolve(), { once: true })
+    const checkInterval = setInterval(() => {
+      const peers = node.getPeers()
+      const elapsed = Date.now() - startTime
+
+      console.log(`  Connected peers: ${peers.length}, elapsed: ${elapsed}ms`)
+
+      if (peers.length >= minPeers) {
+        console.log('✓ Node warmed up successfully')
+        clearInterval(checkInterval)
+        resolve(true)
+      } else if (elapsed >= maxWaitMs) {
+        console.warn(`⚠️ Warmup timeout reached with only ${peers.length} peers`)
+        clearInterval(checkInterval)
+        resolve(false)
+      }
+    }, 1000)
   })
 }
 
-let nodeInstance: any = null
-let multiaddrModule: any = null
-
-// Load multiaddr from installed package (not CDN)
-async function getMultiaddrConstructor() {
-  if (multiaddrModule) {
-    return multiaddrModule
-  }
-  const { multiaddr } = await import('@multiformats/multiaddr')
-  multiaddrModule = multiaddr
-  return multiaddr
-}
-
 async function ensureNodeStarted(bootstrapNodes: string[]) {
-  // Load libp2p from CDN and create a singleton node instance
-  await loadLibp2pFromCDN()
-  const modules = window.libp2pModules
   if (!nodeInstance) {
-    nodeInstance = await modules.createLibp2p({
-      transports: [modules.webSockets({ filter: modules.all })],
-      connectionEncryption: [modules.noise()],
-      streamMuxers: [modules.yamux()],
-      connectionGater: modules.permissiveConnectionGater,
+    console.log('🚀 Creating libp2p node (bundled)...')
+
+    nodeInstance = await createLibp2p({
+      transports: [webSockets({ filter: all })],
+      connectionEncryption: [noise()],
+      streamMuxers: [yamux()],
+      connectionGater: permissiveConnectionGater,
       peerDiscovery: [
-        modules.bootstrap({
+        bootstrap({
           list: bootstrapNodes,
           timeout: 5000,
           tagName: 'bootstrap',
           tagValue: 50,
           tagTTL: 120000
-        }),
-        modules.mdns({ interval: 20e3 })
+        })
       ],
       services: {
-        dht: modules.kadDHT({
+        identify: identify(),
+        ping: ping(),
+        dht: kadDHT({
           allowQueryWithZeroPeers: false,
-          maxInboundStreams: 5,
-          maxOutboundStreams: 50,
-          pingConcurrency: 20,
-          clientMode: true, // Read-only client
+          maxInboundStreams: 10,
+          maxOutboundStreams: 100,
+          clientMode: true,
+          kBucketSize: 20,
           protocol: '/ocean/nodes/1.0.0/kad/1.0.0',
-          peerInfoMapper: modules.passthroughMapper
+          peerInfoMapper: passthroughMapper
         })
+      },
+      connectionManager: {
+        maxConnections: 100,
+        dialTimeout: 10000,
+        maxPeerAddrsToDial: 25,
+        maxParallelDials: 2500
       }
     })
+
     await nodeInstance.start()
-  }
-  return { node: nodeInstance, modules }
-}
+    console.log('✓ Node started')
 
-export async function getNodeEnvs(peerId: string, bootstrapNodes: string[]) {
-  try {
-    const { node, modules } = await ensureNodeStarted(bootstrapNodes)
-
-    // Discover peer addresses via peerStore + DHT
-    const discovered = await discoverPeerAddresses(node, peerId)
-
-    if (discovered.length === 0) {
-      throw new Error(`Could not find peer ${peerId} in peerStore or DHT`)
-    }
-
-    // Normalize multiaddrs and filter to WebSocket for browser
-    console.log('discovered', discovered)
-    const normalized = await normalizeMultiAddr(discovered, peerId)
-    const wsMultiaddrs = normalized.filter((ma: any) => {
-      const str = ma.toString()
-      return str.includes('/ws') || str.includes('/wss')
+    // Peer Discovery & Connection Events
+    nodeInstance.addEventListener('peer:discovery', async (evt: any) => {
+      const peerId = evt.detail.id
+      const peerIdStr = peerId.toString()
+      console.log(`🔍 Discovered peer: ${peerIdStr}`)
     })
 
-    if (wsMultiaddrs.length === 0) {
-      throw new Error('No WebSocket addresses found for peer (browser requires WS)')
-    }
-
-    // Send command and get response
-    const response = await sendCommandToPeer(node, modules, peerId, wsMultiaddrs, {
-      command: 'getComputeEnvironments'
+    nodeInstance.addEventListener('peer:connect', (evt: any) => {
+      console.log(`✅ CONNECTED to peer: ${evt.detail.toString()}`)
     })
 
-    return JSON.parse(response)
-  } catch (error) {
-    console.error('Error:', error)
-    throw error
-  }
-}
+    nodeInstance.addEventListener('peer:disconnect', (evt: any) => {
+      console.log(`⚠️ Disconnected from peer: ${evt.detail.toString()}`)
+    })
 
-export async function stopNode() {
-  if (nodeInstance) {
-    await nodeInstance.stop()
-    nodeInstance = null
+    // Connection Lifecycle Events
+    nodeInstance.addEventListener('connection:open', (evt: any) => {
+      console.log(
+        `🔓 Connection opened: ${evt.detail.remotePeer?.toString() || 'unknown'}`
+      )
+      console.log(`   Direction: ${evt.detail.direction}`)
+    })
+
+    nodeInstance.addEventListener('connection:close', (evt: any) => {
+      console.log(
+        `🔒 Connection closed: ${evt.detail.remotePeer?.toString() || 'unknown'}`
+      )
+    })
+
+    // Protocol Events
+    nodeInstance.addEventListener('peer:identify', (evt: any) => {
+      console.log(`🆔 Identified peer: ${evt.detail.peerId.toString()}`)
+      console.log(`   Protocols:`, evt.detail.protocols)
+      console.log(
+        `   Addresses:`,
+        evt.detail.listenAddrs?.map((a: any) => a.toString())
+      )
+    })
+
+    nodeInstance.addEventListener('peer:update', (evt: any) => {
+      console.log(`📝 Peer updated: ${evt.detail.peer.id.toString()}`)
+      if (evt.detail.peer.addresses) {
+        console.log(`   Addresses: ${evt.detail.peer.addresses.length}`)
+      }
+    })
+
+    // Self Update Events
+    nodeInstance.addEventListener('self:peer:update', (evt: any) => {
+      console.log(`📝 Self peer updated:`, evt.detail)
+    })
+
+    // Log initial state
+    console.log(`\n📊 Initial State:`)
+    console.log(`   Peer ID: ${nodeInstance.peerId.toString()}`)
+    console.log(
+      `   Multiaddrs: ${nodeInstance
+        .getMultiaddrs()
+        .map((m) => m.toString())
+        .join(', ')}`
+    )
+    console.log(`   Protocols: ${nodeInstance.getProtocols().join(', ')}`)
+    console.log('')
+
+    // Wait for warmup
+    if (!isWarmedUp) {
+      await warmUpNode(nodeInstance)
+      isWarmedUp = true
+    }
   }
+
+  return nodeInstance
 }
 
 function hasMultiAddr(addr: any, multiAddresses: any[]) {
+  const addrStr = addr.toString()
   for (let i = 0; i < multiAddresses.length; i++) {
-    if (multiAddresses[i].toString() === addr.toString()) return true
+    if (multiAddresses[i].toString() === addrStr) return true
   }
   return false
 }
 
-async function normalizeMultiAddr(multiAddrs: any, peerId: string) {
-  const multiaddr = await getMultiaddrConstructor()
-  const multiAddrsWithPeerId: any[] = []
-  const multiAddrsWithoutPeerId: any[] = []
-
-  for (const ma of multiAddrs) {
-    const addrStr = typeof ma === 'string' ? ma : ma.toString()
-
-    if (addrStr.includes(`/p2p/${peerId}`) || addrStr.endsWith(`/${peerId}`)) {
-      try {
-        multiAddrsWithPeerId.push(multiaddr(addrStr))
-      } catch (e) {
-        console.warn('Failed to parse multiaddr:', addrStr)
-      }
-    } else {
-      let normalized = addrStr
-      if (addrStr.includes('p2p-circuit')) {
-        normalized = `${addrStr}/p2p/${peerId}`
-      }
-
-      try {
-        multiAddrsWithoutPeerId.push(multiaddr(normalized))
-      } catch (e) {
-        console.warn('Failed to parse multiaddr without peerId:', normalized)
-      }
-    }
-  }
-
-  return multiAddrsWithPeerId.length > multiAddrsWithoutPeerId.length
-    ? multiAddrsWithPeerId
-    : multiAddrsWithoutPeerId
-}
-
-async function discoverPeerAddresses(node: any, peer: string) {
-  const multiaddr = await getMultiaddrConstructor()
+// Comprehensive peer discovery (from nodeService.ts)
+async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]> {
   const allMultiaddrs: any[] = []
+
+  console.log(`Starting peer discovery for: ${peer}`)
 
   let peerId: any
   try {
-    peerId = window.libp2pModules.peerIdFromString(peer)
+    peerId = peerIdFromString(peer)
   } catch (e) {
     console.error('Failed to parse peerId:', e)
     throw new Error(`Invalid peerId format: ${peer}`)
   }
 
   try {
-    const peerData = await node.peerStore.get(peerId, {
-      signal: AbortSignal.timeout(2000)
-    })
+    console.log('Checking peerStore...')
+    const peerData = await node.peerStore.get(peerId)
 
     if (peerData && peerData.addresses) {
+      console.log(`Found ${peerData.addresses.length} addresses in peerStore`)
       for (const addr of peerData.addresses) {
         if (!hasMultiAddr(addr.multiaddr, allMultiaddrs)) {
+          console.log(`    + ${addr.multiaddr.toString()}`)
           allMultiaddrs.push(addr.multiaddr)
         }
       }
     }
-  } catch (e) {
-    console.log('No peer data found in PeerStore for:', peer)
+  } catch (e: any) {
+    console.log('peerStore query failed:', e.message)
   }
-
-  if (allMultiaddrs.length === 0) {
-    try {
-      console.log('peerRouting', node.peerRouting)
-
-      const peerInfo = await node.peerRouting.findPeer(peerId, {
-        signal: AbortSignal.timeout(5000),
-        useCache: false,
-        useNetwork: true
-      })
-
-      if (peerInfo && peerInfo.multiaddrs) {
-        for (const addr of peerInfo.multiaddrs) {
-          if (!hasMultiAddr(addr, allMultiaddrs)) {
-            allMultiaddrs.push(addr)
-            console.log('Found peer address via DHT:', addr.toString())
-          }
-        }
-      }
-    } catch (e) {
-      console.log('No peer info found via DHT for:', peer)
-    }
-  }
-
-  if (allMultiaddrs.length === 0) {
-    console.error('No peer addresses found for:', peer)
-    return []
-  }
-
-  return allMultiaddrs
-}
-
-async function dialWithRetry(
-  node: any,
-  multiaddrs: any[],
-  peerId: string,
-  maxRetries: number = 3,
-  dialTimeout: number = 5000
-): Promise<any> {
-  let attempt = 0
-
-  while (attempt < maxRetries) {
-    try {
-      attempt += 1
-      console.log(`Dial attempt ${attempt}/${maxRetries}`)
-
-      if (node.components?.connectionManager?.dialQueue?.queue) {
-        await node.components.connectionManager.dialQueue.queue.onSizeLessThan(10)
-      }
-
-      const options = {
-        signal: AbortSignal.timeout(dialTimeout),
-        priority: 100,
-        runOnTransientConnection: true
-      }
-
-      const connection = await node.dial(multiaddrs, options)
-
-      // Verify peer ID
-      if (peerId && connection.remotePeer.toString() !== peerId) {
-        connection.close()
-        throw new Error(
-          `Invalid peer: expected ${peerId}, got ${connection.remotePeer.toString()}`
-        )
-      }
-
-      console.log('Successfully connected to peer')
-      return connection
-    } catch (e: any) {
-      if (attempt >= maxRetries) {
-        throw new Error(
-          e.message
-            ? `Cannot connect to peer after ${maxRetries} attempts: ${e.message}`
-            : 'Cannot connect to peer after multiple attempts'
-        )
-      }
-      console.warn(`Dial attempt ${attempt} failed:`, e.message)
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
-    }
-  }
-
-  throw new Error('Failed to establish connection')
-}
-
-async function sendCommandToPeer(
-  node: any,
-  modules: any,
-  peerId: string,
-  multiaddrs: any[],
-  command: any
-): Promise<string> {
-  // Dial with retry
-  const connection = await dialWithRetry(node, multiaddrs, peerId)
 
   try {
-    // Open stream
-    const stream = await connection.newStream('/ocean/nodes/1.0.0', {
-      signal: AbortSignal.timeout(5000)
+    console.log('Querying DHT...')
+    const peerInfo = await node.peerRouting.findPeer(peerId, {
+      signal: AbortSignal.timeout(10000),
+      useCache: false,
+      useNetwork: true
     })
 
-    try {
-      // Send command and receive response
-      const message = JSON.stringify(command)
-      let response = ''
-      let firstChunk = true
-
-      await modules.pipe(
-        [modules.fromString(message)],
-        stream,
-        async function (source: any) {
-          for await (const chunk of source) {
-            const str = modules.toString(chunk.subarray())
-
-            if (firstChunk) {
-              firstChunk = false
-              // Skip first chunk if it's status metadata
-              try {
-                const parsed = JSON.parse(str)
-                if (parsed.httpStatus !== undefined) {
-                  console.log('Skipped status chunk:', str)
-                  continue
-                }
-              } catch (e) {}
-            }
-
-            response += str
-          }
+    if (peerInfo && peerInfo.multiaddrs) {
+      console.log(`Found ${peerInfo.multiaddrs.length} addresses via DHT`)
+      for (const addr of peerInfo.multiaddrs) {
+        if (!hasMultiAddr(addr, allMultiaddrs)) {
+          console.log(`    + ${addr.toString()}`)
+          allMultiaddrs.push(addr)
         }
-      )
+      }
+    }
+  } catch (e: any) {
+    console.log('DHT query failed:', e.message)
+  }
 
-      return response
-    } finally {
-      try {
-        await stream.close()
-      } catch (e) {}
+  try {
+    console.log('Checking existing connections...')
+    const connections = node.getConnections(peerId)
+    if (connections && connections.length > 0) {
+      console.log(`Found ${connections.length} active connections`)
+      for (const conn of connections) {
+        const remoteAddr = conn.remoteAddr
+        if (remoteAddr && !hasMultiAddr(remoteAddr, allMultiaddrs)) {
+          console.log(`    + ${remoteAddr.toString()}`)
+          allMultiaddrs.push(remoteAddr)
+        }
+      }
+    } else {
+      console.log('No existing connections to this peer')
     }
-  } finally {
-    // Cleanup connection
-    try {
-      connection.close()
-    } catch (e) {
-      // Ignore cleanup errors
+  } catch (e: any) {
+    console.log('Could not check connections:', e.message)
+  }
+
+  console.log(`\nDiscovery summary: ${allMultiaddrs.length} total addresses found`)
+
+  if (allMultiaddrs.length === 0) {
+    const connectedPeers = node.getPeers()
+    console.error(`No addresses found for peer ${peer}`)
+    console.error(`Currently connected to ${connectedPeers.length} peers:`)
+    connectedPeers
+      .slice(0, 5)
+      .forEach((p: any) => console.error(`     - ${p.toString()}`))
+    throw new Error(
+      `Could not discover any addresses for peer ${peer}. ` +
+        `Connected to ${connectedPeers.length} peers in network. ` +
+        `Ensure the target peer is online and accessible.`
+    )
+  }
+
+  const wsAddrs = allMultiaddrs.filter((ma) => {
+    const str = ma.toString()
+    const isWs = str.includes('/ws') || str.includes('/wss')
+    if (!isWs) {
+      console.log(`  ⤷ Skipping non-WebSocket address: ${str}`)
     }
+    return isWs
+  })
+
+  console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`)
+
+  if (wsAddrs.length === 0) {
+    console.error(
+      `Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`
+    )
+    allMultiaddrs.forEach((ma) => console.error(`     - ${ma.toString()}`))
+    throw new Error(
+      `Peer ${peer} has no WebSocket addresses (required for browser). ` +
+        `Found protocols: ${allMultiaddrs.map((ma: any) => ma.toString()).join(', ')}`
+    )
+  }
+
+  return wsAddrs
+}
+
+export async function sendCommandToPeerById(
+  peerId: string,
+  command: any,
+  bootstrapNodes: string[],
+  protocol: string = '/ocean/nodes/1.0.0'
+): Promise<any> {
+  try {
+    console.log(`Target peer: ${peerId}`)
+    console.log(`Command: ${command.command}`)
+
+    const node = await ensureNodeStarted(bootstrapNodes)
+
+    // Discover peer addresses via peerStore + DHT + connections
+    const discovered = await discoverPeerAddresses(node, peerId)
+
+    console.log(`Dialing peer with ${discovered.length} address(es)...`)
+    const connection = await node.dial(discovered, {
+      signal: AbortSignal.timeout(10000)
+    })
+
+    console.log(`Connected, opening stream on ${protocol}...`)
+    const stream = await connection.newStream(protocol, {
+      signal: AbortSignal.timeout(10000)
+    })
+
+    const message = JSON.stringify(command)
+    let response = ''
+
+    // Send message
+    await stream.sink([uint8ArrayFromString(message)])
+
+    // Read response from stream.source
+    for await (const chunk of stream.source) {
+      response += uint8ArrayToString(chunk.subarray())
+    }
+
+    await stream.close()
+    console.log('Command completed\n')
+
+    return JSON.parse(response)
+  } catch (error: any) {
+    console.error('Command failed:', error.message)
+    throw error
+  }
+}
+
+export async function getNodeEnvs(peerId: string, bootstrapNodes: string[]) {
+  return sendCommandToPeerById(
+    peerId,
+    { command: 'getComputeEnvironments', node: peerId },
+    bootstrapNodes
+  )
+}
+
+export async function stopNode() {
+  if (nodeInstance) {
+    await nodeInstance.stop()
+    nodeInstance = null
+    isWarmedUp = false
   }
 }

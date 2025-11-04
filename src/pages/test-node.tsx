@@ -21,11 +21,11 @@ const TestNodePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load bootstrap nodes and setup the CDN-based service
     import('@/shared/consts/bootstrapNodes').then((mod) => {
       window.OCEAN_BOOTSTRAP_NODES = mod.OCEAN_BOOTSTRAP_NODES
 
       const cdnGetNodeEnvs = async (peerId: string, directAddr?: string) => {
+        // Import bundled version instead of CDN version
         const { getNodeEnvs } = await import('../services/nodeService')
         return getNodeEnvs(peerId, window.OCEAN_BOOTSTRAP_NODES)
       }
