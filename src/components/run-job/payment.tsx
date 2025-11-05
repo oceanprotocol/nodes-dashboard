@@ -41,7 +41,7 @@ const Payment = () => {
         <Card direction="column" padding="sm" radius="md" spacing="md" variant="glass">
           <div className={styles.row}>
             <Select label="Fee token address" />
-            <Input endAdornment="OCEAN" label="Amount" />
+            <Input endAdornment="OCEAN" label="Amount" type="number" />
           </div>
           <div className={styles.buttons}>
             <Button className={styles.button} color="accent1">

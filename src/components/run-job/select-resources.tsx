@@ -29,24 +29,28 @@ const SelectResources = () => {
             endAdornment="seconds"
             hint={`${MOCK_ENV.minPricePerMinute[token]} ${token}/min`}
             label="Job duration"
+            type="number"
           />
           <Input
             endAdornment="cores"
             hint={`${MOCK_ENV.cpu.unitPrice[token]} ${token}/core`}
             label="CPU cores"
             topRight={`${1}-${MOCK_ENV.cpu.max}`}
+            type="number"
           />
           <Input
             endAdornment="GB"
             hint={`${MOCK_ENV.ram.unitPrice[token]} ${token}/GB`}
             label="RAM capacity"
             topRight={`${1}-${MOCK_ENV.ram.max}`}
+            type="number"
           />
           <Input
             endAdornment="GB"
             hint={`${MOCK_ENV.disk.unitPrice[token]} ${token}/GB`}
             label="Disk space"
             topRight={`${0}-${MOCK_ENV.disk.max}`}
+            type="number"
           />
         </div>
         <Card className={styles.cost} variant="accent1-outline" radius="md">

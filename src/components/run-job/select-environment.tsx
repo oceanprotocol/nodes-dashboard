@@ -19,10 +19,10 @@ const SelectEnvironment = () => {
           <Select label="GPUs" multiple />
           <Collapse in={expanded}>
             <div className={styles.extraFilters}>
-              <Input endAdornment="seconds" label="Max job duration from" size="sm" />
-              <Input endAdornment="cores" label="Minimum CPU cores" size="sm" />
-              <Input endAdornment="GB" label="Minimum RAM" size="sm" />
-              <Input endAdornment="GB" label="Minimum disk space" size="sm" />
+              <Input endAdornment="seconds" label="Max job duration from" size="sm" type="number" />
+              <Input endAdornment="cores" label="Minimum CPU cores" size="sm" type="number" />
+              <Input endAdornment="GB" label="Minimum RAM" size="sm" type="number" />
+              <Input endAdornment="GB" label="Minimum disk space" size="sm" type="number" />
               <Select label="Pricing token" size="sm" />
             </div>
           </Collapse>

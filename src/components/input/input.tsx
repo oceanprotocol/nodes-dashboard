@@ -63,6 +63,7 @@ type InputProps = {
   size?: 'sm' | 'md';
   startAdornment?: React.ReactNode;
   topRight?: React.ReactNode;
+  type: 'text' | 'password' | 'email' | 'number';
   value?: string;
 };
 
@@ -77,6 +78,7 @@ const Input = ({
   size = 'md',
   startAdornment,
   topRight,
+  type,
   value,
 }: InputProps) => (
   <StyledRoot className={className}>
@@ -93,6 +95,7 @@ const Input = ({
         onChange={onChange}
         placeholder={placeholder}
         slotProps={{ input: { startAdornment, endAdornment } }}
+        type={type}
         value={value}
         variant="outlined"
       />
