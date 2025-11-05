@@ -147,10 +147,12 @@ export const Table = <T,>({
   const columns = useMemo(() => {
     switch (tableType) {
       case TableTypeEnum.BENCHMARK_JOBS:
+      case TableTypeEnum.MY_JOBS:
       case TableTypeEnum.UNBAN_REQUESTS: {
         return jobsColumns;
       }
       case TableTypeEnum.NODES_LEADERBOARD:
+      case TableTypeEnum.MY_NODES:
       case TableTypeEnum.NODES_TOP_JOBS:
       case TableTypeEnum.NODES_TOP_REVENUE: {
         return nodesLeaderboardColumns;

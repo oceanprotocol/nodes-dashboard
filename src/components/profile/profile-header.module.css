@@ -1,0 +1,26 @@
+.root {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+
+  .name {
+    font-size: 28px;
+  }
+
+  .address {
+    font-size: 14px;
+    color: var(--text-secondary);
+    word-break: break-word;
+  }
+
+  .buttons {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+  }
+}

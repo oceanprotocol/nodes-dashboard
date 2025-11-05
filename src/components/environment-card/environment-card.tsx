@@ -269,7 +269,11 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
           <div>
             Balance: <strong>{hasBalance ? 100 : 0}</strong> OCEAN
           </div>
-          {hasBalance ? <a className={styles.link}>Withdraw</a> : null}
+          {hasBalance ? (
+            <a className={styles.link} href="/withdraw">
+              Withdraw
+            </a>
+          ) : null}
         </div>
       ) : null}
       <div className={styles.footer}>
