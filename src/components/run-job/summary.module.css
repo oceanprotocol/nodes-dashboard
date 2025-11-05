@@ -1,0 +1,36 @@
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px 32px;
+
+  .label {
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  @media (min-width: 768px) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+  }
+}
+
+.footer {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  .buttons {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 16px;
+
+    @media (min-width: 576px) {
+      align-items: center;
+      flex-direction: row;
+      justify-content: end;
+    }
+  }
+}
