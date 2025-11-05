@@ -12,16 +12,6 @@ const nextConfig = {
       }
     }
     return config
-  },
-
-  // 👇 Add this
-  async rewrites() {
-    return [
-      {
-        source: '/libp2p/:path*',
-        destination: 'http://127.0.0.1:49757/:path*'
-      }
-    ]
   }
 }
 

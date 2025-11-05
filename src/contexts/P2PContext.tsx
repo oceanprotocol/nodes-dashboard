@@ -1,21 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { Libp2p } from 'libp2p'
-import {
-  initializeNode,
-  getConnectedPeerCount,
-  sendCommandToPeer,
-  getNodeEnvs
-} from '@/services/nodeService'
+import { initializeNode, sendCommandToPeer, getNodeEnvs } from '@/services/nodeService'
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes'
 
 interface P2PContextType {
   node: Libp2p | null
   isReady: boolean
   error: string | null
-  connectedPeers: number
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>
   getEnvs: (peerId: string) => Promise<any>
-  refreshPeerCount: () => number
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined)
@@ -24,7 +17,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   const [node, setNode] = useState<Libp2p | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [connectedPeers, setConnectedPeers] = useState(0)
 
   useEffect(() => {
     let mounted = true
@@ -40,13 +32,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
           setNode(nodeInstance)
           setIsReady(true)
 
-          peerCountInterval = setInterval(() => {
-            const count = getConnectedPeerCount()
-            setConnectedPeers(count)
-          }, 5000)
-
-          setConnectedPeers(getConnectedPeerCount())
-
           console.log('P2PContext: Node ready')
         }
       } catch (err: any) {
@@ -61,9 +46,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false
-      if (peerCountInterval) {
-        clearInterval(peerCountInterval)
-      }
     }
   }, [])
 
@@ -87,22 +69,14 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   )
 
-  const refreshPeerCount = useCallback(() => {
-    const count = getConnectedPeerCount()
-    setConnectedPeers(count)
-    return count
-  }, [])
-
   return (
     <P2PContext.Provider
       value={{
         node,
         isReady,
         error,
-        connectedPeers,
         sendCommand,
-        getEnvs,
-        refreshPeerCount
+        getEnvs
       }}
     >
       {children}

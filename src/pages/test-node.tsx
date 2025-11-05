@@ -9,7 +9,7 @@ const TestNodePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [availablePeers, setAvailablePeers] = useState<string[]>([])
 
-  const { isReady, error: p2pError, getEnvs, connectedPeers, node } = useP2P()
+  const { isReady, error: p2pError, getEnvs, node } = useP2P()
 
   // Discover available Ocean nodes
   const discoverPeers = async () => {
@@ -85,12 +85,6 @@ const TestNodePage: React.FC = () => {
         }}
       >
         <strong>Node Status:</strong> {isReady ? '✅ Ready' : '⏳ Initializing...'}
-        {isReady && (
-          <>
-            {' '}
-            | <strong>Connected Peers:</strong> {connectedPeers}
-          </>
-        )}
       </div>
 
       {p2pError && (

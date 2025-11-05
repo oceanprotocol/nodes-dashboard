@@ -272,7 +272,3 @@ export async function stopNode() {
 export function getNodeInstance(): Libp2p | null {
   return nodeInstance
 }
-
-export function getConnectedPeerCount(): number {
-  return nodeInstance?.getPeers().length || 0
-}
