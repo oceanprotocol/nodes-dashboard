@@ -1,0 +1,40 @@
+.extraFilters {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  @media (min-width: 768px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (min-width: 1200px) {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.footer {
+  align-items: end;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+
+  .sortSelect {
+    min-width: 250px;
+  }
+
+  .buttons {
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
