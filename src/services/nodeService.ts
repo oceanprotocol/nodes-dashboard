@@ -9,13 +9,20 @@ import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 import { peerIdFromString } from '@libp2p/peer-id'
 import { identify } from '@libp2p/identify'
 import { ping } from '@libp2p/ping'
-import { multiaddr } from '@multiformats/multiaddr'
+import { multiaddr, type Multiaddr } from '@multiformats/multiaddr'
+import type { PeerId } from '@libp2p/interface'
 import { all } from '@libp2p/websockets/filters'
 
 let nodeInstance: Libp2p | null = null
+const DEFAULT_PROTOCOL = '/ocean/nodes/1.0.0'
+const DEFAULT_TIMEOUT = 10000
 
 export async function initializeNode(bootstrapNodes: string[]) {
-  if (!nodeInstance) {
+  if (nodeInstance) {
+    return nodeInstance
+  }
+
+  try {
     nodeInstance = await createLibp2p({
       transports: [webSockets({ filter: all })],
       connectionEncryption: [noise()],
@@ -45,7 +52,7 @@ export async function initializeNode(bootstrapNodes: string[]) {
       connectionManager: {
         minConnections: 2,
         maxConnections: 100,
-        dialTimeout: 10000,
+        dialTimeout: DEFAULT_TIMEOUT,
         autoDialInterval: 5000,
         autoDialConcurrency: 500,
         maxPeerAddrsToDial: 25,
@@ -55,9 +62,12 @@ export async function initializeNode(bootstrapNodes: string[]) {
     })
 
     await nodeInstance.start()
-  }
 
-  return nodeInstance
+    return nodeInstance
+  } catch (error) {
+    nodeInstance = null
+    throw error
+  }
 }
 
 function hasMultiAddr(addr: any, multiAddresses: any[]) {
@@ -68,7 +78,7 @@ function hasMultiAddr(addr: any, multiAddresses: any[]) {
   return false
 }
 
-function normalizeMultiaddr(addr: any): any | null {
+function normalizeMultiaddr(addr: Multiaddr): Multiaddr | null {
   try {
     let addrStr = addr.toString()
 
@@ -88,10 +98,10 @@ function normalizeMultiaddr(addr: any): any | null {
   }
 }
 
-async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]> {
-  const allMultiaddrs: any[] = []
+async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multiaddr[]> {
+  const allMultiaddrs: Multiaddr[] = []
 
-  let peerId: any
+  let peerId: PeerId
   try {
     peerId = peerIdFromString(peer)
   } catch (e) {
@@ -119,7 +129,7 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
 
   try {
     const peerInfo = await node.peerRouting.findPeer(peerId, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
       useCache: false,
       useNetwork: true
     })
@@ -162,8 +172,8 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
     )
   }
 
-  const finalmultiaddrsWithPeerId: any[] = []
-  const finalmultiaddrsWithoutPeerId: any[] = []
+  const finalmultiaddrsWithPeerId: Multiaddr[] = []
+  const finalmultiaddrsWithoutPeerId: Multiaddr[] = []
 
   for (const addr of wsAddrs) {
     const addrStr = addr.toString()
@@ -194,9 +204,9 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
 
 export async function sendCommandToPeer(
   peerId: string,
-  command: any,
-  protocol: string = '/ocean/nodes/1.0.0'
-): Promise<any> {
+  command: Record<string, any>,
+  protocol: string = DEFAULT_PROTOCOL
+): Promise<Record<string, any>> {
   try {
     if (!nodeInstance) {
       throw new Error('Node not initialized')
@@ -205,11 +215,11 @@ export async function sendCommandToPeer(
     const discovered = await discoverPeerAddresses(nodeInstance, peerId)
 
     const connection = await nodeInstance.dial(discovered, {
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT)
     })
 
     const stream = await connection.newStream(protocol, {
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT)
     })
 
     const message = JSON.stringify(command)
