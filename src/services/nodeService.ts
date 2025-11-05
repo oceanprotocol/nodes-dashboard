@@ -1,11 +1,9 @@
-// This runs client-side only with bundled npm packages
 import { createLibp2p, Libp2p } from 'libp2p'
 import { webSockets } from '@libp2p/websockets'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { bootstrap } from '@libp2p/bootstrap'
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht'
-import { pipe } from 'it-pipe'
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 import { peerIdFromString } from '@libp2p/peer-id'
@@ -15,47 +13,6 @@ import { multiaddr } from '@multiformats/multiaddr'
 import { all } from '@libp2p/websockets/filters'
 
 let nodeInstance: Libp2p | null = null
-let isWarmedUp = false
-
-const permissiveConnectionGater = {
-  denyDialPeer: async () => false,
-  denyDialMultiaddr: async () => false,
-  denyInboundConnection: async () => false,
-  denyOutboundConnection: async () => false,
-  denyInboundEncryptedConnection: async () => false,
-  denyOutboundEncryptedConnection: async () => false,
-  denyInboundUpgradedConnection: async () => false,
-  denyOutboundUpgradedConnection: async () => false,
-  filterMultiaddrForPeer: async (peer: any) => peer.multiaddrs
-}
-
-async function warmUpNode(
-  node: Libp2p,
-  minPeers: number = 2,
-  maxWaitMs: number = 15000
-): Promise<boolean> {
-  console.log('🔥 Warming up P2P node...')
-  const startTime = Date.now()
-
-  return new Promise((resolve) => {
-    const checkInterval = setInterval(() => {
-      const peers = node.getPeers()
-      const elapsed = Date.now() - startTime
-
-      console.log(`  Connected peers: ${peers.length}, elapsed: ${elapsed}ms`)
-
-      if (peers.length >= minPeers) {
-        console.log('✓ Node warmed up successfully')
-        clearInterval(checkInterval)
-        resolve(true)
-      } else if (elapsed >= maxWaitMs) {
-        console.warn(`⚠️ Warmup timeout reached with only ${peers.length} peers`)
-        clearInterval(checkInterval)
-        resolve(false)
-      }
-    }, 1000)
-  })
-}
 
 export async function initializeNode(bootstrapNodes: string[]) {
   if (!nodeInstance) {
@@ -63,7 +20,6 @@ export async function initializeNode(bootstrapNodes: string[]) {
       transports: [webSockets({ filter: all })],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],
-      connectionGater: permissiveConnectionGater,
       peerDiscovery: [
         bootstrap({
           list: bootstrapNodes,
@@ -99,55 +55,6 @@ export async function initializeNode(bootstrapNodes: string[]) {
     })
 
     await nodeInstance.start()
-
-    nodeInstance.addEventListener('peer:discovery', async (evt: any) => {
-      const peerId = evt.detail.id
-      const peerIdStr = peerId.toString()
-
-      // Workaround in browser: populate the peerstore
-      // dependency on bootstrapNodes list
-      for (const bootstrapAddr of bootstrapNodes) {
-        try {
-          const ma = multiaddr(bootstrapAddr)
-          if (ma.getPeerId() === peerIdStr) {
-            console.log(`  📝 Adding bootstrap address from list: ${bootstrapAddr}`)
-
-            await nodeInstance!.peerStore.save(peerId, {
-              addresses: [
-                {
-                  multiaddr: ma,
-                  isCertified: false
-                }
-              ]
-            })
-
-            // Verify
-            const check = await nodeInstance!.peerStore.get(peerId)
-            console.log(`PeerStore now has ${check.addresses?.length || 0} address(es)`)
-
-            // With autoDial: true, connectionManager will dial automatically
-            // OR manually dial if autoDial isn't working:
-            if (check.addresses?.length === 0) {
-              // Manual dial as fallback
-              console.log(`  🔌 Manually dialing...`)
-              nodeInstance!
-                .dial(ma)
-                .catch((e: any) => console.error(`Dial failed: ${e.message}`))
-            }
-
-            break
-          }
-        } catch (e) {
-          // Not a match
-        }
-      }
-    })
-
-    // Wait for warmup
-    if (!isWarmedUp) {
-      await warmUpNode(nodeInstance)
-      isWarmedUp = true
-    }
   }
 
   return nodeInstance
@@ -161,11 +68,28 @@ function hasMultiAddr(addr: any, multiAddresses: any[]) {
   return false
 }
 
-// Comprehensive peer discovery (from nodeService.ts)
+function normalizeMultiaddr(addr: any): any | null {
+  try {
+    let addrStr = addr.toString()
+
+    if (addrStr.includes('/ws/tcp/')) {
+      addrStr = addrStr.replace('/ws/tcp/', '/tcp/')
+      if (addrStr.includes('/p2p/')) {
+        addrStr = addrStr.replace('/p2p/', '/ws/p2p/')
+      } else {
+        addrStr = addrStr + '/ws'
+      }
+    }
+
+    return multiaddr(addrStr)
+  } catch (e: any) {
+    console.warn(`Failed to normalize address ${addr.toString()}: ${e.message}`)
+    return null
+  }
+}
+
 async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]> {
   const allMultiaddrs: any[] = []
-
-  console.log(`Starting peer discovery for: ${peer}`)
 
   let peerId: any
   try {
@@ -176,15 +100,16 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
   }
 
   try {
-    console.log('Checking peerStore...')
     const peerData = await node.peerStore.get(peerId)
 
     if (peerData && peerData.addresses) {
       console.log(`Found ${peerData.addresses.length} addresses in peerStore`)
       for (const addr of peerData.addresses) {
         if (!hasMultiAddr(addr.multiaddr, allMultiaddrs)) {
-          console.log(`    + ${addr.multiaddr.toString()}`)
-          allMultiaddrs.push(addr.multiaddr)
+          const normalized = normalizeMultiaddr(addr.multiaddr)
+          if (normalized) {
+            allMultiaddrs.push(normalized)
+          }
         }
       }
     }
@@ -193,7 +118,6 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
   }
 
   try {
-    console.log('Querying DHT...')
     const peerInfo = await node.peerRouting.findPeer(peerId, {
       signal: AbortSignal.timeout(10000),
       useCache: false,
@@ -204,8 +128,10 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
       console.log(`Found ${peerInfo.multiaddrs.length} addresses via DHT`)
       for (const addr of peerInfo.multiaddrs) {
         if (!hasMultiAddr(addr, allMultiaddrs)) {
-          console.log(`    + ${addr.toString()}`)
-          allMultiaddrs.push(addr)
+          const normalized = normalizeMultiaddr(addr)
+          if (normalized) {
+            allMultiaddrs.push(normalized)
+          }
         }
       }
     }
@@ -213,48 +139,19 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
     console.log('DHT query failed:', e.message)
   }
 
-  try {
-    console.log('Checking existing connections...')
-    const connections = node.getConnections(peerId)
-    if (connections && connections.length > 0) {
-      console.log(`Found ${connections.length} active connections`)
-      for (const conn of connections) {
-        const remoteAddr = conn.remoteAddr
-        if (remoteAddr && !hasMultiAddr(remoteAddr, allMultiaddrs)) {
-          console.log(`    + ${remoteAddr.toString()}`)
-          allMultiaddrs.push(remoteAddr)
-        }
-      }
-    } else {
-      console.log('No existing connections to this peer')
-    }
-  } catch (e: any) {
-    console.log('Could not check connections:', e.message)
-  }
-
   console.log(`\nDiscovery summary: ${allMultiaddrs.length} total addresses found`)
 
   if (allMultiaddrs.length === 0) {
-    const connectedPeers = node.getPeers()
     console.error(`No addresses found for peer ${peer}`)
-    console.error(`Currently connected to ${connectedPeers.length} peers:`)
-    connectedPeers
-      .slice(0, 5)
-      .forEach((p: any) => console.error(`     - ${p.toString()}`))
     throw new Error(
       `Could not discover any addresses for peer ${peer}. ` +
-        `Connected to ${connectedPeers.length} peers in network. ` +
         `Ensure the target peer is online and accessible.`
     )
   }
 
   const wsAddrs = allMultiaddrs.filter((ma) => {
     const str = ma.toString()
-    const isWs = str.includes('/ws') || str.includes('/wss')
-    if (!isWs) {
-      console.log(`  ⤷ Skipping non-WebSocket address: ${str}`)
-    }
-    return isWs
+    return str.includes('/ws') || str.includes('/wss')
   })
 
   console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`)
@@ -263,14 +160,36 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<any[]>
     console.error(
       `Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`
     )
-    allMultiaddrs.forEach((ma) => console.error(`     - ${ma.toString()}`))
-    throw new Error(
-      `Peer ${peer} has no WebSocket addresses (required for browser). ` +
-        `Found protocols: ${allMultiaddrs.map((ma: any) => ma.toString()).join(', ')}`
-    )
   }
 
-  return wsAddrs
+  const finalmultiaddrsWithPeerId: any[] = []
+  const finalmultiaddrsWithoutPeerId: any[] = []
+
+  for (const addr of wsAddrs) {
+    const addrStr = addr.toString()
+
+    if (addrStr.includes(`/p2p/${peer}`)) {
+      finalmultiaddrsWithPeerId.push(addr)
+    } else {
+      // For p2p-circuit (circuit relay), always add peer ID
+      if (addrStr.includes('p2p-circuit')) {
+        finalmultiaddrsWithPeerId.push(multiaddr(`${addrStr}/p2p/${peer}`))
+      } else {
+        finalmultiaddrsWithoutPeerId.push(addr)
+      }
+    }
+  }
+
+  const finalmultiaddrs =
+    finalmultiaddrsWithPeerId.length > finalmultiaddrsWithoutPeerId.length
+      ? finalmultiaddrsWithPeerId
+      : finalmultiaddrsWithoutPeerId
+
+  if (finalmultiaddrs.length === 0) {
+    throw new Error(`No valid addresses found for peer ${peer}`)
+  }
+
+  return finalmultiaddrs
 }
 
 export async function sendCommandToPeer(
@@ -283,7 +202,6 @@ export async function sendCommandToPeer(
       throw new Error('Node not initialized')
     }
 
-    // Discover peer addresses via peerStore + DHT + connections
     const discovered = await discoverPeerAddresses(nodeInstance, peerId)
 
     const connection = await nodeInstance.dial(discovered, {
@@ -317,7 +235,6 @@ export async function sendCommandToPeer(
     }
 
     await stream.close()
-    console.log('Command completed\n')
 
     return JSON.parse(response)
   } catch (error: any) {
@@ -334,7 +251,6 @@ export async function stopNode() {
   if (nodeInstance) {
     await nodeInstance.stop()
     nodeInstance = null
-    isWarmedUp = false
   }
 }
 
