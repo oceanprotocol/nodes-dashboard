@@ -70,7 +70,7 @@ export async function initializeNode(bootstrapNodes: string[]) {
   }
 }
 
-function hasMultiAddr(addr: any, multiAddresses: any[]) {
+function hasMultiAddr(addr: Multiaddr, multiAddresses: Multiaddr[]) {
   const addrStr = addr.toString()
   for (let i = 0; i < multiAddresses.length; i++) {
     if (multiAddresses[i].toString() === addrStr) return true
@@ -92,8 +92,9 @@ function normalizeMultiaddr(addr: Multiaddr): Multiaddr | null {
     }
 
     return multiaddr(addrStr)
-  } catch (e: any) {
-    console.warn(`Failed to normalize address ${addr.toString()}: ${e.message}`)
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    console.warn(`Failed to normalize address ${addr.toString()}: ${errorMessage}`)
     return null
   }
 }
@@ -104,8 +105,9 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
   let peerId: PeerId
   try {
     peerId = peerIdFromString(peer)
-  } catch (e) {
-    console.error('Failed to parse peerId:', e)
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    console.error('Failed to parse peerId:', errorMessage)
     throw new Error(`Invalid peerId format: ${peer}`)
   }
 
@@ -123,8 +125,9 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
         }
       }
     }
-  } catch (e: any) {
-    console.log('peerStore query failed:', e.message)
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    console.log('peerStore query failed:', errorMessage)
   }
 
   try {
@@ -145,8 +148,9 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
         }
       }
     }
-  } catch (e: any) {
-    console.log('DHT query failed:', e.message)
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    console.log('DHT query failed:', errorMessage)
   }
 
   console.log(`\nDiscovery summary: ${allMultiaddrs.length} total addresses found`)
@@ -247,8 +251,9 @@ export async function sendCommandToPeer(
     await stream.close()
 
     return JSON.parse(response)
-  } catch (error: any) {
-    console.error('Command failed:', error.message)
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Command failed:', errorMessage)
     throw error
   }
 }
