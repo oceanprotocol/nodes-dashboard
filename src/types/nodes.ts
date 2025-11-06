@@ -1,16 +1,16 @@
 export type Node = {
-    node_id: string,
-    friendly_name: string,
-    region: string,
-    latest_gpu_score: number,
-    latest_cpu_score: number,
-    total_jobs: number,
-    total_revenue: number
-    latestBenchmarkResults: {
-        gpuScore: number,
-        cpuScore: number,
-        bandwidth: number
-    }
+  node_id: string;
+  friendly_name: string;
+  region: string;
+  latest_gpu_score: number;
+  latest_cpu_score: number;
+  total_jobs: number;
+  total_revenue: number;
+  latestBenchmarkResults: {
+    gpuScore: number;
+    cpuScore: number;
+    bandwidth: number;
+  };
 };
 
 export enum NodeEligibility {
@@ -19,9 +19,9 @@ export enum NodeEligibility {
   BANNED = 'banned',
 }
 
-export type GPUPopularityStats = GPUPopularity[]
+export type GPUPopularityStats = GPUPopularity[];
 
 export interface GPUPopularity {
-  gpu_name: string
-  popularity: number
+  gpu_name: string;
+  popularity: number;
 }

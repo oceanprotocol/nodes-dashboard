@@ -7,7 +7,7 @@ const TopGpuModels = () => {
   const { topGpuModels, fetchTopGpus } = useStatsContext();
 
   useEffect(() => {
-      fetchTopGpus();
+    fetchTopGpus();
   }, [fetchTopGpus]);
 
   return (

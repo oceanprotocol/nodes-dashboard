@@ -1,5 +1,9 @@
-import { jobsColumns, nodesLeaderboardColumns } from '@/components/table/columns';
-import { topNodesByJobsColumns, topNodesByRevenueColumns } from '@/components/stats/columns';
+import {
+  jobsColumns,
+  nodesLeaderboardColumns,
+  topNodesByJobsColumns,
+  topNodesByRevenueColumns,
+} from '@/components/table/columns';
 import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
 import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';

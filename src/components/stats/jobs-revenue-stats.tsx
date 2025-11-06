@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
 import Card from '@/components/card/card';
 import { ChartTypeEnum } from '@/components/chart/chart-type';
 import VBarChart from '@/components/chart/v-bar-chart';
 import { useStatsContext } from '@/context/stats-context';
 import { formatNumber } from '@/utils/formatters';
+import { useEffect } from 'react';
 import styles from './jobs-revenue-stats.module.css';
 
 const JobsRevenueStats = () => {
@@ -22,15 +22,15 @@ const JobsRevenueStats = () => {
         </div>
       </div>
       <VBarChart
-        axisKey="epoch"
-        barKey="revenue"
+        axisKey="epoch_id"
+        barKey="total_revenue"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={revenuePerEpoch}
         title="Revenue per epoch"
       />
       <VBarChart
-        axisKey="epoch"
-        barKey="jobs"
+        axisKey="epoch_id"
+        barKey="total_jobs"
         chartType={ChartTypeEnum.JOBS_PER_EPOCH}
         data={jobsPerEpoch}
         footer={{

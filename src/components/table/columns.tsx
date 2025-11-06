@@ -139,3 +139,81 @@ export const jobsColumns: GridColDef<Node>[] = [
     sortable: true,
   },
 ];
+
+export const topNodesByRevenueColumns: GridColDef<Node>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'friendly_name',
+    filterable: true,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+  },
+  {
+    field: 'region',
+    filterable: true,
+    flex: 1,
+    headerName: 'Region',
+    sortable: false,
+  },
+  {
+    field: 'total_revenue',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Revenue',
+    sortable: false,
+  },
+  {
+    field: 'latest_gpu_score',
+    filterable: false,
+    flex: 1,
+    headerName: 'Last benchmark score (GPU)',
+    sortable: false,
+  },
+];
+
+export const topNodesByJobsColumns: GridColDef<Node>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'friendly_name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: true,
+  },
+  {
+    field: 'region',
+    filterable: false,
+    flex: 1,
+    headerName: 'Region',
+    sortable: true,
+  },
+  {
+    field: 'total_jobs',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Jobs',
+    sortable: true,
+  },
+  {
+    field: 'latest_gpu_score',
+    filterable: false,
+    flex: 1,
+    headerName: 'Last benchmark score (GPU)',
+    sortable: false,
+  },
+];
