@@ -2,7 +2,7 @@ import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
 import { MOCK_NODES } from '@/mock/nodes';
 import { FilterOperator, NodeFilters } from '@/types/filters';
-import { Node } from '@/types/nodes';
+import { AnyNode, Node } from '@/types/nodes';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -80,7 +80,7 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
         index: (crtPage - 1) * pageSize + index + 1,
       }));
       // TODO - remove mock data addition
-      const dataWithMockFields = sanitizedData.map((node: Node, index: number) => ({
+      const dataWithMockFields = sanitizedData.map((node: AnyNode, index: number) => ({
         ...MOCK_NODES[index % MOCK_NODES.length],
         ...node,
       }));

@@ -5,6 +5,7 @@ import JobsRevenueStats from '@/components/stats/jobs-revenue-stats';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useLeaderboardTableContext } from '@/context/table/leaderboard-table-context';
+import { AnyNode } from '@/types/nodes';
 
 const LeaderboardPage = () => {
   const leaderboardTableContext = useLeaderboardTableContext();
@@ -15,7 +16,7 @@ const LeaderboardPage = () => {
       <div className="pageContentWrapper">
         <JobsRevenueStats />
         <Card padding="md" radius="lg" variant="glass-shaded">
-          <Table<Node>
+          <Table<AnyNode>
             context={leaderboardTableContext}
             paginationType="context"
             showToolbar

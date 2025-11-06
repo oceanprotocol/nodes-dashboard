@@ -1,3 +1,5 @@
+export type AnyNode = any;
+
 export type Node = {
   node_id: string;
   friendly_name: string;
