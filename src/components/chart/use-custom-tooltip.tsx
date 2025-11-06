@@ -143,7 +143,7 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
       case ChartTypeEnum.REVENUE_PER_EPOCH: {
         tooltipContent = (
           <div>
-            Epoch {label}: OCEAN {Number(value).toLocaleString()}
+            Epoch {label}: USDC {Number(value).toLocaleString()}
           </div>
         );
         break;

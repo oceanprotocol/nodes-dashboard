@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import { Node } from '@/types/nodes';
+import { formatNumber } from '@/utils/formatters';
 import { GridColDef } from '@mui/x-data-grid';
 
 export const nodesLeaderboardColumns: GridColDef<Node>[] = [
@@ -166,6 +167,7 @@ export const topNodesByRevenueColumns: GridColDef<Node>[] = [
   {
     field: 'total_revenue',
     filterable: false,
+    renderCell: ({ value }) => formatNumber(value.toFixed(2)),
     flex: 1,
     headerName: 'Total Revenue',
     sortable: false,
