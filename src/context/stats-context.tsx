@@ -130,8 +130,6 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
           });
         }
 
-        console.log({ jobs });
-        console.log({ revenue });
         setJobsPerEpoch(jobs);
         setRevenuePerEpoch(revenue);
       }
