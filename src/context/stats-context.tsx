@@ -1,5 +1,5 @@
 import { getApiRoute } from '@/config';
-import { GPUPopularity, GPUPopularityStats, Node } from '@/types/nodes';
+import { GPUPopularityDisplay, GPUPopularityStats, Node } from '@/types/nodes';
 import { AnalyticsGlobalStats, JobsPerEpochType, RevenuePerEpochType, SystemStatsData } from '@/types/stats';
 import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useState } from 'react';
@@ -8,7 +8,7 @@ type StatsContextType = {
   jobsPerEpoch: JobsPerEpochType[];
   revenuePerEpoch: RevenuePerEpochType[];
   systemStats: SystemStatsData;
-  topGpuModels: GPUPopularity[];
+  topGpuModels: GPUPopularityDisplay;
   topNodesByJobs: Node[];
   topNodesByRevenue: Node[];
   totalNetworkJobs: number;
@@ -40,7 +40,7 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
   const [totalBenchmarkJobs, setTotalBenchmarkJobs] = useState<number>(0);
   const [jobsPerEpoch, setJobsPerEpoch] = useState<JobsPerEpochType[]>([]);
   const [revenuePerEpoch, setRevenuePerEpoch] = useState<RevenuePerEpochType[]>([]);
-  const [topGpuModels, setTopGpuModels] = useState<GPUPopularityStats>([]);
+  const [topGpuModels, setTopGpuModels] = useState<GPUPopularityDisplay>([]);
   const [topNodesByRevenue, setTopNodesByRevenue] = useState<Node[]>([]);
   const [topNodesByJobs, setTopNodesByJobs] = useState<Node[]>([]);
 
@@ -85,7 +85,11 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
   const fetchTopGpus = useCallback(async () => {
     try {
       const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
-      setTopGpuModels(response.data);
+      const res: GPUPopularityDisplay = response.data.map((gpu) => ({
+        gpu_name: `${gpu.vendor} ${gpu.name}`,
+        popularity: gpu.popularity,
+      }));
+      setTopGpuModels(res);
     } catch (err) {
       console.error('Error fetching system stats:', err);
     }

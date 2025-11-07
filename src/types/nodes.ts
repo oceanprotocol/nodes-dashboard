@@ -24,6 +24,12 @@ export enum NodeEligibility {
 export type GPUPopularityStats = GPUPopularity[];
 
 export interface GPUPopularity {
-  gpu_name: string;
+  vendor: string;
+  name: string;
   popularity: number;
 }
+
+export type GPUPopularityDisplay = {
+  gpu_name: string;
+  popularity: number;
+}[];
