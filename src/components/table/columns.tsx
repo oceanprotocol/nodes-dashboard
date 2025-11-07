@@ -1,75 +1,123 @@
 import Button from '@/components/button/button';
-import { Node } from '@/types/nodes';
+import { GPUPopularity, Node } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
-import { GridColDef } from '@mui/x-data-grid';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
+  if (eligible) {
+    return (
+      <>
+        <CheckCircleOutlinedIcon />
+        <span>Not eligible</span>
+      </>
+    );
+  }
+  if (!eligible) {
+    switch (eligibilityCauseStr) {
+      case 'Invalid status response':
+        return (
+          <>
+            <ErrorOutlineOutlinedIcon />
+            <span>Not eligible</span>
+          </>
+        );
+
+      case 'Banned':
+        return (
+          <>
+            <HighlightOffOutlinedIcon />
+            <span>Banned</span>
+          </>
+        );
+
+      case 'No peer data':
+        return (
+          <>
+            <ErrorOutlineOutlinedIcon />
+            <span>Not eligible</span>
+          </>
+        );
+
+      default:
+        return (
+          <>
+            <ErrorOutlineOutlinedIcon />
+            <span>Not eligible</span>
+          </>
+        );
+    }
+  }
+}
 
 export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   {
     align: 'center',
-    field: 'index', // TODO
+    field: 'index',
     filterable: false,
     headerAlign: 'center',
     headerName: 'Index',
     sortable: false,
   },
   {
-    field: 'name', // TODO
+    field: 'friendlyName',
     filterable: true,
     flex: 1,
     headerName: 'Name',
     sortable: true,
   },
   {
-    field: 'region', // TODO
+    field: 'location.region',
     filterable: true,
     flex: 1,
     headerName: 'Region',
-    sortable: true,
+    valueGetter: (_value, row) => row.location?.region,
   },
   {
-    field: 'eligible', // TODO
+    field: 'eligible',
     filterable: true,
     flex: 1,
     headerName: 'Reward eligibility',
     sortable: true,
-    // renderCell: (params: GridRenderCellParams<NodeData>) => (
-    //   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-    //     {getEligibleCheckbox(params.row.eligible)}
-    //     <span>{params.row.eligible ? 'Eligible' : 'Not Eligible'}</span>
-    //   </div>
-    // )
+    renderCell: (params: GridRenderCellParams<Node>) => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {getEligibleCheckbox(params.row.eligible)}
+      </div>
+    ),
   },
   {
-    field: 'latestBenchmarkResults.gpuScore', // TODO
+    field: 'latestBenchmarkResults.gpuScore',
     filterable: false,
     flex: 1,
     headerName: 'GPU Score',
     sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults.gpuScore,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.gpuScore || 0,
   },
   {
-    field: 'latestBenchmarkResults.cpuScore', // TODO
+    field: 'latestBenchmarkResults.cpuScore',
     filterable: false,
     flex: 1,
     headerName: 'CPU Score',
     sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults.cpuScore,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.cpuScore || 0,
   },
   {
-    field: 'latestBenchmarkResults.bandwidth', // TODO
+    field: 'latestBenchmarkResults.bandwidth',
     filterable: false,
     flex: 1,
     headerName: 'Bandwidth',
     sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults.bandwidth,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.bandwidth || 0,
   },
   {
-    field: 'gpus', // TODO
-    filterable: true,
+    field: 'gpus',
+    filterable: false,
     flex: 1,
     headerName: 'GPUs',
     sortable: false,
-    renderCell: (params) => params.value.join(', '),
+    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
   },
   {
     align: 'right',
@@ -80,7 +128,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     sortable: false,
     renderCell: (params) => {
       return (
-        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.node_id}`}>
+        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.id || params.row.node_id}`}>
           Info
         </Button>
       );

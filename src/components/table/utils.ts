@@ -1,7 +1,7 @@
 import { TableTypeEnum } from '@/components/table/table-type';
 import { GridApi } from '@mui/x-data-grid';
 
-type NodeData = {
+export type NodeData = {
   id: string;
   weeklyUptime: number;
   ipAndDns?: {

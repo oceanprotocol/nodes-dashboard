@@ -1,8 +1,14 @@
 export type AnyNode = any;
 
 export type Node = {
+  id?: string;
   node_id: string;
   friendly_name: string;
+  location?: {
+    region: string;
+  };
+  eligible?: boolean;
+  eligibilityCauseStr?: string;
   region: string;
   latest_gpu_score: number;
   latest_cpu_score: number;
