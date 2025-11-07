@@ -17,6 +17,7 @@ const HBarChart = ({ axisKey, barKey, data }: HBarChartProps) => (
           tick={{ fill: 'var(--text-secondary)' }}
           tickLine={false}
           type="number"
+          allowDecimals={false}
         />
         <YAxis
           axisLine={false}
@@ -25,6 +26,7 @@ const HBarChart = ({ axisKey, barKey, data }: HBarChartProps) => (
           tick={{ fill: 'var(--text-primary)' }}
           tickLine={false}
           type="category"
+          allowDecimals={false}
           width={120}
         />
         <Bar barSize={30} dataKey={barKey} fill="var(--accent1)" radius={[0, 10, 10, 0]} />
