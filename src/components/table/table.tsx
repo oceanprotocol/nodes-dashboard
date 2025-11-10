@@ -8,7 +8,6 @@ import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
 import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { AnyNode } from '@/types/nodes';
 import styled from '@emotion/styled';
 import {
   DataGrid,
@@ -297,7 +296,7 @@ export const Table = <T,>({
     },
   };
 
-  const defaultGetRowId = (row: AnyNode) => row.id;
+  const defaultGetRowId: GridRowIdGetter<GridValidRowModel> = (row) => row.id;
 
   return (
     <StyledRoot>
