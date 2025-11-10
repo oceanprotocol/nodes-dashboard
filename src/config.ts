@@ -82,8 +82,9 @@ export const getSocialMedia = (): SocialMedia => config.socialMedia;
 export const getLinks = () => config.links;
 
 const API_ROOTS = {
-  incentive: 'https://incentive-backend.oceanprotocol.com',
-  analytics: 'https://analytics.nodes.oceanprotocol.com',
+  incentive: 'https://incentive-backend.oceanprotocol.io',
+  incentive_old: 'https://incentive-backend.oceanprotocol.com',
+  analytics: 'https://analytics.nodes.oceanprotocol.io',
 } as const;
 
 const apiRoutes = {
@@ -91,7 +92,7 @@ const apiRoutes = {
   nodes: { root: 'incentive', path: '/nodes' },
   locations: { root: 'incentive', path: '/locations' },
   countryStats: { root: 'incentive', path: '/countryStats' },
-  nodeSystemStats: { root: 'incentive', path: '/nodeSystemStats' },
+  nodeSystemStats: { root: 'incentive_old', path: '/nodeSystemStats' },
   history: { root: 'incentive', path: '/history' },
   weekStats: { root: 'incentive', path: '/weekStats' },
 
@@ -99,6 +100,10 @@ const apiRoutes = {
   analyticsSummary: { root: 'analytics', path: '/summary' },
   analyticsAllSummary: { root: 'analytics', path: '/all-summary' },
   analyticsRewardsHistory: { root: 'analytics', path: '/rewards-history' },
+  analyticsGlobalStats: { root: 'analytics', path: '/global-stats' },
+  gpuPopularity: { root: 'analytics', path: '/gpu-popularity' },
+  topNodesByRevenue: { root: 'analytics', path: '/nodes' },
+  topNodesByJobCount: { root: 'analytics', path: '/nodes' },
 } as const;
 
 type ApiRouteKeys = keyof typeof apiRoutes;

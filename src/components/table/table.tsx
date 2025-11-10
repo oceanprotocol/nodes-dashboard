@@ -1,4 +1,9 @@
-import { jobsColumns, nodesLeaderboardColumns } from '@/components/table/columns';
+import {
+  jobsColumns,
+  nodesLeaderboardColumns,
+  topNodesByJobsColumns,
+  topNodesByRevenueColumns,
+} from '@/components/table/columns';
 import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
 import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';
@@ -6,8 +11,10 @@ import { TableTypeEnum } from '@/components/table/table-type';
 import styled from '@emotion/styled';
 import {
   DataGrid,
+  GridColDef,
   GridFilterModel,
   GridInitialState,
+  GridRowIdGetter,
   GridSortModel,
   GridValidRowModel,
   useGridApiRef,
@@ -108,6 +115,7 @@ type TableProps<T> = {
   paginationType: 'context' | 'none';
   tableType: TableTypeEnum;
   showToolbar?: boolean;
+  getRowId?: GridRowIdGetter<GridValidRowModel>;
 };
 
 export const Table = <T,>({
@@ -118,6 +126,7 @@ export const Table = <T,>({
   paginationType,
   showToolbar,
   tableType,
+  getRowId,
 }: TableProps<T>) => {
   const apiRef = useGridApiRef();
 
@@ -150,10 +159,14 @@ export const Table = <T,>({
       case TableTypeEnum.UNBAN_REQUESTS: {
         return jobsColumns;
       }
-      case TableTypeEnum.NODES_LEADERBOARD:
-      case TableTypeEnum.NODES_TOP_JOBS:
-      case TableTypeEnum.NODES_TOP_REVENUE: {
+      case TableTypeEnum.NODES_LEADERBOARD: {
         return nodesLeaderboardColumns;
+      }
+      case TableTypeEnum.NODES_TOP_JOBS: {
+        return topNodesByJobsColumns;
+      }
+      case TableTypeEnum.NODES_TOP_REVENUE: {
+        return topNodesByRevenueColumns;
       }
     }
   }, [tableType]);
@@ -283,16 +296,18 @@ export const Table = <T,>({
     },
   };
 
+  const defaultGetRowId: GridRowIdGetter<GridValidRowModel> = (row) => row.id;
+
   return (
     <StyledRoot>
       <StyledDataGridWrapper autoHeight={autoHeight}>
         <StyledDataGrid
           apiRef={apiRef}
-          columns={columns}
+          columns={columns as GridColDef<GridValidRowModel>[]}
           disableColumnMenu
           disableRowSelectionOnClick
           filterMode={paginationType === 'none' ? 'client' : 'server'}
-          getRowId={(row) => row.id}
+          getRowId={getRowId ?? defaultGetRowId}
           hideFooter
           initialState={initialState}
           loading={loading ?? context?.loading}
