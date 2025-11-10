@@ -25,6 +25,7 @@ const TopNodes = () => {
           data={topNodesByRevenue.map((item, idx) => ({ index: idx + 1, ...item }))}
           paginationType="none"
           tableType={TableTypeEnum.NODES_TOP_REVENUE}
+          getRowId={(row) => row.node_id}
         />
       </Card>
       <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
@@ -34,6 +35,7 @@ const TopNodes = () => {
           data={topNodesByJobs.map((item, idx) => ({ index: idx + 1, ...item }))}
           paginationType="none"
           tableType={TableTypeEnum.NODES_TOP_JOBS}
+          getRowId={(row) => row.node_id}
         />
       </Card>
     </>

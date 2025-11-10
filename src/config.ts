@@ -84,7 +84,6 @@ export const getLinks = () => config.links;
 const API_ROOTS = {
   incentive: 'https://incentive-backend.oceanprotocol.io',
   incentive_old: 'https://incentive-backend.oceanprotocol.com',
-  incentive_local: 'http://localhost:8080',
   analytics: 'https://analytics.nodes.oceanprotocol.io',
 } as const;
 
@@ -111,7 +110,7 @@ const apiRoutes = {
 
 type ApiRouteKeys = keyof typeof apiRoutes;
 
-export const getApiRoute = (key: ApiRouteKeys, param?: string | number): string => {
+export const getApiRoute = (key: ApiRouteKeys): string => {
   const route = apiRoutes[key];
   const baseUrl = API_ROOTS[route.root];
   return `${baseUrl}${route.path}`;

@@ -14,6 +14,7 @@ import {
   GridColDef,
   GridFilterModel,
   GridInitialState,
+  GridRowIdGetter,
   GridSortModel,
   GridValidRowModel,
   useGridApiRef,
@@ -114,6 +115,7 @@ type TableProps<T> = {
   paginationType: 'context' | 'none';
   tableType: TableTypeEnum;
   showToolbar?: boolean;
+  getRowId?: GridRowIdGetter<GridValidRowModel>;
 };
 
 export const Table = <T,>({
@@ -124,6 +126,7 @@ export const Table = <T,>({
   paginationType,
   showToolbar,
   tableType,
+  getRowId,
 }: TableProps<T>) => {
   const apiRef = useGridApiRef();
 
@@ -293,6 +296,8 @@ export const Table = <T,>({
     },
   };
 
+  const defaultGetRowId: GridRowIdGetter<GridValidRowModel> = (row) => row.id;
+
   return (
     <StyledRoot>
       <StyledDataGridWrapper autoHeight={autoHeight}>
@@ -302,7 +307,7 @@ export const Table = <T,>({
           disableColumnMenu
           disableRowSelectionOnClick
           filterMode={paginationType === 'none' ? 'client' : 'server'}
-          getRowId={(row) => row.id || row.node_id}
+          getRowId={getRowId ?? defaultGetRowId}
           hideFooter
           initialState={initialState}
           loading={loading ?? context?.loading}
