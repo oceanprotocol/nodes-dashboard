@@ -10,17 +10,16 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
     return (
       <>
-        <CheckCircleOutlinedIcon />
-        <span>Not eligible</span>
+        <CheckCircleOutlinedIcon style={{ fill: 'green' }} />
+        <span>Eligible</span>
       </>
     );
-  }
-  if (!eligible) {
+  } else {
     switch (eligibilityCauseStr) {
       case 'Invalid status response':
         return (
           <>
-            <ErrorOutlineOutlinedIcon />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'orange' }} />
             <span>Not eligible</span>
           </>
         );
@@ -28,7 +27,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'Banned':
         return (
           <>
-            <HighlightOffOutlinedIcon />
+            <HighlightOffOutlinedIcon style={{ fill: 'red' }} />
             <span>Banned</span>
           </>
         );
@@ -36,7 +35,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'No peer data':
         return (
           <>
-            <ErrorOutlineOutlinedIcon />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'orange' }} />
             <span>Not eligible</span>
           </>
         );
@@ -44,7 +43,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       default:
         return (
           <>
-            <ErrorOutlineOutlinedIcon />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'orange' }} />
             <span>Not eligible</span>
           </>
         );
@@ -66,7 +65,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterable: true,
     flex: 1,
     headerName: 'Name',
-    sortable: true,
+    sortable: false,
   },
   {
     field: 'location.region',
@@ -74,16 +73,17 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Region',
     valueGetter: (_value, row) => row.location?.region,
+    sortable: false,
   },
   {
     field: 'eligible',
     filterable: true,
     flex: 1,
     headerName: 'Reward eligibility',
-    sortable: true,
+    sortable: false,
     renderCell: (params: GridRenderCellParams<Node>) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {getEligibleCheckbox(params.row.eligible)}
+        {getEligibleCheckbox(params.row.eligible, params.row.eligibilityCauseStr)}
       </div>
     ),
   },
@@ -92,7 +92,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterable: false,
     flex: 1,
     headerName: 'GPU Score',
-    sortable: true,
+    sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.gpuScore || 0,
   },
   {
@@ -100,7 +100,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterable: false,
     flex: 1,
     headerName: 'CPU Score',
-    sortable: true,
+    sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.cpuScore || 0,
   },
   {
@@ -108,7 +108,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterable: false,
     flex: 1,
     headerName: 'Bandwidth',
-    sortable: true,
+    sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.bandwidth || 0,
   },
   {

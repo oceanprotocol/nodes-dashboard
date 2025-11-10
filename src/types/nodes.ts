@@ -4,6 +4,7 @@ export type Node = {
   id?: string;
   node_id: string;
   friendly_name: string;
+  friendlyName?: string;
   location?: {
     region: string;
   };
@@ -19,6 +20,17 @@ export type Node = {
     cpuScore: number;
     bandwidth: number;
   };
+  gpus: GPU[];
+  cpus: CPU[];
+};
+
+type GPU = {
+  vendor: string;
+  name: string;
+};
+type CPU = {
+  family: string;
+  model: string;
 };
 
 export enum NodeEligibility {

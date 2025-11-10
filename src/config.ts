@@ -84,6 +84,7 @@ export const getLinks = () => config.links;
 const API_ROOTS = {
   incentive: 'https://incentive-backend.oceanprotocol.io',
   incentive_old: 'https://incentive-backend.oceanprotocol.com',
+  incentive_local: 'http://localhost:8080',
   analytics: 'https://analytics.nodes.oceanprotocol.io',
 } as const;
 
@@ -95,6 +96,7 @@ const apiRoutes = {
   nodeSystemStats: { root: 'incentive_old', path: '/nodeSystemStats' },
   history: { root: 'incentive', path: '/history' },
   weekStats: { root: 'incentive', path: '/weekStats' },
+  banStatus: { root: 'incentive', path: '/nodes' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },
@@ -104,6 +106,7 @@ const apiRoutes = {
   gpuPopularity: { root: 'analytics', path: '/gpu-popularity' },
   topNodesByRevenue: { root: 'analytics', path: '/nodes' },
   topNodesByJobCount: { root: 'analytics', path: '/nodes' },
+  nodeStats: { root: 'analytics', path: '/nodes' },
 } as const;
 
 type ApiRouteKeys = keyof typeof apiRoutes;

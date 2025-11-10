@@ -1,6 +1,15 @@
+.loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  font-size: 1.2rem;
+  color: #888;
+}
+
 .root {
-  background-color: #040a12;
   padding: 60px 50px;
+  background-color: var(--black-900);
   position: relative;
   overflow: hidden;
 }
