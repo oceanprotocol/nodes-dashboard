@@ -1,4 +1,4 @@
-import Button from '@/components/button/button';
+import InfoButton from '@/components/button/info-button';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
@@ -134,11 +134,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'Actions',
     sortable: false,
     renderCell: (params) => {
-      return (
-        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.id || params.row.node_id}`}>
-          Info
-        </Button>
-      );
+      return <InfoButton node={params.row} />;
     },
   },
 ];

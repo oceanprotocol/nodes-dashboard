@@ -2,7 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
-import { NodeEligibility } from '@/types/nodes';
+import { Node, NodeEligibility } from '@/types/nodes';
 import DnsIcon from '@mui/icons-material/Dns';
 import DownloadIcon from '@mui/icons-material/Download';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
@@ -11,26 +11,31 @@ import UploadIcon from '@mui/icons-material/Upload';
 import styles from './node-info.module.css';
 
 type NodeInfoProps = {
-  eligibility: NodeEligibility;
+  node: Node;
 };
 
-const NodeInfo = ({ eligibility }: NodeInfoProps) => {
-  // TODO replace mock data
+const NodeInfo = ({ node }: NodeInfoProps) => {
   return (
     <Card className={styles.root} padding="md" radius="lg" variant="glass-shaded">
       <div className={styles.infoWrapper}>
         <div className={styles.infoContent}>
           <div>
-            <h2 className={styles.title}>Friendly node name</h2>
-            <div className={styles.hash}>0x7097B048A37146aE52A27908Bebd351214C8d8f3</div>
+            <h2 className={styles.title}>{node.friendlyName}</h2>
+            <div className={styles.hash}>{node.id}</div>
           </div>
           <div className={styles.grid}>
             <PublicIcon className={styles.icon} />
-            <div>49.151.255.255 / node.oceanprotocol.com</div>
-            <DnsIcon className={styles.icon} />
-            <div>Linux (Ubuntu 22.04 LTS)</div>
+            <div>{`${node.location?.ip} / ${node.ipAndDns?.dns}`}</div>
+            {node.platform?.osType && (
+              <>
+                <DnsIcon className={styles.icon} />
+                <div>{node.platform?.osType}</div>
+              </>
+            )}
             <LocationPinIcon className={styles.icon} />
-            <div>Warsaw, Poland</div>
+            <div>
+              {node.location?.city}, {node.location?.country}
+            </div>
           </div>
           <div className={styles.buttons}>
             <Button contentBefore={<DownloadIcon />} variant="outlined">
@@ -42,14 +47,17 @@ const NodeInfo = ({ eligibility }: NodeInfoProps) => {
         <div className={styles.infoFooter}>
           <div>
             <strong>Admins:</strong>
-            <div className={styles.hash}>0x7097B048A37146aE52A27908Bebd351214C8d8f3</div>
-            <div className={styles.hash}>0x7097B048A37146aE52A27908Bebd351214C8d8f3</div>
+            {node.allowedAdmins?.map((admin) => (
+              <div key={admin} className={styles.hash}>
+                {admin}
+              </div>
+            ))}
           </div>
-          <div>Ocean Node v4.5.1</div>
+          <div>{node.version && <span>Ocean Node v`${node.version}`</span>}</div>
         </div>
       </div>
       <div className={styles.statusWrapper}>
-        <Eligibility eligibility={eligibility} />
+        <Eligibility eligibility={node.eligible ? NodeEligibility.ELIGIBLE : NodeEligibility.NON_ELIGIBLE} />
         <Balance />
       </div>
     </Card>

@@ -1,27 +1,38 @@
 export type AnyNode = any;
 
 export type Node = {
-  id?: string;
-  node_id: string;
-  friendly_name: string;
-  friendlyName?: string;
-  location?: {
-    region: string;
-  };
+  allowedAdmins?: string[];
+  cpus: CPU[];
   eligible?: boolean;
   eligibilityCauseStr?: string;
-  region: string;
-  latest_gpu_score: number;
-  latest_cpu_score: number;
-  total_jobs: number;
-  total_revenue: number;
+  friendly_name: string;
+  friendlyName?: string;
+  gpus: GPU[];
+  id?: string;
+  ipAndDns?: {
+    dns: string;
+  };
   latestBenchmarkResults: {
     gpuScore: number;
     cpuScore: number;
     bandwidth: number;
   };
-  gpus: GPU[];
-  cpus: CPU[];
+  latest_gpu_score: number;
+  latest_cpu_score: number;
+  location?: {
+    region: string;
+    ip: string;
+    city: string;
+    country: string;
+  };
+  node_id: string;
+  platform?: {
+    osType: string;
+  };
+  region: string;
+  total_jobs: number;
+  total_revenue: number;
+  version?: string;
 };
 
 type GPU = {

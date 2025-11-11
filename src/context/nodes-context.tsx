@@ -1,11 +1,17 @@
-import { createContext, ReactNode, useContext } from 'react';
+import { Node } from '@/types/nodes';
+import { createContext, ReactNode, useContext, useState } from 'react';
 
-type NodesContextType = {};
+type NodesContextType = {
+  selectedNode: Node | null;
+  setSelectedNode: (node: Node | null) => void;
+};
 
 const NodesContext = createContext<NodesContextType | undefined>(undefined);
 
 export const NodesProvider = ({ children }: { children: ReactNode }) => {
-  return <NodesContext.Provider value={{}}>{children}</NodesContext.Provider>;
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+
+  return <NodesContext.Provider value={{ selectedNode, setSelectedNode }}>{children}</NodesContext.Provider>;
 };
 
 export const useNodesContext = () => {
