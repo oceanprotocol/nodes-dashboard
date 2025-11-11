@@ -24,9 +24,9 @@ jobs:
         env:
           cache-name: cache-node-modules
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-lint-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          path: ~/.yarn
+          key: ${{ runner.os }}-lint-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-lint-${{ env.cache-name }}-
-      - run: npm ci
-      - run: npm run lint
+      - run: yarn install --frozen-lockfile
+      - run: yarn lint
