@@ -1,10 +1,10 @@
 import Button from '@/components/button/button';
-import { formatNumber } from '@/utils/formatters';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { GPUPopularity, Node } from '@/types/nodes';
+import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
+import { getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
@@ -66,6 +66,9 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Name',
     sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
+    ),
   },
   {
     field: 'location.region',
@@ -74,6 +77,9 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'Region',
     valueGetter: (_value, row) => row.location?.region,
     sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
+    ),
   },
   {
     field: 'eligible',
@@ -86,6 +92,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
         {getEligibleCheckbox(params.row.eligible, params.row.eligibilityCauseStr)}
       </div>
     ),
+    filterOperators: getGridStringOperators().filter((operator) => operator.value === 'equals'),
   },
   {
     field: 'latestBenchmarkResults.gpuScore',
