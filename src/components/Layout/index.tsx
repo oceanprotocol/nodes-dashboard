@@ -1,39 +1,31 @@
-import Head from 'next/head'
-import Footer from '../Footer'
-import { ReactNode } from 'react'
-import styles from './index.module.css'
-import AnimatedBackground from '../AnimatedConnections/AnimatedBackground'
-import { useRouter } from 'next/router'
-import NavBar from '../Navigation'
+import FooterSection from '@/components/homepage/footer-section';
+import Navigation from '@/components/Navigation/navigation';
+import Head from 'next/head';
+import { ReactNode } from 'react';
+import styles from './index.module.css';
 
 type RootLayoutProps = {
-  children: ReactNode
-}
+  children: ReactNode;
+};
 
 export default function RootLayout({ children }: RootLayoutProps) {
-  const router = useRouter()
-  const isHomePage = router.pathname === '/'
-
   return (
     <>
       <Head>
-        <title>Ocean nodes</title>
-        <meta name="description" content="Ocean nodes dashboard" />
+        <title>Ocean Network</title>
+        <meta name="description" content="Ocean network" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={styles.main}>
-        <div className={styles.topBackground}>
-          <AnimatedBackground />
+        <div className={styles.backgroundAnimation}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img alt="Background animation" src={'/banner-video.jpg'} className={styles.backgorundImage} />
         </div>
-        <div
-          className={`${styles.mainContainer} ${isHomePage ? styles.mainContainerHome : ''}`}
-        >
-          <NavBar />
-          {children}
-          <Footer />
-        </div>
+        <Navigation />
+        {children}
+        <FooterSection />
       </div>
     </>
-  )
+  );
 }

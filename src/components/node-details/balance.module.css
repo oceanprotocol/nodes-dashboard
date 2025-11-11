@@ -1,0 +1,35 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    .heading {
+      text-align: center;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      .listItem {
+        align-items: center;
+        display: flex;
+        font-size: 18px;
+        justify-content: space-between;
+      }
+    }
+  }
+
+  .buttons {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}

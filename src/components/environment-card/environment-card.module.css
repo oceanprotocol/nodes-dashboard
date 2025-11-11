@@ -1,0 +1,109 @@
+.gridWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px 32px;
+
+    @media (min-width: 768px) {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+
+      &.compact {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (min-width: 1100px) {
+      &.specsWithoutGpus,
+      &.gpuSpecs {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  }
+}
+
+.compactGrid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+
+  .label {
+    font-size: 12px;
+  }
+}
+
+.label {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 14px;
+
+  &.heading,
+  .heading {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  &.em,
+  .em {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+
+  .icon {
+    color: var(--accent1);
+    margin-right: 4px;
+  }
+}
+
+.balance {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  .link {
+    color: var(--accent1);
+    cursor: pointer;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .select {
+      min-width: 200px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+
+    .buttons {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+}

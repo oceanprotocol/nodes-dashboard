@@ -1,0 +1,36 @@
+.chartWrapper {
+  align-content: start;
+  align-items: center;
+  display: grid;
+  grid-template-rows: auto 110px auto;
+  gap: 8px;
+}
+
+.chartFooter {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 0 4px;
+
+  .label {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .currency {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .amount {
+    font-size: 20px;
+    font-weight: 600;
+  }
+}
+
+.heading {
+  margin-bottom: 16px;
+  text-align: center;
+}
