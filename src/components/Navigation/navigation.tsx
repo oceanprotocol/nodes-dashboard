@@ -1,13 +1,13 @@
 import DiscordIcon from '@/assets/discord.svg';
 import Logo from '@/assets/logo.svg';
 import XIcon from '@/assets/x.svg';
+import ProfileButton from '@/components/Navigation/profile-button';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import cx from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import config, { getRoutes } from '../../config';
-import Button from '../button/button';
 import Container from '../container/container';
 import styles from './navigation.module.css';
 
@@ -84,20 +84,7 @@ const Navigation = () => {
       <Link href={config.socialMedia.twitter} className={styles.actionIconLink} target="_blank" rel="noreferrer">
         <XIcon width={30} height={28} />
       </Link>
-      <Button
-        className={styles.loginButton}
-        onClick={() => {
-          open();
-        }}
-      >
-        {!isClient
-          ? 'Log In'
-          : account.status === 'connected'
-            ? 'Open Wallet'
-            : account.status === 'connecting'
-              ? 'Connecting...'
-              : 'Log In'}
-      </Button>
+      <ProfileButton />
     </div>
   );
 

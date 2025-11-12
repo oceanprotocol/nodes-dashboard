@@ -10,6 +10,7 @@ type ButtonProps = {
   contentAfter?: React.ReactNode;
   contentBefore?: React.ReactNode;
   href?: string;
+  id?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';
   size?: 'md' | 'lg';
@@ -24,6 +25,7 @@ const Button = ({
   contentAfter,
   contentBefore,
   href,
+  id,
   onClick,
   target,
   size = 'md',
@@ -40,7 +42,7 @@ const Button = ({
 
   if (href) {
     return (
-      <Link className={classes} href={href} target={target}>
+      <Link className={classes} href={href} id={id} target={target}>
         {contentBefore}
         {children}
         {contentAfter}
@@ -49,7 +51,7 @@ const Button = ({
   }
 
   return (
-    <button className={classes} onClick={onClick} type={type}>
+    <button className={classes} id={id} onClick={onClick} type={type}>
       {contentBefore}
       {children}
       {contentAfter}
