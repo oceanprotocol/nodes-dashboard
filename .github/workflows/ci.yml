@@ -29,5 +29,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-lint-${{ env.cache-name }}-
       - run: corepack enable
-      - run: yarn install --frozen-lockfile
+      - run: yarn install --immutable
       - run: yarn lint
