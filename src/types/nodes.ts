@@ -22,6 +22,10 @@ export type Node = {
   };
   gpus: GPU[];
   cpus: CPU[];
+  platform: any;
+  supportedStorage: any;
+  indexer?: Array<{ network: string }>;
+  provider?: Array<{ network: string }>;
 };
 
 type GPU = {
