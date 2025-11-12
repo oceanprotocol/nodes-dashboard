@@ -1,7 +1,27 @@
 export type AnyNode = any;
 
+export type BanStatusResponse = {
+  /**
+   *
+   * Not coming from API, set during frontend enriching function
+   */
+  nodeId?: string;
+
+  banned: boolean;
+  banInfo?: NodeBanInfo;
+};
+
+export type NodeBanInfo = {
+  reason: string;
+  bannedAt: number;
+  bannedUntil: number;
+  weekNumber: number;
+  year: number;
+};
+
 export type Node = {
   allowedAdmins?: string[];
+  banInfo?: NodeBanInfo;
   cpus: CPU[];
   eligible?: boolean;
   eligibilityCauseStr?: string;

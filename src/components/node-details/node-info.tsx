@@ -26,12 +26,13 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           <div className={styles.grid}>
             <PublicIcon className={styles.icon} />
             <div>{`${node.location?.ip} / ${node.ipAndDns?.dns}`}</div>
-            {node.platform?.osType && (
+            {
               <>
                 <DnsIcon className={styles.icon} />
-                <div>{node.platform?.osType}</div>
+                {node.platform?.osType ? <div>{node.platform?.osType}</div> : <div>Unknown</div>}
               </>
-            )}
+            }
+
             <LocationPinIcon className={styles.icon} />
             <div>
               {node.location?.city}, {node.location?.country}
@@ -53,12 +54,22 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
               </div>
             ))}
           </div>
-          <div>{node.version && <span>Ocean Node v`${node.version}`</span>}</div>
+          <div>{node.version && <span>Ocean Node v{node.version}</span>}</div>
         </div>
       </div>
       <div className={styles.statusWrapper}>
-        <Eligibility eligibility={node.eligible ? NodeEligibility.ELIGIBLE : NodeEligibility.NON_ELIGIBLE} />
-        <Balance />
+        <Eligibility
+          eligibility={
+            node.eligible
+              ? NodeEligibility.ELIGIBLE
+              : node.eligibilityCauseStr === 'Banned'
+                ? NodeEligibility.BANNED
+                : NodeEligibility.NON_ELIGIBLE
+          }
+          eligibilityCauseStr={node.eligibilityCauseStr}
+          banInfo={node.banInfo}
+        />
+        <Balance nodeUrl={`https://${node.ipAndDns?.dns}`} />
       </div>
     </Card>
   );
