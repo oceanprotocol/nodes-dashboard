@@ -9,9 +9,13 @@
     "build": "NODE_ENV=production  next build",
     "start": "next start",
     "lint": "eslint --ignore-path .gitignore --ext .ts,.tsx .",
-    "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix"
+    "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix",
+    "format": "prettier --parser typescript --ignore-path .gitignore --write '**/*.{js,jsx,ts,tsx}'"
   },
   "dependencies": {
+    "@chainsafe/libp2p-noise": "^15.1.0",
+    "@chainsafe/libp2p-yamux": "^6.0.2",
+    "@multiformats/multiaddr": "^12",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.4",
@@ -30,7 +34,16 @@
     "normalize.css": "^8.0.1",
     "react": "^18",
     "react-dom": "^18",
-    "recharts": "^3.3.0"
+    "recharts": "^3.3.0",
+    "libp2p": "^1.8.0",
+    "it-pipe": "^3.0.1",
+    "@libp2p/bootstrap": "^10.1.1",
+    "@libp2p/identify": "^2.1.1",
+    "@libp2p/kad-dht": "^12.1.1",
+    "@libp2p/peer-id": "^4.1.4",
+    "@libp2p/ping": "^1.1.1",
+    "@libp2p/websockets": "^8.1.1",
+    "uint8arrays": "^4.0.6"
   },
   "devDependencies": {
     "@svgr/webpack": "^8.1.0",
@@ -48,6 +61,9 @@
     "prettier": "^3.3.3",
     "prettier-plugin-organize-imports": "^4.3.0",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@multiformats/multiaddr": "^12"
   },
   "packageManager": "yarn@4.5.1+sha512.341db9396b6e289fecc30cd7ab3af65060e05ebff4b3b47547b278b9e67b08f485ecd8c79006b405446262142c7a38154445ef7f17c1d5d1de7d90bf9ce7054d"
 }
