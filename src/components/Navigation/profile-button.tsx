@@ -1,3 +1,6 @@
+import Avatar from '@/components/avatar/avatar';
+import { useProfileContext } from '@/context/profile-context';
+import { formatWalletAddress } from '@/utils/formatters';
 import PersonIcon from '@mui/icons-material/Person';
 import WalletIcon from '@mui/icons-material/Wallet';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
@@ -11,6 +14,8 @@ const ProfileButton = () => {
   const { open } = useAppKit();
   const account = useAppKitAccount();
   const router = useRouter();
+
+  const { ensName, ensProfile } = useProfileContext();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
@@ -28,16 +33,24 @@ const ProfileButton = () => {
   };
 
   const accountName = useMemo(() => {
-    if (account?.status === 'connected') {
-      return account.address.slice(0, 6) + '...' + account.address.slice(-4);
+    if (account.status === 'connected' && account.address) {
+      if (ensName) {
+        return ensName;
+      }
+      if (account.address) {
+        return formatWalletAddress(account.address);
+      }
     }
-  }, [account]);
+    return 'Not connected';
+  }, [account, ensName]);
 
   return isClient && account?.status === 'connected' ? (
     <>
       <Button
         className={styles.loginButton}
-        contentBefore={<WalletIcon />}
+        contentBefore={
+          account.address ? <Avatar accountId={account.address} size="sm" src={ensProfile?.avatar} /> : <WalletIcon />
+        }
         id="profile-button"
         onClick={() => {
           handleOpenMenu();

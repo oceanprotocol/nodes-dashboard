@@ -6,8 +6,15 @@
   gap: 16px;
   justify-content: space-between;
 
-  .name {
-    font-size: 28px;
+  .nameAndAvatar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+
+    .name {
+      font-size: 28px;
+    }
   }
 
   .address {

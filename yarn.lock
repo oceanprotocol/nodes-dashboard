@@ -2243,6 +2243,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@likecoin/ethereum-blockies@npm:^0.1.2":
+  version: 0.1.2
+  resolution: "@likecoin/ethereum-blockies@npm:0.1.2"
+  dependencies:
+    rollup: "npm:^0.58.0"
+  checksum: 10c0/1675f976f800fca56837fff91e4b07251fb3dbb7ba300531f4ae002909b0d470ed4bf348db6b49aefa36817e4b4f8b15493e14239be51411792f714269317fe7
+  languageName: node
+  linkType: hard
+
 "@lit-labs/ssr-dom-shim@npm:^1.4.0":
   version: 1.4.0
   resolution: "@lit-labs/ssr-dom-shim@npm:1.4.0"
@@ -4329,6 +4338,13 @@ __metadata:
   version: 3.0.2
   resolution: "@types/d3-timer@npm:3.0.2"
   checksum: 10c0/c644dd9571fcc62b1aa12c03bcad40571553020feeb5811f1d8a937ac1e65b8a04b759b4873aef610e28b8714ac71c9885a4d6c127a048d95118f7e5b506d9e1
+  languageName: node
+  linkType: hard
+
+"@types/estree@npm:0.0.38":
+  version: 0.0.38
+  resolution: "@types/estree@npm:0.0.38"
+  checksum: 10c0/7ae34f62d25532465c3fcca107dc3a806505366072edb3407dd0c4e1ec2b7014d723f1b337f6ec29363dc16525c0eedc560136c4f9c763830c2ef5cb50dc47f3
   languageName: node
   linkType: hard
 
@@ -9650,6 +9666,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"myetherwallet-blockies@npm:^0.1.1":
+  version: 0.1.1
+  resolution: "myetherwallet-blockies@npm:0.1.1"
+  checksum: 10c0/19d8774fd084400cdd6ac45da63925e8f9ad51d74a74dbba4dea0ec1c31ca0960bfcd592ec465abd3cf2c2891954fa591b1185cfac112ec7108e32597e92441b
+  languageName: node
+  linkType: hard
+
 "n3@npm:^1.17.2":
   version: 1.26.0
   resolution: "n3@npm:1.26.0"
@@ -9994,6 +10017,7 @@ __metadata:
     "@libp2p/peer-id": "npm:^4.1.4"
     "@libp2p/ping": "npm:^1.1.1"
     "@libp2p/websockets": "npm:^8.1.1"
+    "@likecoin/ethereum-blockies": "npm:^0.1.2"
     "@mui/icons-material": "npm:^7.3.4"
     "@mui/material": "npm:^7.3.4"
     "@mui/x-data-grid": "npm:^8.14.1"
@@ -10021,6 +10045,7 @@ __metadata:
     ethers: "npm:^6.15.0"
     it-pipe: "npm:^3.0.1"
     libp2p: "npm:^1.8.0"
+    myetherwallet-blockies: "npm:^0.1.1"
     next: "npm:^15.2.4"
     normalize.css: "npm:^8.0.1"
     prettier: "npm:^3.3.3"
@@ -11072,6 +11097,18 @@ __metadata:
   bin:
     rimraf: bin.js
   checksum: 10c0/9cb7757acb489bd83757ba1a274ab545eafd75598a9d817e0c3f8b164238dd90eba50d6b848bd4dcc5f3040912e882dc7ba71653e35af660d77b25c381d402e8
+  languageName: node
+  linkType: hard
+
+"rollup@npm:^0.58.0":
+  version: 0.58.2
+  resolution: "rollup@npm:0.58.2"
+  dependencies:
+    "@types/estree": "npm:0.0.38"
+    "@types/node": "npm:*"
+  bin:
+    rollup: ./bin/rollup
+  checksum: 10c0/fbbfd1da7bed84a6e368c2d7f136646a3f94d79674f30733e790ef8d49b6172b8b7ff6529a3f248ec64cdd07d487ce3c95daf808a4c069d236d5bdab74286e9a
   languageName: node
   linkType: hard
 

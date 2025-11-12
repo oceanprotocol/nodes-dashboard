@@ -9,3 +9,10 @@ export const formatNumber = (num: string | number): string => {
   }
   return new Intl.NumberFormat('en-US').format(num);
 };
+
+export const formatWalletAddress = (address: string): string => {
+  if (address.length <= 10) {
+    return address;
+  }
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};

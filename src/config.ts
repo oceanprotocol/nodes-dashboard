@@ -82,6 +82,7 @@ export const getSocialMedia = (): SocialMedia => config.socialMedia;
 export const getLinks = () => config.links;
 
 const API_ROOTS = {
+  ens: 'https://ens-proxy.oceanprotocol.com/api',
   incentive: 'https://incentive-backend.oceanprotocol.io',
   incentive_old: 'https://incentive-backend.oceanprotocol.com',
   analytics: 'https://analytics.nodes.oceanprotocol.io',
@@ -104,6 +105,11 @@ const apiRoutes = {
   gpuPopularity: { root: 'analytics', path: '/gpu-popularity' },
   topNodesByRevenue: { root: 'analytics', path: '/nodes' },
   topNodesByJobCount: { root: 'analytics', path: '/nodes' },
+
+  // ENS API routes
+  ensAddress: { root: 'ens', path: '/address' },
+  ensName: { root: 'ens', path: '/name' },
+  ensProfile: { root: 'ens', path: '/profile' },
 } as const;
 
 type ApiRouteKeys = keyof typeof apiRoutes;
