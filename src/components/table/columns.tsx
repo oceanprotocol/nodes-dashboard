@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import { Node } from '@/types/nodes';
+import { formatNumber } from '@/utils/formatters';
 import { GridColDef } from '@mui/x-data-grid';
 
 export const nodesLeaderboardColumns: GridColDef<Node>[] = [
@@ -79,7 +80,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     sortable: false,
     renderCell: (params) => {
       return (
-        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.id}`}>
+        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.node_id}`}>
           Info
         </Button>
       );
@@ -137,5 +138,84 @@ export const jobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Score',
     sortable: true,
+  },
+];
+
+export const topNodesByRevenueColumns: GridColDef<Node>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'friendly_name',
+    filterable: true,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+  },
+  {
+    field: 'region',
+    filterable: true,
+    flex: 1,
+    headerName: 'Region',
+    sortable: false,
+  },
+  {
+    field: 'total_revenue',
+    filterable: false,
+    renderCell: ({ value }) => formatNumber(value.toFixed(2)),
+    flex: 1,
+    headerName: 'Total Revenue',
+    sortable: false,
+  },
+  {
+    field: 'latest_gpu_score',
+    filterable: false,
+    flex: 1,
+    headerName: 'Last benchmark score (GPU)',
+    sortable: false,
+  },
+];
+
+export const topNodesByJobsColumns: GridColDef<Node>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'friendly_name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: true,
+  },
+  {
+    field: 'region',
+    filterable: false,
+    flex: 1,
+    headerName: 'Region',
+    sortable: true,
+  },
+  {
+    field: 'total_jobs',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Jobs',
+    sortable: true,
+  },
+  {
+    field: 'latest_gpu_score',
+    filterable: false,
+    flex: 1,
+    headerName: 'Last benchmark score (GPU)',
+    sortable: false,
   },
 ];
