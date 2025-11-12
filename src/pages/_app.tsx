@@ -1,6 +1,7 @@
 import RootLayout from '@/components/Layout';
 import { AppKit } from '@/context/app-kit';
 import { StatsProvider } from '@/context/stats-context';
+import { P2PProvider } from '@/contexts/P2PContext';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
@@ -37,9 +38,11 @@ export default function App({ Component, pageProps }: AppProps) {
       <QueryClientProvider client={queryClientRef.current}>
         <StatsProvider>
           <AppKit>
-            <RootLayout>
-              <Component {...pageProps} />
-            </RootLayout>
+            <P2PProvider>
+              <RootLayout>
+                <Component {...pageProps} />
+              </RootLayout>
+            </P2PProvider>
           </AppKit>
         </StatsProvider>
       </QueryClientProvider>
