@@ -29,6 +29,7 @@ export type Node = {
   friendlyName?: string;
   gpus: GPU[];
   id?: string;
+  indexer?: Array<{ network: string }>;
   ipAndDns?: {
     dns: string;
   };
@@ -48,11 +49,18 @@ export type Node = {
   node_id: string;
   platform?: {
     osType: string;
+    cpus?: string;
+    arch?: string;
+    machine?: string;
+    node?: string;
+    platform?: string;
   };
+  provider?: Array<{ network: string }>;
   region: string;
   total_jobs: number;
   total_revenue: number;
   version?: string;
+  supportedStorage: any;
 };
 
 type GPU = {

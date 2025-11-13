@@ -10,7 +10,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
     return (
       <>
-        <CheckCircleOutlinedIcon style={{ fill: 'green' }} />
+        <CheckCircleOutlinedIcon style={{ fill: 'var(--success)' }} />
         <span>Eligible</span>
       </>
     );
@@ -19,7 +19,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'Invalid status response':
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'orange' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -27,7 +27,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'Banned':
         return (
           <>
-            <HighlightOffOutlinedIcon style={{ fill: 'red' }} />
+            <HighlightOffOutlinedIcon style={{ fill: 'var(--error)' }} />
             <span>Banned</span>
           </>
         );
@@ -35,7 +35,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'No peer data':
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'orange' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -43,7 +43,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       default:
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'orange' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
             <span>Not eligible</span>
           </>
         );
