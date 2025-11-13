@@ -1,8 +1,15 @@
 export type AnyNode = any;
 
 export type Node = {
+  id?: string;
   node_id: string;
   friendly_name: string;
+  friendlyName?: string;
+  location?: {
+    region: string;
+  };
+  eligible?: boolean;
+  eligibilityCauseStr?: string;
   region: string;
   latest_gpu_score: number;
   latest_cpu_score: number;
@@ -13,6 +20,21 @@ export type Node = {
     cpuScore: number;
     bandwidth: number;
   };
+  gpus: GPU[];
+  cpus: CPU[];
+  platform: any;
+  supportedStorage: any;
+  indexer?: Array<{ network: string }>;
+  provider?: Array<{ network: string }>;
+};
+
+type GPU = {
+  vendor: string;
+  name: string;
+};
+type CPU = {
+  family: string;
+  model: string;
 };
 
 export enum NodeEligibility {

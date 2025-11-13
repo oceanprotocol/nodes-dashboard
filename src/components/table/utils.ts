@@ -1,46 +1,12 @@
 import { TableTypeEnum } from '@/components/table/table-type';
+import { type Node } from '@/types';
 import { GridApi } from '@mui/x-data-grid';
 
-type NodeData = {
-  id: string;
-  weeklyUptime: number;
-  ipAndDns?: {
-    dns?: string;
-    ip?: string;
-    port?: string;
-  };
-  location?: {
-    city?: string;
-    country?: string;
-  };
-  address: string;
-  eligible: boolean;
-  eligibilityCauseStr?: string;
-  lastCheck: string;
-  network: string;
-  version: string;
-  httpEnabled: boolean;
-  p2pEnabled: boolean;
-  supportedStorage: any;
-  platform: any;
-  codeHash: string;
-  allowedAdmins: string[];
-  indexer?: Array<{ network: string }>;
-  provider?: Array<{ network: string }>;
-};
-
-interface CountryData {
-  id: string;
-  country: string;
-  totalNodes: number;
-  citiesWithNodes: number;
-}
-
-export const getAllNetworks = (indexers: NodeData['indexer']): string => {
+export const getAllNetworks = (indexers: Node['indexer']): string => {
   return indexers?.map((indexer) => indexer.network).join(', ') || '';
 };
 
-export const formatSupportedStorage = (supportedStorage: NodeData['supportedStorage']): string => {
+export const formatSupportedStorage = (supportedStorage: Node['supportedStorage']): string => {
   const storageTypes = [];
 
   if (supportedStorage?.url) storageTypes.push('URL');
@@ -50,7 +16,7 @@ export const formatSupportedStorage = (supportedStorage: NodeData['supportedStor
   return storageTypes.join(', ');
 };
 
-export const formatPlatform = (platform: NodeData['platform']): string => {
+export const formatPlatform = (platform: Node['platform']): string => {
   if (platform) {
     const { cpus, arch, machine, platform: platformName, osType, node } = platform;
     return `CPUs: ${cpus}, Architecture: ${arch}, Machine: ${machine}, Platform: ${platformName}, OS Type: ${osType}, Node.js: ${node}`;

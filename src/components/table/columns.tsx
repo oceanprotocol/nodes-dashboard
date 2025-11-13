@@ -1,75 +1,130 @@
 import Button from '@/components/button/button';
-import { Node } from '@/types/nodes';
+import { GPUPopularity, Node } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
-import { GridColDef } from '@mui/x-data-grid';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
+import { getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
+  if (eligible) {
+    return (
+      <>
+        <CheckCircleOutlinedIcon style={{ fill: 'var(--success)' }} />
+        <span>Eligible</span>
+      </>
+    );
+  } else {
+    switch (eligibilityCauseStr) {
+      case 'Invalid status response':
+        return (
+          <>
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <span>Not eligible</span>
+          </>
+        );
+
+      case 'Banned':
+        return (
+          <>
+            <HighlightOffOutlinedIcon style={{ fill: 'var(--error)' }} />
+            <span>Banned</span>
+          </>
+        );
+
+      case 'No peer data':
+        return (
+          <>
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <span>Not eligible</span>
+          </>
+        );
+
+      default:
+        return (
+          <>
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <span>Not eligible</span>
+          </>
+        );
+    }
+  }
+}
 
 export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   {
     align: 'center',
-    field: 'index', // TODO
+    field: 'index',
     filterable: false,
     headerAlign: 'center',
     headerName: 'Index',
     sortable: false,
   },
   {
-    field: 'name', // TODO
+    field: 'friendlyName',
     filterable: true,
     flex: 1,
     headerName: 'Name',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
+    ),
   },
   {
-    field: 'region', // TODO
+    field: 'location.region',
     filterable: true,
     flex: 1,
     headerName: 'Region',
-    sortable: true,
+    valueGetter: (_value, row) => row.location?.region,
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
+    ),
   },
   {
-    field: 'eligible', // TODO
+    field: 'eligible',
     filterable: true,
     flex: 1,
     headerName: 'Reward eligibility',
-    sortable: true,
-    // renderCell: (params: GridRenderCellParams<NodeData>) => (
-    //   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-    //     {getEligibleCheckbox(params.row.eligible)}
-    //     <span>{params.row.eligible ? 'Eligible' : 'Not Eligible'}</span>
-    //   </div>
-    // )
+    sortable: false,
+    renderCell: (params: GridRenderCellParams<Node>) => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {getEligibleCheckbox(params.row.eligible, params.row.eligibilityCauseStr)}
+      </div>
+    ),
+    filterOperators: getGridStringOperators().filter((operator) => operator.value === 'equals'),
   },
   {
-    field: 'latestBenchmarkResults.gpuScore', // TODO
+    field: 'latestBenchmarkResults.gpuScore',
     filterable: false,
     flex: 1,
     headerName: 'GPU Score',
-    sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults.gpuScore,
+    sortable: false,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.gpuScore || 0,
   },
   {
-    field: 'latestBenchmarkResults.cpuScore', // TODO
+    field: 'latestBenchmarkResults.cpuScore',
     filterable: false,
     flex: 1,
     headerName: 'CPU Score',
-    sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults.cpuScore,
+    sortable: false,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.cpuScore || 0,
   },
   {
-    field: 'latestBenchmarkResults.bandwidth', // TODO
+    field: 'latestBenchmarkResults.bandwidth',
     filterable: false,
     flex: 1,
     headerName: 'Bandwidth',
-    sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults.bandwidth,
+    sortable: false,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.bandwidth || 0,
   },
   {
-    field: 'gpus', // TODO
-    filterable: true,
+    field: 'gpus',
+    filterable: false,
     flex: 1,
     headerName: 'GPUs',
     sortable: false,
-    renderCell: (params) => params.value.join(', '),
+    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
   },
   {
     align: 'right',
@@ -80,7 +135,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     sortable: false,
     renderCell: (params) => {
       return (
-        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.node_id}`}>
+        <Button color="accent1" variant="outlined" href={`/nodes/${params.row.id || params.row.node_id}`}>
           Info
         </Button>
       );

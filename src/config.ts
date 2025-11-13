@@ -95,6 +95,7 @@ const apiRoutes = {
   nodeSystemStats: { root: 'incentive_old', path: '/nodeSystemStats' },
   history: { root: 'incentive', path: '/history' },
   weekStats: { root: 'incentive', path: '/weekStats' },
+  banStatus: { root: 'incentive', path: '/nodes' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },
@@ -104,11 +105,12 @@ const apiRoutes = {
   gpuPopularity: { root: 'analytics', path: '/gpu-popularity' },
   topNodesByRevenue: { root: 'analytics', path: '/nodes' },
   topNodesByJobCount: { root: 'analytics', path: '/nodes' },
+  nodeStats: { root: 'analytics', path: '/nodes' },
 } as const;
 
 type ApiRouteKeys = keyof typeof apiRoutes;
 
-export const getApiRoute = (key: ApiRouteKeys, param?: string | number): string => {
+export const getApiRoute = (key: ApiRouteKeys): string => {
   const route = apiRoutes[key];
   const baseUrl = API_ROOTS[route.root];
   return `${baseUrl}${route.path}`;
