@@ -8,6 +8,7 @@ import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
+import Link from 'next/link';
 import { useState } from 'react';
 import styles from './environment-card.module.css';
 
@@ -269,7 +270,11 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
           <div>
             Balance: <strong>{hasBalance ? 100 : 0}</strong> OCEAN
           </div>
-          {hasBalance ? <a className={styles.link}>Withdraw</a> : null}
+          {hasBalance ? (
+            <Link className={styles.link} href="/withdraw">
+              Withdraw
+            </Link>
+          ) : null}
         </div>
       ) : null}
       <div className={styles.footer}>
