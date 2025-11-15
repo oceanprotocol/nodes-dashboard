@@ -221,11 +221,14 @@ export const Table = <T,>({
     if (paginationType === 'context' && context) {
       const emptyFilter: GridFilterModel = { items: [] };
       context.setFilterModel(emptyFilter);
+      if (context.setSearchTerm) {
+        context.setSearchTerm('');
+      }
       if (searchTimeout.current) {
         clearTimeout(searchTimeout.current);
       }
     }
-  }, [context, paginationType]);
+  }, [context, paginationType, setSearchTerm]);
 
   const handleSearchChange = useCallback(
     (term: string) => {
@@ -233,8 +236,13 @@ export const Table = <T,>({
       if (searchTimeout.current) {
         clearTimeout(searchTimeout.current);
       }
+      searchTimeout.current = setTimeout(() => {
+        if (paginationType === 'context' && context?.setSearchTerm) {
+          context.setSearchTerm(term);
+        }
+      }, 500);
     },
-    [setSearchTerm]
+    [context, paginationType, setSearchTerm]
   );
 
   const processRowUpdate = useCallback((newRow: GridValidRowModel, oldRow: GridValidRowModel): GridValidRowModel => {

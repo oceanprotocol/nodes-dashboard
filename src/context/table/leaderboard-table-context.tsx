@@ -1,8 +1,7 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
-import { MOCK_NODES } from '@/mock/nodes';
 import { FilterOperator, NodeFilters } from '@/types/filters';
-import { AnyNode, Node } from '@/types/nodes';
+import { Node } from '@/types/nodes';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -18,17 +17,10 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   const [filterModel, setFilterModel] = useState<CtxType['filterModel']>({ items: [] });
   const [filters, setFilters] = useState<CtxType['filters']>({});
   const [loading, setLoading] = useState<CtxType['loading']>(false);
-  // const [nextSearchAfter, setNextSearchAfter] = useState<any[] | null>(null);
   const [pageSize, setPageSize] = useState<CtxType['pageSize']>(100);
   const [searchTerm, setSearchTerm] = useState<CtxType['searchTerm']>('');
   const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({});
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
-
-  const sortParams = useMemo(() => {
-    return Object.entries(sortModel)
-      .map(([field, order]) => `sort[${field}]=${order}`)
-      .join('&');
-  }, [sortModel]);
 
   const buildFilterParams = (filters: NodeFilters): string => {
     if (!filters || Object.keys(filters).length === 0) return '';
@@ -45,10 +37,7 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   };
 
   const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('nodes')}?page=${crtPage}&size=${pageSize}`;
-    if (sortParams) {
-      url += `&${sortParams}`;
-    }
+    let url = `${getApiRoute('nodes')}?page=${crtPage}&size=${pageSize}&sort[latestBenchmarkResults.gpuScore]=desc`;
     const gridFilterToNodeFilters = (gridFilter: GridFilterModel): NodeFilters => {
       const nodeFilters: NodeFilters = {};
       gridFilter.items.forEach((item) => {
@@ -69,7 +58,15 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
       url += `&search=${encodeURIComponent(searchTerm)}`;
     }
     return url;
-  }, [crtPage, pageSize, sortParams, filterModel, searchTerm]);
+  }, [crtPage, pageSize, filterModel, searchTerm]);
+
+  async function getNodeBanStatus(nodeId: string) {
+    const res = await axios.get(`${getApiRoute('banStatus')}/${nodeId}/banStatus`, {
+      timeout: 1_500,
+    });
+
+    return { nodeId, ...res.data };
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -79,14 +76,31 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
         ...element._source,
         index: (crtPage - 1) * pageSize + index + 1,
       }));
-      // TODO - remove mock data addition
-      const dataWithMockFields = sanitizedData.map((node: AnyNode, index: number) => ({
-        ...MOCK_NODES[index % MOCK_NODES.length],
-        ...node,
-      }));
-      setData(dataWithMockFields);
+
+      /* TODO: The flow for banned could be improved by having the "banned"
+       * status saved directly on the node and returned in the response, so we
+       * don't have to perform multiple GET /banStatus requests at this point.
+       */
+      const possiblyBannedNodes = sanitizedData.filter(
+        (item: Node) =>
+          item.eligible === false &&
+          item.eligibilityCauseStr !== 'No peer data' &&
+          item.eligibilityCauseStr !== 'Invalid status response'
+      );
+      const promises = [];
+      for (const node of possiblyBannedNodes) {
+        promises.push(getNodeBanStatus(node.id));
+      }
+      const results = await Promise.all(promises);
+      results.forEach((result) => {
+        if (result.banned) {
+          const currentNodeIndex = sanitizedData.findIndex((item: Node) => item.id === result.nodeId);
+          sanitizedData[currentNodeIndex] = { ...sanitizedData[currentNodeIndex], eligibilityCauseStr: 'Banned' };
+        }
+      });
+
+      setData(sanitizedData);
       setTotalItems(response.data.pagination.totalItems);
-      // setNextSearchAfter(response.data.pagination.nextSearchAfter);
     } catch (error) {
       setError(error);
     } finally {
@@ -102,29 +116,6 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
       if (!mounted) return;
       try {
         await fetchData();
-        // const initialSetupPromises: Promise<any>[] = [];
-
-        // if (!systemStats.cpuCounts || Object.keys(systemStats.cpuCounts).length === 0) {
-        //   initialSetupPromises.push(fetchSystemStats());
-        // }
-
-        // const isDefaultView =
-        //   (!searchTerm || searchTerm.trim() === '') &&
-        //   (Object.keys(filters).length === 0 ||
-        //     Object.values(filters).every((filter: any) => !filter || !filter.value));
-
-        // if (isDefaultView && !metricsLoaded) {
-        //   initialSetupPromises.push(getTotalEligible());
-        //   initialSetupPromises.push(getTotalRewards());
-        // }
-
-        // initialSetupPromises.push(fetchRewardsHistory());
-
-        // await Promise.all(initialSetupPromises);
-
-        // if (isDefaultView && !metricsLoaded) {
-        //   setMetricsLoaded(true);
-        // }
       } catch (error) {
         console.error('Error fetching initial leaderboard data:', error);
       } finally {
@@ -155,19 +146,16 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   const handleSetPageSize: CtxType['setPageSize'] = (size) => {
     setPageSize(size);
     setData([]);
-    // setNextSearchAfter(null);
   };
 
   const handleSetSearchTerm: CtxType['setSearchTerm'] = (term) => {
     setSearchTerm(term);
     setCrtPage(1);
-    // setNextSearchAfter(null);
   };
 
   const handleSetSortModel: CtxType['setSortModel'] = (model) => {
     setSortModel(model);
     setCrtPage(1);
-    // setNextSearchAfter(null);
   };
 
   return (

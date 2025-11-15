@@ -1,5 +1,8 @@
-import { getRoutes } from '@/config';
+import { getApiRoute, getRoutes } from '@/config';
+import { Node } from '@/types';
+import axios from 'axios';
 import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
 import styles from './leaderboard.module.css';
@@ -7,8 +10,8 @@ import styles from './leaderboard.module.css';
 type LeaderboardItem = {
   nodeId: string;
   gpuCpu: string;
-  benchScore: string;
-  jobsCompleted: string;
+  benchScore: number;
+  jobsCompleted: number;
   revenue: string;
 };
 
@@ -20,32 +23,93 @@ const columns: { key: keyof LeaderboardItem; label: string }[] = [
   { key: 'revenue', label: 'Revenue' },
 ];
 
-const itemsList: LeaderboardItem[] = [
-  {
-    nodeId: 'Node-12',
-    gpuCpu: 'RTX 3090',
-    benchScore: '98.2',
-    jobsCompleted: '120',
-    revenue: '$1,250',
-  },
-  {
-    nodeId: 'Node-23',
-    gpuCpu: '16-core CPU',
-    benchScore: '87.4',
-    jobsCompleted: '90',
-    revenue: '$840',
-  },
-  {
-    nodeId: 'Node-41',
-    gpuCpu: 'A100 GPU',
-    benchScore: '99.1',
-    jobsCompleted: '210',
-    revenue: '$3,100',
-  },
-];
-
 export default function LeaderboardSection() {
   const routes = getRoutes();
+  const [topNodes, setTopNodes] = useState<Node[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  async function fetchNodeJobStats(nodeId: string) {
+    const result = await axios.get(`${getApiRoute('nodeStats')}/${nodeId}/stats`);
+
+    return { ...result.data, nodeId };
+  }
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(
+        `${getApiRoute('nodes')}?page=0&size=3&sort[latestBenchmarkResults.gpuScore]=desc`
+      );
+      const sanitizedData = response.data.nodes.map((element: any) => element._source);
+
+      const promises = [];
+      for (const node of sanitizedData) {
+        promises.push(fetchNodeJobStats(node.id));
+      }
+      const results = await Promise.all(promises);
+      results.forEach((result) => {
+        const currentNodeIndex = sanitizedData.findIndex((item: Node) => item.id === result.nodeId);
+        sanitizedData[currentNodeIndex] = {
+          ...sanitizedData[currentNodeIndex],
+          total_jobs: result.total_jobs,
+          total_revenue: result.total_revenue,
+        };
+      });
+
+      setTopNodes(sanitizedData);
+    } catch (error) {
+      console.log(error);
+      setIsLoading(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const controller = new AbortController();
+
+    const fetchAllData = async () => {
+      if (!mounted) return;
+      try {
+        await fetchData();
+      } catch (error) {
+        console.error('Error fetching initial leaderboard data:', error);
+      } finally {
+        if (mounted) {
+          // setOverallDashboardLoading(false);
+        }
+      }
+    };
+
+    fetchAllData();
+
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
+  }, [fetchData]);
+
+  function formatNodeGPUCPU(node: Node) {
+    if (node.gpus) {
+      return node.gpus.map((gpu) => `${gpu.vendor} ${gpu.name}`).join(', ');
+    } else if (node.cpus) {
+      return node.cpus.map((cpu) => cpu.model).join(', ');
+    }
+    return '-';
+  }
+
+  const itemsList: LeaderboardItem[] = useMemo(
+    () =>
+      topNodes.map((node) => ({
+        nodeId: node.friendlyName!,
+        gpuCpu: formatNodeGPUCPU(node),
+        benchScore: node.latestBenchmarkResults.gpuScore,
+        jobsCompleted: node.total_jobs,
+        revenue: `USDC ${node.total_revenue.toFixed(2)}`,
+      })),
+    [topNodes]
+  );
 
   return (
     <div className={styles.root}>
@@ -59,15 +123,19 @@ export default function LeaderboardSection() {
               </div>
             ))}
           </div>
-          {itemsList.map((item) => (
-            <div key={item.nodeId} className={styles.tableLine}>
-              {columns.map((column) => (
-                <div key={column.key} className={styles.tableCell} data-label={column.label}>
-                  <span className={styles.tableValue}>{item[column.key]}</span>
-                </div>
-              ))}
-            </div>
-          ))}
+          {isLoading ? (
+            <div className={styles.loader}>Loading...</div>
+          ) : (
+            itemsList.map((item, index) => (
+              <div key={`${item.nodeId}-${index}`} className={styles.tableLine}>
+                {columns.map((column) => (
+                  <div key={column.key} className={styles.tableCell} data-label={column.label}>
+                    <span className={styles.tableValue}>{item[column.key]}</span>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
         </div>
         <div className={styles.leaderboardFooter}>
           <Link href={routes.leaderboard.path} className={styles.viewButton}>
