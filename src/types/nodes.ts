@@ -90,3 +90,38 @@ export type GPUPopularityDisplay = {
   gpu_name: string;
   popularity: number;
 }[];
+
+export type NodeStatsResponse = {
+  total_benchmark_jobs: number;
+  total_network_jobs: number;
+  total_jobs: number;
+  benchmark_revenue: number;
+  network_revenue: number;
+  total_revenue: number;
+  data: {
+    epoch_id: number;
+    total_benchmark_jobs: number;
+    total_network_jobs: number;
+    successful_benchmark_jobs: number;
+    successful_network_jobs: number;
+    failed_benchmark_jobs: number;
+    failed_network_jobs: number;
+    benchmark_revenue: number;
+    network_revenue: number;
+  }[];
+};
+
+export type BenchmarkMinMaxLastResponse = {
+  lastCPUScore: number;
+  lastGPUScore: number;
+  maxCPUScore: number;
+  maxGPUScore: number;
+  minCPUScore: number;
+  minGPUScore: number;
+};
+
+export type ComputeEnvironment = {
+  queuedJobs: number;
+  runningJobs: number;
+  runningFreeJobs?: number;
+};

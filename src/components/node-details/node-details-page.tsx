@@ -6,9 +6,18 @@ import NodeInfo from '@/components/node-details/node-info';
 import UnbanRequests from '@/components/node-details/unban-requests';
 import SectionTitle from '@/components/section-title/section-title';
 import { useNodesContext } from '@/context/nodes-context';
+import { useParams } from 'next/navigation';
+import { useEffect } from 'react';
 
 const NodeDetailsPage = () => {
-  const { selectedNode } = useNodesContext();
+  const { selectedNode, fetchNode } = useNodesContext();
+  const params = useParams<{ nodeId: string }>();
+
+  useEffect(() => {
+    if (!selectedNode) {
+      fetchNode(params?.nodeId);
+    }
+  }, [fetchNode, params?.nodeId]);
 
   if (!selectedNode) {
     return (
@@ -28,7 +37,7 @@ const NodeDetailsPage = () => {
       <div className="pageContentWrapper">
         <NodeInfo node={selectedNode} />
         {selectedNode.eligibilityCauseStr === 'Banned' ? <UnbanRequests /> : null}
-        <JobsRevenueStats />
+        <JobsRevenueStats node={selectedNode} />
         <BenchmarkJobs />
         <Environments />
       </div>

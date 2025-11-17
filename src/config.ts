@@ -96,6 +96,7 @@ const apiRoutes = {
   history: { root: 'incentive', path: '/history' },
   weekStats: { root: 'incentive', path: '/weekStats' },
   banStatus: { root: 'incentive', path: '/nodes' },
+  nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },

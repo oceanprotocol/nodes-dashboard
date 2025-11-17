@@ -1,5 +1,6 @@
 import { getNodeEnvs, initializeNode, sendCommandToPeer } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
+import { ComputeEnvironment } from '@/types/nodes';
 import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -7,6 +8,7 @@ interface P2PContextType {
   node: Libp2p | null;
   isReady: boolean;
   error: string | null;
+  envs: ComputeEnvironment[];
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
   getEnvs: (peerId: string) => Promise<any>;
 }
@@ -14,13 +16,13 @@ interface P2PContextType {
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
 
 export function P2PProvider({ children }: { children: React.ReactNode }) {
+  const [envs, setEnvs] = useState<ComputeEnvironment[]>([]);
   const [node, setNode] = useState<Libp2p | null>(null);
-  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    let peerCountInterval: NodeJS.Timeout;
 
     async function init() {
       try {
@@ -64,7 +66,9 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      return getNodeEnvs(peerId);
+      const result = await getNodeEnvs(peerId);
+
+      setEnvs(result as ComputeEnvironment[]);
     },
     [isReady, node]
   );
@@ -72,11 +76,12 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   return (
     <P2PContext.Provider
       value={{
-        node,
-        isReady,
+        envs,
         error,
-        sendCommand,
+        isReady,
+        node,
         getEnvs,
+        sendCommand,
       }}
     >
       {children}

@@ -1,1 +1,1 @@
-export type { Node } from './nodes';
+export type { BenchmarkMinMaxLastResponse, Node, NodeStatsResponse } from './nodes';
