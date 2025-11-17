@@ -1,6 +1,7 @@
 import RootLayout from '@/components/Layout';
 import { AppKit } from '@/context/app-kit';
 import { NodesProvider } from '@/context/nodes-context';
+import { ProfileProvider } from '@/context/profile-context';
 import { StatsProvider } from '@/context/stats-context';
 import { P2PProvider } from '@/contexts/P2PContext';
 import '@/styles/globals.css';
@@ -39,13 +40,17 @@ export default function App({ Component, pageProps }: AppProps) {
       <QueryClientProvider client={queryClientRef.current}>
         <StatsProvider>
           <NodesProvider>
-            <AppKit>
-              <P2PProvider>
-                <RootLayout>
-                  <Component {...pageProps} />
-                </RootLayout>
-              </P2PProvider>
-            </AppKit>
+            <ProfileProvider>
+              <StatsProvider>
+                <AppKit>
+                  <P2PProvider>
+                    <RootLayout>
+                      <Component {...pageProps} />
+                    </RootLayout>
+                  </P2PProvider>
+                </AppKit>
+              </StatsProvider>
+            </ProfileProvider>
           </NodesProvider>
         </StatsProvider>
       </QueryClientProvider>
