@@ -56,33 +56,36 @@ export class OceanProvider {
   }
 
   async getNodeBalance(nodeUrl: string) {
-    const environments = await this.getEnvironmentsByNode(nodeUrl);
-
     const result = new Map<string, number>();
-    const balancesMap = new Map<string, string[]>();
-    for (const env of environments) {
-      const fees = this.getFeesByChainId(this.chainId, env);
-      for (const fee of fees) {
-        const { symbol, balance } = await this.getBalance(fee.feeToken, env.consumerAddress);
+    try {
+      const environments = await this.getEnvironmentsByNode(nodeUrl);
 
-        if (balancesMap.has(symbol)) {
-          const balances = balancesMap.get(symbol) || [];
-          balances.push(balance);
-          balancesMap.set(symbol, balances);
+      const balancesMap = new Map<string, string[]>();
+      for (const env of environments) {
+        const fees = this.getFeesByChainId(this.chainId, env);
+        for (const fee of fees) {
+          const { symbol, balance } = await this.getBalance(fee.feeToken, env.consumerAddress);
 
-          continue;
+          if (balancesMap.has(symbol)) {
+            const balances = balancesMap.get(symbol) || [];
+            balances.push(balance);
+            balancesMap.set(symbol, balances);
+
+            continue;
+          }
+
+          balancesMap.set(symbol, [balance]);
         }
-
-        balancesMap.set(symbol, [balance]);
       }
+
+      for (const [key, value] of balancesMap) {
+        const sum = value.map((val) => new BigNumber(val)).reduce((acc, val) => acc.plus(val), new BigNumber(0));
+
+        result.set(key, sum.toNumber());
+      }
+    } catch (error) {
+      console.log(error);
     }
-
-    for (const [key, value] of balancesMap) {
-      const sum = value.map((val) => new BigNumber(val)).reduce((acc, val) => acc.plus(val), new BigNumber(0));
-
-      result.set(key, sum.toNumber());
-    }
-
     return result;
   }
 

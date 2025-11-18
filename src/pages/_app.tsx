@@ -1,5 +1,6 @@
 import RootLayout from '@/components/Layout';
 import { AppKit } from '@/context/app-kit';
+import { NodesProvider } from '@/context/nodes-context';
 import { ProfileProvider } from '@/context/profile-context';
 import { StatsProvider } from '@/context/stats-context';
 import { P2PProvider } from '@/contexts/P2PContext';
@@ -37,17 +38,21 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
-        <ProfileProvider>
-          <StatsProvider>
-            <AppKit>
-              <P2PProvider>
-                <RootLayout>
-                  <Component {...pageProps} />
-                </RootLayout>
-              </P2PProvider>
-            </AppKit>
-          </StatsProvider>
-        </ProfileProvider>
+        <StatsProvider>
+          <NodesProvider>
+            <ProfileProvider>
+              <StatsProvider>
+                <AppKit>
+                  <P2PProvider>
+                    <RootLayout>
+                      <Component {...pageProps} />
+                    </RootLayout>
+                  </P2PProvider>
+                </AppKit>
+              </StatsProvider>
+            </ProfileProvider>
+          </NodesProvider>
+        </StatsProvider>
       </QueryClientProvider>
     </main>
   );

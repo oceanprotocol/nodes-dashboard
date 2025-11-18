@@ -5,12 +5,28 @@ import JobsRevenueStats from '@/components/node-details/jobs-revenue-stats';
 import NodeInfo from '@/components/node-details/node-info';
 import UnbanRequests from '@/components/node-details/unban-requests';
 import SectionTitle from '@/components/section-title/section-title';
-import { NodeEligibility } from '@/types/nodes';
-
-const RANDOM_ELIGIBILITY_MOCK =
-  Object.values(NodeEligibility)[Math.floor(Math.random() * Object.values(NodeEligibility).length)];
+import { useNodesContext } from '@/context/nodes-context';
+import { useParams } from 'next/navigation';
+import { useEffect } from 'react';
 
 const NodeDetailsPage = () => {
+  const { selectedNode, fetchNode } = useNodesContext();
+  const params = useParams<{ nodeId: string }>();
+
+  useEffect(() => {
+    if (!selectedNode) {
+      fetchNode(params?.nodeId);
+    }
+  }, [fetchNode, params?.nodeId]);
+
+  if (!selectedNode) {
+    return (
+      <Container className="pageRoot">
+        <SectionTitle title="Node details" subTitle="Node not found" />
+      </Container>
+    );
+  }
+
   return (
     <Container className="pageRoot">
       <SectionTitle
@@ -19,9 +35,9 @@ const NodeDetailsPage = () => {
         subTitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit"
       />
       <div className="pageContentWrapper">
-        <NodeInfo eligibility={RANDOM_ELIGIBILITY_MOCK} />
-        {RANDOM_ELIGIBILITY_MOCK === NodeEligibility.BANNED ? <UnbanRequests /> : null}
-        <JobsRevenueStats />
+        <NodeInfo node={selectedNode} />
+        {selectedNode.eligibilityCauseStr === 'Banned' ? <UnbanRequests /> : null}
+        <JobsRevenueStats node={selectedNode} />
         <BenchmarkJobs />
         <Environments />
       </div>

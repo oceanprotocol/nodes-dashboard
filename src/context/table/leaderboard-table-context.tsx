@@ -1,7 +1,7 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
 import { FilterOperator, NodeFilters } from '@/types/filters';
-import { Node } from '@/types/nodes';
+import { BanStatusResponse, Node } from '@/types/nodes';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -60,7 +60,7 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
     return url;
   }, [crtPage, pageSize, filterModel, searchTerm]);
 
-  async function getNodeBanStatus(nodeId: string) {
+  async function getNodeBanStatus(nodeId: string): Promise<BanStatusResponse> {
     const res = await axios.get(`${getApiRoute('banStatus')}/${nodeId}/banStatus`, {
       timeout: 1_500,
     });
@@ -95,7 +95,11 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
       results.forEach((result) => {
         if (result.banned) {
           const currentNodeIndex = sanitizedData.findIndex((item: Node) => item.id === result.nodeId);
-          sanitizedData[currentNodeIndex] = { ...sanitizedData[currentNodeIndex], eligibilityCauseStr: 'Banned' };
+          sanitizedData[currentNodeIndex] = {
+            ...sanitizedData[currentNodeIndex],
+            eligibilityCauseStr: 'Banned',
+            banInfo: result.banInfo,
+          };
         }
       });
 
