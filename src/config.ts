@@ -90,6 +90,7 @@ const API_ROOTS = {
 
 const apiRoutes = {
   // Incentive API routes
+  environments: { root: 'incentive', path: '/envs' },
   nodes: { root: 'incentive', path: '/nodes' },
   locations: { root: 'incentive', path: '/locations' },
   countryStats: { root: 'incentive', path: '/countryStats' },
