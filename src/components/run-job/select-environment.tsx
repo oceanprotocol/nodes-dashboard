@@ -16,7 +16,7 @@ type FilterFormValues = {
   minCpuCores: number | '';
   minRam: number | '';
   minDiskSpace: number | '';
-  pricingToken: string;
+  // pricingToken: string;
   sortBy: string;
 };
 
@@ -40,7 +40,7 @@ const SelectEnvironment = () => {
       minCpuCores: '',
       minRam: '',
       minDiskSpace: '',
-      pricingToken: '',
+      // pricingToken: '',
       sortBy: '',
     },
     onSubmit: (values) => {
@@ -57,7 +57,7 @@ const SelectEnvironment = () => {
         minCpuCores: '',
         minRam: '',
         minDiskSpace: '',
-        pricingToken: '',
+        // pricingToken: '',
       });
     }
     setExpanded(!expanded);
@@ -114,13 +114,13 @@ const SelectEnvironment = () => {
                 type="number"
                 value={formik.values.minDiskSpace}
               />
-              <Select
+              {/* <Select
                 label="Pricing token"
                 name="pricingToken"
                 onChange={formik.handleChange}
                 size="sm"
                 value={formik.values.pricingToken}
-              />
+              /> */}
             </div>
           </Collapse>
           <div className={styles.footer}>
