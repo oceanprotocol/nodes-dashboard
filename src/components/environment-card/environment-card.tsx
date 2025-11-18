@@ -1,76 +1,117 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import Select from '@/components/input/select';
+import Select, { SelectOption } from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
-import { MOCK_ENV } from '@/mock/environments';
+import { useOceanContext } from '@/context/ocean-context';
+import { ComputeEnvironment } from '@/types/environments';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './environment-card.module.css';
-
-// TODO replace mock data
 
 // TODO show balance + withdraw button
 
 type EnvironmentCardProps = {
   compact?: boolean;
+  environment: ComputeEnvironment;
   showBalance?: boolean;
   showNodeName?: boolean;
 };
 
-const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCardProps) => {
-  const [token, setToken] = useState(MOCK_ENV.supportedTokens[0]);
+const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: EnvironmentCardProps) => {
+  const { getSymbolByAddress } = useOceanContext();
+
+  const { baseChainFees, supportedTokens } = useMemo(() => {
+    const baseChainId = Object.keys(environment.fees)[0];
+    const baseChainFees = environment.fees[baseChainId];
+    const supportedTokens = baseChainFees.map((fee) => fee.feeToken);
+    return { baseChainFees, supportedTokens };
+  }, [environment.fees]);
+
+  const [tokenSelectOptions, setTokenSelectOptions] = useState<SelectOption<string>[]>([]);
+
+  useEffect(() => {
+    for (const tokenAddress of supportedTokens) {
+      getSymbolByAddress(tokenAddress).then((symbol) => {
+        setTokenSelectOptions((prev) => [...prev, { label: symbol, value: tokenAddress }]);
+      });
+    }
+  }, [getSymbolByAddress, supportedTokens]);
+
+  const [token, setToken] = useState(supportedTokens[0]);
+  const [tokenSymbol, setTokenSymbol] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTokenSymbol(null);
+    getSymbolByAddress(token).then((symbol) => setTokenSymbol(symbol));
+  }, [getSymbolByAddress, token]);
+
+  const selectedTokenFees = useMemo(() => baseChainFees.find((fee) => fee.feeToken === token), [baseChainFees, token]);
+
+  const startingFee = useMemo(
+    () => selectedTokenFees?.prices.reduce((total, crt) => total + crt.price, 0) ?? 0,
+    [selectedTokenFees?.prices]
+  );
 
   // TODO replace random with real check
   const hasBalance = Math.random() > 0.5;
 
+  const gpus = useMemo(() => environment.resources?.filter((res) => res.id === 'gpu') ?? [], [environment.resources]);
+
   const getCpuProgressBar = () => {
+    const cpu = environment.resources?.find((res) => res.id === 'cpu');
+    if (!cpu) {
+      return null;
+    }
+    const max = cpu?.max ?? 0;
+    const inUse = cpu?.inUse ?? 0;
+    const available = max - inUse;
+    const fee = selectedTokenFees?.prices.find((price) => price.id === 'cpu')?.price ?? 0;
     if (compact) {
-      const available = MOCK_ENV.cpu.max - MOCK_ENV.cpu.used;
       return (
         <div>
           <div className={styles.label}>
             <MemoryIcon className={styles.icon} />
-            <span className={styles.heading}>{MOCK_ENV.cpu.name}</span>
+            <span className={styles.heading}>{cpu?.description}</span>
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/min
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
           </div>
           <div className={styles.label}>
             <span className={styles.em}>
-              {available}/{MOCK_ENV.cpu.max}
+              {available}/{max}
             </span>
             &nbsp; available
           </div>
         </div>
       );
     }
-    const percentage = (100 * MOCK_ENV.cpu.used) / MOCK_ENV.cpu.max;
+    const percentage = (100 * inUse) / max;
     return (
       <ProgressBar
         value={percentage}
         topLeftContent={
           <span className={classNames(styles.label, styles.em)}>
-            <MemoryIcon className={styles.icon} /> CPU - {MOCK_ENV.cpu.name}
+            <MemoryIcon className={styles.icon} /> CPU - {cpu?.description}
           </span>
         }
         topRightContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.cpu.max}</span>&nbsp;total
+            <span className={styles.em}>{max}</span>&nbsp;total
           </span>
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.cpu.unitPrice[token]}</span>&nbsp;{token}/min
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
           </span>
         }
         bottomRightContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.cpu.used}</span>&nbsp;used
+            <span className={styles.em}>{inUse}</span>&nbsp;used
           </span>
         }
       />
@@ -78,50 +119,53 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
   };
 
   const getGpuProgressBars = () => {
-    return MOCK_ENV.gpu.map((gpu, index) => {
+    return gpus.map((gpu) => {
+      const max = gpu?.max ?? 0;
+      const inUse = gpu?.inUse ?? 0;
+      const available = max - inUse;
+      const fee = selectedTokenFees?.prices.find((price) => price.id === gpu.id)?.price ?? 0;
       if (compact) {
-        const available = gpu.max - gpu.used;
         return (
-          <div key={gpu.name}>
+          <div key={gpu.id}>
             <div className={styles.label}>
               <MemoryIcon className={styles.icon} />
-              <span className={styles.heading}>{gpu.name}</span>
+              <span className={styles.heading}>{gpu.description}</span>
             </div>
             <div className={styles.label}>
-              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/min
+              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
             </div>
             <div className={styles.label}>
               <span className={styles.em}>
-                {available}/{gpu.max}
+                {available}/{max}
               </span>
               &nbsp;available
             </div>
           </div>
         );
       }
-      const percentage = (100 * gpu.used) / gpu.max;
+      const percentage = (100 * inUse) / max;
       return (
         <ProgressBar
-          key={index}
+          key={gpu.id}
           value={percentage}
           topLeftContent={
             <span className={classNames(styles.label, styles.em)}>
-              <MemoryIcon className={styles.icon} /> GPU - {gpu.name}
+              <MemoryIcon className={styles.icon} /> GPU - {gpu.description}
             </span>
           }
           topRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{gpu.max}</span>&nbsp;total
+              <span className={styles.em}>{max}</span>&nbsp;total
             </span>
           }
           bottomLeftContent={
             <span className={styles.label}>
-              <span className={styles.em}>{gpu.unitPrice[token]}</span>&nbsp;{token}/min
+              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
             </span>
           }
           bottomRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{gpu.used}</span>&nbsp;used
+              <span className={styles.em}>{inUse}</span>&nbsp;used
             </span>
           }
         />
@@ -130,8 +174,15 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
   };
 
   const getRamProgressBar = () => {
+    const ram = environment.resources?.find((res) => res.id === 'ram');
+    if (!ram) {
+      return null;
+    }
+    const max = ram?.max ?? 0;
+    const inUse = ram?.inUse ?? 0;
+    const available = max - inUse;
+    const fee = selectedTokenFees?.prices.find((price) => price.id === 'ram')?.price ?? 0;
     if (compact) {
-      const available = MOCK_ENV.ram.max - MOCK_ENV.ram.used;
       return (
         <div>
           <div className={styles.label}>
@@ -139,18 +190,18 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
             <span className={styles.heading}>GB RAM capacity</span>
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/min
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
           </div>
           <div className={styles.label}>
             <span className={styles.em}>
-              {available}/{MOCK_ENV.ram.max}
+              {available}/{max}
             </span>
             &nbsp;available
           </div>
         </div>
       );
     }
-    const percentage = (100 * MOCK_ENV.ram.used) / MOCK_ENV.ram.max;
+    const percentage = (100 * inUse) / max;
     return (
       <ProgressBar
         value={percentage}
@@ -161,17 +212,17 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
         }
         topRightContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.ram.max}</span>&nbsp;GB total
+            <span className={styles.em}>{max}</span>&nbsp;GB total
           </span>
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.ram.unitPrice[token]}</span>&nbsp;{token}/min
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
           </span>
         }
         bottomRightContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.ram.used}</span>&nbsp;GB used
+            <span className={styles.em}>{inUse}</span>&nbsp;GB used
           </span>
         }
       />
@@ -179,8 +230,15 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
   };
 
   const getDiskProgressBar = () => {
+    const disk = environment.resources?.find((res) => res.id === 'disk');
+    if (!disk) {
+      return null;
+    }
+    const max = disk?.max ?? 0;
+    const inUse = disk?.inUse ?? 0;
+    const available = max - inUse;
+    const fee = selectedTokenFees?.prices.find((price) => price.id === 'disk')?.price ?? 0;
     if (compact) {
-      const available = MOCK_ENV.disk.max - MOCK_ENV.disk.used;
       return (
         <div>
           <div className={styles.label}>
@@ -188,18 +246,18 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
             <span className={styles.heading}>GB Disk space</span>
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/min
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
           </div>
           <div className={styles.label}>
             <span className={styles.em}>
-              {available}/{MOCK_ENV.disk.max}
+              {available}/{max}
             </span>
             &nbsp;available
           </div>
         </div>
       );
     }
-    const percentage = (100 * MOCK_ENV.disk.used) / MOCK_ENV.disk.max;
+    const percentage = (100 * inUse) / max;
     return (
       <ProgressBar
         value={percentage}
@@ -210,17 +268,17 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
         }
         topRightContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.disk.max}</span>&nbsp;GB total
+            <span className={styles.em}>{max}</span>&nbsp;GB total
           </span>
         }
         bottomLeftContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.disk.unitPrice[token]}</span>&nbsp;{token}/min
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
           </span>
         }
         bottomRightContent={
           <span className={styles.label}>
-            <span className={styles.em}>{MOCK_ENV.disk.used}</span>&nbsp;GB used
+            <span className={styles.em}>{inUse}</span>&nbsp;GB used
           </span>
         }
       />
@@ -237,7 +295,7 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
             {getRamProgressBar()}
             {getDiskProgressBar()}
           </div>
-        ) : MOCK_ENV.gpu.length === 1 ? (
+        ) : gpus.length === 1 ? (
           <>
             <h4>Specs</h4>
             <div className={classNames(styles.grid)}>
@@ -280,7 +338,7 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
       <div className={styles.footer}>
         <div>
           <div>
-            Max job duration: <strong>{MOCK_ENV.maxJobDuration}</strong> seconds
+            Max job duration: <strong>{environment.maxJobDuration}</strong> seconds
           </div>
           {showNodeName ? (
             <div>
@@ -292,17 +350,17 @@ const EnvironmentCard = ({ compact, showBalance, showNodeName }: EnvironmentCard
           <Select
             className={styles.select}
             onChange={(e) => setToken(e.target.value)}
-            options={MOCK_ENV.supportedTokens.map((token) => ({ label: token, value: token }))}
+            options={tokenSelectOptions}
             size="sm"
             value={token}
           />
-          {MOCK_ENV.freeComputeEnvId ? (
+          {environment.free ? (
             <Button color="accent2" href="/run-job/resources" variant="outlined">
               Try it
             </Button>
           ) : null}
           <Button color="accent2" contentBefore={<PlayArrowIcon />} href="/run-job/resources">
-            From {MOCK_ENV.minPricePerMinute[token]}/min
+            From {startingFee}/min
           </Button>
         </div>
       </div>
