@@ -64,7 +64,7 @@ type InputProps = {
   startAdornment?: React.ReactNode;
   topRight?: React.ReactNode;
   type: 'text' | 'password' | 'email' | 'number';
-  value?: string;
+  value?: string | number;
 };
 
 const Input = ({

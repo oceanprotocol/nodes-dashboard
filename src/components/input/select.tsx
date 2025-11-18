@@ -51,13 +51,18 @@ const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ cus
   },
 }));
 
+export type SelectOption<T> = {
+  label: string;
+  value: T;
+};
+
 type SelectProps<T> = {
   className?: string;
   fullWidth?: boolean;
   hint?: string;
   label?: string;
   name?: string;
-  options?: { label: string; value: T }[];
+  options?: SelectOption<T>[];
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
 } & (
