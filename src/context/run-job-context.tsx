@@ -2,12 +2,15 @@ import { getApiRoute } from '@/config';
 import { MOCK_ENVS } from '@/mock/environments';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment } from '@/types/environments';
+import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import axios from 'axios';
-import { createContext, ReactNode, useContext, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
 type RunJobContextType = {
   environments: ComputeEnvironment[];
   fetchEnvironments: () => Promise<void>;
+  fetchGpus: () => Promise<void>;
+  gpus: GPUPopularityDisplay;
   selectedEnv: ComputeEnvironment | null;
   setSelectedEnv: React.Dispatch<React.SetStateAction<ComputeEnvironment | null>>;
 };
@@ -17,8 +20,9 @@ const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [environments, setEnvironments] = useState<ComputeEnvironment[]>([]);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
+  const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
 
-  const fetchEnvironments = async () => {
+  const fetchEnvironments = useCallback(async () => {
     try {
       const response = await axios.get<{ envs: ComputeEnvironment[]; pagination: ApiPaginationResponse }>(
         getApiRoute('environments')
@@ -30,10 +34,24 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Failed to fetch environments:', error);
     }
-  };
+  }, []);
+
+  // TODO fetch all GPUs not only top 5
+  const fetchGpus = useCallback(async () => {
+    try {
+      const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
+      const res: GPUPopularityDisplay = response.data.map((gpu) => ({
+        gpu_name: `${gpu.vendor} ${gpu.name}`,
+        popularity: gpu.popularity,
+      }));
+      setGpus(res);
+    } catch (error) {
+      console.error('Failed to fetch GPUs:', error);
+    }
+  }, []);
 
   return (
-    <RunJobContext.Provider value={{ environments, fetchEnvironments, selectedEnv, setSelectedEnv }}>
+    <RunJobContext.Provider value={{ environments, fetchEnvironments, fetchGpus, gpus, selectedEnv, setSelectedEnv }}>
       {children}
     </RunJobContext.Provider>
   );

@@ -7,7 +7,7 @@ import { useRunJobContext } from '@/context/run-job-context';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
 import { useFormik } from 'formik';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
 
 type FilterFormValues = {
@@ -23,7 +23,15 @@ type FilterFormValues = {
 const SelectEnvironment = () => {
   const [expanded, setExpanded] = useState(false);
 
-  const { environments, fetchEnvironments } = useRunJobContext();
+  const { environments, fetchEnvironments, fetchGpus, gpus } = useRunJobContext();
+
+  useEffect(() => {
+    fetchGpus();
+  }, [fetchGpus]);
+
+  const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpu_name, label: gpu.gpu_name })), [gpus]);
+
+  console.log(gpuOptions);
 
   const formik = useFormik<FilterFormValues>({
     initialValues: {
@@ -60,7 +68,14 @@ const SelectEnvironment = () => {
       <h3>Environments</h3>
       <form onSubmit={formik.handleSubmit}>
         <Card direction="column" padding="sm" radius="md" spacing="sm" variant="glass-outline">
-          <Select label="GPUs" multiple name="gpus" onChange={formik.handleChange} value={formik.values.gpus} />
+          <Select
+            label="GPUs"
+            multiple
+            name="gpus"
+            onChange={formik.handleChange}
+            options={gpuOptions}
+            value={formik.values.gpus}
+          />
           <Collapse in={expanded}>
             <div className={styles.extraFilters}>
               <Input
