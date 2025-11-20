@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import VideoCardLabel from '@/components/video-card-label/video-card-label';
 import { MOCK_ENV } from '@/mock/environments';
 import { useState } from 'react';
 import styles from './select-resources.module.css';
@@ -16,7 +17,13 @@ const SelectResources = () => {
       <h3>Select resources</h3>
       <form className={styles.form}>
         <div className={styles.selectRow}>
-          <Select label="GPU" options={MOCK_ENV.gpu.map((gpu) => ({ label: gpu.name, value: gpu.name }))} />
+          <Select
+            label="GPU"
+            multiple
+            options={MOCK_ENV.gpu.map((gpu) => ({ label: gpu.name, value: gpu.name }))}
+            renderOption={(option) => <VideoCardLabel card={option.label} />}
+            renderSelectedValue={(option) => <VideoCardLabel card={option} />}
+          />
           <Select
             label="Pricing token"
             onChange={(e) => setToken(e.target.value)}

@@ -1,4 +1,13 @@
-import { FormControl, Select as MaterialSelect, MenuItem, selectClasses, styled } from '@mui/material';
+import {
+  Checkbox,
+  FormControl,
+  ListItemText,
+  Select as MaterialSelect,
+  MenuItem,
+  selectClasses,
+  styled,
+} from '@mui/material';
+import { useMemo } from 'react';
 
 const StyledRoot = styled('div')({
   display: 'flex',
@@ -26,6 +35,12 @@ const StyledHint = styled('div')({
 
 const StyledFooterHint = styled(StyledHint)({
   padding: '0 16px',
+});
+
+const StyledMultipleValueContainer = styled('div')({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 4,
 });
 
 const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ customSize }) => ({
@@ -63,6 +78,8 @@ type SelectProps<T> = {
   label?: string;
   name?: string;
   options?: SelectOption<T>[];
+  renderOption?: (option: SelectOption<T>) => React.ReactNode;
+  renderSelectedValue?: (label: string) => React.ReactNode;
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
 } & (
@@ -86,28 +103,61 @@ const Select = <T extends string | number = string>({
   name,
   onChange,
   options,
+  renderOption,
+  renderSelectedValue,
   size = 'md',
   topRight,
   value,
-}: SelectProps<T>) => (
-  <StyledRoot className={className}>
-    {label || topRight ? (
-      <StyledLabelWrapper>
-        <StyledLabel>{label}</StyledLabel>
-        {topRight ? <StyledHint>{topRight}</StyledHint> : null}
-      </StyledLabelWrapper>
-    ) : null}
-    <FormControl fullWidth>
-      <StyledSelect customSize={size} multiple={multiple} name={name} onChange={onChange} value={value}>
-        {options?.map((option) => (
-          <MenuItem key={option.value as string} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </StyledSelect>
-    </FormControl>
-    {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
-  </StyledRoot>
-);
+}: SelectProps<T>) => {
+  const memoizedRenderValue = useMemo<((value: any) => React.ReactNode) | undefined>(() => {
+    if (multiple) {
+      const MultiRenderValue = (value: T[]) => (
+        <StyledMultipleValueContainer>
+          {options
+            ?.filter((option) => value.includes(option.value))
+            .map((option) => (
+              <div className="chip chipGlass" key={String(option.value)}>
+                {renderSelectedValue?.(option.label) ?? option.label}
+              </div>
+            ))}
+        </StyledMultipleValueContainer>
+      );
+      (MultiRenderValue as any).displayName = 'SelectMultiRenderValue';
+      return MultiRenderValue as (value: any) => React.ReactNode;
+    }
+    return undefined;
+  }, [multiple, options, renderSelectedValue]);
+
+  return (
+    <StyledRoot className={className}>
+      {label || topRight ? (
+        <StyledLabelWrapper>
+          <StyledLabel>{label}</StyledLabel>
+          {topRight ? <StyledHint>{topRight}</StyledHint> : null}
+        </StyledLabelWrapper>
+      ) : null}
+      <FormControl fullWidth>
+        <StyledSelect
+          customSize={size}
+          multiple={multiple}
+          name={name}
+          onChange={onChange}
+          renderValue={memoizedRenderValue}
+          value={multiple ? (value ?? []) : value}
+        >
+          {options?.map((option) => (
+            <MenuItem key={String(option.value)} value={option.value}>
+              {multiple ? (
+                <Checkbox checked={Array.isArray(value) ? (value as any).includes(option.value) : false} />
+              ) : null}
+              <ListItemText primary={renderOption?.(option) ?? option.label} />
+            </MenuItem>
+          ))}
+        </StyledSelect>
+      </FormControl>
+      {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
+    </StyledRoot>
+  );
+};
 
 export default Select;

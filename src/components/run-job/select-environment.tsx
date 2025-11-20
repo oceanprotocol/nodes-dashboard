@@ -3,6 +3,7 @@ import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import VideoCardLabel from '@/components/video-card-label/video-card-label';
 import { useRunJobContext } from '@/context/run-job-context';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
@@ -30,8 +31,6 @@ const SelectEnvironment = () => {
   }, [fetchGpus]);
 
   const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpu_name, label: gpu.gpu_name })), [gpus]);
-
-  console.log(gpuOptions);
 
   const formik = useFormik<FilterFormValues>({
     initialValues: {
@@ -74,6 +73,8 @@ const SelectEnvironment = () => {
             name="gpus"
             onChange={formik.handleChange}
             options={gpuOptions}
+            renderOption={(option) => <VideoCardLabel card={option.label} />}
+            renderSelectedValue={(option) => <VideoCardLabel card={option} />}
             value={formik.values.gpus}
           />
           <Collapse in={expanded}>
