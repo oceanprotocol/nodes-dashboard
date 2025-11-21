@@ -1,6 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import Select, { SelectOption } from '@/components/input/select';
+import { SelectOption } from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import { useOceanContext } from '@/context/ocean-context';
 import { ComputeEnvironment } from '@/types/environments';
@@ -347,20 +347,20 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
           ) : null}
         </div>
         <div className={styles.buttons}>
-          <Select
+          {/* <Select
             className={styles.select}
             onChange={(e) => setToken(e.target.value)}
             options={tokenSelectOptions}
             size="sm"
             value={token}
-          />
+          /> */}
           {environment.free ? (
             <Button color="accent2" href="/run-job/resources" variant="outlined">
               Try it
             </Button>
           ) : null}
           <Button color="accent2" contentBefore={<PlayArrowIcon />} href="/run-job/resources">
-            From {startingFee}/min
+            From {startingFee} {tokenSymbol}/min
           </Button>
         </div>
       </div>
