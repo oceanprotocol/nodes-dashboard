@@ -80,40 +80,44 @@ const SelectEnvironment = () => {
           <Collapse in={expanded}>
             <div className={styles.extraFilters}>
               <Input
-                endAdornment="seconds"
-                label="Max job duration from"
-                name="maxJobDuration"
-                onChange={formik.handleChange}
-                size="sm"
-                type="number"
-                value={formik.values.maxJobDuration}
-              />
-              <Input
                 endAdornment="cores"
-                label="Minimum CPU cores"
+                label="CPU"
                 name="minCpuCores"
                 onChange={formik.handleChange}
                 size="sm"
+                startAdornment="from"
                 type="number"
                 value={formik.values.minCpuCores}
               />
               <Input
                 endAdornment="GB"
-                label="Minimum RAM"
+                label="RAM"
                 name="minRam"
                 onChange={formik.handleChange}
                 size="sm"
+                startAdornment="from"
                 type="number"
                 value={formik.values.minRam}
               />
               <Input
                 endAdornment="GB"
-                label="Minimum disk space"
+                label="Disk space"
                 name="minDiskSpace"
                 onChange={formik.handleChange}
                 size="sm"
+                startAdornment="from"
                 type="number"
                 value={formik.values.minDiskSpace}
+              />
+              <Input
+                endAdornment="hours"
+                label="Max job duration"
+                name="maxJobDuration"
+                onChange={formik.handleChange}
+                size="sm"
+                startAdornment="from"
+                type="number"
+                value={formik.values.maxJobDuration}
               />
               {/* <Select
                 label="Pricing token"

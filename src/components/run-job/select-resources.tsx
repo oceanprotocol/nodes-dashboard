@@ -16,39 +16,33 @@ const SelectResources = () => {
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Select resources</h3>
       <form className={styles.form}>
-        <div className={styles.selectRow}>
-          <Select
-            label="GPU"
-            multiple
-            options={MOCK_ENV.gpu.map((gpu) => ({ label: gpu.name, value: gpu.name }))}
-            renderOption={(option) => <VideoCardLabel card={option.label} />}
-            renderSelectedValue={(option) => <VideoCardLabel card={option} />}
-          />
-          <Select
+        {/* <div className={styles.selectRow}> */}
+        <Select
+          label="GPUs"
+          multiple
+          options={MOCK_ENV.gpu.map((gpu) => ({ label: gpu.name, value: gpu.name }))}
+          renderOption={(option) => <VideoCardLabel card={option.label} />}
+          renderSelectedValue={(option) => <VideoCardLabel card={option} />}
+        />
+        {/* <Select
             label="Pricing token"
             onChange={(e) => setToken(e.target.value)}
             options={MOCK_ENV.supportedTokens.map((token) => ({ label: token, value: token }))}
             value={token}
-          />
-        </div>
+          /> */}
+        {/* </div> */}
         <div className={styles.inputsGrid}>
-          <Input
-            endAdornment="seconds"
-            hint={`${MOCK_ENV.minPricePerMinute[token]} ${token}/min`}
-            label="Job duration"
-            type="number"
-          />
           <Input
             endAdornment="cores"
             hint={`${MOCK_ENV.cpu.unitPrice[token]} ${token}/core`}
-            label="CPU cores"
+            label="CPU"
             topRight={`${1}-${MOCK_ENV.cpu.max}`}
             type="number"
           />
           <Input
             endAdornment="GB"
             hint={`${MOCK_ENV.ram.unitPrice[token]} ${token}/GB`}
-            label="RAM capacity"
+            label="RAM"
             topRight={`${1}-${MOCK_ENV.ram.max}`}
             type="number"
           />
@@ -57,6 +51,12 @@ const SelectResources = () => {
             hint={`${MOCK_ENV.disk.unitPrice[token]} ${token}/GB`}
             label="Disk space"
             topRight={`${0}-${MOCK_ENV.disk.max}`}
+            type="number"
+          />
+          <Input
+            endAdornment="seconds"
+            hint={`${MOCK_ENV.minPricePerMinute[token]} ${token}/min`}
+            label="Max job duration"
             type="number"
           />
         </div>
