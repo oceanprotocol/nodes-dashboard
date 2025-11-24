@@ -14,7 +14,7 @@ interface ComputeEnvFeesStructure {
 
 type ComputeResourceType = 'cpu' | 'ram' | 'disk' | any;
 
-interface ComputeResource {
+export interface ComputeResource {
   id: ComputeResourceType;
   description?: string;
   type?: string;

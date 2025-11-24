@@ -12,7 +12,7 @@ type RunJobContextType = {
   fetchGpus: () => Promise<void>;
   gpus: GPUPopularityDisplay;
   selectedEnv: ComputeEnvironment | null;
-  setSelectedEnv: React.Dispatch<React.SetStateAction<ComputeEnvironment | null>>;
+  setSelectedEnv: (environment: ComputeEnvironment | null) => void;
 };
 
 const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
