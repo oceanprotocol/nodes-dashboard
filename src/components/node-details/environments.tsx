@@ -1,5 +1,6 @@
 import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
+import { MOCK_ENVS } from '@/mock/environments';
 import styles from './environments.module.css';
 
 const Environments = () => {
@@ -7,8 +8,9 @@ const Environments = () => {
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <div className={styles.list}>
-        <EnvironmentCard />
-        <EnvironmentCard />
+        {MOCK_ENVS.map((env) => (
+          <EnvironmentCard key={env.id} environment={env} />
+        ))}
       </div>
     </Card>
   );
