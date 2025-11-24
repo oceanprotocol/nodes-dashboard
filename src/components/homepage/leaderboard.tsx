@@ -1,3 +1,4 @@
+import Card from '@/components/card/card';
 import { getApiRoute, getRoutes } from '@/config';
 import { Node } from '@/types';
 import axios from 'axios';
@@ -115,7 +116,7 @@ export default function LeaderboardSection() {
     <div className={styles.root}>
       <Container className={styles.relative}>
         <SectionTitle title="Leaderboard Preview" subTitle="Explore the most active nodes in the Ocean Network" />
-        <div className={styles.leaderboardWrapper}>
+        <Card className={styles.leaderboardWrapper} padding="md" radius="lg" variant="glass-shaded">
           <div className={`${styles.tableLine} ${styles.tableHeader}`}>
             {columns.map((column) => (
               <div key={column.key} className={styles.tableCell}>
@@ -136,7 +137,7 @@ export default function LeaderboardSection() {
               </div>
             ))
           )}
-        </div>
+        </Card>
         <div className={styles.leaderboardFooter}>
           <Link href={routes.leaderboard.path} className={styles.viewButton}>
             View Full Leaderboard

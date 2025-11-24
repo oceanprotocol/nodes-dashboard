@@ -85,9 +85,13 @@ a {
 
 .chip {
   border-radius: 16px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 2px 16px;
 
+  &.chipGlass {
+    background: var(--background-glass);
+    color: var(--text-primary);
+  }
   &.chipError {
     background: var(--error-darker);
     color: var(--text-primary);
