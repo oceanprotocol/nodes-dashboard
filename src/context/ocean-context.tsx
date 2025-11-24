@@ -1,3 +1,4 @@
+import { CHAIN_ID } from '@/constants/chains';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -9,9 +10,6 @@ import BigNumber from 'bignumber.js';
 import { BrowserProvider, Contract, ethers } from 'ethers';
 import { createContext, ReactNode, useContext, useMemo } from 'react';
 
-const BASE_CHAIN_ID = 8453;
-const ETH_SEPOLIA_CHAIN_ID = 11155111;
-
 type OceanContextType = {
   getNodeBalance: (nodeUrl: string) => Promise<Map<string, number>>;
   getSymbolByAddress: (tokenAddress: string) => Promise<string>;
@@ -22,14 +20,12 @@ const OceanContext = createContext<OceanContextType | undefined>(undefined);
 export const OceanProvider = ({ children }: { children: ReactNode }) => {
   const { walletProvider } = useAppKitProvider<Provider>('eip155');
 
-  const chainId = process.env.NODE_ENV === 'production' ? BASE_CHAIN_ID : ETH_SEPOLIA_CHAIN_ID;
-
   const browserProvider = useMemo(() => {
-    if (!walletProvider || !chainId) {
+    if (!walletProvider) {
       return null;
     }
-    return new BrowserProvider(walletProvider, chainId);
-  }, [walletProvider, chainId]);
+    return new BrowserProvider(walletProvider, CHAIN_ID);
+  }, [walletProvider]);
 
   const getConfigByChainId = async (chainId: number): Promise<any> => {
     const config = Object.values(Address).find((chainConfig) => chainConfig.chainId === chainId);
@@ -74,7 +70,7 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
       const environments = await getEnvironmentsByNode(nodeUrl);
       const balancesMap = new Map<string, string[]>();
       for (const env of environments) {
-        const fees = getFeesByChainId(chainId, env);
+        const fees = getFeesByChainId(CHAIN_ID, env);
         for (const fee of fees) {
           const { symbol, balance } = await getBalance(fee.feeToken, env.consumerAddress);
           if (balancesMap.has(symbol)) {
@@ -128,7 +124,7 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const getAuthorizations = async (tokenAddress: string, payer: string, payee: string) => {
-    const escrow = await getEscrowContract(chainId);
+    const escrow = await getEscrowContract(CHAIN_ID);
     const authorizations = await escrow.getAuthorizations(tokenAddress, payer, payee);
     if (!authorizations || authorizations.length === 0) {
       return null;
@@ -145,7 +141,7 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const getUserFunds = async (tokenAddress: string, address: string): Promise<number> => {
-    const escrow = await getEscrowContract(chainId);
+    const escrow = await getEscrowContract(CHAIN_ID);
     const funds = await escrow.getUserFunds(address, tokenAddress);
     const availableFunds = funds.available;
     const balanceString = denominateNumber(availableFunds.toString(), 18);
@@ -159,7 +155,7 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
     maxLockSeconds: string,
     maxLockCount: string
   ): Promise<any> => {
-    const escrow = await getEscrowContract(chainId);
+    const escrow = await getEscrowContract(CHAIN_ID);
     const normalizedMaxLockedAmount = normalizeNumber(maxLockedAmount, 18);
     console.log({ normalizedMaxLockedAmount, maxLockSeconds, maxLockCount });
     const authorize = await escrow.authorize(
@@ -173,7 +169,7 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const depositTokens = async (tokenAddress: string, amount: string): Promise<any> => {
-    const escrow = await getEscrowContract(chainId);
+    const escrow = await getEscrowContract(CHAIN_ID);
     const normalizedAmount = normalizeNumber(amount, 18);
     const token = new ethers.Contract(tokenAddress, ERC20Template.abi, await browserProvider?.getSigner());
     const approve = await token.approve(escrow.target, normalizedAmount);

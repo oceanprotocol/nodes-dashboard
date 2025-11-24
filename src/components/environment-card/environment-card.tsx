@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { SelectOption } from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import { CHAIN_ID } from '@/constants/chains';
 import { useOceanContext } from '@/context/ocean-context';
 import { ComputeEnvironment } from '@/types/environments';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -26,8 +27,7 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
   const { getSymbolByAddress } = useOceanContext();
 
   const { baseChainFees, supportedTokens } = useMemo(() => {
-    const baseChainId = Object.keys(environment.fees)[0];
-    const baseChainFees = environment.fees[baseChainId];
+    const baseChainFees = environment.fees[CHAIN_ID];
     const supportedTokens = baseChainFees.map((fee) => fee.feeToken);
     return { baseChainFees, supportedTokens };
   }, [environment.fees]);
