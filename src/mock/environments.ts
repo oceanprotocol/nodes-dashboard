@@ -1,3 +1,5 @@
+import { CHAIN_ID } from '@/constants/chains';
+
 export const MOCK_ENV = {
   id: 'env-1',
   freeComputeEnvId: 'free-env-1',
@@ -86,7 +88,7 @@ export const MOCK_ENVS = [
       accessLists: [],
     },
     fees: {
-      '11155111': [
+      [CHAIN_ID]: [
         {
           feeToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
           prices: [
@@ -224,7 +226,7 @@ export const MOCK_ENVS = [
       accessLists: [],
     },
     fees: {
-      '11155111': [
+      [CHAIN_ID]: [
         {
           feeToken: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
           prices: [

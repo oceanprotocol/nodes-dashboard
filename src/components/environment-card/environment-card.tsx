@@ -1,9 +1,8 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import { SelectOption } from '@/components/input/select';
+import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
-import { CHAIN_ID } from '@/constants/chains';
-import { useOceanContext } from '@/context/ocean-context';
+import { useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -11,7 +10,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
+import { useMemo } from 'react';
 import styles from './environment-card.module.css';
 
 // TODO show balance + withdraw button
@@ -24,56 +24,43 @@ type EnvironmentCardProps = {
 };
 
 const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: EnvironmentCardProps) => {
-  const { getSymbolByAddress } = useOceanContext();
+  const router = useRouter();
 
-  const { fees, supportedTokens } = useMemo(() => {
-    const fees = environment.fees[CHAIN_ID];
-    if (!fees) {
-      return { fees: [], supportedTokens: [] };
-    }
-    const supportedTokens = fees.map((fee) => fee.feeToken);
-    return { fees, supportedTokens };
-  }, [environment.fees]);
+  const { setSelectedEnv } = useRunJobContext();
 
-  const [tokenSelectOptions, setTokenSelectOptions] = useState<SelectOption<string>[]>([]);
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(environment);
 
-  useEffect(() => {
-    for (const tokenAddress of supportedTokens) {
-      getSymbolByAddress(tokenAddress).then((symbol) => {
-        setTokenSelectOptions((prev) => [...prev, { label: symbol, value: tokenAddress }]);
-      });
-    }
-  }, [getSymbolByAddress, supportedTokens]);
-
-  const [token, setToken] = useState(supportedTokens[0]);
-  const [tokenSymbol, setTokenSymbol] = useState<string | null>(null);
-
-  useEffect(() => {
-    setTokenSymbol(null);
-    getSymbolByAddress(token).then((symbol) => setTokenSymbol(symbol));
-  }, [getSymbolByAddress, token]);
-
-  const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === token), [fees, token]);
-
-  const startingFee = useMemo(
-    () => selectedTokenFees?.prices.reduce((total, crt) => total + crt.price, 0) ?? 0,
-    [selectedTokenFees?.prices]
-  );
+  const startingFee = useMemo(() => {
+    const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
+    return (cpuFee ?? 0) + (ramFee ?? 0) + (diskFee ?? 0) + (minGpuFee === Infinity ? 0 : minGpuFee);
+  }, [cpuFee, diskFee, gpuFees, ramFee]);
 
   // TODO replace random with real check
   const hasBalance = Math.random() > 0.5;
 
-  const gpus = useMemo(() => environment.resources?.filter((res) => res.id === 'gpu') ?? [], [environment.resources]);
+  const selectEnvironment = () => {
+    setSelectedEnv(environment);
+    router.push('/run-job/resources');
+  };
+
+  const selectFreeCompute = () => {
+    setSelectedEnv({
+      ...environment,
+      ...environment.free,
+      fees: {},
+      free: undefined,
+    });
+    router.push('/run-job/resources');
+  };
 
   const getCpuProgressBar = () => {
-    const cpu = environment.resources?.find((res) => res.id === 'cpu');
     if (!cpu) {
       return null;
     }
-    const max = cpu?.max ?? 0;
-    const inUse = cpu?.inUse ?? 0;
+    const max = cpu.max ?? 0;
+    const inUse = cpu.inUse ?? 0;
     const available = max - inUse;
-    const fee = selectedTokenFees?.prices.find((price) => price.id === 'cpu')?.price ?? 0;
+    const fee = cpuFee ?? 0;
     if (compact) {
       return (
         <div>
@@ -123,10 +110,10 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
 
   const getGpuProgressBars = () => {
     return gpus.map((gpu) => {
-      const max = gpu?.max ?? 0;
-      const inUse = gpu?.inUse ?? 0;
+      const max = gpu.max ?? 0;
+      const inUse = gpu.inUse ?? 0;
       const available = max - inUse;
-      const fee = selectedTokenFees?.prices.find((price) => price.id === gpu.id)?.price ?? 0;
+      const fee = gpuFees[gpu.id] ?? 0;
       if (compact) {
         return (
           <div key={gpu.id}>
@@ -177,14 +164,13 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
   };
 
   const getRamProgressBar = () => {
-    const ram = environment.resources?.find((res) => res.id === 'ram');
     if (!ram) {
       return null;
     }
-    const max = ram?.max ?? 0;
-    const inUse = ram?.inUse ?? 0;
+    const max = ram.max ?? 0;
+    const inUse = ram.inUse ?? 0;
     const available = max - inUse;
-    const fee = selectedTokenFees?.prices.find((price) => price.id === 'ram')?.price ?? 0;
+    const fee = ramFee ?? 0;
     if (compact) {
       return (
         <div>
@@ -233,14 +219,13 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
   };
 
   const getDiskProgressBar = () => {
-    const disk = environment.resources?.find((res) => res.id === 'disk');
     if (!disk) {
       return null;
     }
-    const max = disk?.max ?? 0;
-    const inUse = disk?.inUse ?? 0;
+    const max = disk.max ?? 0;
+    const inUse = disk.inUse ?? 0;
     const available = max - inUse;
-    const fee = selectedTokenFees?.prices.find((price) => price.id === 'disk')?.price ?? 0;
+    const fee = diskFee ?? 0;
     if (compact) {
       return (
         <div>
@@ -350,19 +335,12 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
           ) : null}
         </div>
         <div className={styles.buttons}>
-          {/* <Select
-            className={styles.select}
-            onChange={(e) => setToken(e.target.value)}
-            options={tokenSelectOptions}
-            size="sm"
-            value={token}
-          /> */}
           {environment.free ? (
-            <Button color="accent2" href="/run-job/resources" variant="outlined">
+            <Button color="accent2" href="/run-job/resources" onClick={selectFreeCompute} variant="outlined">
               Try it
             </Button>
           ) : null}
-          <Button color="accent2" contentBefore={<PlayArrowIcon />} href="/run-job/resources">
+          <Button color="accent2" contentBefore={<PlayArrowIcon />} onClick={selectEnvironment}>
             From {startingFee} {tokenSymbol}/min
           </Button>
         </div>
