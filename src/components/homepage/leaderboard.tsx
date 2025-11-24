@@ -52,22 +52,24 @@ export default function LeaderboardSection() {
       <Container className={styles.relative}>
         <SectionTitle title="Leaderboard Preview" subTitle="Explore the most active nodes in the Ocean Network" />
         <div className={styles.leaderboardWrapper}>
-          <div className={`${styles.tableLine} ${styles.tableHeader}`}>
-            {columns.map((column) => (
-              <div key={column.key} className={styles.tableCell}>
-                {column.label}
-              </div>
-            ))}
-          </div>
-          {itemsList.map((item) => (
-            <div key={item.nodeId} className={styles.tableLine}>
+          <div className={styles.tableScroll}>
+            <div className={`${styles.tableLine} ${styles.tableHeader}`}>
               {columns.map((column) => (
-                <div key={column.key} className={styles.tableCell} data-label={column.label}>
-                  <span className={styles.tableValue}>{item[column.key]}</span>
+                <div key={column.key} className={styles.tableCell}>
+                  {column.label}
                 </div>
               ))}
             </div>
-          ))}
+            {itemsList.map((item) => (
+              <div key={item.nodeId} className={styles.tableLine}>
+                {columns.map((column) => (
+                  <div key={column.key} className={styles.tableCell} data-label={column.label}>
+                    <span className={styles.tableValue}>{item[column.key]}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
         <div className={styles.leaderboardFooter}>
           <Link href={routes.leaderbord.path} className={styles.viewButton}>

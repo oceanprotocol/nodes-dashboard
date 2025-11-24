@@ -14,6 +14,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.28.4",
     "classnames": "^2.5.0",
+    "gsap": "3.13.0",
     "next": "^15.2.4",
     "normalize.css": "^8.0.1",
     "react": "^18",

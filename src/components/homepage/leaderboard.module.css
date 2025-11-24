@@ -32,6 +32,12 @@
   z-index: 1;
 }
 
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .tableLine {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -39,6 +45,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
+  min-width: 600px;
 }
 
 .tableHeader {
@@ -107,21 +114,6 @@
   }
 }
 
-@media (max-width: 900px) {
-  .tableLine {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px 12px;
-  }
-
-  .tableCell:nth-child(4) {
-    justify-self: flex-start;
-  }
-
-  .tableCell:nth-child(5) {
-    justify-self: flex-end;
-  }
-}
-
 @media (max-width: 768px) {
   .root {
     padding: 40px 24px;
@@ -129,56 +121,6 @@
 
   .leaderboardWrapper {
     padding: 28px 22px;
-  }
-
-  .tableHeader {
-    display: none;
-  }
-
-  .tableLine {
-    grid-template-columns: 1fr;
-    gap: 14px;
-    padding: 20px 0;
-  }
-
-  .tableCell {
-    position: relative;
-    font-size: 14px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: nowrap;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .tableCell::before {
-    content: attr(data-label);
-    text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    color: rgba(225, 241, 255, 0.55);
-    white-space: nowrap;
-  }
-
-  .tableValue {
-    white-space: nowrap;
-  }
-
-  .tableCell:nth-child(1) {
-    font-size: 16px;
-    font-weight: 600;
-    color: #ffffff;
-  }
-
-  .tableCell:nth-child(5) {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
   }
 }
 

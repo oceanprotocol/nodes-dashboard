@@ -18,15 +18,17 @@
 
 .backgroundAnimation {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 15%;
-  height: 100%;
+  top: calc(var(--nav-overlap) * -1);
+  left: 440px;
+  width: 1000px;
+  height: 1000px;
+  opacity: 1;
 }
 
 .backgorundImage {
-  width: auto;
-  max-height: 100%;
+  width: 170%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .relative {
@@ -78,6 +80,12 @@
   .textBadge {
     font-size: 60px;
   }
+
+  .backgroundAnimation {
+    width: 800px;
+    height: 800px;
+    left: 350px;
+  }
 }
 
 @media (max-width: 992px) {
@@ -87,6 +95,9 @@
   }
 
   .backgroundAnimation {
+    width: 650px;
+    height: 650px;
+    left: 280px;
     opacity: 0.4;
   }
 
@@ -109,6 +120,13 @@
     padding: calc(100px + var(--nav-overlap)) 0 80px;
   }
 
+  .backgroundAnimation {
+    width: 600px;
+    height: 500px;
+    left: 200px;
+    opacity: 0.3;
+  }
+
   .actionsAndTextWrapper {
     flex-direction: column;
     align-items: flex-start;
@@ -126,7 +144,11 @@
 
 @media (max-width: 640px) {
   .backgroundAnimation {
-    display: none;
+    width: 400px;
+    height: 400px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0.2;
   }
 
   .title {
@@ -145,5 +167,13 @@
 
   .textBadge {
     font-size: 42px;
+  }
+}
+
+@media (max-width: 480px) {
+  .backgroundAnimation {
+    width: 350px;
+    height: 350px;
+    opacity: 0.15;
   }
 }

@@ -1,6 +1,7 @@
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
 import styles from './how-it-works.module.css';
+import { useVideoScroll } from '../../hooks/useVideoScroll';
 
 const itemsList: {
   title: string;
@@ -32,15 +33,25 @@ const itemsList: {
   },
 ];
 
+const videoSrc = '/globe_how-it-works.mp4';
+const posterSrc = '/banner-how-it-works.png';
+
 export default function HowItWorksSection() {
+  const { sectionRef, videoRef, activeIndex } = useVideoScroll({
+    numSteps: itemsList.length,
+  });
+
   return (
-    <div className={styles.root}>
+    <div className={styles.root} ref={sectionRef} tabIndex={0} aria-label="How it works, step-by-step">
       <Container className={styles.relative}>
         <SectionTitle title="How It works" subTitle="Run compute jobs and train AI models in a few simple steps" />
         <div className={styles.twoSections}>
           <div className={styles.featuresWrapper}>
             {itemsList.map((item, index) => (
-              <div key={item.title} className={styles.featureItem}>
+              <div
+                key={item.title}
+                className={`${styles.featureItem} ${index === activeIndex ? styles.featureItemActive : ''}`}
+              >
                 <div className={styles.indexNumber}>0{index + 1}</div>
                 <div className={styles.featureTextWrapper}>
                   <h3 className={styles.featureTitle}>{item.title}</h3>
@@ -50,8 +61,7 @@ export default function HowItWorksSection() {
             ))}
           </div>
           <div className={styles.animation}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/banner-how-it-works.png" alt="How it works animation" />
+            <video ref={videoRef} src={videoSrc} muted playsInline preload="auto" poster={posterSrc} />
           </div>
         </div>
       </Container>
