@@ -26,10 +26,13 @@ type EnvironmentCardProps = {
 const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: EnvironmentCardProps) => {
   const { getSymbolByAddress } = useOceanContext();
 
-  const { baseChainFees, supportedTokens } = useMemo(() => {
-    const baseChainFees = environment.fees[CHAIN_ID];
-    const supportedTokens = baseChainFees.map((fee) => fee.feeToken);
-    return { baseChainFees, supportedTokens };
+  const { fees, supportedTokens } = useMemo(() => {
+    const fees = environment.fees[CHAIN_ID];
+    if (!fees) {
+      return { fees: [], supportedTokens: [] };
+    }
+    const supportedTokens = fees.map((fee) => fee.feeToken);
+    return { fees, supportedTokens };
   }, [environment.fees]);
 
   const [tokenSelectOptions, setTokenSelectOptions] = useState<SelectOption<string>[]>([]);
@@ -50,7 +53,7 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
     getSymbolByAddress(token).then((symbol) => setTokenSymbol(symbol));
   }, [getSymbolByAddress, token]);
 
-  const selectedTokenFees = useMemo(() => baseChainFees.find((fee) => fee.feeToken === token), [baseChainFees, token]);
+  const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === token), [fees, token]);
 
   const startingFee = useMemo(
     () => selectedTokenFees?.prices.reduce((total, crt) => total + crt.price, 0) ?? 0,
