@@ -7,11 +7,14 @@ import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
 type RunJobContextType = {
+  clearRunJobSelection: () => void;
   environments: ComputeEnvironment[];
+  estimatedTotalCost: number | null;
   fetchEnvironments: () => Promise<void>;
   fetchGpus: () => Promise<void>;
   gpus: GPUPopularityDisplay;
   selectedEnv: ComputeEnvironment | null;
+  setEstimatedTotalCost: (cost: number | null) => void;
   setSelectedEnv: (environment: ComputeEnvironment | null) => void;
 };
 
@@ -19,8 +22,13 @@ const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [environments, setEnvironments] = useState<ComputeEnvironment[]>([]);
+  const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
+
+  const clearRunJobSelection = useCallback(() => {
+    setSelectedEnv(null);
+  }, []);
 
   const fetchEnvironments = useCallback(async () => {
     try {
@@ -51,7 +59,19 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <RunJobContext.Provider value={{ environments, fetchEnvironments, fetchGpus, gpus, selectedEnv, setSelectedEnv }}>
+    <RunJobContext.Provider
+      value={{
+        clearRunJobSelection,
+        estimatedTotalCost,
+        environments,
+        fetchEnvironments,
+        fetchGpus,
+        gpus,
+        selectedEnv,
+        setEstimatedTotalCost,
+        setSelectedEnv,
+      }}
+    >
       {children}
     </RunJobContext.Provider>
   );

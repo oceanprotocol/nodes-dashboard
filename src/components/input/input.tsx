@@ -28,36 +28,44 @@ const StyledFooterHint = styled(StyledHint)({
   padding: '0 16px',
 });
 
-const StyledTextField = styled(TextField)<{ customSize?: 'sm' | 'md' }>(({ customSize }) => ({
-  background: 'var(--background-glass)',
-  border: '1px solid var(--border-glass)',
-  borderRadius: 24,
-  lineHeight: '18px',
+const StyledErrorText = styled(StyledFooterHint)({
+  color: 'var(--error)',
+});
 
-  fieldset: {
-    border: 'none',
-  },
-
-  '& .MuiInputBase-root': {
-    color: 'var(--text-secondary)',
-    fontFamily: 'var(--font-inter), sans-serif',
-  },
-
-  '& .MuiInputBase-input': {
-    color: 'var(--text-primary)',
-    fontSize: 16,
+const StyledTextField = styled(TextField)<{ customSize?: 'sm' | 'md'; hasError?: boolean }>(
+  ({ customSize, hasError }) => ({
+    background: 'var(--background-glass)',
+    border: `1px solid var(${hasError ? '--error' : '--border-glass'})`,
+    borderRadius: 24,
     lineHeight: '18px',
-    minHeight: 0,
-    padding: customSize === 'sm' ? '4px 16px' : '12px 16px',
-  },
-}));
+
+    fieldset: {
+      border: 'none',
+    },
+
+    '& .MuiInputBase-root': {
+      color: 'var(--text-secondary)',
+      fontFamily: 'var(--font-inter), sans-serif',
+    },
+
+    '& .MuiInputBase-input': {
+      color: 'var(--text-primary)',
+      fontSize: 16,
+      lineHeight: '18px',
+      minHeight: 0,
+      padding: customSize === 'sm' ? '4px 16px' : '12px 16px',
+    },
+  })
+);
 
 type InputProps = {
   className?: string;
   endAdornment?: React.ReactNode;
+  errorText?: string;
   hint?: string;
   label?: string;
   name?: string;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   placeholder?: string;
   size?: 'sm' | 'md';
@@ -70,9 +78,11 @@ type InputProps = {
 const Input = ({
   className,
   endAdornment,
+  errorText,
   hint,
   label,
   name,
+  onBlur,
   onChange,
   placeholder,
   size = 'md',
@@ -91,7 +101,9 @@ const Input = ({
     <FormControl>
       <StyledTextField
         customSize={size}
+        hasError={!!errorText}
         name={name}
+        onBlur={onBlur}
         onChange={onChange}
         placeholder={placeholder}
         slotProps={{ input: { startAdornment, endAdornment } }}
@@ -101,6 +113,7 @@ const Input = ({
       />
     </FormControl>
     {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
+    {errorText ? <StyledErrorText>{errorText}</StyledErrorText> : null}
   </StyledRoot>
 );
 

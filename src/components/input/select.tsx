@@ -37,34 +37,40 @@ const StyledFooterHint = styled(StyledHint)({
   padding: '0 16px',
 });
 
+const StyledErrorText = styled(StyledFooterHint)({
+  color: 'var(--error)',
+});
+
 const StyledMultipleValueContainer = styled('div')({
   display: 'flex',
   flexWrap: 'wrap',
   gap: 4,
 });
 
-const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md' }>(({ customSize }) => ({
-  background: 'var(--background-glass)',
-  border: '1px solid var(--border-glass)',
-  borderRadius: 24,
-  color: 'var(--text-primary)',
-  fontFamily: 'var(--font-inter), sans-serif',
-  fontSize: 16,
-  lineHeight: '18px',
+const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md'; hasError?: boolean }>(
+  ({ customSize, hasError }) => ({
+    background: 'var(--background-glass)',
+    border: `1px solid var(${hasError ? '--error' : '--border-glass'})`,
+    borderRadius: 24,
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-inter), sans-serif',
+    fontSize: 16,
+    lineHeight: '18px',
 
-  fieldset: {
-    border: 'none',
-  },
+    fieldset: {
+      border: 'none',
+    },
 
-  [`& .${selectClasses.select}`]: {
-    padding: customSize === 'sm' ? '4px 16px' : '12px 16px',
-    minHeight: 0,
-  },
+    [`& .${selectClasses.select}`]: {
+      padding: customSize === 'sm' ? '4px 16px' : '12px 16px',
+      minHeight: 0,
+    },
 
-  [`& .${selectClasses.icon}`]: {
-    color: 'var(--text-secondary)',
-  },
-}));
+    [`& .${selectClasses.icon}`]: {
+      color: 'var(--text-secondary)',
+    },
+  })
+);
 
 export type SelectOption<T> = {
   label: string;
@@ -73,10 +79,12 @@ export type SelectOption<T> = {
 
 type SelectProps<T> = {
   className?: string;
+  errorText?: string | string[];
   fullWidth?: boolean;
   hint?: string;
   label?: string;
   name?: string;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   options?: SelectOption<T>[];
   renderOption?: (option: SelectOption<T>) => React.ReactNode;
   renderSelectedValue?: (label: string) => React.ReactNode;
@@ -97,10 +105,12 @@ type SelectProps<T> = {
 
 const Select = <T extends string | number = string>({
   className,
+  errorText,
   hint,
   label,
   multiple,
   name,
+  onBlur,
   onChange,
   options,
   renderOption,
@@ -139,8 +149,10 @@ const Select = <T extends string | number = string>({
       <FormControl fullWidth>
         <StyledSelect
           customSize={size}
+          hasError={!!errorText}
           multiple={multiple}
           name={name}
+          onBlur={onBlur}
           onChange={onChange}
           renderValue={memoizedRenderValue}
           value={multiple ? (value ?? []) : value}
@@ -156,6 +168,9 @@ const Select = <T extends string | number = string>({
         </StyledSelect>
       </FormControl>
       {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
+      {errorText ? (
+        <StyledErrorText>{Array.isArray(errorText) ? errorText.join(' | ') : errorText}</StyledErrorText>
+      ) : null}
     </StyledRoot>
   );
 };
