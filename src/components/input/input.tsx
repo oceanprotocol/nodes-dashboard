@@ -1,36 +1,5 @@
-import { FormControl, styled, TextField } from '@mui/material';
-
-const StyledRoot = styled('div')({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-});
-
-const StyledLabelWrapper = styled('div')({
-  alignItems: 'end',
-  display: 'flex',
-  justifyContent: 'space-between',
-  padding: '0 16px',
-});
-
-const StyledLabel = styled('label')({
-  fontSize: 14,
-  fontWeight: 600,
-  color: 'var(--text-primary)',
-});
-
-const StyledHint = styled('div')({
-  fontSize: 14,
-  color: 'var(--text-secondary)',
-});
-
-const StyledFooterHint = styled(StyledHint)({
-  padding: '0 16px',
-});
-
-const StyledErrorText = styled(StyledFooterHint)({
-  color: 'var(--error)',
-});
+import InputWrapper from '@/components/input/input-wrapper';
+import { styled, TextField } from '@mui/material';
 
 const StyledTextField = styled(TextField)<{ customSize?: 'sm' | 'md'; hasError?: boolean }>(
   ({ customSize, hasError }) => ({
@@ -91,30 +60,20 @@ const Input = ({
   type,
   value,
 }: InputProps) => (
-  <StyledRoot className={className}>
-    {label || topRight ? (
-      <StyledLabelWrapper>
-        <StyledLabel>{label}</StyledLabel>
-        {topRight ? <StyledHint>{topRight}</StyledHint> : null}
-      </StyledLabelWrapper>
-    ) : null}
-    <FormControl>
-      <StyledTextField
-        customSize={size}
-        hasError={!!errorText}
-        name={name}
-        onBlur={onBlur}
-        onChange={onChange}
-        placeholder={placeholder}
-        slotProps={{ input: { startAdornment, endAdornment } }}
-        type={type}
-        value={value}
-        variant="outlined"
-      />
-    </FormControl>
-    {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
-    {errorText ? <StyledErrorText>{errorText}</StyledErrorText> : null}
-  </StyledRoot>
+  <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
+    <StyledTextField
+      customSize={size}
+      hasError={!!errorText}
+      name={name}
+      onBlur={onBlur}
+      onChange={onChange}
+      placeholder={placeholder}
+      slotProps={{ input: { startAdornment, endAdornment } }}
+      type={type}
+      value={value}
+      variant="outlined"
+    />
+  </InputWrapper>
 );
 
 export default Input;

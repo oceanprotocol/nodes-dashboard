@@ -1,45 +1,6 @@
-import {
-  Checkbox,
-  FormControl,
-  ListItemText,
-  Select as MaterialSelect,
-  MenuItem,
-  selectClasses,
-  styled,
-} from '@mui/material';
+import InputWrapper from '@/components/input/input-wrapper';
+import { Checkbox, ListItemText, Select as MaterialSelect, MenuItem, selectClasses, styled } from '@mui/material';
 import { useMemo } from 'react';
-
-const StyledRoot = styled('div')({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-});
-
-const StyledLabelWrapper = styled('div')({
-  alignItems: 'end',
-  display: 'flex',
-  justifyContent: 'space-between',
-  padding: '0 16px',
-});
-
-const StyledLabel = styled('label')({
-  fontSize: 14,
-  fontWeight: 600,
-  color: 'var(--text-primary)',
-});
-
-const StyledHint = styled('div')({
-  fontSize: 14,
-  color: 'var(--text-secondary)',
-});
-
-const StyledFooterHint = styled(StyledHint)({
-  padding: '0 16px',
-});
-
-const StyledErrorText = styled(StyledFooterHint)({
-  color: 'var(--error)',
-});
 
 const StyledMultipleValueContainer = styled('div')({
   display: 'flex',
@@ -139,39 +100,27 @@ const Select = <T extends string | number = string>({
   }, [multiple, options, renderSelectedValue]);
 
   return (
-    <StyledRoot className={className}>
-      {label || topRight ? (
-        <StyledLabelWrapper>
-          <StyledLabel>{label}</StyledLabel>
-          {topRight ? <StyledHint>{topRight}</StyledHint> : null}
-        </StyledLabelWrapper>
-      ) : null}
-      <FormControl fullWidth>
-        <StyledSelect
-          customSize={size}
-          hasError={!!errorText}
-          multiple={multiple}
-          name={name}
-          onBlur={onBlur}
-          onChange={onChange}
-          renderValue={memoizedRenderValue}
-          value={multiple ? (value ?? []) : value}
-        >
-          {options?.map((option) => (
-            <MenuItem key={String(option.value)} value={option.value}>
-              {multiple ? (
-                <Checkbox checked={Array.isArray(value) ? (value as any).includes(option.value) : false} />
-              ) : null}
-              <ListItemText primary={renderOption?.(option) ?? option.label} />
-            </MenuItem>
-          ))}
-        </StyledSelect>
-      </FormControl>
-      {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
-      {errorText ? (
-        <StyledErrorText>{Array.isArray(errorText) ? errorText.join(' | ') : errorText}</StyledErrorText>
-      ) : null}
-    </StyledRoot>
+    <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
+      <StyledSelect
+        customSize={size}
+        hasError={!!errorText}
+        multiple={multiple}
+        name={name}
+        onBlur={onBlur}
+        onChange={onChange}
+        renderValue={memoizedRenderValue}
+        value={multiple ? (value ?? []) : value}
+      >
+        {options?.map((option) => (
+          <MenuItem key={String(option.value)} value={option.value}>
+            {multiple ? (
+              <Checkbox checked={Array.isArray(value) ? (value as any).includes(option.value) : false} />
+            ) : null}
+            <ListItemText primary={renderOption?.(option) ?? option.label} />
+          </MenuItem>
+        ))}
+      </StyledSelect>
+    </InputWrapper>
   );
 };
 
