@@ -13,7 +13,7 @@ type ButtonProps = {
   id?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';
-  size?: 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg';
   type?: 'button' | 'submit' | 'reset';
   variant?: 'filled' | 'outlined';
 };

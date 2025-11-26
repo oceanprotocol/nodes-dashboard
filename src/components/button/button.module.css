@@ -11,6 +11,12 @@
   white-space: nowrap;
 }
 
+.size-sm {
+  font-size: 14px;
+  gap: 2px;
+  line-height: 18px;
+  padding: 4px 12px;
+}
 .size-md {
   font-size: 16px;
   gap: 4px;
