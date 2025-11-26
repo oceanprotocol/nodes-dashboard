@@ -1,0 +1,374 @@
+import Button from '@/components/button/button';
+import Card from '@/components/card/card';
+import { SelectOption } from '@/components/input/select';
+import ProgressBar from '@/components/progress-bar/progress-bar';
+import { CHAIN_ID } from '@/constants/chains';
+import { useOceanContext } from '@/context/ocean-context';
+import { ComputeEnvironment } from '@/types/environments';
+import DnsIcon from '@mui/icons-material/Dns';
+import MemoryIcon from '@mui/icons-material/Memory';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import SdStorageIcon from '@mui/icons-material/SdStorage';
+import classNames from 'classnames';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import styles from './environment-card.module.css';
+
+// TODO show balance + withdraw button
+
+type EnvironmentCardProps = {
+  compact?: boolean;
+  environment: ComputeEnvironment;
+  showBalance?: boolean;
+  showNodeName?: boolean;
+};
+
+const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: EnvironmentCardProps) => {
+  const { getSymbolByAddress } = useOceanContext();
+
+  const { fees, supportedTokens } = useMemo(() => {
+    const fees = environment.fees[CHAIN_ID];
+    if (!fees) {
+      return { fees: [], supportedTokens: [] };
+    }
+    const supportedTokens = fees.map((fee) => fee.feeToken);
+    return { fees, supportedTokens };
+  }, [environment.fees]);
+
+  const [tokenSelectOptions, setTokenSelectOptions] = useState<SelectOption<string>[]>([]);
+
+  useEffect(() => {
+    for (const tokenAddress of supportedTokens) {
+      getSymbolByAddress(tokenAddress).then((symbol) => {
+        setTokenSelectOptions((prev) => [...prev, { label: symbol, value: tokenAddress }]);
+      });
+    }
+  }, [getSymbolByAddress, supportedTokens]);
+
+  const [token, setToken] = useState(supportedTokens[0]);
+  const [tokenSymbol, setTokenSymbol] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTokenSymbol(null);
+    getSymbolByAddress(token).then((symbol) => setTokenSymbol(symbol));
+  }, [getSymbolByAddress, token]);
+
+  const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === token), [fees, token]);
+
+  const startingFee = useMemo(
+    () => selectedTokenFees?.prices.reduce((total, crt) => total + crt.price, 0) ?? 0,
+    [selectedTokenFees?.prices]
+  );
+
+  // TODO replace random with real check
+  const hasBalance = Math.random() > 0.5;
+
+  const gpus = useMemo(() => environment.resources?.filter((res) => res.id === 'gpu') ?? [], [environment.resources]);
+
+  const getCpuProgressBar = () => {
+    const cpu = environment.resources?.find((res) => res.id === 'cpu');
+    if (!cpu) {
+      return null;
+    }
+    const max = cpu?.max ?? 0;
+    const inUse = cpu?.inUse ?? 0;
+    const available = max - inUse;
+    const fee = selectedTokenFees?.prices.find((price) => price.id === 'cpu')?.price ?? 0;
+    if (compact) {
+      return (
+        <div>
+          <div className={styles.label}>
+            <MemoryIcon className={styles.icon} />
+            <span className={styles.heading}>{cpu?.description}</span>
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>
+              {available}/{max}
+            </span>
+            &nbsp; available
+          </div>
+        </div>
+      );
+    }
+    const percentage = (100 * inUse) / max;
+    return (
+      <ProgressBar
+        value={percentage}
+        topLeftContent={
+          <span className={classNames(styles.label, styles.em)}>
+            <MemoryIcon className={styles.icon} /> CPU - {cpu?.description}
+          </span>
+        }
+        topRightContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{max}</span>&nbsp;total
+          </span>
+        }
+        bottomLeftContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          </span>
+        }
+        bottomRightContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{inUse}</span>&nbsp;used
+          </span>
+        }
+      />
+    );
+  };
+
+  const getGpuProgressBars = () => {
+    return gpus.map((gpu) => {
+      const max = gpu?.max ?? 0;
+      const inUse = gpu?.inUse ?? 0;
+      const available = max - inUse;
+      const fee = selectedTokenFees?.prices.find((price) => price.id === gpu.id)?.price ?? 0;
+      if (compact) {
+        return (
+          <div key={gpu.id}>
+            <div className={styles.label}>
+              <MemoryIcon className={styles.icon} />
+              <span className={styles.heading}>{gpu.description}</span>
+            </div>
+            <div className={styles.label}>
+              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            </div>
+            <div className={styles.label}>
+              <span className={styles.em}>
+                {available}/{max}
+              </span>
+              &nbsp;available
+            </div>
+          </div>
+        );
+      }
+      const percentage = (100 * inUse) / max;
+      return (
+        <ProgressBar
+          key={gpu.id}
+          value={percentage}
+          topLeftContent={
+            <span className={classNames(styles.label, styles.em)}>
+              <MemoryIcon className={styles.icon} /> GPU - {gpu.description}
+            </span>
+          }
+          topRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{max}</span>&nbsp;total
+            </span>
+          }
+          bottomLeftContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            </span>
+          }
+          bottomRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{inUse}</span>&nbsp;used
+            </span>
+          }
+        />
+      );
+    });
+  };
+
+  const getRamProgressBar = () => {
+    const ram = environment.resources?.find((res) => res.id === 'ram');
+    if (!ram) {
+      return null;
+    }
+    const max = ram?.max ?? 0;
+    const inUse = ram?.inUse ?? 0;
+    const available = max - inUse;
+    const fee = selectedTokenFees?.prices.find((price) => price.id === 'ram')?.price ?? 0;
+    if (compact) {
+      return (
+        <div>
+          <div className={styles.label}>
+            <SdStorageIcon className={styles.icon} />
+            <span className={styles.heading}>GB RAM capacity</span>
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>
+              {available}/{max}
+            </span>
+            &nbsp;available
+          </div>
+        </div>
+      );
+    }
+    const percentage = (100 * inUse) / max;
+    return (
+      <ProgressBar
+        value={percentage}
+        topLeftContent={
+          <span className={classNames(styles.label, styles.em)}>
+            <SdStorageIcon className={styles.icon} /> RAM capacity
+          </span>
+        }
+        topRightContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{max}</span>&nbsp;GB total
+          </span>
+        }
+        bottomLeftContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          </span>
+        }
+        bottomRightContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{inUse}</span>&nbsp;GB used
+          </span>
+        }
+      />
+    );
+  };
+
+  const getDiskProgressBar = () => {
+    const disk = environment.resources?.find((res) => res.id === 'disk');
+    if (!disk) {
+      return null;
+    }
+    const max = disk?.max ?? 0;
+    const inUse = disk?.inUse ?? 0;
+    const available = max - inUse;
+    const fee = selectedTokenFees?.prices.find((price) => price.id === 'disk')?.price ?? 0;
+    if (compact) {
+      return (
+        <div>
+          <div className={styles.label}>
+            <DnsIcon className={styles.icon} />
+            <span className={styles.heading}>GB Disk space</span>
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          </div>
+          <div className={styles.label}>
+            <span className={styles.em}>
+              {available}/{max}
+            </span>
+            &nbsp;available
+          </div>
+        </div>
+      );
+    }
+    const percentage = (100 * inUse) / max;
+    return (
+      <ProgressBar
+        value={percentage}
+        topLeftContent={
+          <span className={classNames(styles.label, styles.em)}>
+            <DnsIcon className={styles.icon} /> Disk space
+          </span>
+        }
+        topRightContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{max}</span>&nbsp;GB total
+          </span>
+        }
+        bottomLeftContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          </span>
+        }
+        bottomRightContent={
+          <span className={styles.label}>
+            <span className={styles.em}>{inUse}</span>&nbsp;GB used
+          </span>
+        }
+      />
+    );
+  };
+
+  return (
+    <Card direction="column" padding="sm" radius="md" spacing="lg" variant="glass">
+      <div className={styles.gridWrapper}>
+        {compact ? (
+          <div className={classNames(styles.compactGrid)}>
+            {getGpuProgressBars()}
+            {getCpuProgressBar()}
+            {getRamProgressBar()}
+            {getDiskProgressBar()}
+          </div>
+        ) : gpus.length === 1 ? (
+          <>
+            <h4>Specs</h4>
+            <div className={classNames(styles.grid)}>
+              {getGpuProgressBars()}
+              {getCpuProgressBar()}
+              {getRamProgressBar()}
+              {getDiskProgressBar()}
+            </div>
+          </>
+        ) : (
+          <>
+            <h4>GPUs</h4>
+            <div className={classNames(styles.grid, styles.gpuSpecs)}>{getGpuProgressBars()}</div>
+            <h4>Other specs</h4>
+            <div className={classNames(styles.grid, styles.specsWithoutGpus)}>
+              {getCpuProgressBar()}
+              {getRamProgressBar()}
+              {getDiskProgressBar()}
+            </div>
+          </>
+        )}
+      </div>
+      {showBalance ? (
+        <div className={styles.balance}>
+          {hasBalance ? (
+            <div className="chip chipSuccess">Funds available</div>
+          ) : (
+            <div className="chip chipError">Top-up required</div>
+          )}
+          <div>
+            Balance: <strong>{hasBalance ? 100 : 0}</strong> OCEAN
+          </div>
+          {hasBalance ? (
+            <Link className={styles.link} href="/withdraw">
+              Withdraw
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      <div className={styles.footer}>
+        <div>
+          <div>
+            Max job duration: <strong>{environment.maxJobDuration}</strong> seconds
+          </div>
+          {showNodeName ? (
+            <div>
+              Node: <strong>Friendly node name</strong>
+            </div>
+          ) : null}
+        </div>
+        <div className={styles.buttons}>
+          {/* <Select
+            className={styles.select}
+            onChange={(e) => setToken(e.target.value)}
+            options={tokenSelectOptions}
+            size="sm"
+            value={token}
+          /> */}
+          {environment.free ? (
+            <Button color="accent2" href="/run-job/resources" variant="outlined">
+              Try it
+            </Button>
+          ) : null}
+          <Button color="accent2" contentBefore={<PlayArrowIcon />} href="/run-job/resources">
+            From {startingFee} {tokenSymbol}/min
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+export default EnvironmentCard;

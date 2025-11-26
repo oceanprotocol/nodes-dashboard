@@ -1,10 +1,17 @@
+import RootLayout from '@/components/Layout';
+import { AppKit } from '@/context/app-kit';
+import { NodesProvider } from '@/context/nodes-context';
+import { OceanProvider } from '@/context/ocean-context';
+import { ProfileProvider } from '@/context/profile-context';
+import { RunJobProvider } from '@/context/run-job-context';
+import { StatsProvider } from '@/context/stats-context';
+import { P2PProvider } from '@/contexts/P2PContext';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
 import type { AppProps } from 'next/app';
 import { Inter, Orbitron } from 'next/font/google';
 import { useEffect, useRef } from 'react';
-import RootLayout from '../components/Layout';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -33,9 +40,23 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
-        <RootLayout>
-          <Component {...pageProps} />
-        </RootLayout>
+        <OceanProvider>
+          <NodesProvider>
+            <ProfileProvider>
+              <StatsProvider>
+                <AppKit>
+                  <P2PProvider>
+                    <RunJobProvider>
+                      <RootLayout>
+                        <Component {...pageProps} />
+                      </RootLayout>
+                    </RunJobProvider>
+                  </P2PProvider>
+                </AppKit>
+              </StatsProvider>
+            </ProfileProvider>
+          </NodesProvider>
+        </OceanProvider>
       </QueryClientProvider>
     </main>
   );

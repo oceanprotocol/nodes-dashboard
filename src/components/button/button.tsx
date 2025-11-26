@@ -1,29 +1,62 @@
-import cx from 'classnames';
+import classNames from 'classnames';
 import Link from 'next/link';
-import { ReactNode } from 'react';
-import { ButtonStyle } from './butoon-style.enum';
+import { MouseEventHandler, ReactNode } from 'react';
 import styles from './button.module.css';
 
-interface ButtonProps {
+type ButtonProps = {
   children?: ReactNode;
   className?: string;
+  color?: 'accent1' | 'accent2' | 'primary';
+  contentAfter?: React.ReactNode;
+  contentBefore?: React.ReactNode;
   href?: string;
+  id?: string;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';
-  style?: ButtonStyle;
-}
+  size?: 'md' | 'lg';
+  type?: 'button' | 'submit' | 'reset';
+  variant?: 'filled' | 'outlined';
+};
 
-const Button = ({ className, href, target, children, style }: ButtonProps) => {
-  const classes = cx(styles.root, className, style === ButtonStyle.PRIMARY && styles.primary);
+const Button = ({
+  children,
+  className,
+  color = 'primary',
+  contentAfter,
+  contentBefore,
+  href,
+  id,
+  onClick,
+  target,
+  size = 'md',
+  type = 'button',
+  variant = 'filled',
+}: ButtonProps) => {
+  const classes = classNames(
+    styles.root,
+    styles[`color-${color}`],
+    styles[`size-${size}`],
+    styles[`variant-${variant}`],
+    className
+  );
 
   if (href) {
     return (
-      <Link href={href} className={classes} target={target}>
+      <Link className={classes} href={href} id={id} target={target}>
+        {contentBefore}
         {children}
+        {contentAfter}
       </Link>
     );
   }
 
-  return <button className={classes}>{children}</button>;
+  return (
+    <button className={classes} id={id} onClick={onClick} type={type}>
+      {contentBefore}
+      {children}
+      {contentAfter}
+    </button>
+  );
 };
 
 export default Button;

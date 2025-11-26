@@ -1,6 +1,7 @@
+import FooterSection from '@/components/homepage/footer-section';
+import Navigation from '@/components/Navigation/navigation';
 import Head from 'next/head';
 import { ReactNode } from 'react';
-import Navigation from '../Navigation/navigation';
 import styles from './index.module.css';
 
 type RootLayoutProps = {
@@ -17,8 +18,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={styles.main}>
+        <div className={styles.backgroundAnimation}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img alt="Background animation" src={'/banner-video.jpg'} className={styles.backgorundImage} />
+        </div>
         <Navigation />
         {children}
+        <FooterSection />
       </div>
     </>
   );

@@ -1,0 +1,22 @@
+.root {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 1fr;
+
+  .icon {
+    color: var(--text-secondary);
+    font-size: 28px;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    grid-column: 2 / span 1;
+  }
+
+  .button {
+    align-self: end;
+  }
+}

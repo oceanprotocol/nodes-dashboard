@@ -35,7 +35,7 @@ const config: Config = {
       name: 'Home',
     },
     runJob: {
-      path: '/run-job',
+      path: '/run-job/environments',
       name: 'Run Job',
     },
     stats: {
@@ -46,9 +46,9 @@ const config: Config = {
       path: '/docs',
       name: 'Docs',
     },
-    leaderbord: {
-      path: '/leaderbord',
-      name: 'Leaderbord',
+    leaderboard: {
+      path: '/leaderboard',
+      name: 'Leaderboard',
     },
     runNode: {
       path: '/run-node',
@@ -80,3 +80,46 @@ export default config;
 export const getRoutes = (): Routes => config.routes;
 export const getSocialMedia = (): SocialMedia => config.socialMedia;
 export const getLinks = () => config.links;
+
+const API_ROOTS = {
+  ens: 'https://ens-proxy.oceanprotocol.com/api',
+  incentive: 'https://incentive-backend.oceanprotocol.io',
+  incentive_old: 'https://incentive-backend.oceanprotocol.com',
+  analytics: 'https://analytics.nodes.oceanprotocol.io',
+} as const;
+
+const apiRoutes = {
+  // Incentive API routes
+  environments: { root: 'incentive', path: '/envs' },
+  nodes: { root: 'incentive', path: '/nodes' },
+  locations: { root: 'incentive', path: '/locations' },
+  countryStats: { root: 'incentive', path: '/countryStats' },
+  nodeSystemStats: { root: 'incentive_old', path: '/nodeSystemStats' },
+  history: { root: 'incentive', path: '/history' },
+  weekStats: { root: 'incentive', path: '/weekStats' },
+  banStatus: { root: 'incentive', path: '/nodes' },
+  nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
+
+  // Analytics API routes
+  analyticsSummary: { root: 'analytics', path: '/summary' },
+  analyticsAllSummary: { root: 'analytics', path: '/all-summary' },
+  analyticsRewardsHistory: { root: 'analytics', path: '/rewards-history' },
+  analyticsGlobalStats: { root: 'analytics', path: '/global-stats' },
+  gpuPopularity: { root: 'analytics', path: '/gpu-popularity' },
+  topNodesByRevenue: { root: 'analytics', path: '/nodes' },
+  topNodesByJobCount: { root: 'analytics', path: '/nodes' },
+
+  // ENS API routes
+  ensAddress: { root: 'ens', path: '/address' },
+  ensName: { root: 'ens', path: '/name' },
+  ensProfile: { root: 'ens', path: '/profile' },
+  nodeStats: { root: 'analytics', path: '/nodes' },
+} as const;
+
+type ApiRouteKeys = keyof typeof apiRoutes;
+
+export const getApiRoute = (key: ApiRouteKeys): string => {
+  const route = apiRoutes[key];
+  const baseUrl = API_ROOTS[route.root];
+  return `${baseUrl}${route.path}`;
+};

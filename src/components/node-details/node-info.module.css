@@ -1,0 +1,60 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+
+  @media (min-width: 992px) {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+  }
+
+  .infoWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    justify-content: space-between;
+
+    .infoContent {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+
+      .title {
+        font-size: 32px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        column-gap: 12px;
+        row-gap: 8px;
+      }
+
+      .buttons {
+        display: flex;
+        gap: 8px;
+      }
+    }
+
+    .infoFooter {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+  }
+
+  .statusWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+.hash {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.icon {
+  color: var(--accent1);
+}
