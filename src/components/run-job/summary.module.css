@@ -8,6 +8,11 @@
     color: var(--text-secondary);
   }
 
+  .gpus {
+    display: flex;
+    gap: 12px;
+  }
+
   @media (min-width: 768px) {
     display: grid;
     grid-template-columns: auto 1fr;

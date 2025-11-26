@@ -40,3 +40,11 @@ export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
   free?: ComputeEnvironmentFreeOptions;
   id: string;
 };
+
+export type EnvResourcesSelection = {
+  cpuCores: number;
+  diskSpace: number;
+  gpus: { id: string; description?: string }[];
+  maxJobDurationHours: number;
+  ram: number;
+};

@@ -1,9 +1,10 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
-import VideoCardLabel from '@/components/video-card-label/video-card-label';
+import Slider from '@/components/slider/slider';
 import { useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
@@ -14,11 +15,11 @@ import * as Yup from 'yup';
 import styles from './select-resources.module.css';
 
 type ResourcesFormValues = {
-  cpuCores: number | '';
-  diskSpace: number | '';
+  cpuCores: number;
+  diskSpace: number;
   gpus: string[];
-  maxJobDuration: number | '';
-  ram: number | '';
+  maxJobDurationHours: number;
+  ram: number;
 };
 
 type SelectResourcesProps = {
@@ -28,51 +29,70 @@ type SelectResourcesProps = {
 const SelectResources = ({ environment }: SelectResourcesProps) => {
   const router = useRouter();
 
-  const { setEstimatedTotalCost } = useRunJobContext();
+  const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(environment);
 
-  const maxAllowedCpuCores = cpu?.max ?? 0;
-  const maxAllowedRam = ram?.max ?? 0;
-  const maxAllowedDiskSpace = disk?.max ?? 0;
-  const maxAllowedJobDurationHours = (environment.maxJobDuration ?? 0) / 60;
+  // TODO implement min job duration
+
+  const minAllowedCpuCores = 1;
+  const minAllowedDiskSpace = 0;
+  const minAllowedJobDurationHours = 0;
+  const minAllowedRam = 0;
+
+  const maxAllowedCpuCores = cpu?.max ?? minAllowedCpuCores;
+  const maxAllowedRam = ram?.max ?? minAllowedRam;
+  const maxAllowedDiskSpace = disk?.max ?? minAllowedDiskSpace;
+  const maxAllowedJobDurationHours = (environment.maxJobDuration ?? minAllowedJobDurationHours) / 60 / 60;
 
   const formik = useFormik<ResourcesFormValues>({
     initialValues: {
-      cpuCores: '',
-      diskSpace: '',
+      cpuCores: minAllowedCpuCores,
+      diskSpace: minAllowedDiskSpace,
       gpus: [],
-      maxJobDuration: '',
-      ram: '',
+      maxJobDurationHours: minAllowedJobDurationHours,
+      ram: minAllowedRam,
     },
     onSubmit: (values) => {
       console.log('Form submitted with values:', values);
-      // TODO only navigate to payment if not enough funds in escrow
       setEstimatedTotalCost(estimatedTotalCost);
+      setSelectedResources({
+        cpuCores: values.cpuCores,
+        diskSpace: values.diskSpace,
+        gpus: gpus
+          .filter((gpu) => values.gpus.includes(gpu.id))
+          .map((gpu) => ({ id: gpu.id, description: gpu.description })),
+        maxJobDurationHours: values.maxJobDurationHours,
+        ram: values.ram,
+      });
+      // TODO only navigate to payment if not enough funds in escrow
       router.push('/run-job/payment');
     },
     validateOnMount: true,
     validationSchema: Yup.object({
       cpuCores: Yup.number()
         .required('Required')
-        .min(1, 'Limits exceeded')
+        .min(minAllowedCpuCores, 'Limits exceeded')
         .max(maxAllowedCpuCores, 'Limits exceeded')
         .integer('Invalid format'),
       diskSpace: Yup.number()
         .required('Required')
-        .min(0, 'Limits exceeded')
+        .min(minAllowedDiskSpace, 'Limits exceeded')
         .max(maxAllowedDiskSpace, 'Limits exceeded'),
       gpus: Yup.array().of(Yup.string()).min(1, 'Required'),
-      maxJobDuration: Yup.number()
+      maxJobDurationHours: Yup.number()
         .required('Required')
-        .min(0, 'Limits exceeded')
+        .min(minAllowedJobDurationHours, 'Limits exceeded')
         .max(maxAllowedJobDurationHours, 'Limits exceeded'),
-      ram: Yup.number().required('Required').min(1, 'Limits exceeded').max(maxAllowedRam, 'Limits exceeded'),
+      ram: Yup.number()
+        .required('Required')
+        .min(minAllowedRam, 'Limits exceeded')
+        .max(maxAllowedRam, 'Limits exceeded'),
     }),
   });
 
   const estimatedTotalCost = useMemo(() => {
-    const timeInMinutes = Number(formik.values.maxJobDuration) * 60;
+    const timeInMinutes = Number(formik.values.maxJobDurationHours) * 60;
     const cpuCost = Number(formik.values.cpuCores) * (cpuFee ?? 0) * timeInMinutes;
     const ramCost = Number(formik.values.ram) * (ramFee ?? 0) * timeInMinutes;
     const diskCost = Number(formik.values.diskSpace) * (diskFee ?? 0) * timeInMinutes;
@@ -87,7 +107,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
     formik.values.cpuCores,
     formik.values.diskSpace,
     formik.values.gpus,
-    formik.values.maxJobDuration,
+    formik.values.maxJobDurationHours,
     formik.values.ram,
     gpuFees,
     ramFee,
@@ -106,35 +126,41 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
           onChange={formik.handleChange}
           options={gpus.map((gpu) => ({ label: gpu.description ?? '', value: gpu.id }))}
           renderOption={(option) => (
-            <VideoCardLabel card={`${option.label} (${gpuFees[option.value] ?? ''} ${tokenSymbol}/min)`} />
+            <GpuLabel gpu={`${option.label} (${gpuFees[option.value] ?? ''} ${tokenSymbol}/min)`} />
           )}
-          renderSelectedValue={(option) => <VideoCardLabel card={option} />}
+          renderSelectedValue={(option) => <GpuLabel gpu={option} />}
           value={formik.values.gpus}
         />
         <div className={styles.inputsGrid}>
-          <Input
-            endAdornment="cores"
+          <Slider
             errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
             hint={`${cpuFee ?? 0} ${tokenSymbol}/core`}
             label="CPU"
             name="cpuCores"
+            marks
+            max={maxAllowedCpuCores}
+            min={minAllowedCpuCores}
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
-            topRight={`${1}-${maxAllowedCpuCores}`}
-            type="number"
+            step={1}
+            topRight={`${minAllowedCpuCores}-${maxAllowedCpuCores}`}
             value={formik.values.cpuCores}
+            valueLabelFormat={(value) => (value === 1 ? `${value} core` : `${value} cores`)}
           />
-          <Input
-            endAdornment="GB"
+          <Slider
             errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
             hint={`${ramFee ?? 0} ${tokenSymbol}/GB`}
             label="RAM"
             name="ram"
+            marks
+            max={maxAllowedRam}
+            min={minAllowedRam}
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
-            topRight={`${1}-${maxAllowedRam}`}
-            type="number"
+            step={1}
+            topRight={`${minAllowedRam}-${maxAllowedRam}`}
             value={formik.values.ram}
+            valueLabelFormat={(value) => `${value} GB`}
           />
           <Input
             endAdornment="GB"
@@ -144,22 +170,24 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
             name="diskSpace"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
-            topRight={`${0}-${maxAllowedDiskSpace}`}
+            topRight={`${minAllowedDiskSpace}-${maxAllowedDiskSpace}`}
             type="number"
             value={formik.values.diskSpace}
           />
           <Input
             endAdornment="hours"
             errorText={
-              formik.touched.maxJobDuration && formik.errors.maxJobDuration ? formik.errors.maxJobDuration : undefined
+              formik.touched.maxJobDurationHours && formik.errors.maxJobDurationHours
+                ? formik.errors.maxJobDurationHours
+                : undefined
             }
             label="Max job duration"
-            name="maxJobDuration"
+            name="maxJobDurationHours"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
-            topRight={`${0}-${maxAllowedJobDurationHours}`}
+            topRight={`${minAllowedJobDurationHours}-${maxAllowedJobDurationHours}`}
             type="number"
-            value={formik.values.maxJobDuration}
+            value={formik.values.maxJobDurationHours}
           />
         </div>
         {formik.isValid ? (
@@ -169,7 +197,6 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
               <div>
                 <span className={styles.token}>{tokenSymbol}</span>
                 &nbsp;
-                {/* // TODO */}
                 <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
               </div>
               <div className={styles.reimbursment}>If the job is shorter, you will get your tokens back</div>

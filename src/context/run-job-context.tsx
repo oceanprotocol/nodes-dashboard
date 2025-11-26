@@ -1,7 +1,7 @@
 import { getApiRoute } from '@/config';
 import { MOCK_ENVS } from '@/mock/environments';
 import { ApiPaginationResponse } from '@/types/api';
-import { ComputeEnvironment } from '@/types/environments';
+import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
@@ -14,8 +14,10 @@ type RunJobContextType = {
   fetchGpus: () => Promise<void>;
   gpus: GPUPopularityDisplay;
   selectedEnv: ComputeEnvironment | null;
+  selectedResources: EnvResourcesSelection | null;
   setEstimatedTotalCost: (cost: number | null) => void;
   setSelectedEnv: (environment: ComputeEnvironment | null) => void;
+  setSelectedResources: (selection: EnvResourcesSelection | null) => void;
 };
 
 const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
@@ -24,10 +26,13 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [environments, setEnvironments] = useState<ComputeEnvironment[]>([]);
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
+  const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
   const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
 
   const clearRunJobSelection = useCallback(() => {
+    setEstimatedTotalCost(null);
     setSelectedEnv(null);
+    setSelectedResources(null);
   }, []);
 
   const fetchEnvironments = useCallback(async () => {
@@ -68,8 +73,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         fetchGpus,
         gpus,
         selectedEnv,
+        selectedResources,
         setEstimatedTotalCost,
         setSelectedEnv,
+        setSelectedResources,
       }}
     >
       {children}
