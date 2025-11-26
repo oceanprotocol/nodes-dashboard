@@ -113,11 +113,31 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
     ramFee,
   ]);
 
+  const selectAllGpus = () => {
+    formik.setFieldValue(
+      'gpus',
+      gpus.map((gpu) => gpu.id)
+    );
+  };
+
+  const setMaxDiskSpace = () => {
+    formik.setFieldValue('diskSpace', maxAllowedDiskSpace);
+  };
+
+  const setMaxJobDurationHours = () => {
+    formik.setFieldValue('maxJobDurationHours', maxAllowedJobDurationHours);
+  };
+
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Select resources</h3>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         <Select
+          endAdornment={
+            <Button color="accent1" onClick={selectAllGpus} size="sm" type="button" variant="outlined">
+              Select all
+            </Button>
+          }
           errorText={formik.touched.gpus && formik.errors.gpus ? formik.errors.gpus : undefined}
           label="GPUs"
           multiple
@@ -163,19 +183,28 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
             valueLabelFormat={(value) => `${value} GB`}
           />
           <Input
-            endAdornment="GB"
+            endAdornment={
+              <Button color="accent1" onClick={setMaxDiskSpace} size="sm" type="button" variant="outlined">
+                Set max
+              </Button>
+            }
             errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
             hint={`${diskFee ?? 0} ${tokenSymbol}/GB`}
             label="Disk space"
             name="diskSpace"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
+            startAdornment="GB"
             topRight={`${minAllowedDiskSpace}-${maxAllowedDiskSpace}`}
             type="number"
             value={formik.values.diskSpace}
           />
           <Input
-            endAdornment="hours"
+            endAdornment={
+              <Button color="accent1" onClick={setMaxJobDurationHours} size="sm" type="button" variant="outlined">
+                Set max
+              </Button>
+            }
             errorText={
               formik.touched.maxJobDurationHours && formik.errors.maxJobDurationHours
                 ? formik.errors.maxJobDurationHours
@@ -185,6 +214,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
             name="maxJobDurationHours"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
+            startAdornment="hours"
             topRight={`${minAllowedJobDurationHours}-${maxAllowedJobDurationHours}`}
             type="number"
             value={formik.values.maxJobDurationHours}

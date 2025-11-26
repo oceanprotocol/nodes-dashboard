@@ -1,10 +1,10 @@
 import InputWrapper from '@/components/input/input-wrapper';
 import { styled, TextField } from '@mui/material';
 
-const StyledTextField = styled(TextField)<{ customSize?: 'sm' | 'md'; hasError?: boolean }>(
-  ({ customSize, hasError }) => ({
+const StyledTextField = styled(TextField)<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
+  ({ custom_size, has_error }) => ({
     background: 'var(--background-glass)',
-    border: `1px solid var(${hasError ? '--error' : '--border-glass'})`,
+    border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
     borderRadius: 24,
     lineHeight: '18px',
 
@@ -22,7 +22,7 @@ const StyledTextField = styled(TextField)<{ customSize?: 'sm' | 'md'; hasError?:
       fontSize: 16,
       lineHeight: '18px',
       minHeight: 0,
-      padding: customSize === 'sm' ? '4px 16px' : '12px 16px',
+      padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
     },
   })
 );
@@ -62,8 +62,8 @@ const Input = ({
 }: InputProps) => (
   <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
     <StyledTextField
-      customSize={size}
-      hasError={!!errorText}
+      custom_size={size}
+      has_error={!!errorText}
       name={name}
       onBlur={onBlur}
       onChange={onChange}

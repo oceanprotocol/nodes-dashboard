@@ -8,10 +8,10 @@ const StyledMultipleValueContainer = styled('div')({
   gap: 4,
 });
 
-const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md'; hasError?: boolean }>(
-  ({ customSize, hasError }) => ({
+const StyledSelect = styled(MaterialSelect)<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
+  ({ custom_size, has_error }) => ({
     background: 'var(--background-glass)',
-    border: `1px solid var(${hasError ? '--error' : '--border-glass'})`,
+    border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
     borderRadius: 24,
     color: 'var(--text-primary)',
     fontFamily: 'var(--font-inter), sans-serif',
@@ -23,12 +23,13 @@ const StyledSelect = styled(MaterialSelect)<{ customSize?: 'sm' | 'md'; hasError
     },
 
     [`& .${selectClasses.select}`]: {
-      padding: customSize === 'sm' ? '4px 16px' : '12px 16px',
+      padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
       minHeight: 0,
     },
 
     [`& .${selectClasses.icon}`]: {
       color: 'var(--text-secondary)',
+      position: 'relative',
     },
   })
 );
@@ -40,6 +41,7 @@ export type SelectOption<T> = {
 
 type SelectProps<T> = {
   className?: string;
+  endAdornment?: React.ReactNode;
   errorText?: string | string[];
   fullWidth?: boolean;
   hint?: string;
@@ -66,6 +68,7 @@ type SelectProps<T> = {
 
 const Select = <T extends string | number = string>({
   className,
+  endAdornment,
   errorText,
   hint,
   label,
@@ -102,8 +105,9 @@ const Select = <T extends string | number = string>({
   return (
     <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
       <StyledSelect
-        customSize={size}
-        hasError={!!errorText}
+        custom_size={size}
+        endAdornment={endAdornment}
+        has_error={!!errorText}
         multiple={multiple}
         name={name}
         onBlur={onBlur}
