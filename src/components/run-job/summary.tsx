@@ -48,7 +48,7 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources }: Summary
         <div className={styles.value}>{selectedResources!.ram} GB</div>
         <div className={styles.label}>Disk space:</div>
         <div className={styles.value}>{selectedResources!.diskSpace} GB</div>
-        <div className={styles.label}>Total cost</div>
+        <div className={styles.label}>Total cost:</div>
         <div className={styles.value}>{estimatedTotalCost} USDC</div>
       </div>
       {/* // TODO button actions */}
