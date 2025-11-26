@@ -66,7 +66,11 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
         ram: values.ram,
       });
       // TODO only navigate to payment if not enough funds in escrow
-      router.push('/run-job/payment');
+      if (estimatedTotalCost > 0) {
+        router.push('/run-job/payment');
+      } else {
+        router.push('/run-job/summary');
+      }
     },
     validateOnMount: true,
     validationSchema: Yup.object({
