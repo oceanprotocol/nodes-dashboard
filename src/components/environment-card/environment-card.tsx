@@ -26,7 +26,7 @@ type EnvironmentCardProps = {
 const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: EnvironmentCardProps) => {
   const router = useRouter();
 
-  const { setSelectedEnv } = useRunJobContext();
+  const { selectEnv } = useRunJobContext();
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(environment);
 
@@ -39,12 +39,12 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
   const hasBalance = Math.random() > 0.5;
 
   const selectEnvironment = () => {
-    setSelectedEnv(environment);
+    selectEnv(environment);
     router.push('/run-job/resources');
   };
 
   const selectFreeCompute = () => {
-    setSelectedEnv({
+    selectEnv({
       ...environment,
       ...environment.free,
       fees: {},

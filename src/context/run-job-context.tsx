@@ -7,7 +7,6 @@ import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
 type RunJobContextType = {
-  clearRunJobSelection: () => void;
   environments: ComputeEnvironment[];
   estimatedTotalCost: number | null;
   fetchEnvironments: () => Promise<void>;
@@ -16,7 +15,7 @@ type RunJobContextType = {
   selectedEnv: ComputeEnvironment | null;
   selectedResources: EnvResourcesSelection | null;
   setEstimatedTotalCost: (cost: number | null) => void;
-  setSelectedEnv: (environment: ComputeEnvironment | null) => void;
+  selectEnv: (environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => void;
   setSelectedResources: (selection: EnvResourcesSelection | null) => void;
 };
 
@@ -63,19 +62,31 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  /**
+   * Selects an environment and optional resources. Clears any previous selection.
+   * @param environment The environment to select.
+   * @param resources Optional resources to select.
+   */
+  const selectEnv = useCallback((environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => {
+    clearRunJobSelection();
+    setSelectedEnv(environment);
+    if (resources) {
+      setSelectedResources(resources);
+    }
+  }, []);
+
   return (
     <RunJobContext.Provider
       value={{
-        clearRunJobSelection,
         estimatedTotalCost,
         environments,
         fetchEnvironments,
         fetchGpus,
         gpus,
         selectedEnv,
+        selectEnv,
         selectedResources,
         setEstimatedTotalCost,
-        setSelectedEnv,
         setSelectedResources,
       }}
     >
