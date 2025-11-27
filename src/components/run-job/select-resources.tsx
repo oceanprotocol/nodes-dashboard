@@ -233,7 +233,9 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
                 &nbsp;
                 <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
               </div>
-              <div className={styles.reimbursment}>If the job is shorter, you will get your tokens back</div>
+              <div className={styles.reimbursment}>
+                If your job finishes early, the unconsumed tokens remain in escrow
+              </div>
             </div>
           </Card>
         ) : null}
