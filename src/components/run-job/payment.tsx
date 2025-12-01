@@ -1,7 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
-import Select from '@/components/input/select';
 import { useOceanContext } from '@/context/ocean-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { formatNumber } from '@/utils/formatters';
@@ -70,7 +69,7 @@ const Payment = ({ selectedToken, totalCost }: PaymentProps) => {
       <form className={styles.form}>
         <Card direction="column" padding="sm" radius="md" spacing="md" variant="glass">
           <div className={styles.row}>
-            <Select label="Fee token address" />
+            {/* <Select label="Fee token address" /> */}
             <Input endAdornment={selectedToken.symbol} label="Amount" type="number" />
           </div>
           <div className={styles.buttons}>
