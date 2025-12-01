@@ -1,10 +1,16 @@
 import { getApiRoute } from '@/config';
+import { useOceanContext } from '@/context/ocean-context';
 import { MOCK_ENVS } from '@/mock/environments';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+
+type SelectedToken = {
+  symbol: string;
+  address: string;
+};
 
 type RunJobContextType = {
   environments: ComputeEnvironment[];
@@ -14,24 +20,30 @@ type RunJobContextType = {
   gpus: GPUPopularityDisplay;
   selectedEnv: ComputeEnvironment | null;
   selectedResources: EnvResourcesSelection | null;
-  setEstimatedTotalCost: (cost: number | null) => void;
+  selectedToken: SelectedToken | null;
   selectEnv: (environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => void;
+  selectToken: (address: string) => Promise<void>;
+  setEstimatedTotalCost: (cost: number | null) => void;
   setSelectedResources: (selection: EnvResourcesSelection | null) => void;
 };
 
 const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
+  const { getSymbolByAddress } = useOceanContext();
+
   const [environments, setEnvironments] = useState<ComputeEnvironment[]>([]);
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
+  const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
 
   const clearRunJobSelection = useCallback(() => {
     setEstimatedTotalCost(null);
     setSelectedEnv(null);
     setSelectedResources(null);
+    setSelectedToken(null);
   }, []);
 
   const fetchEnvironments = useCallback(async () => {
@@ -75,6 +87,11 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const selectToken = useCallback(async (address: string) => {
+    const symbol = await getSymbolByAddress(address);
+    setSelectedToken({ address, symbol });
+  }, []);
+
   return (
     <RunJobContext.Provider
       value={{
@@ -86,6 +103,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         selectedEnv,
         selectEnv,
         selectedResources,
+        selectedToken,
+        selectToken,
         setEstimatedTotalCost,
         setSelectedResources,
       }}

@@ -26,9 +26,10 @@ type EnvironmentCardProps = {
 const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: EnvironmentCardProps) => {
   const router = useRouter();
 
-  const { selectEnv } = useRunJobContext();
+  const { selectEnv, selectToken } = useRunJobContext();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(environment);
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenAddress, tokenSymbol } =
+    useEnvResources(environment);
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
@@ -40,6 +41,7 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
 
   const selectEnvironment = () => {
     selectEnv(environment);
+    selectToken(tokenAddress);
     router.push('/run-job/resources');
   };
 
