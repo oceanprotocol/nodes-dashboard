@@ -1,5 +1,5 @@
 interface ComputeResourcesPricingInfo {
-  id: ComputeResourceType;
+  id: ComputeResourceId;
   price: number; // price per unit per minute
 }
 
@@ -12,12 +12,13 @@ interface ComputeEnvFeesStructure {
   [chainId: string]: ComputeEnvFees[];
 }
 
-type ComputeResourceType = 'cpu' | 'ram' | 'disk' | any;
+type ComputeResourceType = 'cpu' | 'ram' | 'disk' | 'gpu';
+type ComputeResourceId = 'cpu' | 'ram' | 'disk' | any;
 
 export interface ComputeResource {
-  id: ComputeResourceType;
+  id: ComputeResourceId;
   description?: string;
-  type?: string;
+  type?: ComputeResourceType;
   kind?: string;
   // total: number;
   max: number;

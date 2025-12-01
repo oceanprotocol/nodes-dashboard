@@ -41,25 +41,29 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
   const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === tokenAddress), [fees, tokenAddress]);
 
   const { cpu, disk, gpus, ram } = useMemo(() => {
-    const cpu = environment.resources?.find((res) => res.id === 'cpu');
-    const disk = environment.resources?.find((res) => res.id === 'disk');
-    const gpus = environment.resources?.filter((res) => !['cpu', 'disk', 'ram'].includes(res.id)) ?? [];
-    const ram = environment.resources?.find((res) => res.id === 'ram');
+    const cpu = environment.resources?.find((res) => res.type === 'cpu' || res.id === 'cpu');
+    const disk = environment.resources?.find((res) => res.type === 'disk' || res.id === 'disk');
+    const gpus = environment.resources?.filter((res) => res.type === 'gpu' || res.id === 'gpu') ?? [];
+    const ram = environment.resources?.find((res) => res.type === 'ram' || res.id === 'ram');
     return { cpu, disk, gpus, ram };
   }, [environment.resources]);
 
   const { cpuFee, diskFee, ramFee } = useMemo(() => {
-    const cpuFee = selectedTokenFees?.prices.find((price) => price.id === 'cpu')?.price;
-    const diskFee = selectedTokenFees?.prices.find((price) => price.id === 'disk')?.price;
-    const ramFee = selectedTokenFees?.prices.find((price) => price.id === 'ram')?.price;
+    const cpuId = cpu?.id;
+    const diskId = disk?.id;
+    const ramId = ram?.id;
+    const cpuFee = selectedTokenFees?.prices.find((price) => price.id === cpuId)?.price;
+    const diskFee = selectedTokenFees?.prices.find((price) => price.id === diskId)?.price;
+    const ramFee = selectedTokenFees?.prices.find((price) => price.id === ramId)?.price;
     return { cpuFee, diskFee, ramFee };
   }, [selectedTokenFees]);
 
   const gpuFees = useMemo(() => {
     const fees: Record<string, number> = {};
     if (selectedTokenFees) {
+      const gpuIds = gpus.map((gpu) => gpu.id);
       gpus.forEach((gpu) => {
-        const fee = selectedTokenFees.prices.find((price) => price.id === gpu.id)?.price;
+        const fee = selectedTokenFees.prices.find((price) => gpuIds.includes(price.id))?.price;
         if (fee !== undefined) {
           fees[gpu.id] = fee;
         }
