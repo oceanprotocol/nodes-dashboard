@@ -47,3 +47,11 @@ export interface NodeFilters {
   country?: FilterValue;
   eligible?: FilterValue;
 }
+
+export interface BenchmarkJobsHistoryFilters {
+  startTime?: FilterValue;
+  endTime?: FilterValue;
+  difficulty?: FilterValue;
+  resultHashes?: FilterValue;
+  gpuScore?: FilterValue;
+}

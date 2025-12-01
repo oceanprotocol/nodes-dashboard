@@ -1,16 +1,16 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
-import { FilterOperator, NodeFilters } from '@/types/filters';
-import { BanStatusResponse, Node } from '@/types/nodes';
+import { BenchmarkJobsHistoryFilters, FilterOperator } from '@/types/filters';
+import { ComputeJobHistory } from '@/types/jobs';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-type CtxType = TableContextType<Node>;
+type CtxType = TableContextType<ComputeJobHistory>;
 
-const LeaderboardTableContext = createContext<CtxType | undefined>(undefined);
+const BenchmarkJobsHistoryTableContext = createContext<CtxType | undefined>(undefined);
 
-export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) => {
+export const BenchmarkJobsHistoryTableProvider = ({ children, nodeId }: { children: ReactNode; nodeId: string }) => {
   const [crtPage, setCrtPage] = useState<CtxType['crtPage']>(1);
   const [data, setData] = useState<CtxType['data']>([]);
   const [error, setError] = useState<CtxType['error']>(null);
@@ -22,35 +22,31 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({});
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
 
-  const buildFilterParams = (filters: NodeFilters): string => {
+  const buildFilterParams = (filters: BenchmarkJobsHistoryFilters): string => {
     if (!filters || Object.keys(filters).length === 0) return '';
     return Object.entries(filters)
       .filter(([_, filterData]) => filterData?.value && filterData?.operator)
       .map(([field, filterData]) => {
-        if (field === 'id') {
-          const ids = filterData.value.split(',').map((id: string) => id.trim());
-          return `filters[${field}][value]=${ids.join(',')}`;
-        }
         return `filters[${field}][${filterData.operator}]=${filterData.value}`;
       })
       .join('&');
   };
 
   const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('nodes')}?page=${crtPage}&size=${pageSize}&sort={"latestBenchmarkResults.gpuScore":"desc"}`;
-    const gridFilterToNodeFilters = (gridFilter: GridFilterModel): NodeFilters => {
-      const nodeFilters: NodeFilters = {};
+    let url = `${getApiRoute('benchmarkHistory')}/${nodeId}/benchmarkHistory?page=${crtPage}&size=${pageSize}&sort={"endTime": "desc"}`;
+    const gridFilterToBenchmarkFilters = (gridFilter: GridFilterModel): BenchmarkJobsHistoryFilters => {
+      const benchmarkFilters: BenchmarkJobsHistoryFilters = {};
       gridFilter.items.forEach((item) => {
         if (item.field && item.value !== undefined && item.operator) {
-          nodeFilters[item.field as keyof NodeFilters] = {
+          benchmarkFilters[item.field as keyof BenchmarkJobsHistoryFilters] = {
             value: item.value,
             operator: item.operator as FilterOperator,
           };
         }
       });
-      return nodeFilters;
+      return benchmarkFilters;
     };
-    const filterString = buildFilterParams(gridFilterToNodeFilters(filterModel));
+    const filterString = buildFilterParams(gridFilterToBenchmarkFilters(filterModel));
     if (filterString) {
       url += `&${filterString}`;
     }
@@ -58,50 +54,18 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
       url += `&search=${encodeURIComponent(searchTerm)}`;
     }
     return url;
-  }, [crtPage, pageSize, filterModel, searchTerm]);
-
-  async function getNodeBanStatus(nodeId: string): Promise<BanStatusResponse> {
-    const res = await axios.get(`${getApiRoute('banStatus')}/${nodeId}/banStatus`, {
-      timeout: 1_500,
-    });
-
-    return { nodeId, ...res.data };
-  }
+  }, [crtPage, pageSize, filterModel, searchTerm, nodeId]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await axios.get(fetchUrl);
-      const sanitizedData = response.data.nodes.map((element: any, index: number) => ({
-        ...element._source,
+      const sanitizedData = response.data.benchmarkJobs.map((element: any, index: number) => ({
+        ...element,
+        score: element.benchmarkResults.gpuScore,
+        id: element.jobId,
         index: (crtPage - 1) * pageSize + index + 1,
       }));
-
-      /* TODO: The flow for banned could be improved by having the "banned"
-       * status saved directly on the node and returned in the response, so we
-       * don't have to perform multiple GET /banStatus requests at this point.
-       */
-      const possiblyBannedNodes = sanitizedData.filter(
-        (item: Node) =>
-          item.eligible === false &&
-          item.eligibilityCauseStr !== 'No peer data' &&
-          item.eligibilityCauseStr !== 'Invalid status response'
-      );
-      const promises = [];
-      for (const node of possiblyBannedNodes) {
-        promises.push(getNodeBanStatus(node.id));
-      }
-      const results = await Promise.all(promises);
-      results.forEach((result) => {
-        if (result.banned) {
-          const currentNodeIndex = sanitizedData.findIndex((item: Node) => item.id === result.nodeId);
-          sanitizedData[currentNodeIndex] = {
-            ...sanitizedData[currentNodeIndex],
-            eligibilityCauseStr: 'Banned',
-            banInfo: result.banInfo,
-          };
-        }
-      });
 
       setData(sanitizedData);
       setTotalItems(response.data.pagination.totalItems);
@@ -121,11 +85,7 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
       try {
         await fetchData();
       } catch (error) {
-        console.error('Error fetching initial leaderboard data:', error);
-      } finally {
-        if (mounted) {
-          // setOverallDashboardLoading(false);
-        }
+        console.error('Error fetching initial benchmark jobs history data:', error);
       }
     };
 
@@ -163,7 +123,7 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   };
 
   return (
-    <LeaderboardTableContext.Provider
+    <BenchmarkJobsHistoryTableContext.Provider
       value={{
         crtPage,
         data,
@@ -185,14 +145,14 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
       }}
     >
       {children}
-    </LeaderboardTableContext.Provider>
+    </BenchmarkJobsHistoryTableContext.Provider>
   );
 };
 
-export const useLeaderboardTableContext = () => {
-  const context = useContext(LeaderboardTableContext);
+export const useBenchmarkJobsHistoryTableContext = () => {
+  const context = useContext(BenchmarkJobsHistoryTableContext);
   if (!context) {
-    throw new Error('useLeaderboardTableContext must be used within a LeaderboardTableProvider');
+    throw new Error('useBenchmarkJobsHistoryTableContext must be used within a BenchmarkJobsHistoryTableProvider');
   }
   return context;
 };

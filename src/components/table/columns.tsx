@@ -142,49 +142,49 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
 export const jobsColumns: GridColDef<Node>[] = [
   {
     align: 'center',
-    field: 'index', // TODO
+    field: 'index',
     filterable: false,
     headerAlign: 'center',
     headerName: 'Index',
     sortable: false,
   },
   {
-    field: 'status', // TODO
+    field: 'status',
     filterable: true,
     flex: 1,
     headerName: 'Status',
     sortable: true,
   },
   {
-    field: 'startTime', // TODO
+    field: 'startTime',
     filterable: false,
     flex: 1,
     headerName: 'Start Time',
     sortable: true,
   },
   {
-    field: 'endTime', // TODO
+    field: 'endTime',
     filterable: false,
     flex: 1,
     headerName: 'End Time',
     sortable: true,
   },
   {
-    field: 'difficulty', // TODO
+    field: 'difficulty',
     filterable: false,
     flex: 1,
     headerName: 'Difficulty',
     sortable: true,
   },
   {
-    field: 'totalHashes', // TODO
+    field: 'resultHashes',
     filterable: false,
     flex: 1,
     headerName: 'Total hashes',
     sortable: true,
   },
   {
-    field: 'score', // TODO
+    field: 'score',
     filterable: false,
     flex: 1,
     headerName: 'Score',
