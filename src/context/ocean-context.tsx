@@ -11,8 +11,11 @@ import { BrowserProvider, Contract, ethers } from 'ethers';
 import { createContext, ReactNode, useContext, useMemo } from 'react';
 
 type OceanContextType = {
+  getBalance: (tokenAddress: string, address: string) => Promise<{ symbol: string; balance: string }>;
+  getFeesByChainId: (chainId: number, environment: ComputeEnvironment) => ComputeEnvFees[];
   getNodeBalance: (nodeUrl: string) => Promise<Map<string, number>>;
   getSymbolByAddress: (tokenAddress: string) => Promise<string>;
+  getUserFunds: (tokenAddress: string, address: string) => Promise<number>;
 };
 
 const OceanContext = createContext<OceanContextType | undefined>(undefined);
@@ -234,8 +237,11 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   return (
     <OceanContext.Provider
       value={{
+        getBalance,
+        getFeesByChainId,
         getNodeBalance,
         getSymbolByAddress,
+        getUserFunds,
       }}
     >
       {children}

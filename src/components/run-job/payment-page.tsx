@@ -2,8 +2,21 @@ import Container from '@/components/container/container';
 import Payment from '@/components/run-job/payment';
 import Stepper from '@/components/run-job/stepper';
 import SectionTitle from '@/components/section-title/section-title';
+import { useRunJobContext } from '@/context/run-job-context';
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 const PaymentPage = () => {
+  const router = useRouter();
+
+  const { estimatedTotalCost, selectedToken } = useRunJobContext();
+
+  useEffect(() => {
+    if (!selectedToken) {
+      router.replace('/run-job/environments');
+    }
+  }, [router, selectedToken]);
+
   return (
     <Container className="pageRoot">
       <SectionTitle
@@ -12,9 +25,11 @@ const PaymentPage = () => {
         subTitle="Payment description text"
         contentBetween={<Stepper currentStep={3} />}
       />
-      <div className="pageContentWrapper">
-        <Payment />
-      </div>
+      {selectedToken ? (
+        <div className="pageContentWrapper">
+          <Payment selectedToken={selectedToken} totalCost={estimatedTotalCost ?? 0} />
+        </div>
+      ) : null}
     </Container>
   );
 };

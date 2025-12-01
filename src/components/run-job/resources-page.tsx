@@ -13,7 +13,7 @@ const ResourcesPage = () => {
 
   useEffect(() => {
     if (!selectedEnv) {
-      router.push('/run-job/environments');
+      router.replace('/run-job/environments');
     }
   }, [router, selectedEnv]);
 

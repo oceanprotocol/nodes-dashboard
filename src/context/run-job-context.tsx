@@ -7,7 +7,7 @@ import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
-type SelectedToken = {
+export type SelectedToken = {
   symbol: string;
   address: string;
 };
@@ -79,23 +79,29 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
    * @param environment The environment to select.
    * @param resources Optional resources to select.
    */
-  const selectEnv = useCallback((environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => {
-    clearRunJobSelection();
-    setSelectedEnv(environment);
-    if (resources) {
-      setSelectedResources(resources);
-    }
-  }, []);
+  const selectEnv = useCallback(
+    (environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => {
+      clearRunJobSelection();
+      setSelectedEnv(environment);
+      if (resources) {
+        setSelectedResources(resources);
+      }
+    },
+    [clearRunJobSelection]
+  );
 
-  const selectToken = useCallback(async (address: string, symbol?: string | null) => {
-    if (symbol) {
-      setSelectedToken({ address, symbol });
-      return;
-    } else {
-      const symbol = await getSymbolByAddress(address);
-      setSelectedToken({ address, symbol });
-    }
-  }, []);
+  const selectToken = useCallback(
+    async (address: string, symbol?: string | null) => {
+      if (symbol) {
+        setSelectedToken({ address, symbol });
+        return;
+      } else {
+        const symbol = await getSymbolByAddress(address);
+        setSelectedToken({ address, symbol });
+      }
+    },
+    [getSymbolByAddress]
+  );
 
   return (
     <RunJobContext.Provider
