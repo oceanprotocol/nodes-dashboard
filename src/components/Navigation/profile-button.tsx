@@ -64,7 +64,7 @@ const ProfileButton = () => {
           vertical: 'bottom',
           horizontal: 'center',
         }}
-        id="basic-menu"
+        disableScrollLock
         onClose={handleCloseMenu}
         open={!!anchorEl}
         slotProps={{

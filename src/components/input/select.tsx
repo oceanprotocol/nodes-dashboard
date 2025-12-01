@@ -108,6 +108,7 @@ const Select = <T extends string | number = string>({
         custom_size={size}
         endAdornment={endAdornment}
         has_error={!!errorText}
+        inputProps={{ MenuProps: { disableScrollLock: true } }}
         multiple={multiple}
         name={name}
         onBlur={onBlur}
