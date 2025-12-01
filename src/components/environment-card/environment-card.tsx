@@ -4,6 +4,7 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import { useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
+import { formatNumber } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -38,6 +39,8 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
 
   // TODO replace random with real check
   const hasBalance = Math.random() > 0.5;
+
+  const maxJobDurationHours = (environment.maxJobDuration ?? 0) / 60 / 60;
 
   const selectEnvironment = () => {
     selectEnv(environment);
@@ -328,7 +331,7 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
       <div className={styles.footer}>
         <div>
           <div>
-            Max job duration: <strong>{environment.maxJobDuration}</strong> seconds
+            Max job duration: <strong>{formatNumber(maxJobDurationHours)}</strong> hours
           </div>
           {showNodeName ? (
             <div>
