@@ -22,7 +22,7 @@ type RunJobContextType = {
   selectedResources: EnvResourcesSelection | null;
   selectedToken: SelectedToken | null;
   selectEnv: (environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => void;
-  selectToken: (address: string) => Promise<void>;
+  selectToken: (address: string, symbol?: string | null) => void | Promise<void>;
   setEstimatedTotalCost: (cost: number | null) => void;
   setSelectedResources: (selection: EnvResourcesSelection | null) => void;
 };
@@ -87,9 +87,14 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const selectToken = useCallback(async (address: string) => {
-    const symbol = await getSymbolByAddress(address);
-    setSelectedToken({ address, symbol });
+  const selectToken = useCallback(async (address: string, symbol?: string | null) => {
+    if (symbol) {
+      setSelectedToken({ address, symbol });
+      return;
+    } else {
+      const symbol = await getSymbolByAddress(address);
+      setSelectedToken({ address, symbol });
+    }
   }, []);
 
   return (

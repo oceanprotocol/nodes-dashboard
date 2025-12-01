@@ -41,7 +41,7 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
 
   const selectEnvironment = () => {
     selectEnv(environment);
-    selectToken(tokenAddress);
+    selectToken(tokenAddress, tokenSymbol);
     router.push('/run-job/resources');
   };
 
