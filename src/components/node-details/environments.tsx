@@ -13,7 +13,9 @@ const Environments = ({ node }: EnvironmentsProps) => {
   const { envs, getEnvs } = useP2P();
 
   useEffect(() => {
-    getEnvs(node?.id!);
+    if (node?.id) {
+      getEnvs(node.id);
+    }
   }, [node?.id, getEnvs]);
 
   return (
