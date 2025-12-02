@@ -43,12 +43,17 @@ export const BenchmarkJobsHistoryTableProvider = ({ children, nodeId }: { childr
   const fetchUrl = useMemo(() => {
     let url = `${getApiRoute('benchmarkHistory')}/${nodeId}/benchmarkHistory?page=${crtPage}&size=${pageSize}&sort={"endTime": "desc"}`;
     const gridFilterToBenchmarkFilters = (gridFilter: GridFilterModel): BenchmarkJobsHistoryFilters => {
+      const operatorMap: Record<string, FilterOperator> = {
+        '>': 'gt',
+        '<': 'lt',
+        '=': 'eq',
+      };
       const benchmarkFilters: BenchmarkJobsHistoryFilters = {};
       gridFilter.items.forEach((item) => {
         if (item.field && item.value !== undefined && item.operator) {
           benchmarkFilters[item.field as keyof BenchmarkJobsHistoryFilters] = {
             value: item.value,
-            operator: item.operator as FilterOperator,
+            operator: operatorMap[item.operator] || (item.operator as FilterOperator),
           };
         }
       });

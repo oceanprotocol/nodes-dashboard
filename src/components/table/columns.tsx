@@ -4,7 +4,7 @@ import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
-import { getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
@@ -161,6 +161,9 @@ export const jobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Start Time',
     sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'endTime',
@@ -168,6 +171,9 @@ export const jobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'End Time',
     sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'difficulty',
@@ -175,6 +181,9 @@ export const jobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Difficulty',
     sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'resultHashes',
@@ -182,6 +191,9 @@ export const jobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Total hashes',
     sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'score',
@@ -189,6 +201,9 @@ export const jobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Score',
     sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
 ];
 

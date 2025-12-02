@@ -39,12 +39,16 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   const fetchUrl = useMemo(() => {
     let url = `${getApiRoute('nodes')}?page=${crtPage}&size=${pageSize}&sort={"latestBenchmarkResults.gpuScore":"desc"}`;
     const gridFilterToNodeFilters = (gridFilter: GridFilterModel): NodeFilters => {
+      const operatorMap: Record<string, FilterOperator> = {
+        equals: 'eq',
+      };
+
       const nodeFilters: NodeFilters = {};
       gridFilter.items.forEach((item) => {
         if (item.field && item.value !== undefined && item.operator) {
           nodeFilters[item.field as keyof NodeFilters] = {
             value: item.value,
-            operator: item.operator as FilterOperator,
+            operator: operatorMap[item.operator] || (item.operator as FilterOperator),
           };
         }
       });
