@@ -1,6 +1,6 @@
 import { getNodeEnvs, initializeNode, sendCommandToPeer } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
-import { ComputeEnvironment } from '@/types/nodes';
+import { ComputeEnvironment } from '@/types/environments';
 import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 

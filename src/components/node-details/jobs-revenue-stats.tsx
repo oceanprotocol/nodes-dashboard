@@ -35,7 +35,7 @@ const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
 
   useEffect(() => {
     getEnvs(node?.id!);
-  }, [getEnvs, node?.id, envs]);
+  }, [node?.id, getEnvs]);
 
   const runningAndTotalJobs = useMemo(() => {
     let totalRunningJobs = 0;
