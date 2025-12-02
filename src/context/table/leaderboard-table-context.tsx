@@ -24,16 +24,19 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
 
   const buildFilterParams = (filters: NodeFilters): string => {
     if (!filters || Object.keys(filters).length === 0) return '';
-    return Object.entries(filters)
-      .filter(([_, filterData]) => filterData?.value && filterData?.operator)
-      .map(([field, filterData]) => {
-        if (field === 'id') {
-          const ids = filterData.value.split(',').map((id: string) => id.trim());
-          return `filters[${field}][value]=${ids.join(',')}`;
-        }
-        return `filters[${field}][${filterData.operator}]=${filterData.value}`;
-      })
-      .join('&');
+
+    const filtersObject: Record<string, { operator: string; value: any }> = {};
+
+    Object.entries(filters).forEach(([field, filterData]) => {
+      if (filterData?.value !== undefined && filterData?.operator) {
+        filtersObject[field] = {
+          operator: filterData.operator,
+          value: filterData.value,
+        };
+      }
+    });
+
+    return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
   };
 
   const fetchUrl = useMemo(() => {
