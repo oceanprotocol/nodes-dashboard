@@ -2,6 +2,7 @@ import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
 import { BenchmarkJobsHistoryFilters, FilterOperator } from '@/types/filters';
 import { ComputeJobHistory } from '@/types/jobs';
+import { formatDateTime } from '@/utils/formatters';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -24,12 +25,19 @@ export const BenchmarkJobsHistoryTableProvider = ({ children, nodeId }: { childr
 
   const buildFilterParams = (filters: BenchmarkJobsHistoryFilters): string => {
     if (!filters || Object.keys(filters).length === 0) return '';
-    return Object.entries(filters)
-      .filter(([_, filterData]) => filterData?.value && filterData?.operator)
-      .map(([field, filterData]) => {
-        return `filters[${field}][${filterData.operator}]=${filterData.value}`;
-      })
-      .join('&');
+
+    const filtersObject: Record<string, { operator: string; value: any }> = {};
+
+    Object.entries(filters).forEach(([field, filterData]) => {
+      if (filterData?.value !== undefined && filterData?.operator) {
+        filtersObject[field] = {
+          operator: filterData.operator,
+          value: filterData.value,
+        };
+      }
+    });
+
+    return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
   };
 
   const fetchUrl = useMemo(() => {
@@ -63,6 +71,8 @@ export const BenchmarkJobsHistoryTableProvider = ({ children, nodeId }: { childr
       const sanitizedData = response.data.benchmarkJobs.map((element: any, index: number) => ({
         ...element,
         score: element.benchmarkResults.gpuScore,
+        startTime: formatDateTime(element.startTime),
+        endTime: formatDateTime(element.endTime),
         id: element.jobId,
         index: (crtPage - 1) * pageSize + index + 1,
       }));
