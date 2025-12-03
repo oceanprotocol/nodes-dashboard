@@ -216,7 +216,7 @@ export const topNodesByRevenueColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'total_revenue',
+    field: 'totalRevenue',
     filterable: false,
     renderCell: ({ value }) => formatNumber(value.toFixed(2)),
     flex: 1,
@@ -224,7 +224,7 @@ export const topNodesByRevenueColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'latest_gpu_score',
+    field: 'latestGpuScore',
     filterable: false,
     flex: 1,
     headerName: 'Last benchmark score (GPU)',
@@ -256,14 +256,14 @@ export const topNodesByJobsColumns: GridColDef<Node>[] = [
     sortable: true,
   },
   {
-    field: 'total_jobs',
+    field: 'totalJobs',
     filterable: false,
     flex: 1,
     headerName: 'Total Jobs',
     sortable: true,
   },
   {
-    field: 'latest_gpu_score',
+    field: 'latestGpuScore',
     filterable: false,
     flex: 1,
     headerName: 'Last benchmark score (GPU)',

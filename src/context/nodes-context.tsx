@@ -74,23 +74,23 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<NodeStatsResponse>(`${getApiRoute('nodeStats')}/${selectedNode?.id}/stats`);
       if (response.data) {
-        setTotalJobs(response.data.total_jobs);
-        setTotalRevenue(response.data.total_revenue);
+        setTotalJobs(response.data.totalJobs);
+        setTotalRevenue(response.data.totalRevenue);
 
         const jobsPerEpoch = [];
         const revenuePerEpoch = [];
         for (const epochData of response.data.data) {
           jobsPerEpoch.push({
-            epoch_id: epochData.epoch_id,
-            total_network_jobs: epochData.total_network_jobs,
-            total_benchmark_jobs: epochData.total_benchmark_jobs,
-            total_jobs: epochData.total_benchmark_jobs + epochData.total_network_jobs,
+            epochId: epochData.epochId,
+            totalNetworkJobs: epochData.totalNetworkJobs,
+            totalBenchmarkJobs: epochData.totalBenchmarkJobs,
+            totalJobs: epochData.totalBenchmarkJobs + epochData.totalNetworkJobs,
           });
           revenuePerEpoch.push({
-            epoch_id: epochData.epoch_id,
-            total_network_revenue: epochData.network_revenue,
-            total_benchmark_revenue: epochData.benchmark_revenue,
-            total_revenue: epochData.network_revenue + epochData.benchmark_revenue,
+            epochId: epochData.epochId,
+            totalNetworkRevenue: epochData.networkRevenue,
+            totalBenchmarkRevenue: epochData.benchmarkRevenue,
+            totalRevenue: epochData.networkRevenue + epochData.benchmarkRevenue,
           });
         }
 

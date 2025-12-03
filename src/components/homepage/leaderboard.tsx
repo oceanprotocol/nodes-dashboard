@@ -52,8 +52,8 @@ export default function LeaderboardSection() {
         const currentNodeIndex = sanitizedData.findIndex((item: Node) => item.id === result.nodeId);
         sanitizedData[currentNodeIndex] = {
           ...sanitizedData[currentNodeIndex],
-          total_jobs: result.total_jobs,
-          total_revenue: result.total_revenue,
+          totalJobs: result.totalJobs,
+          totalRevenue: result.totalRevenue,
         };
       });
 
@@ -106,8 +106,8 @@ export default function LeaderboardSection() {
         nodeId: node.friendlyName ?? node.id ?? '-',
         gpuCpu: formatNodeGPUCPU(node),
         benchScore: node.latestBenchmarkResults.gpuScore,
-        jobsCompleted: node.total_jobs,
-        revenue: `USDC ${node.total_revenue.toFixed(2)}`,
+        jobsCompleted: node.totalJobs,
+        revenue: `USDC ${node.totalRevenue.toFixed(2)}`,
       })),
     [topNodes]
   );

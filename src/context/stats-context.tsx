@@ -51,7 +51,7 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
           size: 5,
           page: 1,
           sort: JSON.stringify({
-            total_revenue: 'desc',
+            totalRevenue: 'desc',
           }),
         },
       });
@@ -70,7 +70,7 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
           size: 5,
           page: 1,
           sort: JSON.stringify({
-            total_jobs: 'desc',
+            totalJobs: 'desc',
           }),
         },
       });
@@ -86,7 +86,7 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
       const res: GPUPopularityDisplay = response.data.map((gpu) => ({
-        gpu_name: `${gpu.vendor} ${gpu.name}`,
+        gpuName: `${gpu.vendor} ${gpu.name}`,
         popularity: gpu.popularity,
       }));
       setTopGpuModels(res);
@@ -110,27 +110,27 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<AnalyticsGlobalStats>(getApiRoute('analyticsGlobalStats'));
       if (response.data) {
-        setTotalNetworkRevenue(response.data.total_network_revenue);
-        setTotalBenchmarkRevenue(response.data.total_benchmark_revenue);
-        setTotalRevenue(response.data.total_benchmark_revenue + response.data.total_network_revenue);
-        setTotalNetworkJobs(response.data.total_network_jobs);
-        setTotalBenchmarkJobs(response.data.total_benchmark_jobs);
-        setTotalJobs(response.data.total_network_jobs + response.data.total_benchmark_jobs);
+        setTotalNetworkRevenue(response.data.totalNetworkRevenue);
+        setTotalBenchmarkRevenue(response.data.totalBenchmarkRevenue);
+        setTotalRevenue(response.data.totalBenchmarkRevenue + response.data.totalNetworkRevenue);
+        setTotalNetworkJobs(response.data.totalNetworkJobs);
+        setTotalBenchmarkJobs(response.data.totalBenchmarkJobs);
+        setTotalJobs(response.data.totalNetworkJobs + response.data.totalBenchmarkJobs);
 
         const jobs = [];
         const revenue = [];
         for (const item of response.data.data) {
           jobs.push({
-            epoch_id: item.epoch_id,
-            total_jobs: item.total_network_jobs + item.total_benchmark_jobs,
-            total_network_jobs: item.total_network_jobs,
-            total_benchmark_jobs: item.total_benchmark_jobs,
+            epochId: item.epochId,
+            totalJobs: item.totalNetworkJobs + item.totalBenchmarkJobs,
+            totalNetworkJobs: item.totalNetworkJobs,
+            totalBenchmarkJobs: item.totalBenchmarkJobs,
           });
           revenue.push({
-            epoch_id: item.epoch_id,
-            total_revenue: item.total_network_revenue + item.total_benchmark_revenue,
-            total_network_revenue: item.total_network_revenue,
-            total_benchmark_revenue: item.total_benchmark_revenue,
+            epochId: item.epochId,
+            totalRevenue: item.totalNetworkRevenue + item.totalBenchmarkRevenue,
+            totalNetworkRevenue: item.totalNetworkRevenue,
+            totalBenchmarkRevenue: item.totalBenchmarkRevenue,
           });
         }
 

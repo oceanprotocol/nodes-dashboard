@@ -13,7 +13,7 @@ const TopGpuModels = () => {
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Top GPUs by popularity</h3>
-      <HBarChart axisKey="gpu_name" barKey="popularity" data={topGpuModels} />
+      <HBarChart axisKey="gpuName" barKey="popularity" data={topGpuModels} />
     </Card>
   );
 };

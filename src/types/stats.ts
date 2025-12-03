@@ -11,29 +11,29 @@ export interface SystemStatsData {
 }
 
 export type JobsPerEpochType = {
-  epoch_id: number;
-  total_network_jobs: number;
-  total_benchmark_jobs: number;
-  total_jobs?: number;
+  epochId: number;
+  totalNetworkJobs: number;
+  totalBenchmarkJobs: number;
+  totalJobs?: number;
 };
 
 export type RevenuePerEpochType = {
-  epoch_id: number;
-  total_network_revenue: number;
-  total_benchmark_revenue: number;
-  total_revenue?: number;
+  epochId: number;
+  totalNetworkRevenue: number;
+  totalBenchmarkRevenue: number;
+  totalRevenue?: number;
 };
 
 export interface AnalyticsGlobalStats {
-  total_network_revenue: number;
-  total_benchmark_revenue: number;
-  total_network_jobs: number;
-  total_benchmark_jobs: number;
+  totalNetworkRevenue: number;
+  totalBenchmarkRevenue: number;
+  totalNetworkJobs: number;
+  totalBenchmarkJobs: number;
   data: {
-    epoch_id: number;
-    total_network_revenue: number;
-    total_benchmark_revenue: number;
-    total_network_jobs: number;
-    total_benchmark_jobs: number;
+    epochId: number;
+    totalNetworkRevenue: number;
+    totalBenchmarkRevenue: number;
+    totalNetworkJobs: number;
+    totalBenchmarkJobs: number;
   }[];
 }
