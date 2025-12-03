@@ -108,12 +108,13 @@ const apiRoutes = {
   gpuPopularity: { root: 'analytics', path: '/gpu-popularity' },
   topNodesByRevenue: { root: 'analytics', path: '/nodes' },
   topNodesByJobCount: { root: 'analytics', path: '/nodes' },
+  nodeStats: { root: 'analytics', path: '/nodes' },
+  nodeUnbanRequests: { root: 'analytics', path: '/nodes' },
 
   // ENS API routes
   ensAddress: { root: 'ens', path: '/address' },
   ensName: { root: 'ens', path: '/name' },
   ensProfile: { root: 'ens', path: '/profile' },
-  nodeStats: { root: 'analytics', path: '/nodes' },
 } as const;
 
 type ApiRouteKeys = keyof typeof apiRoutes;

@@ -36,7 +36,7 @@ const NodeDetailsPage = () => {
       />
       <div className="pageContentWrapper">
         <NodeInfo node={selectedNode} />
-        {selectedNode.eligibilityCauseStr === 'Banned' ? <UnbanRequests /> : null}
+        {selectedNode.eligibilityCauseStr === 'Banned' ? <UnbanRequests node={selectedNode} /> : null}
         <JobsRevenueStats node={selectedNode} />
         <BenchmarkJobs />
         <Environments node={selectedNode} />
