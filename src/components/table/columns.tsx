@@ -202,7 +202,7 @@ export const topNodesByRevenueColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'friendly_name',
+    field: 'friendlyName',
     filterable: true,
     flex: 1,
     headerName: 'Name',
@@ -242,7 +242,7 @@ export const topNodesByJobsColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'friendly_name',
+    field: 'friendlyName',
     filterable: false,
     flex: 1,
     headerName: 'Name',

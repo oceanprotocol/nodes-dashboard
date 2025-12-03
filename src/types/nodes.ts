@@ -25,7 +25,6 @@ export type Node = {
   cpus: CPU[];
   eligible?: boolean;
   eligibilityCauseStr?: string;
-  friendly_name: string;
   friendlyName?: string;
   gpus: GPU[];
   id?: string;

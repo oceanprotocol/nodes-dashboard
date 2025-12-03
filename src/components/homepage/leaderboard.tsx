@@ -103,7 +103,7 @@ export default function LeaderboardSection() {
   const itemsList: LeaderboardItem[] = useMemo(
     () =>
       topNodes.map((node) => ({
-        nodeId: node.friendlyName!,
+        nodeId: node.friendlyName ?? node.id ?? '-',
         gpuCpu: formatNodeGPUCPU(node),
         benchScore: node.latestBenchmarkResults.gpuScore,
         jobsCompleted: node.total_jobs,
