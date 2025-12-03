@@ -4,7 +4,7 @@ import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
-import { getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
@@ -142,53 +142,68 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
 export const jobsColumns: GridColDef<Node>[] = [
   {
     align: 'center',
-    field: 'index', // TODO
+    field: 'index',
     filterable: false,
     headerAlign: 'center',
     headerName: 'Index',
     sortable: false,
   },
   {
-    field: 'status', // TODO
-    filterable: true,
+    field: 'status',
+    filterable: false,
     flex: 1,
     headerName: 'Status',
-    sortable: true,
+    sortable: false,
   },
   {
-    field: 'startTime', // TODO
-    filterable: false,
+    field: 'startTime',
+    filterable: true,
     flex: 1,
     headerName: 'Start Time',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'endTime', // TODO
-    filterable: false,
+    field: 'endTime',
+    filterable: true,
     flex: 1,
     headerName: 'End Time',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'difficulty', // TODO
-    filterable: false,
+    field: 'difficulty',
+    filterable: true,
     flex: 1,
     headerName: 'Difficulty',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'totalHashes', // TODO
-    filterable: false,
+    field: 'resultHashes',
+    filterable: true,
     flex: 1,
     headerName: 'Total hashes',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'score', // TODO
-    filterable: false,
+    field: 'score',
+    filterable: true,
     flex: 1,
     headerName: 'Score',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
 ];
 

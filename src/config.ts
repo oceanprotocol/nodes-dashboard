@@ -99,6 +99,7 @@ const apiRoutes = {
   weekStats: { root: 'incentive', path: '/weekStats' },
   banStatus: { root: 'incentive', path: '/nodes' },
   nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
+  benchmarkHistory: { root: 'incentive', path: '/nodes' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },

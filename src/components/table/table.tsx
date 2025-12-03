@@ -172,6 +172,9 @@ export const Table = <T,>({
       case TableTypeEnum.NODES_TOP_REVENUE: {
         return topNodesByRevenueColumns;
       }
+      case TableTypeEnum.BENCHMARK_JOBS_HISTORY: {
+        return jobsColumns;
+      }
     }
   }, [tableType]);
 

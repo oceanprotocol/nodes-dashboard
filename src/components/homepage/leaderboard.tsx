@@ -39,7 +39,7 @@ export default function LeaderboardSection() {
     setIsLoading(true);
     try {
       const response = await axios.get(
-        `${getApiRoute('nodes')}?page=0&size=3&sort[latestBenchmarkResults.gpuScore]=desc`
+        `${getApiRoute('nodes')}?page=0&size=3&sort={"latestBenchmarkResults.gpuScore":"desc"}`
       );
       const sanitizedData = response.data.nodes.map((element: any) => element._source);
 
