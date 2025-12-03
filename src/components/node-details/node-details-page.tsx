@@ -17,6 +17,9 @@ const NodeDetailsPage = () => {
     if (!selectedNode && params?.nodeId) {
       fetchNode(params?.nodeId);
     }
+    if (selectedNode) {
+      selectedNode.eligibilityCauseStr = 'Banned';
+    }
   }, [selectedNode, params?.nodeId, fetchNode]);
 
   if (!selectedNode) {
