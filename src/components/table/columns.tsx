@@ -75,15 +75,16 @@ function getUnbanAttemptResult(result: string) {
 
 function getUnbanAttemptStatus(status: string) {
   return (
-    <div
+    <span
       className={classNames('chip', {
         chipSuccess: status === 'Finished',
         chipWarning: status === 'In queue',
         chipError: status === 'Failed',
       })}
+      style={{ alignSelf: 'center' }}
     >
       {status}
-    </div>
+    </span>
   );
 }
 
@@ -243,11 +244,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
     flex: 1,
     headerName: 'Status',
     sortable: false,
-    renderCell: (params: GridRenderCellParams<UnbanRequest>) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {getUnbanAttemptStatus(params.row.status)}
-      </div>
-    ),
+    renderCell: (params: GridRenderCellParams<UnbanRequest>) => getUnbanAttemptStatus(params.row.status),
   },
   {
     field: 'startedAt',

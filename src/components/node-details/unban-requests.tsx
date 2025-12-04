@@ -12,17 +12,6 @@ type UnbanRequestsProps = {
   node: Node;
 };
 
-const requests = [
-  {
-    id: 0,
-    index: 1,
-    status: 'In queue',
-    startedAt: '2025-10-10 12:34',
-    completedAt: '-',
-    benchmarkResult: 'Pending',
-  },
-];
-
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   const { unbanRequests, fetchUnbanRequests } = useUnbanRequestsContext();
 
@@ -38,7 +27,7 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
         <h3>Unban requests</h3>
         <Button color="accent1">Request unban</Button>
       </div>
-      <Table<UnbanRequest> data={requests} paginationType="none" tableType={TableTypeEnum.UNBAN_REQUESTS} />
+      <Table<UnbanRequest> data={unbanRequests} paginationType="none" tableType={TableTypeEnum.UNBAN_REQUESTS} />
     </Card>
   );
 };
