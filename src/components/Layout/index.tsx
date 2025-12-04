@@ -4,6 +4,9 @@ import Head from 'next/head';
 import { ReactNode } from 'react';
 import styles from './index.module.css';
 
+const videoSrc = '/banner-video.mp4';
+const posterSrc = '/banner-video.jpg';
+
 type RootLayoutProps = {
   children: ReactNode;
 };
@@ -19,8 +22,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
       </Head>
       <div className={styles.main}>
         <div className={styles.backgroundAnimation}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img alt="Background animation" src={'/banner-video.jpg'} className={styles.backgorundImage} />
+          <video
+            className={styles.backgorundImage}
+            src={videoSrc}
+            muted
+            autoPlay
+            playsInline
+            loop
+            preload="auto"
+            poster={posterSrc}
+          />
         </div>
         <Navigation />
         {children}
