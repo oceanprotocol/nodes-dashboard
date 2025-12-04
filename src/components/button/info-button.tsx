@@ -13,7 +13,7 @@ const InfoButton = ({ node }: InfoButtonProps) => {
 
   const handleClick = () => {
     setSelectedNode(node);
-    router.push(`/nodes/${node.id || node.node_id}`);
+    router.push(`/nodes/${node.id || node.nodeId}`);
   };
 
   return (

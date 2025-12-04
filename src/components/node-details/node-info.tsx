@@ -20,7 +20,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       <div className={styles.infoWrapper}>
         <div className={styles.infoContent}>
           <div>
-            <h2 className={styles.title}>{node.friendlyName}</h2>
+            <h2 className={styles.title}>{node.friendlyName ?? node.id}</h2>
             <div className={styles.hash}>{node.id}</div>
           </div>
           <div className={styles.grid}>
