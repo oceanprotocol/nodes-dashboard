@@ -23,6 +23,15 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+      try {
+      const conn = new WebSocket("wss://ocean-node9.oceanprotocol.io:8000")
+      console.log(conn)
+      } catch (error) {
+          console.log("wss conn error: ", error)
+      }
+  }, [])
+
+  useEffect(() => {
     if (node?.id) {
       fetchUnbanRequests(node.id);
     }
