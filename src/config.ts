@@ -99,6 +99,7 @@ const apiRoutes = {
   weekStats: { root: 'incentive', path: '/weekStats' },
   banStatus: { root: 'incentive', path: '/nodes' },
   nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
+  nodeUnbanRequests: { root: 'incentive', path: '/nodes' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },
@@ -109,7 +110,6 @@ const apiRoutes = {
   topNodesByRevenue: { root: 'analytics', path: '/nodes' },
   topNodesByJobCount: { root: 'analytics', path: '/nodes' },
   nodeStats: { root: 'analytics', path: '/nodes' },
-  nodeUnbanRequests: { root: 'analytics', path: '/nodes' },
 
   // ENS API routes
   ensAddress: { root: 'ens', path: '/address' },

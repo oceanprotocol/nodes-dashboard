@@ -1,4 +1,3 @@
-import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { NodeBanInfo, NodeEligibility } from '@/types/nodes';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -41,10 +40,9 @@ const Eligibility = ({ eligibility, eligibilityCauseStr, banInfo }: EligibilityP
           <div className={styles.content}>
             <div>
               This node is excluded from all operations and rewards
-              <strong>Reason:</strong> <span> {banInfo?.reason ?? 'Unknown'}</span>
+              <br />
+              <strong> Reason:</strong> <span> {banInfo?.reason ?? 'Unknown'}</span>
             </div>
-            {/* TODO link */}
-            <Button className={styles.button}>More info</Button>
           </div>
         </Card>
       );

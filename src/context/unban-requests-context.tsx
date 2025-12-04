@@ -7,6 +7,7 @@ type UnbanRequestsContextType = {
   unbanRequests: UnbanRequest[];
 
   fetchUnbanRequests: (nodeId: string) => Promise<void>;
+  requestNodeUnban: (nodeId: string, signature: string, expiryTimestamp: number) => Promise<void>;
 };
 
 const UnbanRequestsContext = createContext<UnbanRequestsContextType | undefined>(undefined);
@@ -28,11 +29,23 @@ export const UnbanRequestsProvider = ({ children }: { children: ReactNode }) => 
     }
   }, []);
 
+  const requestNodeUnban = useCallback(async (nodeId: string, signature: string, expiryTimestamp: number) => {
+    try {
+      await axios.post(`${getApiRoute('nodeUnbanRequests')}/${nodeId}/unban`, {
+        signature,
+        expiryTimestamp,
+      });
+    } catch (error) {
+      console.error('Error requesting node unban: ', error);
+    }
+  }, []);
+
   return (
     <UnbanRequestsContext.Provider
       value={{
         unbanRequests,
         fetchUnbanRequests,
+        requestNodeUnban,
       }}
     >
       {children}

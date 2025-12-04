@@ -16,6 +16,7 @@ type ButtonProps = {
   size?: 'md' | 'lg';
   type?: 'button' | 'submit' | 'reset';
   variant?: 'filled' | 'outlined';
+  disabled?: boolean;
 };
 
 const Button = ({
@@ -31,6 +32,7 @@ const Button = ({
   size = 'md',
   type = 'button',
   variant = 'filled',
+  disabled,
 }: ButtonProps) => {
   const classes = classNames(
     styles.root,
@@ -51,7 +53,7 @@ const Button = ({
   }
 
   return (
-    <button className={classes} id={id} onClick={onClick} type={type}>
+    <button className={classes} disabled={disabled} id={id} onClick={onClick} type={type}>
       {contentBefore}
       {children}
       {contentAfter}
