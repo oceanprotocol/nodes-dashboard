@@ -1,16 +1,40 @@
 import Card from '@/components/card/card';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { MOCK_JOBS } from '@/mock/jobs';
+import {
+  BenchmarkJobsHistoryTableProvider,
+  useBenchmarkJobsHistoryTableContext,
+} from '@/context/table/benchmark-jobs-history-table-context';
 import { Job } from '@/types/jobs';
+import { useParams } from 'next/navigation';
 
-const BenchmarkJobs = () => {
-  // TODO implement context for benchmark jobs history to support pagination, sorting, filtering, etc.
+const BenchmarkJobsContent = () => {
+  const benchmarkJobsHistoryTableContext = useBenchmarkJobsHistoryTableContext();
+
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Benchmark jobs history</h3>
-      <Table<Job> data={MOCK_JOBS} paginationType="none" tableType={TableTypeEnum.BENCHMARK_JOBS} />
+      <Table<Job>
+        context={benchmarkJobsHistoryTableContext}
+        paginationType="context"
+        showToolbar
+        tableType={TableTypeEnum.BENCHMARK_JOBS}
+      />
     </Card>
+  );
+};
+
+const BenchmarkJobs = () => {
+  const params = useParams<{ nodeId: string }>();
+
+  if (!params?.nodeId) {
+    return null;
+  }
+
+  return (
+    <BenchmarkJobsHistoryTableProvider nodeId={params.nodeId}>
+      <BenchmarkJobsContent />
+    </BenchmarkJobsHistoryTableProvider>
   );
 };
 

@@ -22,15 +22,15 @@ const JobsRevenueStats = () => {
         </div>
       </div>
       <VBarChart
-        axisKey="epoch_id"
-        barKey="total_revenue"
+        axisKey="epochId"
+        barKey="totalRevenue"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={revenuePerEpoch}
         title="Revenue per epoch"
       />
       <VBarChart
-        axisKey="epoch_id"
-        barKey="total_jobs"
+        axisKey="epochId"
+        barKey="totalJobs"
         chartType={ChartTypeEnum.JOBS_PER_EPOCH}
         data={jobsPerEpoch}
         footer={{

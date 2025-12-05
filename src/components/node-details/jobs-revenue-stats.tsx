@@ -51,8 +51,8 @@ const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
   return (
     <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
       <VBarChart
-        axisKey="epoch_id"
-        barKey="total_revenue"
+        axisKey="epochId"
+        barKey="totalRevenue"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={revenuePerEpoch}
         title="Revenue per epoch"
@@ -71,8 +71,8 @@ const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
         value={benchmarkValues.lastGPUScore || 0}
       />
       <VBarChart
-        axisKey="epoch_id"
-        barKey="total_jobs"
+        axisKey="epochId"
+        barKey="totalJobs"
         chartType={ChartTypeEnum.JOBS_PER_EPOCH}
         data={jobsPerEpoch}
         title="Jobs per epoch"
