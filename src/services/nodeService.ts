@@ -11,7 +11,8 @@ import { all } from '@libp2p/websockets/filters';
 import { multiaddr, type Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
-import { toString as uint8ArrayToString } from 'uint8arrays/to-string';
+import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
+import { tcp } from '@libp2p/tcp'
 
 let nodeInstance: Libp2p | null = null;
 let isNodeReady = false;
@@ -73,7 +74,7 @@ export async function initializeNode(bootstrapNodes: string[]) {
 
   try {
     nodeInstance = await createLibp2p({
-      transports: [webSockets({ filter: all })],
+      transports: [webSockets({ filter: all }), tcp()],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],
       peerDiscovery: [
@@ -224,21 +225,21 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     );
   }
 
-  const wsAddrs = allMultiaddrs.filter((ma) => {
-    const str = ma.toString();
-    return str.includes('/ws') || str.includes('/wss');
-  });
+  // const wsAddrs = allMultiaddrs.filter((ma) => {
+  //   const str = ma.toString();
+  //   return str.includes('/ws') || str.includes('/wss');
+  // });
 
-  console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`);
+  //console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`);
 
-  if (wsAddrs.length === 0) {
-    console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`);
-  }
+  // if (wsAddrs.length === 0) {
+  //   console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`);
+  // }
 
   const finalmultiaddrsWithPeerId: Multiaddr[] = [];
   const finalmultiaddrsWithoutPeerId: Multiaddr[] = [];
 
-  for (const addr of wsAddrs) {
+  for (const addr of allMultiaddrs) {
     const addrStr = addr.toString();
 
     if (addrStr.includes(`/p2p/${peer}`)) {

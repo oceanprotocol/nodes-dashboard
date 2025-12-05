@@ -1991,7 +1991,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/interface@npm:^1.1.3, @libp2p/interface@npm:^1.5.0, @libp2p/interface@npm:^1.7.0":
+"@libp2p/interface@npm:^1.1.3, @libp2p/interface@npm:^1.5.0, @libp2p/interface@npm:^1.6.0, @libp2p/interface@npm:^1.7.0":
   version: 1.7.0
   resolution: "@libp2p/interface@npm:1.7.0"
   dependencies:
@@ -2172,7 +2172,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/utils@npm:^5.2.5, @libp2p/utils@npm:^5.4.9":
+"@libp2p/tcp@npm:9.1.1":
+  version: 9.1.1
+  resolution: "@libp2p/tcp@npm:9.1.1"
+  dependencies:
+    "@libp2p/interface": "npm:^1.6.0"
+    "@libp2p/utils": "npm:^5.4.5"
+    "@multiformats/mafmt": "npm:^12.1.6"
+    "@multiformats/multiaddr": "npm:^12.2.3"
+    "@types/sinon": "npm:^17.0.3"
+    progress-events: "npm:^1.0.0"
+    stream-to-it: "npm:^1.0.1"
+  checksum: 10c0/353fd4c1a61b625f614da131fda56d7f8c672e7db0211ca3986001c4a7f3089cf11482df7438374ce96aab44ae60df6ca7849368cc606d436c99f89de8d1546d
+  languageName: node
+  linkType: hard
+
+"@libp2p/utils@npm:^5.2.5, @libp2p/utils@npm:^5.4.5, @libp2p/utils@npm:^5.4.9":
   version: 5.4.9
   resolution: "@libp2p/utils@npm:5.4.9"
   dependencies:
@@ -4544,6 +4559,22 @@ __metadata:
   version: 7.7.1
   resolution: "@types/semver@npm:7.7.1"
   checksum: 10c0/c938aef3bf79a73f0f3f6037c16e2e759ff40c54122ddf0b2583703393d8d3127130823facb880e694caa324eb6845628186aac1997ee8b31dc2d18fafe26268
+  languageName: node
+  linkType: hard
+
+"@types/sinon@npm:^17.0.3":
+  version: 17.0.4
+  resolution: "@types/sinon@npm:17.0.4"
+  dependencies:
+    "@types/sinonjs__fake-timers": "npm:*"
+  checksum: 10c0/7c67ae1050d98a86d8dd771f0a764e97adb9d54812bf3b001195f8cfaa1e2bdfc725d5b970b91e7b0bb6b7c1ca209f47993f2c6f84f1f868313c37441313ca5b
+  languageName: node
+  linkType: hard
+
+"@types/sinonjs__fake-timers@npm:*":
+  version: 15.0.1
+  resolution: "@types/sinonjs__fake-timers@npm:15.0.1"
+  checksum: 10c0/be8daa4e19746f4c249ce4926b83676bb2e5500a8c33b61d81cd303495b56697c28c910f7c57c0ecfd1d7c8ead87449570586d9568b0b5c6fd94c45f116197f4
   languageName: node
   linkType: hard
 
@@ -9976,6 +10007,7 @@ __metadata:
     "@libp2p/kad-dht": "npm:^12.1.1"
     "@libp2p/peer-id": "npm:^4.1.4"
     "@libp2p/ping": "npm:^1.1.1"
+    "@libp2p/tcp": "npm:9.1.1"
     "@libp2p/websockets": "npm:^8.1.1"
     "@mui/icons-material": "npm:^7.3.4"
     "@mui/material": "npm:^7.3.4"
@@ -11530,6 +11562,15 @@ __metadata:
   dependencies:
     stream-chain: "npm:^2.2.5"
   checksum: 10c0/0521e5cb3fb6b0e2561d715975e891bd81fa77d0239c8d0b1756846392bc3c7cdd7f1ddb0fe7ed77e6fdef58daab9e665d3b39f7d677bd0859e65a2bff59b92c
+  languageName: node
+  linkType: hard
+
+"stream-to-it@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "stream-to-it@npm:1.0.1"
+  dependencies:
+    it-stream-types: "npm:^2.0.1"
+  checksum: 10c0/e90abc2e05ef6832cc52fbf48ec230a00883f53a00f9aa4968a7367d0f9cea97cc8e848b204dcaef8a04a2efe540cdd4c256ed0e6650321de4e449a7d554224f
   languageName: node
   linkType: hard
 
