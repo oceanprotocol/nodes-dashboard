@@ -306,6 +306,7 @@ export async function sendCommandToPeer(
 
     const message = JSON.stringify(command);
     let response = '';
+    let potentialHeaderChunk: string | null = null;
 
     console.log('BA INTRA AICI?')
 
@@ -321,6 +322,7 @@ export async function sendCommandToPeer(
         try {
           const parsed = JSON.parse(str);
           if (parsed.httpStatus !== undefined) {
+            potentialHeaderChunk = str;
             continue;
           }
         } catch (e) {}
@@ -330,6 +332,15 @@ export async function sendCommandToPeer(
     }
 
     await stream.close();
+
+    if (!response && potentialHeaderChunk) {
+      console.log('Received only a header chunk, using it as response');
+      response = potentialHeaderChunk;
+    }
+
+    if (!response) {
+      throw new Error('Received empty response from peer');
+    }
 
     return JSON.parse(response);
   } catch (error: unknown) {
