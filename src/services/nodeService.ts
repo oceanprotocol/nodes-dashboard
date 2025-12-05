@@ -111,6 +111,18 @@ export async function initializeNode(bootstrapNodes: string[]) {
       },
     });
 
+    nodeInstance.addEventListener('peer:connect', (peerId) => {
+      console.log(`Connected to peer: ${peerId.toString()}`);
+    });
+
+    nodeInstance.addEventListener('peer:discovery', (peerId) => {
+      console.log(`Discovered peer: ${peerId.toString()}`);
+    });
+
+    nodeInstance.addEventListener('peer:identify', (peerId) => {
+      console.log(`Identified peer: ${peerId.toString()}`);
+    });
+
     await nodeInstance.start();
     
     console.log('Node started, waiting for bootstrap connections...');
