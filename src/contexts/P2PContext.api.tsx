@@ -1,17 +1,3 @@
-/**
- * P2P Context - Server-Side API Version
- * 
- * This version uses Next.js API routes instead of client-side libp2p.
- * The libp2p node runs on the server (where WS connections are allowed),
- * and the client communicates via HTTPS API calls.
- * 
- * Benefits:
- * - No mixed content issues in production
- * - Works seamlessly in HTTPS environments
- * - Server handles all P2P complexity
- * - Client code is simpler
- */
-
 import { sendCommandToPeerAPI, getNodeEnvsAPI, getNodeStatusAPI, initializeNodeAPI, waitForNodeReady } from '@/services/p2pApiService';
 import { ComputeEnvironment } from '@/types/environments';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';

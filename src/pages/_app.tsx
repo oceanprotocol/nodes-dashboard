@@ -14,6 +14,18 @@ import type { AppProps } from 'next/app';
 import { Inter, Orbitron } from 'next/font/google';
 import { useEffect, useRef } from 'react';
 
+if (typeof window !== 'undefined' && !Promise.withResolvers) {
+  window.Promise.withResolvers = function <T>() {
+    let resolve: ((value: T | PromiseLike<T>) => void) | undefined;
+    let reject: ((reason?: any) => void) | undefined;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { resolve: resolve!, reject: reject!, promise };
+  };
+}
+
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
