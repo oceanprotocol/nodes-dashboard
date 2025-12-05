@@ -3,7 +3,7 @@ import { ChartTypeEnum } from '@/components/chart/chart-type';
 import Gauge from '@/components/chart/gauge';
 import VBarChart from '@/components/chart/v-bar-chart';
 import { useNodesContext } from '@/context/nodes-context';
-import { useP2P } from '@/contexts/P2PContext';
+import { useP2P } from '@/contexts/P2PContext.api';
 import { type Node } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
 import { useEffect, useMemo } from 'react';

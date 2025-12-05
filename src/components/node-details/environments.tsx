@@ -1,6 +1,6 @@
 import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
-import { useP2P } from '@/contexts/P2PContext';
+import { useP2P } from '@/contexts/P2PContext.api';
 import { Node } from '@/types';
 import { useEffect } from 'react';
 import styles from './environments.module.css';
