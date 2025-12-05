@@ -1,6 +1,8 @@
 .root {
   background-color: #040a12;
   padding: 60px 50px;
+  position: relative;
+  z-index: 2;
 }
 
 .twoSections {
@@ -18,8 +20,11 @@
 }
 
 .animation {
-  flex: 0 0 auto;
-  max-width: 480px;
+  position: relative;
+  width: 568px;
+  height: 538px;
+  overflow: hidden;
+  border-radius: 32px;
 }
 
 .animation img {
@@ -27,6 +32,15 @@
   height: auto;
   display: block;
   border-radius: 32px;
+}
+
+.animation video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 32px;
+  object-fit: cover;
+  object-position: 50% 30%;
 }
 
 .featureItem {
@@ -41,7 +55,15 @@
   color: rgba(255, 255, 255, 1);
 }
 
+.featureItemActive {
+  color: rgba(255, 255, 255, 1);
+}
+
 .featureItem:hover .indexNumber {
+  color: #be00ff;
+}
+
+.featureItemActive .indexNumber {
   color: #be00ff;
 }
 
@@ -76,7 +98,9 @@
 
   .animation {
     align-self: center;
-    max-width: 360px;
+    width: 90vw;
+    max-width: 568px;
+    height: calc(90vw * 538 / 568);
   }
 }
 
@@ -94,7 +118,9 @@
   }
 
   .animation {
-    display: none;
+    width: 92vw;
+    max-width: 520px;
+    height: calc(92vw * 538 / 568);
   }
 }
 
