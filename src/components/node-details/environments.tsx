@@ -10,13 +10,13 @@ type EnvironmentsProps = {
 };
 
 const Environments = ({ node }: EnvironmentsProps) => {
-  const { envs, getEnvs } = useP2P();
+  const { envs, isReady, getEnvs } = useP2P();
 
   useEffect(() => {
-    if (node?.id) {
-      getEnvs(node.id);
+    if (node?.id && isReady) {
+      setTimeout(() => getEnvs(node.id!), 5000)
     }
-  }, [node?.id, getEnvs]);
+  }, [node?.id, isReady, getEnvs]);
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">

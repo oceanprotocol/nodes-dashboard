@@ -11,10 +11,4 @@ export const OCEAN_BOOTSTRAP_NODES = [
   // node 4
   '/dns4/node4.oceanprotocol.com/tcp/9001/ws/p2p/16Uiu2HAmSTVTArioKm2wVcyeASHYEsnx2ZNq467Z4GMDU4ErEPom',
   '/dns6/node4.oceanprotocol.com/tcp/9003/ws/p2p/16Uiu2HAmSTVTArioKm2wVcyeASHYEsnx2ZNq467Z4GMDU4ErEPom',
-  // compute 1
-  '/dns4/compute1.oceanprotocol.com/tcp/9001/wss/p2p/16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
-  '/dns6/compute1.oceanprotocol.com/tcp/9003/wss/p2p/16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
-  // node9
-  '/dns4/ocean-node9.oceanprotocol.com/tcp/8000/ws/p2p/16Uiu2HAmUf4JpduE6CXpNMm1xdjhFUH53G4c9o37Kat3wsreUyaQ',
-  '/dns6/ocean-node9.oceanprotocol.com/tcp/8000/ws/p2p/16Uiu2HAmUf4JpduE6CXpNMm1xdjhFUH53G4c9o37Kat3wsreUyaQ'
 ];

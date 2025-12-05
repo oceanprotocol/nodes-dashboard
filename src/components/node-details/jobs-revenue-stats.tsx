@@ -34,7 +34,9 @@ const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
   }, [fetchNodeBenchmarkMinMaxLast]);
 
   useEffect(() => {
-    getEnvs(node?.id!);
+    if (node?.id) {
+        getEnvs(node.id);
+    }
   }, [node?.id, getEnvs]);
 
   const runningAndTotalJobs = useMemo(() => {

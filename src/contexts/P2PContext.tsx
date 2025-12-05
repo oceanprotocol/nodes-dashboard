@@ -1,4 +1,4 @@
-import { getNodeEnvs, initializeNode, sendCommandToPeer } from '@/services/nodeService';
+import { getNodeEnvs, getNodeReadyState, initializeNode, sendCommandToPeer } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
 import { Libp2p } from 'libp2p';
@@ -32,9 +32,14 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
 
         if (mounted) {
           setNode(nodeInstance);
-          setIsReady(true);
+          const ready = getNodeReadyState();
+          setIsReady(ready);
 
-          console.log('P2PContext: Node ready');
+          if (ready) {
+            console.log('P2PContext: Node ready with bootstrap connections');
+          } else {
+            console.warn('P2PContext: Node started but may have limited connectivity');
+          }
         }
       } catch (err: any) {
         console.error('P2PContext: Failed to initialize node:', err);
