@@ -35,7 +35,7 @@ const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
 
   useEffect(() => {
     if (node?.id) {
-        getEnvs(node.id);
+     //   getEnvs(node.id);
     }
   }, [node?.id, getEnvs]);
 

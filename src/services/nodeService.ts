@@ -74,7 +74,7 @@ export async function initializeNode(bootstrapNodes: string[]) {
 
   try {
     nodeInstance = await createLibp2p({
-      transports: [webSockets({ filter: all }), tcp()],
+      transports: [webSockets({ filter: all })],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],
       peerDiscovery: [
@@ -111,16 +111,12 @@ export async function initializeNode(bootstrapNodes: string[]) {
       },
     });
 
-    nodeInstance.addEventListener('peer:connect', (peerId) => {
-      console.log(`Connected to peer: ${peerId.toString()}`);
+    nodeInstance.addEventListener('peer:connect', (event) => {
+      console.log(`Connected to peer: ${JSON.stringify(event.detail)}`);
     });
 
-    nodeInstance.addEventListener('peer:discovery', (peerId) => {
-      console.log(`Discovered peer: ${peerId.toString()}`);
-    });
-
-    nodeInstance.addEventListener('peer:identify', (peerId) => {
-      console.log(`Identified peer: ${peerId.toString()}`);
+    nodeInstance.addEventListener('peer:discovery', (event) => {
+      console.log(`Discovered peer: ${JSON.stringify(event.detail)}`);
     });
 
     await nodeInstance.start();
@@ -237,21 +233,21 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     );
   }
 
-  // const wsAddrs = allMultiaddrs.filter((ma) => {
-  //   const str = ma.toString();
-  //   return str.includes('/ws') || str.includes('/wss');
-  // });
+  const wsAddrs = allMultiaddrs.filter((ma) => {
+    const str = ma.toString();
+    return str.includes('/ws') || str.includes('/wss');
+  });
 
-  //console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`);
+  console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`);
 
-  // if (wsAddrs.length === 0) {
-  //   console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`);
-  // }
+  if (wsAddrs.length === 0) {
+    console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`);
+  }
 
   const finalmultiaddrsWithPeerId: Multiaddr[] = [];
   const finalmultiaddrsWithoutPeerId: Multiaddr[] = [];
 
-  for (const addr of allMultiaddrs) {
+  for (const addr of wsAddrs) {
     const addrStr = addr.toString();
 
     if (addrStr.includes(`/p2p/${peer}`)) {
@@ -294,21 +290,30 @@ export async function sendCommandToPeer(
 
     const discovered = await discoverPeerAddresses(nodeInstance, peerId);
 
+    console.log('Adresele descoperite sunt: ', discovered)
+
     const connection = await nodeInstance.dial(discovered, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
     });
+
+    console.log('PICI AICI?')
 
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
     });
 
+    console.log('Ce comanda trimitem varule', command)
+
     const message = JSON.stringify(command);
     let response = '';
+
+    console.log('BA INTRA AICI?')
 
     await stream.sink([uint8ArrayFromString(message)]);
 
     let firstChunk = true;
     for await (const chunk of stream.source) {
+      console.log('Chunk received', chunk)
       const str = uint8ArrayToString(chunk.subarray());
 
       if (firstChunk) {

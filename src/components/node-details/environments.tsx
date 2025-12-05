@@ -14,6 +14,7 @@ const Environments = ({ node }: EnvironmentsProps) => {
 
   useEffect(() => {
     if (node?.id && isReady) {
+      console.log('acum e acum')
       setTimeout(() => getEnvs(node.id!), 5000)
     }
   }, [node?.id, isReady, getEnvs]);
