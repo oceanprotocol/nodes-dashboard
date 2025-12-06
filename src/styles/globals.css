@@ -105,3 +105,25 @@ a {
     color: var(--text-primary);
   }
 }
+
+/* Utility classes */
+
+.alignSelfCenter {
+  align-self: center;
+}
+.alignSelfEnd {
+  align-self: end;
+}
+.alignSelfStart {
+  align-self: start;
+}
+
+.textError {
+  color: var(--error);
+}
+.textSuccess {
+  color: var(--success);
+}
+.textWarning {
+  color: var(--warning);
+}
