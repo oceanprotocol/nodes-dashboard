@@ -13,7 +13,7 @@
 }
 
 .title span {
-  color: #009bff;
+  color: var(--accent1);
 }
 
 .relative {
@@ -54,7 +54,7 @@
 }
 
 .textBadge span {
-  color: #009bff;
+  color: var(--accent1);
 }
 
 @media (max-width: 1200px) {
@@ -126,4 +126,3 @@
     font-size: 42px;
   }
 }
-

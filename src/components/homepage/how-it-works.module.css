@@ -60,11 +60,11 @@
 }
 
 .featureItem:hover .indexNumber {
-  color: #be00ff;
+  color: var(--accent2);
 }
 
 .featureItemActive .indexNumber {
-  color: #be00ff;
+  color: var(--accent2);
 }
 
 .indexNumber {

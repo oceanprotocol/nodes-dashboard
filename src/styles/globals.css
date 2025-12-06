@@ -10,8 +10,8 @@
   --border-color: #e2e8f0;
   --primary: #cf1fb1;
 
-  --accent1: #009bff;
-  --accent2: #be00ff;
+  --accent1: #00afe0;
+  --accent2: #62b812;
   --backdrop-filter-glass: blur(10px);
   --background-black: #000000;
   --background-glass: #009bff29;
@@ -21,8 +21,8 @@
   --error-darker: #c92121;
   --inner-shadow-glass:
     inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa, inset -1px -1px 2px -1px #000000aa;
-  --success: #28d930;
-  --success-darker: #199f1f;
+  --success: #71db0e;
+  --success-darker: #62b812;
   --text-primary: #e1e1e1;
   --text-secondary: #e1e1e1aa;
   --warning: #ff9225;
