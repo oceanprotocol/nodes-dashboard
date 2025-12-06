@@ -65,7 +65,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
       const res: GPUPopularityDisplay = response.data.map((gpu) => ({
-        gpu_name: `${gpu.vendor} ${gpu.name}`,
+        gpuName: `${gpu.vendor} ${gpu.name}`,
         popularity: gpu.popularity,
       }));
       setGpus(res);

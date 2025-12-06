@@ -21,7 +21,6 @@ const FooterSection = () => {
               <Logo width={65} />
               <div className={styles.brandTitleGroup}>
                 <span className={styles.brandTitle}>Ocean Network</span>
-                <span className={styles.brandSubtitle}>Decentralized Compute Alliance</span>
               </div>
             </div>
             <p className={styles.description}>

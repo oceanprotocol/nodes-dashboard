@@ -4,7 +4,7 @@ import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
-import { getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
@@ -142,53 +142,68 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
 export const jobsColumns: GridColDef<Node>[] = [
   {
     align: 'center',
-    field: 'index', // TODO
+    field: 'index',
     filterable: false,
     headerAlign: 'center',
     headerName: 'Index',
     sortable: false,
   },
   {
-    field: 'status', // TODO
-    filterable: true,
+    field: 'status',
+    filterable: false,
     flex: 1,
     headerName: 'Status',
-    sortable: true,
+    sortable: false,
   },
   {
-    field: 'startTime', // TODO
-    filterable: false,
+    field: 'startTime',
+    filterable: true,
     flex: 1,
     headerName: 'Start Time',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'endTime', // TODO
-    filterable: false,
+    field: 'endTime',
+    filterable: true,
     flex: 1,
     headerName: 'End Time',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'difficulty', // TODO
-    filterable: false,
+    field: 'difficulty',
+    filterable: true,
     flex: 1,
     headerName: 'Difficulty',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'totalHashes', // TODO
-    filterable: false,
+    field: 'resultHashes',
+    filterable: true,
     flex: 1,
     headerName: 'Total hashes',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
-    field: 'score', // TODO
-    filterable: false,
+    field: 'score',
+    filterable: true,
     flex: 1,
     headerName: 'Score',
-    sortable: true,
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
 ];
 
@@ -202,7 +217,7 @@ export const topNodesByRevenueColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'friendly_name',
+    field: 'friendlyName',
     filterable: true,
     flex: 1,
     headerName: 'Name',
@@ -216,7 +231,7 @@ export const topNodesByRevenueColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'total_revenue',
+    field: 'totalRevenue',
     filterable: false,
     renderCell: ({ value }) => formatNumber(value.toFixed(2)),
     flex: 1,
@@ -224,7 +239,7 @@ export const topNodesByRevenueColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'latest_gpu_score',
+    field: 'latestGpuScore',
     filterable: false,
     flex: 1,
     headerName: 'Last benchmark score (GPU)',
@@ -242,7 +257,7 @@ export const topNodesByJobsColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'friendly_name',
+    field: 'friendlyName',
     filterable: false,
     flex: 1,
     headerName: 'Name',
@@ -256,14 +271,14 @@ export const topNodesByJobsColumns: GridColDef<Node>[] = [
     sortable: true,
   },
   {
-    field: 'total_jobs',
+    field: 'totalJobs',
     filterable: false,
     flex: 1,
     headerName: 'Total Jobs',
     sortable: true,
   },
   {
-    field: 'latest_gpu_score',
+    field: 'latestGpuScore',
     filterable: false,
     flex: 1,
     headerName: 'Last benchmark score (GPU)',

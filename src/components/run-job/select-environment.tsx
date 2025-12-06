@@ -30,7 +30,7 @@ const SelectEnvironment = () => {
     fetchGpus();
   }, [fetchGpus]);
 
-  const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpu_name, label: gpu.gpu_name })), [gpus]);
+  const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
 
   const formik = useFormik<FilterFormValues>({
     initialValues: {
