@@ -41,7 +41,7 @@ interface ComputeEnvironmentFreeOptions {
 // TODO - use type from @oceanprotocol/lib when it's up to date
 
 export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
-  consumerAddress?: string;
+  consumerAddress: string;
   fees: ComputeEnvFeesStructure;
   free?: ComputeEnvironmentFreeOptions;
   id: string;
