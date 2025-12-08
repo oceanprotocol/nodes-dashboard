@@ -1,6 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { ComputeEnvironment } from '@/types/environments';
 
-export const MOCK_ENVS = [
+export const MOCK_ENVS: ComputeEnvironment[] = [
   {
     id: '0x2570967f47edf15293a2ab50944d7c790490d742c83a8ba7306c6db5e02d69d3-0x3f05b9957b7b17d96657293504e294612f7fc0f7ced22d9397a82557aac8bee7',
     runningJobs: 0,
@@ -20,19 +21,19 @@ export const MOCK_ENVS = [
           prices: [
             {
               id: 'cpu',
-              price: 0.05,
+              price: 0.0005,
             },
             {
               id: 'ram',
-              price: 0.02,
+              price: 0.0002,
             },
             {
               id: 'myGPU',
-              price: 1.5,
+              price: 0.001,
             },
             {
               id: 'disk',
-              price: 0.01,
+              price: 0.0001,
             },
           ],
         },
@@ -41,19 +42,19 @@ export const MOCK_ENVS = [
           prices: [
             {
               id: 'cpu',
-              price: 0.05,
+              price: 0.0005,
             },
             {
               id: 'ram',
-              price: 0.02,
+              price: 0.0002,
             },
             {
               id: 'myGPU',
-              price: 1.5,
+              price: 0.001,
             },
             {
               id: 'disk',
-              price: 0.01,
+              price: 0.0001,
             },
           ],
         },
@@ -88,13 +89,13 @@ export const MOCK_ENVS = [
         description: 'NVIDIA RTX A5000',
         type: 'gpu',
         total: 1,
-        init: {
-          deviceRequests: {
-            Driver: 'nvidia',
-            DeviceIDs: ['GPU-fab12b3b-6dd7-0aaf-8616-c07aeaf6e41b'],
-            Capabilities: [['gpu']],
-          },
-        },
+        // init: {
+        //   deviceRequests: {
+        //     Driver: 'nvidia',
+        //     DeviceIDs: ['GPU-fab12b3b-6dd7-0aaf-8616-c07aeaf6e41b'],
+        //     Capabilities: [['gpu']],
+        //   },
+        // },
         max: 1,
         min: 0,
         inUse: 0,
@@ -137,7 +138,7 @@ export const MOCK_ENVS = [
         },
       ],
     },
-    runningfreeJobs: 0,
+    runningFreeJobs: 0,
   },
   {
     id: '0x6d2a9d0e1c53bf993577809f4738cd3c0f6f07e653b769d852f88ed812903505-0xd614be95cc285db1b02814cdafb74a5d240d7d9ba1903100fdd7a9265d27f5f8',
@@ -234,13 +235,13 @@ export const MOCK_ENVS = [
         description: 'NVIDIA V100-1',
         type: 'gpu',
         total: 1,
-        init: {
-          deviceRequests: {
-            Driver: 'nvidia',
-            DeviceIDs: ['GPU-a5e31522-2217-8c10-bcd3-8915ea371f89'],
-            Capabilities: [['gpu']],
-          },
-        },
+        // init: {
+        //   deviceRequests: {
+        //     Driver: 'nvidia',
+        //     DeviceIDs: ['GPU-a5e31522-2217-8c10-bcd3-8915ea371f89'],
+        //     Capabilities: [['gpu']],
+        //   },
+        // },
         max: 1,
         min: 0,
         inUse: 0,
@@ -250,13 +251,13 @@ export const MOCK_ENVS = [
         description: 'NVIDIA V100-2',
         type: 'gpu',
         total: 1,
-        init: {
-          deviceRequests: {
-            Driver: 'nvidia',
-            DeviceIDs: ['GPU-c46eeff5-903b-8280-2f16-4fc3f6140d47'],
-            Capabilities: [['gpu']],
-          },
-        },
+        // init: {
+        //   deviceRequests: {
+        //     Driver: 'nvidia',
+        //     DeviceIDs: ['GPU-c46eeff5-903b-8280-2f16-4fc3f6140d47'],
+        //     Capabilities: [['gpu']],
+        //   },
+        // },
         max: 1,
         min: 0,
         inUse: 0,
@@ -304,6 +305,6 @@ export const MOCK_ENVS = [
         },
       ],
     },
-    runningfreeJobs: 0,
+    runningFreeJobs: 0,
   },
 ];

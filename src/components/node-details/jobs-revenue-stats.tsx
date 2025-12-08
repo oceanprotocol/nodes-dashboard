@@ -32,8 +32,8 @@ const JobsRevenueStats = () => {
     let totalRunningJobs = 0;
     let totalJobs = 0;
     for (const env of envs) {
-      totalRunningJobs += env.runningJobs + (env.runningFreeJobs || 0);
-      totalJobs += env.queuedJobs + totalRunningJobs;
+      totalRunningJobs += (env.runningJobs ?? 0) + (env.runningFreeJobs ?? 0);
+      totalJobs += (env.queuedJobs ?? 0) + totalRunningJobs;
     }
 
     return [totalJobs, totalRunningJobs];

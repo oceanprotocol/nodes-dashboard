@@ -2,4 +2,8 @@
   align-items: center;
   display: inline-flex;
   gap: 8px;
+
+  .icon {
+    width: auto;
+  }
 }

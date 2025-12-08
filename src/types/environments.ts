@@ -1,5 +1,5 @@
 interface ComputeResourcesPricingInfo {
-  id: ComputeResourceType;
+  id: ComputeResourceId;
   price: number; // price per unit per minute
 }
 
@@ -12,21 +12,26 @@ interface ComputeEnvFeesStructure {
   [chainId: string]: ComputeEnvFees[];
 }
 
-type ComputeResourceType = 'cpu' | 'ram' | 'disk' | any;
+type ComputeResourceType = 'cpu' | 'ram' | 'disk' | 'gpu';
+type ComputeResourceId = 'cpu' | 'ram' | 'disk' | any;
 
 export interface ComputeResource {
-  id: ComputeResourceType;
+  id: ComputeResourceId;
   description?: string;
-  type?: string;
+  type?: ComputeResourceType;
   kind?: string;
-  // total: number;
+  total?: number;
   max: number;
-  // min: number;
+  min?: number;
   inUse?: number;
 }
 
 interface ComputeEnvironmentFreeOptions {
   // only if a compute env exposes free jobs
+  access?: {
+    addresses: string[];
+    accessLists: string[];
+  };
   storageExpiry?: number;
   maxJobDuration?: number;
   maxJobs?: number; // maximum number of simultaneous free jobs
@@ -36,10 +41,26 @@ interface ComputeEnvironmentFreeOptions {
 // TODO - use type from @oceanprotocol/lib when it's up to date
 
 export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
+  consumerAddress: string;
   fees: ComputeEnvFeesStructure;
   free?: ComputeEnvironmentFreeOptions;
   id: string;
-  queuedJobs: number;
-  runningJobs: number;
+  platform?: {
+    architecture: string;
+    os: string;
+  };
+  queuedJobs?: number;
+  queuedFreeJobs?: number;
+  queMaxWaitTime?: number;
+  queMaxWaitTimeFree?: number;
   runningFreeJobs?: number;
+  runningJobs?: number;
+};
+
+export type EnvResourcesSelection = {
+  cpuCores: number;
+  diskSpace: number;
+  gpus: { id: string; description?: string }[];
+  maxJobDurationHours: number;
+  ram: number;
 };

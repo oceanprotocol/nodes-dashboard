@@ -4,6 +4,7 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import { useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
+import { formatNumber } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -22,22 +23,26 @@ type EnvironmentCardProps = {
 const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCardProps) => {
   const router = useRouter();
 
-  const { setSelectedEnv } = useRunJobContext();
+  const { selectEnv, selectToken } = useRunJobContext();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(environment);
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenAddress, tokenSymbol } =
+    useEnvResources(environment);
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
     return (cpuFee ?? 0) + (ramFee ?? 0) + (diskFee ?? 0) + (minGpuFee === Infinity ? 0 : minGpuFee);
   }, [cpuFee, diskFee, gpuFees, ramFee]);
 
+  const maxJobDurationHours = (environment.maxJobDuration ?? 0) / 60 / 60;
+
   const selectEnvironment = () => {
-    setSelectedEnv(environment);
+    selectEnv(environment);
+    selectToken(tokenAddress, tokenSymbol);
     router.push('/run-job/resources');
   };
 
   const selectFreeCompute = () => {
-    setSelectedEnv({
+    selectEnv({
       ...environment,
       ...environment.free,
       fees: {},
@@ -302,7 +307,7 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
       <div className={styles.footer}>
         <div>
           <div>
-            Max job duration: <strong>{environment.maxJobDuration}</strong> seconds
+            Max job duration: <strong>{formatNumber(maxJobDurationHours)}</strong> hours
           </div>
           {showNodeName ? (
             <div>

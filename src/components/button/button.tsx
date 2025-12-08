@@ -1,3 +1,4 @@
+import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { MouseEventHandler, ReactNode } from 'react';
@@ -9,14 +10,15 @@ type ButtonProps = {
   color?: 'accent1' | 'accent2' | 'primary';
   contentAfter?: React.ReactNode;
   contentBefore?: React.ReactNode;
+  disabled?: boolean;
   href?: string;
   id?: string;
+  loading?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';
-  size?: 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg';
   type?: 'button' | 'submit' | 'reset';
   variant?: 'filled' | 'outlined';
-  disabled?: boolean;
 };
 
 const Button = ({
@@ -25,14 +27,15 @@ const Button = ({
   color = 'primary',
   contentAfter,
   contentBefore,
+  disabled,
   href,
   id,
+  loading,
   onClick,
   target,
   size = 'md',
   type = 'button',
   variant = 'filled',
-  disabled,
 }: ButtonProps) => {
   const classes = classNames(
     styles.root,
@@ -42,9 +45,14 @@ const Button = ({
     className
   );
 
+  const isDisabled = disabled || loading;
+
+  const spinner = loading ? <CircularProgress color="inherit" size={{ sm: 14, md: 16, lg: 20 }[size]} /> : null;
+
   if (href) {
     return (
-      <Link className={classes} href={href} id={id} target={target}>
+      <Link className={classes} href={isDisabled ? '' : href} id={id} target={target}>
+        {spinner}
         {contentBefore}
         {children}
         {contentAfter}
@@ -53,7 +61,8 @@ const Button = ({
   }
 
   return (
-    <button className={classes} disabled={disabled} id={id} onClick={onClick} type={type}>
+    <button className={classes} disabled={isDisabled} id={id} onClick={onClick} type={type}>
+      {spinner}
       {contentBefore}
       {children}
       {contentAfter}
