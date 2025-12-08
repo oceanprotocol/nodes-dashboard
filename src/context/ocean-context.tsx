@@ -49,7 +49,8 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   }
 
   function denominateNumber(number: string, decimals: number) {
-    return new BigNumber(number).div(new BigNumber(10).pow(decimals)).toFixed(0);
+    return new BigNumber(number).div(new BigNumber(10).pow(decimals));
+    // .toFixed(0);
   }
 
   function normalizeNumber(number: string, decimals: number) {
@@ -124,6 +125,7 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   async function getBalance(tokenAddress: string, address: string): Promise<{ symbol: string; balance: string }> {
     const token = new ethers.Contract(tokenAddress, ERC20Template.abi, await provider?.getSigner());
     const balance = await token.balanceOf(address);
+    console.log(balance);
     const symbol = (await token.symbol()) || tokenAddress;
     const decimals = await token.decimals();
     const balanceString = denominateNumber(balance.toString(), decimals);
