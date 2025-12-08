@@ -21,19 +21,19 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
           prices: [
             {
               id: 'cpu',
-              price: 0.05,
+              price: 0.0005,
             },
             {
               id: 'ram',
-              price: 0.02,
+              price: 0.0002,
             },
             {
               id: 'myGPU',
-              price: 1.5,
+              price: 0.001,
             },
             {
               id: 'disk',
-              price: 0.01,
+              price: 0.0001,
             },
           ],
         },
@@ -42,19 +42,19 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
           prices: [
             {
               id: 'cpu',
-              price: 0.05,
+              price: 0.0005,
             },
             {
               id: 'ram',
-              price: 0.02,
+              price: 0.0002,
             },
             {
               id: 'myGPU',
-              price: 1.5,
+              price: 0.001,
             },
             {
               id: 'disk',
-              price: 0.01,
+              price: 0.0001,
             },
           ],
         },
