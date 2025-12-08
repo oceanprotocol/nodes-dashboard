@@ -1,6 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
 import { sendCommandToPeer } from '@/services/nodeService';
 import { ensureNodeInitialized } from '@/services/p2pNodeService';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 type CommandRequest = {
   peerId: string;
@@ -14,10 +14,7 @@ type CommandResponse = {
   error?: string;
 };
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<CommandResponse>
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<CommandResponse>) {
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,
@@ -54,7 +51,7 @@ export default async function handler(
     });
   } catch (error: any) {
     console.error('[API] Command failed:', error);
-    
+
     return res.status(500).json({
       success: false,
       error: error.message || 'Internal server error',

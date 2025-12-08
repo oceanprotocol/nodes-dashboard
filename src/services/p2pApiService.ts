@@ -76,7 +76,7 @@ export async function getNodeStatusAPI(): Promise<P2PStatusResponse> {
  */
 export async function initializeNodeAPI(): Promise<P2PStatusResponse> {
   console.log('[P2P API] Triggering server-side node initialization...');
-  
+
   const response = await fetch('/api/p2p/init', {
     method: 'POST',
     headers: {
@@ -98,10 +98,7 @@ export async function initializeNodeAPI(): Promise<P2PStatusResponse> {
  * Wait for the server-side node to be ready
  * Polls the status endpoint until the node is initialized and ready
  */
-export async function waitForNodeReady(
-  timeoutMs: number = 30000,
-  pollIntervalMs: number = 1000
-): Promise<void> {
+export async function waitForNodeReady(timeoutMs: number = 30000, pollIntervalMs: number = 1000): Promise<void> {
   const startTime = Date.now();
 
   return new Promise((resolve, reject) => {

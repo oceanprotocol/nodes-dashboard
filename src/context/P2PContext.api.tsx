@@ -1,4 +1,4 @@
-import { sendCommandToPeerAPI, getNodeEnvsAPI, getNodeStatusAPI, initializeNodeAPI } from '@/services/p2pApiService';
+import { getNodeEnvsAPI, getNodeStatusAPI, initializeNodeAPI, sendCommandToPeerAPI } from '@/services/p2pApiService';
 import { ComputeEnvironment } from '@/types/environments';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 

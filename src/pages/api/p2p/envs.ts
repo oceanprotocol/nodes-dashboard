@@ -1,14 +1,14 @@
 /**
  * Next.js API Route: Get Node Environments
- * 
+ *
  * Convenience endpoint for getting compute environments from a peer
- * 
+ *
  * Endpoint: GET /api/p2p/envs?peerId=16Uiu2...
  */
 
-import type { NextApiRequest, NextApiResponse } from 'next';
 import { getNodeEnvs } from '@/services/nodeService';
 import { ensureNodeInitialized } from '@/services/p2pNodeService';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 type EnvsResponse = {
   success: boolean;
@@ -16,10 +16,7 @@ type EnvsResponse = {
   error?: string;
 };
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<EnvsResponse>
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<EnvsResponse>) {
   if (req.method !== 'GET') {
     return res.status(405).json({
       success: false,
@@ -48,7 +45,7 @@ export default async function handler(
     });
   } catch (error: any) {
     console.error('[API] Failed to get environments:', error);
-    
+
     return res.status(500).json({
       success: false,
       error: error.message || 'Internal server error',

@@ -1,6 +1,6 @@
 import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
-import { useP2P } from '@/context/P2PContext.api'
+import { useP2P } from '@/context/P2PContext.api';
 import styles from './environments.module.css';
 
 const Environments = () => {

@@ -1,20 +1,21 @@
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
+import { autoTLS } from '@libp2p/auto-tls';
+import { autoNAT } from '@libp2p/autonat';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import type { PeerId } from '@libp2p/interface';
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
+import { keychain } from '@libp2p/keychain';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
+import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
 import { all } from '@libp2p/websockets/filters';
 import { multiaddr, type Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
-import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
-import { autoNAT}  from '@libp2p/autonat'
-import { keychain } from '@libp2p/keychain'
-import { autoTLS } from '@libp2p/auto-tls'
+import { toString as uint8ArrayToString } from 'uint8arrays/to-string';
 
 let nodeInstance: Libp2p | null = null;
 let isNodeReady = false;
@@ -33,14 +34,14 @@ async function waitForBootstrapConnections(
   timeout: number = BOOTSTRAP_TIMEOUT
 ): Promise<void> {
   const startTime = Date.now();
-  
+
   return new Promise((resolve, reject) => {
     const checkInterval = setInterval(() => {
       const peers = node.getPeers();
       const elapsed = Date.now() - startTime;
-      
+
       console.log(`Bootstrap status: ${peers.length} peer(s) connected (need ${minConnections})`);
-      
+
       if (peers.length >= minConnections) {
         clearInterval(checkInterval);
         console.log('✓ Bootstrap connections established');
@@ -54,7 +55,7 @@ async function waitForBootstrapConnections(
         );
       }
     }, 1000);
-    
+
     const onPeerConnect = () => {
       const peers = node.getPeers();
       if (peers.length >= minConnections) {
@@ -64,7 +65,7 @@ async function waitForBootstrapConnections(
         resolve();
       }
     };
-    
+
     node.addEventListener('peer:connect', onPeerConnect);
   });
 }
@@ -76,7 +77,7 @@ export async function initializeNode(bootstrapNodes: string[]) {
 
   try {
     nodeInstance = await createLibp2p({
-      transports: [webSockets({ filter: all })],
+      transports: [webSockets({ filter: all }), tcp()],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],
       peerDiscovery: [
@@ -102,7 +103,7 @@ export async function initializeNode(bootstrapNodes: string[]) {
         }),
         autoNAT: autoNAT(),
         keychain: keychain(),
-        autoTLS: autoTLS()
+        autoTLS: autoTLS(),
       },
       connectionManager: {
         minConnections: 2,
@@ -125,9 +126,9 @@ export async function initializeNode(bootstrapNodes: string[]) {
     });
 
     await nodeInstance.start();
-    
+
     console.log('Node started, waiting for bootstrap connections...');
-    
+
     try {
       await waitForBootstrapConnections(nodeInstance);
       isNodeReady = true;
@@ -288,23 +289,35 @@ export async function sendCommandToPeer(
     if (!nodeInstance) {
       throw new Error('Node not initialized');
     }
-    
+
     if (!isNodeReady) {
       throw new Error('Node not ready - still establishing bootstrap connections');
     }
 
     const discovered = await discoverPeerAddresses(nodeInstance, peerId);
 
-    console.log('Adresele descoperite sunt: ', discovered)
-
-    let connection: any
-    try {
+    let connection: any;
+    const maxRetries = 10;
+    // retry with exponential backoff, because of errors usually encountered:
+    // ERR_ENCRYPTION_FAILED
+    // ERR_TRANSPORT_DIAL_FAILED
+    for (let i = 1; i <= maxRetries; i++) {
+      try {
         connection = await nodeInstance.dial(discovered, {
-            signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+          signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
         });
-    } catch (error: unknown) {
-        console.log({ error, msg: 'failed to dial' })
-        throw new Error('Failed to dial discovered addresses')
+        break;
+      } catch (error: unknown) {
+        console.log({ error, message: `Failed to dial peers, attempt: ${i}` });
+        if (i >= maxRetries) {
+          const msg = `Failed to dial discovered addresses in ${maxRetries} retries`;
+          throw new Error(msg);
+        }
+
+        const waitTime = 100 * Math.pow(2, i);
+        console.log(`Waiting ${waitTime} ms before retrying...`);
+        await new Promise((r) => setTimeout(r, waitTime));
+      }
     }
 
     const stream = await connection.newStream(protocol, {
@@ -319,7 +332,7 @@ export async function sendCommandToPeer(
 
     let firstChunk = true;
     for await (const chunk of stream.source) {
-      console.log('Chunk received', chunk)
+      console.log('Chunk received', chunk);
       const str = uint8ArrayToString(chunk.subarray());
 
       if (firstChunk) {
@@ -331,7 +344,7 @@ export async function sendCommandToPeer(
             continue;
           }
         } catch (e) {
-            console.log({ error: e, msg: 'Error parsing chunk' })
+          console.log({ error: e, msg: 'Error parsing chunk' });
         }
       }
 

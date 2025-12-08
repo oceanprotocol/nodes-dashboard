@@ -1,11 +1,11 @@
 /**
  * Shared P2P Node Initialization Service
- * 
+ *
  * This module manages the server-side libp2p node instance as a singleton.
  * It ensures the node is initialized only once and shared across all API routes.
  */
 
-import { initializeNode, getNodeInstance, getNodeReadyState } from '@/services/nodeService';
+import { getNodeInstance, getNodeReadyState, initializeNode } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 
 // Singleton state
@@ -15,14 +15,14 @@ let initializationPromise: Promise<void> | null = null;
 /**
  * Initialize the server-side libp2p node
  * This runs once and persists across API requests
- * 
+ *
  * @returns Promise that resolves when node is initialized
  */
 export async function ensureNodeInitialized(): Promise<void> {
   // If already initialized, return immediately
   const node = getNodeInstance();
   const ready = getNodeReadyState();
-  
+
   if (node && ready) {
     console.log('[P2P Service] Node already initialized and ready');
     return;
@@ -78,7 +78,7 @@ export function getNodeStatus() {
       ready,
       peerId: node.peerId.toString(),
       connectedPeers: peers.length,
-      addresses: multiaddrs.map(ma => ma.toString()),
+      addresses: multiaddrs.map((ma) => ma.toString()),
     };
   } catch (error) {
     console.error('[P2P Service] Error getting node status:', error);
