@@ -48,8 +48,9 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
     return config;
   }
 
-  function denominateNumber(number: string, decimals: number) {
-    return new BigNumber(number).div(new BigNumber(10).pow(decimals)).toFixed(decimals);
+  function denominateNumber(number: string, decimals: number | bigint) {
+    const decimalsNumber = Number(decimals);
+    return new BigNumber(number).div(new BigNumber(10).pow(decimalsNumber)).toFixed(decimalsNumber);
   }
 
   function normalizeNumber(number: string, decimals: number) {
