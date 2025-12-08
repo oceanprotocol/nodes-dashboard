@@ -239,21 +239,10 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     );
   }
 
-  const wsAddrs = allMultiaddrs.filter((ma) => {
-    const str = ma.toString();
-    return str.includes('/ws') || str.includes('/wss');
-  });
-
-  console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`);
-
-  if (wsAddrs.length === 0) {
-    console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`);
-  }
-
   const finalmultiaddrsWithPeerId: Multiaddr[] = [];
   const finalmultiaddrsWithoutPeerId: Multiaddr[] = [];
 
-  for (const addr of wsAddrs) {
+  for (const addr of allMultiaddrs) {
     const addrStr = addr.toString();
 
     if (addrStr.includes(`/p2p/${peer}`)) {
