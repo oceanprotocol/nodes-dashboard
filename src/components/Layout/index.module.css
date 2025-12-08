@@ -4,11 +4,12 @@
 }
 
 .backgroundAnimation {
-  position: fixed;
+  position: absolute;
   top: 0;
   bottom: 0;
-  right: 15%;
+  left: 35%;
   height: 100%;
+  width: 65%;
   z-index: -1;
 
   .backgorundImage {

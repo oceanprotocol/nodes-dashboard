@@ -2858,7 +2858,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rdfjs/data-model@npm:^2, @rdfjs/data-model@npm:^2.0.1, @rdfjs/data-model@npm:^2.0.2, @rdfjs/data-model@npm:^2.1.0":
+"@rdfjs/data-model@npm:^2, @rdfjs/data-model@npm:^2.0.1, @rdfjs/data-model@npm:^2.0.2":
   version: 2.1.1
   resolution: "@rdfjs/data-model@npm:2.1.1"
   bin:
@@ -2924,7 +2924,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rdfjs/namespace@npm:^2, @rdfjs/namespace@npm:^2.0.0, @rdfjs/namespace@npm:^2.0.1":
+"@rdfjs/namespace@npm:^2, @rdfjs/namespace@npm:^2.0.0":
   version: 2.0.1
   resolution: "@rdfjs/namespace@npm:2.0.1"
   dependencies:
@@ -3078,7 +3078,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rdfjs/types@npm:*, @rdfjs/types@npm:>=1.0.0, @rdfjs/types@npm:^2, @rdfjs/types@npm:^2.0.0":
+"@rdfjs/types@npm:*, @rdfjs/types@npm:>=1.0.0, @rdfjs/types@npm:^2.0.0":
   version: 2.0.1
   resolution: "@rdfjs/types@npm:2.0.1"
   dependencies:
@@ -4205,20 +4205,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tpluscode/rdf-ns-builders@npm:3 - 5":
-  version: 5.0.0
-  resolution: "@tpluscode/rdf-ns-builders@npm:5.0.0"
-  dependencies:
-    "@rdfjs/data-model": "npm:^2.1.0"
-    "@rdfjs/namespace": "npm:^2.0.1"
-    "@rdfjs/types": "npm:^2"
-    "@types/rdfjs__namespace": "npm:^2.0.10"
-    "@zazuko/prefixes": "npm:^2.3.0"
-  checksum: 10c0/69e26b41b34b9c17626f356b09e29dd1b5439b00b4f9bd81bee519b49a3a77d37a0c81f58e993fea3b05f76a8f7740b8ef7216bc8a173a8c21ca362cf1cd5ffa
-  languageName: node
-  linkType: hard
-
-"@tpluscode/rdf-ns-builders@npm:^4.1.0":
+"@tpluscode/rdf-ns-builders@npm:3 - 5, @tpluscode/rdf-ns-builders@npm:^4.1.0":
   version: 4.3.0
   resolution: "@tpluscode/rdf-ns-builders@npm:4.3.0"
   dependencies:
@@ -4373,12 +4360,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*":
-  version: 24.10.1
-  resolution: "@types/node@npm:24.10.1"
+"@types/node@npm:*, @types/node@npm:^20":
+  version: 20.19.25
+  resolution: "@types/node@npm:20.19.25"
   dependencies:
-    undici-types: "npm:~7.16.0"
-  checksum: 10c0/d6bca7a78f550fbb376f236f92b405d676003a8a09a1b411f55920ef34286ee3ee51f566203920e835478784df52662b5b2af89159d9d319352e9ea21801c002
+    undici-types: "npm:~6.21.0"
+  checksum: 10c0/992f18cb03264e8dc2fd3cb64f428ee4997cb6d928dad68bf4b752eacac73062697ce7ce6a0e71a6d15af510814397a20597a72332dfec638e02fb3a382ad014
   languageName: node
   linkType: hard
 
@@ -4414,15 +4401,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^20":
-  version: 20.19.25
-  resolution: "@types/node@npm:20.19.25"
-  dependencies:
-    undici-types: "npm:~6.21.0"
-  checksum: 10c0/992f18cb03264e8dc2fd3cb64f428ee4997cb6d928dad68bf4b752eacac73062697ce7ce6a0e71a6d15af510814397a20597a72332dfec638e02fb3a382ad014
-  languageName: node
-  linkType: hard
-
 "@types/parse-json@npm:^4.0.0":
   version: 4.0.2
   resolution: "@types/parse-json@npm:4.0.2"
@@ -4453,7 +4431,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/rdfjs__namespace@npm:^2.0.10, @types/rdfjs__namespace@npm:^2.0.2":
+"@types/rdfjs__namespace@npm:^2.0.2":
   version: 2.0.10
   resolution: "@types/rdfjs__namespace@npm:2.0.10"
   dependencies:
@@ -5241,7 +5219,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@zazuko/prefixes@npm:^2.0.1, @zazuko/prefixes@npm:^2.1.0, @zazuko/prefixes@npm:^2.3.0":
+"@zazuko/prefixes@npm:^2.0.1, @zazuko/prefixes@npm:^2.1.0":
   version: 2.4.0
   resolution: "@zazuko/prefixes@npm:2.4.0"
   checksum: 10c0/57bdf7953ae326275350eaddd6793f097c17f9ba6de5b614fc9fb20ca36260c25e30877245a1bf8c6cf23d9af8da04903f202bead027b956544baae771d31b17
@@ -8034,6 +8012,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"gsap@npm:3.13.0":
+  version: 3.13.0
+  resolution: "gsap@npm:3.13.0"
+  checksum: 10c0/a42dd2e02467a4abe96409aaf6cd0e5d697c72e05ec13c18c2271330493983aa63cc717c9dd0740fda2f884d0f56c7b98fc18b13500f0c1da94864985840da7c
+  languageName: node
+  linkType: hard
+
 "h3@npm:^1.15.4":
   version: 1.15.4
   resolution: "h3@npm:1.15.4"
@@ -10035,6 +10020,7 @@ __metadata:
     eslint-plugin-promise: "npm:^6.6.0"
     ethers: "npm:^6.15.0"
     formik: "npm:^2.4.9"
+    gsap: "npm:3.13.0"
     it-pipe: "npm:^3.0.1"
     libp2p: "npm:^1.8.0"
     myetherwallet-blockies: "npm:^0.1.1"
@@ -12090,7 +12076,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici-types@npm:^7.15.0, undici-types@npm:~7.16.0":
+"undici-types@npm:^7.15.0":
   version: 7.16.0
   resolution: "undici-types@npm:7.16.0"
   checksum: 10c0/3033e2f2b5c9f1504bdc5934646cb54e37ecaca0f9249c983f7b1fc2e87c6d18399ebb05dc7fd5419e02b2e915f734d872a65da2e3eeed1813951c427d33cc9a
