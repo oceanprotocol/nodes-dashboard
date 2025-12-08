@@ -125,7 +125,6 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   async function getBalance(tokenAddress: string, address: string): Promise<{ symbol: string; balance: string }> {
     const token = new ethers.Contract(tokenAddress, ERC20Template.abi, await provider?.getSigner());
     const balance = await token.balanceOf(address);
-    console.log(balance);
     const symbol = (await token.symbol()) || tokenAddress;
     const decimals = await token.decimals();
     const balanceString = denominateNumber(balance.toString(), decimals);
@@ -169,7 +168,6 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
     const escrow = await getEscrowContract(CHAIN_ID);
     const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, provider).decimals();
     const normalizedMaxLockedAmount = normalizeNumber(maxLockedAmount, tokenDecimals);
-    console.log({ normalizedMaxLockedAmount, maxLockSeconds, maxLockCount });
     const authorize = await escrow.authorize(
       tokenAddress,
       spender,
@@ -195,7 +193,6 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
     try {
       const providerEndpointsResponse = await proxyFetch(nodeUrl);
       const providerEndpoints = await providerEndpointsResponse.json();
-      console.log({ providerEndpoints });
       const serviceEndpoints = await ProviderInstance.getServiceEndpoints(nodeUrl, providerEndpoints);
       const endpoint = ProviderInstance.getEndpointURL(serviceEndpoints, name);
       return endpoint.urlPath;
