@@ -5,14 +5,12 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
-import { useOceanContext } from '@/context/ocean-context';
 import { useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
-import { useAppKitAccount } from '@reown/appkit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
 
@@ -30,23 +28,11 @@ type SelectResourcesProps = {
 
 const SelectResources = ({ environment }: SelectResourcesProps) => {
   const router = useRouter();
-  const account = useAppKitAccount();
 
   const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
-  const { getUserFunds } = useOceanContext();
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenAddress, tokenSymbol } =
     useEnvResources(environment);
-
-  const [escrowBalance, setEscrowBalance] = useState<number>(0);
-
-  useEffect(() => {
-    if (account?.address) {
-      getUserFunds(tokenAddress, account.address).then((balance) => {
-        setEscrowBalance(Number(balance));
-      });
-    }
-  }, [account.address, getUserFunds, tokenAddress]);
 
   // TODO implement min job duration
 
@@ -79,7 +65,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
         maxJobDurationHours: values.maxJobDurationHours,
         ram: values.ram,
       });
-      if (estimatedTotalCost > 0 && escrowBalance < estimatedTotalCost) {
+      if (estimatedTotalCost > 0) {
         router.push('/run-job/payment');
       } else {
         router.push('/run-job/summary');
