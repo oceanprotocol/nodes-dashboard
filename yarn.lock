@@ -2768,7 +2768,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/contracts@npm:2.4.0, @oceanprotocol/contracts@npm:^2.4.0":
+"@oceanprotocol/contracts@npm:2.5.0":
+  version: 2.5.0
+  resolution: "@oceanprotocol/contracts@npm:2.5.0"
+  checksum: 10c0/860badab8723dd5bcd8facadc29a993798e51efc5fa60b3608ddc883514a1feeffc13b7797a1e24075e2fdeb9797369afb41227a9a5a50cdfef9aec242eb0845
+  languageName: node
+  linkType: hard
+
+"@oceanprotocol/contracts@npm:^2.4.0":
   version: 2.4.0
   resolution: "@oceanprotocol/contracts@npm:2.4.0"
   checksum: 10c0/059e1dab502fa904dd56368a69ea2f6d66423d041a93873b9bd2c5698551795a4bc8d96b954c6bf544b55600e9f456a2d02a7114f9bee13b2bee4cf7cd310798
@@ -9905,7 +9912,7 @@ __metadata:
     "@mui/material": "npm:^7.3.4"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^12"
-    "@oceanprotocol/contracts": "npm:2.4.0"
+    "@oceanprotocol/contracts": "npm:2.5.0"
     "@oceanprotocol/lib": "npm:5.0.1"
     "@reown/appkit": "npm:^1.8.11"
     "@reown/appkit-adapter-ethers": "npm:^1.8.11"

@@ -27,7 +27,7 @@
     "@mui/material": "^7.3.4",
     "@mui/x-data-grid": "^8.14.1",
     "@multiformats/multiaddr": "^12",
-    "@oceanprotocol/contracts": "2.4.0",
+    "@oceanprotocol/contracts": "2.5.0",
     "@oceanprotocol/lib": "5.0.1",
     "@reown/appkit": "^1.8.11",
     "@reown/appkit-adapter-ethers": "^1.8.11",
