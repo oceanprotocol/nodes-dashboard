@@ -14,10 +14,10 @@ const NodeDetailsPage = () => {
   const params = useParams<{ nodeId: string }>();
 
   useEffect(() => {
-    if (!selectedNode) {
+    if (!selectedNode && params?.nodeId) {
       fetchNode(params?.nodeId);
     }
-  }, [fetchNode, params?.nodeId]);
+  }, [selectedNode, params?.nodeId, fetchNode]);
 
   if (!selectedNode) {
     return (
@@ -39,7 +39,7 @@ const NodeDetailsPage = () => {
         {selectedNode.eligibilityCauseStr === 'Banned' ? <UnbanRequests /> : null}
         <JobsRevenueStats node={selectedNode} />
         <BenchmarkJobs />
-        <Environments />
+        <Environments node={selectedNode} />
       </div>
     </Container>
   );

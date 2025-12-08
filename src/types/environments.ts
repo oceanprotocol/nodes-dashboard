@@ -39,4 +39,7 @@ export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
   fees: ComputeEnvFeesStructure;
   free?: ComputeEnvironmentFreeOptions;
   id: string;
+  queuedJobs: number;
+  runningJobs: number;
+  runningFreeJobs?: number;
 };
