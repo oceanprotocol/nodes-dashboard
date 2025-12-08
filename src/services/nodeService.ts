@@ -12,7 +12,9 @@ import { multiaddr, type Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
-import { tcp } from '@libp2p/tcp'
+import { autoNAT}  from '@libp2p/autonat'
+import { keychain } from '@libp2p/keychain'
+import { autoTLS } from '@libp2p/auto-tls'
 
 let nodeInstance: Libp2p | null = null;
 let isNodeReady = false;
@@ -98,6 +100,9 @@ export async function initializeNode(bootstrapNodes: string[]) {
           protocol: '/ocean/nodes/1.0.0/kad/1.0.0',
           peerInfoMapper: passthroughMapper,
         }),
+        autoNAT: autoNAT(),
+        keychain: keychain(),
+        autoTLS: autoTLS()
       },
       connectionManager: {
         minConnections: 2,
@@ -106,10 +111,10 @@ export async function initializeNode(bootstrapNodes: string[]) {
         autoDialInterval: 5000,
         autoDialConcurrency: 500,
         maxPeerAddrsToDial: 25,
-        autoDialPeerRetryThreshold: 120000,
         maxParallelDials: 2500,
+        autoDialPeerRetryThreshold: 120000,
       },
-    });
+    } as any);
 
     nodeInstance.addEventListener('peer:connect', (event) => {
       console.log(`Connected to peer: ${JSON.stringify(event.detail)}`);
@@ -292,23 +297,23 @@ export async function sendCommandToPeer(
 
     console.log('Adresele descoperite sunt: ', discovered)
 
-    const connection = await nodeInstance.dial(discovered, {
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-    });
-
-    console.log('PICI AICI?')
+    let connection: any
+    try {
+        connection = await nodeInstance.dial(discovered, {
+            signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+        });
+    } catch (error: unknown) {
+        console.log({ error, msg: 'failed to dial' })
+        throw new Error('Failed to dial discovered addresses')
+    }
 
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
     });
 
-    console.log('Ce comanda trimitem varule', command)
-
     const message = JSON.stringify(command);
     let response = '';
     let potentialHeaderChunk: string | null = null;
-
-    console.log('BA INTRA AICI?')
 
     await stream.sink([uint8ArrayFromString(message)]);
 
@@ -325,7 +330,9 @@ export async function sendCommandToPeer(
             potentialHeaderChunk = str;
             continue;
           }
-        } catch (e) {}
+        } catch (e) {
+            console.log({ error: e, msg: 'Error parsing chunk' })
+        }
       }
 
       response += str;

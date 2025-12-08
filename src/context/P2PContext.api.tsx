@@ -40,7 +40,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('P2PContext: Initializing server-side node...');
 
-        // Explicitly trigger initialization
         await initializeNodeAPI();
 
         if (mounted) {
@@ -57,12 +56,11 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
 
     init();
 
-    // Refresh status periodically
     const interval = setInterval(() => {
       if (mounted) {
         refreshStatus();
       }
-    }, 10000); // Every 10 seconds
+    }, 15000);
 
     return () => {
       mounted = false;

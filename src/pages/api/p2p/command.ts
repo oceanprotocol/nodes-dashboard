@@ -1,20 +1,3 @@
-/**
- * Next.js API Route: P2P Command Proxy
- * 
- * This API route acts as an HTTPS wrapper over libp2p peer operations.
- * It runs the libp2p node on the server-side (Node.js) where WS connections are allowed,
- * and exposes HTTPS endpoints for the client to interact with peers.
- * 
- * Benefits:
- * - No mixed content issues (client uses HTTPS only)
- * - Server can use WS connections freely
- * - Single deployment (no separate proxy infrastructure)
- * - Better error handling and logging
- * 
- * Endpoint: POST /api/p2p/command
- * Body: { peerId: string, command: object, protocol?: string }
- */
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { sendCommandToPeer } from '@/services/nodeService';
 import { ensureNodeInitialized } from '@/services/p2pNodeService';
@@ -35,7 +18,6 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<CommandResponse>
 ) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({
       success: false,
@@ -44,10 +26,8 @@ export default async function handler(
   }
 
   try {
-    // Parse request body
     const { peerId, command, protocol }: CommandRequest = req.body;
 
-    // Validate request
     if (!peerId || typeof peerId !== 'string') {
       return res.status(400).json({
         success: false,
@@ -62,10 +42,8 @@ export default async function handler(
       });
     }
 
-    // Ensure node is initialized
     await ensureNodeInitialized();
 
-    // Send command to peer
     console.log(`[API] Sending command to peer ${peerId}:`, command);
     const result = await sendCommandToPeer(peerId, command, protocol);
 

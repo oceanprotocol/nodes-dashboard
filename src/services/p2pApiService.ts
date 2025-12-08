@@ -1,16 +1,3 @@
-/**
- * Client-side API service for P2P operations
- * 
- * This service communicates with the Next.js API routes that wrap libp2p functionality.
- * Use this instead of direct libp2p calls when running in the browser.
- * 
- * Benefits:
- * - Works in HTTPS production environments
- * - No mixed content issues
- * - Server handles all P2P complexity
- * - Client just makes simple HTTPS requests
- */
-
 export interface P2PCommandRequest {
   peerId: string;
   command: Record<string, any>;
