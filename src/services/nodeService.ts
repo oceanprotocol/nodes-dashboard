@@ -14,11 +14,60 @@ import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string';
 
 let nodeInstance: Libp2p | null = null;
+let isNodeReady = false;
 const DEFAULT_PROTOCOL = '/ocean/nodes/1.0.0';
 const DEFAULT_TIMEOUT = 10000;
+const BOOTSTRAP_TIMEOUT = 30000;
+const MIN_BOOTSTRAP_CONNECTIONS = 1;
+
+/**
+ * Wait for the node to establish connections to bootstrap nodes
+ * and ensure the DHT is ready for queries
+ */
+async function waitForBootstrapConnections(
+  node: Libp2p,
+  minConnections: number = MIN_BOOTSTRAP_CONNECTIONS,
+  timeout: number = BOOTSTRAP_TIMEOUT
+): Promise<void> {
+  const startTime = Date.now();
+  
+  return new Promise((resolve, reject) => {
+    const checkInterval = setInterval(() => {
+      const peers = node.getPeers();
+      const elapsed = Date.now() - startTime;
+      
+      console.log(`Bootstrap status: ${peers.length} peer(s) connected (need ${minConnections})`);
+      
+      if (peers.length >= minConnections) {
+        clearInterval(checkInterval);
+        console.log('✓ Bootstrap connections established');
+        resolve();
+      } else if (elapsed >= timeout) {
+        clearInterval(checkInterval);
+        reject(
+          new Error(
+            `Failed to establish minimum bootstrap connections (${peers.length}/${minConnections}) within ${timeout}ms`
+          )
+        );
+      }
+    }, 1000);
+    
+    const onPeerConnect = () => {
+      const peers = node.getPeers();
+      if (peers.length >= minConnections) {
+        clearInterval(checkInterval);
+        node.removeEventListener('peer:connect', onPeerConnect);
+        console.log('✓ Bootstrap connections established');
+        resolve();
+      }
+    };
+    
+    node.addEventListener('peer:connect', onPeerConnect);
+  });
+}
 
 export async function initializeNode(bootstrapNodes: string[]) {
-  if (nodeInstance) {
+  if (nodeInstance && isNodeReady) {
     return nodeInstance;
   }
 
@@ -62,10 +111,23 @@ export async function initializeNode(bootstrapNodes: string[]) {
     });
 
     await nodeInstance.start();
+    
+    console.log('Node started, waiting for bootstrap connections...');
+    
+    try {
+      await waitForBootstrapConnections(nodeInstance);
+      isNodeReady = true;
+      console.log('✓ Node is fully initialized and ready for DHT queries');
+    } catch (error) {
+      console.warn('Bootstrap connection warning:', error);
+      isNodeReady = true;
+      console.log('⚠ Node started but bootstrap connections may be limited');
+    }
 
     return nodeInstance;
   } catch (error) {
     nodeInstance = null;
+    isNodeReady = false;
     throw error;
   }
 }
@@ -212,6 +274,10 @@ export async function sendCommandToPeer(
     if (!nodeInstance) {
       throw new Error('Node not initialized');
     }
+    
+    if (!isNodeReady) {
+      throw new Error('Node not ready - still establishing bootstrap connections');
+    }
 
     const discovered = await discoverPeerAddresses(nodeInstance, peerId);
 
@@ -263,9 +329,14 @@ export async function stopNode() {
   if (nodeInstance) {
     await nodeInstance.stop();
     nodeInstance = null;
+    isNodeReady = false;
   }
 }
 
 export function getNodeInstance(): Libp2p | null {
   return nodeInstance;
+}
+
+export function getNodeReadyState(): boolean {
+  return isNodeReady && nodeInstance !== null;
 }

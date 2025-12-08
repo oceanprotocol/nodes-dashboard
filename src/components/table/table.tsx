@@ -3,6 +3,7 @@ import {
   nodesLeaderboardColumns,
   topNodesByJobsColumns,
   topNodesByRevenueColumns,
+  unbanRequestsColumns,
 } from '@/components/table/columns';
 import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
@@ -156,9 +157,11 @@ export const Table = <T,>({
   const columns = useMemo(() => {
     switch (tableType) {
       case TableTypeEnum.BENCHMARK_JOBS:
-      case TableTypeEnum.MY_JOBS:
-      case TableTypeEnum.UNBAN_REQUESTS: {
+      case TableTypeEnum.MY_JOBS: {
         return jobsColumns;
+      }
+      case TableTypeEnum.UNBAN_REQUESTS: {
+        return unbanRequestsColumns;
       }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES:

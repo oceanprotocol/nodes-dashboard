@@ -1,10 +1,12 @@
 import InfoButton from '@/components/button/info-button';
 import { GPUPopularity, Node } from '@/types/nodes';
+import { UnbanRequest } from '@/types/unban-requests';
 import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import classNames from 'classnames';
 
 function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
@@ -49,6 +51,41 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
         );
     }
   }
+}
+
+function getUnbanAttemptResult(result: string) {
+  switch (result) {
+    case 'Pending':
+      return (
+        <>
+          <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+          <span>Pending</span>
+        </>
+      );
+
+    default:
+      return (
+        <>
+          <HighlightOffOutlinedIcon style={{ fill: 'var(--error)' }} />
+          <span>Failed</span>
+        </>
+      );
+  }
+}
+
+function getUnbanAttemptStatus(status: string) {
+  return (
+    <span
+      className={classNames('chip', {
+        chipSuccess: status === 'Finished',
+        chipWarning: status === 'In queue',
+        chipError: status === 'Failed',
+      })}
+      style={{ alignSelf: 'center' }}
+    >
+      {status}
+    </span>
+  );
 }
 
 export const nodesLeaderboardColumns: GridColDef<Node>[] = [
@@ -203,6 +240,51 @@ export const jobsColumns: GridColDef<Node>[] = [
     sortable: false,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+  },
+];
+
+export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'status',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: (params: GridRenderCellParams<UnbanRequest>) => getUnbanAttemptStatus(params.row.status),
+  },
+  {
+    field: 'startedAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'Start Time',
+    sortable: false,
+  },
+  {
+    field: 'completedAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'End Time',
+    sortable: false,
+  },
+  {
+    field: 'benchmarkResult',
+    filterable: false,
+    flex: 1,
+    headerName: 'Result',
+    sortable: false,
+    renderCell: (params: GridRenderCellParams<UnbanRequest>) => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {getUnbanAttemptResult(params.row.benchmarkResult)}
+      </div>
     ),
   },
 ];

@@ -100,6 +100,7 @@ const apiRoutes = {
   banStatus: { root: 'incentive', path: '/nodes' },
   nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
   benchmarkHistory: { root: 'incentive', path: '/nodes' },
+  nodeUnbanRequests: { root: 'incentive', path: '/nodes' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },
@@ -109,12 +110,12 @@ const apiRoutes = {
   gpuPopularity: { root: 'analytics', path: '/gpu-popularity' },
   topNodesByRevenue: { root: 'analytics', path: '/nodes' },
   topNodesByJobCount: { root: 'analytics', path: '/nodes' },
+  nodeStats: { root: 'analytics', path: '/nodes' },
 
   // ENS API routes
   ensAddress: { root: 'ens', path: '/address' },
   ensName: { root: 'ens', path: '/name' },
   ensProfile: { root: 'ens', path: '/profile' },
-  nodeStats: { root: 'analytics', path: '/nodes' },
 } as const;
 
 type ApiRouteKeys = keyof typeof apiRoutes;

@@ -4,16 +4,11 @@ import Gauge from '@/components/chart/gauge';
 import VBarChart from '@/components/chart/v-bar-chart';
 import { useNodesContext } from '@/context/nodes-context';
 import { useP2P } from '@/contexts/P2PContext';
-import { type Node } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
 import { useEffect, useMemo } from 'react';
 import styles from './jobs-revenue-stats.module.css';
 
-type JobsRevenueStatsProps = {
-  node: Node;
-};
-
-const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
+const JobsRevenueStats = () => {
   const {
     benchmarkValues,
     jobsPerEpoch,
@@ -23,7 +18,7 @@ const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
     fetchNodeBenchmarkMinMaxLast,
     fetchNodeStats,
   } = useNodesContext();
-  const { envs, getEnvs } = useP2P();
+  const { envs } = useP2P();
 
   useEffect(() => {
     fetchNodeStats();
@@ -32,10 +27,6 @@ const JobsRevenueStats = ({ node }: JobsRevenueStatsProps) => {
   useEffect(() => {
     fetchNodeBenchmarkMinMaxLast();
   }, [fetchNodeBenchmarkMinMaxLast]);
-
-  useEffect(() => {
-    getEnvs(node?.id!);
-  }, [node?.id, getEnvs]);
 
   const runningAndTotalJobs = useMemo(() => {
     let totalRunningJobs = 0;
