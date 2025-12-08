@@ -8,8 +8,8 @@ const nextConfig = {
         net: false,
         tls: false,
         dgram: false,
-        dns: false
-      }
+        dns: false,
+      };
     }
     config.module.rules.push({
       test: /\.svg$/,
