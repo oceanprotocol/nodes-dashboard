@@ -53,7 +53,7 @@ export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
   queuedFreeJobs?: number;
   queMaxWaitTime?: number;
   queMaxWaitTimeFree?: number;
-  runningfreeJobs?: number;
+  runningFreeJobs?: number;
   runningJobs?: number;
 };
 

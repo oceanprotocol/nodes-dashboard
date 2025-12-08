@@ -138,7 +138,7 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
         },
       ],
     },
-    runningfreeJobs: 0,
+    runningFreeJobs: 0,
   },
   {
     id: '0x6d2a9d0e1c53bf993577809f4738cd3c0f6f07e653b769d852f88ed812903505-0xd614be95cc285db1b02814cdafb74a5d240d7d9ba1903100fdd7a9265d27f5f8',
@@ -305,6 +305,6 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
         },
       ],
     },
-    runningfreeJobs: 0,
+    runningFreeJobs: 0,
   },
 ];
