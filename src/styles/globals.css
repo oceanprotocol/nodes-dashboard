@@ -1,15 +1,6 @@
 @import 'normalize.css';
 
 :root {
-  --white: #fff;
-  --background-body: #f8f9fa;
-  --background-secondary: #fbfbfb;
-  --gray-500: #718096;
-  --gray-700: #2d3748;
-  --color-secondary: #3d4551;
-  --border-color: #e2e8f0;
-  --primary: #cf1fb1;
-
   --accent1: #0066ff;
   --accent2: #588490;
   --backdrop-filter-glass: blur(10px);
