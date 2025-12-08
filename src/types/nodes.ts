@@ -118,9 +118,3 @@ export type BenchmarkMinMaxLastResponse = {
   minCPUScore: number;
   minGPUScore: number;
 };
-
-export type ComputeEnvironment = {
-  queuedJobs: number;
-  runningJobs: number;
-  runningFreeJobs?: number;
-};

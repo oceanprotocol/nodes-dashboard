@@ -10,21 +10,17 @@ import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
 import styles from './environment-card.module.css';
 
-// TODO show balance + withdraw button
-
 type EnvironmentCardProps = {
   compact?: boolean;
   environment: ComputeEnvironment;
-  showBalance?: boolean;
   showNodeName?: boolean;
 };
 
-const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: EnvironmentCardProps) => {
+const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCardProps) => {
   const router = useRouter();
 
   const { selectEnv, selectToken } = useRunJobContext();
@@ -36,9 +32,6 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
     return (cpuFee ?? 0) + (ramFee ?? 0) + (diskFee ?? 0) + (minGpuFee === Infinity ? 0 : minGpuFee);
   }, [cpuFee, diskFee, gpuFees, ramFee]);
-
-  // TODO replace random with real check
-  const hasBalance = Math.random() > 0.5;
 
   const maxJobDurationHours = (environment.maxJobDuration ?? 0) / 60 / 60;
 
@@ -311,23 +304,6 @@ const EnvironmentCard = ({ compact, environment, showBalance, showNodeName }: En
           </>
         )}
       </div>
-      {showBalance ? (
-        <div className={styles.balance}>
-          {hasBalance ? (
-            <div className="chip chipSuccess">Funds available</div>
-          ) : (
-            <div className="chip chipError">Top-up required</div>
-          )}
-          <div>
-            Balance: <strong>{hasBalance ? 100 : 0}</strong> OCEAN
-          </div>
-          {hasBalance ? (
-            <Link className={styles.link} href="/withdraw">
-              Withdraw
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
       <div className={styles.footer}>
         <div>
           <div>

@@ -9606,7 +9606,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next@npm:^15.2.4":
+"next@npm:^15.4.8":
   version: 15.5.7
   resolution: "next@npm:15.5.7"
   dependencies:
@@ -9931,7 +9931,7 @@ __metadata:
     it-pipe: "npm:^3.0.1"
     libp2p: "npm:^1.8.0"
     myetherwallet-blockies: "npm:^0.1.1"
-    next: "npm:^15.2.4"
+    next: "npm:^15.4.8"
     normalize.css: "npm:^8.0.1"
     prettier: "npm:^3.3.3"
     prettier-plugin-organize-imports: "npm:^4.3.0"

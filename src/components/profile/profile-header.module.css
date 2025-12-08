@@ -1,33 +1,21 @@
+.tabBar {
+  align-self: center;
+}
+
 .root {
   align-items: center;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 16px;
-  justify-content: space-between;
+  gap: 24px;
 
-  .nameAndAvatar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 16px;
-
-    .name {
-      font-size: 28px;
-    }
+  .name {
+    font-size: 28px;
   }
 
   .address {
     font-size: 14px;
     color: var(--text-secondary);
     word-break: break-word;
-  }
-
-  .buttons {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 16px;
-    justify-content: center;
   }
 }
