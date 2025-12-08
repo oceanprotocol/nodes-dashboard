@@ -1,6 +1,6 @@
 import Avatar from '@/components/avatar/avatar';
-import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import TabBar from '@/components/tab-bar/tab-bar';
 import { useProfileContext } from '@/context/profile-context';
 import { formatWalletAddress } from '@/utils/formatters';
 import { useAppKitAccount } from '@reown/appkit/react';
@@ -28,28 +28,31 @@ const ProfileHeader = ({ role }: ProfileHeaderProps) => {
   }, [account, ensName]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
-      <div className={styles.nameAndAvatar}>
+    <>
+      <TabBar
+        activeKey={role}
+        className={styles.tabBar}
+        tabs={[
+          {
+            href: '/profile/owner',
+            key: 'owner',
+            label: 'Node owner',
+          },
+          {
+            href: '/profile/consumer',
+            key: 'consumer',
+            label: 'Compute consumer',
+          },
+        ]}
+      />
+      <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
         {account.address ? <Avatar accountId={account.address} size="lg" src={ensProfile?.avatar} /> : null}
         <div>
           <h2 className={styles.name}>{accountName}</h2>
           <div className={styles.address}>{account?.address}</div>
         </div>
-      </div>
-      <div className={styles.buttons}>
-        <Button color="accent1" href="/profile/owner" size="lg" variant={role === 'owner' ? 'filled' : 'outlined'}>
-          Node owner
-        </Button>
-        <Button
-          color="accent1"
-          href="/profile/consumer"
-          size="lg"
-          variant={role === 'consumer' ? 'filled' : 'outlined'}
-        >
-          Compute consumer
-        </Button>
-      </div>
-    </Card>
+      </Card>
+    </>
   );
 };
 
