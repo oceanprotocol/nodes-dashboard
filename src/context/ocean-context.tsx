@@ -19,13 +19,27 @@ type OceanContextType = {
     maxLockSeconds: string,
     maxLockCount: string
   ) => Promise<any>;
+  browserProvider: BrowserProvider | null;
   depositTokens: (tokenAddress: string, amount: string) => Promise<any>;
+  generateAuthToken: (address: string, nonce: number, signature: string, nodeUrl: string) => Promise<any>;
   getAuthorizations: (tokenAddress: string, payer: string, payee: string) => Promise<any>;
   getBalance: (tokenAddress: string, address: string) => Promise<{ symbol: string; balance: string }>;
   getFeesByChainId: (chainId: number, environment: ComputeEnvironment) => Promise<ComputeEnvFees[]>;
   getNodeBalance: (nodeUrl: string) => Promise<Map<string, number>>;
+  getNonce: (address: string, nodeUrl: string) => Promise<number>;
   getSymbolByAddress: (tokenAddress: string) => Promise<string>;
   getUserFunds: (tokenAddress: string, address: string) => Promise<number>;
+  updateConfiguration: (
+    authToken: string,
+    address: string,
+    nodeUrl: string,
+    isFreeCompute: boolean,
+    environmentId: string,
+    feeToken: string,
+    jobDuration: number,
+    resources: ComputeResourceRequest[],
+    ide: string
+  ) => Promise<any>;
 };
 
 const OceanContext = createContext<OceanContextType | undefined>(undefined);
@@ -321,14 +335,18 @@ export const OceanProvider = ({ children }: { children: ReactNode }) => {
   return (
     <OceanContext.Provider
       value={{
+        browserProvider: provider,
         authorizeTokens,
         depositTokens,
+        generateAuthToken,
         getAuthorizations,
         getBalance,
         getFeesByChainId,
         getNodeBalance,
+        getNonce,
         getSymbolByAddress,
         getUserFunds,
+        updateConfiguration,
       }}
     >
       {children}
