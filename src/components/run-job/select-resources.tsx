@@ -31,20 +31,19 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
 
   const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenAddress, tokenSymbol } =
-    useEnvResources(environment);
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(environment);
 
   // TODO implement min job duration
 
-  const minAllowedCpuCores = 1;
-  const minAllowedDiskSpace = 0;
+  const minAllowedCpuCores = cpu?.min ?? 1;
+  const minAllowedDiskSpace = disk?.min ?? 0;
   const minAllowedJobDurationHours = 0;
-  const minAllowedRam = 0;
+  const minAllowedRam = ram?.min ?? 0;
 
   const maxAllowedCpuCores = cpu?.max ?? minAllowedCpuCores;
-  const maxAllowedRam = ram?.max ?? minAllowedRam;
   const maxAllowedDiskSpace = disk?.max ?? minAllowedDiskSpace;
   const maxAllowedJobDurationHours = (environment.maxJobDuration ?? minAllowedJobDurationHours) / 60 / 60;
+  const maxAllowedRam = ram?.max ?? minAllowedRam;
 
   const formik = useFormik<ResourcesFormValues>({
     initialValues: {
@@ -58,12 +57,15 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
       setEstimatedTotalCost(estimatedTotalCost);
       setSelectedResources({
         cpuCores: values.cpuCores,
+        cpuId: cpu?.id ?? 'cpu',
         diskSpace: values.diskSpace,
+        diskId: disk?.id ?? 'disk',
         gpus: gpus
           .filter((gpu) => values.gpus.includes(gpu.id))
           .map((gpu) => ({ id: gpu.id, description: gpu.description })),
         maxJobDurationHours: values.maxJobDurationHours,
         ram: values.ram,
+        ramId: ram?.id ?? 'ram',
       });
       if (estimatedTotalCost > 0) {
         router.push('/run-job/payment');

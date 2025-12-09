@@ -1,19 +1,92 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
+import useEnvResources from '@/components/hooks/use-env-resources';
 import { CHAIN_ID } from '@/constants/chains';
+import { useOceanContext } from '@/lib/ocean-context';
+import { signMessage } from '@/lib/sign-message';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
+import { Ide } from '@/types/ide';
+import { useAppKitAccount } from '@reown/appkit/react';
 import classNames from 'classnames';
+import { JsonRpcSigner } from 'ethers';
+import { useState } from 'react';
 import styles from './summary.module.css';
 
 type SummaryProps = {
   estimatedTotalCost: number;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
+  tokenAddress: string;
 };
 
-const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources }: SummaryProps) => {
+// TODO
+const nodeUrl = 'https://compute1.oceanprotocol.com';
+
+const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddress }: SummaryProps) => {
+  const account = useAppKitAccount();
+
+  const { browserProvider, generateAuthToken, getNonce, updateConfiguration } = useOceanContext();
+
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  const { gpus } = useEnvResources(selectedEnv);
+
   const feeTokenAddress = selectedEnv.fees?.[CHAIN_ID]?.[0]?.feeToken;
+
+  const generateToken = async () => {
+    if (!account.address || !browserProvider) {
+      // toast.error('No account found');
+      return;
+    }
+    try {
+      const signer = new JsonRpcSigner(browserProvider, account.address);
+      const nonce = await getNonce(account.address, nodeUrl);
+      const incrementedNonce = nonce + 1;
+      const signedMessage = await signMessage(account.address + incrementedNonce, signer);
+      const token = await generateAuthToken(account.address, incrementedNonce, signedMessage, nodeUrl);
+      setAuthToken(token);
+    } catch (error) {
+      console.error('Failed to generate auth token:', error);
+      // toast.error('Failed to generate auth token');
+    }
+  };
+
+  const openIde = async (ide: Ide) => {
+    if (!authToken || !account.address) {
+      return;
+    }
+    const resources = [
+      {
+        id: selectedResources.cpuId,
+        amount: selectedResources.cpuCores,
+      },
+      {
+        id: selectedResources.ramId,
+        amount: selectedResources.ram,
+      },
+      {
+        id: selectedResources.diskId,
+        amount: selectedResources.diskSpace,
+      },
+      ...gpus.map((availableGpu) => ({
+        id: availableGpu.id,
+        amount: selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id) ? 1 : 0,
+      })),
+    ];
+    const isFreeCompute = estimatedTotalCost === 0;
+    updateConfiguration(
+      authToken,
+      account.address,
+      nodeUrl,
+      isFreeCompute,
+      selectedEnv.id,
+      tokenAddress,
+      selectedResources.maxJobDurationHours / 60 / 60,
+      resources,
+      ide
+    );
+  };
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
@@ -51,18 +124,28 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources }: Summary
         <div className={styles.label}>Total cost:</div>
         <div className={styles.value}>{estimatedTotalCost} USDC</div>
       </div>
-      {/* // TODO button actions */}
-      <div className={styles.footer}>
-        <div>Continue on our VSCode extension, or select your editor of choice</div>
-        <div className={styles.buttons}>
-          <Button color="accent2" size="lg" variant="outlined">
-            Choose editor
-          </Button>
-          <Button color="accent2" size="lg">
-            Open VSCode
-          </Button>
+      {authToken ? (
+        <div className={styles.footer}>
+          <div>Continue on our VSCode extension, or select your editor of choice</div>
+          <div className={styles.buttons}>
+            <Button color="accent2" size="lg" variant="outlined">
+              Choose editor
+            </Button>
+            <Button autoLoading color="accent2" onClick={() => openIde(Ide.VSCODE)} size="lg">
+              Open VSCode
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className={styles.footer}>
+          <div>Continue on our VSCode extension, or select your editor of choice</div>
+          <div className={styles.buttons}>
+            <Button autoLoading color="accent2" onClick={generateToken} size="lg">
+              Generate token
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

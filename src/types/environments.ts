@@ -13,7 +13,7 @@ interface ComputeEnvFeesStructure {
 }
 
 type ComputeResourceType = 'cpu' | 'ram' | 'disk' | 'gpu';
-type ComputeResourceId = 'cpu' | 'ram' | 'disk' | any;
+type ComputeResourceId = 'cpu' | 'ram' | 'disk' | string;
 
 export interface ComputeResource {
   id: ComputeResourceId;
@@ -59,8 +59,11 @@ export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
 
 export type EnvResourcesSelection = {
   cpuCores: number;
+  cpuId: string;
   diskSpace: number;
+  diskId: string;
   gpus: { id: string; description?: string }[];
   maxJobDurationHours: number;
   ram: number;
+  ramId: string;
 };
