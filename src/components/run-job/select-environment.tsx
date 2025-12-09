@@ -141,7 +141,7 @@ const SelectEnvironment = () => {
               <Button color="accent1" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="outlined">
                 {expanded ? 'Fewer filters' : 'More filters'}
               </Button>
-              <Button color="accent1" type="submit">
+              <Button color="accent1" loading={formik.isSubmitting} type="submit">
                 Find environments
               </Button>
             </div>

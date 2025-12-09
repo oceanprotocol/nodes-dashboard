@@ -34,6 +34,7 @@ const PaymentAuthorize = ({
   const { authorizeTokens } = useOceanContext();
 
   const formik = useFormik<AuthorizeFormValues>({
+    enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
       maxLockedAmount: totalCost,
@@ -110,7 +111,7 @@ const PaymentAuthorize = ({
           value={formik.values.maxLockCount}
         />
       </div>
-      <Button autoLoading className="alignSelfEnd" color="accent2" size="lg" type="submit">
+      <Button className="alignSelfEnd" color="accent2" loading={formik.isSubmitting} size="lg" type="submit">
         Authorize
       </Button>
     </form>

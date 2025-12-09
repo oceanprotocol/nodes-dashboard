@@ -21,6 +21,7 @@ const PaymentDeposit = ({ escrowBalance, loadPaymentInfo, selectedToken, totalCo
   const { depositTokens } = useOceanContext();
 
   const formik = useFormik<DepositFormValues>({
+    enableReinitialize: true,
     initialValues: {
       amount: totalCost - escrowBalance,
     },
@@ -53,7 +54,7 @@ const PaymentDeposit = ({ escrowBalance, loadPaymentInfo, selectedToken, totalCo
         type="number"
         value={formik.values.amount}
       />
-      <Button autoLoading className="alignSelfEnd" color="accent2" size="lg" type="submit">
+      <Button className="alignSelfEnd" color="accent2" loading={formik.isSubmitting} size="lg" type="submit">
         Deposit
       </Button>
     </form>
