@@ -3,7 +3,6 @@ import Input from '@/components/input/input';
 import { useOceanContext } from '@/context/ocean-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { useFormik } from 'formik';
-import { useState } from 'react';
 import * as Yup from 'yup';
 import styles from './payment-deposit.module.css';
 
@@ -21,15 +20,12 @@ type PaymentDepositProps = {
 const PaymentDeposit = ({ escrowBalance, loadPaymentInfo, selectedToken, totalCost }: PaymentDepositProps) => {
   const { depositTokens } = useOceanContext();
 
-  const [isLoadingSubmit, setIsLoadingSubmit] = useState(false);
-
   const formik = useFormik<DepositFormValues>({
     initialValues: {
       amount: totalCost - escrowBalance,
     },
     onSubmit: async (values) => {
       try {
-        setIsLoadingSubmit(true);
         const tx = await depositTokens(selectedToken.address, values.amount.toString());
         await tx.wait();
         loadPaymentInfo();
@@ -37,8 +33,6 @@ const PaymentDeposit = ({ escrowBalance, loadPaymentInfo, selectedToken, totalCo
       } catch (error) {
         console.error('Deposit failed:', error);
         // toast.error('Deposit failed');
-      } finally {
-        setIsLoadingSubmit(false);
       }
     },
     validateOnMount: true,
@@ -59,7 +53,7 @@ const PaymentDeposit = ({ escrowBalance, loadPaymentInfo, selectedToken, totalCo
         type="number"
         value={formik.values.amount}
       />
-      <Button className="alignSelfEnd" color="accent2" loading={isLoadingSubmit} size="lg" type="submit">
+      <Button autoLoading className="alignSelfEnd" color="accent2" size="lg" type="submit">
         Deposit
       </Button>
     </form>

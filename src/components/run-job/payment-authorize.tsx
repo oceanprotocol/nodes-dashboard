@@ -4,7 +4,6 @@ import { useOceanContext } from '@/context/ocean-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { useFormik } from 'formik';
-import { useState } from 'react';
 import * as Yup from 'yup';
 import styles from './payment-authorize.module.css';
 
@@ -34,8 +33,6 @@ const PaymentAuthorize = ({
 }: PaymentAuthorizeProps) => {
   const { authorizeTokens } = useOceanContext();
 
-  const [isLoadingSubmit, setIsLoadingSubmit] = useState(false);
-
   const formik = useFormik<AuthorizeFormValues>({
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
@@ -45,7 +42,6 @@ const PaymentAuthorize = ({
     },
     onSubmit: async (values) => {
       try {
-        setIsLoadingSubmit(true);
         await authorizeTokens(
           selectedToken.address,
           selectedEnv.consumerAddress,
@@ -56,8 +52,6 @@ const PaymentAuthorize = ({
         loadPaymentInfo();
       } catch (error) {
         console.error('Authorize failed:', error);
-      } finally {
-        setIsLoadingSubmit(false);
       }
     },
     validateOnMount: true,
@@ -116,7 +110,7 @@ const PaymentAuthorize = ({
           value={formik.values.maxLockCount}
         />
       </div>
-      <Button className="alignSelfEnd" color="accent2" loading={isLoadingSubmit} size="lg" type="submit">
+      <Button autoLoading className="alignSelfEnd" color="accent2" size="lg" type="submit">
         Authorize
       </Button>
     </form>
