@@ -6,6 +6,7 @@ import { useOceanContext } from '@/context/ocean-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Authorizations } from '@/types/payment';
+import { CircularProgress } from '@mui/material';
 import { useAppKitAccount } from '@reown/appkit/react';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -28,6 +29,9 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
   const [escrowBalance, setEscrowBalance] = useState<number | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
+  const [loadingAuthorizations, setLoadingAuthorizations] = useState(false);
+  const [loadingUserFunds, setLoadingUserFunds] = useState(false);
+
   const step: 'authorize' | 'deposit' = useMemo(() => {
     if ((escrowBalance ?? 0) >= totalCost) {
       return 'authorize';
@@ -37,14 +41,18 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
 
   const loadPaymentInfo = useCallback(() => {
     if (account?.address) {
+      setLoadingAuthorizations(true);
       getAuthorizations(selectedToken.address, account.address, selectedEnv.consumerAddress).then((authorizations) => {
         setAuthorizations(authorizations);
+        setLoadingAuthorizations(false);
       });
       getBalance(selectedToken.address, account.address).then(({ balance }) => {
         setWalletBalance(Number(balance));
       });
+      setLoadingUserFunds(true);
       getUserFunds(selectedToken.address, account.address).then((balance) => {
         setEscrowBalance(Number(balance));
+        setLoadingUserFunds(false);
       });
     }
   }, [
@@ -76,7 +84,9 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
     totalCost,
   ]);
 
-  return (
+  return loadingAuthorizations || loadingUserFunds ? (
+    <CircularProgress />
+  ) : (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Payment</h3>
       <PaymentSummary
