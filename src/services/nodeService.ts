@@ -281,9 +281,17 @@ export async function sendCommandToPeer(
 
     const discovered = await discoverPeerAddresses(nodeInstance, peerId);
 
-    const connection = await nodeInstance.dial(discovered, {
+    console.log("Discovered addresses: ", discovered)
+
+    let connection: any
+    try {
+    connection = await nodeInstance.dial(discovered, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
     });
+    } catch (error: unknown) {
+        console.log({ error, message: 'Failed to dial discovered addresses'})
+        throw error
+    }
 
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
