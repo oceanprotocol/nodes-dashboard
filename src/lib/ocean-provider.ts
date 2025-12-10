@@ -68,13 +68,15 @@ export class OceanProvider {
         for (const fee of fees) {
           const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
           const symbol = await getTokenSymbol(fee.feeToken);
-          if (balancesMap.has(symbol)) {
-            const balances = balancesMap.get(symbol) || [];
-            balances.push(balance);
-            balancesMap.set(symbol, balances);
-            continue;
+          if (symbol) {
+            if (balancesMap.has(symbol)) {
+              const balances = balancesMap.get(symbol) || [];
+              balances.push(balance);
+              balancesMap.set(symbol, balances);
+              continue;
+            }
+            balancesMap.set(symbol, [balance]);
           }
-          balancesMap.set(symbol, [balance]);
         }
       }
       for (const [key, value] of balancesMap) {

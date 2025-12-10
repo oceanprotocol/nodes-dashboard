@@ -1,7 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 type UseEnvResources = {
   cpu?: ComputeResource;
@@ -12,13 +12,11 @@ type UseEnvResources = {
   gpuFees: Record<string, number>;
   ram?: ComputeResource;
   ramFee?: number;
-  setTokenAddress: (token: string) => void;
   supportedTokens: string[];
-  tokenAddress: string;
   tokenSymbol: string | null;
 };
 
-const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
+const useEnvResources = (environment: ComputeEnvironment, tokenAddress?: string | null): UseEnvResources => {
   const { fees, supportedTokens } = useMemo(() => {
     const fees = environment.fees[CHAIN_ID];
     if (!fees) {
@@ -28,7 +26,6 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
     return { fees, supportedTokens };
   }, [environment.fees]);
 
-  const [tokenAddress, setTokenAddress] = useState(supportedTokens[0]);
   const tokenSymbol = useTokenSymbol(tokenAddress);
 
   const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === tokenAddress), [fees, tokenAddress]);
@@ -74,9 +71,7 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
     gpuFees,
     ram,
     ramFee,
-    setTokenAddress,
     supportedTokens,
-    tokenAddress,
     tokenSymbol,
   };
 };

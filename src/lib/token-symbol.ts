@@ -6,20 +6,24 @@ import { useEffect, useState } from 'react';
 /**
  * Fetches the symbol of a token from its address.
  * @param tokenAddress The address of the token.
- * @returns The symbol of the token.
+ * @returns The symbol of the token or null if the token address is invalid.
  */
-export const getTokenSymbol = async (tokenAddress: string): Promise<string> => {
+export const getTokenSymbol = async (tokenAddress: string | null | undefined): Promise<string | null> => {
+  if (!tokenAddress) {
+    return null;
+  }
   const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
   const token = new ethers.Contract(tokenAddress, ERC20Template.abi, provider);
-  return token.symbol();
+  const symbol = await token.symbol();
+  return symbol;
 };
 
 /**
  * Custom hook that fetches the symbol of a token from its address.
  * @param tokenAddress The address of the token.
- * @returns The symbol of the token.
+ * @returns The symbol of the token or null if the token address is invalid.
  */
-const useTokenSymbol = (tokenAddress: string) => {
+const useTokenSymbol = (tokenAddress: string | null | undefined) => {
   const [symbol, setSymbol] = useState<string | null>(null);
 
   useEffect(() => {

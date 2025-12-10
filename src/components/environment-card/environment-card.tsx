@@ -4,6 +4,7 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import { useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
+import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatNumber } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -11,7 +12,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
@@ -25,8 +26,14 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
 
   const { selectEnv, selectToken } = useRunJobContext();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenAddress, tokenSymbol } =
-    useEnvResources(environment);
+  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string | null>(
+    getEnvSupportedTokens(environment)[0]
+  );
+
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(
+    environment,
+    selectedTokenAddress
+  );
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
@@ -37,7 +44,9 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
 
   const selectEnvironment = () => {
     selectEnv(environment);
-    selectToken(tokenAddress, tokenSymbol);
+    if (selectedTokenAddress) {
+      selectToken(selectedTokenAddress, tokenSymbol);
+    }
     router.push('/run-job/resources');
   };
 

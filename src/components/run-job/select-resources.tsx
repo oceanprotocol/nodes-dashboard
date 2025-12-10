@@ -6,6 +6,7 @@ import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
 import { useRunJobContext } from '@/context/run-job-context';
+import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
 import { useAuthModal, useSignerStatus } from '@account-kit/react';
@@ -25,16 +26,18 @@ type ResourcesFormValues = {
 
 type SelectResourcesProps = {
   environment: ComputeEnvironment;
+  tokenAddress: string;
 };
 
-const SelectResources = ({ environment }: SelectResourcesProps) => {
+const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) => {
   const { openAuthModal } = useAuthModal();
   const router = useRouter();
   const { isAuthenticating, isDisconnected } = useSignerStatus();
 
   const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(environment);
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources(environment, tokenAddress);
+  const tokenSymbol = useTokenSymbol(tokenAddress);
 
   // TODO implement min job duration
 

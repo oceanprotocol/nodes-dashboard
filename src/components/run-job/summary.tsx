@@ -3,7 +3,6 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
-import { CHAIN_ID } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
@@ -29,12 +28,10 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
 
   const { account, ocean } = useOceanAccount();
 
-  const { gpus } = useEnvResources(selectedEnv);
+  const { gpus, tokenSymbol } = useEnvResources(selectedEnv, tokenAddress);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
-
-  const feeTokenAddress = selectedEnv.fees?.[CHAIN_ID]?.[0]?.feeToken;
 
   const generateToken = async () => {
     if (!account.address || !ocean) {
@@ -106,12 +103,8 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
         <div className={styles.value}>{selectedEnv.nodeId}</div>
         <div className={styles.label}>Environment:</div>
         <div className={styles.value}>{selectedEnv.consumerAddress}</div>
-        {feeTokenAddress ? (
-          <>
-            <div className={styles.label}>Fee token address:</div>
-            <div className={styles.value}>{feeTokenAddress}</div>
-          </>
-        ) : null}
+        <div className={styles.label}>Fee token address:</div>
+        <div className={styles.value}>{tokenAddress}</div>
         <div className={styles.label}>Job duration:</div>
         <div className={styles.value}>
           {selectedResources!.maxJobDurationHours} hours ({selectedResources!.maxJobDurationHours * 60 * 60} seconds)
@@ -129,7 +122,9 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
         <div className={styles.label}>Disk space:</div>
         <div className={styles.value}>{selectedResources!.diskSpace} GB</div>
         <div className={styles.label}>Total cost:</div>
-        <div className={styles.value}>{estimatedTotalCost} USDC</div>
+        <div className={styles.value}>
+          {estimatedTotalCost} {tokenSymbol}
+        </div>
       </div>
       {authToken ? (
         <div className={styles.footer}>
