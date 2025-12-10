@@ -23,9 +23,12 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
 
   const buildFilterParams = (filters: NodeFilters): string => {
-    const filtersObject: Record<string, { operator: string; value: any }> = { hidden: { operator: 'equals', value: false } };
+    const filtersObject: Record<string, { operator: string; value: any }> = {
+      hidden: { operator: 'equals', value: false },
+    };
 
-    if (!filters || Object.keys(filters).length === 0) return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`
+    if (!filters || Object.keys(filters).length === 0)
+      return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
 
     Object.entries(filters).forEach(([field, filterData]) => {
       if (filterData?.value !== undefined && filterData?.operator) {

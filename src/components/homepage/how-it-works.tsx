@@ -1,7 +1,7 @@
+import { useVideoScroll } from '../../hooks/useVideoScroll';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
 import styles from './how-it-works.module.css';
-import { useVideoScroll } from '../../hooks/useVideoScroll';
 
 const itemsList: {
   title: string;
