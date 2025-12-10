@@ -6,7 +6,7 @@ const OwnerProfilePageWrapper: React.FC = () => {
   const params = useParams<{ ownerId: string }>();
 
   return (
-    <MyNodesTableContextProvider ownerId="0xD8264C8CFa74E462B2061207cd186D392130963d">
+    <MyNodesTableContextProvider ownerId={params.ownerId}>
       <OwnerProfilePage />
     </MyNodesTableContextProvider>
   );
