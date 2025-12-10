@@ -93,7 +93,7 @@ const ProfileButton = () => {
           </ListItemIcon>
           Profile
         </MenuItem>
-        <MenuItem
+        {/* <MenuItem
           onClick={() => {
             openAuthModal();
             handleCloseMenu();
@@ -103,7 +103,7 @@ const ProfileButton = () => {
             <WalletIcon />
           </ListItemIcon>
           Wallet
-        </MenuItem>
+        </MenuItem> */}
         <MenuItem
           onClick={() => {
             logout();
