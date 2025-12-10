@@ -10,7 +10,7 @@ type CtxType = TableContextType<Node>;
 
 const MyNodesTableContext = createContext<CtxType | undefined>(undefined);
 
-export const MyNodesTableContextProvider = ({ children, ownerId }: { children: ReactNode; ownerId: string }) => {
+export const MyNodesTableContextProvider = ({ children, ownerId }: { children: ReactNode; ownerId: string | undefined }) => {
   const [crtPage, setCrtPage] = useState<CtxType['crtPage']>(1);
   const [data, setData] = useState<CtxType['data']>([]);
   const [error, setError] = useState<CtxType['error']>(null);

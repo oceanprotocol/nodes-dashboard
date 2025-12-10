@@ -1,12 +1,12 @@
 import OwnerProfilePage from '@/components/profile/owner-profile-page';
 import { MyNodesTableContextProvider } from '@/context/table/my-nodes-table-context';
-import { useParams } from 'next/navigation';
+import { useAppKitAccount } from '@reown/appkit/react';
 
 const OwnerProfilePageWrapper: React.FC = () => {
-  const params = useParams<{ ownerId: string }>();
+  const account = useAppKitAccount();
 
   return (
-    <MyNodesTableContextProvider ownerId={params.ownerId}>
+    <MyNodesTableContextProvider ownerId={account?.address}>
       <OwnerProfilePage />
     </MyNodesTableContextProvider>
   );
