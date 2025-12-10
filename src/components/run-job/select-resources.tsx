@@ -8,6 +8,7 @@ import Slider from '@/components/slider/slider';
 import { useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
+import { useAuthModal, useSignerStatus } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
@@ -27,7 +28,9 @@ type SelectResourcesProps = {
 };
 
 const SelectResources = ({ environment }: SelectResourcesProps) => {
+  const { openAuthModal } = useAuthModal();
   const router = useRouter();
+  const { isAuthenticating, isDisconnected } = useSignerStatus();
 
   const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
 
@@ -54,6 +57,10 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
       ram: minAllowedRam,
     },
     onSubmit: (values) => {
+      if (isDisconnected) {
+        openAuthModal();
+        return;
+      }
       setEstimatedTotalCost(estimatedTotalCost);
       setSelectedResources({
         cpuCores: values.cpuCores,
@@ -240,7 +247,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
             </div>
           </Card>
         ) : null}
-        <Button className={styles.button} color="accent2" size="lg" type="submit">
+        <Button className={styles.button} color="accent2" loading={isAuthenticating} size="lg" type="submit">
           Continue
         </Button>
       </form>

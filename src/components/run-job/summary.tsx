@@ -3,14 +3,13 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import { CHAIN_ID } from '@/constants/chains';
-import { useOceanContext } from '@/context/ocean-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
-import { signMessage } from '@/utils/sign-message';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import classNames from 'classnames';
-import { JsonRpcSigner } from 'ethers';
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './summary.module.css';
 
 type SummaryProps = {
@@ -20,40 +19,40 @@ type SummaryProps = {
   tokenAddress: string;
 };
 
-// TODO
-const nodeUrl = 'https://compute1.oceanprotocol.com';
-
 const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddress }: SummaryProps) => {
-  const account = useAppKitAccount();
+  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { signMessageAsync } = useSignMessage({
+    client,
+  });
 
-  const { browserProvider, generateAuthToken, getNonce, updateConfiguration } = useOceanContext();
-
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const { account, ocean } = useOceanAccount();
 
   const { gpus } = useEnvResources(selectedEnv);
+
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   const feeTokenAddress = selectedEnv.fees?.[CHAIN_ID]?.[0]?.feeToken;
 
   const generateToken = async () => {
-    if (!account.address || !browserProvider) {
-      // toast.error('No account found');
+    if (!account.address || !ocean) {
       return;
     }
     try {
-      const signer = new JsonRpcSigner(browserProvider, account.address);
-      const nonce = await getNonce(account.address, nodeUrl);
+      const nonce = await ocean.getNonce(account.address, selectedEnv.nodeId);
       const incrementedNonce = nonce + 1;
-      const signedMessage = await signMessage(account.address + incrementedNonce, signer);
-      const token = await generateAuthToken(account.address, incrementedNonce, signedMessage, nodeUrl);
+      const signedMessage = await signMessageAsync({
+        message: account.address + incrementedNonce,
+      });
+      const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, selectedEnv.nodeId);
       setAuthToken(token);
     } catch (error) {
       console.error('Failed to generate auth token:', error);
-      // toast.error('Failed to generate auth token');
+      toast.error('Failed to generate auth token');
     }
   };
 
   const openIde = async (ide: Ide) => {
-    if (!authToken || !account.address) {
+    if (!authToken || !account.address || !ocean) {
       return;
     }
     const resources = [
@@ -75,10 +74,10 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
       })),
     ];
     const isFreeCompute = estimatedTotalCost === 0;
-    updateConfiguration(
+    ocean.updateConfiguration(
       authToken,
       account.address,
-      nodeUrl,
+      selectedEnv.nodeId,
       isFreeCompute,
       selectedEnv.id,
       tokenAddress,

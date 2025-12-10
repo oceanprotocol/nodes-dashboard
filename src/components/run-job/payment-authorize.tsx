@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import Input from '@/components/input/input';
-import { useOceanContext } from '@/context/ocean-context';
 import { SelectedToken } from '@/context/run-job-context';
+import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -15,7 +15,7 @@ type AuthorizeFormValues = {
 };
 
 type PaymentAuthorizeProps = {
-  authorizations: any;
+  // authorizations: any;
   loadPaymentInfo: () => void;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
@@ -24,14 +24,14 @@ type PaymentAuthorizeProps = {
 };
 
 const PaymentAuthorize = ({
-  authorizations,
+  // authorizations,
   loadPaymentInfo,
   selectedEnv,
   selectedResources,
   selectedToken,
   totalCost,
 }: PaymentAuthorizeProps) => {
-  const { authorizeTokens } = useOceanContext();
+  const { handleAuthorize, isAuthorizing } = useAuthorizeTokens({ onSuccess: loadPaymentInfo });
 
   const formik = useFormik<AuthorizeFormValues>({
     enableReinitialize: true,
@@ -42,18 +42,13 @@ const PaymentAuthorize = ({
       maxLockSeconds: selectedResources.maxJobDurationHours * 60 * 60,
     },
     onSubmit: async (values) => {
-      try {
-        await authorizeTokens(
-          selectedToken.address,
-          selectedEnv.consumerAddress,
-          values.maxLockedAmount.toString(),
-          values.maxLockSeconds.toString(),
-          values.maxLockCount.toString()
-        );
-        loadPaymentInfo();
-      } catch (error) {
-        console.error('Authorize failed:', error);
-      }
+      handleAuthorize({
+        tokenAddress: selectedToken.address,
+        spender: selectedEnv.consumerAddress,
+        maxLockedAmount: values.maxLockedAmount.toString(),
+        maxLockSeconds: values.maxLockSeconds.toString(),
+        maxLockCount: values.maxLockCount.toString(),
+      });
     },
     validateOnMount: true,
     validationSchema: Yup.object({}),
@@ -111,7 +106,7 @@ const PaymentAuthorize = ({
           value={formik.values.maxLockCount}
         />
       </div>
-      <Button className="alignSelfEnd" color="accent2" loading={formik.isSubmitting} size="lg" type="submit">
+      <Button className="alignSelfEnd" color="accent2" loading={isAuthorizing} size="lg" type="submit">
         Authorize
       </Button>
     </form>

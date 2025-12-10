@@ -45,6 +45,7 @@ export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
   fees: ComputeEnvFeesStructure;
   free?: ComputeEnvironmentFreeOptions;
   id: string;
+  nodeId: string;
   platform?: {
     architecture: string;
     os: string;

@@ -2,12 +2,11 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { CHAIN_ID } from '@/constants/chains';
 import { useUnbanRequestsContext } from '@/context/unban-requests-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
-import { BrowserProvider, Eip1193Provider, type Provider } from 'ethers';
+import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { useEffect, useState } from 'react';
 import styles from './unban-requests.module.css';
 
@@ -16,10 +15,17 @@ type UnbanRequestsProps = {
 };
 
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
+  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { signMessageAsync } = useSignMessage({
+    client,
+  });
+
+  const { openAuthModal } = useAuthModal();
+
+  const { account, ocean } = useOceanAccount();
+
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
-  const { open } = useAppKit();
-  const { isConnected } = useAppKitAccount();
-  const { walletProvider } = useAppKitProvider<Provider>('eip155');
+
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -29,29 +35,20 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   }, [node?.id, fetchUnbanRequests]);
 
   const handleRequestUnban = async () => {
-    if (!isConnected) {
-      open();
+    if (!account.isConnected) {
+      openAuthModal();
       return;
     }
-
-    if (!walletProvider) {
-      console.error('No wallet provider found');
+    if (!ocean || !node?.id) {
       return;
     }
-
-    if (!node?.id) {
-      console.error('No node ID found');
-      return;
-    }
-
     setLoading(true);
     try {
-      const provider = new BrowserProvider(walletProvider as unknown as Eip1193Provider, CHAIN_ID);
-      const signer = await provider.getSigner();
       const timestamp = Date.now();
-      const signature = await signer.signMessage(timestamp.toString());
-
-      await requestNodeUnban(node.id, signature, timestamp);
+      const signedMessage = await signMessageAsync({
+        message: timestamp.toString(),
+      });
+      await requestNodeUnban(node.id, signedMessage, timestamp);
       await fetchUnbanRequests(node.id);
     } catch (error) {
       console.error('Error requesting unban:', error);
@@ -64,7 +61,7 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Unban requests</h3>
-        <Button color="accent1" disabled={loading} onClick={handleRequestUnban}>
+        <Button color="accent1" loading={loading} onClick={handleRequestUnban}>
           {loading ? 'Requesting...' : 'Request unban'}
         </Button>
       </div>

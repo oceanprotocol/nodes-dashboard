@@ -1,5 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { useOceanContext } from '@/context/ocean-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -19,7 +19,7 @@ type UseEnvResources = {
 };
 
 const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
-  const { getSymbolByAddress } = useOceanContext();
+  const { ocean } = useOceanAccount();
 
   const { fees, supportedTokens } = useMemo(() => {
     const fees = environment.fees[CHAIN_ID];
@@ -35,8 +35,8 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
 
   useEffect(() => {
     setTokenSymbol(null);
-    getSymbolByAddress(tokenAddress).then((symbol) => setTokenSymbol(symbol));
-  }, [getSymbolByAddress, tokenAddress]);
+    ocean?.getSymbolByAddress(tokenAddress).then((symbol) => setTokenSymbol(symbol));
+  }, [ocean, tokenAddress]);
 
   const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === tokenAddress), [fees, tokenAddress]);
 
@@ -56,7 +56,7 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
     const diskFee = selectedTokenFees?.prices.find((price) => price.id === diskId)?.price;
     const ramFee = selectedTokenFees?.prices.find((price) => price.id === ramId)?.price;
     return { cpuFee, diskFee, ramFee };
-  }, [selectedTokenFees]);
+  }, [cpu?.id, disk?.id, ram?.id, selectedTokenFees?.prices]);
 
   const gpuFees = useMemo(() => {
     const fees: Record<string, number> = {};

@@ -1,4 +1,5 @@
 @import 'normalize.css';
+@import '@account-kit/react/styles.css';
 
 :root {
   --white: #fff;

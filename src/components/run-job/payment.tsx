@@ -2,12 +2,11 @@ import Card from '@/components/card/card';
 import PaymentAuthorize from '@/components/run-job/payment-authorize';
 import PaymentDeposit from '@/components/run-job/payment-deposit';
 import PaymentSummary from '@/components/run-job/payment-summary';
-import { useOceanContext } from '@/context/ocean-context';
 import { SelectedToken } from '@/context/run-job-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Authorizations } from '@/types/payment';
 import { CircularProgress } from '@mui/material';
-import { useAppKitAccount } from '@reown/appkit/react';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -21,9 +20,7 @@ type PaymentProps = {
 const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
   const router = useRouter();
 
-  const account = useAppKitAccount();
-
-  const { getAuthorizations, getBalance, getUserFunds } = useOceanContext();
+  const { account, ocean } = useOceanAccount();
 
   const [authorizations, setAuthorizations] = useState<Authorizations | null>(null);
   const [escrowBalance, setEscrowBalance] = useState<number | null>(null);
@@ -40,29 +37,24 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
   }, [escrowBalance, totalCost]);
 
   const loadPaymentInfo = useCallback(() => {
-    if (account?.address) {
+    if (ocean && account?.address) {
       setLoadingAuthorizations(true);
-      getAuthorizations(selectedToken.address, account.address, selectedEnv.consumerAddress).then((authorizations) => {
-        setAuthorizations(authorizations);
-        setLoadingAuthorizations(false);
-      });
-      getBalance(selectedToken.address, account.address).then(({ balance }) => {
+      ocean
+        .getAuthorizations(selectedToken.address, account.address, selectedEnv.consumerAddress)
+        .then((authorizations) => {
+          setAuthorizations(authorizations);
+          setLoadingAuthorizations(false);
+        });
+      ocean.getBalance(selectedToken.address, account.address).then((balance) => {
         setWalletBalance(Number(balance));
       });
       setLoadingUserFunds(true);
-      getUserFunds(selectedToken.address, account.address).then((balance) => {
+      ocean.getUserFunds(selectedToken.address, account.address).then((balance) => {
         setEscrowBalance(Number(balance));
         setLoadingUserFunds(false);
       });
     }
-  }, [
-    account.address,
-    getAuthorizations,
-    getBalance,
-    getUserFunds,
-    selectedEnv.consumerAddress,
-    selectedToken.address,
-  ]);
+  }, [ocean, account.address, selectedToken.address, selectedEnv.consumerAddress]);
 
   useEffect(() => {
     loadPaymentInfo();
@@ -105,7 +97,7 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
         />
       ) : step === 'authorize' ? (
         <PaymentAuthorize
-          authorizations={authorizations}
+          // authorizations={authorizations}
           loadPaymentInfo={loadPaymentInfo}
           selectedEnv={selectedEnv}
           selectedResources={selectedResources}

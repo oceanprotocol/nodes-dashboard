@@ -1,5 +1,5 @@
 import { getApiRoute } from '@/config';
-import { useOceanContext } from '@/context/ocean-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { MOCK_ENVS } from '@/mock/environments';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
@@ -30,7 +30,7 @@ type RunJobContextType = {
 const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
-  const { getSymbolByAddress } = useOceanContext();
+  const { ocean } = useOceanAccount();
 
   const [environments, setEnvironments] = useState<ComputeEnvironment[]>([]);
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
@@ -95,12 +95,12 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       if (symbol) {
         setSelectedToken({ address, symbol });
         return;
-      } else {
-        const symbol = await getSymbolByAddress(address);
+      } else if (ocean) {
+        const symbol = await ocean.getSymbolByAddress(address);
         setSelectedToken({ address, symbol });
       }
     },
-    [getSymbolByAddress]
+    [ocean]
   );
 
   return (
