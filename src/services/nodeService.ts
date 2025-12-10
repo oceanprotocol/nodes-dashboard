@@ -152,6 +152,14 @@ function normalizeMultiaddr(addr: Multiaddr): Multiaddr | null {
         addrStr = addrStr + '/ws';
       }
     }
+    if (addrStr.includes('/wss/tcp/')) {
+      addrStr = addrStr.replace('/wss/tcp/', '/tcp/');
+      if (addrStr.includes('/p2p/')) {
+        addrStr = addrStr.replace('/p2p/', '/wss/p2p/');
+      } else {
+        addrStr = addrStr + '/wss';
+      }
+    }
 
     return multiaddr(addrStr);
   } catch (e: unknown) {
@@ -280,8 +288,6 @@ export async function sendCommandToPeer(
     }
 
     const discovered = await discoverPeerAddresses(nodeInstance, peerId);
-
-    console.log('Discovered addresses: ', discovered);
 
     let connection: any;
     try {
