@@ -1,7 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { useOceanAccount } from '@/lib/use-ocean-account';
+import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type UseEnvResources = {
   cpu?: ComputeResource;
@@ -19,8 +19,6 @@ type UseEnvResources = {
 };
 
 const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
-  const { ocean } = useOceanAccount();
-
   const { fees, supportedTokens } = useMemo(() => {
     const fees = environment.fees[CHAIN_ID];
     if (!fees) {
@@ -31,12 +29,7 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
   }, [environment.fees]);
 
   const [tokenAddress, setTokenAddress] = useState(supportedTokens[0]);
-  const [tokenSymbol, setTokenSymbol] = useState<string | null>(null);
-
-  useEffect(() => {
-    setTokenSymbol(null);
-    ocean?.getSymbolByAddress(tokenAddress).then((symbol) => setTokenSymbol(symbol));
-  }, [ocean, tokenAddress]);
+  const tokenSymbol = useTokenSymbol(tokenAddress);
 
   const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === tokenAddress), [fees, tokenAddress]);
 

@@ -1,4 +1,5 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
+import { getTokenSymbol } from '@/lib/token-symbol';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -66,7 +67,7 @@ export class OceanProvider {
         const fees = await this.getFeesByChainId(this.chainId, env);
         for (const fee of fees) {
           const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
-          const symbol = await this.getSymbolByAddress(fee.feeToken);
+          const symbol = await getTokenSymbol(fee.feeToken);
           if (balancesMap.has(symbol)) {
             const balances = balancesMap.get(symbol) || [];
             balances.push(balance);
@@ -95,14 +96,6 @@ export class OceanProvider {
       return [];
     }
     return environment.fees[config] as unknown as ComputeEnvFees[];
-  }
-
-  async getSymbolByAddress(tokenAddress: string): Promise<string> {
-    console.log('get symbol ', tokenAddress);
-    const token = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
-    const symbol = (await token.symbol()) || tokenAddress;
-    console.log(symbol);
-    return symbol;
   }
 
   async getBalance(tokenAddress: string, address: string): Promise<string> {
