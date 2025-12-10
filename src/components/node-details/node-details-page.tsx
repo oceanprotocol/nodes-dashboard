@@ -22,10 +22,10 @@ const NodeDetailsPage = () => {
   }, [selectedNode, params?.nodeId, fetchNode]);
 
   useEffect(() => {
-      if (selectedNode?.id && isReady) {
-          getEnvs(selectedNode.id)
-      }
-  }, [selectedNode?.id, isReady, getEnvs])
+    if (selectedNode?.id && isReady) {
+      getEnvs(selectedNode.id);
+    }
+  }, [selectedNode?.id, isReady, getEnvs]);
 
   if (!selectedNode) {
     return (
