@@ -1,5 +1,6 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
+import { Node } from '@/types';
 import { FilterOperator, MyNodesFilters } from '@/types/filters';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
@@ -39,7 +40,13 @@ export const MyNodesTableContextProvider = ({ children, ownerId }: { children: R
   };
 
   const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('admin')}/${ownerId}/myNodes`;
+    let url = `${getApiRoute('admin')}/${ownerId}/myNodes?page=${crtPage}&size=${pageSize}&sort={"totalScore":"desc"}`;
+
+    const operatorMap: Record<string, FilterOperator> = {
+        '>': 'gt',
+        '<': 'lt',
+        '=': 'eq',
+      }
 
     const gridFilterToBenchmarkFilters = (gridFilter: GridFilterModel): MyNodesFilters => {
       const myNodesFilters: MyNodesFilters = {};
@@ -47,7 +54,7 @@ export const MyNodesTableContextProvider = ({ children, ownerId }: { children: R
         if (item.field && item.value !== undefined && item.operator) {
           myNodesFilters[item.field as keyof MyNodesFilters] = {
             value: item.value,
-            operator: item.operator as FilterOperator,
+            operator: operatorMap[item.operator] || item.operator as FilterOperator,
           };
         }
       });
@@ -62,13 +69,13 @@ export const MyNodesTableContextProvider = ({ children, ownerId }: { children: R
       url += `&search=${encodeURIComponent(searchTerm)}`;
     }
     return url;
-  }, [ownerId]);
+  }, [ownerId, crtPage, pageSize, filterModel, searchTerm]);
 
   const fetchData = useCallback(async () => {
+    if (!ownerId) return;
     setLoading(true);
     try {
       const response = await axios.get(fetchUrl);
-      //TODO: check if it is data.nodes
       const sanitizedData = response.data.nodes.map((element: any, index: number) => ({
         ...element,
         index: (crtPage - 1) * pageSize + index + 1,

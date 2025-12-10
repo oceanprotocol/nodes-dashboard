@@ -36,6 +36,7 @@ export type Node = {
     gpuScore: number;
     cpuScore: number;
     bandwidth: number;
+    totalScore: number;
   };
   latestGpuScore: number;
   latestCpuScore: number;
