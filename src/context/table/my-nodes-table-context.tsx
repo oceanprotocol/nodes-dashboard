@@ -87,7 +87,7 @@ export const MyNodesTableContextProvider = ({ children, ownerId }: { children: R
     } finally {
       setLoading(false);
     }
-  }, [crtPage, pageSize, fetchUrl]);
+  }, [crtPage, pageSize, fetchUrl, ownerId]);
 
   useEffect(() => {
     let mounted = true;
