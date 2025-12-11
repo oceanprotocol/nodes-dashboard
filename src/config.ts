@@ -101,6 +101,7 @@ const apiRoutes = {
   nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
   benchmarkHistory: { root: 'incentive', path: '/nodes' },
   nodeUnbanRequests: { root: 'incentive', path: '/nodes' },
+  owner: { root: 'incentive', path: 'owners' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },

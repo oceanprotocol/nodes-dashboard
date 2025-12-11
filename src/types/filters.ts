@@ -55,3 +55,11 @@ export interface BenchmarkJobsHistoryFilters {
   resultHashes?: FilterValue;
   gpuScore?: FilterValue;
 }
+
+export interface JobsFilters {
+  startTime?: FilterValue;
+  status?: FilterValue;
+  nodeFriendlyName?: FilterValue;
+  duration?: FilterValue;
+  amountPaid?: FilterValue;
+}

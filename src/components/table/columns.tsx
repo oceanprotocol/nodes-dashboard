@@ -203,40 +203,27 @@ export const jobsColumns: GridColDef<Node>[] = [
     ),
   },
   {
-    field: 'endTime',
+    field: 'nodeFriendlyName',
     filterable: true,
     flex: 1,
-    headerName: 'End Time',
+    headerName: 'Node Name',
+    sortable: false,
+  },
+  {
+    field: 'paymentInfo.cost',
+    filterable: true,
+    flex: 1,
+    headerName: 'Amount paid',
     sortable: false,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
   },
   {
-    field: 'difficulty',
+    field: 'duration',
     filterable: true,
     flex: 1,
-    headerName: 'Difficulty',
-    sortable: false,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'resultHashes',
-    filterable: true,
-    flex: 1,
-    headerName: 'Total hashes',
-    sortable: false,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'score',
-    filterable: true,
-    flex: 1,
-    headerName: 'Score',
+    headerName: 'Duration',
     sortable: false,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
