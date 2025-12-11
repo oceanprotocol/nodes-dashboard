@@ -4,15 +4,13 @@ import { useP2P } from '@/contexts/P2PContext';
 import styles from './environments.module.css';
 
 const Environments = () => {
-  const { envs } = useP2P();
+  const { isReady, envs } = useP2P();
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <div className={styles.list}>
-        {envs.map((env) => (
-          <EnvironmentCard key={env.id} environment={env} />
-        ))}
+        {!isReady ? <div>Fetching data...</div> : envs.map((env) => <EnvironmentCard key={env.id} environment={env} />)}
       </div>
     </Card>
   );

@@ -49,11 +49,27 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
     }
   };
 
-  const handleError = (error: Error) => {
+  const handleError = (error: any) => {
     console.error('Deposit error:', error);
     setIsDepositing(false);
     setCurrentStep('idle');
-    setError(error.message || 'Failed to deposit tokens');
+    let prettyErr = '';
+    if (error.details) {
+      let d = 0,
+        v = 0;
+      const arr = error.details;
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] === 'D' && arr.slice(i, i + 7) === 'Details') {
+          d = i;
+        }
+        if (arr[i] === 'V' && arr.slice(i, i + 7) === 'Version') {
+          v = i;
+        }
+      }
+
+      prettyErr = arr.slice(d + 8, v);
+    }
+    setError(prettyErr || error.details || 'Failed to deposit tokens');
     toast.error(currentStep === 'approving' ? 'Approval failed' : 'Deposit failed');
   };
 
@@ -156,6 +172,7 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         });
       } catch (err) {
         console.error('Error preparing deposit:', err);
+        console.log('Error.details: ', (err as any).Details);
         setError(err instanceof Error ? err.message : 'Failed to prepare deposit');
         toast.error('Failed to prepare deposit');
         setIsDepositing(false);

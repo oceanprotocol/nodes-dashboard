@@ -58,16 +58,19 @@ export class OceanProvider {
     }
   }
 
-  getNodeBalance = async (peerId: string) => {
-    const result = new Map<string, number>();
+  async getNodeBalance(peerId: string) {
+    const result = [];
     try {
       const environments = await this.getEnvironmentsByNode(peerId);
       const balancesMap = new Map<string, string[]>();
+      console.log({ environments, msg: 'environments' });
       for (const env of environments) {
         const fees = await this.getFeesByChainId(this.chainId, env);
+        console.log({ fees, msg: 'fees' });
         for (const fee of fees) {
           const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
           const symbol = await getTokenSymbol(fee.feeToken);
+          console.log({ balance, symbol, msg: 'balance for symbol' });
           if (symbol) {
             if (balancesMap.has(symbol)) {
               const balances = balancesMap.get(symbol) || [];
@@ -79,15 +82,18 @@ export class OceanProvider {
           }
         }
       }
+
+      console.log({ balancesMap });
       for (const [key, value] of balancesMap) {
         const sum = value.map((val) => new BigNumber(val)).reduce((acc, val) => acc.plus(val), new BigNumber(0));
-        result.set(key, sum.toNumber());
+        result.push({ token: key, amount: sum.toNumber() });
       }
+      console.log({ result });
     } catch (error) {
       console.log(error);
     }
     return result;
-  };
+  }
 
   async getFeesByChainId(chainId: number, environment: ComputeEnvironment): Promise<ComputeEnvFees[]> {
     if (!environment?.fees) {

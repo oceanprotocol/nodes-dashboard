@@ -33,3 +33,29 @@
     gap: 16px;
   }
 }
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 180px;
+}
+
+.errorContainer {
+  min-height: 3rem;
+  display: flex;
+  align-items: flex-start;
+}
+
+.errorMessage {
+  color: var(--error);
+  font-size: 14px;
+  padding: 8px 12px;
+  background-color: rgba(255, 68, 68, 0.1);
+  border-radius: 8px;
+  width: 100%;
+}
+
+.modalButton {
+  margin-top: auto;
+}
