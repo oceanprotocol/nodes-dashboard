@@ -186,7 +186,7 @@ export const jobsColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'status',
+    field: 'statusText',
     filterable: false,
     flex: 1,
     headerName: 'Status',
@@ -213,7 +213,7 @@ export const jobsColumns: GridColDef<Node>[] = [
     field: 'paymentInfo.cost',
     filterable: true,
     flex: 1,
-    headerName: 'Amount paid',
+    headerName: 'Amount Paid',
     sortable: false,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'

@@ -2,6 +2,7 @@ import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
 import { FilterOperator, JobsFilters } from '@/types/filters';
 import { ComputeJob } from '@/types/jobs';
+import { formatDateTime } from '@/utils/formatters';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -10,7 +11,7 @@ type CtxType = TableContextType<ComputeJob>;
 
 const MyJobsTableContext = createContext<CtxType | undefined>(undefined);
 
-export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNode; consumer: string }) => {
+export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNode; consumer: string | undefined }) => {
   const [crtPage, setCrtPage] = useState<CtxType['crtPage']>(1);
   const [data, setData] = useState<CtxType['data']>([]);
   const [error, setError] = useState<CtxType['error']>(null);
@@ -24,7 +25,6 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
 
   const buildFilterParams = (filters: JobsFilters): string => {
     const filtersObject: Record<string, { operator: string; value: any }> = {
-      hidden: { operator: 'equals', value: false },
     };
 
     if (!filters || Object.keys(filters).length === 0)
@@ -43,7 +43,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   };
 
   const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('owner')}/${consumer}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
+    let url = `${getApiRoute('owners')}/${"0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234"}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
     const gridFilterToJobsFilters = (gridFilter: GridFilterModel): JobsFilters => {
       const jobsFilters: JobsFilters = {};
       gridFilter.items.forEach((item) => {
@@ -67,11 +67,14 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   }, [crtPage, filterModel, pageSize, searchTerm]);
 
   const fetchData = useCallback(async () => {
+    if (!consumer) return;
     setLoading(true);
     try {
       const response = await axios.get(fetchUrl);
       const sanitizedData = response.data.computeJobs.map((element: any, index: number) => ({
         ...element._source,
+        id: element.jobId,
+        startTime: formatDateTime(element.dateCreated),
         index: (crtPage - 1) * pageSize + index + 1,
       }));
 
