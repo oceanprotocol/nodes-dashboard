@@ -1,6 +1,6 @@
 import { getApiRoute } from '@/config';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { EnsProfile } from '@/types/profile';
-import { useAppKitAccount } from '@reown/appkit/react';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -13,7 +13,7 @@ type ProfileContextType = {
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider = ({ children }: { children: ReactNode }) => {
-  const account = useAppKitAccount();
+  const { account } = useOceanAccount();
 
   const [ensAddress, setEnsAddress] = useState<ProfileContextType['ensAddress']>(undefined);
   const [ensName, setEnsName] = useState<ProfileContextType['ensName']>(undefined);

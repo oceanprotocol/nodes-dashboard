@@ -1,5 +1,5 @@
 import { getApiRoute } from '@/config';
-import { useOceanContext } from '@/context/ocean-context';
+import { getTokenSymbol } from '@/lib/token-symbol';
 import { MOCK_ENVS } from '@/mock/environments';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
@@ -30,8 +30,6 @@ type RunJobContextType = {
 const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
-  const { getSymbolByAddress } = useOceanContext();
-
   const [environments, setEnvironments] = useState<ComputeEnvironment[]>([]);
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
@@ -90,18 +88,17 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     [clearRunJobSelection]
   );
 
-  const selectToken = useCallback(
-    async (address: string, symbol?: string | null) => {
+  const selectToken = useCallback(async (address: string, symbol?: string | null) => {
+    if (symbol) {
+      setSelectedToken({ address, symbol });
+      return;
+    } else {
+      const symbol = await getTokenSymbol(address);
       if (symbol) {
         setSelectedToken({ address, symbol });
-        return;
-      } else {
-        const symbol = await getSymbolByAddress(address);
-        setSelectedToken({ address, symbol });
       }
-    },
-    [getSymbolByAddress]
-  );
+    }
+  }, []);
 
   return (
     <RunJobContext.Provider

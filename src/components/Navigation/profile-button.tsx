@@ -1,19 +1,24 @@
 import Avatar from '@/components/avatar/avatar';
 import { useProfileContext } from '@/context/profile-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
+import { useAuthModal, useLogout, useSignerStatus } from '@account-kit/react';
+import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import WalletIcon from '@mui/icons-material/Wallet';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import Button from '../button/button';
 import styles from './navigation.module.css';
 
 const ProfileButton = () => {
-  const { open } = useAppKit();
-  const account = useAppKitAccount();
+  const { openAuthModal } = useAuthModal();
+  const { logout, isLoggingOut } = useLogout();
   const router = useRouter();
+  const { isAuthenticating, isInitializing } = useSignerStatus();
+
+  const { account } = useOceanAccount();
 
   const { ensName, ensProfile } = useProfileContext();
 
@@ -88,9 +93,9 @@ const ProfileButton = () => {
           </ListItemIcon>
           Profile
         </MenuItem>
-        <MenuItem
+        {/* <MenuItem
           onClick={() => {
-            open();
+            openAuthModal();
             handleCloseMenu();
           }}
         >
@@ -98,17 +103,27 @@ const ProfileButton = () => {
             <WalletIcon />
           </ListItemIcon>
           Wallet
+        </MenuItem> */}
+        <MenuItem
+          onClick={() => {
+            logout();
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <LogoutIcon />
+          </ListItemIcon>
+          Log out
         </MenuItem>
       </Menu>
     </>
   ) : (
     <Button
       className={styles.loginButton}
-      onClick={() => {
-        open();
-      }}
+      loading={isAuthenticating || isInitializing || isLoggingOut}
+      onClick={openAuthModal}
     >
-      {account?.status === 'connecting' ? 'Connecting...' : 'Log In'}
+      Log in
     </Button>
   );
 };

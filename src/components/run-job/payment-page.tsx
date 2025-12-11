@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 const PaymentPage = () => {
   const router = useRouter();
 
-  const { estimatedTotalCost, selectedToken } = useRunJobContext();
+  const { estimatedTotalCost, selectedEnv, selectedResources, selectedToken } = useRunJobContext();
 
   useEffect(() => {
     if (!selectedToken) {
@@ -25,9 +25,14 @@ const PaymentPage = () => {
         subTitle="Payment description text"
         contentBetween={<Stepper currentStep={3} />}
       />
-      {selectedToken ? (
+      {selectedEnv && selectedResources && selectedToken ? (
         <div className="pageContentWrapper">
-          <Payment selectedToken={selectedToken} totalCost={estimatedTotalCost ?? 0} />
+          <Payment
+            selectedEnv={selectedEnv}
+            selectedResources={selectedResources}
+            selectedToken={selectedToken}
+            totalCost={estimatedTotalCost ?? 0}
+          />
         </div>
       ) : null}
     </Container>

@@ -6,6 +6,7 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
     id: '0x2570967f47edf15293a2ab50944d7c790490d742c83a8ba7306c6db5e02d69d3-0x3f05b9957b7b17d96657293504e294612f7fc0f7ced22d9397a82557aac8bee7',
     runningJobs: 0,
     consumerAddress: '0xF64552152CD0190b8e3a45f7054EE2687d705460',
+    nodeId: '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
     platform: {
       architecture: 'x86_64',
       os: 'linux',
@@ -144,6 +145,7 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
     id: '0x6d2a9d0e1c53bf993577809f4738cd3c0f6f07e653b769d852f88ed812903505-0xd614be95cc285db1b02814cdafb74a5d240d7d9ba1903100fdd7a9265d27f5f8',
     runningJobs: 0,
     consumerAddress: '0xdA82f7b1a5ecF91f75dc0d573b87FEd9881dfBBE',
+    nodeId: '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
     platform: {
       architecture: 'x86_64',
       os: 'linux',

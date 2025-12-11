@@ -1,7 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { useOceanContext } from '@/context/ocean-context';
+import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 type UseEnvResources = {
   cpu?: ComputeResource;
@@ -12,15 +12,11 @@ type UseEnvResources = {
   gpuFees: Record<string, number>;
   ram?: ComputeResource;
   ramFee?: number;
-  setTokenAddress: (token: string) => void;
   supportedTokens: string[];
-  tokenAddress: string;
   tokenSymbol: string | null;
 };
 
-const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
-  const { getSymbolByAddress } = useOceanContext();
-
+const useEnvResources = (environment: ComputeEnvironment, tokenAddress?: string | null): UseEnvResources => {
   const { fees, supportedTokens } = useMemo(() => {
     const fees = environment.fees[CHAIN_ID];
     if (!fees) {
@@ -30,13 +26,7 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
     return { fees, supportedTokens };
   }, [environment.fees]);
 
-  const [tokenAddress, setTokenAddress] = useState(supportedTokens[0]);
-  const [tokenSymbol, setTokenSymbol] = useState<string | null>(null);
-
-  useEffect(() => {
-    setTokenSymbol(null);
-    getSymbolByAddress(tokenAddress).then((symbol) => setTokenSymbol(symbol));
-  }, [getSymbolByAddress, tokenAddress]);
+  const tokenSymbol = useTokenSymbol(tokenAddress);
 
   const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === tokenAddress), [fees, tokenAddress]);
 
@@ -56,7 +46,7 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
     const diskFee = selectedTokenFees?.prices.find((price) => price.id === diskId)?.price;
     const ramFee = selectedTokenFees?.prices.find((price) => price.id === ramId)?.price;
     return { cpuFee, diskFee, ramFee };
-  }, [selectedTokenFees]);
+  }, [cpu?.id, disk?.id, ram?.id, selectedTokenFees?.prices]);
 
   const gpuFees = useMemo(() => {
     const fees: Record<string, number> = {};
@@ -81,9 +71,7 @@ const useEnvResources = (environment: ComputeEnvironment): UseEnvResources => {
     gpuFees,
     ram,
     ramFee,
-    setTokenAddress,
     supportedTokens,
-    tokenAddress,
     tokenSymbol,
   };
 };
