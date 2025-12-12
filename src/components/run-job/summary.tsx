@@ -111,9 +111,9 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
         </div>
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>
-          {selectedResources!.gpus.map((gpu) => (
-            <GpuLabel key={gpu.id} gpu={gpu.description} />
-          ))}
+          {selectedResources.gpus.length
+            ? selectedResources.gpus.map((gpu) => <GpuLabel key={gpu.id} gpu={gpu.description} />)
+            : '-'}
         </div>
         <div className={styles.label}>CPU cores:</div>
         <div className={styles.value}>{selectedResources!.cpuCores}</div>

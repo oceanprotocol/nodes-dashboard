@@ -94,7 +94,7 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
         .required('Required')
         .min(minAllowedDiskSpace, 'Limits exceeded')
         .max(maxAllowedDiskSpace, 'Limits exceeded'),
-      gpus: Yup.array().of(Yup.string()).min(1, 'Required'),
+      gpus: Yup.array().of(Yup.string()),
       maxJobDurationHours: Yup.number()
         .required('Required')
         .min(minAllowedJobDurationHours, 'Limits exceeded')
