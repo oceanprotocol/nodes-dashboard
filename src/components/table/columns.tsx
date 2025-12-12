@@ -1,4 +1,5 @@
 import InfoButton from '@/components/button/info-button';
+import { ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { formatNumber } from '@/utils/formatters';
@@ -176,7 +177,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   },
 ];
 
-export const jobsColumns: GridColDef<Node>[] = [
+export const jobsColumns: GridColDef<ComputeJob>[] = [
   {
     align: 'center',
     field: 'index',
@@ -210,11 +211,12 @@ export const jobsColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'paymentInfo.cost',
+    field: 'amountPaid',
     filterable: true,
     flex: 1,
     headerName: 'Amount Paid',
     sortable: false,
+    valueGetter: (_value, row) => row.paymentInfo?.cost,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),

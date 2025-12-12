@@ -72,7 +72,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
     try {
       const response = await axios.get(fetchUrl);
       const sanitizedData = response.data.computeJobs.map((element: any, index: number) => ({
-        ...element._source,
+        ...element,
         id: element.jobId,
         startTime: formatDateTime(element.dateCreated),
         index: (crtPage - 1) * pageSize + index + 1,
