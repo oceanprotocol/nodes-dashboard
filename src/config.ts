@@ -102,6 +102,7 @@ const apiRoutes = {
   benchmarkHistory: { root: 'incentive', path: '/nodes' },
   nodeUnbanRequests: { root: 'incentive', path: '/nodes' },
   owners: { root: 'incentive', path: '/owners' },
+  admin: { root: 'incentive', path: '/admin' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },

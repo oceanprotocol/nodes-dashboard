@@ -63,3 +63,12 @@ export interface JobsFilters {
   duration?: FilterValue;
   amountPaid?: FilterValue;
 }
+
+export interface MyNodesFilters {
+  region?: FilterValue;
+  eligible?: FilterValue;
+  gpuScore?: FilterValue;
+  cpuScore?: FilterValue;
+  bandwidth?: FilterValue;
+  totalScore?: FilterValue;
+}
