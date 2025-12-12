@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
+import Select from '@/components/input/select';
 import Modal from '@/components/modal/modal';
 import { useDepositTokens } from '@/lib/use-deposit-tokens';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useWithdrawTokens } from '@/lib/use-withdraw-tokens';
 import { formatNumber } from '@/utils/formatters';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
@@ -28,10 +30,25 @@ export const Balance = ({ peerId }: BalanceProps) => {
     },
   });
 
-  const [balances, setBalances] = useState<{ token: string; amount: number }[]>([]);
+  const {
+    isWithdrawing,
+    handleWithdraw,
+    error: withdrawError,
+  } = useWithdrawTokens({
+    onSuccess: () => {
+      setIsWithdrawDialogOpen(false);
+      setSelectedTokens([]);
+      setTokenAmounts({});
+    },
+  });
+
+  const [balances, setBalances] = useState<{ token: string; address: string; amount: number }[]>([]);
   const [loadingBalance, setLoadingBalance] = useState<boolean>(false);
   const [selectedAmount, setSelectedAmount] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState<boolean>(false);
+  const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
+  const [tokenAmounts, setTokenAmounts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (ocean && peerId) {
@@ -53,11 +70,41 @@ export const Balance = ({ peerId }: BalanceProps) => {
     }
   };
 
+  const handleWithdrawClick = () => {
+    const tokenAddresses = selectedTokens
+      .map((token) => balances.find((b) => b.token === token)?.address)
+      .filter((addr): addr is string => !!addr);
+
+    const amounts = selectedTokens.map((token) => tokenAmounts[token] || '0');
+
+    if (tokenAddresses.length > 0 && amounts.every((amt) => parseFloat(amt) > 0)) {
+      handleWithdraw({
+        tokenAddresses,
+        amounts,
+      });
+    }
+  };
+
   const handleCloseModal = () => {
     if (!isDepositing) {
       setIsDialogOpen(false);
       setSelectedAmount('');
     }
+  };
+
+  const handleCloseWithdrawModal = () => {
+    if (!isWithdrawing) {
+      setIsWithdrawDialogOpen(false);
+      setSelectedTokens([]);
+      setTokenAmounts({});
+    }
+  };
+
+  const handleTokenAmountChange = (token: string, value: string) => {
+    setTokenAmounts((prev) => ({
+      ...prev,
+      [token]: value,
+    }));
   };
 
   return (
@@ -107,6 +154,51 @@ export const Balance = ({ peerId }: BalanceProps) => {
             </Button>
           </div>
         </Modal>
+        <Modal isOpen={isWithdrawDialogOpen} onClose={handleCloseWithdrawModal} title="Withdraw funds" variant="solid">
+          <div className={styles.modalContent}>
+            <Select
+              label="Select tokens"
+              multiple={true}
+              onChange={(e) => setSelectedTokens(e.target.value as string[])}
+              options={balances.map((balance) => ({
+                label: balance.token,
+                value: balance.token,
+              }))}
+              value={selectedTokens}
+            />
+            {selectedTokens.map((token) => {
+              const balance = balances.find((b) => b.token === token);
+              return (
+                <Input
+                  key={token}
+                  type="number"
+                  value={tokenAmounts[token] || ''}
+                  onChange={(e) => handleTokenAmountChange(token, e.target.value)}
+                  placeholder="Enter amount"
+                  label={`${token} amount`}
+                  endAdornment={balance ? `Max: ${formatNumber(balance.amount)}` : token}
+                />
+              );
+            })}
+            <div className={styles.errorContainer}>
+              {withdrawError && <div className={styles.errorMessage}>{withdrawError}</div>}
+            </div>
+            <Button
+              className={styles.modalButton}
+              color="accent2"
+              disabled={
+                selectedTokens.length === 0 ||
+                !selectedTokens.every((token) => tokenAmounts[token] && parseFloat(tokenAmounts[token]) > 0) ||
+                isWithdrawing
+              }
+              loading={isWithdrawing}
+              onClick={handleWithdrawClick}
+              size="md"
+            >
+              {isWithdrawing ? 'Withdrawing...' : 'Withdraw'}
+            </Button>
+          </div>
+        </Modal>
         <Button
           contentBefore={<UploadIcon />}
           size="md"
@@ -115,7 +207,13 @@ export const Balance = ({ peerId }: BalanceProps) => {
         >
           Send tokens for gas fee
         </Button>
-        <Button color="accent2" contentBefore={<DownloadIcon />} disabled={!ocean} size="lg">
+        <Button
+          color="accent2"
+          contentBefore={<DownloadIcon />}
+          disabled={!ocean || isWithdrawing}
+          onClick={() => setIsWithdrawDialogOpen(true)}
+          size="lg"
+        >
           Withdraw funds
         </Button>
       </div>
