@@ -19,6 +19,17 @@ export const config = createConfig(
       sections: [
         [{ type: 'email' }],
         [{ type: 'passkey' }, { type: 'social', authProviderId: 'google', mode: 'popup' }],
+        // [
+        //   {
+        //     type: 'external_wallets',
+        //     // walletConnect: { projectId: '30e7ffaff99063e68cc9870c105d905b' },
+        //     wallets: ['metamask', 'wallet_connect', 'coinbase wallet'],
+        //     chainType: ['svm', 'evm'],
+        //     moreButtonText: 'More wallets',
+        //     hideMoreButton: false,
+        //     numFeaturedWallets: 1,
+        //   },
+        // ],
       ],
       addPasskeyOnSignup: true,
     },
