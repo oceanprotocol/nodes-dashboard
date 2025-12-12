@@ -138,6 +138,9 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'GPU Score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.gpuScore || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'latestBenchmarkResults.cpuScore',
@@ -146,6 +149,9 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'CPU Score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.cpuScore || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'latestBenchmarkResults.bandwidth',
@@ -154,6 +160,20 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'Bandwidth',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.bandwidth || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+  },
+  {
+    field: 'latestBenchmarkResults.totalScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'gpus',

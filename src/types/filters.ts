@@ -55,3 +55,12 @@ export interface BenchmarkJobsHistoryFilters {
   resultHashes?: FilterValue;
   gpuScore?: FilterValue;
 }
+
+export interface MyNodesFilters {
+  region?: FilterValue;
+  eligible?: FilterValue;
+  gpuScore?: FilterValue;
+  cpuScore?: FilterValue;
+  bandwidth?: FilterValue;
+  totalScore?: FilterValue;
+}
