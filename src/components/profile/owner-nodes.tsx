@@ -3,8 +3,8 @@ import Card from '@/components/card/card';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useMyNodesTableContext } from '@/context/table/my-nodes-table-context';
-import styles from './owner-nodes.module.css';
 import { AnyNode } from '@/types/nodes';
+import styles from './owner-nodes.module.css';
 
 const OwnerNodes = () => {
   return (

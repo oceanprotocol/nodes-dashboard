@@ -1,5 +1,13 @@
 import { getApiRoute } from '@/config';
 import { EnsProfile } from '@/types/profile';
+import {
+  ActiveNodes,
+  ConsumerStats,
+  ConsumerStatsPerEpoch,
+  JobsSuccessRate,
+  OwnerStats,
+  OwnerStatsPerEpoch,
+} from '@/types/stats';
 import { useAppKitAccount } from '@reown/appkit/react';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
@@ -8,6 +16,24 @@ type ProfileContextType = {
   ensName: string | undefined;
   ensAddress: string | undefined;
   ensProfile: EnsProfile | undefined;
+  // Owner stats
+  totalNetworkRevenue: number;
+  totalBenchmarkRevenue: number;
+  totalNetworkJobs: number;
+  totalBenchmarkJobs: number;
+  ownerStatsPerEpoch: OwnerStatsPerEpoch[];
+  //Consumer stats
+  totalJobs: number;
+  totalPaidAmount: number;
+  consumerStatsPerEpoch: ConsumerStatsPerEpoch[];
+  activeNodes: number;
+  totalNodes: number;
+  successfullJobs: number;
+  // API functions
+  fetchOwnerStats: () => Promise<void>;
+  fetchConsumerStats: () => Promise<void>;
+  fetchActiveNodes: () => Promise<void>;
+  fetchJobsSuccessRate: () => Promise<void>;
 };
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -18,6 +44,17 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [ensAddress, setEnsAddress] = useState<ProfileContextType['ensAddress']>(undefined);
   const [ensName, setEnsName] = useState<ProfileContextType['ensName']>(undefined);
   const [ensProfile, setEnsProfile] = useState<ProfileContextType['ensProfile']>(undefined);
+  const [totalNetworkRevenue, setTotalNetworkRevenue] = useState<number>(0);
+  const [totalBenchmarkRevenue, setTotalBenchmarkRevenue] = useState<number>(0);
+  const [totalNetworkJobs, setTotalNetworkJobs] = useState<number>(0);
+  const [totalBenchmarkJobs, setTotalBenchmarkJobs] = useState<number>(0);
+  const [ownerStatsPerEpoch, setOwnerStatsPerEpoch] = useState<OwnerStatsPerEpoch[]>([]);
+  const [totalJobs, setTotalJobs] = useState<number>(0);
+  const [totalPaidAmount, setTotalPaidAmount] = useState<number>(0);
+  const [consumerStatsPerEpoch, setConsumerStatsPerEpoch] = useState<ConsumerStatsPerEpoch[]>([]);
+  const [activeNodes, setActiveNodes] = useState<number>(0);
+  const [totalNodes, setTotalNodes] = useState<number>(0);
+  const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
 
   const fetchEnsAddress = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '' || !accountId.includes('.')) {
@@ -61,6 +98,59 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const fetchOwnerStats = useCallback(async () => {
+    try {
+      const response = await axios.get<OwnerStats>(getApiRoute('ownerStats'));
+      if (response.data) {
+        setTotalNetworkRevenue(response.data.totalNetworkRevenue);
+        setTotalBenchmarkRevenue(response.data.totalBenchmarkRevenue);
+        setTotalNetworkJobs(response.data.totalNetworkJobs);
+        setTotalBenchmarkJobs(response.data.totalBenchmarkJobs);
+        setTotalJobs(response.data.totalNetworkJobs + response.data.totalBenchmarkJobs);
+        setOwnerStatsPerEpoch(response.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching owner stats: ', err);
+    }
+  }, []);
+
+  const fetchConsumerStats = useCallback(async () => {
+    try {
+      const response = await axios.get<ConsumerStats>(getApiRoute('consumerStats'));
+      if (response.data) {
+        setTotalJobs(response.data.totalJobs);
+        setTotalPaidAmount(response.data.totalPaidAmount);
+        setConsumerStatsPerEpoch(response.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching consumer stats: ', err);
+    }
+  }, []);
+
+  const fetchActiveNodes = useCallback(async () => {
+    try {
+      const response = await axios.get<ActiveNodes>(getApiRoute('nodesStats'));
+      if (response.data) {
+        setActiveNodes(response.data.activeCount);
+        setTotalNodes(response.data.totalCount);
+      }
+    } catch (err) {
+      console.error('Error fetching active nodes: ', err);
+    }
+  }, []);
+
+  const fetchJobsSuccessRate = useCallback(async () => {
+    try {
+      const response = await axios.get<JobsSuccessRate>(getApiRoute('jobsSuccessRate'));
+      if (response.data) {
+        setSuccessfullJobs(response.data.successCount);
+        setTotalJobs(response.data.totalCount);
+      }
+    } catch (err) {
+      console.error('Error fetching jobs success rate: ', err);
+    }
+  }, []);
+
   useEffect(() => {
     if (account.status === 'connected' && account.address) {
       fetchEnsAddress(account.address);
@@ -79,6 +169,21 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         ensAddress,
         ensName,
         ensProfile,
+        totalNetworkRevenue,
+        totalBenchmarkRevenue,
+        totalNetworkJobs,
+        totalBenchmarkJobs,
+        ownerStatsPerEpoch,
+        totalJobs,
+        totalPaidAmount,
+        consumerStatsPerEpoch,
+        activeNodes,
+        totalNodes,
+        successfullJobs,
+        fetchOwnerStats,
+        fetchConsumerStats,
+        fetchActiveNodes,
+        fetchJobsSuccessRate,
       }}
     >
       {children}

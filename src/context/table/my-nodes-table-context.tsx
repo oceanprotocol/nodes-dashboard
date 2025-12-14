@@ -10,7 +10,13 @@ type CtxType = TableContextType<Node>;
 
 const MyNodesTableContext = createContext<CtxType | undefined>(undefined);
 
-export const MyNodesTableContextProvider = ({ children, ownerId }: { children: ReactNode; ownerId: string | undefined }) => {
+export const MyNodesTableContextProvider = ({
+  children,
+  ownerId,
+}: {
+  children: ReactNode;
+  ownerId: string | undefined;
+}) => {
   const [crtPage, setCrtPage] = useState<CtxType['crtPage']>(1);
   const [data, setData] = useState<CtxType['data']>([]);
   const [error, setError] = useState<CtxType['error']>(null);
@@ -43,10 +49,10 @@ export const MyNodesTableContextProvider = ({ children, ownerId }: { children: R
     let url = `${getApiRoute('admin')}/${ownerId}/myNodes?page=${crtPage}&size=${pageSize}&sort={"totalScore":"desc"}`;
 
     const operatorMap: Record<string, FilterOperator> = {
-        '>': 'gt',
-        '<': 'lt',
-        '=': 'eq',
-      }
+      '>': 'gt',
+      '<': 'lt',
+      '=': 'eq',
+    };
 
     const gridFilterToBenchmarkFilters = (gridFilter: GridFilterModel): MyNodesFilters => {
       const myNodesFilters: MyNodesFilters = {};
@@ -54,7 +60,7 @@ export const MyNodesTableContextProvider = ({ children, ownerId }: { children: R
         if (item.field && item.value !== undefined && item.operator) {
           myNodesFilters[item.field as keyof MyNodesFilters] = {
             value: item.value,
-            operator: operatorMap[item.operator] || item.operator as FilterOperator,
+            operator: operatorMap[item.operator] || (item.operator as FilterOperator),
           };
         }
       });
