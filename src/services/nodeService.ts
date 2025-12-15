@@ -339,6 +339,19 @@ export async function getNodeEnvs(peerId: string) {
   return sendCommandToPeer(peerId, { command: 'getComputeEnvironments', node: peerId });
 }
 
+export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number) {
+  return sendCommandToPeer(peerId, { command: 'fetchConfig', signature, expiryTimestamp });
+}
+
+export async function pushNodeConfig(
+  peerId: string,
+  signature: string,
+  expiryTimestamp: number,
+  config: Record<string, any>
+) {
+  return sendCommandToPeer(peerId, { command: 'pushConfig', signature, expiryTimestamp, config });
+}
+
 export async function stopNode() {
   if (nodeInstance) {
     await nodeInstance.stop();

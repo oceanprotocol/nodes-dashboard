@@ -13,7 +13,8 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import styles from './balance.module.css';
 
-const ETH_SEPOLIA_ADDRESS = '0xb16F35c0Ae2912430DAc15764477E179D9B9EbEa';
+const ETH_SEPOLIA_ADDRESS =
+  process.env.NEXT_PUBLIC_ETH_CONTRACT_ADDRESS || '0xb16F35c0Ae2912430DAc15764477E179D9B9EbEa';
 
 interface BalanceProps {
   admins: string[];

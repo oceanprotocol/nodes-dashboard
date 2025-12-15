@@ -2,12 +2,16 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
+import { useP2P } from '@/contexts/P2PContext';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node, NodeEligibility } from '@/types/nodes';
+import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import DownloadIcon from '@mui/icons-material/Download';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import UploadIcon from '@mui/icons-material/Upload';
+import { useState } from 'react';
 import styles from './node-info.module.css';
 
 type NodeInfoProps = {
@@ -15,6 +19,63 @@ type NodeInfoProps = {
 };
 
 const NodeInfo = ({ node }: NodeInfoProps) => {
+  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { signMessageAsync } = useSignMessage({
+    client,
+  });
+  const { openAuthModal } = useAuthModal();
+  const { account, ocean } = useOceanAccount();
+  const { fetchConfig, pushConfig } = useP2P();
+
+  const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
+  const [pushingConfig, setPushingConfig] = useState<boolean>(false);
+
+  async function handleFetchConfig() {
+    if (!account.isConnected) {
+      openAuthModal();
+      return;
+    }
+    if (!ocean || !node?.id) {
+      return;
+    }
+    const timestamp = Date.now();
+    const signedMessage = await signMessageAsync({
+      message: timestamp.toString(),
+    });
+
+    setFetchingConfig(true);
+    try {
+      await fetchConfig(node.id, signedMessage, timestamp);
+    } catch (error) {
+      console.error('Error fetching node config :', error);
+    } finally {
+      setFetchingConfig(false);
+    }
+  }
+
+  async function handlePushConfig(config: Record<string, any>) {
+    if (!account.isConnected) {
+      openAuthModal();
+      return;
+    }
+    if (!ocean || !node?.id) {
+      return;
+    }
+    const timestamp = Date.now();
+    const signedMessage = await signMessageAsync({
+      message: timestamp.toString(),
+    });
+
+    setPushingConfig(true);
+    try {
+      await pushConfig(node.id, signedMessage, timestamp, config);
+    } catch (error) {
+      console.error('Error pushing node config :', error);
+    } finally {
+      setPushingConfig(false);
+    }
+  }
+
   return (
     <Card className={styles.root} padding="md" radius="lg" variant="glass-shaded">
       <div className={styles.infoWrapper}>
@@ -39,10 +100,17 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
             </div>
           </div>
           <div className={styles.buttons}>
-            <Button contentBefore={<DownloadIcon />} variant="outlined">
+            <Button
+              contentBefore={<DownloadIcon />}
+              onClick={handleFetchConfig}
+              loading={fetchingConfig}
+              variant="outlined"
+            >
               Get node config
             </Button>
-            <Button contentBefore={<UploadIcon />}>Set node config</Button>
+            <Button contentBefore={<UploadIcon />} onClick={handlePushConfig} loading={pushingConfig}>
+              Set node config
+            </Button>
           </div>
         </div>
         <div className={styles.infoFooter}>
