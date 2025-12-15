@@ -85,7 +85,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
     } finally {
       setLoading(false);
     }
-  }, [fetchUrl, crtPage, pageSize]);
+  }, [fetchUrl, crtPage, pageSize, consumer]);
 
   useEffect(() => {
     let mounted = true;
