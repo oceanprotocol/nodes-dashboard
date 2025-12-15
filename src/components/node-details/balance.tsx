@@ -13,11 +13,14 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import styles from './balance.module.css';
 
+const ETH_SEPOLIA_ADDRESS = '0xb16F35c0Ae2912430DAc15764477E179D9B9EbEa';
+
 interface BalanceProps {
+  admins: string[];
   peerId: string;
 }
 
-export const Balance = ({ peerId }: BalanceProps) => {
+export const Balance = ({ admins, peerId }: BalanceProps) => {
   const { account, ocean } = useOceanAccount();
   const {
     isDepositing,
@@ -64,7 +67,7 @@ export const Balance = ({ peerId }: BalanceProps) => {
   const handleSend = () => {
     if (selectedAmount) {
       handleDeposit({
-        tokenAddress: '0xb16F35c0Ae2912430DAc15764477E179D9B9EbEa',
+        tokenAddress: ETH_SEPOLIA_ADDRESS,
         amount: selectedAmount,
       });
     }
@@ -202,23 +205,27 @@ export const Balance = ({ peerId }: BalanceProps) => {
             </Button>
           </div>
         </Modal>
-        <Button
-          contentBefore={<UploadIcon />}
-          size="md"
-          onClick={() => setIsDialogOpen(true)}
-          disabled={isDepositing || !ocean}
-        >
-          Send tokens for gas fee
-        </Button>
-        <Button
-          color="accent2"
-          contentBefore={<DownloadIcon />}
-          disabled={!ocean || isWithdrawing}
-          onClick={() => setIsWithdrawDialogOpen(true)}
-          size="lg"
-        >
-          Withdraw funds
-        </Button>
+        {admins.includes(account?.address as string) && (
+          <Button
+            contentBefore={<UploadIcon />}
+            size="md"
+            onClick={() => setIsDialogOpen(true)}
+            disabled={isDepositing || !ocean}
+          >
+            Send tokens for gas fee
+          </Button>
+        )}
+        {admins.includes(account?.address as string) && (
+          <Button
+            color="accent2"
+            contentBefore={<DownloadIcon />}
+            disabled={!ocean || isWithdrawing}
+            onClick={() => setIsWithdrawDialogOpen(true)}
+            size="lg"
+          >
+            Withdraw funds
+          </Button>
+        )}
       </div>
     </Card>
   );

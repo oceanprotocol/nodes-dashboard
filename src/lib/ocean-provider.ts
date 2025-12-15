@@ -64,14 +64,11 @@ export class OceanProvider {
       const environments = await this.getEnvironmentsByNode(peerId);
       const balancesMap = new Map<string, string[]>();
       const addressMap = new Map<string, string>();
-      console.log({ environments, msg: 'environments' });
       for (const env of environments) {
         const fees = await this.getFeesByChainId(this.chainId, env);
-        console.log({ fees, msg: 'fees' });
         for (const fee of fees) {
           const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
           const symbol = await getTokenSymbol(fee.feeToken);
-          console.log({ balance, symbol, msg: 'balance for symbol' });
           if (symbol) {
             if (!addressMap.has(symbol)) {
               addressMap.set(symbol, fee.feeToken);
@@ -87,12 +84,10 @@ export class OceanProvider {
         }
       }
 
-      console.log({ balancesMap });
       for (const [key, value] of balancesMap) {
         const sum = value.map((val) => new BigNumber(val)).reduce((acc, val) => acc.plus(val), new BigNumber(0));
         result.push({ token: key, address: addressMap.get(key) || '', amount: sum.toNumber() });
       }
-      console.log({ result });
     } catch (error) {
       console.log(error);
     }

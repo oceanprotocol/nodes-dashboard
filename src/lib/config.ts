@@ -12,6 +12,9 @@ export const config = createConfig(
     storage: cookieStorage,
     enablePopupOauth: true,
     policyId: process.env.NEXT_PUBLIC_ALCHEMY_POLICY_ID,
+    sessionConfig: {
+      expirationTimeMs: 86400000, // 1 day
+    },
   },
   {
     illustrationStyle: 'outline',
