@@ -102,8 +102,8 @@ const apiRoutes = {
   benchmarkHistory: { root: 'incentive', path: '/nodes' },
   nodeUnbanRequests: { root: 'incentive', path: '/nodes' },
   admin: { root: 'incentive', path: '/admin' },
-  jobsSuccessRate: { root: 'incentive', path: '/jobs-success-rate' },
-  nodesStats: { root: 'incentive', path: '/nodesStats' },
+  jobsSuccessRate: { root: 'incentive', path: '/consumers' },
+  nodesStats: { root: 'incentive', path: '/owners' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },

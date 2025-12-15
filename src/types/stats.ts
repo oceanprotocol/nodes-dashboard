@@ -46,6 +46,8 @@ export interface OwnerStatsPerEpoch {
   totalBenchmarkRevenue: number;
   totalNetworkJobs: number;
   totalBenchmarkJobs: number;
+  totalJobs?: number;
+  totalRevenue?: number;
 }
 
 export interface ConsumerStats {

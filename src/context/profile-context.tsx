@@ -22,12 +22,12 @@ type ProfileContextType = {
   totalNetworkJobs: number;
   totalBenchmarkJobs: number;
   ownerStatsPerEpoch: OwnerStatsPerEpoch[];
+  activeNodes: number;
+  totalNodes: number;
   //Consumer stats
   totalJobs: number;
   totalPaidAmount: number;
   consumerStatsPerEpoch: ConsumerStatsPerEpoch[];
-  activeNodes: number;
-  totalNodes: number;
   successfullJobs: number;
   // API functions
   fetchOwnerStats: () => Promise<void>;
@@ -100,7 +100,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchOwnerStats = useCallback(async () => {
     try {
-      const response = await axios.get<OwnerStats>(getApiRoute('ownerStats'));
+      const response = await axios.get<OwnerStats>(`${getApiRoute('ownerStats')}/0xD8264C8CFa74E462B2061207cd186D392130963d/stats`);
       if (response.data) {
         setTotalNetworkRevenue(response.data.totalNetworkRevenue);
         setTotalBenchmarkRevenue(response.data.totalBenchmarkRevenue);
@@ -108,6 +108,19 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         setTotalBenchmarkJobs(response.data.totalBenchmarkJobs);
         setTotalJobs(response.data.totalNetworkJobs + response.data.totalBenchmarkJobs);
         setOwnerStatsPerEpoch(response.data.data);
+
+        const totalsPerEpoch = response.data.data.map((item) => {
+          return {
+            epochId: item.epochId,
+            totalNetworkRevenue: item.totalNetworkRevenue,
+            totalBenchmarkRevenue: item.totalBenchmarkRevenue,
+            totalBenchmarkJobs: item.totalBenchmarkJobs,
+            totalNetworkJobs: item.totalNetworkJobs,
+            totalRevenue: item.totalNetworkRevenue + item.totalBenchmarkRevenue,
+            totalJobs: item.totalNetworkJobs + item.totalBenchmarkJobs,
+          };
+        });
+        setOwnerStatsPerEpoch(totalsPerEpoch);
       }
     } catch (err) {
       console.error('Error fetching owner stats: ', err);
@@ -116,7 +129,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchConsumerStats = useCallback(async () => {
     try {
-      const response = await axios.get<ConsumerStats>(getApiRoute('consumerStats'));
+      const response = await axios.get<ConsumerStats>(`${getApiRoute('consumerStats')}/0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234/stats`);
       if (response.data) {
         setTotalJobs(response.data.totalJobs);
         setTotalPaidAmount(response.data.totalPaidAmount);
@@ -129,7 +142,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchActiveNodes = useCallback(async () => {
     try {
-      const response = await axios.get<ActiveNodes>(getApiRoute('nodesStats'));
+      const response = await axios.get<ActiveNodes>(`${getApiRoute('nodesStats')}/0xD8264C8CFa74E462B2061207cd186D392130963d/nodesStats`);
       if (response.data) {
         setActiveNodes(response.data.activeCount);
         setTotalNodes(response.data.totalCount);
@@ -141,7 +154,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchJobsSuccessRate = useCallback(async () => {
     try {
-      const response = await axios.get<JobsSuccessRate>(getApiRoute('jobsSuccessRate'));
+      const response = await axios.get<JobsSuccessRate>(`${getApiRoute('jobsSuccessRate')}/0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234/jobs-success-rate`);
       if (response.data) {
         setSuccessfullJobs(response.data.successCount);
         setTotalJobs(response.data.totalCount);
