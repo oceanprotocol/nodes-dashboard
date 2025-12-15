@@ -100,7 +100,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchOwnerStats = useCallback(async () => {
     try {
-      const response = await axios.get<OwnerStats>(`${getApiRoute('ownerStats')}/0xD8264C8CFa74E462B2061207cd186D392130963d/stats`);
+      const response = await axios.get<OwnerStats>(`${getApiRoute('ownerStats')}/${ensAddress}/stats`);
       if (response.data) {
         setTotalNetworkRevenue(response.data.totalNetworkRevenue);
         setTotalBenchmarkRevenue(response.data.totalBenchmarkRevenue);
@@ -129,7 +129,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchConsumerStats = useCallback(async () => {
     try {
-      const response = await axios.get<ConsumerStats>(`${getApiRoute('consumerStats')}/0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234/stats`);
+      const response = await axios.get<ConsumerStats>(`${getApiRoute('consumerStats')}/${ensAddress}/stats`);
       if (response.data) {
         setTotalJobs(response.data.totalJobs);
         setTotalPaidAmount(response.data.totalPaidAmount);
@@ -142,7 +142,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchActiveNodes = useCallback(async () => {
     try {
-      const response = await axios.get<ActiveNodes>(`${getApiRoute('nodesStats')}/0xD8264C8CFa74E462B2061207cd186D392130963d/nodesStats`);
+      const response = await axios.get<ActiveNodes>(`${getApiRoute('nodesStats')}/${ensAddress}/nodesStats`);
       if (response.data) {
         setActiveNodes(response.data.activeCount);
         setTotalNodes(response.data.totalCount);
@@ -154,7 +154,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchJobsSuccessRate = useCallback(async () => {
     try {
-      const response = await axios.get<JobsSuccessRate>(`${getApiRoute('jobsSuccessRate')}/0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234/jobs-success-rate`);
+      const response = await axios.get<JobsSuccessRate>(`${getApiRoute('jobsSuccessRate')}/${ensAddress}/jobs-success-rate`);
       if (response.data) {
         setSuccessfullJobs(response.data.successCount);
         setTotalJobs(response.data.totalCount);
