@@ -18,7 +18,7 @@ interface BalanceProps {
 }
 
 export const Balance = ({ peerId }: BalanceProps) => {
-  const { ocean } = useOceanAccount();
+  const { account, ocean } = useOceanAccount();
   const {
     isDepositing,
     handleDeposit,
@@ -157,6 +157,7 @@ export const Balance = ({ peerId }: BalanceProps) => {
         <Modal isOpen={isWithdrawDialogOpen} onClose={handleCloseWithdrawModal} title="Withdraw funds" variant="solid">
           <div className={styles.modalContent}>
             <Select
+              className={styles.balanceSelect}
               label="Select tokens"
               multiple={true}
               onChange={(e) => setSelectedTokens(e.target.value as string[])}
@@ -165,6 +166,7 @@ export const Balance = ({ peerId }: BalanceProps) => {
                 value: balance.token,
               }))}
               value={selectedTokens}
+              MenuProps={{ disablePortal: true, sx: { zIndex: 1000 } }}
             />
             {selectedTokens.map((token) => {
               const balance = balances.find((b) => b.token === token);
@@ -187,6 +189,7 @@ export const Balance = ({ peerId }: BalanceProps) => {
               className={styles.modalButton}
               color="accent2"
               disabled={
+                !account.isConnected ||
                 selectedTokens.length === 0 ||
                 !selectedTokens.every((token) => tokenAmounts[token] && parseFloat(tokenAmounts[token]) > 0) ||
                 isWithdrawing
