@@ -2,7 +2,8 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { MOCK_NODES } from '@/mock/nodes';
+import { useMyNodesTableContext } from '@/context/table/my-nodes-table-context';
+import { AnyNode } from '@/types/nodes';
 import styles from './owner-nodes.module.css';
 
 const OwnerNodes = () => {
@@ -14,7 +15,13 @@ const OwnerNodes = () => {
           Run a node
         </Button>
       </div>
-      <Table<Node> autoHeight data={MOCK_NODES} paginationType="none" tableType={TableTypeEnum.MY_NODES} />
+      <Table<AnyNode>
+        context={useMyNodesTableContext()}
+        autoHeight
+        paginationType="context"
+        showToolbar
+        tableType={TableTypeEnum.MY_NODES}
+      />
     </Card>
   );
 };

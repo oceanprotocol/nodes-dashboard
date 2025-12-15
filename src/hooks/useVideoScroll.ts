@@ -1,6 +1,6 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type UseVideoScrollOptions = {
   numSteps: number;
@@ -269,7 +269,7 @@ export function useVideoScroll({ numSteps, debug }: UseVideoScrollOptions) {
       const stepProgress = stepIndex / (numSteps - 1);
       return startPosition + (endPosition - startPosition) * stepProgress;
     },
-    [numSteps],
+    [numSteps]
   );
 
   return {

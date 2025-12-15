@@ -1,4 +1,5 @@
 import InfoButton from '@/components/button/info-button';
+import { ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { formatNumber } from '@/utils/formatters';
@@ -138,6 +139,9 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'GPU Score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.gpuScore || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'latestBenchmarkResults.cpuScore',
@@ -146,6 +150,9 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'CPU Score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.cpuScore || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'latestBenchmarkResults.bandwidth',
@@ -154,6 +161,20 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     headerName: 'Bandwidth',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.bandwidth || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+  },
+  {
+    field: 'latestBenchmarkResults.totalScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
   },
   {
     field: 'gpus',
@@ -176,7 +197,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   },
 ];
 
-export const jobsColumns: GridColDef<Node>[] = [
+export const jobsColumns: GridColDef<ComputeJob>[] = [
   {
     align: 'center',
     field: 'index',
@@ -186,7 +207,7 @@ export const jobsColumns: GridColDef<Node>[] = [
     sortable: false,
   },
   {
-    field: 'status',
+    field: 'statusText',
     filterable: false,
     flex: 1,
     headerName: 'Status',
@@ -203,40 +224,28 @@ export const jobsColumns: GridColDef<Node>[] = [
     ),
   },
   {
-    field: 'endTime',
+    field: 'nodeFriendlyName',
     filterable: true,
     flex: 1,
-    headerName: 'End Time',
+    headerName: 'Node Name',
     sortable: false,
+  },
+  {
+    field: 'amountPaid',
+    filterable: true,
+    flex: 1,
+    headerName: 'Amount Paid',
+    sortable: false,
+    valueGetter: (_value, row) => row.paymentInfo?.cost,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
   },
   {
-    field: 'difficulty',
+    field: 'duration',
     filterable: true,
     flex: 1,
-    headerName: 'Difficulty',
-    sortable: false,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'resultHashes',
-    filterable: true,
-    flex: 1,
-    headerName: 'Total hashes',
-    sortable: false,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'score',
-    filterable: true,
-    flex: 1,
-    headerName: 'Score',
+    headerName: 'Duration',
     sortable: false,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'

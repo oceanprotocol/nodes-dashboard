@@ -101,6 +101,10 @@ const apiRoutes = {
   nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
   benchmarkHistory: { root: 'incentive', path: '/nodes' },
   nodeUnbanRequests: { root: 'incentive', path: '/nodes' },
+  owners: { root: 'incentive', path: '/owners' },
+  admin: { root: 'incentive', path: '/admin' },
+  jobsSuccessRate: { root: 'incentive', path: '/consumers' },
+  nodesStats: { root: 'incentive', path: '/owners' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },
@@ -111,6 +115,8 @@ const apiRoutes = {
   topNodesByRevenue: { root: 'analytics', path: '/nodes' },
   topNodesByJobCount: { root: 'analytics', path: '/nodes' },
   nodeStats: { root: 'analytics', path: '/nodes' },
+  consumerStats: { root: 'analytics', path: '/consumers' },
+  ownerStats: { root: 'analytics', path: '/owners' },
 
   // ENS API routes
   ensAddress: { root: 'ens', path: '/address' },

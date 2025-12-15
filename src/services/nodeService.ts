@@ -30,14 +30,14 @@ async function waitForBootstrapConnections(
   timeout: number = BOOTSTRAP_TIMEOUT
 ): Promise<void> {
   const startTime = Date.now();
-  
+
   return new Promise((resolve, reject) => {
     const checkInterval = setInterval(() => {
       const peers = node.getPeers();
       const elapsed = Date.now() - startTime;
-      
+
       console.log(`Bootstrap status: ${peers.length} peer(s) connected (need ${minConnections})`);
-      
+
       if (peers.length >= minConnections) {
         clearInterval(checkInterval);
         console.log('✓ Bootstrap connections established');
@@ -51,7 +51,7 @@ async function waitForBootstrapConnections(
         );
       }
     }, 1000);
-    
+
     const onPeerConnect = () => {
       const peers = node.getPeers();
       if (peers.length >= minConnections) {
@@ -61,7 +61,7 @@ async function waitForBootstrapConnections(
         resolve();
       }
     };
-    
+
     node.addEventListener('peer:connect', onPeerConnect);
   });
 }
@@ -111,9 +111,9 @@ export async function initializeNode(bootstrapNodes: string[]) {
     });
 
     await nodeInstance.start();
-    
+
     console.log('Node started, waiting for bootstrap connections...');
-    
+
     try {
       await waitForBootstrapConnections(nodeInstance);
       isNodeReady = true;
@@ -150,6 +150,14 @@ function normalizeMultiaddr(addr: Multiaddr): Multiaddr | null {
         addrStr = addrStr.replace('/p2p/', '/ws/p2p/');
       } else {
         addrStr = addrStr + '/ws';
+      }
+    }
+    if (addrStr.includes('/wss/tcp/')) {
+      addrStr = addrStr.replace('/wss/tcp/', '/tcp/');
+      if (addrStr.includes('/p2p/')) {
+        addrStr = addrStr.replace('/p2p/', '/wss/p2p/');
+      } else {
+        addrStr = addrStr + '/wss';
       }
     }
 
@@ -224,21 +232,21 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     );
   }
 
-  const wsAddrs = allMultiaddrs.filter((ma) => {
+  const wssAddrs = allMultiaddrs.filter((ma) => {
     const str = ma.toString();
-    return str.includes('/ws') || str.includes('/wss');
+    return str.includes('/wss');
   });
 
-  console.log(`WebSocket-compatible addresses: ${wsAddrs.length}`);
+  console.log(`WebSocket-compatible addresses: ${wssAddrs.length}`);
 
-  if (wsAddrs.length === 0) {
-    console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocket protocol`);
+  if (wssAddrs.length === 0) {
+    console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocketSecure protocol`);
   }
 
   const finalmultiaddrsWithPeerId: Multiaddr[] = [];
   const finalmultiaddrsWithoutPeerId: Multiaddr[] = [];
 
-  for (const addr of wsAddrs) {
+  for (const addr of wssAddrs) {
     const addrStr = addr.toString();
 
     if (addrStr.includes(`/p2p/${peer}`)) {
@@ -274,16 +282,22 @@ export async function sendCommandToPeer(
     if (!nodeInstance) {
       throw new Error('Node not initialized');
     }
-    
+
     if (!isNodeReady) {
       throw new Error('Node not ready - still establishing bootstrap connections');
     }
 
     const discovered = await discoverPeerAddresses(nodeInstance, peerId);
 
-    const connection = await nodeInstance.dial(discovered, {
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-    });
+    let connection: any;
+    try {
+      connection = await nodeInstance.dial(discovered, {
+        signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+      });
+    } catch (error: unknown) {
+      console.log({ error, message: 'Failed to dial discovered addresses' });
+      throw error;
+    }
 
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
