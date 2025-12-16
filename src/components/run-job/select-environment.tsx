@@ -24,7 +24,7 @@ type FilterFormValues = {
 const SelectEnvironment = () => {
   const [expanded, setExpanded] = useState(false);
 
-  const { environments, fetchEnvironments, fetchGpus, gpus } = useRunJobContext();
+  const { fetchEnvironments, fetchGpus, gpus, nodeEnvs } = useRunJobContext();
 
   useEffect(() => {
     fetchGpus();
@@ -149,9 +149,20 @@ const SelectEnvironment = () => {
         </Card>
       </form>
       <div className={styles.list}>
-        {environments.map((env) => (
-          <EnvironmentCard compact environment={env} key={env.id} showNodeName />
-        ))}
+        {nodeEnvs.map((node) =>
+          node.computeEnvironments.environments.map((env) => (
+            <EnvironmentCard
+              compact
+              environment={env}
+              key={env.id}
+              nodeInfo={{
+                friendlyName: node.friendlyName,
+                id: node.id,
+              }}
+              showNodeName
+            />
+          ))
+        )}
       </div>
     </Card>
   );

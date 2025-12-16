@@ -43,7 +43,7 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
 
   const minAllowedCpuCores = cpu?.min ?? 1;
   const minAllowedDiskSpace = disk?.min ?? 0;
-  const minAllowedJobDurationHours = 0;
+  const minAllowedJobDurationHours = environment.minJobDuration ?? 0;
   const minAllowedRam = ram?.min ?? 0;
 
   const maxAllowedCpuCores = cpu?.max ?? minAllowedCpuCores;

@@ -1,8 +1,7 @@
 import { getApiRoute } from '@/config';
 import { getTokenSymbol } from '@/lib/token-symbol';
-import { MOCK_ENVS } from '@/mock/environments';
 import { ApiPaginationResponse } from '@/types/api';
-import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
+import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection, NodeEnvironments } from '@/types/environments';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
@@ -13,15 +12,27 @@ export type SelectedToken = {
 };
 
 type RunJobContextType = {
-  environments: ComputeEnvironment[];
   estimatedTotalCost: number | null;
   fetchEnvironments: () => Promise<void>;
   fetchGpus: () => Promise<void>;
+  freeCompute: boolean;
   gpus: GPUPopularityDisplay;
+  nodeEnvs: NodeEnvironments[];
+  nodeInfo: EnvNodeInfo | null;
   selectedEnv: ComputeEnvironment | null;
   selectedResources: EnvResourcesSelection | null;
   selectedToken: SelectedToken | null;
-  selectEnv: (environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => void;
+  selectEnv: ({
+    environment,
+    freeCompute,
+    nodeInfo,
+    resources,
+  }: {
+    environment: ComputeEnvironment | null;
+    freeCompute: boolean;
+    nodeInfo: EnvNodeInfo;
+    resources?: EnvResourcesSelection;
+  }) => void;
   selectToken: (address: string, symbol?: string | null) => void | Promise<void>;
   setEstimatedTotalCost: (cost: number | null) => void;
   setSelectedResources: (selection: EnvResourcesSelection | null) => void;
@@ -30,8 +41,10 @@ type RunJobContextType = {
 const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
-  const [environments, setEnvironments] = useState<ComputeEnvironment[]>([]);
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
+  const [freeCompute, setFreeCompute] = useState<boolean>(false);
+  const [nodeEnvs, setNodeEnvs] = useState<NodeEnvironments[]>([]);
+  const [nodeInfo, setNodeInfo] = useState<EnvNodeInfo | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
@@ -39,6 +52,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
 
   const clearRunJobSelection = useCallback(() => {
     setEstimatedTotalCost(null);
+    setFreeCompute(false);
+    setNodeInfo(null);
     setSelectedEnv(null);
     setSelectedResources(null);
     setSelectedToken(null);
@@ -46,12 +61,11 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchEnvironments = useCallback(async () => {
     try {
-      const response = await axios.get<{ envs: ComputeEnvironment[]; pagination: ApiPaginationResponse }>(
+      const response = await axios.get<{ envs: NodeEnvironments[]; pagination: ApiPaginationResponse }>(
         getApiRoute('environments')
       );
       if (response.data) {
-        // setEnvironments(response.data.envs);
-        setEnvironments(MOCK_ENVS);
+        setNodeEnvs(response.data.envs);
       }
     } catch (error) {
       console.error('Failed to fetch environments:', error);
@@ -78,9 +92,21 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
    * @param resources Optional resources to select.
    */
   const selectEnv = useCallback(
-    (environment: ComputeEnvironment | null, resources?: EnvResourcesSelection) => {
+    ({
+      environment,
+      freeCompute,
+      nodeInfo,
+      resources,
+    }: {
+      environment: ComputeEnvironment | null;
+      freeCompute: boolean;
+      nodeInfo: EnvNodeInfo;
+      resources?: EnvResourcesSelection;
+    }) => {
       clearRunJobSelection();
       setSelectedEnv(environment);
+      setFreeCompute(freeCompute);
+      setNodeInfo(nodeInfo);
       if (resources) {
         setSelectedResources(resources);
       }
@@ -104,10 +130,12 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     <RunJobContext.Provider
       value={{
         estimatedTotalCost,
-        environments,
         fetchEnvironments,
         fetchGpus,
+        freeCompute,
         gpus,
+        nodeEnvs,
+        nodeInfo,
         selectedEnv,
         selectEnv,
         selectedResources,

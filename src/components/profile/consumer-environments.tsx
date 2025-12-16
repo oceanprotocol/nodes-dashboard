@@ -9,7 +9,12 @@ const ConsumerEnvironments = () => {
       <h3>Environments used</h3>
       <div className={styles.list}>
         {MOCK_ENVS.map((env) => (
-          <EnvironmentCard environment={env} key={env.id} showNodeName />
+          <EnvironmentCard
+            environment={env}
+            key={env.id}
+            nodeInfo={{ friendlyName: 'Node friendly name', id: 'node-1' }}
+            showNodeName
+          />
         ))}
       </div>
     </Card>

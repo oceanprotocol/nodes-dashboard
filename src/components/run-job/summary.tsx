@@ -4,7 +4,7 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
+import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
@@ -15,12 +15,13 @@ import styles from './summary.module.css';
 
 type SummaryProps = {
   estimatedTotalCost: number;
+  nodeInfo: EnvNodeInfo;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
   tokenAddress: string;
 };
 
-const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddress }: SummaryProps) => {
+const Summary = ({ estimatedTotalCost, nodeInfo, selectedEnv, selectedResources, tokenAddress }: SummaryProps) => {
   const { client } = useSmartAccountClient({ type: 'LightAccount' });
   const { signMessageAsync } = useSignMessage({
     client,
@@ -38,12 +39,12 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
       return;
     }
     try {
-      const nonce = await ocean.getNonce(account.address, selectedEnv.nodeId);
+      const nonce = await ocean.getNonce(account.address, nodeInfo.id);
       const incrementedNonce = nonce + 1;
       const signedMessage = await signMessageAsync({
         message: account.address + incrementedNonce,
       });
-      const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, selectedEnv.nodeId);
+      const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, nodeInfo.id);
       setAuthToken(token);
     } catch (error) {
       console.error('Failed to generate auth token:', error);
@@ -77,7 +78,7 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
     ocean.updateConfiguration(
       authToken,
       account.address,
-      selectedEnv.nodeId,
+      nodeInfo.id,
       isFreeCompute,
       selectedEnv.id,
       tokenAddress,
@@ -99,8 +100,14 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Your selection</h3>
       <div className={styles.grid}>
+        {nodeInfo.friendlyName ? (
+          <>
+            <div className={styles.label}>Node:</div>
+            <div className={styles.value}>{nodeInfo.friendlyName}</div>
+          </>
+        ) : null}
         <div className={styles.label}>Peer ID:</div>
-        <div className={styles.value}>{selectedEnv.nodeId}</div>
+        <div className={styles.value}>{nodeInfo.id}</div>
         <div className={styles.label}>Environment:</div>
         <div className={styles.value}>{selectedEnv.consumerAddress}</div>
         <div className={styles.label}>Fee token address:</div>

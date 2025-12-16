@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 const SummaryPage = () => {
   const router = useRouter();
 
-  const { estimatedTotalCost, selectedEnv, selectedResources, selectedToken } = useRunJobContext();
+  const { estimatedTotalCost, nodeInfo, selectedEnv, selectedResources, selectedToken } = useRunJobContext();
 
   useEffect(() => {
     if (!selectedEnv || !selectedResources) {
@@ -24,10 +24,11 @@ const SummaryPage = () => {
         subTitle="Everything is set up. Below is a summary of your selection"
         contentBetween={<Stepper currentStep={4} />}
       />
-      {selectedEnv && selectedResources && selectedToken ? (
+      {nodeInfo && selectedEnv && selectedResources && selectedToken ? (
         <div className="pageContentWrapper">
           <Summary
             estimatedTotalCost={estimatedTotalCost ?? 0}
+            nodeInfo={nodeInfo}
             selectedEnv={selectedEnv}
             selectedResources={selectedResources}
             tokenAddress={selectedToken.address}
