@@ -52,12 +52,11 @@ const useEnvResources = (environment: ComputeEnvironment, tokenAddress?: string 
     const fees: Record<string, number> = {};
     if (selectedTokenFees) {
       const gpuIds = gpus.map((gpu) => gpu.id);
-      gpus.forEach((gpu) => {
-        const fee = selectedTokenFees.prices.find((price) => gpuIds.includes(price.id))?.price;
-        if (fee !== undefined) {
-          fees[gpu.id] = fee;
-        }
-      });
+      selectedTokenFees.prices
+        .filter((fee) => gpuIds.includes(fee.id))
+        .forEach((fee) => {
+          fees[fee.id] = fee.price;
+        });
     }
     return fees;
   }, [selectedTokenFees, gpus]);

@@ -176,6 +176,10 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
               price: 1.5,
             },
             {
+              id: 'GPU3',
+              price: 1.5,
+            },
+            {
               id: 'disk',
               price: 0.01,
             },
@@ -198,6 +202,10 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
             },
             {
               id: 'GPU2',
+              price: 1.5,
+            },
+            {
+              id: 'GPU3',
               price: 1.5,
             },
             {
@@ -250,6 +258,22 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
       },
       {
         id: 'GPU2',
+        description: 'NVIDIA V100-2',
+        type: 'gpu',
+        total: 1,
+        // init: {
+        //   deviceRequests: {
+        //     Driver: 'nvidia',
+        //     DeviceIDs: ['GPU-c46eeff5-903b-8280-2f16-4fc3f6140d47'],
+        //     Capabilities: [['gpu']],
+        //   },
+        // },
+        max: 1,
+        min: 0,
+        inUse: 0,
+      },
+      {
+        id: 'GPU3',
         description: 'NVIDIA V100-2',
         type: 'gpu',
         total: 1,

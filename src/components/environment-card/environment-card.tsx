@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import { useRunJobContext } from '@/context/run-job-context';
@@ -116,7 +117,22 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
   };
 
   const getGpuProgressBars = () => {
-    return gpus.map((gpu) => {
+    const mergedGpus = gpus.reduce(
+      (merged, gpuToCheck) => {
+        const existingGpu = merged.find(
+          (gpu) => gpu.description === gpuToCheck.description && gpuFees[gpu.id] === gpuFees[gpuToCheck.id]
+        );
+        if (existingGpu) {
+          existingGpu.inUse = (existingGpu.inUse ?? 0) + (gpuToCheck.inUse ?? 0);
+          existingGpu.max += gpuToCheck.max;
+        } else {
+          merged.push({ ...gpuToCheck });
+        }
+        return merged;
+      },
+      [] as typeof gpus
+    );
+    return mergedGpus.map((gpu) => {
       const max = gpu.max ?? 0;
       const inUse = gpu.inUse ?? 0;
       const available = max - inUse;
@@ -124,10 +140,7 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
       if (compact) {
         return (
           <div key={gpu.id}>
-            <div className={styles.label}>
-              <MemoryIcon className={styles.icon} />
-              <span className={styles.heading}>{gpu.description}</span>
-            </div>
+            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />
             <div className={styles.label}>
               <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
             </div>
@@ -145,11 +158,7 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
         <ProgressBar
           key={gpu.id}
           value={percentage}
-          topLeftContent={
-            <span className={classNames(styles.label, styles.em)}>
-              <MemoryIcon className={styles.icon} /> GPU - {gpu.description}
-            </span>
-          }
+          topLeftContent={<GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />}
           topRightContent={
             <span className={styles.label}>
               <span className={styles.em}>{max}</span>&nbsp;total
