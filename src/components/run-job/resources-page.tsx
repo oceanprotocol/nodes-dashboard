@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 const ResourcesPage = () => {
   const router = useRouter();
 
-  const { selectedEnv, selectedToken } = useRunJobContext();
+  const { freeCompute, selectedEnv, selectedToken } = useRunJobContext();
 
   useEffect(() => {
     if (!selectedEnv || !selectedToken) {
@@ -23,11 +23,11 @@ const ResourcesPage = () => {
         title="Run job"
         // TODO: replace with actual subtitle
         subTitle="Select resources description text"
-        contentBetween={<Stepper currentStep={2} />}
+        contentBetween={<Stepper currentStep={2} freeCompute={freeCompute} />}
       />
       {selectedEnv && selectedToken ? (
         <div className="pageContentWrapper">
-          <SelectResources environment={selectedEnv} tokenAddress={selectedToken.address} />
+          <SelectResources environment={selectedEnv} freeCompute={freeCompute} token={selectedToken} />
         </div>
       ) : null}
     </Container>

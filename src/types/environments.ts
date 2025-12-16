@@ -30,7 +30,7 @@ export type ComputeEnvironment = {
     maxJobDuration?: number;
     maxJobs?: number;
     resources?: SlimComputeResource[];
-  }[];
+  };
   fees: Record<string, ComputeEnvFeesStructure[]>;
   id: string;
   maxJobDuration?: number;

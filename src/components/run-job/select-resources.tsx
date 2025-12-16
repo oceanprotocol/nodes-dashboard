@@ -5,8 +5,7 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
-import { useRunJobContext } from '@/context/run-job-context';
-import useTokenSymbol from '@/lib/token-symbol';
+import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
 import { useAuthModal, useSignerStatus } from '@account-kit/react';
@@ -16,6 +15,12 @@ import { useMemo } from 'react';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
 
+type SelectResourcesProps = {
+  environment: ComputeEnvironment;
+  freeCompute: boolean;
+  token: SelectedToken;
+};
+
 type ResourcesFormValues = {
   cpuCores: number;
   diskSpace: number;
@@ -24,22 +29,18 @@ type ResourcesFormValues = {
   ram: number;
 };
 
-type SelectResourcesProps = {
-  environment: ComputeEnvironment;
-  tokenAddress: string;
-};
-
-const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) => {
+const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
   const { openAuthModal } = useAuthModal();
   const router = useRouter();
   const { isAuthenticating, isDisconnected } = useSignerStatus();
 
   const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources(environment, tokenAddress);
-  const tokenSymbol = useTokenSymbol(tokenAddress);
-
-  // TODO implement min job duration
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
+    environment,
+    freeCompute,
+    tokenAddress: token.address,
+  });
 
   const minAllowedCpuCores = cpu?.min ?? 1;
   const minAllowedDiskSpace = disk?.min ?? 0;
@@ -77,7 +78,7 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
         ram: values.ram,
         ramId: ram?.id ?? 'ram',
       });
-      if (estimatedTotalCost > 0) {
+      if (estimatedTotalCost > 0 && !freeCompute) {
         router.push('/run-job/payment');
       } else {
         router.push('/run-job/summary');
@@ -107,6 +108,9 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
   });
 
   const estimatedTotalCost = useMemo(() => {
+    if (freeCompute) {
+      return 0;
+    }
     const timeInMinutes = Number(formik.values.maxJobDurationHours) * 60;
     const cpuCost = Number(formik.values.cpuCores) * (cpuFee ?? 0) * timeInMinutes;
     const ramCost = Number(formik.values.ram) * (ramFee ?? 0) * timeInMinutes;
@@ -124,6 +128,7 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
     formik.values.gpus,
     formik.values.maxJobDurationHours,
     formik.values.ram,
+    freeCompute,
     gpuFees,
     ramFee,
   ]);
@@ -160,16 +165,17 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
           options={gpus.map((gpu) => ({ label: gpu.description ?? '', value: gpu.id }))}
-          renderOption={(option) => (
-            <GpuLabel gpu={`${option.label} (${gpuFees[option.value] ?? ''} ${tokenSymbol}/min)`} />
-          )}
+          renderOption={(option) => {
+            const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token.symbol}/min`;
+            return <GpuLabel gpu={`${option.label} (${pricing})`} />;
+          }}
           renderSelectedValue={(option) => <GpuLabel gpu={option} />}
           value={formik.values.gpus}
         />
         <div className={styles.inputsGrid}>
           <Slider
             errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
-            hint={`${cpuFee ?? 0} ${tokenSymbol}/core`}
+            hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token.symbol}/core`}
             label="CPU"
             name="cpuCores"
             marks
@@ -184,7 +190,7 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
           />
           <Slider
             errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
-            hint={`${ramFee ?? 0} ${tokenSymbol}/GB`}
+            hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token.symbol}/GB`}
             label="RAM"
             name="ram"
             marks
@@ -204,7 +210,7 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
               </Button>
             }
             errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
-            hint={`${diskFee ?? 0} ${tokenSymbol}/GB`}
+            hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token.symbol}/GB`}
             label="Disk space"
             name="diskSpace"
             onBlur={formik.handleBlur}
@@ -235,12 +241,12 @@ const SelectResources = ({ environment, tokenAddress }: SelectResourcesProps) =>
             value={formik.values.maxJobDurationHours}
           />
         </div>
-        {formik.isValid ? (
+        {formik.isValid && !freeCompute ? (
           <Card className={styles.cost} variant="accent1-outline" radius="md">
             <h3>Estimated total cost</h3>
             <div className={styles.values}>
               <div>
-                <span className={styles.token}>{tokenSymbol}</span>
+                <span className={styles.token}>{token.symbol}</span>
                 &nbsp;
                 <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
               </div>

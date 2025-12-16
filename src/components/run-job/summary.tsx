@@ -3,6 +3,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
+import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
@@ -15,13 +16,21 @@ import styles from './summary.module.css';
 
 type SummaryProps = {
   estimatedTotalCost: number;
+  freeCompute: boolean;
   nodeInfo: EnvNodeInfo;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
-  tokenAddress: string;
+  token: SelectedToken;
 };
 
-const Summary = ({ estimatedTotalCost, nodeInfo, selectedEnv, selectedResources, tokenAddress }: SummaryProps) => {
+const Summary = ({
+  estimatedTotalCost,
+  freeCompute,
+  nodeInfo,
+  selectedEnv,
+  selectedResources,
+  token,
+}: SummaryProps) => {
   const { client } = useSmartAccountClient({ type: 'LightAccount' });
   const { signMessageAsync } = useSignMessage({
     client,
@@ -29,7 +38,11 @@ const Summary = ({ estimatedTotalCost, nodeInfo, selectedEnv, selectedResources,
 
   const { account, ocean } = useOceanAccount();
 
-  const { gpus, tokenSymbol } = useEnvResources(selectedEnv, tokenAddress);
+  const { gpus } = useEnvResources({
+    environment: selectedEnv,
+    freeCompute,
+    tokenAddress: token.address,
+  });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -81,7 +94,7 @@ const Summary = ({ estimatedTotalCost, nodeInfo, selectedEnv, selectedResources,
       nodeInfo.id,
       isFreeCompute,
       selectedEnv.id,
-      tokenAddress,
+      token.address,
       selectedResources.maxJobDurationHours * 60 * 60,
       resources,
       uriScheme
@@ -111,7 +124,7 @@ const Summary = ({ estimatedTotalCost, nodeInfo, selectedEnv, selectedResources,
         <div className={styles.label}>Environment:</div>
         <div className={styles.value}>{selectedEnv.consumerAddress}</div>
         <div className={styles.label}>Fee token address:</div>
-        <div className={styles.value}>{tokenAddress}</div>
+        <div className={styles.value}>{token.address}</div>
         <div className={styles.label}>Job duration:</div>
         <div className={styles.value}>
           {selectedResources!.maxJobDurationHours} hours ({selectedResources!.maxJobDurationHours * 60 * 60} seconds)
@@ -129,9 +142,7 @@ const Summary = ({ estimatedTotalCost, nodeInfo, selectedEnv, selectedResources,
         <div className={styles.label}>Disk space:</div>
         <div className={styles.value}>{selectedResources!.diskSpace} GB</div>
         <div className={styles.label}>Total cost:</div>
-        <div className={styles.value}>
-          {estimatedTotalCost} {tokenSymbol}
-        </div>
+        <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token.symbol}`}</div>
       </div>
       {authToken ? (
         <div className={styles.footer}>

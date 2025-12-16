@@ -3,9 +3,10 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import { USDC_TOKEN_ADDRESS } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
+import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
-import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatNumber } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -14,7 +15,7 @@ import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
@@ -29,14 +30,15 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
 
   const { selectEnv, selectToken } = useRunJobContext();
 
-  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string | null>(
-    getEnvSupportedTokens(environment)[0]
-  );
+  // const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getEnvSupportedTokens(environment)[0]);
+  const selectedTokenAddress = USDC_TOKEN_ADDRESS;
+  const tokenSymbol = useTokenSymbol(selectedTokenAddress);
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
-    selectedTokenAddress
-  );
+    freeCompute: false,
+    tokenAddress: selectedTokenAddress,
+  });
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
@@ -47,10 +49,12 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
   const maxJobDurationHours = (environment.maxJobDuration ?? 0) / 60 / 60;
 
   const selectEnvironment = () => {
-    selectEnv({ environment, freeCompute: false, nodeInfo });
-    if (selectedTokenAddress) {
-      selectToken(selectedTokenAddress, tokenSymbol);
-    }
+    selectEnv({
+      environment,
+      freeCompute: false,
+      nodeInfo,
+    });
+    selectToken(selectedTokenAddress, tokenSymbol);
     router.push('/run-job/resources');
   };
 
@@ -60,6 +64,7 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       freeCompute: true,
       nodeInfo,
     });
+    selectToken(selectedTokenAddress, tokenSymbol);
     router.push('/run-job/resources');
   };
 
@@ -344,7 +349,7 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
         </div>
         <div className={styles.buttons}>
           {environment.free ? (
-            <Button color="accent2" href="/run-job/resources" onClick={selectFreeCompute} variant="outlined">
+            <Button color="accent2" onClick={selectFreeCompute} variant="outlined">
               Try it
             </Button>
           ) : null}
