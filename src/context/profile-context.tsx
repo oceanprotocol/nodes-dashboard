@@ -154,7 +154,9 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchJobsSuccessRate = useCallback(async () => {
     try {
-      const response = await axios.get<JobsSuccessRate>(`${getApiRoute('jobsSuccessRate')}/${ensAddress}/jobs-success-rate`);
+      const response = await axios.get<JobsSuccessRate>(
+        `${getApiRoute('jobsSuccessRate')}/${ensAddress}/jobs-success-rate`
+      );
       if (response.data) {
         setSuccessfullJobs(response.data.successCount);
         setTotalJobs(response.data.totalCount);

@@ -2,13 +2,20 @@ import Card from '@/components/card/card';
 import { ChartTypeEnum } from '@/components/chart/chart-type';
 import Gauge from '@/components/chart/gauge';
 import VBarChart from '@/components/chart/v-bar-chart';
-import { formatNumber } from '@/utils/formatters';
-import styles from './consumer-stats.module.css';
 import { useProfileContext } from '@/context/profile-context';
+import { formatNumber } from '@/utils/formatters';
 import { useEffect } from 'react';
+import styles from './consumer-stats.module.css';
 
 const ConsumerStats = () => {
-  const { totalJobs, totalPaidAmount, consumerStatsPerEpoch, successfullJobs, fetchConsumerStats, fetchJobsSuccessRate } = useProfileContext();
+  const {
+    totalJobs,
+    totalPaidAmount,
+    consumerStatsPerEpoch,
+    successfullJobs,
+    fetchConsumerStats,
+    fetchJobsSuccessRate,
+  } = useProfileContext();
 
   useEffect(() => {
     fetchConsumerStats();
@@ -16,7 +23,7 @@ const ConsumerStats = () => {
 
   useEffect(() => {
     fetchJobsSuccessRate();
-  }, [fetchJobsSuccessRate]); 
+  }, [fetchJobsSuccessRate]);
 
   return (
     <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">

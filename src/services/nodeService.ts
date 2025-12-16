@@ -1,3 +1,4 @@
+import { Command } from '@/types/commands';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
@@ -336,7 +337,15 @@ export async function sendCommandToPeer(
 }
 
 export async function getNodeEnvs(peerId: string) {
-  return sendCommandToPeer(peerId, { command: 'getComputeEnvironments', node: peerId });
+  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_ENVIRONMENTS, node: peerId });
+}
+
+export async function getComputeStreamableLogs(peerId: string, jobId: string, signature: string) {
+  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_STREAMABLE_LOGS, jobId, signature });
+}
+
+export async function getComputeJobResult(peerId: string, jobId: string, index: number, signature: string) {
+  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_RESULT, jobId, index, signature });
 }
 
 export async function stopNode() {

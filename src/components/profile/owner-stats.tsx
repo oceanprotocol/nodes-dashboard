@@ -2,13 +2,23 @@ import Card from '@/components/card/card';
 import { ChartTypeEnum } from '@/components/chart/chart-type';
 import Gauge from '@/components/chart/gauge';
 import VBarChart from '@/components/chart/v-bar-chart';
-import { formatNumber } from '@/utils/formatters';
-import styles from './owner-stats.module.css';
 import { useProfileContext } from '@/context/profile-context';
+import { formatNumber } from '@/utils/formatters';
 import { useEffect } from 'react';
+import styles from './owner-stats.module.css';
 
 const OwnerStats = () => {
-  const { totalNetworkRevenue, totalBenchmarkRevenue, totalNetworkJobs, totalBenchmarkJobs, ownerStatsPerEpoch, activeNodes, totalNodes, fetchOwnerStats, fetchActiveNodes } = useProfileContext();
+  const {
+    totalNetworkRevenue,
+    totalBenchmarkRevenue,
+    totalNetworkJobs,
+    totalBenchmarkJobs,
+    ownerStatsPerEpoch,
+    activeNodes,
+    totalNodes,
+    fetchOwnerStats,
+    fetchActiveNodes,
+  } = useProfileContext();
 
   useEffect(() => {
     fetchActiveNodes();

@@ -1,4 +1,11 @@
-import { getNodeEnvs, getNodeReadyState, initializeNode, sendCommandToPeer } from '@/services/nodeService';
+import {
+  getComputeJobResult,
+  getComputeStreamableLogs,
+  getNodeEnvs,
+  getNodeReadyState,
+  initializeNode,
+  sendCommandToPeer,
+} from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
 import { Libp2p } from 'libp2p';
@@ -9,8 +16,12 @@ interface P2PContextType {
   isReady: boolean;
   error: string | null;
   envs: ComputeEnvironment[];
-  sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
+  computeLogs: any;
+  computeResult: any;
   getEnvs: (peerId: string) => Promise<any>;
+  getComputeLogs: (peerId: string, jobId: string, signature: string) => Promise<any>;
+  getComputeResult: (peerId: string, jobId: string, index: number, signature: string) => Promise<any>;
+  sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
@@ -20,6 +31,8 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   const [node, setNode] = useState<Libp2p | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [computeLogs, setComputeLogs] = useState<any>(undefined);
+  const [computeResult, setComputeResult] = useState<any>(undefined);
 
   useEffect(() => {
     let mounted = true;
@@ -78,6 +91,32 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const getComputeLogs = useCallback(
+    async (peerId: string, jobId: string, signature: string) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+
+      const result = await getComputeStreamableLogs(peerId, jobId, signature);
+
+      setComputeLogs(result);
+    },
+    [isReady, node]
+  );
+
+  const getComputeResult = useCallback(
+    async (peerId: string, jobId: string, index: number, signature: string) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+
+      const result = await getComputeJobResult(peerId, jobId, index, signature);
+
+      setComputeResult(result);
+    },
+    [isReady, node]
+  );
+
   return (
     <P2PContext.Provider
       value={{
@@ -85,7 +124,11 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         error,
         isReady,
         node,
+        computeLogs,
+        computeResult,
         getEnvs,
+        getComputeLogs,
+        getComputeResult,
         sendCommand,
       }}
     >

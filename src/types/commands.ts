@@ -1,0 +1,5 @@
+export enum Command {
+  COMPUTE_GET_ENVIRONMENTS = 'getComputeEnvironments',
+  COMPUTE_GET_STREAMABLE_LOGS = 'getComputeStreamableLogs',
+  COMPUTE_GET_RESULT = 'getComputeResult',
+}
