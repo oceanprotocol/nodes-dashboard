@@ -17,7 +17,7 @@ interface P2PContextType {
   isReady: boolean;
   error: string | null;
   envs: ComputeEnvironment[];
-  fetchConfig: (peerId: string, signature: string, expiryTimestamp: number) => Promise<void>;
+  fetchConfig: (peerId: string, signature: string, expiryTimestamp: number, address: string) => Promise<void>;
   getEnvs: (peerId: string) => Promise<any>;
   pushConfig: (
     peerId: string,
@@ -95,13 +95,12 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const fetchConfig = useCallback(
-    async (peerId: string, signature: string, expiryTimestamp: number) => {
+    async (peerId: string, signature: string, expiryTimestamp: number, address: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      const result = await fetchNodeConfig(peerId, signature, expiryTimestamp);
+      const result = await fetchNodeConfig(peerId, signature, expiryTimestamp, address);
 
-      console.log(result);
       setConfig(result);
     },
     [isReady, node]

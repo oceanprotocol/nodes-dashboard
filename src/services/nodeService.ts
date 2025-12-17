@@ -339,8 +339,8 @@ export async function getNodeEnvs(peerId: string) {
   return sendCommandToPeer(peerId, { command: 'getComputeEnvironments', node: peerId });
 }
 
-export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number) {
-  return sendCommandToPeer(peerId, { command: 'fetchConfig', signature, expiryTimestamp });
+export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number, address: string) {
+  return sendCommandToPeer(peerId, { command: 'fetchConfig', signature, expiryTimestamp, address });
 }
 
 export async function pushNodeConfig(
