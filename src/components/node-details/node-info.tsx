@@ -7,11 +7,12 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node, NodeEligibility } from '@/types/nodes';
 import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
-import DownloadIcon from '@mui/icons-material/Download';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import UploadIcon from '@mui/icons-material/Upload';
-import { useState } from 'react';
+import { JsonEditor } from 'json-edit-react';
+import { useCallback, useEffect, useState } from 'react';
+import Modal from '../modal/modal';
 import styles from './node-info.module.css';
 
 type NodeInfoProps = {
@@ -29,8 +30,15 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
+  const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
 
-  async function handleFetchConfig() {
+  useEffect(() => {
+      if (!config) {
+          handleFetchConfig()
+      }
+  }, [])
+
+  const handleFetchConfig = useCallback(async () => {
     if (!account.isConnected) {
       openAuthModal();
       return;
@@ -51,9 +59,9 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     } finally {
       setFetchingConfig(false);
     }
-  }
+  }, [account.address, account.isConnected, node.id, ocean, fetchConfig, openAuthModal, signMessageAsync])
 
-  async function handlePushConfig() {
+  async function handlePushConfig(config: Record<string, any>) {
     if (!account.isConnected) {
       openAuthModal();
       return;
@@ -74,6 +82,10 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     } finally {
       setPushingConfig(false);
     }
+  }
+
+  function handleCloseModal() {
+    setIsEditConfigDialogOpen(false);
   }
 
   return (
@@ -100,16 +112,11 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
             </div>
           </div>
           <div className={styles.buttons}>
-            <Button
-              contentBefore={<DownloadIcon />}
-              onClick={handleFetchConfig}
-              loading={fetchingConfig}
-              variant="outlined"
-            >
-              Get node config
-            </Button>
-            <Button contentBefore={<UploadIcon />} onClick={handlePushConfig} loading={pushingConfig}>
-              Set node config
+            <Modal isOpen={isEditConfigDialogOpen} onClose={handleCloseModal} title="Edit node config">
+              <JsonEditor data={config} />
+            </Modal>
+            <Button contentBefore={<UploadIcon />} onClick={() => setIsEditConfigDialogOpen(true)} variant="outlined">
+              Edit node config
             </Button>
           </div>
         </div>
