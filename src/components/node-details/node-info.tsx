@@ -25,7 +25,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   });
   const { openAuthModal } = useAuthModal();
   const { account, ocean } = useOceanAccount();
-  const { fetchConfig, pushConfig } = useP2P();
+  const { config, fetchConfig, pushConfig } = useP2P();
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
@@ -53,7 +53,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     }
   }
 
-  async function handlePushConfig(config: Record<string, any>) {
+  async function handlePushConfig() {
     if (!account.isConnected) {
       openAuthModal();
       return;
