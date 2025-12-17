@@ -1,7 +1,6 @@
 import { getApiRoute } from '@/config';
 import { getTokenSymbol } from '@/lib/token-symbol';
-import { ApiPaginationResponse } from '@/types/api';
-import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection, NodeEnvironments } from '@/types/environments';
+import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
@@ -13,11 +12,9 @@ export type SelectedToken = {
 
 type RunJobContextType = {
   estimatedTotalCost: number | null;
-  fetchEnvironments: () => Promise<void>;
   fetchGpus: () => Promise<void>;
   freeCompute: boolean;
   gpus: GPUPopularityDisplay;
-  nodeEnvs: NodeEnvironments[];
   nodeInfo: EnvNodeInfo | null;
   selectedEnv: ComputeEnvironment | null;
   selectedResources: EnvResourcesSelection | null;
@@ -43,7 +40,6 @@ const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
   const [freeCompute, setFreeCompute] = useState<boolean>(false);
-  const [nodeEnvs, setNodeEnvs] = useState<NodeEnvironments[]>([]);
   const [nodeInfo, setNodeInfo] = useState<EnvNodeInfo | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
@@ -57,19 +53,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setSelectedEnv(null);
     setSelectedResources(null);
     setSelectedToken(null);
-  }, []);
-
-  const fetchEnvironments = useCallback(async () => {
-    try {
-      const response = await axios.get<{ envs: NodeEnvironments[]; pagination: ApiPaginationResponse }>(
-        getApiRoute('environments')
-      );
-      if (response.data) {
-        setNodeEnvs(response.data.envs);
-      }
-    } catch (error) {
-      console.error('Failed to fetch environments:', error);
-    }
   }, []);
 
   // TODO fetch all GPUs not only top 5
@@ -130,11 +113,9 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     <RunJobContext.Provider
       value={{
         estimatedTotalCost,
-        fetchEnvironments,
         fetchGpus,
         freeCompute,
         gpus,
-        nodeEnvs,
         nodeInfo,
         selectedEnv,
         selectEnv,

@@ -4,27 +4,34 @@ import EnvironmentCard from '@/components/environment-card/environment-card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
-import { useRunJobContext } from '@/context/run-job-context';
+import { RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
 
+const sortOptions = [
+  { label: 'No sorting', value: '' },
+  { label: 'Price ascending', value: JSON.stringify({ price: 'asc' }) },
+  { label: 'Price descending', value: JSON.stringify({ price: 'desc' }) },
+];
+
 type FilterFormValues = {
-  gpus: string[];
-  maxJobDuration: number | '';
-  minCpuCores: number | '';
-  minRam: number | '';
-  minDiskSpace: number | '';
-  // pricingToken: string;
+  gpuName: string[];
+  fromMaxJobDuration: number | '';
+  minimumCPU: number | '';
+  minimumRAM: number | '';
+  minimumStorage: number | '';
+  feeToken: string;
   sortBy: string;
 };
 
 const SelectEnvironment = () => {
-  const [expanded, setExpanded] = useState(false);
+  const { fetchGpus, filters, gpus, loading, loadMoreEnvs, nodeEnvs, paginationResponse, setFilters, setSort, sort } =
+    useRunJobEnvsContext();
 
-  const { fetchEnvironments, fetchGpus, gpus, nodeEnvs } = useRunJobContext();
+  const [expanded, setExpanded] = useState(!!filters);
 
   useEffect(() => {
     fetchGpus();
@@ -34,17 +41,33 @@ const SelectEnvironment = () => {
 
   const formik = useFormik<FilterFormValues>({
     initialValues: {
-      gpus: [],
-      maxJobDuration: '',
-      minCpuCores: '',
-      minRam: '',
-      minDiskSpace: '',
-      // pricingToken: '',
-      sortBy: '',
+      gpuName: filters.gpuName ?? [],
+      fromMaxJobDuration: filters.fromMaxJobDuration ?? '',
+      minimumCPU: filters.minimumCPU ?? '',
+      minimumRAM: filters.minimumRAM ?? '',
+      minimumStorage: filters.minimumStorage ?? '',
+      feeToken: '',
+      sortBy: sort ?? '',
     },
     onSubmit: async (values) => {
-      console.log('Form submitted with values:', values);
-      await fetchEnvironments();
+      const filters: RawFilters = { gpuName: values.gpuName };
+      if (values.fromMaxJobDuration !== '') {
+        filters.fromMaxJobDuration = Number(values.fromMaxJobDuration);
+      }
+      if (values.minimumCPU !== '') {
+        filters.minimumCPU = Number(values.minimumCPU);
+      }
+      if (values.minimumRAM !== '') {
+        filters.minimumRAM = Number(values.minimumRAM);
+      }
+      if (values.minimumStorage !== '') {
+        filters.minimumStorage = Number(values.minimumStorage);
+      }
+      if (values.gpuName.length > 0) {
+        filters.gpuName = values.gpuName;
+      }
+      setFilters(filters);
+      setSort(values.sortBy);
     },
   });
 
@@ -52,11 +75,11 @@ const SelectEnvironment = () => {
     if (expanded) {
       formik.setValues({
         ...formik.values,
-        maxJobDuration: '',
-        minCpuCores: '',
-        minRam: '',
-        minDiskSpace: '',
-        // pricingToken: '',
+        fromMaxJobDuration: '',
+        minimumCPU: '',
+        minimumRAM: '',
+        minimumStorage: '',
+        feeToken: '',
       });
     }
     setExpanded(!expanded);
@@ -70,61 +93,61 @@ const SelectEnvironment = () => {
           <Select
             label="GPUs"
             multiple
-            name="gpus"
+            name="gpuName"
             onChange={formik.handleChange}
             options={gpuOptions}
             renderOption={(option) => <GpuLabel gpu={option.label} />}
             renderSelectedValue={(option) => <GpuLabel gpu={option} />}
-            value={formik.values.gpus}
+            value={formik.values.gpuName}
           />
           <Collapse in={expanded}>
             <div className={styles.extraFilters}>
               <Input
                 endAdornment="cores"
                 label="CPU"
-                name="minCpuCores"
+                name="minimumCPU"
                 onChange={formik.handleChange}
                 size="sm"
                 startAdornment="from"
                 type="number"
-                value={formik.values.minCpuCores}
+                value={formik.values.minimumCPU}
               />
               <Input
                 endAdornment="GB"
                 label="RAM"
-                name="minRam"
+                name="minimumRAM"
                 onChange={formik.handleChange}
                 size="sm"
                 startAdornment="from"
                 type="number"
-                value={formik.values.minRam}
+                value={formik.values.minimumRAM}
               />
               <Input
                 endAdornment="GB"
                 label="Disk space"
-                name="minDiskSpace"
+                name="minimumStorage"
                 onChange={formik.handleChange}
                 size="sm"
                 startAdornment="from"
                 type="number"
-                value={formik.values.minDiskSpace}
+                value={formik.values.minimumStorage}
               />
               <Input
                 endAdornment="hours"
                 label="Max job duration"
-                name="maxJobDuration"
+                name="fromMaxJobDuration"
                 onChange={formik.handleChange}
                 size="sm"
                 startAdornment="from"
                 type="number"
-                value={formik.values.maxJobDuration}
+                value={formik.values.fromMaxJobDuration}
               />
               {/* <Select
                 label="Pricing token"
-                name="pricingToken"
+                name="feeToken"
                 onChange={formik.handleChange}
                 size="sm"
-                value={formik.values.pricingToken}
+                value={formik.values.feeToken}
               /> */}
             </div>
           </Collapse>
@@ -134,6 +157,7 @@ const SelectEnvironment = () => {
               label="Sort"
               name="sortBy"
               onChange={formik.handleChange}
+              options={sortOptions}
               size="sm"
               value={formik.values.sortBy}
             />
@@ -141,7 +165,7 @@ const SelectEnvironment = () => {
               <Button color="accent1" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="outlined">
                 {expanded ? 'Fewer filters' : 'More filters'}
               </Button>
-              <Button color="accent1" loading={formik.isSubmitting} type="submit">
+              <Button color="accent1" loading={loading} type="submit">
                 Find environments
               </Button>
             </div>
@@ -162,6 +186,11 @@ const SelectEnvironment = () => {
               showNodeName
             />
           ))
+        )}
+        {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
+          <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
+            Load more
+          </Button>
         )}
       </div>
     </Card>
