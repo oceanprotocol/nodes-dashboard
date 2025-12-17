@@ -40,3 +40,40 @@ export interface ComputeJobHistory {
     verificationError?: string;
   };
 }
+
+export interface ComputeJob {
+  owner: string;
+  peerId: string;
+  nodeFriendlyName: string;
+  epoch: number;
+  did: string;
+  jobId: string;
+  dateCreated: number;
+  dateFinished: number;
+  status: number;
+  statusText: string;
+  results: any;
+  inputDID: string;
+  algoDID: string;
+  agreementId: string;
+  environment: string;
+  clusterHash: string;
+  configlogURL: string;
+  publishlogURL: string;
+  algologURL: string;
+  outputsURL: string;
+  stopRequested: boolean;
+  algorithm: any;
+  assets: any;
+  isRunning: boolean;
+  isStarted: boolean;
+  containerImage: string;
+  resources: any;
+  isFree: boolean;
+  algoStartTimestamp: number;
+  maxJobDuration: number;
+  paymentInfo: {
+    token: string;
+    cost: number;
+  };
+}

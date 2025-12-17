@@ -29,17 +29,20 @@ export const UnbanRequestsProvider = ({ children }: { children: ReactNode }) => 
     }
   }, []);
 
-  const requestNodeUnban = useCallback(async (nodeId: string, signature: string, expiryTimestamp: number, address: string) => {
-    try {
-      await axios.post(`${getApiRoute('nodeUnbanRequests')}/${nodeId}/unban`, {
-        signature,
-        expiryTimestamp,
-        address
-      });
-    } catch (error) {
-      console.error('Error requesting node unban: ', error);
-    }
-  }, []);
+  const requestNodeUnban = useCallback(
+    async (nodeId: string, signature: string, expiryTimestamp: number, address: string) => {
+      try {
+        await axios.post(`${getApiRoute('nodeUnbanRequests')}/${nodeId}/unban`, {
+          signature,
+          expiryTimestamp,
+          address,
+        });
+      } catch (error) {
+        console.error('Error requesting node unban: ', error);
+      }
+    },
+    []
+  );
 
   return (
     <UnbanRequestsContext.Provider
