@@ -278,7 +278,7 @@ export async function sendCommandToPeer(
   peerId: string,
   command: Record<string, any>,
   protocol: string = DEFAULT_PROTOCOL
-): Promise<Record<string, any>> {
+): Promise<Record<string, any> | Uint8Array> {
   try {
     if (!nodeInstance) {
       throw new Error('Node not initialized');
@@ -305,17 +305,18 @@ export async function sendCommandToPeer(
     });
 
     const message = JSON.stringify(command);
-    let response = '';
+    const chunks: Uint8Array[] = [];
 
     await stream.sink([uint8ArrayFromString(message)]);
 
     let firstChunk = true;
     for await (const chunk of stream.source) {
-      const str = uint8ArrayToString(chunk.subarray());
+      const chunkData = chunk.subarray();
 
       if (firstChunk) {
         firstChunk = false;
         try {
+          const str = uint8ArrayToString(chunkData);
           const parsed = JSON.parse(str);
           if (parsed.httpStatus !== undefined) {
             continue;
@@ -323,12 +324,26 @@ export async function sendCommandToPeer(
         } catch (e) {}
       }
 
-      response += str;
+      chunks.push(chunkData);
     }
 
     await stream.close();
 
-    return JSON.parse(response);
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    try {
+      const str = uint8ArrayToString(combined);
+      return JSON.parse(str);
+    } catch (e) {
+      console.log('Response is binary data, returning Uint8Array');
+      return combined;
+    }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
@@ -340,12 +355,12 @@ export async function getNodeEnvs(peerId: string) {
   return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_ENVIRONMENTS, node: peerId });
 }
 
-export async function getComputeStreamableLogs(peerId: string, jobId: string, signature: string) {
-  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_STREAMABLE_LOGS, jobId, signature });
+export async function getComputeStreamableLogs(peerId: string, jobId: string, signature: string, timestamp: number, address: string) {
+  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_STREAMABLE_LOGS, jobId, signature, expiryTimestamp: timestamp, address });
 }
 
-export async function getComputeJobResult(peerId: string, jobId: string, index: number, signature: string) {
-  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_RESULT, jobId, index, signature });
+export async function getComputeJobResult(peerId: string, jobId: string, index: number, signature: string, timestamp: number, address: string) {
+  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_RESULT, jobId, index, signature, expiryTimestamp: timestamp, address });
 }
 
 export async function stopNode() {

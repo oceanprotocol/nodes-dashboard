@@ -1,4 +1,5 @@
 import InfoButton from '@/components/button/info-button';
+import JobInfoButton from '@/components/button/job-info-button';
 import { ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
@@ -250,6 +251,17 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
+  },
+  {
+    align: 'right',
+    field: 'actions',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Actions',
+    sortable: false,
+    renderCell: (params: GridRenderCellParams<ComputeJob>) => {
+      return <JobInfoButton job={params.row} />;
+    },
   },
 ];
 

@@ -17,10 +17,17 @@ interface P2PContextType {
   error: string | null;
   envs: ComputeEnvironment[];
   computeLogs: any;
-  computeResult: any;
+  computeResult: Record<string, any> | Uint8Array | undefined;
   getEnvs: (peerId: string) => Promise<any>;
-  getComputeLogs: (peerId: string, jobId: string, signature: string) => Promise<any>;
-  getComputeResult: (peerId: string, jobId: string, index: number, signature: string) => Promise<any>;
+  getComputeLogs: (peerId: string, jobId: string, signature: string, timestamp: number, address: string) => Promise<any>;
+  getComputeResult: (
+    peerId: string,
+    jobId: string,
+    index: number,
+    signature: string,
+    timestamp: number,
+    address: string,
+  ) => Promise<Record<string, any> | Uint8Array>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
 }
 
@@ -32,7 +39,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [computeLogs, setComputeLogs] = useState<any>(undefined);
-  const [computeResult, setComputeResult] = useState<any>(undefined);
+  const [computeResult, setComputeResult] = useState<Record<string, any> | Uint8Array | undefined>(undefined);
 
   useEffect(() => {
     let mounted = true;
@@ -92,12 +99,12 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getComputeLogs = useCallback(
-    async (peerId: string, jobId: string, signature: string) => {
+    async (peerId: string, jobId: string, signature: string, timestamp: number, address: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
 
-      const result = await getComputeStreamableLogs(peerId, jobId, signature);
+      const result = await getComputeStreamableLogs(peerId, jobId, signature, timestamp, address);
 
       setComputeLogs(result);
     },
@@ -105,14 +112,15 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getComputeResult = useCallback(
-    async (peerId: string, jobId: string, index: number, signature: string) => {
+    async (peerId: string, jobId: string, index: number, signature: string, timestamp: number, address: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
 
-      const result = await getComputeJobResult(peerId, jobId, index, signature);
+      const result = await getComputeJobResult(peerId, jobId, index, signature, timestamp, address);
 
       setComputeResult(result);
+      return result;
     },
     [isReady, node]
   );

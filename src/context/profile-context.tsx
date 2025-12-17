@@ -22,7 +22,7 @@ type ProfileContextType = {
   totalNetworkJobs: number;
   totalBenchmarkJobs: number;
   ownerStatsPerEpoch: OwnerStatsPerEpoch[];
-  activeNodes: number;
+  eligibleNodes: number;
   totalNodes: number;
   //Consumer stats
   totalJobs: number;
@@ -52,7 +52,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [totalJobs, setTotalJobs] = useState<number>(0);
   const [totalPaidAmount, setTotalPaidAmount] = useState<number>(0);
   const [consumerStatsPerEpoch, setConsumerStatsPerEpoch] = useState<ConsumerStatsPerEpoch[]>([]);
-  const [activeNodes, setActiveNodes] = useState<number>(0);
+  const [eligibleNodes, setEligibleNodes] = useState<number>(0);
   const [totalNodes, setTotalNodes] = useState<number>(0);
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
 
@@ -144,7 +144,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<ActiveNodes>(`${getApiRoute('nodesStats')}/${ensAddress}/nodesStats`);
       if (response.data) {
-        setActiveNodes(response.data.activeCount);
+        setEligibleNodes(response.data.activeCount);
         setTotalNodes(response.data.totalCount);
       }
     } catch (err) {
@@ -192,7 +192,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         totalJobs,
         totalPaidAmount,
         consumerStatsPerEpoch,
-        activeNodes,
+        eligibleNodes,
         totalNodes,
         successfullJobs,
         fetchOwnerStats,
