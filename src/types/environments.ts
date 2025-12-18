@@ -1,61 +1,54 @@
-interface ComputeResourcesPricingInfo {
-  id: ComputeResourceId;
-  price: number; // price per unit per minute
-}
-
-interface ComputeEnvFees {
+export interface ComputeEnvFeesStructure {
   feeToken: string;
-  prices: ComputeResourcesPricingInfo[];
-}
-
-interface ComputeEnvFeesStructure {
-  [chainId: string]: ComputeEnvFees[];
+  prices: { id: string; price: number }[];
 }
 
 type ComputeResourceType = 'cpu' | 'ram' | 'disk' | 'gpu';
 type ComputeResourceId = 'cpu' | 'ram' | 'disk' | string;
 
-export interface ComputeResource {
+type SlimComputeResource = {
   id: ComputeResourceId;
-  description?: string;
-  type?: ComputeResourceType;
-  kind?: string;
-  total?: number;
   max: number;
-  min?: number;
   inUse?: number;
-}
+};
 
-interface ComputeEnvironmentFreeOptions {
-  // only if a compute env exposes free jobs
-  access?: {
-    addresses: string[];
-    accessLists: string[];
-  };
-  storageExpiry?: number;
-  maxJobDuration?: number;
-  maxJobs?: number; // maximum number of simultaneous free jobs
-  resources?: ComputeResource[];
-}
+export type ComputeResource = {
+  description?: string;
+  id: ComputeResourceId;
+  inUse?: number;
+  kind?: string;
+  max: number;
+  min: number;
+  total: number;
+  type?: ComputeResourceType;
+};
 
-// TODO - use type from @oceanprotocol/lib when it's up to date
-
-export type ComputeEnvironment = ComputeEnvironmentFreeOptions & {
+export type ComputeEnvironment = {
   consumerAddress: string;
-  fees: ComputeEnvFeesStructure;
-  free?: ComputeEnvironmentFreeOptions;
+  description?: string;
+  fees: Record<string, ComputeEnvFeesStructure[]>;
+  free?: {
+    maxJobDuration?: number;
+    maxJobs?: number;
+    resources?: SlimComputeResource[];
+  };
   id: string;
+  maxJobDuration?: number;
+  maxJobs?: number;
+  minJobDuration?: number;
   nodeId: string;
   platform?: {
     architecture: string;
     os: string;
   };
-  queuedJobs?: number;
-  queuedFreeJobs?: number;
-  queMaxWaitTime?: number;
+  queMaxWaitTime: number;
   queMaxWaitTimeFree?: number;
+  queuedFreeJobs?: number;
+  queuedJobs: number;
+  resources?: ComputeResource[];
   runningFreeJobs?: number;
-  runningJobs?: number;
+  runningJobs: number;
+  storageExpiry?: number;
 };
 
 export type EnvResourcesSelection = {
@@ -67,4 +60,13 @@ export type EnvResourcesSelection = {
   maxJobDurationHours: number;
   ram: number;
   ramId: string;
+};
+
+export type NodeEnvironments = EnvNodeInfo & {
+  computeEnvironments: { environments: ComputeEnvironment[]; timestamp: number };
+};
+
+export type EnvNodeInfo = {
+  friendlyName?: string;
+  id: string;
 };

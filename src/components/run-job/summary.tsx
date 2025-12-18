@@ -3,8 +3,9 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
+import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
+import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
@@ -15,12 +16,21 @@ import styles from './summary.module.css';
 
 type SummaryProps = {
   estimatedTotalCost: number;
+  freeCompute: boolean;
+  nodeInfo: EnvNodeInfo;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
-  tokenAddress: string;
+  token: SelectedToken;
 };
 
-const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddress }: SummaryProps) => {
+const Summary = ({
+  estimatedTotalCost,
+  freeCompute,
+  nodeInfo,
+  selectedEnv,
+  selectedResources,
+  token,
+}: SummaryProps) => {
   const { client } = useSmartAccountClient({ type: 'LightAccount' });
   const { signMessageAsync } = useSignMessage({
     client,
@@ -28,7 +38,11 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
 
   const { account, ocean } = useOceanAccount();
 
-  const { gpus, tokenSymbol } = useEnvResources(selectedEnv, tokenAddress);
+  const { gpus } = useEnvResources({
+    environment: selectedEnv,
+    freeCompute,
+    tokenAddress: token.address,
+  });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -38,12 +52,12 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
       return;
     }
     try {
-      const nonce = await ocean.getNonce(account.address, selectedEnv.nodeId);
+      const nonce = await ocean.getNonce(account.address, nodeInfo.id);
       const incrementedNonce = nonce + 1;
       const signedMessage = await signMessageAsync({
         message: account.address + incrementedNonce,
       });
-      const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, selectedEnv.nodeId);
+      const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, nodeInfo.id);
       setAuthToken(token);
     } catch (error) {
       console.error('Failed to generate auth token:', error);
@@ -77,10 +91,10 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
     ocean.updateConfiguration(
       authToken,
       account.address,
-      selectedEnv.nodeId,
+      nodeInfo.id,
       isFreeCompute,
       selectedEnv.id,
-      tokenAddress,
+      token.address,
       selectedResources.maxJobDurationHours * 60 * 60,
       resources,
       uriScheme
@@ -99,21 +113,27 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Your selection</h3>
       <div className={styles.grid}>
+        {nodeInfo.friendlyName ? (
+          <>
+            <div className={styles.label}>Node:</div>
+            <div className={styles.value}>{nodeInfo.friendlyName}</div>
+          </>
+        ) : null}
         <div className={styles.label}>Peer ID:</div>
-        <div className={styles.value}>{selectedEnv.nodeId}</div>
+        <div className={styles.value}>{nodeInfo.id}</div>
         <div className={styles.label}>Environment:</div>
         <div className={styles.value}>{selectedEnv.consumerAddress}</div>
         <div className={styles.label}>Fee token address:</div>
-        <div className={styles.value}>{tokenAddress}</div>
+        <div className={styles.value}>{token.address}</div>
         <div className={styles.label}>Job duration:</div>
         <div className={styles.value}>
           {selectedResources!.maxJobDurationHours} hours ({selectedResources!.maxJobDurationHours * 60 * 60} seconds)
         </div>
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>
-          {selectedResources!.gpus.map((gpu) => (
-            <GpuLabel key={gpu.id} gpu={gpu.description} />
-          ))}
+          {selectedResources.gpus.length
+            ? selectedResources.gpus.map((gpu) => <GpuLabel key={gpu.id} gpu={gpu.description} />)
+            : '-'}
         </div>
         <div className={styles.label}>CPU cores:</div>
         <div className={styles.value}>{selectedResources!.cpuCores}</div>
@@ -122,9 +142,7 @@ const Summary = ({ estimatedTotalCost, selectedEnv, selectedResources, tokenAddr
         <div className={styles.label}>Disk space:</div>
         <div className={styles.value}>{selectedResources!.diskSpace} GB</div>
         <div className={styles.label}>Total cost:</div>
-        <div className={styles.value}>
-          {estimatedTotalCost} {tokenSymbol}
-        </div>
+        <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token.symbol}`}</div>
       </div>
       {authToken ? (
         <div className={styles.footer}>

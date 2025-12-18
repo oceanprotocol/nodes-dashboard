@@ -1,62 +1,70 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import { USDC_TOKEN_ADDRESS } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
-import { ComputeEnvironment } from '@/types/environments';
-import { getEnvSupportedTokens } from '@/utils/env-tokens';
+import useTokenSymbol from '@/lib/token-symbol';
+import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import classNames from 'classnames';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
   compact?: boolean;
   environment: ComputeEnvironment;
+  nodeInfo: EnvNodeInfo;
   showNodeName?: boolean;
 };
 
-const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCardProps) => {
+const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: EnvironmentCardProps) => {
   const router = useRouter();
 
   const { selectEnv, selectToken } = useRunJobContext();
 
-  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string | null>(
-    getEnvSupportedTokens(environment)[0]
-  );
+  // const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getEnvSupportedTokens(environment)[0]);
+  const selectedTokenAddress = USDC_TOKEN_ADDRESS;
+  const tokenSymbol = useTokenSymbol(selectedTokenAddress);
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenSymbol } = useEnvResources(
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
-    selectedTokenAddress
-  );
+    freeCompute: false,
+    tokenAddress: selectedTokenAddress,
+  });
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
     return (cpuFee ?? 0) + (ramFee ?? 0) + (diskFee ?? 0) + (minGpuFee === Infinity ? 0 : minGpuFee);
   }, [cpuFee, diskFee, gpuFees, ramFee]);
 
+  const minJobDurationHours = (environment.minJobDuration ?? 0) / 60 / 60;
   const maxJobDurationHours = (environment.maxJobDuration ?? 0) / 60 / 60;
 
   const selectEnvironment = () => {
-    selectEnv(environment);
-    if (selectedTokenAddress) {
-      selectToken(selectedTokenAddress, tokenSymbol);
-    }
+    selectEnv({
+      environment,
+      freeCompute: false,
+      nodeInfo,
+    });
+    selectToken(selectedTokenAddress, tokenSymbol);
     router.push('/run-job/resources');
   };
 
   const selectFreeCompute = () => {
     selectEnv({
-      ...environment,
-      ...environment.free,
-      fees: {},
-      free: undefined,
+      environment,
+      freeCompute: true,
+      nodeInfo,
     });
+    selectToken(selectedTokenAddress, tokenSymbol);
     router.push('/run-job/resources');
   };
 
@@ -116,7 +124,22 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
   };
 
   const getGpuProgressBars = () => {
-    return gpus.map((gpu) => {
+    const mergedGpus = gpus.reduce(
+      (merged, gpuToCheck) => {
+        const existingGpu = merged.find(
+          (gpu) => gpu.description === gpuToCheck.description && gpuFees[gpu.id] === gpuFees[gpuToCheck.id]
+        );
+        if (existingGpu) {
+          existingGpu.inUse = (existingGpu.inUse ?? 0) + (gpuToCheck.inUse ?? 0);
+          existingGpu.max += gpuToCheck.max;
+        } else {
+          merged.push({ ...gpuToCheck });
+        }
+        return merged;
+      },
+      [] as typeof gpus
+    );
+    return mergedGpus.map((gpu) => {
       const max = gpu.max ?? 0;
       const inUse = gpu.inUse ?? 0;
       const available = max - inUse;
@@ -124,10 +147,7 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
       if (compact) {
         return (
           <div key={gpu.id}>
-            <div className={styles.label}>
-              <MemoryIcon className={styles.icon} />
-              <span className={styles.heading}>{gpu.description}</span>
-            </div>
+            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />
             <div className={styles.label}>
               <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
             </div>
@@ -145,11 +165,7 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
         <ProgressBar
           key={gpu.id}
           value={percentage}
-          topLeftContent={
-            <span className={classNames(styles.label, styles.em)}>
-              <MemoryIcon className={styles.icon} /> GPU - {gpu.description}
-            </span>
-          }
+          topLeftContent={<GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />}
           topRightContent={
             <span className={styles.label}>
               <span className={styles.em}>{max}</span>&nbsp;total
@@ -316,17 +332,24 @@ const EnvironmentCard = ({ compact, environment, showNodeName }: EnvironmentCard
       <div className={styles.footer}>
         <div>
           <div>
-            Max job duration: <strong>{formatNumber(maxJobDurationHours)}</strong> hours
+            Job duration:&nbsp;
+            <strong>
+              {formatNumber(minJobDurationHours)} - {formatNumber(maxJobDurationHours)}
+            </strong>
+            &nbsp;hours
           </div>
           {showNodeName ? (
             <div>
-              Node: <strong>Friendly node name</strong>
+              Node:{' '}
+              <Link className={styles.link} href={`/nodes/${nodeInfo.id}`} target="_blank">
+                {nodeInfo.friendlyName ?? nodeInfo.id}
+              </Link>
             </div>
           ) : null}
         </div>
         <div className={styles.buttons}>
           {environment.free ? (
-            <Button color="accent2" href="/run-job/resources" onClick={selectFreeCompute} variant="outlined">
+            <Button color="accent2" onClick={selectFreeCompute} variant="outlined">
               Try it
             </Button>
           ) : null}

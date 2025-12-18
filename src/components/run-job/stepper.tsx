@@ -5,9 +5,10 @@ import styles from './stepper.module.css';
 
 type StepperProps = {
   currentStep: 1 | 2 | 3 | 4;
+  freeCompute: boolean;
 };
 
-const Stepper = ({ currentStep }: StepperProps) => {
+const Stepper = ({ currentStep, freeCompute }: StepperProps) => {
   const renderStep = (number: number, label: string, separatorBefore: boolean) => {
     const isActive = currentStep === number;
     const isComplete = currentStep > number;
@@ -28,7 +29,7 @@ const Stepper = ({ currentStep }: StepperProps) => {
     <Card className={styles.root} variant="glass-shaded">
       {renderStep(1, 'Environment', false)}
       {renderStep(2, 'Resources', true)}
-      {renderStep(3, 'Payment', true)}
+      {freeCompute ? null : renderStep(3, 'Payment', true)}
       {renderStep(4, 'Finish', true)}
     </Card>
   );

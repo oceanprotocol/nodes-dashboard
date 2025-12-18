@@ -37,6 +37,14 @@
   }
 }
 
+.link {
+  color: var(--accent1);
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .label {
   align-items: center;
   color: var(--text-secondary);
