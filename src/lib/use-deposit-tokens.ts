@@ -172,7 +172,6 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         });
       } catch (err) {
         console.error('Error preparing deposit:', err);
-        console.log('Error.details: ', (err as any).Details);
         setError(err instanceof Error ? err.message : 'Failed to prepare deposit');
         toast.error('Failed to prepare deposit');
         setIsDepositing(false);

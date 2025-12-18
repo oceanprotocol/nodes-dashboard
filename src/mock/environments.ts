@@ -11,10 +11,6 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
       architecture: 'x86_64',
       os: 'linux',
     },
-    access: {
-      addresses: [],
-      accessLists: [],
-    },
     fees: {
       [CHAIN_ID]: [
         {
@@ -109,36 +105,6 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
         inUse: 0,
       },
     ],
-    free: {
-      access: {
-        addresses: [],
-        accessLists: [],
-      },
-      maxJobDuration: 7200,
-      maxJobs: 3,
-      resources: [
-        {
-          id: 'cpu',
-          max: 4,
-          inUse: 0,
-        },
-        {
-          id: 'ram',
-          max: 20,
-          inUse: 0,
-        },
-        {
-          id: 'disk',
-          max: 20,
-          inUse: 0,
-        },
-        {
-          id: 'myGPU',
-          max: 1,
-          inUse: 0,
-        },
-      ],
-    },
     runningFreeJobs: 0,
   },
   {
@@ -149,10 +115,6 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
     platform: {
       architecture: 'x86_64',
       os: 'linux',
-    },
-    access: {
-      addresses: [],
-      accessLists: [],
     },
     fees: {
       [CHAIN_ID]: [
@@ -173,6 +135,10 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
             },
             {
               id: 'GPU2',
+              price: 1.5,
+            },
+            {
+              id: 'GPU3',
               price: 1.5,
             },
             {
@@ -198,6 +164,10 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
             },
             {
               id: 'GPU2',
+              price: 1.5,
+            },
+            {
+              id: 'GPU3',
               price: 1.5,
             },
             {
@@ -265,6 +235,22 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
         inUse: 0,
       },
       {
+        id: 'GPU3',
+        description: 'NVIDIA V100-2',
+        type: 'gpu',
+        total: 1,
+        // init: {
+        //   deviceRequests: {
+        //     Driver: 'nvidia',
+        //     DeviceIDs: ['GPU-c46eeff5-903b-8280-2f16-4fc3f6140d47'],
+        //     Capabilities: [['gpu']],
+        //   },
+        // },
+        max: 1,
+        min: 0,
+        inUse: 0,
+      },
+      {
         id: 'disk',
         total: 20,
         max: 20,
@@ -272,41 +258,6 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
         inUse: 0,
       },
     ],
-    free: {
-      access: {
-        addresses: [],
-        accessLists: [],
-      },
-      maxJobDuration: 7200,
-      maxJobs: 3,
-      resources: [
-        {
-          id: 'cpu',
-          max: 4,
-          inUse: 0,
-        },
-        {
-          id: 'ram',
-          max: 20,
-          inUse: 0,
-        },
-        {
-          id: 'disk',
-          max: 20,
-          inUse: 0,
-        },
-        {
-          id: 'GPU1',
-          max: 1,
-          inUse: 0,
-        },
-        {
-          id: 'GPU2',
-          max: 1,
-          inUse: 0,
-        },
-      ],
-    },
     runningFreeJobs: 0,
   },
 ];

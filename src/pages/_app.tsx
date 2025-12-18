@@ -2,6 +2,7 @@ import RootLayout from '@/components/Layout';
 import { NodesProvider } from '@/context/nodes-context';
 import { ProfileProvider } from '@/context/profile-context';
 import { RunJobProvider } from '@/context/run-job-context';
+import { RunJobEnvsProvider } from '@/context/run-job-envs-context';
 import { StatsProvider } from '@/context/stats-context';
 import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
@@ -46,11 +47,13 @@ export default function App({ Component, pageProps }: AppProps) {
               <ProfileProvider>
                 <StatsProvider>
                   <P2PProvider>
+                    <RunJobEnvsProvider>
                     <RunJobProvider>
                       <RootLayout>
                         <Component {...pageProps} />
                       </RootLayout>
                     </RunJobProvider>
+                    </RunJobEnvsProvider>
                   </P2PProvider>
                 </StatsProvider>
               </ProfileProvider>

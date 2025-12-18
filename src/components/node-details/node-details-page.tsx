@@ -47,7 +47,12 @@ const NodeDetailsPage = () => {
         {selectedNode.eligibilityCauseStr === 'Banned' ? <UnbanRequests node={selectedNode} /> : null}
         <JobsRevenueStats />
         <BenchmarkJobs />
-        <Environments />
+        <Environments
+          nodeInfo={{
+            friendlyName: selectedNode.friendlyName,
+            id: selectedNode.id ?? selectedNode.nodeId,
+          }}
+        />
       </div>
     </Container>
   );

@@ -1,5 +1,5 @@
 export type StringFilterOperator = 'contains' | 'eq' | 'value';
-export type NumberFilterOperator = 'eq' | 'gt' | 'lt';
+export type NumberFilterOperator = 'eq' | 'gt' | 'gte' | 'lt' | 'lte';
 export type FilterOperator = StringFilterOperator | NumberFilterOperator;
 
 export interface FilterValue {
@@ -71,4 +71,31 @@ export interface MyNodesFilters {
   cpuScore?: FilterValue;
   bandwidth?: FilterValue;
   totalScore?: FilterValue;
+}
+
+export interface EnvironmentsFilters {
+  feeToken?: {
+    operator: 'eq';
+    value: string;
+  };
+  fromMaxJobDuration?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
+  gpuName?: {
+    operator: 'in';
+    value: string;
+  };
+  minimumCPU?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
+  minimumRAM?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
+  minimumStorage?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
 }
