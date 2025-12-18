@@ -1,16 +1,12 @@
-import EmpowerSection from '../EmpowerSection/EmpowerSection'
-import SocialMediaFooter from './SocialMediaFooter'
-import styles from './style.module.css'
-import { getLinks } from '@/config'
+import { getLinks } from '@/config';
+import styles from './style.module.css';
 
 const Footer = () => {
-  const currentYear = new Date().getFullYear()
-  const links = getLinks()
+  const currentYear = new Date().getFullYear();
+  const links = getLinks();
 
   return (
     <div className={styles.footer}>
-      <EmpowerSection />
-      <SocialMediaFooter />
       <div className={styles.footerContainer}>
         <p>@ {currentYear}, Ocean Nodes</p>
         <div className={styles.footerLinks}>
@@ -23,7 +19,7 @@ const Footer = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Footer
+export default Footer;
