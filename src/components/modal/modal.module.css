@@ -13,6 +13,7 @@
 
 /* Title */
 .title {
+  color: var(--text-primary);
   font-size: 20px;
   font-weight: 600;
   margin: 0;
@@ -43,6 +44,20 @@
 .content {
   display: flex;
   flex-direction: column;
+}
+
+/* Label */
+.label {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* Value */
+.value {
+  color: var(--text-primary);
+  font-size: 14px;
 }
 
 /* Paddings */

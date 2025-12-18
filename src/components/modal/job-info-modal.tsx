@@ -1,10 +1,13 @@
 import { DownloadLogsButton } from '@/components/button/download-logs-button';
 import { DownloadResultButton } from '@/components/button/download-result-button';
+import EnvironmentCard from '@/components/environment-card/environment-card';
 import { ComputeJob } from '@/types/jobs';
 import CloseIcon from '@mui/icons-material/Close';
 import { Dialog, Stack, Typography } from '@mui/material';
 import classNames from 'classnames';
+import { useEffect, useMemo } from 'react';
 import styles from './modal.module.css';
+import { useProfileContext } from '@/context/profile-context';
 
 interface JobInfoModalProps {
   job: ComputeJob | null;
@@ -13,6 +16,18 @@ interface JobInfoModalProps {
 }
 
 export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
+  const { fetchNodeEnv, environment } = useProfileContext();
+
+  useEffect(() => {
+    if (open && job?.environment) {
+      fetchNodeEnv(job.peerId, job.environment);
+    }
+  }, [open, job?.environment, fetchNodeEnv]);
+
+  const jobEnvironment = useMemo(() => {
+    return environment
+  }, [job?.environment]);
+
   if (!job) return null;
 
   return (
@@ -28,18 +43,16 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
         <div className={styles.content}>
           <Stack spacing={2}>
             <div>
-              <Typography sx={{ color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, marginBottom: '4px' }}>
-                Job ID
-              </Typography>
-              <Typography sx={{ color: 'var(--text-primary)', fontSize: 14 }}>{job.jobId}</Typography>
+              <div className={styles.label}>Job ID</div>
+              <div className={styles.value}>{job.jobId}</div>
             </div>
 
-            {job.environment && (
+            {jobEnvironment && (
               <div>
-                <Typography sx={{ color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, marginBottom: '4px' }}>
+                <div className={styles.label} style={{ marginBottom: '8px' }}>
                   Environment
-                </Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontSize: 14 }}>{job.environment}</Typography>
+                </div>
+                <EnvironmentCard environment={jobEnvironment} compact />
               </div>
             )}
 

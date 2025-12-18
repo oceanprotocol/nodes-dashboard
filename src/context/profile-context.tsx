@@ -1,5 +1,6 @@
 import { getApiRoute } from '@/config';
 import { EnsProfile } from '@/types/profile';
+import {Node} from '@/types/nodes';
 import {
   ActiveNodes,
   ConsumerStats,
@@ -29,11 +30,13 @@ type ProfileContextType = {
   totalPaidAmount: number;
   consumerStatsPerEpoch: ConsumerStatsPerEpoch[];
   successfullJobs: number;
+  environment: any;
   // API functions
   fetchOwnerStats: () => Promise<void>;
   fetchConsumerStats: () => Promise<void>;
   fetchActiveNodes: () => Promise<void>;
   fetchJobsSuccessRate: () => Promise<void>;
+  fetchNodeEnv: (peerId: string, envId: string) => Promise<any>;
 };
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -55,6 +58,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [eligibleNodes, setEligibleNodes] = useState<number>(0);
   const [totalNodes, setTotalNodes] = useState<number>(0);
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
+  const [environment, setEnvironment] = useState<any>(null);
 
   const fetchEnsAddress = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '' || !accountId.includes('.')) {
@@ -166,6 +170,19 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const fetchNodeEnv = useCallback(async(peerId: string, envId: string) => {
+    try{
+      const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`)
+      if(response.data){
+        const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
+        const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId)
+        setEnvironment(env);
+      }
+    }catch(err) {
+      console.error('Error fetching node env: ', err)
+    }
+  }, [])
+
   useEffect(() => {
     if (account.status === 'connected' && account.address) {
       fetchEnsAddress(account.address);
@@ -195,10 +212,12 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         eligibleNodes,
         totalNodes,
         successfullJobs,
+        environment,
         fetchOwnerStats,
         fetchConsumerStats,
         fetchActiveNodes,
         fetchJobsSuccessRate,
+        fetchNodeEnv
       }}
     >
       {children}
