@@ -15,7 +15,7 @@ type StepperProps<T> = {
   steps: Step<T>[];
 };
 
-const Stepper = <T,>({ currentStep, steps }: StepperProps<T>) => {
+const Stepper = <T extends string>({ currentStep, steps }: StepperProps<T>) => {
   const visibleSteps = useMemo(() => steps.filter((step) => !step.hidden), [steps]);
 
   const currentStepIndex = useMemo(
