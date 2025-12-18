@@ -60,7 +60,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [totalNodes, setTotalNodes] = useState<number>(0);
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
   const [environment, setEnvironment] = useState<any>(null);
-  const [nodeInfo, setNodeInfo] = useState<EnvNodeInfo>();
+  const [nodeInfo, setNodeInfo] = useState<any>();
 
   const fetchEnsAddress = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '' || !accountId.includes('.')) {
@@ -175,12 +175,11 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const fetchNodeEnv = useCallback(async (peerId: string, envId: string) => {
     try {
       const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`);
-      if (response.data) {
-        const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
-        const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId);
-        setEnvironment(env);
-        setNodeInfo({id: sanitizedData.id, friendlyName: sanitizedData.friendlyName})
-      }
+      const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
+      const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId);
+      setEnvironment(env);
+      setNodeInfo({id: sanitizedData.id, friendlyName: sanitizedData.friendlyName})
+      
     } catch (err) {
       console.error('Error fetching node env: ', err);
     }
