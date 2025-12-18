@@ -25,23 +25,22 @@ export type ComputeResource = {
 
 export type ComputeEnvironment = {
   consumerAddress: string;
-  fees: ComputeEnvFeesStructure;
-  id: string;
-  nodeId: string;
-  platform?: {
-    architecture: string;
-    os: string;
   description?: string;
+  fees: Record<string, ComputeEnvFeesStructure[]>;
   free?: {
     maxJobDuration?: number;
     maxJobs?: number;
     resources?: SlimComputeResource[];
   };
-  fees: Record<string, ComputeEnvFeesStructure[]>;
   id: string;
   maxJobDuration?: number;
   maxJobs?: number;
   minJobDuration?: number;
+  nodeId: string;
+  platform?: {
+    architecture: string;
+    os: string;
+  };
   queMaxWaitTime: number;
   queMaxWaitTimeFree?: number;
   queuedFreeJobs?: number;
@@ -49,9 +48,8 @@ export type ComputeEnvironment = {
   resources?: ComputeResource[];
   runningFreeJobs?: number;
   runningJobs: number;
-  platform?: { architecture: string; os: string };
   storageExpiry?: number;
-}};
+};
 
 export type EnvResourcesSelection = {
   cpuCores: number;
