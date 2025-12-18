@@ -2,8 +2,8 @@ import Avatar from '@/components/avatar/avatar';
 import Card from '@/components/card/card';
 import TabBar from '@/components/tab-bar/tab-bar';
 import { useProfileContext } from '@/context/profile-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
-import { useAppKitAccount } from '@reown/appkit/react';
 import { useMemo } from 'react';
 import styles from './profile-header.module.css';
 
@@ -12,7 +12,7 @@ type ProfileHeaderProps = {
 };
 
 const ProfileHeader = ({ role }: ProfileHeaderProps) => {
-  const account = useAppKitAccount();
+  const { account } = useOceanAccount();
   const { ensName, ensProfile } = useProfileContext();
 
   const accountName = useMemo(() => {

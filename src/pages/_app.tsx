@@ -1,12 +1,12 @@
 import RootLayout from '@/components/Layout';
-import { AppKit } from '@/context/app-kit';
 import { NodesProvider } from '@/context/nodes-context';
-import { OceanProvider } from '@/context/ocean-context';
 import { ProfileProvider } from '@/context/profile-context';
 import { RunJobProvider } from '@/context/run-job-context';
+import { RunJobEnvsProvider } from '@/context/run-job-envs-context';
 import { StatsProvider } from '@/context/stats-context';
 import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
+import { AlchemyProvider } from '@/lib/alchemy-provider';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
@@ -41,25 +41,25 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
-        <OceanProvider>
+        <AlchemyProvider>
           <NodesProvider>
             <UnbanRequestsProvider>
               <ProfileProvider>
                 <StatsProvider>
-                  <AppKit>
-                    <P2PProvider>
+                  <P2PProvider>
+                    <RunJobEnvsProvider>
                       <RunJobProvider>
                         <RootLayout>
                           <Component {...pageProps} />
                         </RootLayout>
                       </RunJobProvider>
-                    </P2PProvider>
-                  </AppKit>
+                    </RunJobEnvsProvider>
+                  </P2PProvider>
                 </StatsProvider>
               </ProfileProvider>
             </UnbanRequestsProvider>
           </NodesProvider>
-        </OceanProvider>
+        </AlchemyProvider>
       </QueryClientProvider>
     </main>
   );

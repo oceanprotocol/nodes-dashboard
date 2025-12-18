@@ -1,4 +1,5 @@
 import { getApiRoute } from '@/config';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { EnsProfile } from '@/types/profile';
 import {
   ActiveNodes,
@@ -8,7 +9,6 @@ import {
   OwnerStats,
   OwnerStatsPerEpoch,
 } from '@/types/stats';
-import { useAppKitAccount } from '@reown/appkit/react';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -39,7 +39,7 @@ type ProfileContextType = {
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider = ({ children }: { children: ReactNode }) => {
-  const account = useAppKitAccount();
+  const { account } = useOceanAccount();
 
   const [ensAddress, setEnsAddress] = useState<ProfileContextType['ensAddress']>(undefined);
   const [ensName, setEnsName] = useState<ProfileContextType['ensName']>(undefined);
@@ -154,7 +154,9 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchJobsSuccessRate = useCallback(async () => {
     try {
-      const response = await axios.get<JobsSuccessRate>(`${getApiRoute('jobsSuccessRate')}/${ensAddress}/jobs-success-rate`);
+      const response = await axios.get<JobsSuccessRate>(
+        `${getApiRoute('jobsSuccessRate')}/${ensAddress}/jobs-success-rate`
+      );
       if (response.data) {
         setSuccessfullJobs(response.data.successCount);
         setTotalJobs(response.data.totalCount);

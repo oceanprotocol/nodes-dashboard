@@ -1,10 +1,11 @@
 import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
-import { MouseEventHandler, ReactNode } from 'react';
+import { MouseEventHandler, ReactNode, useState } from 'react';
 import styles from './button.module.css';
 
 type ButtonProps = {
+  autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
   color?: 'accent1' | 'accent2' | 'primary';
@@ -22,6 +23,7 @@ type ButtonProps = {
 };
 
 const Button = ({
+  autoLoading,
   children,
   className,
   color = 'primary',
@@ -37,6 +39,8 @@ const Button = ({
   type = 'button',
   variant = 'filled',
 }: ButtonProps) => {
+  const [innerLoading, setInnerLoading] = useState(false);
+
   const classes = classNames(
     styles.root,
     styles[`color-${color}`],
@@ -45,9 +49,22 @@ const Button = ({
     className
   );
 
-  const isDisabled = disabled || loading;
+  const isLoading = loading || innerLoading;
+  const isDisabled = disabled || isLoading;
 
-  const spinner = loading ? <CircularProgress color="inherit" size={{ sm: 14, md: 16, lg: 20 }[size]} /> : null;
+  const spinner = isLoading ? <CircularProgress color="inherit" size={{ sm: 14, md: 16, lg: 20 }[size]} /> : null;
+
+  const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (onClick) {
+      if (autoLoading) {
+        setInnerLoading(true);
+        await onClick(event);
+        setInnerLoading(false);
+      } else {
+        onClick(event);
+      }
+    }
+  };
 
   if (href) {
     return (
@@ -61,7 +78,7 @@ const Button = ({
   }
 
   return (
-    <button className={classes} disabled={isDisabled} id={id} onClick={onClick} type={type}>
+    <button className={classes} disabled={isDisabled} id={id} onClick={handleClick} type={type}>
       {spinner}
       {contentBefore}
       {children}

@@ -69,7 +69,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           eligibilityCauseStr={node.eligibilityCauseStr}
           banInfo={node.banInfo}
         />
-        <Balance nodeUrl={`https://${node.ipAndDns?.dns}`} />
+        <Balance peerId={node.id ?? node.nodeId} />
       </div>
     </Card>
   );

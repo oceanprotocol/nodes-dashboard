@@ -25,6 +25,15 @@ const StyledSelect = styled(MaterialSelect)<{ custom_size?: 'sm' | 'md'; has_err
     [`& .${selectClasses.select}`]: {
       padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
       minHeight: 0,
+
+      '& > .MuiListItemText-root': {
+        marginBottom: 0,
+        marginTop: 0,
+
+        '& > .MuiListItemText-primary': {
+          lineHeight: custom_size === 'sm' ? '22px' : '24px',
+        },
+      },
     },
 
     [`& .${selectClasses.icon}`]: {

@@ -13,6 +13,8 @@
     "format": "prettier --parser typescript --ignore-path .gitignore --write '**/*.{js,jsx,ts,tsx}'"
   },
   "dependencies": {
+    "@account-kit/infra": "^4.81.2",
+    "@account-kit/react": "^4.81.2",
     "@chainsafe/libp2p-noise": "^15.1.0",
     "@chainsafe/libp2p-yamux": "^6.0.2",
     "@emotion/react": "^11.14.0",
@@ -29,9 +31,8 @@
     "@multiformats/multiaddr": "^12",
     "@oceanprotocol/contracts": "2.5.0",
     "@oceanprotocol/lib": "5.0.1",
-    "@reown/appkit": "^1.8.11",
-    "@reown/appkit-adapter-ethers": "^1.8.11",
     "@tanstack/react-query": "^5.28.4",
+    "@wagmi/core": "^3.0.0",
     "axios": "^1.12.2",
     "bignumber.js": "^9.3.1",
     "classnames": "^2.5.0",
@@ -45,8 +46,10 @@
     "normalize.css": "^8.0.1",
     "react": "^18",
     "react-dom": "^18",
+    "react-toastify": "^11.0.5",
     "recharts": "^3.3.0",
     "uint8arrays": "^4.0.6",
+    "wagmi": "^3.1.0",
     "yup": "^1.7.1"
   },
   "devDependencies": {
