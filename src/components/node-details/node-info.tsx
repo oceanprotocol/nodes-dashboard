@@ -130,7 +130,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
             </div>
           </div>
           <div className={styles.buttons}>
-            <Modal isOpen={isEditConfigDialogOpen} onClose={handleCloseModal} size="xl" title="Edit node config">
+            <Modal open={isEditConfigDialogOpen} onClose={handleCloseModal} size="xl" title="Edit node config">
               <div className={styles.modalContent}>
                 {fetchingConfig && (!config || Object.keys(config).length === 0) ? (
                   <div className={styles.fetching}>Fetching config...</div>

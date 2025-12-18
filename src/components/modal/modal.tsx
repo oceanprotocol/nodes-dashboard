@@ -1,4 +1,4 @@
-import { Dialog } from '@account-kit/react';
+import { Dialog } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import cx from 'classnames';
 import { ReactNode } from 'react';
@@ -11,7 +11,7 @@ type ModalProps = {
   children: ReactNode;
   className?: string;
   fullWidth?: boolean;
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
   padding?: Size;
   radius?: Size;
@@ -24,7 +24,7 @@ const Modal = ({
   children,
   className,
   fullWidth = true,
-  isOpen,
+  open,
   onClose,
   padding = 'md',
   radius = 'md',
@@ -32,7 +32,7 @@ const Modal = ({
   title,
   variant = 'solid',
 }: ModalProps) => (
-  <Dialog fullWidth={fullWidth} isOpen={isOpen} onClose={onClose}>
+  <Dialog fullWidth={fullWidth} open={open} onClose={onClose}>
     <div
       className={cx(
         styles.root,

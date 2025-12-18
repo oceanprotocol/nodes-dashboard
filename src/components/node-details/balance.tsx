@@ -133,7 +133,7 @@ export const Balance = ({ admins, peerId }: BalanceProps) => {
         </div>
       </div>
       <div className={styles.buttons}>
-        <Modal isOpen={isDialogOpen} onClose={handleCloseModal} title="Send tokens for gas fee" variant="solid">
+        <Modal open={isDialogOpen} onClose={handleCloseModal} title="Send tokens for gas fee" variant="solid">
           <div className={styles.modalContent}>
             <Input
               type="number"
@@ -158,7 +158,7 @@ export const Balance = ({ admins, peerId }: BalanceProps) => {
             </Button>
           </div>
         </Modal>
-        <Modal isOpen={isWithdrawDialogOpen} onClose={handleCloseWithdrawModal} title="Withdraw funds" variant="solid">
+        <Modal open={isWithdrawDialogOpen} onClose={handleCloseWithdrawModal} title="Withdraw funds" variant="solid">
           <div className={styles.modalContent}>
             <Select
               className={styles.balanceSelect}
