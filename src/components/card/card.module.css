@@ -9,6 +9,12 @@
 }
 
 /* Paddings */
+.padding-xxs {
+  padding: 8px;
+}
+.padding-xs {
+  padding: 16px;
+}
 .padding-sm {
   padding: 24px;
 }
@@ -20,6 +26,14 @@
 }
 
 /* X paddings */
+.paddingX-xxs {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.paddingX-xs {
+  padding-left: 16px;
+  padding-right: 16px;
+}
 .paddingX-sm {
   padding-left: 24px;
   padding-right: 24px;
@@ -34,6 +48,14 @@
 }
 
 /* Y paddings */
+.paddingY-xxs {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.paddingY-xs {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
 .paddingY-sm {
   padding-top: 24px;
   padding-bottom: 24px;

@@ -1,6 +1,7 @@
 import DiscordIcon from '@/assets/discord.svg';
 import Logo from '@/assets/logo.svg';
 import XIcon from '@/assets/x.svg';
+import Card from '@/components/card/card';
 import ProfileButton from '@/components/Navigation/profile-button';
 import cx from 'classnames';
 import Link from 'next/link';
@@ -94,9 +95,9 @@ const Navigation = () => {
             <Logo width={65} />
           </Link>
         </div>
-        <nav className={styles.desktopNav} aria-label="Primary">
+        <Card className={styles.desktopNav} padding="xxs" radius="lg" variant="glass-shaded">
           {renderNavLinks(styles.navLink)}
-        </nav>
+        </Card>
         <Actions className={styles.sideActions} />
         <button
           type="button"

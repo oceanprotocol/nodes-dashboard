@@ -3,15 +3,16 @@ import { ReactNode } from 'react';
 import styles from './card.module.css';
 
 type Size = 'sm' | 'md' | 'lg';
+type PaddingSize = 'xxs' | 'xs' | Size;
 type Variant = 'glass' | 'glass-shaded' | 'glass-outline' | 'success' | 'warning' | 'error' | 'accent1-outline';
 
 type CardProps = {
   children: ReactNode;
   className?: string;
   direction?: 'row' | 'column';
-  padding?: Size;
-  paddingX?: Size;
-  paddingY?: Size;
+  padding?: PaddingSize;
+  paddingX?: PaddingSize;
+  paddingY?: PaddingSize;
   radius?: Size;
   spacing?: Size;
   variant?: Variant;

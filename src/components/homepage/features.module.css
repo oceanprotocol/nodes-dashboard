@@ -46,8 +46,8 @@
 }
 
 .featureItemBlue {
-  background-color: #009bff;
-  border-color: #009bff;
+  background-color: var(--accent1);
+  border-color: var(--accent1);
 }
 
 .featuresWrapper > *:nth-child(4n + 1) {

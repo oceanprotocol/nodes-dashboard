@@ -66,7 +66,7 @@
   gap: 12px;
   padding: 18px 46px;
   border-radius: 999px;
-  background: #009bff;
+  background: var(--accent1);
   color: #ffffff;
   font-family: var(--font-orbitron), sans-serif;
   font-weight: 700;
@@ -108,7 +108,7 @@
   display: inline-flex;
   gap: 12px;
   align-items: center;
-  color: #be00ff;
+  color: var(--accent2);
   font-family: var(--font-inter), sans-serif;
   font-style: normal;
   font-weight: 700;
@@ -122,7 +122,7 @@
 
 .socialLink:hover {
   transform: translateY(-4px);
-  color: #f066ff;
+  color: var(--accent2);
 }
 
 .socialLinkIcon {
