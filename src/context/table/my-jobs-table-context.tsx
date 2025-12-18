@@ -63,10 +63,12 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
       url += `&search=${encodeURIComponent(searchTerm)}`;
     }
     return url;
-  }, [crtPage, filterModel, pageSize, searchTerm]);
+  }, [consumer, crtPage, filterModel, pageSize, searchTerm]);
 
   const fetchData = useCallback(async () => {
-    if (!consumer) return;
+    if (!consumer) {
+      return;
+    }
     setLoading(true);
     try {
       const response = await axios.get(fetchUrl);

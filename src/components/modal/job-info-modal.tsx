@@ -26,7 +26,7 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
 
   const jobEnvironment = useMemo(() => {
     return environment;
-  }, [job?.environment]);
+  }, [environment]);
 
   if (!job) return null;
 
