@@ -55,6 +55,16 @@
     color: var(--accent2);
   }
 }
+.color-error {
+  &.variant-filled {
+    background: var(--error);
+    color: var(--text-primary);
+  }
+  &.variant-outlined {
+    box-shadow: inset 0 0 0 2px var(--error);
+    color: var(--error);
+  }
+}
 .color-primary {
   &.variant-filled {
     background: var(--text-primary);

@@ -8,7 +8,7 @@ type ButtonProps = {
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
-  color?: 'accent1' | 'accent2' | 'primary';
+  color?: 'accent1' | 'accent2' | 'error' | 'primary';
   contentAfter?: React.ReactNode;
   contentBefore?: React.ReactNode;
   disabled?: boolean;
