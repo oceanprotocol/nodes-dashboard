@@ -5,16 +5,21 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
-import { useOceanContext } from '@/context/ocean-context';
-import { useRunJobContext } from '@/context/run-job-context';
+import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useAuthModal, useSignerStatus } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
+
+type SelectResourcesProps = {
+  environment: ComputeEnvironment;
+  freeCompute: boolean;
+  token: SelectedToken;
+};
 
 type ResourcesFormValues = {
   cpuCores: number;
@@ -24,41 +29,28 @@ type ResourcesFormValues = {
   ram: number;
 };
 
-type SelectResourcesProps = {
-  environment: ComputeEnvironment;
-};
-
-const SelectResources = ({ environment }: SelectResourcesProps) => {
+const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
+  const { openAuthModal } = useAuthModal();
   const router = useRouter();
-  const account = useAppKitAccount();
+  const { isAuthenticating, isDisconnected } = useSignerStatus();
 
   const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
-  const { getUserFunds } = useOceanContext();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee, tokenAddress, tokenSymbol } =
-    useEnvResources(environment);
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
+    environment,
+    freeCompute,
+    tokenAddress: token.address,
+  });
 
-  const [escrowBalance, setEscrowBalance] = useState<number>(0);
-
-  useEffect(() => {
-    if (account?.address) {
-      getUserFunds(tokenAddress, account.address).then((balance) => {
-        setEscrowBalance(Number(balance));
-      });
-    }
-  }, [account.address, getUserFunds, tokenAddress]);
-
-  // TODO implement min job duration
-
-  const minAllowedCpuCores = 1;
-  const minAllowedDiskSpace = 0;
-  const minAllowedJobDurationHours = 0;
-  const minAllowedRam = 0;
+  const minAllowedCpuCores = cpu?.min ?? 1;
+  const minAllowedDiskSpace = disk?.min ?? 0;
+  const minAllowedJobDurationHours = environment.minJobDuration ?? 0;
+  const minAllowedRam = ram?.min ?? 0;
 
   const maxAllowedCpuCores = cpu?.max ?? minAllowedCpuCores;
-  const maxAllowedRam = ram?.max ?? minAllowedRam;
   const maxAllowedDiskSpace = disk?.max ?? minAllowedDiskSpace;
   const maxAllowedJobDurationHours = (environment.maxJobDuration ?? minAllowedJobDurationHours) / 60 / 60;
+  const maxAllowedRam = ram?.max ?? minAllowedRam;
 
   const formik = useFormik<ResourcesFormValues>({
     initialValues: {
@@ -69,17 +61,24 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
       ram: minAllowedRam,
     },
     onSubmit: (values) => {
+      if (isDisconnected) {
+        openAuthModal();
+        return;
+      }
       setEstimatedTotalCost(estimatedTotalCost);
       setSelectedResources({
         cpuCores: values.cpuCores,
+        cpuId: cpu?.id ?? 'cpu',
         diskSpace: values.diskSpace,
+        diskId: disk?.id ?? 'disk',
         gpus: gpus
           .filter((gpu) => values.gpus.includes(gpu.id))
           .map((gpu) => ({ id: gpu.id, description: gpu.description })),
         maxJobDurationHours: values.maxJobDurationHours,
         ram: values.ram,
+        ramId: ram?.id ?? 'ram',
       });
-      if (estimatedTotalCost > 0 && escrowBalance < estimatedTotalCost) {
+      if (estimatedTotalCost > 0 && !freeCompute) {
         router.push('/run-job/payment');
       } else {
         router.push('/run-job/summary');
@@ -96,7 +95,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
         .required('Required')
         .min(minAllowedDiskSpace, 'Limits exceeded')
         .max(maxAllowedDiskSpace, 'Limits exceeded'),
-      gpus: Yup.array().of(Yup.string()).min(1, 'Required'),
+      gpus: Yup.array().of(Yup.string()),
       maxJobDurationHours: Yup.number()
         .required('Required')
         .min(minAllowedJobDurationHours, 'Limits exceeded')
@@ -109,6 +108,9 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
   });
 
   const estimatedTotalCost = useMemo(() => {
+    if (freeCompute) {
+      return 0;
+    }
     const timeInMinutes = Number(formik.values.maxJobDurationHours) * 60;
     const cpuCost = Number(formik.values.cpuCores) * (cpuFee ?? 0) * timeInMinutes;
     const ramCost = Number(formik.values.ram) * (ramFee ?? 0) * timeInMinutes;
@@ -126,6 +128,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
     formik.values.gpus,
     formik.values.maxJobDurationHours,
     formik.values.ram,
+    freeCompute,
     gpuFees,
     ramFee,
   ]);
@@ -162,16 +165,17 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
           options={gpus.map((gpu) => ({ label: gpu.description ?? '', value: gpu.id }))}
-          renderOption={(option) => (
-            <GpuLabel gpu={`${option.label} (${gpuFees[option.value] ?? ''} ${tokenSymbol}/min)`} />
-          )}
+          renderOption={(option) => {
+            const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token.symbol}/min`;
+            return <GpuLabel gpu={`${option.label} (${pricing})`} />;
+          }}
           renderSelectedValue={(option) => <GpuLabel gpu={option} />}
           value={formik.values.gpus}
         />
         <div className={styles.inputsGrid}>
           <Slider
             errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
-            hint={`${cpuFee ?? 0} ${tokenSymbol}/core`}
+            hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token.symbol}/core`}
             label="CPU"
             name="cpuCores"
             marks
@@ -186,7 +190,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
           />
           <Slider
             errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
-            hint={`${ramFee ?? 0} ${tokenSymbol}/GB`}
+            hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token.symbol}/GB`}
             label="RAM"
             name="ram"
             marks
@@ -206,7 +210,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
               </Button>
             }
             errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
-            hint={`${diskFee ?? 0} ${tokenSymbol}/GB`}
+            hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token.symbol}/GB`}
             label="Disk space"
             name="diskSpace"
             onBlur={formik.handleBlur}
@@ -237,12 +241,12 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
             value={formik.values.maxJobDurationHours}
           />
         </div>
-        {formik.isValid ? (
+        {formik.isValid && !freeCompute ? (
           <Card className={styles.cost} variant="accent1-outline" radius="md">
             <h3>Estimated total cost</h3>
             <div className={styles.values}>
               <div>
-                <span className={styles.token}>{tokenSymbol}</span>
+                <span className={styles.token}>{token.symbol}</span>
                 &nbsp;
                 <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
               </div>
@@ -252,7 +256,7 @@ const SelectResources = ({ environment }: SelectResourcesProps) => {
             </div>
           </Card>
         ) : null}
-        <Button className={styles.button} color="accent2" size="lg" type="submit">
+        <Button className={styles.button} color="accent2" loading={isAuthenticating} size="lg" type="submit">
           Continue
         </Button>
       </form>

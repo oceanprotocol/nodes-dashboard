@@ -1,9 +1,14 @@
 import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
 import { useP2P } from '@/contexts/P2PContext';
+import { EnvNodeInfo } from '@/types/environments';
 import styles from './environments.module.css';
 
-const Environments = () => {
+type EnvironmentsProps = {
+  nodeInfo: EnvNodeInfo;
+};
+
+const Environments = ({ nodeInfo }: EnvironmentsProps) => {
   const { envs } = useP2P();
 
   return (
@@ -11,7 +16,7 @@ const Environments = () => {
       <h3>Environments</h3>
       <div className={styles.list}>
         {envs.map((env) => (
-          <EnvironmentCard key={env.id} environment={env} />
+          <EnvironmentCard key={env.id} environment={env} nodeInfo={nodeInfo} />
         ))}
       </div>
     </Card>

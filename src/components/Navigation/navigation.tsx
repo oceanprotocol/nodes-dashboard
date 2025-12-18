@@ -2,7 +2,6 @@ import DiscordIcon from '@/assets/discord.svg';
 import Logo from '@/assets/logo.svg';
 import XIcon from '@/assets/x.svg';
 import ProfileButton from '@/components/Navigation/profile-button';
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import cx from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -13,12 +12,11 @@ import styles from './navigation.module.css';
 
 const Navigation = () => {
   const router = useRouter();
-  const { open } = useAppKit();
-  const account = useAppKitAccount();
   const routes = getRoutes();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const scrollPositionRef = useRef(0);
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {

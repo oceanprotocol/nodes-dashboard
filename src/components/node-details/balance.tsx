@@ -2,27 +2,28 @@ import { useEffect, useState } from 'react';
 
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import { useOceanContext } from '@/context/ocean-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatNumber } from '@/utils/formatters';
 import DownloadIcon from '@mui/icons-material/Download';
 import styles from './balance.module.css';
 
 interface BalanceProps {
-  nodeUrl: string;
+  peerId: string;
 }
 
-export const Balance = ({ nodeUrl }: BalanceProps) => {
-  const { getNodeBalance } = useOceanContext();
+export const Balance = ({ peerId }: BalanceProps) => {
+  const { ocean } = useOceanAccount();
 
   const [balances, setBalances] = useState<[string, any][]>([]);
 
   useEffect(() => {
-    getNodeBalance(nodeUrl).then((res) =>
-      res.size === 0
-        ? setBalances([[`Failed to call node balance for url: ${nodeUrl}`, null]])
-        : setBalances(Object.entries(res))
-    );
-  }, [getNodeBalance, nodeUrl]);
+    ocean;
+    ocean
+      ?.getNodeBalance(peerId)
+      .then((res) =>
+        res.size === 0 ? setBalances([[`Failed to load balance`, null]]) : setBalances(Object.entries(res))
+      );
+  }, [ocean, peerId]);
 
   // TODO add button actions
   return (
