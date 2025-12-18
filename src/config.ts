@@ -51,7 +51,7 @@ const config: Config = {
       name: 'Leaderboard',
     },
     runNode: {
-      path: '/run-node',
+      path: '/run-node/setup',
       name: 'Run Node',
     },
   },
