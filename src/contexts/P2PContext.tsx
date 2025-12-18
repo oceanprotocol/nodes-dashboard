@@ -19,14 +19,20 @@ interface P2PContextType {
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
   getEnvs: (peerId: string) => Promise<any>;
-  getComputeLogs: (peerId: string, jobId: string, signature: string, timestamp: number, address: string) => Promise<any>;
+  getComputeLogs: (
+    peerId: string,
+    jobId: string,
+    signature: string,
+    timestamp: number,
+    address: string
+  ) => Promise<any>;
   getComputeResult: (
     peerId: string,
     jobId: string,
     index: number,
     signature: string,
     timestamp: number,
-    address: string,
+    address: string
   ) => Promise<Record<string, any> | Uint8Array>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
 }

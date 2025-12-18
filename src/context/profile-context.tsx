@@ -1,7 +1,7 @@
 import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { EnvNodeInfo } from '@/types/environments';
 import { EnsProfile } from '@/types/profile';
-import {Node} from '@/types/nodes';
 import {
   ActiveNodes,
   ConsumerStats,
@@ -31,6 +31,7 @@ type ProfileContextType = {
   consumerStatsPerEpoch: ConsumerStatsPerEpoch[];
   successfullJobs: number;
   environment: any;
+  nodeInfo: EnvNodeInfo;
   // API functions
   fetchOwnerStats: () => Promise<void>;
   fetchConsumerStats: () => Promise<void>;
@@ -59,6 +60,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [totalNodes, setTotalNodes] = useState<number>(0);
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
   const [environment, setEnvironment] = useState<any>(null);
+  const [nodeInfo, setNodeInfo] = useState<EnvNodeInfo>();
 
   const fetchEnsAddress = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '' || !accountId.includes('.')) {
@@ -170,18 +172,19 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const fetchNodeEnv = useCallback(async(peerId: string, envId: string) => {
-    try{
-      const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`)
-      if(response.data){
+  const fetchNodeEnv = useCallback(async (peerId: string, envId: string) => {
+    try {
+      const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`);
+      if (response.data) {
         const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
-        const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId)
+        const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId);
         setEnvironment(env);
+        setNodeInfo({id: sanitizedData.id, friendlyName: sanitizedData.friendlyName})
       }
-    }catch(err) {
-      console.error('Error fetching node env: ', err)
+    } catch (err) {
+      console.error('Error fetching node env: ', err);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (account.status === 'connected' && account.address) {
@@ -213,11 +216,12 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         totalNodes,
         successfullJobs,
         environment,
+        nodeInfo,
         fetchOwnerStats,
         fetchConsumerStats,
         fetchActiveNodes,
         fetchJobsSuccessRate,
-        fetchNodeEnv
+        fetchNodeEnv,
       }}
     >
       {children}

@@ -1,13 +1,13 @@
 import { DownloadLogsButton } from '@/components/button/download-logs-button';
 import { DownloadResultButton } from '@/components/button/download-result-button';
 import EnvironmentCard from '@/components/environment-card/environment-card';
+import { useProfileContext } from '@/context/profile-context';
 import { ComputeJob } from '@/types/jobs';
 import CloseIcon from '@mui/icons-material/Close';
 import { Dialog, Stack, Typography } from '@mui/material';
 import classNames from 'classnames';
 import { useEffect, useMemo } from 'react';
 import styles from './modal.module.css';
-import { useProfileContext } from '@/context/profile-context';
 
 interface JobInfoModalProps {
   job: ComputeJob | null;
@@ -16,7 +16,7 @@ interface JobInfoModalProps {
 }
 
 export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
-  const { fetchNodeEnv, environment } = useProfileContext();
+  const { fetchNodeEnv, environment, nodeInfo } = useProfileContext();
 
   useEffect(() => {
     if (open && job?.environment) {
@@ -25,14 +25,16 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
   }, [open, job?.environment, fetchNodeEnv]);
 
   const jobEnvironment = useMemo(() => {
-    return environment
+    return environment;
   }, [job?.environment]);
 
   if (!job) return null;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <div className={classNames(styles.root, styles['variant-glass-shaded'], styles['padding-md'], styles['radius-md'])}>
+      <div
+        className={classNames(styles.root, styles['variant-glass-shaded'], styles['padding-md'], styles['radius-md'])}
+      >
         <div className={styles.header}>
           <h2 className={styles.title}>Job Information</h2>
           <button onClick={onClose} className={styles.closeButton}>
@@ -52,7 +54,7 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
                 <div className={styles.label} style={{ marginBottom: '8px' }}>
                   Environment
                 </div>
-                <EnvironmentCard environment={jobEnvironment} compact />
+                <EnvironmentCard key={jobEnvironment.id} environment={jobEnvironment} nodeInfo={nodeInfo} />
               </div>
             )}
 

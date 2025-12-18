@@ -355,12 +355,38 @@ export async function getNodeEnvs(peerId: string) {
   return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_ENVIRONMENTS, node: peerId });
 }
 
-export async function getComputeStreamableLogs(peerId: string, jobId: string, signature: string, timestamp: number, address: string) {
-  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_STREAMABLE_LOGS, jobId, signature, expiryTimestamp: timestamp, address });
+export async function getComputeStreamableLogs(
+  peerId: string,
+  jobId: string,
+  signature: string,
+  timestamp: number,
+  address: string
+) {
+  return sendCommandToPeer(peerId, {
+    command: Command.COMPUTE_GET_STREAMABLE_LOGS,
+    jobId,
+    signature,
+    expiryTimestamp: timestamp,
+    address,
+  });
 }
 
-export async function getComputeJobResult(peerId: string, jobId: string, index: number, signature: string, timestamp: number, address: string) {
-  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_RESULT, jobId, index, signature, expiryTimestamp: timestamp, address });
+export async function getComputeJobResult(
+  peerId: string,
+  jobId: string,
+  index: number,
+  signature: string,
+  timestamp: number,
+  address: string
+) {
+  return sendCommandToPeer(peerId, {
+    command: Command.COMPUTE_GET_RESULT,
+    jobId,
+    index,
+    signature,
+    expiryTimestamp: timestamp,
+    address,
+  });
 }
 
 export async function stopNode() {
