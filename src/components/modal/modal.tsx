@@ -4,7 +4,7 @@ import cx from 'classnames';
 import { ReactNode } from 'react';
 import styles from './modal.module.css';
 
-type Size = 'sm' | 'md' | 'lg';
+type Size = 'sm' | 'md' | 'lg' | 'xl';
 type Variant = 'glass' | 'glass-shaded' | 'solid';
 
 type ModalProps = {
@@ -15,6 +15,7 @@ type ModalProps = {
   onClose: () => void;
   padding?: Size;
   radius?: Size;
+  size?: Size;
   title?: string;
   variant?: Variant;
 };
@@ -27,6 +28,7 @@ const Modal = ({
   onClose,
   padding = 'md',
   radius = 'md',
+  size = 'md',
   title,
   variant = 'solid',
 }: ModalProps) => (
@@ -36,6 +38,7 @@ const Modal = ({
         styles.root,
         styles[`padding-${padding}`],
         styles[`radius-${radius}`],
+        styles[`size-${size}`],
         styles[`variant-${variant}`],
         className
       )}

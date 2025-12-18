@@ -347,9 +347,10 @@ export async function pushNodeConfig(
   peerId: string,
   signature: string,
   expiryTimestamp: number,
-  config: Record<string, any>
+  config: Record<string, any>,
+  address: string
 ) {
-  return sendCommandToPeer(peerId, { command: 'pushConfig', signature, expiryTimestamp, config });
+  return sendCommandToPeer(peerId, { command: 'pushConfig', signature, expiryTimestamp, config, address });
 }
 
 export async function stopNode() {

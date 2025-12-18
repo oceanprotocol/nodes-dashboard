@@ -8,6 +8,8 @@ import { P2PProvider } from '@/contexts/P2PContext';
 import { AlchemyProvider } from '@/lib/alchemy-provider';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import cx from 'classnames';
 import type { AppProps } from 'next/app';
 import { Inter, Orbitron } from 'next/font/google';
@@ -57,6 +59,7 @@ export default function App({ Component, pageProps }: AppProps) {
             </UnbanRequestsProvider>
           </NodesProvider>
         </AlchemyProvider>
+        <ToastContainer />
       </QueryClientProvider>
     </main>
   );
