@@ -128,3 +128,8 @@ a {
 .textWarning {
   color: var(--warning);
 }
+
+/* Alchemy Account Kit Dialog Override */
+[aria-modal='true'] div[class*='max-w-sm'] {
+  max-width: none !important;
+}

@@ -23,7 +23,7 @@ type ModalProps = {
 const Modal = ({
   children,
   className,
-  fullWidth,
+  fullWidth = true,
   isOpen,
   onClose,
   padding = 'md',

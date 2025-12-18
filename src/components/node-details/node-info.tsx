@@ -56,7 +56,6 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     setFetchingConfig(true);
     try {
       await fetchConfig(node.id, signedMessage, timestamp, account.address as string);
-      console.log({ editedConfig, message: 'After fetchConfig' })
     } catch (error) {
       console.error('Error fetching node config :', error);
     } finally {
@@ -65,7 +64,6 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   }
 
   async function handlePushConfig(config: Record<string, any>) {
-      console.log({ configToPush: config })
       let success = false
     if (!account.isConnected) {
       openAuthModal();
