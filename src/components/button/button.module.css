@@ -5,6 +5,7 @@
   border-radius: 100px;
   cursor: pointer;
   display: inline-flex;
+  font-family: var(--font-inter);
   font-weight: 600;
   justify-content: center;
   text-align: center;

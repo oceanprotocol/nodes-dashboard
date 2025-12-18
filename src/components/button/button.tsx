@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MouseEventHandler, ReactNode, useState } from 'react';
 import styles from './button.module.css';
 
-type ButtonProps = {
+export type ButtonProps = {
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
