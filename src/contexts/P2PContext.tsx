@@ -102,7 +102,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       }
       const result = await fetchNodeConfig(peerId, signature, expiryTimestamp, address);
 
-      console.log({ result, message: 'fetchConfig result, before settingConfig' })
       setConfig(result);
     },
     [isReady, node]
