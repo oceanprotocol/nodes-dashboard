@@ -22,9 +22,7 @@ interface P2PContextType {
   getComputeLogs: (
     peerId: string,
     jobId: string,
-    signature: string,
-    timestamp: number,
-    address: string
+    authToken: string
   ) => Promise<any>;
   getComputeResult: (
     peerId: string,
@@ -105,14 +103,15 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getComputeLogs = useCallback(
-    async (peerId: string, jobId: string, signature: string, timestamp: number, address: string) => {
+    async (peerId: string, jobId: string, authToken: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
 
-      const result = await getComputeStreamableLogs(peerId, jobId, signature, timestamp, address);
+      const result = await getComputeStreamableLogs(peerId, jobId, authToken);
 
       setComputeLogs(result);
+      return result;
     },
     [isReady, node]
   );
@@ -123,8 +122,11 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Node not ready');
       }
 
+      console.log('Node is readdy')
+
       const result = await getComputeJobResult(peerId, jobId, index, signature, timestamp, address);
 
+      console.log('result', result)
       setComputeResult(result);
       return result;
     },

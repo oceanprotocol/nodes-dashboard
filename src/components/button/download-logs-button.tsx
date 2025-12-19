@@ -1,6 +1,7 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeJob } from '@/types/jobs';
+import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
 import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import DownloadIcon from '@mui/icons-material/Download';
 import { IconButton, Tooltip } from '@mui/material';
@@ -23,14 +24,22 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
     if (!isReady || isDownloading || !account?.address) return;
 
     try {
-      const timestamp = Date.now() + 5 * 60 * 1000;
+      //const authToken = await generateAuthTokenWithSmartAccount(job.peerId, account.address, signMessageAsync)
+      const authToken = await generateAuthTokenWithSmartAccount('16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi', account.address, signMessageAsync)
+      console.log('authToken', authToken)
       setIsDownloading(true);
-      const signature = await signMessageAsync({
-        message: timestamp.toString(),
-      });
-      const result = await getComputeLogs(job.peerId, job.jobId, signature, timestamp, account.address);
+      const result = await getComputeLogs('16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi', 'b1a00b46b0ce991d0dcaff8097159099f85ac43ced16a79a548ab1e2708d2ce0', authToken);
+
+      console.log('Download logs result type:', typeof result);
+      console.log('Is Uint8Array:', result instanceof Uint8Array);
+      console.log('Result:', result);
+      console.log('Result length:', result?.length);
+      console.log('Result byteLength:', result?.byteLength);
+
       if (result instanceof Uint8Array) {
+        console.log('Creating blob with size:', result.byteLength);
         const blob = new Blob([result as any], { type: 'application/octet-stream' });
+        console.log('Blob size:', blob.size);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -41,6 +50,8 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
 
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+      } else {
+        console.error('Result is not a Uint8Array. Type:', typeof result, 'Value:', result);
       }
     } catch (e) {
       console.error('Failed to download logs:', e);

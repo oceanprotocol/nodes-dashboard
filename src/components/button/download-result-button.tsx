@@ -31,14 +31,17 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
         message: timestamp.toString(),
       });
       const result = await getComputeResult(
-        job.peerId,
-        job.jobId,
+        '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
+        'b1a00b46b0ce991d0dcaff8097159099f85ac43ced16a79a548ab1e2708d2ce0',
         archive?.index,
         signature,
         timestamp,
         account.address
       );
+      console.log('aici1')
       if (result instanceof Uint8Array) {
+              console.log('aici2')
+
         const blob = new Blob([result as any], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
