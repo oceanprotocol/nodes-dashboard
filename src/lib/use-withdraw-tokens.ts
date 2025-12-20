@@ -59,8 +59,9 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
 
       prettyErr = arr.slice(d + 8, v);
     }
-    setError(prettyErr || error.details || 'Failed to withdraw tokens');
-    toast.error('Withdraw failed');
+    const errorText = prettyErr ?? error.details ?? 'Withdraw failed';
+    setError(errorText);
+    toast.error(errorText);
   };
 
   const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
@@ -109,9 +110,10 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
           },
         });
       } catch (err) {
+        const errorText = err instanceof Error ? err.message : 'Failed to prepare withdraw';
         console.error('Error preparing withdraw:', err);
-        setError(err instanceof Error ? err.message : 'Failed to prepare withdraw');
-        toast.error('Failed to prepare withdraw');
+        setError(errorText);
+        toast.error(errorText);
         setIsWithdrawing(false);
       }
     },
