@@ -42,7 +42,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   };
 
   const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('owners')}/${'0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234'}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
+    let url = `${getApiRoute('owners')}/${consumer}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
     const gridFilterToJobsFilters = (gridFilter: GridFilterModel): JobsFilters => {
       const jobsFilters: JobsFilters = {};
       gridFilter.items.forEach((item) => {

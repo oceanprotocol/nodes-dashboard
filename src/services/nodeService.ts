@@ -318,14 +318,11 @@ export async function sendCommandToPeer(
         let parsed;
 
         const str = uint8ArrayToString(chunkData);
-        console.log('First chunk content:', str.substring(0, 200));
         parsed = JSON.parse(str);
-        console.log('First chunk parsed:', parsed);
         if (parsed.httpStatus !== undefined) {
           if (parsed.httpStatus >= 400) {
             throw new Error(parsed.error);
           }
-          console.log('Skipping httpStatus chunk');
           continue;
         }
       }

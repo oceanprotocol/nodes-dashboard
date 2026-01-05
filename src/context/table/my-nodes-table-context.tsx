@@ -81,14 +81,11 @@ export const MyNodesTableContextProvider = ({
   }, [ownerId, crtPage, pageSize, filterModel, searchTerm]);
 
   const fetchData = useCallback(async () => {
-    console.log('[MyNodesTableProvider] fetchData called - ownerId:', ownerId, 'fetchUrl:', fetchUrl);
     if (!ownerId) {
-      console.log('[MyNodesTableProvider] No ownerId, skipping fetch');
       return;
     }
     setLoading(true);
     try {
-      console.log('[MyNodesTableProvider] Fetching from:', fetchUrl);
       const response = await axios.get(fetchUrl);
       const sanitizedData = response.data.nodes.map((element: any, index: number) => ({
         ...element,

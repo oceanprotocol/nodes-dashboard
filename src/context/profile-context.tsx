@@ -183,15 +183,9 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchNodeEnv = useCallback(async (peerId: string, envId: string) => {
     try {
-      const response = await axios.get(
-        `${getApiRoute('nodes')}?filters[id][value]=${'16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'}`
-      );
+      const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`);
       const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
-      const env = sanitizedData.computeEnvironments.environments.find(
-        (env: any) =>
-          env.id ===
-          '0x2570967f47edf15293a2ab50944d7c790490d742c83a8ba7306c6db5e02d69d3-0xd895f47e40ffdae0f266d6fb0f84d21fc84da9f2d2f6e23bd34e32f074f036df'
-      );
+      const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId);
       setEnvironment(env);
       setNodeInfo({ id: sanitizedData.id, friendlyName: sanitizedData.friendlyName });
     } catch (err) {
