@@ -1,6 +1,5 @@
 import {
   getComputeJobResult,
-  getComputeStreamableLogs,
   getNodeEnvs,
   getNodeReadyState,
   initializeNode,
@@ -19,17 +18,11 @@ interface P2PContextType {
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
   getEnvs: (peerId: string) => Promise<any>;
-  getComputeLogs: (
-    peerId: string,
-    jobId: string,
-    authToken: string
-  ) => Promise<any>;
   getComputeResult: (
     peerId: string,
     jobId: string,
     index: number,
-    signature: string,
-    timestamp: number,
+    authToken: string,
     address: string
   ) => Promise<Record<string, any> | Uint8Array>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
@@ -102,31 +95,14 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
-  const getComputeLogs = useCallback(
-    async (peerId: string, jobId: string, authToken: string) => {
-      if (!isReady || !node) {
-        throw new Error('Node not ready');
-      }
-
-      const result = await getComputeStreamableLogs(peerId, jobId, authToken);
-
-      setComputeLogs(result);
-      return result;
-    },
-    [isReady, node]
-  );
-
   const getComputeResult = useCallback(
-    async (peerId: string, jobId: string, index: number, signature: string, timestamp: number, address: string) => {
+    async (peerId: string, jobId: string, index: number, authToken: string, address: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
 
-      console.log('Node is readdy')
+      const result = await getComputeJobResult(peerId, jobId, index, authToken, address);
 
-      const result = await getComputeJobResult(peerId, jobId, index, signature, timestamp, address);
-
-      console.log('result', result)
       setComputeResult(result);
       return result;
     },
@@ -143,7 +119,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         computeLogs,
         computeResult,
         getEnvs,
-        getComputeLogs,
         getComputeResult,
         sendCommand,
       }}

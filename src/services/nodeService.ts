@@ -305,8 +305,6 @@ export async function sendCommandToPeer(
     });
 
     const message = JSON.stringify(command);
-    console.log('peerId', peerId)
-    console.log('command1', command)
     const chunks: Uint8Array[] = [];
 
     await stream.sink([uint8ArrayFromString(message)]);
@@ -314,28 +312,26 @@ export async function sendCommandToPeer(
     let firstChunk = true;
     for await (const chunk of stream.source) {
       const chunkData = chunk.subarray();
-      console.log('Received chunk, size:', chunkData.length);
 
       if (firstChunk) {
         firstChunk = false;
-        try {
-          const str = uint8ArrayToString(chunkData);
-          console.log('First chunk content:', str.substring(0, 200));
-          const parsed = JSON.parse(str);
-          console.log('First chunk parsed:', parsed);
-          if (parsed.httpStatus !== undefined) {
-            console.log('Skipping httpStatus chunk');
-            continue;
+        let parsed;
+
+        const str = uint8ArrayToString(chunkData);
+        console.log('First chunk content:', str.substring(0, 200));
+        parsed = JSON.parse(str);
+        console.log('First chunk parsed:', parsed);
+        if (parsed.httpStatus !== undefined) {
+          if (parsed.httpStatus >= 400) {
+            throw new Error(parsed.error);
           }
-        } catch (e) {
-          console.log('First chunk is not JSON, treating as binary data');
+          console.log('Skipping httpStatus chunk');
+          continue;
         }
       }
 
-      console.log('Adding chunk to array, size:', chunkData.length);
       chunks.push(chunkData);
     }
-    console.log('Total chunks collected:', chunks.length);
 
     await stream.close();
 
@@ -351,7 +347,6 @@ export async function sendCommandToPeer(
       const str = uint8ArrayToString(combined);
       return JSON.parse(str);
     } catch (e) {
-      console.log('Response is binary data, returning Uint8Array');
       return combined;
     }
   } catch (error: unknown) {
@@ -365,15 +360,11 @@ export async function getNodeEnvs(peerId: string) {
   return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_ENVIRONMENTS, node: peerId });
 }
 
-export async function getComputeStreamableLogs(
-  peerId: string,
-  jobId: string,
-  authToken: string
-) {
+export async function getComputeStreamableLogs(peerId: string, jobId: string, authToken: any) {
   return sendCommandToPeer(peerId, {
     command: Command.COMPUTE_GET_STREAMABLE_LOGS,
     jobId,
-    authorization: authToken
+    authorization: authToken.token,
   });
 }
 
@@ -381,35 +372,37 @@ export async function getComputeJobResult(
   peerId: string,
   jobId: string,
   index: number,
-  signature: string,
-  timestamp: number,
+  authToken: any,
   address: string
 ) {
-  console.log('trimite comanda')
   return sendCommandToPeer(peerId, {
     command: Command.COMPUTE_GET_RESULT,
     jobId,
     index,
-    signature,
-    expiryTimestamp: timestamp,
-    address,
+    consumerAddress: address,
+    authorization: authToken.token,
   });
 }
 
 export async function getNonce(peerId: string, consumerAddress: string): Promise<number> {
   return sendCommandToPeer(peerId, {
     command: Command.NONCE,
-    address : consumerAddress
-  })
+    address: consumerAddress,
+  });
 }
 
-export async function createAuthToken(peerId: string, consumerAddress: string, signature: string, nonce: string): Promise<string> {
+export async function createAuthToken(
+  peerId: string,
+  consumerAddress: string,
+  signature: string,
+  nonce: string
+): Promise<string> {
   return sendCommandToPeer(peerId, {
     command: Command.CREATE_AUTH_TOKEN,
-    address : consumerAddress,
+    address: consumerAddress,
     signature,
-    nonce
-  })
+    nonce,
+  });
 }
 
 export async function stopNode() {

@@ -10,8 +10,9 @@ import {
   OwnerStats,
   OwnerStatsPerEpoch,
 } from '@/types/stats';
+import { useSendUserOperation, useSmartAccountClient } from '@account-kit/react';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 type ProfileContextType = {
   ensName: string | undefined;
@@ -44,6 +45,11 @@ const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const { account } = useOceanAccount();
+  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { sendUserOperationAsync } = useSendUserOperation({
+    client,
+    waitForTxn: true,
+  });
 
   const [ensAddress, setEnsAddress] = useState<ProfileContextType['ensAddress']>(undefined);
   const [ensName, setEnsName] = useState<ProfileContextType['ensName']>(undefined);
@@ -61,6 +67,9 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
   const [environment, setEnvironment] = useState<any>(null);
   const [nodeInfo, setNodeInfo] = useState<any>();
+
+  // Ref to track deployment attempts and prevent infinite loop
+  const deploymentAttempted = useRef<string | null>(null);
 
   const fetchEnsAddress = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '' || !accountId.includes('.')) {
@@ -174,18 +183,23 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchNodeEnv = useCallback(async (peerId: string, envId: string) => {
     try {
-      const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${'16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'}`);
+      const response = await axios.get(
+        `${getApiRoute('nodes')}?filters[id][value]=${'16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'}`
+      );
       const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
-      const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === '0x2570967f47edf15293a2ab50944d7c790490d742c83a8ba7306c6db5e02d69d3-0xd895f47e40ffdae0f266d6fb0f84d21fc84da9f2d2f6e23bd34e32f074f036df');
-      console.log('env123', env)
+      const env = sanitizedData.computeEnvironments.environments.find(
+        (env: any) =>
+          env.id ===
+          '0x2570967f47edf15293a2ab50944d7c790490d742c83a8ba7306c6db5e02d69d3-0xd895f47e40ffdae0f266d6fb0f84d21fc84da9f2d2f6e23bd34e32f074f036df'
+      );
       setEnvironment(env);
-      setNodeInfo({id: sanitizedData.id, friendlyName: sanitizedData.friendlyName})
-      
+      setNodeInfo({ id: sanitizedData.id, friendlyName: sanitizedData.friendlyName });
     } catch (err) {
       console.error('Error fetching node env: ', err);
     }
   }, []);
 
+  // Handle profile fetching when connected
   useEffect(() => {
     if (account.status === 'connected' && account.address) {
       fetchEnsAddress(account.address);
@@ -197,6 +211,44 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsProfile(undefined);
     }
   }, [account.address, account.status, fetchEnsAddress, fetchEnsName, fetchEnsProfile]);
+
+  // Auto-deploy account if needed when user connects
+  useEffect(() => {
+    // Skip if we've already attempted deployment for this address
+    if (deploymentAttempted.current === account.address) {
+      return;
+    }
+
+    const handleAutoDeployment = async () => {
+      if (account.status === 'connected' && account.address && client?.account) {
+        const isDeployed = await client.account.isAccountDeployed();
+
+        if (!isDeployed) {
+          // Mark that we're attempting deployment for this address
+          deploymentAttempted.current = account.address;
+
+          try {
+            console.log('Deploying account for:', account.address);
+            await sendUserOperationAsync({
+              uo: {
+                target: account.address as `0x${string}`,
+                data: '0x' as `0x${string}`,
+                value: BigInt(0),
+              },
+            });
+            console.log('Account deployed successfully');
+          } catch (error) {
+            console.error('Error deploying account:', error);
+            // Reset on error so user can retry manually if needed
+            deploymentAttempted.current = null;
+          }
+        }
+      }
+    };
+
+    handleAutoDeployment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account.status, account.address, client]);
 
   return (
     <ProfileContext.Provider
