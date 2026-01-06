@@ -191,7 +191,7 @@ export const NodesProvider: React.FC<NodesProviderProps> = ({ children }) => {
     try {
       const date = Date.now()
       const oneWeekInMs = 7 * 24 * 60 * 60 * 1000
-      const maxWeeksToTry = 20
+      const maxWeeksToTry = 50
 
       let lastError: any = null
 
