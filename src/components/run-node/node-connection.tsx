@@ -1,11 +1,11 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
+import { useRunNodeContext } from '@/context/run-node-context';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
-import { useState } from 'react';
 import * as Yup from 'yup';
 import styles from './node-connection.module.css';
 
@@ -14,8 +14,7 @@ type ConnectFormValues = {
 };
 
 const NodeConnection = () => {
-  // TODO replace with actual connection state
-  const [isConnected, setIsConnected] = useState(false);
+  const { isConnected, setIsConnected } = useRunNodeContext();
 
   const formik = useFormik<ConnectFormValues>({
     initialValues: {

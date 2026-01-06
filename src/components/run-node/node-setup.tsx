@@ -1,9 +1,20 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { CodeBlock } from '@/components/code-block/code-block';
 import NodeConnection from '@/components/run-node/node-connection';
+import { useRunNodeContext } from '@/context/run-node-context';
+import { useRouter } from 'next/router';
 import styles from './node-setup.module.css';
 
 const NodeSetup = () => {
+  const router = useRouter();
+
+  const { isConnected } = useRunNodeContext();
+
+  const handleContinue = () => {
+    router.push('/run-node/configure');
+  };
+
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Set up Ocean Node via Docker</h3>
@@ -30,6 +41,11 @@ const NodeSetup = () => {
         <CodeBlock code="$ docker ps" />
       </div>
       <NodeConnection />
+      {isConnected ? (
+        <Button className="alignSelfEnd" color="accent2" onClick={handleContinue} size="lg" variant="filled">
+          Continue
+        </Button>
+      ) : null}
     </Card>
   );
 };
