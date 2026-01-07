@@ -1,12 +1,12 @@
 import ConsumerProfilePage from '@/components/profile/consumer.profile-page';
 import { MyJobsTableProvider } from '@/context/table/my-jobs-table-context';
-import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useAppKitAccount } from '@reown/appkit/react';
 
 const ConsumerProfilePageWrapper: React.FC = () => {
-  const { account } = useOceanAccount();
+  const account = useAppKitAccount();
 
   return (
-    <MyJobsTableProvider consumer={account.address}>
+    <MyJobsTableProvider consumer={account?.address}>
       <ConsumerProfilePage />
     </MyJobsTableProvider>
   );

@@ -69,7 +69,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           eligibilityCauseStr={node.eligibilityCauseStr}
           banInfo={node.banInfo}
         />
-        <Balance peerId={node.id ?? node.nodeId} />
+        <Balance peerId={node.id ?? node.nodeId} admins={node.allowedAdmins ?? []} />
       </div>
     </Card>
   );
