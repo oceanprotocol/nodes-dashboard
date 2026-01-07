@@ -108,7 +108,13 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const pushConfig = useCallback(
-    async (peerId: string, signature: string, expiryTimestamp: number, config: Record<string, any>, address: string) => {
+    async (
+      peerId: string,
+      signature: string,
+      expiryTimestamp: number,
+      config: Record<string, any>,
+      address: string
+    ) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }

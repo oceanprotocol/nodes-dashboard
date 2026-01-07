@@ -15316,7 +15316,7 @@ __metadata:
     myetherwallet-blockies: "npm:^0.1.1"
     next: "npm:^15.4.8"
     normalize.css: "npm:^8.0.1"
-    prettier: "npm:^3.3.3"
+    prettier: "npm:^3.7.4"
     prettier-plugin-organize-imports: "npm:^4.3.0"
     react: "npm:^18"
     react-dom: "npm:^18"
@@ -15880,7 +15880,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.3.3":
+"prettier@npm:^3.7.4":
   version: 3.7.4
   resolution: "prettier@npm:3.7.4"
   bin:

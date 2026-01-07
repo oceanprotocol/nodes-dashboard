@@ -1,57 +1,47 @@
-import { Dialog } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import cx from 'classnames';
+import { Breakpoint, Dialog, styled } from '@mui/material';
 import { ReactNode } from 'react';
 import styles from './modal.module.css';
 
-type Size = 'sm' | 'md' | 'lg' | 'xl';
-type Variant = 'glass' | 'glass-shaded' | 'solid';
+const StyledDialog = styled(Dialog)({
+  '& .MuiModal-backdrop': {
+    backdropFilter: 'var(--backdrop-filter-overlay)',
+  },
+
+  '& .MuiDialog-paper': {
+    background: 'var(--background-modal)',
+    borderRadius: 24,
+    boxShadow: 'var(--shadow-dialog), var(--inner-shadow-glass)',
+    color: 'var(--text-primary)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 24,
+    padding: 24,
+  },
+});
 
 type ModalProps = {
   children: ReactNode;
-  className?: string;
   fullWidth?: boolean;
-  open: boolean;
+  hideCloseButton?: boolean;
+  isOpen: boolean;
   onClose: () => void;
-  padding?: Size;
-  radius?: Size;
-  size?: Size;
   title?: string;
-  variant?: Variant;
+  width?: Breakpoint;
 };
 
-const Modal = ({
-  children,
-  className,
-  fullWidth = true,
-  open,
-  onClose,
-  padding = 'md',
-  radius = 'md',
-  size = 'md',
-  title,
-  variant = 'solid',
-}: ModalProps) => (
-  <Dialog fullWidth={fullWidth} open={open} onClose={onClose}>
-    <div
-      className={cx(
-        styles.root,
-        styles[`padding-${padding}`],
-        styles[`radius-${radius}`],
-        styles[`size-${size}`],
-        styles[`variant-${variant}`],
-        className
-      )}
-    >
-      <div className={styles.header}>
-        {title && <h3 className={styles.title}>{title}</h3>}
+const Modal = ({ children, fullWidth, hideCloseButton, isOpen, onClose, title, width }: ModalProps) => (
+  <StyledDialog fullWidth={fullWidth || !!width} maxWidth={width} onClose={onClose} open={isOpen}>
+    <div className={styles.header}>
+      {title && <h3 className={styles.title}>{title}</h3>}
+      {hideCloseButton ? null : (
         <button className={styles.closeButton} onClick={onClose} type="button" aria-label="Close modal">
-          <CloseIcon />
+          <CloseIcon className={styles.icon} />
         </button>
-      </div>
-      <div className={styles.content}>{children}</div>
+      )}
     </div>
-  </Dialog>
+    {children}
+  </StyledDialog>
 );
 
 export default Modal;

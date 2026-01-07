@@ -12,9 +12,9 @@ import PublicIcon from '@mui/icons-material/Public';
 import UploadIcon from '@mui/icons-material/Upload';
 import { JsonEditor } from 'json-edit-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import Modal from '../modal/modal';
 import styles from './node-info.module.css';
-import { toast } from 'react-toastify';
 
 type NodeInfoProps = {
   node: Node;
@@ -64,7 +64,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   }
 
   async function handlePushConfig(config: Record<string, any>) {
-      let success = false
+    let success = false;
     if (!account.isConnected) {
       openAuthModal();
       return;
@@ -80,26 +80,26 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     setPushingConfig(true);
     try {
       await pushConfig(node.id, signedMessage, timestamp, config, account.address as string);
-      success = true
+      success = true;
     } catch (error) {
       console.error('Error pushing node config :', error);
     } finally {
       setPushingConfig(false);
       if (success) {
-          toast.success('Successfully pushed new config!')
-          setIsEditConfigDialogOpen(false)
+        toast.success('Successfully pushed new config!');
+        setIsEditConfigDialogOpen(false);
       } else {
-          toast.error('Failed to push new config')
+        toast.error('Failed to push new config');
       }
     }
   }
 
   function handleOpenEditConfigModal() {
     if (!config || Object.keys(config).length === 0) {
-        handleFetchConfig()
+      handleFetchConfig();
     }
 
-    setIsEditConfigDialogOpen(true)
+    setIsEditConfigDialogOpen(true);
   }
 
   function handleCloseModal() {
@@ -130,7 +130,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
             </div>
           </div>
           <div className={styles.buttons}>
-            <Modal open={isEditConfigDialogOpen} onClose={handleCloseModal} size="xl" title="Edit node config">
+            <Modal isOpen={isEditConfigDialogOpen} onClose={handleCloseModal} title="Edit node config">
               <div className={styles.modalContent}>
                 {fetchingConfig && (!config || Object.keys(config).length === 0) ? (
                   <div className={styles.fetching}>Fetching config...</div>
@@ -139,17 +139,19 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
                     <JsonEditor
                       data={editedConfig}
                       onUpdate={({ newData }) => setEditedConfig(newData as Record<string, any>)}
-                      collapse={({ value }) => typeof value === 'object' && value !== null && Object.keys(value).length === 0}
+                      collapse={({ value }) =>
+                        typeof value === 'object' && value !== null && Object.keys(value).length === 0
+                      }
                     />
-                      <Button
-                        autoLoading
-                        color="accent1"
-                        loading={pushingConfig}
-                        onClick={() => handlePushConfig(editedConfig)}
-                        variant="filled"
-                      >
-                        Push config
-                      </Button>
+                    <Button
+                      autoLoading
+                      color="accent1"
+                      loading={pushingConfig}
+                      onClick={() => handlePushConfig(editedConfig)}
+                      variant="filled"
+                    >
+                      Push config
+                    </Button>
                   </div>
                 )}
               </div>

@@ -66,11 +66,12 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
           v = i;
         }
       }
-
       prettyErr = arr.slice(d + 8, v);
     }
-    setError(prettyErr || error.details || 'Failed to deposit tokens');
-    toast.error(currentStep === 'approving' ? 'Approval failed' : 'Deposit failed');
+    const errorText =
+      prettyErr ?? error.details ?? (currentStep === 'approving' ? 'Approval failed' : 'Deposit failed');
+    setError(errorText);
+    toast.error(errorText);
   };
 
   const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
@@ -116,8 +117,9 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         });
       } catch (err) {
         console.error('Error preparing deposit:', err);
-        setError(err instanceof Error ? err.message : 'Failed to prepare deposit');
-        toast.error('Failed to prepare deposit');
+        const errorText = err instanceof Error ? err.message : 'Failed to prepare deposit';
+        setError(errorText);
+        toast.error(errorText);
         setIsDepositing(false);
         setCurrentStep('idle');
       }
@@ -172,8 +174,9 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         });
       } catch (err) {
         console.error('Error preparing deposit:', err);
-        setError(err instanceof Error ? err.message : 'Failed to prepare deposit');
-        toast.error('Failed to prepare deposit');
+        const errorText = err instanceof Error ? err.message : 'Failed to prepare deposit';
+        setError(errorText);
+        toast.error(errorText);
         setIsDepositing(false);
         setCurrentStep('idle');
         setPendingParams(null);
