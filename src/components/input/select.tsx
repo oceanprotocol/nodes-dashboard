@@ -56,6 +56,7 @@ type SelectProps<T> = {
   hint?: string;
   label?: string;
   name?: string;
+  MenuProps?: any;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   options?: SelectOption<T>[];
   renderOption?: (option: SelectOption<T>) => React.ReactNode;
@@ -83,6 +84,7 @@ const Select = <T extends string | number = string>({
   label,
   multiple,
   name,
+  MenuProps,
   onBlur,
   onChange,
   options,
@@ -117,7 +119,8 @@ const Select = <T extends string | number = string>({
         custom_size={size}
         endAdornment={endAdornment}
         has_error={!!errorText}
-        inputProps={{ MenuProps: { disableScrollLock: true } }}
+        inputProps={{}}
+        MenuProps={{ disableScrollLock: true, ...MenuProps }}
         multiple={multiple}
         name={name}
         onBlur={onBlur}

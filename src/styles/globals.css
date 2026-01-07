@@ -13,15 +13,18 @@
 
   --accent1: #009bff;
   --accent2: #be00ff;
+  --backdrop-filter-overlay: blur(10px);
   --backdrop-filter-glass: blur(10px);
   --background-black: #000000;
   --background-glass: #009bff29;
   --background-glass-opaque: #05263d;
+  --background-modal: #002136c9;
   --border-glass: #009bff66;
   --error: #ff4444;
   --error-darker: #c92121;
   --inner-shadow-glass:
     inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa, inset -1px -1px 2px -1px #000000aa;
+  --shadow-dialog: 16px 0 64px -16px #000000aa;
   --success: #28d930;
   --success-darker: #199f1f;
   --text-primary: #e1e1e1;
@@ -123,6 +126,41 @@ a {
   align-self: start;
 }
 
+.flexColumn {
+  display: flex;
+  flex-direction: column;
+}
+.flexRow {
+  display: flex;
+  flex-direction: row;
+}
+
+.justifyContentCenter {
+  justify-content: center;
+}
+.justifyContentEnd {
+  justify-content: end;
+}
+.justifyContentStart {
+  justify-content: start;
+}
+
+.gapXs {
+  gap: 4px;
+}
+.gapSm {
+  gap: 8px;
+}
+.gapMd {
+  gap: 16px;
+}
+.gapLg {
+  gap: 24px;
+}
+.gapXl {
+  gap: 32px;
+}
+
 .textError {
   color: var(--error);
 }
@@ -131,4 +169,34 @@ a {
 }
 .textWarning {
   color: var(--warning);
+}
+
+/* Overrides */
+
+.Toastify__toast {
+  backdrop-filter: var(--backdrop-filter-glass);
+  border-radius: 16px;
+}
+.Toastify__toast-theme--colored {
+  &.Toastify__toast--default,
+  &.Toastify__toast--info {
+    border: 2px solid var(--accent1);
+    background: color-mix(in srgb, var(--accent1) 70%, transparent 30%);
+    color: var(--text-primary);
+  }
+  &.Toastify__toast--error {
+    border: 2px solid var(--error);
+    background: color-mix(in srgb, var(--error-darker) 70%, transparent 30%);
+    color: var(--text-primary);
+  }
+  &.Toastify__toast--success {
+    border: 2px solid var(--success);
+    background: color-mix(in srgb, var(--success-darker) 70%, transparent 30%);
+    color: var(--text-primary);
+  }
+  &.Toastify__toast--warning {
+    border: 2px solid var(--warning);
+    background: color-mix(in srgb, var(--warning-darker) 70%, transparent 30%);
+    color: var(--text-primary);
+  }
 }

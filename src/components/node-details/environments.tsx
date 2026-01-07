@@ -5,19 +5,19 @@ import { EnvNodeInfo } from '@/types/environments';
 import styles from './environments.module.css';
 
 type EnvironmentsProps = {
-  nodeInfo: EnvNodeInfo;
+    nodeInfo: EnvNodeInfo;
 };
 
 const Environments = ({ nodeInfo }: EnvironmentsProps) => {
-  const { envs } = useP2P();
+  const { isReady, envs } = useP2P();
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <div className={styles.list}>
-        {envs.map((env) => (
+        {!isReady ? <div>Fetching data...</div> : envs.map((env) =>
           <EnvironmentCard key={env.id} environment={env} nodeInfo={nodeInfo} />
-        ))}
+        )}
       </div>
     </Card>
   );

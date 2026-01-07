@@ -119,3 +119,9 @@ export type BenchmarkMinMaxLastResponse = {
   minCPUScore: number;
   minGPUScore: number;
 };
+
+export type NodeBalance = {
+  token: string;
+  address: string;
+  amount: number;
+};

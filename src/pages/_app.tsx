@@ -14,6 +14,7 @@ import cx from 'classnames';
 import type { AppProps } from 'next/app';
 import { Inter, Orbitron } from 'next/font/google';
 import { useEffect, useRef } from 'react';
+import { ToastContainer } from 'react-toastify';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -63,6 +64,7 @@ export default function App({ Component, pageProps }: AppProps) {
             </UnbanRequestsProvider>
           </NodesProvider>
         </AlchemyProvider>
+        <ToastContainer hideProgressBar theme="colored" />
       </QueryClientProvider>
     </main>
   );
