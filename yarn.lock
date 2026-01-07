@@ -3426,7 +3426,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mui/icons-material@npm:^7.3.4":
+"@mui/icons-material@npm:^7.3.6":
   version: 7.3.6
   resolution: "@mui/icons-material@npm:7.3.6"
   dependencies:
@@ -3442,7 +3442,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mui/material@npm:^7.3.4":
+"@mui/material@npm:^7.3.6":
   version: 7.3.6
   resolution: "@mui/material@npm:7.3.6"
   dependencies:
@@ -15284,8 +15284,8 @@ __metadata:
     "@libp2p/peer-id": "npm:^4.1.4"
     "@libp2p/ping": "npm:^1.1.1"
     "@libp2p/websockets": "npm:^8.1.1"
-    "@mui/icons-material": "npm:^7.3.4"
-    "@mui/material": "npm:^7.3.4"
+    "@mui/icons-material": "npm:^7.3.6"
+    "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^12"
     "@oceanprotocol/contracts": "npm:2.5.0"
