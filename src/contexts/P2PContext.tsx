@@ -118,9 +118,8 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      const result = await pushNodeConfig(peerId, signature, expiryTimestamp, config, address);
+      await pushNodeConfig(peerId, signature, expiryTimestamp, config, address);
 
-      console.log(result);
       setConfig(config);
     },
     [isReady, node]
