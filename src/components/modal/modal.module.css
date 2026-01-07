@@ -1,0 +1,43 @@
+/* Header */
+.header {
+  align-items: start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+/* Title */
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Close Button */
+.closeButton {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  padding: 4px;
+  position: relative;
+  right: -8px;
+  top: -8px;
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+
+  .icon {
+    height: 16px;
+    width: 16px;
+  }
+}
+
+.closeButton:hover {
+  color: var(--text-primary);
+  background-color: var(--background-glass);
+}

@@ -49,12 +49,29 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
     }
   };
 
-  const handleError = (error: Error) => {
+  const handleError = (error: any) => {
     console.error('Deposit error:', error);
     setIsDepositing(false);
     setCurrentStep('idle');
-    setError(error.message || 'Failed to deposit tokens');
-    toast.error(currentStep === 'approving' ? 'Approval failed' : 'Deposit failed');
+    let prettyErr = '';
+    if (error.details) {
+      let d = 0,
+        v = 0;
+      const arr = error.details;
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] === 'D' && arr.slice(i, i + 7) === 'Details') {
+          d = i;
+        }
+        if (arr[i] === 'V' && arr.slice(i, i + 7) === 'Version') {
+          v = i;
+        }
+      }
+      prettyErr = arr.slice(d + 8, v);
+    }
+    const errorText =
+      prettyErr ?? error.details ?? (currentStep === 'approving' ? 'Approval failed' : 'Deposit failed');
+    setError(errorText);
+    toast.error(errorText);
   };
 
   const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
@@ -100,8 +117,9 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         });
       } catch (err) {
         console.error('Error preparing deposit:', err);
-        setError(err instanceof Error ? err.message : 'Failed to prepare deposit');
-        toast.error('Failed to prepare deposit');
+        const errorText = err instanceof Error ? err.message : 'Failed to prepare deposit';
+        setError(errorText);
+        toast.error(errorText);
         setIsDepositing(false);
         setCurrentStep('idle');
       }
@@ -156,8 +174,9 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         });
       } catch (err) {
         console.error('Error preparing deposit:', err);
-        setError(err instanceof Error ? err.message : 'Failed to prepare deposit');
-        toast.error('Failed to prepare deposit');
+        const errorText = err instanceof Error ? err.message : 'Failed to prepare deposit';
+        setError(errorText);
+        toast.error(errorText);
         setIsDepositing(false);
         setCurrentStep('idle');
         setPendingParams(null);

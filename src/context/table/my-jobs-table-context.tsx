@@ -24,8 +24,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
 
   const buildFilterParams = (filters: JobsFilters): string => {
-    const filtersObject: Record<string, { operator: string; value: any }> = {
-    };
+    const filtersObject: Record<string, { operator: string; value: any }> = {};
 
     if (!filters || Object.keys(filters).length === 0)
       return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
@@ -43,7 +42,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   };
 
   const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('owners')}/${"0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234"}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
+    let url = `${getApiRoute('owners')}/${'0x4d7E4E3395074B3fb96eeddc6bA947767c4E1234'}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
     const gridFilterToJobsFilters = (gridFilter: GridFilterModel): JobsFilters => {
       const jobsFilters: JobsFilters = {};
       gridFilter.items.forEach((item) => {
