@@ -2,7 +2,7 @@ import Button from '@/components/button/button';
 import Modal from '@/components/modal/modal';
 import { githubDarkTheme, JsonEditor } from 'json-edit-react';
 import { Dispatch, SetStateAction } from 'react';
-import styles from './node-info.module.css';
+import styles from './config-modal.module.css';
 
 type ConfigModalProps = {
   isOpen: boolean;
@@ -32,23 +32,30 @@ const ConfigModal = ({
           <div className={styles.fetching}>Fetching config...</div>
         ) : (
           <div className="flex flex-col" style={{ gap: '24px' }}>
-            <JsonEditor
-              collapse={({ value }) => typeof value === 'object' && value !== null && Object.keys(value).length === 0}
-              data={editedConfig}
-              onUpdate={({ newData }) => setEditedConfig(newData as Record<string, any>)}
-              theme={githubDarkTheme}
-              minWidth="100%"
-            />
-            <Button
-              autoLoading
-              color="accent1"
-              className="alignSelfEnd"
-              loading={pushingConfig}
-              onClick={() => handlePushConfig(editedConfig)}
-              variant="filled"
-            >
-              Push config
-            </Button>
+            <div className={styles.editorWrapper}>
+              <JsonEditor
+                collapse={({ value }) => typeof value === 'object' && value !== null && Object.keys(value).length === 0}
+                data={editedConfig}
+                onUpdate={({ newData }) => setEditedConfig(newData as Record<string, any>)}
+                theme={githubDarkTheme}
+                minWidth="100%"
+              />
+            </div>
+            <div className={styles.buttons}>
+              <Button color="accent1" onClick={onClose} type="button" variant="outlined">
+                Cancel
+              </Button>
+              <Button
+                autoLoading
+                color="accent1"
+                loading={pushingConfig}
+                onClick={() => handlePushConfig(editedConfig)}
+                type="button"
+                variant="filled"
+              >
+                Push config
+              </Button>
+            </div>
           </div>
         )}
       </div>
