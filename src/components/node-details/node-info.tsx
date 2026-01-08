@@ -10,10 +10,9 @@ import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import UploadIcon from '@mui/icons-material/Upload';
-import { JsonEditor } from 'json-edit-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import Modal from '../modal/modal';
+import ConfigModal from './config-modal';
 import styles from './node-info.module.css';
 
 type NodeInfoProps = {
@@ -130,32 +129,16 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
             </div>
           </div>
           <div className={styles.buttons}>
-            <Modal isOpen={isEditConfigDialogOpen} onClose={handleCloseModal} title="Edit node config">
-              <div className={styles.modalContent}>
-                {fetchingConfig && (!config || Object.keys(config).length === 0) ? (
-                  <div className={styles.fetching}>Fetching config...</div>
-                ) : (
-                  <div className="flex flex-col" style={{ gap: '24px' }}>
-                    <JsonEditor
-                      data={editedConfig}
-                      onUpdate={({ newData }) => setEditedConfig(newData as Record<string, any>)}
-                      collapse={({ value }) =>
-                        typeof value === 'object' && value !== null && Object.keys(value).length === 0
-                      }
-                    />
-                    <Button
-                      autoLoading
-                      color="accent1"
-                      loading={pushingConfig}
-                      onClick={() => handlePushConfig(editedConfig)}
-                      variant="filled"
-                    >
-                      Push config
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Modal>
+            <ConfigModal
+              isOpen={isEditConfigDialogOpen}
+              fetchingConfig={fetchingConfig}
+              pushingConfig={pushingConfig}
+              config={config}
+              editedConfig={editedConfig}
+              setEditedConfig={setEditedConfig}
+              handlePushConfig={handlePushConfig}
+              onClose={handleCloseModal}
+            />
             <Button contentBefore={<UploadIcon />} onClick={handleOpenEditConfigModal} variant="outlined">
               Edit node config
             </Button>
