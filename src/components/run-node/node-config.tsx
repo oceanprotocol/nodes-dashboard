@@ -2,14 +2,22 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import NodePreview from '@/components/run-node/node-preview';
 import { useRunNodeContext } from '@/context/run-node-context';
-import { JsonEditor } from 'json-edit-react';
+import { githubDarkTheme, JsonEditor } from 'json-edit-react';
+import styles from './node-config.module.css';
 
 const NodeConfig = () => {
   const { nodeConfig, setNodeConfig } = useRunNodeContext();
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
-      <JsonEditor data={nodeConfig} onUpdate={({ newData }) => setNodeConfig(newData as Record<string, any>)} />
+      <div className={styles.editorWrapper}>
+        <JsonEditor
+          data={nodeConfig}
+          minWidth="100%"
+          onUpdate={({ newData }) => setNodeConfig(newData as Record<string, any>)}
+          theme={githubDarkTheme}
+        />
+      </div>
       {nodeConfig ? <NodePreview nodeConfig={nodeConfig} /> : null}
       <Button className="alignSelfEnd" color="accent2" size="lg" variant="filled">
         Push config to node
