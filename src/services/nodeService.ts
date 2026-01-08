@@ -402,6 +402,20 @@ export async function createAuthToken(
   });
 }
 
+export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number, address: string) {
+  return sendCommandToPeer(peerId, { command: 'fetchConfig', signature, expiryTimestamp, address });
+}
+
+export async function pushNodeConfig(
+  peerId: string,
+  signature: string,
+  expiryTimestamp: number,
+  config: Record<string, any>,
+  address: string
+) {
+  return sendCommandToPeer(peerId, { command: 'pushConfig', signature, expiryTimestamp, config, address });
+}
+
 export async function stopNode() {
   if (nodeInstance) {
     await nodeInstance.stop();

@@ -1,8 +1,10 @@
 import {
+  fetchNodeConfig,
   getComputeJobResult,
   getNodeEnvs,
   getNodeReadyState,
   initializeNode,
+  pushNodeConfig,
   sendCommandToPeer,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
@@ -11,13 +13,12 @@ import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface P2PContextType {
-  node: Libp2p | null;
-  isReady: boolean;
-  error: string | null;
-  envs: ComputeEnvironment[];
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
-  getEnvs: (peerId: string) => Promise<any>;
+  config: Record<string, any>;
+  envs: ComputeEnvironment[];
+  error: string | null;
+  fetchConfig: (peerId: string, signature: string, expiryTimestamp: number, address: string) => Promise<void>;
   getComputeResult: (
     peerId: string,
     jobId: string,
@@ -25,12 +26,23 @@ interface P2PContextType {
     authToken: string,
     address: string
   ) => Promise<Record<string, any> | Uint8Array>;
+  getEnvs: (peerId: string) => Promise<any>;
+  isReady: boolean;
+  node: Libp2p | null;
+  pushConfig: (
+    peerId: string,
+    signature: string,
+    expiryTimestamp: number,
+    config: Record<string, any>,
+    address: string
+  ) => Promise<void>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
 
 export function P2PProvider({ children }: { children: React.ReactNode }) {
+  const [config, setConfig] = useState<Record<string, any>>({});
   const [envs, setEnvs] = useState<ComputeEnvironment[]>([]);
   const [node, setNode] = useState<Libp2p | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,17 +121,50 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const fetchConfig = useCallback(
+    async (peerId: string, signature: string, expiryTimestamp: number, address: string) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+      const result = await fetchNodeConfig(peerId, signature, expiryTimestamp, address);
+
+      setConfig(result);
+    },
+    [isReady, node]
+  );
+
+  const pushConfig = useCallback(
+    async (
+      peerId: string,
+      signature: string,
+      expiryTimestamp: number,
+      config: Record<string, any>,
+      address: string
+    ) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+      await pushNodeConfig(peerId, signature, expiryTimestamp, config, address);
+
+      setConfig(config);
+    },
+    [isReady, node]
+  );
+
   return (
     <P2PContext.Provider
       value={{
-        envs,
-        error,
-        isReady,
-        node,
         computeLogs,
         computeResult,
-        getEnvs,
+        config,
+        envs,
+        error,
+        fetchConfig,
         getComputeResult,
+        getEnvs,
+        isReady,
+        node,
+        pushConfig,
         sendCommand,
       }}
     >
