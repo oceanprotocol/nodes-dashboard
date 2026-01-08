@@ -1,12 +1,13 @@
+import Button from '@/components/button/button';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeJob } from '@/types/jobs';
 import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
 import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import DownloadIcon from '@mui/icons-material/Download';
-import { Alert, IconButton, Snackbar, Tooltip } from '@mui/material';
 import JSZip from 'jszip';
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 
 interface DownloadLogsButtonProps {
   job: ComputeJob;
@@ -15,7 +16,6 @@ interface DownloadLogsButtonProps {
 export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
   const { getComputeResult, isReady } = useP2P();
   const [isDownloading, setIsDownloading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { client } = useSmartAccountClient({ type: 'LightAccount' });
   const { signMessageAsync } = useSignMessage({
     client,
@@ -24,8 +24,6 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
 
   const handleDownload = async () => {
     if (!isReady || isDownloading || !account?.address) return;
-
-    setError(null);
 
     try {
       const jobId = job.environment.split('-')[0] + '-' + job.jobId;
@@ -64,30 +62,23 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
       URL.revokeObjectURL(url);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Failed to download logs';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsDownloading(false);
     }
   };
 
-  const handleCloseError = () => {
-    setError(null);
-  };
   return (
-    <>
-      <Tooltip title={isDownloading ? 'Downloading...' : 'Download logs'}>
-        <span>
-          <IconButton onClick={handleDownload} disabled={!isReady || isDownloading} size="small" color="primary">
-            <DownloadIcon />
-          </IconButton>
-        </span>
-      </Tooltip>
-
-      <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
-        <Alert onClose={handleCloseError} severity="error" sx={{ width: '100%' }}>
-          {error}
-        </Alert>
-      </Snackbar>
-    </>
+    <Button
+      autoLoading
+      color="accent1"
+      contentBefore={<DownloadIcon />}
+      disabled={!isReady}
+      onClick={handleDownload}
+      size="md"
+      variant="outlined"
+    >
+      Logs
+    </Button>
   );
 };

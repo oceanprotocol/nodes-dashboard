@@ -1,12 +1,12 @@
 import { DownloadLogsButton } from '@/components/button/download-logs-button';
 import { DownloadResultButton } from '@/components/button/download-result-button';
 import EnvironmentCard from '@/components/environment-card/environment-card';
+import Modal from '@/components/modal/modal';
 import { useProfileContext } from '@/context/profile-context';
 import { ComputeJob } from '@/types/jobs';
-import CloseIcon from '@mui/icons-material/Close';
-import { Dialog, Stack, Typography } from '@mui/material';
+import { Stack } from '@mui/material';
 import classNames from 'classnames';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import styles from './modal.module.css';
 
 interface JobInfoModalProps {
@@ -22,26 +22,15 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
     if (open && job?.environment) {
       fetchNodeEnv(job.peerId, job.environment);
     }
-  }, [open, job?.environment, fetchNodeEnv]);
-
-  const jobEnvironment = useMemo(() => {
-    return environment;
-  }, [environment]);
+  }, [open, fetchNodeEnv, job]);
 
   if (!job) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Modal isOpen={open} onClose={onClose} title="Job information" width="md">
       <div
         className={classNames(styles.root, styles['variant-glass-shaded'], styles['padding-md'], styles['radius-md'])}
       >
-        <div className={styles.header}>
-          <h2 className={styles.title}>Job Information</h2>
-          <button onClick={onClose} className={styles.closeButton}>
-            <CloseIcon />
-          </button>
-        </div>
-
         <div className={styles.content}>
           <Stack spacing={2}>
             <div>
@@ -49,36 +38,26 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
               <div className={styles.value}>{job.jobId}</div>
             </div>
 
-            {jobEnvironment && (
+            {environment && (
               <div>
                 <div className={styles.label} style={{ marginBottom: '8px' }}>
                   Environment
                 </div>
-                <EnvironmentCard key={jobEnvironment.id} environment={jobEnvironment} nodeInfo={nodeInfo} />
+                <EnvironmentCard key={environment.id} environment={environment} nodeInfo={nodeInfo} />
               </div>
             )}
 
             <Stack
               direction="row"
-              spacing={2}
+              spacing={1}
               sx={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}
             >
-              <Stack direction="column" spacing={1} alignItems="center">
-                <DownloadResultButton job={job} />
-                <Typography variant="caption" color="var(--text-secondary)">
-                  Download Result
-                </Typography>
-              </Stack>
-              <Stack direction="column" spacing={1} alignItems="center">
-                <DownloadLogsButton job={job} />
-                <Typography variant="caption" color="var(--text-secondary)">
-                  Download Logs
-                </Typography>
-              </Stack>
+              <DownloadResultButton job={job} />
+              <DownloadLogsButton job={job} />
             </Stack>
           </Stack>
         </div>
       </div>
-    </Dialog>
+    </Modal>
   );
 };
