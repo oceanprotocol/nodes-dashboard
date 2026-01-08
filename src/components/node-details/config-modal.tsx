@@ -1,6 +1,6 @@
 import Button from '@/components/button/button';
 import Modal from '@/components/modal/modal';
-import { JsonEditor } from 'json-edit-react';
+import { githubDarkTheme, JsonEditor } from 'json-edit-react';
 import { Dispatch, SetStateAction } from 'react';
 import styles from './node-info.module.css';
 
@@ -26,20 +26,23 @@ const ConfigModal = ({
   onClose,
 }: ConfigModalProps) => {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit node config" width="xs">
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit node config" width="md">
       <div className={styles.modalContent}>
         {fetchingConfig && (!config || Object.keys(config).length === 0) ? (
           <div className={styles.fetching}>Fetching config...</div>
         ) : (
           <div className="flex flex-col" style={{ gap: '24px' }}>
             <JsonEditor
+              collapse={({ value }) => typeof value === 'object' && value !== null && Object.keys(value).length === 0}
               data={editedConfig}
               onUpdate={({ newData }) => setEditedConfig(newData as Record<string, any>)}
-              collapse={({ value }) => typeof value === 'object' && value !== null && Object.keys(value).length === 0}
+              theme={githubDarkTheme}
+              minWidth="100%"
             />
             <Button
               autoLoading
               color="accent1"
+              className="alignSelfEnd"
               loading={pushingConfig}
               onClick={() => handlePushConfig(editedConfig)}
               variant="filled"
