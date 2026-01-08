@@ -10,8 +10,7 @@ import classNames from 'classnames';
 import styles from './node-preview.module.css';
 
 type NodePreviewProps = {
-  // TODO type
-  nodeConfig: any;
+  nodeConfig: Record<string, any>;
 };
 
 const NodePreview = ({ nodeConfig }: NodePreviewProps) => {

@@ -4,18 +4,16 @@ import { createContext, ReactNode, useCallback, useContext, useState } from 'rea
 type RunNodeContextType = {
   clearRunNodeSelection: () => void;
   isConnected: boolean;
-  // TODO type
-  nodeConfig: any | null;
+  nodeConfig: Record<string, any> | null;
   setIsConnected: (connected: boolean) => void;
-  // TODO type
-  setNodeConfig: (config: any) => void;
+  setNodeConfig: (config: Record<string, any> | null) => void;
 };
 
 const RunNodeContext = createContext<RunNodeContextType | undefined>(undefined);
 
 export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [nodeConfig, setNodeConfig] = useState<any | null>(MOCK_NODE_CONFIG);
+  const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(MOCK_NODE_CONFIG);
 
   const clearRunNodeSelection = useCallback(() => {
     setIsConnected(false);
