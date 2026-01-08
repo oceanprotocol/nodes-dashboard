@@ -3426,7 +3426,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mui/icons-material@npm:^7.3.4":
+"@mui/icons-material@npm:^7.3.6":
   version: 7.3.6
   resolution: "@mui/icons-material@npm:7.3.6"
   dependencies:
@@ -3442,7 +3442,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mui/material@npm:^7.3.4":
+"@mui/material@npm:^7.3.6":
   version: 7.3.6
   resolution: "@mui/material@npm:7.3.6"
   dependencies:
@@ -13963,6 +13963,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-edit-react@npm:^1.29.0":
+  version: 1.29.0
+  resolution: "json-edit-react@npm:1.29.0"
+  dependencies:
+    object-property-assigner: "npm:^1.3.5"
+    object-property-extractor: "npm:^1.0.13"
+  peerDependencies:
+    react: ">=16.0.0"
+  checksum: 10c0/c2f0ce4435cc9bf78504592b9cbfab36e6d41020c47632ea757bf999e4924cc67dee429ddfebcd3a1212a7386feeddab6145b0f5285138e2cdbbe5e46301403c
+  languageName: node
+  linkType: hard
+
 "json-parse-even-better-errors@npm:^2.3.0":
   version: 2.3.1
   resolution: "json-parse-even-better-errors@npm:2.3.1"
@@ -15174,6 +15186,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"object-property-assigner@npm:^1.3.5":
+  version: 1.3.5
+  resolution: "object-property-assigner@npm:1.3.5"
+  checksum: 10c0/144ecbc656c1ea25aac074a41ee32b1aa2935dcbb126750a0f7dc4d454af835e19c43931ed230b966f624b846cf92e4e524719d87eecc9deadb7602b1168906b
+  languageName: node
+  linkType: hard
+
+"object-property-extractor@npm:^1.0.13":
+  version: 1.0.13
+  resolution: "object-property-extractor@npm:1.0.13"
+  checksum: 10c0/53c1de766f313dbdb0f169b04b641add3397a32dec71e780794bbc6dadd0235e6e194e9e829b78c497a3229079e66f8fc1737ec4e1da85fa1a79f0400991965b
+  languageName: node
+  linkType: hard
+
 "object.assign@npm:^4.1.4, object.assign@npm:^4.1.7":
   version: 4.1.7
   resolution: "object.assign@npm:4.1.7"
@@ -15258,8 +15284,8 @@ __metadata:
     "@libp2p/peer-id": "npm:^4.1.4"
     "@libp2p/ping": "npm:^1.1.1"
     "@libp2p/websockets": "npm:^8.1.1"
-    "@mui/icons-material": "npm:^7.3.4"
-    "@mui/material": "npm:^7.3.4"
+    "@mui/icons-material": "npm:^7.3.6"
+    "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^12"
     "@oceanprotocol/contracts": "npm:2.5.0"
@@ -15285,11 +15311,12 @@ __metadata:
     formik: "npm:^2.4.9"
     gsap: "npm:3.13.0"
     it-pipe: "npm:^3.0.1"
+    json-edit-react: "npm:^1.29.0"
     libp2p: "npm:^1.8.0"
     myetherwallet-blockies: "npm:^0.1.1"
     next: "npm:^15.4.8"
     normalize.css: "npm:^8.0.1"
-    prettier: "npm:^3.3.3"
+    prettier: "npm:^3.7.4"
     prettier-plugin-organize-imports: "npm:^4.3.0"
     react: "npm:^18"
     react-dom: "npm:^18"
@@ -15853,7 +15880,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.3.3":
+"prettier@npm:^3.7.4":
   version: 3.7.4
   resolution: "prettier@npm:3.7.4"
   bin:

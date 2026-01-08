@@ -15,6 +15,7 @@ import type { AppProps } from 'next/app';
 import { Inter, Orbitron } from 'next/font/google';
 import { useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const inter = Inter({
   subsets: ['latin'],

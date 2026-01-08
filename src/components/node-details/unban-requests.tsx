@@ -44,11 +44,12 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
     }
     setLoading(true);
     try {
-      const timestamp = Date.now();
+      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
       const signedMessage = await signMessageAsync({
         message: timestamp.toString(),
       });
-      await requestNodeUnban(node.id, signedMessage, timestamp);
+
+      await requestNodeUnban(node.id, signedMessage as string, timestamp, account.address as string);
       await fetchUnbanRequests(node.id);
     } catch (error) {
       console.error('Error requesting unban:', error);
