@@ -1,3 +1,4 @@
+import { Command } from '@/types/commands';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
@@ -277,7 +278,7 @@ export async function sendCommandToPeer(
   peerId: string,
   command: Record<string, any>,
   protocol: string = DEFAULT_PROTOCOL
-): Promise<Record<string, any>> {
+): Promise<any> {
   try {
     if (!nodeInstance) {
       throw new Error('Node not initialized');
@@ -304,30 +305,47 @@ export async function sendCommandToPeer(
     });
 
     const message = JSON.stringify(command);
-    let response = '';
+    const chunks: Uint8Array[] = [];
 
     await stream.sink([uint8ArrayFromString(message)]);
 
     let firstChunk = true;
     for await (const chunk of stream.source) {
-      const str = uint8ArrayToString(chunk.subarray());
+      const chunkData = chunk.subarray();
 
       if (firstChunk) {
         firstChunk = false;
-        try {
-          const parsed = JSON.parse(str);
-          if (parsed.httpStatus !== undefined) {
-            continue;
+        let parsed;
+
+        const str = uint8ArrayToString(chunkData);
+        parsed = JSON.parse(str);
+        if (parsed.httpStatus !== undefined) {
+          if (parsed.httpStatus >= 400) {
+            throw new Error(parsed.error);
           }
-        } catch (e) {}
+          continue;
+        }
       }
 
-      response += str;
+      chunks.push(chunkData);
     }
 
     await stream.close();
 
-    return JSON.parse(response);
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    try {
+      const str = uint8ArrayToString(combined);
+      return JSON.parse(str);
+    } catch (e) {
+      return combined;
+    }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
@@ -336,7 +354,52 @@ export async function sendCommandToPeer(
 }
 
 export async function getNodeEnvs(peerId: string) {
-  return sendCommandToPeer(peerId, { command: 'getComputeEnvironments', node: peerId });
+  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_ENVIRONMENTS, node: peerId });
+}
+
+export async function getComputeStreamableLogs(peerId: string, jobId: string, authToken: any) {
+  return sendCommandToPeer(peerId, {
+    command: Command.COMPUTE_GET_STREAMABLE_LOGS,
+    jobId,
+    authorization: authToken.token,
+  });
+}
+
+export async function getComputeJobResult(
+  peerId: string,
+  jobId: string,
+  index: number,
+  authToken: any,
+  address: string
+) {
+  return sendCommandToPeer(peerId, {
+    command: Command.COMPUTE_GET_RESULT,
+    jobId,
+    index,
+    consumerAddress: address,
+    authorization: authToken.token,
+  });
+}
+
+export async function getNonce(peerId: string, consumerAddress: string): Promise<number> {
+  return sendCommandToPeer(peerId, {
+    command: Command.NONCE,
+    address: consumerAddress,
+  });
+}
+
+export async function createAuthToken(
+  peerId: string,
+  consumerAddress: string,
+  signature: string,
+  nonce: string
+): Promise<string> {
+  return sendCommandToPeer(peerId, {
+    command: Command.CREATE_AUTH_TOKEN,
+    address: consumerAddress,
+    signature,
+    nonce,
+  });
 }
 
 export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number, address: string) {

@@ -1,5 +1,6 @@
 import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { EnvNodeInfo } from '@/types/environments';
 import { EnsProfile } from '@/types/profile';
 import {
   ActiveNodes,
@@ -9,8 +10,9 @@ import {
   OwnerStats,
   OwnerStatsPerEpoch,
 } from '@/types/stats';
+import { useSendUserOperation, useSmartAccountClient } from '@account-kit/react';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 type ProfileContextType = {
   ensName: string | undefined;
@@ -22,24 +24,32 @@ type ProfileContextType = {
   totalNetworkJobs: number;
   totalBenchmarkJobs: number;
   ownerStatsPerEpoch: OwnerStatsPerEpoch[];
-  activeNodes: number;
+  eligibleNodes: number;
   totalNodes: number;
   //Consumer stats
   totalJobs: number;
   totalPaidAmount: number;
   consumerStatsPerEpoch: ConsumerStatsPerEpoch[];
   successfullJobs: number;
+  environment: any;
+  nodeInfo: EnvNodeInfo;
   // API functions
   fetchOwnerStats: () => Promise<void>;
   fetchConsumerStats: () => Promise<void>;
   fetchActiveNodes: () => Promise<void>;
   fetchJobsSuccessRate: () => Promise<void>;
+  fetchNodeEnv: (peerId: string, envId: string) => Promise<any>;
 };
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const { account } = useOceanAccount();
+  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { sendUserOperationAsync } = useSendUserOperation({
+    client,
+    waitForTxn: true,
+  });
 
   const [ensAddress, setEnsAddress] = useState<ProfileContextType['ensAddress']>(undefined);
   const [ensName, setEnsName] = useState<ProfileContextType['ensName']>(undefined);
@@ -52,9 +62,14 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [totalJobs, setTotalJobs] = useState<number>(0);
   const [totalPaidAmount, setTotalPaidAmount] = useState<number>(0);
   const [consumerStatsPerEpoch, setConsumerStatsPerEpoch] = useState<ConsumerStatsPerEpoch[]>([]);
-  const [activeNodes, setActiveNodes] = useState<number>(0);
+  const [eligibleNodes, setEligibleNodes] = useState<number>(0);
   const [totalNodes, setTotalNodes] = useState<number>(0);
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
+  const [environment, setEnvironment] = useState<any>(null);
+  const [nodeInfo, setNodeInfo] = useState<any>();
+
+  // Ref to track deployment attempts and prevent infinite loop
+  const deploymentAttempted = useRef<string | null>(null);
 
   const fetchEnsAddress = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '' || !accountId.includes('.')) {
@@ -144,7 +159,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<ActiveNodes>(`${getApiRoute('nodesStats')}/${ensAddress}/nodesStats`);
       if (response.data) {
-        setActiveNodes(response.data.activeCount);
+        setEligibleNodes(response.data.activeCount);
         setTotalNodes(response.data.totalCount);
       }
     } catch (err) {
@@ -166,6 +181,19 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const fetchNodeEnv = useCallback(async (peerId: string, envId: string) => {
+    try {
+      const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`);
+      const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
+      const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId);
+      setEnvironment(env);
+      setNodeInfo({ id: sanitizedData.id, friendlyName: sanitizedData.friendlyName });
+    } catch (err) {
+      console.error('Error fetching node env: ', err);
+    }
+  }, []);
+
+  // Handle profile fetching when connected
   useEffect(() => {
     if (account.status === 'connected' && account.address) {
       fetchEnsAddress(account.address);
@@ -177,6 +205,44 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsProfile(undefined);
     }
   }, [account.address, account.status, fetchEnsAddress, fetchEnsName, fetchEnsProfile]);
+
+  // Auto-deploy account if needed when user connects
+  useEffect(() => {
+    // Skip if we've already attempted deployment for this address
+    if (deploymentAttempted.current === account.address) {
+      return;
+    }
+
+    const handleAutoDeployment = async () => {
+      if (account.status === 'connected' && account.address && client?.account) {
+        const isDeployed = await client.account.isAccountDeployed();
+
+        if (!isDeployed) {
+          // Mark that we're attempting deployment for this address
+          deploymentAttempted.current = account.address;
+
+          try {
+            console.log('Deploying account for:', account.address);
+            await sendUserOperationAsync({
+              uo: {
+                target: account.address as `0x${string}`,
+                data: '0x' as `0x${string}`,
+                value: BigInt(0),
+              },
+            });
+            console.log('Account deployed successfully');
+          } catch (error) {
+            console.error('Error deploying account:', error);
+            // Reset on error so user can retry manually if needed
+            deploymentAttempted.current = null;
+          }
+        }
+      }
+    };
+
+    handleAutoDeployment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account.status, account.address, client]);
 
   return (
     <ProfileContext.Provider
@@ -192,13 +258,16 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         totalJobs,
         totalPaidAmount,
         consumerStatsPerEpoch,
-        activeNodes,
+        eligibleNodes,
         totalNodes,
         successfullJobs,
+        environment,
+        nodeInfo,
         fetchOwnerStats,
         fetchConsumerStats,
         fetchActiveNodes,
         fetchJobsSuccessRate,
+        fetchNodeEnv,
       }}
     >
       {children}

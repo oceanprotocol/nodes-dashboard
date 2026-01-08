@@ -14,7 +14,7 @@ const OwnerStats = () => {
     totalNetworkJobs,
     totalBenchmarkJobs,
     ownerStatsPerEpoch,
-    activeNodes,
+    eligibleNodes,
     totalNodes,
     fetchOwnerStats,
     fetchActiveNodes,
@@ -54,11 +54,11 @@ const OwnerStats = () => {
         }}
       />
       <Gauge
-        label="Active"
+        label="Eligible"
         max={100}
         min={0}
-        title="Active nodes"
-        value={totalNodes > 0 ? Number(((activeNodes / totalNodes) * 100).toFixed(1)) : 0}
+        title="Eligible nodes"
+        value={totalNodes > 0 ? Number(((eligibleNodes / totalNodes) * 100).toFixed(1)) : 0}
         valueSuffix="%"
       />
     </Card>

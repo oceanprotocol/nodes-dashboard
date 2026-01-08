@@ -1,5 +1,6 @@
 import {
   fetchNodeConfig,
+  getComputeJobResult,
   getNodeEnvs,
   getNodeReadyState,
   initializeNode,
@@ -12,13 +13,22 @@ import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface P2PContextType {
+  computeLogs: any;
+  computeResult: Record<string, any> | Uint8Array | undefined;
   config: Record<string, any>;
-  node: Libp2p | null;
-  isReady: boolean;
-  error: string | null;
   envs: ComputeEnvironment[];
+  error: string | null;
   fetchConfig: (peerId: string, signature: string, expiryTimestamp: number, address: string) => Promise<void>;
+  getComputeResult: (
+    peerId: string,
+    jobId: string,
+    index: number,
+    authToken: string,
+    address: string
+  ) => Promise<Record<string, any> | Uint8Array>;
   getEnvs: (peerId: string) => Promise<any>;
+  isReady: boolean;
+  node: Libp2p | null;
   pushConfig: (
     peerId: string,
     signature: string,
@@ -37,6 +47,8 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   const [node, setNode] = useState<Libp2p | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [computeLogs, setComputeLogs] = useState<any>(undefined);
+  const [computeResult, setComputeResult] = useState<Record<string, any> | Uint8Array | undefined>(undefined);
 
   useEffect(() => {
     let mounted = true;
@@ -95,6 +107,20 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const getComputeResult = useCallback(
+    async (peerId: string, jobId: string, index: number, authToken: string, address: string) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+
+      const result = await getComputeJobResult(peerId, jobId, index, authToken, address);
+
+      setComputeResult(result);
+      return result;
+    },
+    [isReady, node]
+  );
+
   const fetchConfig = useCallback(
     async (peerId: string, signature: string, expiryTimestamp: number, address: string) => {
       if (!isReady || !node) {
@@ -128,13 +154,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   return (
     <P2PContext.Provider
       value={{
+        computeLogs,
+        computeResult,
         config,
         envs,
         error,
+        fetchConfig,
+        getComputeResult,
+        getEnvs,
         isReady,
         node,
-        fetchConfig,
-        getEnvs,
         pushConfig,
         sendCommand,
       }}
