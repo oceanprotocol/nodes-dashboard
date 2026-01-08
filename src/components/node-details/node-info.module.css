@@ -34,6 +34,28 @@
         display: flex;
         gap: 8px;
       }
+
+      .modalContent {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+
+        .modalActions {
+          display: flex;
+          justify-content: flex-end;
+          padding-top: 16px;
+          border-top: 1px solid var(--border-glass);
+        }
+      }
+
+      .fetching {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 40px;
+        color: var(--text-secondary);
+        font-style: italic;
+      }
     }
 
     .infoFooter {
