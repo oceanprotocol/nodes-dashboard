@@ -10,7 +10,7 @@ import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import UploadIcon from '@mui/icons-material/Upload';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
 import styles from './node-info.module.css';
@@ -32,6 +32,11 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
   const [editedConfig, setEditedConfig] = useState<Record<string, any>>({});
+
+  const isAdmin = useMemo(
+    () => node.allowedAdmins?.includes(account?.address as string),
+    [node.allowedAdmins, account]
+  );
 
   useEffect(() => {
     if (config) {
@@ -128,21 +133,23 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
               {node.location?.city}, {node.location?.country}
             </div>
           </div>
-          <div className={styles.buttons}>
-            <ConfigModal
-              isOpen={isEditConfigDialogOpen}
-              fetchingConfig={fetchingConfig}
-              pushingConfig={pushingConfig}
-              config={config}
-              editedConfig={editedConfig}
-              setEditedConfig={setEditedConfig}
-              handlePushConfig={handlePushConfig}
-              onClose={handleCloseModal}
-            />
-            <Button contentBefore={<UploadIcon />} onClick={handleOpenEditConfigModal} variant="outlined">
-              Edit node config
-            </Button>
-          </div>
+          {isAdmin ? (
+            <div className={styles.buttons}>
+              <ConfigModal
+                isOpen={isEditConfigDialogOpen}
+                fetchingConfig={fetchingConfig}
+                pushingConfig={pushingConfig}
+                config={config}
+                editedConfig={editedConfig}
+                setEditedConfig={setEditedConfig}
+                handlePushConfig={handlePushConfig}
+                onClose={handleCloseModal}
+              />
+              <Button contentBefore={<UploadIcon />} onClick={handleOpenEditConfigModal} variant="outlined">
+                Edit node config
+              </Button>
+            </div>
+          ) : null}
         </div>
         <div className={styles.infoFooter}>
           <div>

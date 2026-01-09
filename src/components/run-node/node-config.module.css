@@ -1,0 +1,6 @@
+.editorWrapper {
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}

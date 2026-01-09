@@ -2,14 +2,18 @@ import InputWrapper from '@/components/input/input-wrapper';
 import { styled, TextField } from '@mui/material';
 
 const StyledTextField = styled(TextField)<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
-  ({ custom_size, has_error }) => ({
-    background: 'var(--background-glass)',
+  ({ custom_size, disabled, has_error }) => ({
+    background: disabled ? 'transparent' : 'var(--background-glass)',
     border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
     borderRadius: 24,
     lineHeight: '18px',
 
     fieldset: {
       border: 'none',
+    },
+
+    '& .Mui-disabled': {
+      '-webkit-text-fill-color': 'var(--text-primary)',
     },
 
     '& .MuiInputBase-root': {
@@ -29,6 +33,7 @@ const StyledTextField = styled(TextField)<{ custom_size?: 'sm' | 'md'; has_error
 
 type InputProps = {
   className?: string;
+  disabled?: boolean;
   endAdornment?: React.ReactNode;
   errorText?: string;
   hint?: string;
@@ -46,6 +51,7 @@ type InputProps = {
 
 const Input = ({
   className,
+  disabled,
   endAdornment,
   errorText,
   hint,
@@ -60,9 +66,17 @@ const Input = ({
   type,
   value,
 }: InputProps) => (
-  <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
+  <InputWrapper
+    className={className}
+    disabled={disabled}
+    errorText={errorText}
+    hint={hint}
+    label={label}
+    topRight={topRight}
+  >
     <StyledTextField
       custom_size={size}
+      disabled={disabled}
       has_error={!!errorText}
       name={name}
       onBlur={onBlur}

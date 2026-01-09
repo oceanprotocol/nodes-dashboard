@@ -1,7 +1,8 @@
 import Container from '@/components/container/container';
 import Payment from '@/components/run-job/payment';
-import Stepper from '@/components/run-job/stepper';
 import SectionTitle from '@/components/section-title/section-title';
+import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
+import Stepper from '@/components/stepper/stepper';
 import { useRunJobContext } from '@/context/run-job-context';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
@@ -23,7 +24,7 @@ const PaymentPage = () => {
         title="Run job"
         // TODO: replace with actual subtitle
         subTitle="Payment description text"
-        contentBetween={<Stepper currentStep={3} freeCompute={freeCompute} />}
+        contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
       />
       {selectedEnv && selectedResources && selectedToken ? (
         <div className="pageContentWrapper">
