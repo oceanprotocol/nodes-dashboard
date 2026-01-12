@@ -1,4 +1,4 @@
-import { alchemy, mainnet, sepolia } from '@account-kit/infra';
+import { alchemy, sepolia } from '@account-kit/infra';
 import { cookieStorage, createConfig } from '@account-kit/react';
 import { QueryClient } from '@tanstack/react-query';
 
@@ -7,7 +7,7 @@ export const config = createConfig(
     transport: alchemy({
       apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY!,
     }),
-    chain: process.env.NODE_ENV === 'production' ? mainnet : sepolia,
+    chain: sepolia,
     ssr: true,
     storage: cookieStorage,
     enablePopupOauth: true,
