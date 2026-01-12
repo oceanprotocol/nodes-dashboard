@@ -3,7 +3,6 @@ import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import { useRunNodeContext } from '@/context/run-node-context';
 import LinkIcon from '@mui/icons-material/Link';
-import LinkOffIcon from '@mui/icons-material/LinkOff';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -41,31 +40,32 @@ const NodeConnection = () => {
           {isConnected ? 'Connected' : 'Not connected'}
         </div>
       </div>
-      <div>Lorem ipsum dolor sit amet consectetur adipisicing elit.</div>
-      <Input
-        disabled={isConnected}
-        errorText={formik.touched.nodeId && formik.errors.nodeId ? formik.errors.nodeId : undefined}
-        label="Node ID"
-        name="nodeId"
-        onBlur={formik.handleBlur}
-        onChange={formik.handleChange}
-        type="text"
-        value={formik.values.nodeId}
-      />
       {isConnected ? (
-        <Button
-          className="alignSelfEnd"
-          color="error"
-          contentBefore={<LinkOffIcon />}
-          onClick={handleDisconnect}
-          variant="outlined"
-        >
-          Disconnect
-        </Button>
+        <>
+          <div>
+            Currently connected to node ID: <strong>{formik.values.nodeId}</strong>
+          </div>
+          <Button className="alignSelfEnd" color="accent1" onClick={handleDisconnect} variant="outlined">
+            Connect to another node
+          </Button>
+        </>
       ) : (
-        <Button className="alignSelfEnd" color="accent1" contentBefore={<LinkIcon />} onClick={formik.submitForm}>
-          Connect
-        </Button>
+        <>
+          <div>Enter the ID of your node to connect and configure it</div>
+          <Input
+            disabled={isConnected}
+            errorText={formik.touched.nodeId && formik.errors.nodeId ? formik.errors.nodeId : undefined}
+            label="Node ID"
+            name="nodeId"
+            onBlur={formik.handleBlur}
+            onChange={formik.handleChange}
+            type="text"
+            value={formik.values.nodeId}
+          />
+          <Button className="alignSelfEnd" color="accent1" contentBefore={<LinkIcon />} onClick={formik.submitForm}>
+            Connect
+          </Button>
+        </>
       )}
     </Card>
   );
