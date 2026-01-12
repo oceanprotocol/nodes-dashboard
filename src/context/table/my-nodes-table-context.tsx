@@ -46,6 +46,9 @@ export const MyNodesTableContextProvider = ({
   };
 
   const fetchUrl = useMemo(() => {
+    if (!ownerId) {
+      return '';
+    }
     let url = `${getApiRoute('admin')}/${ownerId}/myNodes?page=${crtPage}&size=${pageSize}&sort={"totalScore":"desc"}`;
 
     const operatorMap: Record<string, FilterOperator> = {
@@ -78,7 +81,9 @@ export const MyNodesTableContextProvider = ({
   }, [ownerId, crtPage, pageSize, filterModel, searchTerm]);
 
   const fetchData = useCallback(async () => {
-    if (!ownerId) return;
+    if (!ownerId) {
+      return;
+    }
     setLoading(true);
     try {
       const response = await axios.get(fetchUrl);
