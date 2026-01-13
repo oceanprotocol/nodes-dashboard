@@ -28,7 +28,7 @@ const ConfigurePage = () => {
       />
       {peerId ? (
         <div className="pageContentWrapper">
-          <NodeConfig peerId={peerId} />
+          <NodeConfig />
         </div>
       ) : null}
     </Container>

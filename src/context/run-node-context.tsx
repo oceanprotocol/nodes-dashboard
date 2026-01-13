@@ -1,25 +1,38 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { MOCK_NODE_CONFIG } from '@/mock/node-config';
+import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 
 type RunNodeContextType = {
   clearRunNodeSelection: () => void;
   connectToNode: (peerId: string) => Promise<void>;
+  fetchConfig: () => Promise<void>;
+  loadingFetchConfig: boolean;
+  loadingPushConfig: boolean;
   nodeConfig: Record<string, any> | null;
   peerId: string | null;
+  pushConfig: (config: Record<string, any>) => Promise<void>;
   setNodeConfig: (config: Record<string, any> | null) => void;
 };
 
 const RunNodeContext = createContext<RunNodeContextType | undefined>(undefined);
 
 export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
+  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { signMessageAsync } = useSignMessage({
+    client,
+  });
+
   const { account } = useOceanAccount();
-  const { sendCommand } = useP2P();
+  const { fetchConfig: p2pFetchConfig, pushConfig: p2pPushConfig, sendCommand } = useP2P();
 
   const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(MOCK_NODE_CONFIG);
   const [peerId, setPeerId] = useState<string | null>(null);
+
+  const [loadingFetchConfig, setLoadingFetchConfig] = useState<boolean>(false);
+  const [loadingPushConfig, setLoadingPushConfig] = useState<boolean>(false);
 
   const clearRunNodeSelection = useCallback(() => {
     setNodeConfig(null);
@@ -42,13 +55,66 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     [account?.address, sendCommand]
   );
 
+  const fetchConfig = useCallback(async () => {
+    if (!peerId || !account?.address) {
+      return;
+    }
+    const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+    const signedMessage = await signMessageAsync({
+      message: timestamp.toString(),
+    });
+    setLoadingFetchConfig(true);
+    try {
+      const config = await p2pFetchConfig(peerId, signedMessage, timestamp, account.address);
+      setNodeConfig(config);
+    } catch (error) {
+      console.error('Error fetching node config :', error);
+      toast.error('Failed to fetch node config');
+    } finally {
+      setLoadingFetchConfig(false);
+    }
+  }, [account.address, p2pFetchConfig, peerId, signMessageAsync]);
+
+  const pushConfig = useCallback(
+    async (config: Record<string, any>) => {
+      if (!peerId || !account?.address) {
+        return;
+      }
+      let success = false;
+      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+      const signedMessage = await signMessageAsync({
+        message: timestamp.toString(),
+      });
+      setLoadingPushConfig(true);
+      try {
+        await p2pPushConfig(peerId, signedMessage, timestamp, config, account.address);
+        setNodeConfig(config);
+        success = true;
+      } catch (error) {
+        console.error('Error pushing node config :', error);
+      } finally {
+        setLoadingPushConfig(false);
+        if (success) {
+          toast.success('Successfully pushed new config!');
+        } else {
+          toast.error('Failed to push new config');
+        }
+      }
+    },
+    [peerId, account.address, signMessageAsync, p2pPushConfig]
+  );
+
   return (
     <RunNodeContext.Provider
       value={{
         clearRunNodeSelection,
         connectToNode,
+        fetchConfig,
+        loadingFetchConfig,
+        loadingPushConfig,
         nodeConfig,
         peerId,
+        pushConfig,
         setNodeConfig,
       }}
     >

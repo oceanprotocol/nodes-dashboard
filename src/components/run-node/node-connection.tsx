@@ -2,6 +2,8 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import { useRunNodeContext } from '@/context/run-node-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useAuthModal } from '@account-kit/react';
 import LinkIcon from '@mui/icons-material/Link';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
@@ -13,6 +15,10 @@ type ConnectFormValues = {
 };
 
 const NodeConnection = () => {
+  const { openAuthModal } = useAuthModal();
+
+  const { account } = useOceanAccount();
+
   const { clearRunNodeSelection, connectToNode, peerId } = useRunNodeContext();
 
   const isConnected = !!peerId;
@@ -24,8 +30,12 @@ const NodeConnection = () => {
     validationSchema: Yup.object().shape({
       nodeId: Yup.string().required('Node ID is required'),
     }),
-    onSubmit: (values) => {
-      connectToNode(values.nodeId);
+    onSubmit: async (values) => {
+      if (!account.isConnected) {
+        openAuthModal();
+        return;
+      }
+      await connectToNode(values.nodeId);
     },
   });
 
@@ -50,7 +60,6 @@ const NodeConnection = () => {
         <>
           <div>Enter the ID of your node to connect and configure it</div>
           <Input
-            disabled={isConnected}
             errorText={formik.touched.nodeId && formik.errors.nodeId ? formik.errors.nodeId : undefined}
             label="Node ID"
             name="nodeId"
@@ -59,7 +68,13 @@ const NodeConnection = () => {
             type="text"
             value={formik.values.nodeId}
           />
-          <Button className="alignSelfEnd" color="accent1" contentBefore={<LinkIcon />} onClick={formik.submitForm}>
+          <Button
+            className="alignSelfEnd"
+            color="accent1"
+            contentBefore={<LinkIcon />}
+            loading={formik.isSubmitting}
+            onClick={formik.submitForm}
+          >
             Connect
           </Button>
         </>
