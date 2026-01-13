@@ -23,13 +23,13 @@ const NodeConfig = () => {
         <>
           <div className={styles.editorWrapper}>
             <JsonEditor
-              data={nodeConfig}
+              data={editedConfig}
               minWidth="100%"
               onUpdate={({ newData }) => setEditedConfig(newData as Record<string, any>)}
               theme={githubDarkTheme}
             />
           </div>
-          {nodeConfig ? <NodePreview nodeConfig={nodeConfig} /> : null}
+          {editedConfig ? <NodePreview nodeConfig={editedConfig} /> : null}
         </>
       )}
       <div className={styles.buttons}>
