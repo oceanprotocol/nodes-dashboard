@@ -3,20 +3,10 @@ import Card from '@/components/card/card';
 import NodePreview from '@/components/run-node/node-preview';
 import { useRunNodeContext } from '@/context/run-node-context';
 import { githubDarkTheme, JsonEditor } from 'json-edit-react';
-import { useEffect, useState } from 'react';
 import styles from './node-config.module.css';
 
 const NodeConfig = () => {
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  const { fetchConfig, loadingPushConfig, loadingFetchConfig, nodeConfig, setNodeConfig } = useRunNodeContext();
-
-  useEffect(() => {
-    if (!isInitialized) {
-      setIsInitialized(true);
-      fetchConfig();
-    }
-  }, [fetchConfig, isInitialized]);
+  const { loadingPushConfig, loadingFetchConfig, nodeConfig, setNodeConfig } = useRunNodeContext();
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">

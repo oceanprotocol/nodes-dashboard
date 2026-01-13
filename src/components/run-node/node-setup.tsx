@@ -3,10 +3,18 @@ import Card from '@/components/card/card';
 import { CodeBlock } from '@/components/code-block/code-block';
 import NodeConnection from '@/components/run-node/node-connection';
 import { useRunNodeContext } from '@/context/run-node-context';
+import { useRouter } from 'next/router';
 import styles from './node-setup.module.css';
 
 const NodeSetup = () => {
-  const { peerId } = useRunNodeContext();
+  const router = useRouter();
+
+  const { fetchConfig, peerId } = useRunNodeContext();
+
+  const goToConfig = async () => {
+    await fetchConfig();
+    router.push('/run-node/configure');
+  };
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
@@ -35,7 +43,7 @@ const NodeSetup = () => {
       </div>
       <NodeConnection />
       {peerId ? (
-        <Button className="alignSelfEnd" color="accent2" href="/run-node/configure" size="lg" variant="filled">
+        <Button autoLoading className="alignSelfEnd" color="accent2" onClick={goToConfig} size="lg" variant="filled">
           Continue
         </Button>
       ) : null}
