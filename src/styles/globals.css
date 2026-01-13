@@ -59,14 +59,18 @@ h1,
 h2,
 h4 {
   font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+  font-weight: 700;
+}
+h3 {
+  font-size: 20px;
+  font-weight: 600;
 }
 h4 {
   font-size: 18px;
 }
-
-h3 {
-  font-size: 20px;
-  font-weight: 600;
+h5 {
+  font-size: 16px;
+  font-weight: 700;
 }
 
 a {

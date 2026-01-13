@@ -1,10 +1,11 @@
 import { styled } from '@mui/material';
 
-const StyledRoot = styled('div')({
+const StyledRoot = styled('div')<{ disabled?: boolean }>(({ disabled }) => ({
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
-});
+  opacity: disabled ? 0.5 : 1,
+}));
 
 const StyledLabelWrapper = styled('div')({
   alignItems: 'end',
@@ -35,14 +36,15 @@ const StyledErrorText = styled(StyledFooterHint)({
 type InputWrapperProps = {
   children: React.ReactNode;
   className?: string;
+  disabled?: boolean;
   errorText?: string | string[];
   hint?: string;
   label?: string;
   topRight?: React.ReactNode;
 };
 
-const InputWrapper = ({ children, className, errorText, hint, label, topRight }: InputWrapperProps) => (
-  <StyledRoot className={className}>
+const InputWrapper = ({ children, className, disabled, errorText, hint, label, topRight }: InputWrapperProps) => (
+  <StyledRoot className={className} disabled={disabled}>
     {label || topRight ? (
       <StyledLabelWrapper>
         <StyledLabel>{label}</StyledLabel>
