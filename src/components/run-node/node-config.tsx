@@ -3,10 +3,17 @@ import Card from '@/components/card/card';
 import NodePreview from '@/components/run-node/node-preview';
 import { useRunNodeContext } from '@/context/run-node-context';
 import { githubDarkTheme, JsonEditor } from 'json-edit-react';
+import { useEffect, useState } from 'react';
 import styles from './node-config.module.css';
 
 const NodeConfig = () => {
-  const { loadingPushConfig, loadingFetchConfig, nodeConfig, setNodeConfig } = useRunNodeContext();
+  const { loadingPushConfig, loadingFetchConfig, nodeConfig, pushConfig, setNodeConfig } = useRunNodeContext();
+
+  const [editedConfig, setEditedConfig] = useState(nodeConfig ?? {});
+
+  useEffect(() => {
+    setEditedConfig(nodeConfig ?? {});
+  }, [nodeConfig]);
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
@@ -18,7 +25,7 @@ const NodeConfig = () => {
             <JsonEditor
               data={nodeConfig}
               minWidth="100%"
-              onUpdate={({ newData }) => setNodeConfig(newData as Record<string, any>)}
+              onUpdate={({ newData }) => setEditedConfig(newData as Record<string, any>)}
               theme={githubDarkTheme}
             />
           </div>
@@ -36,7 +43,14 @@ const NodeConfig = () => {
         >
           Back
         </Button>
-        <Button className="alignSelfEnd" color="accent2" loading={loadingPushConfig} size="lg" variant="filled">
+        <Button
+          className="alignSelfEnd"
+          color="accent2"
+          loading={loadingPushConfig}
+          onClick={() => pushConfig(editedConfig)}
+          size="lg"
+          variant="filled"
+        >
           Push config to node
         </Button>
       </div>
