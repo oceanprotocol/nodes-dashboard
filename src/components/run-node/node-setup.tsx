@@ -9,7 +9,7 @@ import styles from './node-setup.module.css';
 const NodeSetup = () => {
   const router = useRouter();
 
-  const { isConnected } = useRunNodeContext();
+  const { peerId } = useRunNodeContext();
 
   const handleContinue = () => {
     router.push('/run-node/configure');
@@ -41,7 +41,7 @@ const NodeSetup = () => {
         <CodeBlock code="$ docker ps" />
       </div>
       <NodeConnection />
-      {isConnected ? (
+      {peerId ? (
         <Button className="alignSelfEnd" color="accent2" onClick={handleContinue} size="lg" variant="filled">
           Continue
         </Button>
