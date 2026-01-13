@@ -4,3 +4,11 @@
   max-height: calc(100vh - 300px);
   overflow-y: auto;
 }
+
+.buttons {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}

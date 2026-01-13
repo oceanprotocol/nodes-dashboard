@@ -23,9 +23,14 @@ const NodeConfig = ({ peerId }: NodeConfigProps) => {
         />
       </div>
       {nodeConfig ? <NodePreview nodeConfig={nodeConfig} /> : null}
-      <Button className="alignSelfEnd" color="accent2" size="lg" variant="filled">
-        Push config to node
-      </Button>
+      <div className={styles.buttons}>
+        <Button className="alignSelfEnd" color="accent2" href="/run-node/setup" size="lg" variant="outlined">
+          Back
+        </Button>
+        <Button className="alignSelfEnd" color="accent2" size="lg" variant="filled">
+          Push config to node
+        </Button>
+      </div>
     </Card>
   );
 };

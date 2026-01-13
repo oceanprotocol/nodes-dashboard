@@ -13,7 +13,7 @@ const ConfigurePage = () => {
   const { peerId } = useRunNodeContext();
 
   useEffect(() => {
-    if (peerId) {
+    if (!peerId) {
       router.replace('/run-node/setup');
     }
   }, [peerId, router]);
