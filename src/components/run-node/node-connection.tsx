@@ -13,7 +13,9 @@ type ConnectFormValues = {
 };
 
 const NodeConnection = () => {
-  const { isConnected, setIsConnected } = useRunNodeContext();
+  const { clearRunNodeSelection, connectToNode, peerId } = useRunNodeContext();
+
+  const isConnected = !!peerId;
 
   const formik = useFormik<ConnectFormValues>({
     initialValues: {
@@ -23,14 +25,9 @@ const NodeConnection = () => {
       nodeId: Yup.string().required('Node ID is required'),
     }),
     onSubmit: (values) => {
-      console.log(values);
-      setIsConnected(true);
+      connectToNode(values.nodeId);
     },
   });
-
-  const handleDisconnect = () => {
-    setIsConnected(false);
-  };
 
   return (
     <Card direction="column" padding="sm" radius="sm" spacing="sm" variant="glass">
@@ -43,9 +40,9 @@ const NodeConnection = () => {
       {isConnected ? (
         <>
           <div>
-            Currently connected to node ID: <strong>{formik.values.nodeId}</strong>
+            Currently connected to node ID: <strong>{peerId}</strong>
           </div>
-          <Button className="alignSelfEnd" color="accent1" onClick={handleDisconnect} variant="outlined">
+          <Button className="alignSelfEnd" color="accent1" onClick={clearRunNodeSelection} variant="outlined">
             Connect to another node
           </Button>
         </>

@@ -5,7 +5,11 @@ import { useRunNodeContext } from '@/context/run-node-context';
 import { githubDarkTheme, JsonEditor } from 'json-edit-react';
 import styles from './node-config.module.css';
 
-const NodeConfig = () => {
+type NodeConfigProps = {
+  peerId: string;
+};
+
+const NodeConfig = ({ peerId }: NodeConfigProps) => {
   const { nodeConfig, setNodeConfig } = useRunNodeContext();
 
   return (
