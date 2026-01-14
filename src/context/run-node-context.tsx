@@ -1,6 +1,5 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { MOCK_NODE_CONFIG } from '@/mock/node-config';
 import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -28,7 +27,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
   const { account } = useOceanAccount();
   const { fetchConfig: p2pFetchConfig, pushConfig: p2pPushConfig, sendCommand } = useP2P();
 
-  const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(MOCK_NODE_CONFIG);
+  const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(null);
   const [peerId, setPeerId] = useState<string | null>(null);
 
   const [loadingFetchConfig, setLoadingFetchConfig] = useState<boolean>(false);
