@@ -17,14 +17,18 @@ const NodePreview = ({ nodeConfig }: NodePreviewProps) => {
   return (
     <Card direction="column" padding="sm" radius="md" spacing="md" variant="glass">
       <h3>Preview configuration</h3>
-      {nodeConfig.dockerComputeEnvironments.map((env: ComputeEnvironment, index: number) => (
-        <NodeEnvPreview
-          key={index}
-          environment={env}
-          index={index}
-          showEnvName={nodeConfig.dockerComputeEnvironments.length > 1}
-        />
-      ))}
+      {nodeConfig.dockerComputeEnvironments?.length > 0 ? (
+        nodeConfig.dockerComputeEnvironments?.map((env: ComputeEnvironment, index: number) => (
+          <NodeEnvPreview
+            key={index}
+            environment={env}
+            index={index}
+            showEnvName={nodeConfig.dockerComputeEnvironments?.length > 1}
+          />
+        ))
+      ) : (
+        <p>No valid compute environments to display</p>
+      )}
     </Card>
   );
 };
