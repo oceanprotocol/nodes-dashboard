@@ -18,7 +18,12 @@ interface P2PContextType {
   config: Record<string, any>;
   envs: ComputeEnvironment[];
   error: string | null;
-  fetchConfig: (peerId: string, signature: string, expiryTimestamp: number, address: string) => Promise<void>;
+  fetchConfig: (
+    peerId: string,
+    signature: string,
+    expiryTimestamp: number,
+    address: string
+  ) => Promise<Record<string, any>>;
   getComputeResult: (
     peerId: string,
     jobId: string,
@@ -127,8 +132,8 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Node not ready');
       }
       const result = await fetchNodeConfig(peerId, signature, expiryTimestamp, address);
-
       setConfig(result);
+      return result;
     },
     [isReady, node]
   );
@@ -145,7 +150,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Node not ready');
       }
       await pushNodeConfig(peerId, signature, expiryTimestamp, config, address);
-
       setConfig(config);
     },
     [isReady, node]

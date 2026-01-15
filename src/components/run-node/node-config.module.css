@@ -4,3 +4,16 @@
   max-height: calc(100vh - 300px);
   overflow-y: auto;
 }
+
+.buttons {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: flex-end;
+}
+
+.errorsList {
+  list-style-type: disc;
+  padding-left: 14px;
+}

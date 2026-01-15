@@ -3,7 +3,17 @@ import { ReactNode } from 'react';
 import styles from './card.module.css';
 
 type Size = 'sm' | 'md' | 'lg';
-type Variant = 'glass' | 'glass-shaded' | 'glass-outline' | 'success' | 'warning' | 'error' | 'accent1-outline';
+type Variant =
+  | 'glass'
+  | 'glass-shaded'
+  | 'glass-outline'
+  | 'success'
+  | 'success-outline'
+  | 'warning'
+  | 'warning-outline'
+  | 'error'
+  | 'error-outline'
+  | 'accent1-outline';
 
 type CardProps = {
   children: ReactNode;

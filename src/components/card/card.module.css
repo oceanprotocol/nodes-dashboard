@@ -87,15 +87,24 @@
   border: 2px solid var(--success);
   box-shadow: 0 8px 80px -20px var(--success);
 }
+.variant-success-outline {
+  border: 2px solid var(--success);
+}
 .variant-warning {
   background: var(--warning-darker);
   border: 2px solid var(--warning);
   box-shadow: 0 8px 80px -20px var(--warning);
 }
+.variant-warning-outline {
+  border: 2px solid var(--warning);
+}
 .variant-error {
   background: var(--error-darker);
   border: 2px solid var(--error);
   box-shadow: 0 8px 80px -20px var(--error);
+}
+.variant-error-outline {
+  border: 2px solid var(--error);
 }
 .variant-accent1-outline {
   border: 2px solid var(--accent1);

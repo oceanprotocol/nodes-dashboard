@@ -9,9 +9,10 @@ import styles from './node-setup.module.css';
 const NodeSetup = () => {
   const router = useRouter();
 
-  const { isConnected } = useRunNodeContext();
+  const { fetchConfig, peerId } = useRunNodeContext();
 
-  const handleContinue = () => {
+  const goToConfig = async () => {
+    await fetchConfig();
     router.push('/run-node/configure');
   };
 
@@ -41,8 +42,8 @@ const NodeSetup = () => {
         <CodeBlock code="$ docker ps" />
       </div>
       <NodeConnection />
-      {isConnected ? (
-        <Button className="alignSelfEnd" color="accent2" onClick={handleContinue} size="lg" variant="filled">
+      {peerId ? (
+        <Button autoLoading className="alignSelfEnd" color="accent2" onClick={goToConfig} size="lg" variant="filled">
           Continue
         </Button>
       ) : null}
