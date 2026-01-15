@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import styles from './node-config.module.css';
 
 const NodeConfig = () => {
-  const { loadingPushConfig, loadingFetchConfig, nodeConfig, pushConfig, setNodeConfig } = useRunNodeContext();
+  const { configErrors, loadingPushConfig, loadingFetchConfig, nodeConfig, pushConfig } = useRunNodeContext();
 
   const [editedConfig, setEditedConfig] = useState(nodeConfig ?? {});
 
@@ -30,6 +30,23 @@ const NodeConfig = () => {
             />
           </div>
           {editedConfig ? <NodePreview nodeConfig={editedConfig} /> : null}
+          {configErrors.length > 0 ? (
+            <Card
+              className={styles.root}
+              direction="column"
+              padding="sm"
+              radius="md"
+              spacing="sm"
+              variant="error-outline"
+            >
+              <h3 className="textError">Format errors</h3>
+              <ul className={styles.errorsList}>
+                {configErrors.map((error, index) => (
+                  <li key={`${index}-${error}`}>{error}</li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
         </>
       )}
       <div className={styles.buttons}>

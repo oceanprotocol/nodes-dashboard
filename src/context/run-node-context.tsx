@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 
 type RunNodeContextType = {
   clearRunNodeSelection: () => void;
+  configErrors: string[];
   connectToNode: (peerId: string) => Promise<void>;
   fetchConfig: () => Promise<void>;
   loadingFetchConfig: boolean;
@@ -27,6 +28,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
   const { account } = useOceanAccount();
   const { fetchConfig: p2pFetchConfig, pushConfig: p2pPushConfig, sendCommand } = useP2P();
 
+  const [configErrors, setConfigErrors] = useState<string[]>([]);
   const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(null);
   const [peerId, setPeerId] = useState<string | null>(null);
 
@@ -34,6 +36,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
   const [loadingPushConfig, setLoadingPushConfig] = useState<boolean>(false);
 
   const clearRunNodeSelection = useCallback(() => {
+    setConfigErrors([]);
     setNodeConfig(null);
     setPeerId(null);
   }, []);
@@ -67,7 +70,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       const config = await p2pFetchConfig(peerId, signedMessage, timestamp, account.address);
       setNodeConfig(config);
     } catch (error) {
-      console.error('Error fetching node config :', error);
+      console.error('Error fetching node config:', error);
       toast.error('Failed to fetch node config');
     } finally {
       setLoadingFetchConfig(false);
@@ -88,9 +91,18 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       try {
         await p2pPushConfig(peerId, signedMessage, timestamp, config, account.address);
         setNodeConfig(config);
+        setConfigErrors([]);
         success = true;
       } catch (error) {
-        console.error('Error pushing node config :', error);
+        if (error instanceof Error) {
+          if (error.message.startsWith('Config validation failed:')) {
+            // erase the prefix
+            const validationErrors = error.message.replace('Config validation failed: ', '').trim();
+            // split the errors, shaped like "field1: field1 error, with comma in the erorr message, field2: field2 error, field3: field3 error, ..."
+            setConfigErrors(validationErrors.split(/, (?=[a-zA-Z0-9.]+:\s)/));
+          }
+        }
+        console.error('Error pushing node config:', error);
       } finally {
         setLoadingPushConfig(false);
         if (success) {
@@ -107,6 +119,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     <RunNodeContext.Provider
       value={{
         clearRunNodeSelection,
+        configErrors,
         connectToNode,
         fetchConfig,
         loadingFetchConfig,
