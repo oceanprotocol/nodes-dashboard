@@ -42,7 +42,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     async (peerId: string) => {
       try {
         const response = await sendCommand(peerId, { command: 'status' });
-        if (response.allowedAdmins.includes(account?.address)) {
+        if (response.allowedAdmins.addresses.includes(account?.address)) {
           setPeerId(peerId);
         } else {
           toast.error('You are not allowed to configure this node');
