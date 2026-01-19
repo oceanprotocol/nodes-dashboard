@@ -6,6 +6,7 @@ import NodeInfo from '@/components/node-details/node-info';
 import UnbanRequests from '@/components/node-details/unban-requests';
 import SectionTitle from '@/components/section-title/section-title';
 import { useNodesContext } from '@/context/nodes-context';
+import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
@@ -13,6 +14,7 @@ import { useEffect } from 'react';
 const NodeDetailsPage = () => {
   const { selectedNode, fetchNode } = useNodesContext();
   const { isReady, getEnvs } = useP2P();
+  const { unbanRequests, fetchUnbanRequests } = useUnbanRequestsContext();
   const params = useParams<{ nodeId: string }>();
 
   useEffect(() => {
@@ -26,6 +28,12 @@ const NodeDetailsPage = () => {
       getEnvs(selectedNode.id);
     }
   }, [selectedNode?.id, isReady, getEnvs]);
+
+  useEffect(() => {
+    if (selectedNode?.id) {
+      fetchUnbanRequests(selectedNode.id);
+    }
+  }, [selectedNode?.id, fetchUnbanRequests]);
 
   if (!selectedNode) {
     return (
@@ -44,7 +52,6 @@ const NodeDetailsPage = () => {
       />
       <div className="pageContentWrapper">
         <NodeInfo node={selectedNode} />
-        {selectedNode.eligibilityCauseStr === 'Banned' ? <UnbanRequests node={selectedNode} /> : null}
         <JobsRevenueStats />
         <BenchmarkJobs />
         <Environments
@@ -53,6 +60,9 @@ const NodeDetailsPage = () => {
             id: selectedNode.id ?? selectedNode.nodeId,
           }}
         />
+        {selectedNode.eligibilityCauseStr !== 'Banned' && unbanRequests?.length === 0 ? null : (
+          <UnbanRequests node={selectedNode} />
+        )}
       </div>
     </Container>
   );
