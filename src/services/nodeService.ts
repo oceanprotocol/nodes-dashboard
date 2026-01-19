@@ -8,7 +8,6 @@ import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
-import { all } from '@libp2p/websockets/filters';
 import { multiaddr, type Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
@@ -34,14 +33,14 @@ async function waitForBootstrapConnections(
 
   return new Promise((resolve, reject) => {
     const checkInterval = setInterval(() => {
-      const peers = node.getPeers();
+      const connections = node.getConnections();
       const elapsed = Date.now() - startTime;
 
-      console.log(`Bootstrap status: ${peers.length} peer(s) connected (need ${minConnections})`);
+      console.log(`Bootstrap status: ${connections.length} peer(s) connected (need ${minConnections})`);
 
-      if (peers.length >= minConnections) {
+      if (connections.length >= minConnections) {
         clearInterval(checkInterval);
-        console.log('peers', peers.map((peer) => peer.toString()));
+        console.log('peers', connections.map((conn) => conn.remotePeer.toString()));
 
         console.log('✓ Bootstrap connections established');
         resolve();
@@ -49,18 +48,18 @@ async function waitForBootstrapConnections(
         clearInterval(checkInterval);
         reject(
           new Error(
-            `Failed to establish minimum bootstrap connections (${peers.length}/${minConnections}) within ${timeout}ms`
+            `Failed to establish minimum bootstrap connections (${connections.length}/${minConnections}) within ${timeout}ms`
           )
         );
       }
     }, 1000);
 
     const onPeerConnect = () => {
-      const peers = node.getPeers();
-      if (peers.length >= minConnections) {
+      const connections = node.getConnections();
+      if (connections.length >= minConnections) {
         clearInterval(checkInterval);
         node.removeEventListener('peer:connect', onPeerConnect);
-        console.log('peers', peers.map((peer) => peer.toString()));
+        console.log('peers', connections.map((conn) => conn.remotePeer.toString()));
         console.log('✓ Bootstrap connections established');
         resolve();
       }
@@ -77,8 +76,8 @@ export async function initializeNode(bootstrapNodes: string[]) {
 
   try {
     nodeInstance = await createLibp2p({
-      transports: [webSockets({ filter: all })],
-      connectionEncryption: [noise()],
+      transports: [webSockets()],
+      connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
       peerDiscovery: [
         bootstrap({
@@ -103,13 +102,9 @@ export async function initializeNode(bootstrapNodes: string[]) {
         }),
       },
       connectionManager: {
-        minConnections: 2,
         maxConnections: 100,
         dialTimeout: DEFAULT_TIMEOUT,
-        autoDialInterval: 5000,
-        autoDialConcurrency: 500,
         maxPeerAddrsToDial: 25,
-        autoDialPeerRetryThreshold: 120000,
         maxParallelDials: 2500,
       },
     });
@@ -191,8 +186,11 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     if (peerData && peerData.addresses) {
       console.log(`Found ${peerData.addresses.length} addresses in peerStore`);
       for (const addr of peerData.addresses) {
-        if (!hasMultiAddr(addr.multiaddr, allMultiaddrs)) {
-          const normalized = normalizeMultiaddr(addr.multiaddr);
+        // Convert to string and back to ensure type compatibility
+        const addrStr = addr.multiaddr.toString();
+        const addrMultiaddr = multiaddr(addrStr);
+        if (!hasMultiAddr(addrMultiaddr, allMultiaddrs)) {
+          const normalized = normalizeMultiaddr(addrMultiaddr);
           if (normalized) {
             allMultiaddrs.push(normalized);
           }
@@ -214,8 +212,11 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     if (peerInfo && peerInfo.multiaddrs) {
       console.log(`Found ${peerInfo.multiaddrs.length} addresses via DHT`);
       for (const addr of peerInfo.multiaddrs) {
-        if (!hasMultiAddr(addr, allMultiaddrs)) {
-          const normalized = normalizeMultiaddr(addr);
+        // Convert to string and back to ensure type compatibility
+        const addrStr = addr.toString();
+        const addrMultiaddr = multiaddr(addrStr);
+        if (!hasMultiAddr(addrMultiaddr, allMultiaddrs)) {
+          const normalized = normalizeMultiaddr(addrMultiaddr);
           if (normalized) {
             allMultiaddrs.push(normalized);
           }
@@ -310,30 +311,65 @@ export async function sendCommandToPeer(
     const message = JSON.stringify(command);
     const chunks: Uint8Array[] = [];
 
-    await stream.sink([uint8ArrayFromString(message)]);
-
-    let firstChunk = true;
-    for await (const chunk of stream.source) {
-      const chunkData = chunk.subarray();
-
-      if (firstChunk) {
-        firstChunk = false;
-        let parsed;
-
-        const str = uint8ArrayToString(chunkData);
-        parsed = JSON.parse(str);
-        if (parsed.httpStatus !== undefined) {
-          if (parsed.httpStatus >= 400) {
-            throw new Error(parsed.error);
-          }
-          continue;
-        }
-      }
-
-      chunks.push(chunkData);
+    // Send message using v3 event-based API
+    const messageBytes = uint8ArrayFromString(message);
+    const sent = stream.send(messageBytes);
+    if (!sent) {
+      // Wait for drain event if buffer is full
+      await new Promise<void>((resolve) => {
+        stream.addEventListener('drain', () => resolve(), { once: true });
+      });
+      stream.send(messageBytes);
     }
 
-    await stream.close();
+    // Read response using v3 event-based API
+    let firstChunk = true;
+    const readPromise = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        stream.removeEventListener('message', messageHandler);
+        stream.removeEventListener('close', closeHandler);
+        reject(new Error('Stream read timeout'));
+      }, DEFAULT_TIMEOUT);
+
+      const messageHandler = (event: Event) => {
+        const chunk = (event as CustomEvent<Uint8Array>).detail;
+        const chunkData = chunk.subarray();
+
+        if (firstChunk) {
+          firstChunk = false;
+          let parsed;
+
+          const str = uint8ArrayToString(chunkData);
+          parsed = JSON.parse(str);
+          if (parsed.httpStatus !== undefined) {
+            if (parsed.httpStatus >= 400) {
+              clearTimeout(timeout);
+              stream.removeEventListener('message', messageHandler);
+              stream.removeEventListener('close', closeHandler);
+              reject(new Error(parsed.error));
+              return;
+            }
+            // Skip this chunk if it's just a status message
+            return;
+          }
+        }
+
+        chunks.push(chunkData);
+      };
+
+      const closeHandler = () => {
+        clearTimeout(timeout);
+        stream.removeEventListener('message', messageHandler);
+        stream.removeEventListener('close', closeHandler);
+        resolve();
+      };
+
+      stream.addEventListener('message', messageHandler);
+      stream.addEventListener('close', closeHandler);
+    });
+
+    await readPromise;
+    stream.close();
 
     const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
     const combined = new Uint8Array(totalLength);
