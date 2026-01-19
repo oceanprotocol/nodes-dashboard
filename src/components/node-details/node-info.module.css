@@ -13,6 +13,7 @@
     flex-direction: column;
     gap: 32px;
     justify-content: space-between;
+    min-width: 0;
 
     .infoContent {
       display: flex;
@@ -21,6 +22,8 @@
 
       .title {
         font-size: 32px;
+        text-overflow: ellipsis;
+        overflow: hidden;
       }
 
       .grid {
