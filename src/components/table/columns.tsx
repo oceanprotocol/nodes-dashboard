@@ -110,6 +110,25 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
   },
   {
+    field: 'latestBenchmarkResults.totalScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+  },
+  {
+    field: 'gpus',
+    filterable: false,
+    flex: 1,
+    headerName: 'GPUs',
+    sortable: false,
+    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
+  },
+  {
     field: 'location.region',
     filterable: true,
     flex: 1,
@@ -132,58 +151,6 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
       </div>
     ),
     filterOperators: getGridStringOperators().filter((operator) => operator.value === 'equals'),
-  },
-  {
-    field: 'latestBenchmarkResults.gpuScore',
-    filterable: false,
-    flex: 1,
-    headerName: 'GPU Score',
-    sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.gpuScore || 0,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'latestBenchmarkResults.cpuScore',
-    filterable: false,
-    flex: 1,
-    headerName: 'CPU Score',
-    sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.cpuScore || 0,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'latestBenchmarkResults.bandwidth',
-    filterable: false,
-    flex: 1,
-    headerName: 'Bandwidth',
-    sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.bandwidth || 0,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'latestBenchmarkResults.totalScore',
-    filterable: false,
-    flex: 1,
-    headerName: 'Total Score',
-    sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'gpus',
-    filterable: false,
-    flex: 1,
-    headerName: 'GPUs',
-    sortable: false,
-    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
   },
   {
     align: 'right',
