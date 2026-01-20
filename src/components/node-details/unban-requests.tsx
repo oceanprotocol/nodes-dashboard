@@ -6,7 +6,7 @@ import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
-import { useAuthModal, useSignMessage } from '@account-kit/react';
+import { useAuthModal } from '@account-kit/react';
 import { useEffect, useState } from 'react';
 import styles from './unban-requests.module.css';
 
@@ -17,8 +17,7 @@ type UnbanRequestsProps = {
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
-  const { account, client, ocean } = useOceanAccount();
-  const { signMessageAsync } = useSignMessage({ client });
+  const { account, ocean, signMessage } = useOceanAccount();
 
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
 
@@ -50,9 +49,7 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
     setLoading(true);
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-      const signedMessage = await signMessageAsync({
-        message: timestamp.toString(),
-      });
+      const signedMessage = await signMessage(timestamp.toString());
 
       await requestNodeUnban(node.id, signedMessage as string, timestamp, account.address as string);
       await fetchUnbanRequests(node.id);

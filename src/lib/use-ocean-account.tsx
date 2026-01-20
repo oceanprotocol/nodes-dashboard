@@ -1,9 +1,10 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
-import { useAccount, useSmartAccountClient, useUser, UseUserResult } from '@account-kit/react';
-import { ethers } from 'ethers';
-import { createContext, ReactNode, useContext, useMemo } from 'react';
+import { signMessage as signMessageWithEthers } from '@/lib/sign-message';
+import { useAccount, useSignMessage, useSmartAccountClient, useUser, UseUserResult } from '@account-kit/react';
+import { ethers, JsonRpcSigner } from 'ethers';
+import { createContext, ReactNode, useCallback, useContext, useMemo } from 'react';
 
 type OceanAccountContextType = {
   account: {
@@ -13,22 +14,13 @@ type OceanAccountContextType = {
   client?: ReturnType<typeof useSmartAccountClient>['client'];
   provider: ethers.JsonRpcProvider | null;
   ocean: OceanProvider | null;
+  signMessage: (message: string) => Promise<string | undefined>;
   user: UseUserResult;
 };
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
-function useAccountData({
-  address,
-  client,
-  isConnected,
-  user,
-}: {
-  address: string | undefined;
-  client?: OceanAccountContextType['client'];
-  isConnected: boolean;
-  user: OceanAccountContextType['user'];
-}): OceanAccountContextType {
+function useOcean({ isConnected, user }: { isConnected: boolean; user: OceanAccountContextType['user'] }) {
   const provider = useMemo(() => {
     if (!isConnected) return null;
     return new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
@@ -40,8 +32,6 @@ function useAccountData({
   }, [provider]);
 
   return {
-    account: { address, isConnected },
-    client,
     provider,
     ocean,
     user,
@@ -51,19 +41,51 @@ function useAccountData({
 const SCAHandler = ({ children }: { children: ReactNode }) => {
   const user = useUser();
   const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { signMessageAsync } = useSignMessage({ client });
+
   const address = client?.account?.address ?? user?.address;
   const isConnected = !!client;
-  const accountData = useAccountData({ address, client, isConnected, user });
-  return <OceanAccountContext.Provider value={accountData}>{children}</OceanAccountContext.Provider>;
+  const { ocean, provider } = useOcean({ isConnected, user });
+
+  const signMessage = useCallback(
+    async (message: string) => {
+      return await signMessageAsync({ message });
+    },
+    [signMessageAsync]
+  );
+
+  return (
+    <OceanAccountContext.Provider
+      value={{ account: { address, isConnected }, client, ocean, provider, signMessage, user }}
+    >
+      {children}
+    </OceanAccountContext.Provider>
+  );
 };
 
 const EOAHandler = ({ children }: { children: ReactNode }) => {
   const user = useUser();
   const account = useAccount({ type: 'LightAccount' });
+
   const address = user?.address ?? account?.address;
   const isConnected = !!user || !!account?.address;
-  const accountData = useAccountData({ address, isConnected, user });
-  return <OceanAccountContext.Provider value={accountData}>{children}</OceanAccountContext.Provider>;
+  const { ocean, provider } = useOcean({ isConnected, user });
+
+  const signMessage = useCallback(
+    async (message: string) => {
+      if (address && provider) {
+        const signer = new JsonRpcSigner(provider, address);
+        return await signMessageWithEthers(message, signer);
+      }
+    },
+    [address, provider]
+  );
+
+  return (
+    <OceanAccountContext.Provider value={{ account: { address, isConnected }, ocean, provider, signMessage, user }}>
+      {children}
+    </OceanAccountContext.Provider>
+  );
 };
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {

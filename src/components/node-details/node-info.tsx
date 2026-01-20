@@ -5,7 +5,7 @@ import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node, NodeEligibility } from '@/types/nodes';
-import { useAuthModal, useSignMessage } from '@account-kit/react';
+import { useAuthModal } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
@@ -22,9 +22,8 @@ type NodeInfoProps = {
 const NodeInfo = ({ node }: NodeInfoProps) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
-  const { account, client, ocean } = useOceanAccount();
+  const { account, ocean, signMessage } = useOceanAccount();
   const { config, fetchConfig, pushConfig } = useP2P();
-  const { signMessageAsync } = useSignMessage({ client });
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
@@ -60,9 +59,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       return;
     }
     const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-    const signedMessage = await signMessageAsync({
-      message: timestamp.toString(),
-    });
+    const signedMessage = await signMessage(timestamp.toString());
 
     setFetchingConfig(true);
     try {
@@ -84,9 +81,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       return;
     }
     const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-    const signedMessage = await signMessageAsync({
-      message: timestamp.toString(),
-    });
+    const signedMessage = await signMessage(timestamp.toString());
 
     setPushingConfig(true);
     try {
