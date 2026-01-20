@@ -6,9 +6,10 @@ import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
-import { useAuthModal, useSignerStatus } from '@account-kit/react';
+import { useAuthModal } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
@@ -32,7 +33,8 @@ type ResourcesFormValues = {
 const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
   const { openAuthModal } = useAuthModal();
   const router = useRouter();
-  const { isAuthenticating, isDisconnected } = useSignerStatus();
+
+  const { account } = useOceanAccount();
 
   const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
 
@@ -61,7 +63,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       ram: minAllowedRam,
     },
     onSubmit: (values) => {
-      if (isDisconnected) {
+      if (!account?.isConnected) {
         openAuthModal();
         return;
       }
@@ -256,7 +258,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             </div>
           </Card>
         ) : null}
-        <Button className={styles.button} color="accent2" loading={isAuthenticating} size="lg" type="submit">
+        <Button className={styles.button} color="accent2" size="lg" type="submit">
           Continue
         </Button>
       </form>
