@@ -110,6 +110,14 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
   },
   {
+    field: 'gpus',
+    filterable: false,
+    flex: 1,
+    headerName: 'GPUs',
+    sortable: false,
+    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
+  },
+  {
     field: 'latestBenchmarkResults.totalScore',
     filterable: false,
     flex: 1,
@@ -119,14 +127,6 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
-  },
-  {
-    field: 'gpus',
-    filterable: false,
-    flex: 1,
-    headerName: 'GPUs',
-    sortable: false,
-    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
   },
   {
     field: 'location.region',
