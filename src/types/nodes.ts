@@ -40,6 +40,7 @@ export type Node = {
   };
   latestGpuScore: number;
   latestCpuScore: number;
+  latestTotalScore: number;
   location?: {
     region: string;
     ip: string;
