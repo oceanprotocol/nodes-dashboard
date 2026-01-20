@@ -3,12 +3,11 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import type { PeerId } from '@libp2p/interface';
+import type { Connection, PeerId } from '@libp2p/interface';
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
-import { all } from '@libp2p/websockets/filters';
 import { multiaddr, type Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
@@ -34,30 +33,33 @@ async function waitForBootstrapConnections(
 
   return new Promise((resolve, reject) => {
     const checkInterval = setInterval(() => {
-      const peers = node.getPeers();
+      const connections = node.getConnections();
       const elapsed = Date.now() - startTime;
 
-      console.log(`Bootstrap status: ${peers.length} peer(s) connected (need ${minConnections})`);
+      console.log(`Bootstrap status: ${connections.length} peer(s) connected (need ${minConnections})`);
 
-      if (peers.length >= minConnections) {
+      if (connections.length >= minConnections) {
         clearInterval(checkInterval);
+        console.log('peers', connections.map((conn) => conn.remotePeer.toString()));
+
         console.log('✓ Bootstrap connections established');
         resolve();
       } else if (elapsed >= timeout) {
         clearInterval(checkInterval);
         reject(
           new Error(
-            `Failed to establish minimum bootstrap connections (${peers.length}/${minConnections}) within ${timeout}ms`
+            `Failed to establish minimum bootstrap connections (${connections.length}/${minConnections}) within ${timeout}ms`
           )
         );
       }
     }, 1000);
 
     const onPeerConnect = () => {
-      const peers = node.getPeers();
-      if (peers.length >= minConnections) {
+      const connections = node.getConnections();
+      if (connections.length >= minConnections) {
         clearInterval(checkInterval);
         node.removeEventListener('peer:connect', onPeerConnect);
+        console.log('peers', connections.map((conn) => conn.remotePeer.toString()));
         console.log('✓ Bootstrap connections established');
         resolve();
       }
@@ -74,8 +76,8 @@ export async function initializeNode(bootstrapNodes: string[]) {
 
   try {
     nodeInstance = await createLibp2p({
-      transports: [webSockets({ filter: all })],
-      connectionEncryption: [noise()],
+      transports: [webSockets()],
+      connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
       peerDiscovery: [
         bootstrap({
@@ -100,13 +102,9 @@ export async function initializeNode(bootstrapNodes: string[]) {
         }),
       },
       connectionManager: {
-        minConnections: 2,
         maxConnections: 100,
         dialTimeout: DEFAULT_TIMEOUT,
-        autoDialInterval: 5000,
-        autoDialConcurrency: 500,
         maxPeerAddrsToDial: 25,
-        autoDialPeerRetryThreshold: 120000,
         maxParallelDials: 2500,
       },
     });
@@ -188,8 +186,11 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     if (peerData && peerData.addresses) {
       console.log(`Found ${peerData.addresses.length} addresses in peerStore`);
       for (const addr of peerData.addresses) {
-        if (!hasMultiAddr(addr.multiaddr, allMultiaddrs)) {
-          const normalized = normalizeMultiaddr(addr.multiaddr);
+        // Convert to string and back to ensure type compatibility
+        const addrStr = addr.multiaddr.toString();
+        const addrMultiaddr = multiaddr(addrStr);
+        if (!hasMultiAddr(addrMultiaddr, allMultiaddrs)) {
+          const normalized = normalizeMultiaddr(addrMultiaddr);
           if (normalized) {
             allMultiaddrs.push(normalized);
           }
@@ -211,8 +212,11 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
     if (peerInfo && peerInfo.multiaddrs) {
       console.log(`Found ${peerInfo.multiaddrs.length} addresses via DHT`);
       for (const addr of peerInfo.multiaddrs) {
-        if (!hasMultiAddr(addr, allMultiaddrs)) {
-          const normalized = normalizeMultiaddr(addr);
+        // Convert to string and back to ensure type compatibility
+        const addrStr = addr.toString();
+        const addrMultiaddr = multiaddr(addrStr);
+        if (!hasMultiAddr(addrMultiaddr, allMultiaddrs)) {
+          const normalized = normalizeMultiaddr(addrMultiaddr);
           if (normalized) {
             allMultiaddrs.push(normalized);
           }
@@ -288,11 +292,10 @@ export async function sendCommandToPeer(
       throw new Error('Node not ready - still establishing bootstrap connections');
     }
 
-    const discovered = await discoverPeerAddresses(nodeInstance, peerId);
 
-    let connection: any;
+    let connection: Connection;
     try {
-      connection = await nodeInstance.dial(discovered, {
+      connection = await nodeInstance.dial(peerIdFromString(peerId), {
         signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
       });
     } catch (error: unknown) {
@@ -302,50 +305,30 @@ export async function sendCommandToPeer(
 
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+      runOnLimitedConnection: true,
     });
 
-    const message = JSON.stringify(command);
-    const chunks: Uint8Array[] = [];
-
-    await stream.sink([uint8ArrayFromString(message)]);
-
-    let firstChunk = true;
-    for await (const chunk of stream.source) {
-      const chunkData = chunk.subarray();
-
-      if (firstChunk) {
-        firstChunk = false;
-        let parsed;
-
-        const str = uint8ArrayToString(chunkData);
-        parsed = JSON.parse(str);
-        if (parsed.httpStatus !== undefined) {
-          if (parsed.httpStatus >= 400) {
-            throw new Error(parsed.error);
-          }
-          continue;
-        }
-      }
-
-      chunks.push(chunkData);
+    if(!stream) {
+      throw new Error(`Failed to create stream to peer ${peerId}`);
     }
 
-    await stream.close();
+    stream.send(uint8ArrayFromString(JSON.stringify(command)))
+    await stream.close()
 
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const combined = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
+    const iterator = stream[Symbol.asyncIterator]()
+    const { done, value } = await iterator.next()
+
+    if (done || !value) {
+      return { status: { httpStatus: 500, error: 'No response from peer' } }
     }
 
-    try {
-      const str = uint8ArrayToString(combined);
-      return JSON.parse(str);
-    } catch (e) {
-      return combined;
+    let response;
+    for await (const chunk of stream) {
+      response = JSON.parse(uint8ArrayToString(chunk.subarray()))
     }
+
+
+    return response;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
