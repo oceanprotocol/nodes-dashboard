@@ -7,7 +7,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
 import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import styles from './unban-requests.module.css';
 
 type UnbanRequestsProps = {
@@ -19,20 +19,16 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   const { signMessageAsync } = useSignMessage({
     client,
   });
-
   const { openAuthModal } = useAuthModal();
-
   const { account, ocean } = useOceanAccount();
-
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
 
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (node?.id) {
-      fetchUnbanRequests(node.id);
-    }
-  }, [node?.id, fetchUnbanRequests]);
+  const isAdmin = useMemo(
+    () => node.allowedAdmins?.includes(account?.address as string),
+    [node.allowedAdmins, account]
+  );
 
   const handleRequestUnban = async () => {
     if (!account.isConnected) {
@@ -62,9 +58,11 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Unban requests</h3>
-        <Button color="accent1" loading={loading} onClick={handleRequestUnban}>
-          {loading ? 'Requesting...' : 'Request unban'}
-        </Button>
+        {isAdmin && (
+          <Button color="accent1" loading={loading} onClick={handleRequestUnban}>
+            {loading ? 'Requesting...' : 'Request unban'}
+          </Button>
+        )}
       </div>
       <Table<UnbanRequest> data={unbanRequests} paginationType="none" tableType={TableTypeEnum.UNBAN_REQUESTS} />
     </Card>
