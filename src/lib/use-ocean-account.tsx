@@ -2,7 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage as signMessageWithEthers } from '@/lib/sign-message';
-import { useAccount, useSignMessage, useSmartAccountClient, useUser, UseUserResult } from '@account-kit/react';
+import { useSignMessage, useSmartAccountClient, useUser, UseUserResult } from '@account-kit/react';
 import { ethers, JsonRpcSigner } from 'ethers';
 import { createContext, ReactNode, useCallback, useContext, useMemo } from 'react';
 
@@ -65,10 +65,9 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
 const EOAHandler = ({ children }: { children: ReactNode }) => {
   const user = useUser();
-  const account = useAccount({ type: 'LightAccount' });
 
-  const address = user?.address ?? account?.address;
-  const isConnected = !!user || !!account?.address;
+  const address = user?.address;
+  const isConnected = !!user;
   const { ocean, provider } = useOcean({ isConnected, user });
 
   const signMessage = useCallback(
@@ -90,7 +89,6 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
   const user = useUser();
-  console.log(user?.type);
   if (user?.type === 'sca') {
     return <SCAHandler>{children}</SCAHandler>;
   }
