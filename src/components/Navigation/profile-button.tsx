@@ -38,7 +38,7 @@ const ProfileButton = () => {
   };
 
   const accountName = useMemo(() => {
-    if (account.status === 'connected' && account.address) {
+    if (account.isConnected && account.address) {
       if (ensName) {
         return ensName;
       }
@@ -49,7 +49,7 @@ const ProfileButton = () => {
     return 'Not connected';
   }, [account, ensName]);
 
-  return isClient && account?.status === 'connected' ? (
+  return isClient && account?.isConnected ? (
     <>
       <Button
         className={styles.loginButton}

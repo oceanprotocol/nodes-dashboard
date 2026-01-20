@@ -16,7 +16,7 @@ const ProfileHeader = ({ role }: ProfileHeaderProps) => {
   const { ensName, ensProfile } = useProfileContext();
 
   const accountName = useMemo(() => {
-    if (account.status === 'connected' && account.address) {
+    if (account.isConnected && account.address) {
       if (ensName) {
         return ensName;
       }

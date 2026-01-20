@@ -3,7 +3,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeJob } from '@/types/jobs';
 import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
+import { useSignMessage } from '@account-kit/react';
 import DownloadIcon from '@mui/icons-material/Download';
 import JSZip from 'jszip';
 import { useState } from 'react';
@@ -14,13 +14,11 @@ interface DownloadLogsButtonProps {
 }
 
 export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
+  const { account, client } = useOceanAccount();
   const { getComputeResult, isReady } = useP2P();
+  const { signMessageAsync } = useSignMessage({ client });
+
   const [isDownloading, setIsDownloading] = useState(false);
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-  const { account } = useOceanAccount();
 
   const handleDownload = async () => {
     if (!isReady || isDownloading || !account?.address) return;
@@ -32,7 +30,7 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
 
       const logFiles = job.results.filter((result: any) => result.filename.includes('.log'));
       const logPromises = logFiles.map((logFile: any) =>
-        getComputeResult(job.peerId, jobId, logFile.index, authToken, account.address)
+        getComputeResult(job.peerId, jobId, logFile.index, authToken, account.address!)
       );
 
       const downloadedLogs = await Promise.all(logPromises);

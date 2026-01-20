@@ -1,6 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
-import { useSendUserOperation, useSmartAccountClient } from '@account-kit/react';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -30,11 +31,11 @@ export interface UseAuthorizeTokensReturn {
 }
 
 export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {}): UseAuthorizeTokensReturn => {
+  const { client } = useOceanAccount();
+
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [error, setError] = useState<string>();
   const chainId = CHAIN_ID;
-
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
 
   const handleSuccess = () => {
     setIsAuthorizing(false);

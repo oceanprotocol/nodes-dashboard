@@ -5,7 +5,7 @@ import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node, NodeEligibility } from '@/types/nodes';
-import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
+import { useAuthModal, useSignMessage } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
@@ -20,13 +20,11 @@ type NodeInfoProps = {
 };
 
 const NodeInfo = ({ node }: NodeInfoProps) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
   const { openAuthModal } = useAuthModal();
-  const { account, ocean } = useOceanAccount();
+
+  const { account, client, ocean } = useOceanAccount();
   const { config, fetchConfig, pushConfig } = useP2P();
+  const { signMessageAsync } = useSignMessage({ client });
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);

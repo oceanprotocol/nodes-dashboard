@@ -6,7 +6,7 @@ import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
-import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
+import { useAuthModal, useSignMessage } from '@account-kit/react';
 import { useEffect, useState } from 'react';
 import styles from './unban-requests.module.css';
 
@@ -15,14 +15,10 @@ type UnbanRequestsProps = {
 };
 
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-
   const { openAuthModal } = useAuthModal();
 
-  const { account, ocean } = useOceanAccount();
+  const { account, client, ocean } = useOceanAccount();
+  const { signMessageAsync } = useSignMessage({ client });
 
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
 

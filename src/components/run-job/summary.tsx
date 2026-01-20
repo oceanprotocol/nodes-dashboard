@@ -7,7 +7,7 @@ import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
+import { useSignMessage } from '@account-kit/react';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
@@ -31,12 +31,8 @@ const Summary = ({
   selectedResources,
   token,
 }: SummaryProps) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-
   const { account, ocean } = useOceanAccount();
+  const { signMessageAsync } = useSignMessage({ client: { account: { address: account.address as `0x${string}` } } });
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,

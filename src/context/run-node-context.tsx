@@ -1,6 +1,6 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
+import { useSignMessage } from '@account-kit/react';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -20,13 +20,10 @@ type RunNodeContextType = {
 const RunNodeContext = createContext<RunNodeContextType | undefined>(undefined);
 
 export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-
-  const { account } = useOceanAccount();
   const { fetchConfig: p2pFetchConfig, pushConfig: p2pPushConfig, sendCommand } = useP2P();
+
+  const { account, client } = useOceanAccount();
+  const { signMessageAsync } = useSignMessage({ client });
 
   const [configErrors, setConfigErrors] = useState<string[]>([]);
   const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(null);

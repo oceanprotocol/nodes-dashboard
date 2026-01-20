@@ -8,6 +8,7 @@ import { StatsProvider } from '@/context/stats-context';
 import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
 import { AlchemyProvider } from '@/lib/alchemy-provider';
+import { OceanAccountProvider } from '@/lib/use-ocean-account';
 import '@/styles/globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
@@ -45,25 +46,27 @@ export default function App({ Component, pageProps }: AppProps) {
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
         <AlchemyProvider>
-          <NodesProvider>
-            <UnbanRequestsProvider>
-              <ProfileProvider>
-                <StatsProvider>
-                  <P2PProvider>
-                    <RunJobEnvsProvider>
-                      <RunJobProvider>
-                        <RunNodeProvider>
-                          <RootLayout>
-                            <Component {...pageProps} />
-                          </RootLayout>
-                        </RunNodeProvider>
-                      </RunJobProvider>
-                    </RunJobEnvsProvider>
-                  </P2PProvider>
-                </StatsProvider>
-              </ProfileProvider>
-            </UnbanRequestsProvider>
-          </NodesProvider>
+          <OceanAccountProvider>
+            <NodesProvider>
+              <UnbanRequestsProvider>
+                <ProfileProvider>
+                  <StatsProvider>
+                    <P2PProvider>
+                      <RunJobEnvsProvider>
+                        <RunJobProvider>
+                          <RunNodeProvider>
+                            <RootLayout>
+                              <Component {...pageProps} />
+                            </RootLayout>
+                          </RunNodeProvider>
+                        </RunJobProvider>
+                      </RunJobEnvsProvider>
+                    </P2PProvider>
+                  </StatsProvider>
+                </ProfileProvider>
+              </UnbanRequestsProvider>
+            </NodesProvider>
+          </OceanAccountProvider>
         </AlchemyProvider>
         <ToastContainer hideProgressBar theme="colored" />
       </QueryClientProvider>
