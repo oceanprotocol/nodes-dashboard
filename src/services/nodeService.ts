@@ -3,7 +3,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import type { PeerId } from '@libp2p/interface';
+import type { Connection, PeerId } from '@libp2p/interface';
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
@@ -292,11 +292,10 @@ export async function sendCommandToPeer(
       throw new Error('Node not ready - still establishing bootstrap connections');
     }
 
-    const discovered = await discoverPeerAddresses(nodeInstance, peerId);
 
-    let connection: any;
+    let connection: Connection;
     try {
-      connection = await nodeInstance.dial(discovered, {
+      connection = await nodeInstance.dial(peerIdFromString(peerId), {
         signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
       });
     } catch (error: unknown) {
@@ -306,85 +305,30 @@ export async function sendCommandToPeer(
 
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+      runOnLimitedConnection: true,
     });
 
-    const message = JSON.stringify(command);
-    const chunks: Uint8Array[] = [];
-
-    // Send message using v3 event-based API
-    const messageBytes = uint8ArrayFromString(message);
-    const sent = stream.send(messageBytes);
-    if (!sent) {
-      // Wait for drain event if buffer is full
-      await new Promise<void>((resolve) => {
-        stream.addEventListener('drain', () => resolve(), { once: true });
-      });
-      stream.send(messageBytes);
+    if(!stream) {
+      throw new Error(`Failed to create stream to peer ${peerId}`);
     }
 
-    // Read response using v3 event-based API
-    let firstChunk = true;
-    const readPromise = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        stream.removeEventListener('message', messageHandler);
-        stream.removeEventListener('close', closeHandler);
-        reject(new Error('Stream read timeout'));
-      }, DEFAULT_TIMEOUT);
+    stream.send(uint8ArrayFromString(JSON.stringify(command)))
+    await stream.close()
 
-      const messageHandler = (event: Event) => {
-        const chunk = (event as CustomEvent<Uint8Array>).detail;
-        const chunkData = chunk.subarray();
+    const iterator = stream[Symbol.asyncIterator]()
+    const { done, value } = await iterator.next()
 
-        if (firstChunk) {
-          firstChunk = false;
-          let parsed;
-
-          const str = uint8ArrayToString(chunkData);
-          parsed = JSON.parse(str);
-          if (parsed.httpStatus !== undefined) {
-            if (parsed.httpStatus >= 400) {
-              clearTimeout(timeout);
-              stream.removeEventListener('message', messageHandler);
-              stream.removeEventListener('close', closeHandler);
-              reject(new Error(parsed.error));
-              return;
-            }
-            // Skip this chunk if it's just a status message
-            return;
-          }
-        }
-
-        chunks.push(chunkData);
-      };
-
-      const closeHandler = () => {
-        clearTimeout(timeout);
-        stream.removeEventListener('message', messageHandler);
-        stream.removeEventListener('close', closeHandler);
-        resolve();
-      };
-
-      stream.addEventListener('message', messageHandler);
-      stream.addEventListener('close', closeHandler);
-    });
-
-    await readPromise;
-    stream.close();
-
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const combined = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
+    if (done || !value) {
+      return { status: { httpStatus: 500, error: 'No response from peer' } }
     }
 
-    try {
-      const str = uint8ArrayToString(combined);
-      return JSON.parse(str);
-    } catch (e) {
-      return combined;
+    let response;
+    for await (const chunk of stream) {
+      response = JSON.parse(uint8ArrayToString(chunk.subarray()))
     }
+
+
+    return response;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
