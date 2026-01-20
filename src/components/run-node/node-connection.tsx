@@ -7,6 +7,7 @@ import { useAuthModal } from '@account-kit/react';
 import LinkIcon from '@mui/icons-material/Link';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
+import { useEffect } from 'react';
 import * as Yup from 'yup';
 import styles from './node-connection.module.css';
 
@@ -15,11 +16,20 @@ type ConnectFormValues = {
 };
 
 const NodeConnection = () => {
-  const { openAuthModal } = useAuthModal();
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account } = useOceanAccount();
 
   const { clearRunNodeSelection, connectToNode, peerId } = useRunNodeContext();
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   const isConnected = !!peerId;
 

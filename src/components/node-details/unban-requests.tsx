@@ -15,7 +15,7 @@ type UnbanRequestsProps = {
 };
 
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
-  const { openAuthModal } = useAuthModal();
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, client, ocean } = useOceanAccount();
   const { signMessageAsync } = useSignMessage({ client });
@@ -23,6 +23,15 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
 
   const [loading, setLoading] = useState(false);
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     if (node?.id) {

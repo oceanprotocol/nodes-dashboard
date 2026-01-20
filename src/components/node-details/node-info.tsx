@@ -20,7 +20,7 @@ type NodeInfoProps = {
 };
 
 const NodeInfo = ({ node }: NodeInfoProps) => {
-  const { openAuthModal } = useAuthModal();
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, client, ocean } = useOceanAccount();
   const { config, fetchConfig, pushConfig } = useP2P();
@@ -35,6 +35,15 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     () => node.allowedAdmins?.includes(account?.address as string),
     [node.allowedAdmins, account]
   );
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     if (config) {

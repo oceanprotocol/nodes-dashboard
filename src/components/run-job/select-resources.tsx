@@ -12,7 +12,7 @@ import { formatNumber } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
 
@@ -31,7 +31,7 @@ type ResourcesFormValues = {
 };
 
 const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
-  const { openAuthModal } = useAuthModal();
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
   const router = useRouter();
 
   const { account } = useOceanAccount();
@@ -43,6 +43,15 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     freeCompute,
     tokenAddress: token.address,
   });
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   const minAllowedCpuCores = cpu?.min ?? 1;
   const minAllowedDiskSpace = disk?.min ?? 0;

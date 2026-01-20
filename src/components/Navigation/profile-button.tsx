@@ -13,9 +13,10 @@ import Button from '../button/button';
 import styles from './navigation.module.css';
 
 const ProfileButton = () => {
-  const { openAuthModal } = useAuthModal();
-  const { logout, isLoggingOut } = useLogout();
   const router = useRouter();
+
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+  const { logout, isLoggingOut } = useLogout();
   const { isAuthenticating, isInitializing } = useSignerStatus();
 
   const { account } = useOceanAccount();
@@ -24,6 +25,15 @@ const ProfileButton = () => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     setIsClient(true);
