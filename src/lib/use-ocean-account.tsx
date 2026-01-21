@@ -14,13 +14,13 @@ type OceanAccountContextType = {
   client?: ReturnType<typeof useSmartAccountClient>['client'];
   provider: ethers.JsonRpcProvider | null;
   ocean: OceanProvider | null;
-  signMessage: (message: string) => Promise<string | undefined>;
+  signMessage: (message: string) => Promise<string>;
   user: UseUserResult;
 };
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
-function useOcean({ isConnected, user }: { isConnected: boolean; user: OceanAccountContextType['user'] }) {
+function useOceanProvider({ isConnected, user }: { isConnected: boolean; user: OceanAccountContextType['user'] }) {
   const provider = useMemo(() => {
     if (!isConnected) return null;
     return new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
@@ -45,7 +45,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
   const address = client?.account?.address ?? user?.address;
   const isConnected = !!client;
-  const { ocean, provider } = useOcean({ isConnected, user });
+  const { ocean, provider } = useOceanProvider({ isConnected, user });
 
   const signMessage = useCallback(
     async (message: string) => {
@@ -68,14 +68,15 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
   const address = user?.address;
   const isConnected = !!user;
-  const { ocean, provider } = useOcean({ isConnected, user });
+  const { ocean, provider } = useOceanProvider({ isConnected, user });
 
   const signMessage = useCallback(
     async (message: string) => {
-      if (address && provider) {
-        const signer = new JsonRpcSigner(provider, address);
-        return await signMessageWithEthers(message, signer);
+      if (!address || !provider) {
+        throw new Error('No signer available');
       }
+      const signer = new JsonRpcSigner(provider, address);
+      return await signMessageWithEthers(message, signer);
     },
     [address, provider]
   );

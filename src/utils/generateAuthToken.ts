@@ -3,7 +3,7 @@ import { createAuthToken, getNonce } from '@/services/nodeService';
 export async function generateAuthTokenWithSmartAccount(
   peerId: string,
   address: string,
-  signMessage: (message: string) => Promise<string | void>
+  signMessage: (message: string) => Promise<string>
 ) {
   const nonce = await getNonce(peerId, address);
   const incrementedNonce = (nonce + 1).toString();

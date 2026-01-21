@@ -58,11 +58,10 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     if (!ocean || !node?.id) {
       return;
     }
-    const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-    const signedMessage = await signMessage(timestamp.toString());
-
     setFetchingConfig(true);
     try {
+      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+      const signedMessage = await signMessage(timestamp.toString());
       await fetchConfig(node.id, signedMessage, timestamp, account.address as string);
     } catch (error) {
       console.error('Error fetching node config :', error);
@@ -80,11 +79,10 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     if (!ocean || !node?.id) {
       return;
     }
-    const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-    const signedMessage = await signMessage(timestamp.toString());
-
     setPushingConfig(true);
     try {
+      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+      const signedMessage = await signMessage(timestamp.toString());
       await pushConfig(node.id, signedMessage, timestamp, config, account.address as string);
       success = true;
     } catch (error) {
