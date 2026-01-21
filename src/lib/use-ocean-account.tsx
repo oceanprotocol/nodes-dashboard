@@ -21,7 +21,7 @@ type OceanAccountContextType = {
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
-function useOceanProvider({ isConnected, user }: { isConnected: boolean; user: OceanAccountContextType['user'] }) {
+function useOceanProvider({ isConnected }: { isConnected: boolean }) {
   const provider = useMemo(() => {
     if (!isConnected) return null;
     return new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
@@ -35,7 +35,6 @@ function useOceanProvider({ isConnected, user }: { isConnected: boolean; user: O
   return {
     provider,
     ocean,
-    user,
   };
 }
 
@@ -46,7 +45,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
   const address = client?.account?.address ?? user?.address;
   const isConnected = !!client;
-  const { ocean, provider } = useOceanProvider({ isConnected, user });
+  const { ocean, provider } = useOceanProvider({ isConnected });
 
   const signMessage = useCallback(
     async (message: string) => {
@@ -69,7 +68,7 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
   const address = user?.address;
   const isConnected = !!user;
-  const { ocean, provider } = useOceanProvider({ isConnected, user });
+  const { ocean, provider } = useOceanProvider({ isConnected });
 
   const signMessage = useCallback(
     async (message: string) => {
