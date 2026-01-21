@@ -16,6 +16,7 @@ type AuthorizeFormValues = {
 
 type PaymentAuthorizeProps = {
   // authorizations: any;
+  loadingAuthorizations: boolean;
   loadPaymentInfo: () => void;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
@@ -25,6 +26,7 @@ type PaymentAuthorizeProps = {
 
 const PaymentAuthorize = ({
   // authorizations,
+  loadingAuthorizations,
   loadPaymentInfo,
   selectedEnv,
   selectedResources,
@@ -106,7 +108,13 @@ const PaymentAuthorize = ({
           value={formik.values.maxLockCount}
         />
       </div>
-      <Button className="alignSelfEnd" color="accent2" loading={isAuthorizing} size="lg" type="submit">
+      <Button
+        className="alignSelfEnd"
+        color="accent2"
+        loading={loadingAuthorizations || isAuthorizing}
+        size="lg"
+        type="submit"
+      >
         Authorize
       </Button>
     </form>

@@ -28,7 +28,7 @@ export interface UseDepositTokensReturn {
 }
 
 export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): UseDepositTokensReturn => {
-  const { client } = useOceanAccount();
+  const { client, ocean, user } = useOceanAccount();
 
   const [isDepositing, setIsDepositing] = useState(false);
   const [error, setError] = useState<string>();
@@ -37,7 +37,7 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
   const chainId = CHAIN_ID;
 
   const handleSuccess = () => {
-    if (currentStep === 'approving' && pendingParams) {
+    if (currentStep === 'approving' && pendingParams && user?.type !== 'eoa') {
       setCurrentStep('depositing');
       performDeposit(pendingParams.tokenAddress, pendingParams.amount);
     } else {
@@ -130,6 +130,21 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
 
   const handleDeposit = useCallback(
     async ({ tokenAddress, amount }: DepositTokensParams) => {
+      if (user?.type === 'eoa') {
+        try {
+          setIsDepositing(true);
+          if (!ocean) {
+            return;
+          }
+          const tx = await ocean.depositTokensEoa({ tokenAddress, amount });
+          await tx.wait();
+          handleSuccess();
+        } catch (error) {
+          handleError(error as Error);
+        }
+        return;
+      }
+
       if (!client) {
         setError('Wallet not connected');
         toast.error('Wallet not connected');
@@ -183,7 +198,7 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         setPendingParams(null);
       }
     },
-    [client, sendUserOperation, chainId]
+    [user?.type, client, ocean, sendUserOperation, chainId]
   );
 
   const transactionUrl = useMemo(() => {

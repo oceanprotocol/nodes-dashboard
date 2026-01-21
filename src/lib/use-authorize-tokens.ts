@@ -31,7 +31,7 @@ export interface UseAuthorizeTokensReturn {
 }
 
 export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {}): UseAuthorizeTokensReturn => {
-  const { client } = useOceanAccount();
+  const { client, ocean, user } = useOceanAccount();
 
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [error, setError] = useState<string>();
@@ -64,6 +64,27 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
 
   const handleAuthorize = useCallback(
     async ({ tokenAddress, spender, maxLockedAmount, maxLockSeconds, maxLockCount }: AuthorizeTokensParams) => {
+      if (user?.type === 'eoa') {
+        try {
+          setIsAuthorizing(true);
+          if (!ocean) {
+            return;
+          }
+          const tx = await ocean.authorizeTokensEoa({
+            tokenAddress,
+            spender,
+            maxLockedAmount,
+            maxLockSeconds,
+            maxLockCount,
+          });
+          await tx.wait();
+          handleSuccess();
+        } catch (error) {
+          handleError(error as Error);
+        }
+        return;
+      }
+
       if (!client) {
         setError('Wallet not connected');
         toast.error('Wallet not connected');
@@ -117,7 +138,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
         setIsAuthorizing(false);
       }
     },
-    [client, sendUserOperation, chainId]
+    [user?.type, client, ocean, sendUserOperation, chainId]
   );
 
   const transactionUrl = useMemo(() => {

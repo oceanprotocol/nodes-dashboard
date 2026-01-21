@@ -9,9 +9,9 @@ import { ethers } from 'ethers';
 
 export class OceanProvider {
   private chainId: number;
-  private provider: ethers.JsonRpcProvider;
+  private provider: ethers.BrowserProvider | ethers.JsonRpcProvider;
 
-  constructor(chainId: number, provider: ethers.JsonRpcProvider) {
+  constructor(chainId: number, provider: ethers.BrowserProvider | ethers.JsonRpcProvider) {
     this.chainId = chainId;
     this.provider = provider;
   }
@@ -114,6 +114,10 @@ export class OceanProvider {
   }
 
   async getAuthorizations(tokenAddress: string, payer: string, payee: string) {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer) || !ethers.isAddress(payee)) {
+      console.error('Invalid address passed to getAuthorizations', { tokenAddress, payer, payee });
+      return null;
+    }
     const escrow = await this.getEscrowContract(this.chainId);
     const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
     const authorizations = await escrow.getAuthorizations(tokenAddress, payer, payee);
@@ -138,6 +142,56 @@ export class OceanProvider {
     const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
     const balanceString = this.denominateNumber(availableFunds.toString(), tokenDecimals);
     return parseFloat(balanceString);
+  }
+
+  async authorizeTokensEoa({
+    tokenAddress,
+    spender,
+    maxLockedAmount,
+    maxLockSeconds,
+    maxLockCount,
+  }: {
+    tokenAddress: string;
+    spender: string;
+    maxLockedAmount: string;
+    maxLockSeconds: string;
+    maxLockCount: string;
+  }): Promise<any> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(spender)) {
+      console.error('Invalid address passed to authorizeTokensEoa', { tokenAddress, spender });
+      throw new Error('Invalid address');
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const normalizedMaxLockedAmount = this.normalizeNumber(maxLockedAmount, tokenDecimals);
+    console.log({ normalizedMaxLockedAmount, maxLockSeconds, maxLockCount });
+    const signer = await this.provider.getSigner();
+    const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
+    const authorize = await escrowWithSigner.authorize(
+      tokenAddress,
+      spender,
+      normalizedMaxLockedAmount,
+      maxLockSeconds,
+      maxLockCount
+    );
+    return authorize;
+  }
+
+  async depositTokensEoa({ tokenAddress, amount }: { tokenAddress: string; amount: string }): Promise<any> {
+    if (!ethers.isAddress(tokenAddress)) {
+      console.error('Invalid address passed to depositTokensEoa', { tokenAddress });
+      throw new Error('Invalid address');
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const normalizedAmount = this.normalizeNumber(amount, tokenDecimals);
+    const signer = await this.provider.getSigner();
+    const token = new ethers.Contract(tokenAddress, ERC20Template.abi, signer);
+    const approve = await token.approve(escrow.target, normalizedAmount);
+    await approve.wait();
+    const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
+    const deposit = await escrowWithSigner.deposit(tokenAddress, normalizedAmount);
+    return deposit;
   }
 
   async getNonce(address: string, peerId: string): Promise<number> {
