@@ -2,7 +2,8 @@ import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage as signMessageWithEthers } from '@/lib/sign-message';
-import { useSignMessage, useSmartAccountClient, useUser, UseUserResult } from '@account-kit/react';
+import { useSignerStatus, useSignMessage, useSmartAccountClient, useUser, UseUserResult } from '@account-kit/react';
+import { CircularProgress } from '@mui/material';
 import { ethers, JsonRpcSigner } from 'ethers';
 import { createContext, ReactNode, useCallback, useContext, useMemo } from 'react';
 
@@ -90,7 +91,15 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
   const user = useUser();
+  const { isInitializing, isAuthenticating, isConnected } = useSignerStatus();
   if (user?.type === 'sca') {
+    if (isInitializing || isAuthenticating || !isConnected) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+          <CircularProgress />
+        </div>
+      );
+    }
     return <SCAHandler>{children}</SCAHandler>;
   }
   return <EOAHandler>{children}</EOAHandler>;

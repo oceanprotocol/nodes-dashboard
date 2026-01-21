@@ -2,7 +2,7 @@ import Avatar from '@/components/avatar/avatar';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
-import { useAuthModal, useLogout, useSignerStatus } from '@account-kit/react';
+import { useAuthModal, useLogout } from '@account-kit/react';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import WalletIcon from '@mui/icons-material/Wallet';
@@ -16,8 +16,7 @@ const ProfileButton = () => {
   const router = useRouter();
 
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
-  const { logout, isLoggingOut } = useLogout();
-  const { isAuthenticating, isInitializing } = useSignerStatus();
+  const { isLoggingOut, logout } = useLogout();
 
   const { account } = useOceanAccount();
 
@@ -128,11 +127,7 @@ const ProfileButton = () => {
       </Menu>
     </>
   ) : (
-    <Button
-      className={styles.loginButton}
-      loading={isAuthenticating || isInitializing || isLoggingOut}
-      onClick={openAuthModal}
-    >
+    <Button className={styles.loginButton} loading={isLoggingOut} onClick={openAuthModal}>
       Log in
     </Button>
   );
