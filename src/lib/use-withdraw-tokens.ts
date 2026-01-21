@@ -28,7 +28,7 @@ export interface UseWithdrawTokensReturn {
 }
 
 export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): UseWithdrawTokensReturn => {
-  const { client } = useOceanAccount();
+  const { client, ocean, user } = useOceanAccount();
 
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [error, setError] = useState<string>();
@@ -78,6 +78,21 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
 
   const handleWithdraw = useCallback(
     async ({ tokenAddresses, amounts }: WithdrawTokensParams) => {
+      if (user?.type === 'eoa') {
+        try {
+          setIsWithdrawing(true);
+          if (!ocean) {
+            return;
+          }
+          const tx = await ocean.withdrawTokensEoa({ tokenAddresses, amounts });
+          await tx.wait();
+          handleSuccess();
+        } catch (error) {
+          handleError(error as Error);
+        }
+        return;
+      }
+
       if (!client) return;
       if (tokenAddresses.length !== amounts.length) return;
 
@@ -118,7 +133,7 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
         setIsWithdrawing(false);
       }
     },
-    [client, sendUserOperation, chainId]
+    [user?.type, client, ocean, sendUserOperation, chainId]
   );
 
   const transactionUrl = useMemo(() => {
