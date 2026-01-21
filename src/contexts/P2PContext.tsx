@@ -106,7 +106,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Node not ready');
       }
       const result = await getNodeEnvs(peerId);
-
       setEnvs(result as ComputeEnvironment[]);
     },
     [isReady, node]
