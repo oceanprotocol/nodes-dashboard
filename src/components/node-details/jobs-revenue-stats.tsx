@@ -28,15 +28,25 @@ const JobsRevenueStats = () => {
     fetchNodeBenchmarkMinMaxLast();
   }, [fetchNodeBenchmarkMinMaxLast]);
 
-  const runningAndTotalJobs = useMemo(() => {
+  const queuedJobsData = useMemo(() => {
+    let totalQueuedJobs = 0;
     let totalRunningJobs = 0;
-    let totalJobs = 0;
+    let totalWaitTimeSeconds = 0;
+
     for (const env of envs) {
+      totalQueuedJobs += (env.queuedJobs ?? 0) + (env.queuedFreeJobs ?? 0);
       totalRunningJobs += (env.runningJobs ?? 0) + (env.runningFreeJobs ?? 0);
-      totalJobs += (env.queuedJobs ?? 0) + totalRunningJobs;
+      totalWaitTimeSeconds +=
+        (env.queMaxWaitTime ?? 0) +
+        (env.queMaxWaitTimeFree ?? 0) +
+        (env.runMaxWaitTime ?? 0) +
+        (env.runMaxWaitTimeFree ?? 0);
     }
 
-    return [totalJobs, totalRunningJobs];
+    const jobCount = totalQueuedJobs + totalRunningJobs;
+    const totalDurationHours = totalWaitTimeSeconds / 3600;
+
+    return { jobCount, totalDurationHours };
   }, [envs]);
 
   return (
@@ -53,7 +63,15 @@ const JobsRevenueStats = () => {
           label: 'Total revenue',
         }}
       />
-      <Gauge label="Running" max={runningAndTotalJobs[0]} min={0} title="Queued jobs" value={runningAndTotalJobs[1]} />
+      <Gauge
+        centerLabel="Jobs"
+        centerValue={queuedJobsData.jobCount}
+        max={24}
+        min={0}
+        title="Ongoing jobs"
+        value={queuedJobsData.totalDurationHours}
+        valueSuffix="h"
+      />
       <Gauge
         label="Latest"
         max={benchmarkValues.maxGPUScore || 0}
