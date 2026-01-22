@@ -35,13 +35,15 @@ const PaymentAuthorize = ({
 }: PaymentAuthorizeProps) => {
   const { handleAuthorize, isAuthorizing } = useAuthorizeTokens({ onSuccess: loadPaymentInfo });
 
+  const maxJobDurationSec = selectedResources.maxJobDurationHours * 60 * 60;
+
   const formik = useFormik<AuthorizeFormValues>({
     enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
       maxLockedAmount: totalCost,
       maxLockCount: 10,
-      maxLockSeconds: selectedResources.maxJobDurationHours * 60 * 60,
+      maxLockSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
     },
     onSubmit: async (values) => {
       handleAuthorize({
@@ -53,7 +55,11 @@ const PaymentAuthorize = ({
       });
     },
     validateOnMount: true,
-    validationSchema: Yup.object({}),
+    validationSchema: Yup.object({
+      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
+      maxLockCount: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
+      maxLockedAmount: Yup.number().required('Required'),
+    }),
   });
 
   return (
