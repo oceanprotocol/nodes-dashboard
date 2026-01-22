@@ -1,6 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
+import { signMessage } from '@/lib/sign-message';
 import { useSignerStatus, useSignMessage, useSmartAccountClient, useUser, UseUserResult } from '@account-kit/react';
 import { CircularProgress } from '@mui/material';
 import { ethers } from 'ethers';
@@ -38,7 +39,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
     return new OceanProvider(CHAIN_ID, provider);
   }, [provider]);
 
-  const signMessage = useCallback(
+  const signMessageWrapper = useCallback(
     async (message: string) => {
       return await signMessageAsync({ message });
     },
@@ -52,7 +53,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
         client,
         ocean,
         provider,
-        signMessage,
+        signMessage: signMessageWrapper,
         user,
       }}
     >
@@ -79,19 +80,21 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
     return new OceanProvider(CHAIN_ID, provider);
   }, [provider]);
 
-  const signMessage = useCallback(
+  const signMessageWrapper = useCallback(
     async (message: string) => {
       if (!address || !provider) {
         throw new Error('No signer available');
       }
       const signer = await provider.getSigner();
-      return await signer.signMessage(message);
+      return await signMessage(message, signer);
     },
     [address, provider]
   );
 
   return (
-    <OceanAccountContext.Provider value={{ account: { address, isConnected }, ocean, provider, signMessage, user }}>
+    <OceanAccountContext.Provider
+      value={{ account: { address, isConnected }, ocean, provider, signMessage: signMessageWrapper, user }}
+    >
       {children}
     </OceanAccountContext.Provider>
   );
