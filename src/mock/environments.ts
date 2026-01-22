@@ -61,6 +61,8 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
     queuedFreeJobs: 0,
     queMaxWaitTime: 0,
     queMaxWaitTimeFree: 0,
+    runMaxWaitTime: 0,
+    runMaxWaitTimeFree: 0,
     storageExpiry: 604800,
     maxJobDuration: 7200,
     resources: [
@@ -182,6 +184,8 @@ export const MOCK_ENVS: ComputeEnvironment[] = [
     queuedFreeJobs: 0,
     queMaxWaitTime: 0,
     queMaxWaitTimeFree: 0,
+    runMaxWaitTime: 0,
+    runMaxWaitTimeFree: 0,
     storageExpiry: 604800,
     maxJobDuration: 7200,
     resources: [

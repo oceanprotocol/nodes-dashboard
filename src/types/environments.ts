@@ -43,6 +43,8 @@ export type ComputeEnvironment = {
   };
   queMaxWaitTime: number;
   queMaxWaitTimeFree?: number;
+  runMaxWaitTime: number;
+  runMaxWaitTimeFree?: number;
   queuedFreeJobs?: number;
   queuedJobs: number;
   resources?: ComputeResource[];
