@@ -184,7 +184,11 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const fetchNodeEnv = useCallback(async (peerId: string, envId: string) => {
     try {
       const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`);
-      const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
+      const sanitizedData = response.data.nodes?.map((element: any) => element._source)[0];
+      if (!sanitizedData?.computeEnvironments?.environments) {
+        console.warn('No compute environments found for node:', peerId);
+        return;
+      }
       const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId);
       setEnvironment(env);
       setNodeInfo({ id: sanitizedData.id, friendlyName: sanitizedData.friendlyName });

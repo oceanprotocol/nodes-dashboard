@@ -1,11 +1,109 @@
 import { TableContextType } from '@/components/table/context-type';
-import { getApiRoute } from '@/config';
-import { FilterOperator, JobsFilters } from '@/types/filters';
 import { ComputeJob } from '@/types/jobs';
 import { formatDateTime } from '@/utils/formatters';
-import { GridFilterModel } from '@mui/x-data-grid';
-import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+
+const MOCK_JOBS = [
+  {
+    owner: '0xD8127C2896F6D6aB77aa7F89fa4eA4a45a802EB5',
+    peerId: '16Uiu2HAm94yL3Sjem2piKmGkiHCdJyTn3F3aWueZTXKT38ekjuzr',
+    did: null,
+    jobId: 'eeb410d076969a73df41dfb9bd396f970927db82a0a7e38896ea15482cd5bed0',
+    dateCreated: '1769093457.444',
+    dateFinished: '1769093488.242',
+    status: 70,
+    statusText: 'Job finished',
+    results: [
+      {
+        filename: 'image.log',
+        filesize: 657,
+        type: 'imageLog',
+        index: 0,
+      },
+      {
+        filename: 'configuration.log',
+        filesize: 324,
+        type: 'configurationLog',
+        index: 1,
+      },
+      {
+        filename: 'algorithm.log',
+        filesize: 73,
+        type: 'algorithmLog',
+        index: 2,
+      },
+      {
+        filename: 'outputs.tar',
+        filesize: 2560,
+        type: 'output',
+        index: 3,
+      },
+    ],
+    inputDID: null,
+    algoDID: null,
+    agreementId: null,
+    environment:
+      '0xbdb567c65546d4cea59bf78a2e21945440f43c7ce7a1904311629c76bd0926de-0x889acb9c95c773972d7013201c01eba96315bb4be7e18926ceaf40716c438e07',
+    stopRequested: false,
+    resources: [
+      {
+        id: 'cpu',
+        amount: 1,
+      },
+      {
+        id: 'ram',
+        amount: 1,
+      },
+      {
+        id: 'disk',
+        amount: 1,
+      },
+      {
+        id: 'gpu0',
+        amount: 1,
+      },
+      {
+        id: 'gpu1',
+        amount: 0,
+      },
+      {
+        id: 'gpu2',
+        amount: 0,
+      },
+      {
+        id: 'gpu3',
+        amount: 0,
+      },
+      {
+        id: 'gpu4',
+        amount: 0,
+      },
+      {
+        id: 'gpu5',
+        amount: 0,
+      },
+      {
+        id: 'gpu6',
+        amount: 0,
+      },
+      {
+        id: 'gpu7',
+        amount: 0,
+      },
+    ],
+    isFree: true,
+    algoStartTimestamp: '1769093481.196',
+    algoStopTimestamp: '1769093486.21',
+    terminationDetails: {
+      exitCode: 0,
+      OOMKilled: false,
+    },
+    payment: null,
+    algoDuration: 5.013999938964844,
+    queueMaxWaitTime: 0,
+    maxJobDuration: 7200,
+  },
+];
 
 type CtxType = TableContextType<ComputeJob>;
 
@@ -23,56 +121,14 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({});
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
 
-  const buildFilterParams = (filters: JobsFilters): string => {
-    const filtersObject: Record<string, { operator: string; value: any }> = {};
-
-    if (!filters || Object.keys(filters).length === 0)
-      return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
-
-    Object.entries(filters).forEach(([field, filterData]) => {
-      if (filterData?.value !== undefined && filterData?.operator) {
-        filtersObject[field] = {
-          operator: filterData.operator,
-          value: filterData.value,
-        };
-      }
-    });
-
-    return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
-  };
-
-  const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('owners')}/${consumer}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
-    const gridFilterToJobsFilters = (gridFilter: GridFilterModel): JobsFilters => {
-      const jobsFilters: JobsFilters = {};
-      gridFilter.items.forEach((item) => {
-        if (item.field && item.value !== undefined && item.operator) {
-          jobsFilters[item.field as keyof JobsFilters] = {
-            value: item.value,
-            operator: item.operator as FilterOperator,
-          };
-        }
-      });
-      return jobsFilters;
-    };
-    const filterString = buildFilterParams(gridFilterToJobsFilters(filterModel));
-    if (filterString) {
-      url += `&${filterString}`;
-    }
-    if (searchTerm) {
-      url += `&search=${encodeURIComponent(searchTerm)}`;
-    }
-    return url;
-  }, [consumer, crtPage, filterModel, pageSize, searchTerm]);
-
   const fetchData = useCallback(async () => {
     if (!consumer) {
       return;
     }
     setLoading(true);
     try {
-      const response = await axios.get(fetchUrl);
-      const sanitizedData = response.data.computeJobs.map((element: any, index: number) => ({
+      // Using mock data instead of API call
+      const sanitizedData = MOCK_JOBS.map((element: any, index: number) => ({
         ...element,
         id: element.jobId,
         startTime: formatDateTime(element.dateCreated),
@@ -80,13 +136,13 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
       }));
 
       setData(sanitizedData);
-      setTotalItems(response.data.pagination.totalItems);
+      setTotalItems(MOCK_JOBS.length);
     } catch (error) {
       setError(error);
     } finally {
       setLoading(false);
     }
-  }, [fetchUrl, crtPage, pageSize, consumer]);
+  }, [crtPage, pageSize, consumer]);
 
   useEffect(() => {
     let mounted = true;

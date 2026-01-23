@@ -40,7 +40,10 @@ async function waitForBootstrapConnections(
 
       if (connections.length >= minConnections) {
         clearInterval(checkInterval);
-        console.log('peers', connections.map((conn) => conn.remotePeer.toString()));
+        console.log(
+          'peers',
+          connections.map((conn) => conn.remotePeer.toString())
+        );
 
         console.log('✓ Bootstrap connections established');
         resolve();
@@ -59,7 +62,10 @@ async function waitForBootstrapConnections(
       if (connections.length >= minConnections) {
         clearInterval(checkInterval);
         node.removeEventListener('peer:connect', onPeerConnect);
-        console.log('peers', connections.map((conn) => conn.remotePeer.toString()));
+        console.log(
+          'peers',
+          connections.map((conn) => conn.remotePeer.toString())
+        );
         console.log('✓ Bootstrap connections established');
         resolve();
       }
@@ -292,7 +298,6 @@ export async function sendCommandToPeer(
       throw new Error('Node not ready - still establishing bootstrap connections');
     }
 
-
     let connection: Connection;
     try {
       connection = await nodeInstance.dial(peerIdFromString(peerId), {
@@ -308,27 +313,43 @@ export async function sendCommandToPeer(
       runOnLimitedConnection: true,
     });
 
-    if(!stream) {
+    if (!stream) {
       throw new Error(`Failed to create stream to peer ${peerId}`);
     }
 
-    stream.send(uint8ArrayFromString(JSON.stringify(command)))
-    await stream.close()
+    stream.send(uint8ArrayFromString(JSON.stringify(command)));
+    await stream.close();
 
-    const iterator = stream[Symbol.asyncIterator]()
-    const { done, value } = await iterator.next()
+    const iterator = stream[Symbol.asyncIterator]();
+    const { done, value } = await iterator.next();
 
     if (done || !value) {
-      return { status: { httpStatus: 500, error: 'No response from peer' } }
+      return { status: { httpStatus: 500, error: 'No response from peer' } };
     }
 
-    let response;
+    const chunks: Uint8Array[] = [];
     for await (const chunk of stream) {
-      response = JSON.parse(uint8ArrayToString(chunk.subarray()))
+      chunks.push(chunk.subarray());
     }
 
+    if (chunks.length === 0) {
+      return { status: { httpStatus: 500, error: 'No data in response' } };
+    }
 
-    return response;
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const fullData = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fullData.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    try {
+      const response = JSON.parse(uint8ArrayToString(fullData));
+      return response;
+    } catch {
+      return fullData;
+    }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
