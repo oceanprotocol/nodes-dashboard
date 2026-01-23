@@ -1,9 +1,10 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { getTokenSymbol } from '@/lib/token-symbol';
+import { ComputeEnvironment } from '@/types/environments';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
-import { ComputeEnvFees, ComputeEnvironment, ComputeResourceRequest } from '@oceanprotocol/lib';
+import { ComputeEnvFees, ComputeResourceRequest } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 
@@ -48,20 +49,9 @@ export class OceanProvider {
     return escrow;
   }
 
-  async getEnvironmentsByNode(peerId: string): Promise<ComputeEnvironment[]> {
-    try {
-      const response = await directNodeCommand('getComputeEnvironments', peerId, {});
-      const data = await response.json();
-      return data;
-    } catch {
-      return [];
-    }
-  }
-
-  async getNodeBalance(peerId: string) {
+  async getNodeBalance(environments: ComputeEnvironment[]) {
     const result = [];
     try {
-      const environments = await this.getEnvironmentsByNode(peerId);
       const balancesMap = new Map<string, string[]>();
       const addressMap = new Map<string, string>();
       for (const env of environments) {

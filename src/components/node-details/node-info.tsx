@@ -4,13 +4,14 @@ import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { sendCommandToPeer } from '@/services/nodeService';
 import { Node, NodeEligibility } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import UploadIcon from '@mui/icons-material/Upload';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
 import styles from './node-info.module.css';
@@ -23,17 +24,38 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, ocean, signMessage } = useOceanAccount();
-  const { config, fetchConfig, pushConfig } = useP2P();
+  const { config, fetchConfig, pushConfig, isReady } = useP2P();
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
   const [editedConfig, setEditedConfig] = useState<Record<string, any>>({});
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-  const isAdmin = useMemo(
-    () => node.allowedAdmins?.includes(account?.address as string),
-    [node.allowedAdmins, account]
+  // TODO: replace this
+  // This is temporary, used for local testing because `node` from props was
+  // naked, as it was a local node and the request is made to elastic.
+  // In the final solution the isAdmin with useMemo from below should be used.
+  const getNodeStatus = useCallback(
+    async (peerId: string) => {
+      const res = await sendCommandToPeer(peerId, { command: 'status' });
+      const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
+      node.allowedAdmins = res.allowedAdmins;
+      setIsAdmin(!!isInAllowedAdmins);
+    },
+    [account?.address]
   );
+
+  useEffect(() => {
+    if (isReady && node.id) {
+      getNodeStatus(node.id);
+    }
+  }, [isReady, node?.id, getNodeStatus]);
+
+  //const isAdmin = useMemo(
+  //  () => node.allowedAdmins?.addresses.includes(account?.address as string),
+  //  [node.allowedAdmins, account]
+  //);
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
@@ -62,7 +84,8 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
       const signedMessage = await signMessage(timestamp.toString());
-      await fetchConfig(node.id, signedMessage, timestamp, account.address as string);
+      const addressToSend = account.isWallet ? undefined : account.address;
+      await fetchConfig(node.id, signedMessage, timestamp, addressToSend);
     } catch (error) {
       console.error('Error fetching node config :', error);
     } finally {
@@ -83,7 +106,8 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
       const signedMessage = await signMessage(timestamp.toString());
-      await pushConfig(node.id, signedMessage, timestamp, config, account.address as string);
+      const addressToSend = account.isWallet ? undefined : account.address;
+      await pushConfig(node.id, signedMessage, timestamp, config, addressToSend);
       success = true;
     } catch (error) {
       console.error('Error pushing node config :', error);
@@ -154,7 +178,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
         <div className={styles.infoFooter}>
           <div>
             <strong>Admins:</strong>
-            {node.allowedAdmins?.map((admin) => (
+            {node.allowedAdmins?.addresses.map((admin) => (
               <div key={admin} className={styles.hash}>
                 {admin}
               </div>
@@ -175,7 +199,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           eligibilityCauseStr={node.eligibilityCauseStr}
           banInfo={node.banInfo}
         />
-        <Balance peerId={node.id ?? node.nodeId} admins={node.allowedAdmins ?? []} />
+        <Balance admins={node.allowedAdmins?.addresses ?? []} />
       </div>
     </Card>
   );

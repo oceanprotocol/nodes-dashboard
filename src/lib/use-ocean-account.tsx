@@ -11,6 +11,7 @@ type OceanAccountContextType = {
   account: {
     address: string | undefined;
     isConnected: boolean;
+    isWallet: boolean;
   };
   client?: ReturnType<typeof useSmartAccountClient>['client'];
   provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
@@ -49,7 +50,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
   return (
     <OceanAccountContext.Provider
       value={{
-        account: { address, isConnected },
+        account: { address, isConnected, isWallet: user?.type === 'eoa' },
         client,
         ocean,
         provider,
@@ -93,7 +94,13 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
   return (
     <OceanAccountContext.Provider
-      value={{ account: { address, isConnected }, ocean, provider, signMessage: signMessageWrapper, user }}
+      value={{
+        account: { address, isConnected, isWallet: user?.type === 'eoa' },
+        ocean,
+        provider,
+        signMessage: signMessageWrapper,
+        user,
+      }}
     >
       {children}
     </OceanAccountContext.Provider>
