@@ -40,10 +40,6 @@ async function waitForBootstrapConnections(
 
       if (connections.length >= minConnections) {
         clearInterval(checkInterval);
-        console.log(
-          'peers',
-          connections.map((conn) => conn.remotePeer.toString())
-        );
 
         console.log('✓ Bootstrap connections established');
         resolve();
@@ -62,10 +58,6 @@ async function waitForBootstrapConnections(
       if (connections.length >= minConnections) {
         clearInterval(checkInterval);
         node.removeEventListener('peer:connect', onPeerConnect);
-        console.log(
-          'peers',
-          connections.map((conn) => conn.remotePeer.toString())
-        );
         console.log('✓ Bootstrap connections established');
         resolve();
       }
