@@ -327,6 +327,12 @@ export async function sendCommandToPeer(
       return { status: { httpStatus: 500, error: 'No response from peer' } };
     }
 
+    const metadata = JSON.parse(uint8ArrayToString(value.subarray()));
+
+    if (metadata.httpStatus !== 200) {
+      return { status: { httpStatus: metadata.httpStatus, error: metadata.error } };
+    }
+
     const chunks: Uint8Array[] = [];
     for await (const chunk of stream) {
       chunks.push(chunk.subarray());
@@ -344,12 +350,13 @@ export async function sendCommandToPeer(
       offset += chunk.length;
     }
 
-    try {
-      const response = JSON.parse(uint8ArrayToString(fullData));
-      return response;
-    } catch {
-      return fullData;
+    const firstByte = fullData[0];
+    // Check if the response is a JSON
+    if (firstByte === 123 || firstByte === 91) {
+      return JSON.parse(uint8ArrayToString(fullData));
     }
+
+    return fullData;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
