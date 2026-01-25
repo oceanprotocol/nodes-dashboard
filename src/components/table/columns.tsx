@@ -165,6 +165,88 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   },
 ];
 
+export const nodesTopByRevenueColumns: GridColDef<Node>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'friendlyName',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+  },
+  {
+    field: 'region',
+    filterable: true,
+    flex: 1,
+    headerName: 'Region',
+    sortable: false,
+  },
+  {
+    field: 'totalRevenue',
+    filterable: false,
+    flex: 1,
+    headerName: 'Revenue',
+    sortable: false,
+    valueGetter: (_value, row) => `$ ${row.totalRevenue || 0}`,
+  },
+  {
+    field: 'latestTotalScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.latestTotalScore || 0,
+  },
+];
+
+export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'friendlyName',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+  },
+  {
+    field: 'region',
+    filterable: true,
+    flex: 1,
+    headerName: 'Region',
+    sortable: false,
+  },
+  {
+    field: 'totalJobs',
+    filterable: false,
+    flex: 1,
+    headerName: 'Number of jobs',
+    sortable: false,
+    valueGetter: (_value, row) => row.totalJobs || 0,
+  },
+  {
+    field: 'latestTotalScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.latestTotalScore || 0,
+  },
+];
+
 export const jobsColumns: GridColDef<ComputeJob>[] = [
   {
     align: 'center',
