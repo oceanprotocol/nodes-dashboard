@@ -33,8 +33,8 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   const isAdmin = useMemo(
-    () => node.allowedAdmins?.includes(account?.address as string),
-    [node.allowedAdmins, account]
+    () => account?.address && node.allowedAdmins?.addresses?.includes(account.address),
+    [account.address, node.allowedAdmins?.addresses]
   );
 
   const handleRequestUnban = async () => {
