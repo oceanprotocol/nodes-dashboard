@@ -178,7 +178,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
         <div className={styles.infoFooter}>
           <div>
             <strong>Admins:</strong>
-            {node.allowedAdmins?.addresses.map((admin) => (
+            {node.allowedAdmins?.addresses?.map((admin) => (
               <div key={admin} className={styles.hash}>
                 {admin}
               </div>
