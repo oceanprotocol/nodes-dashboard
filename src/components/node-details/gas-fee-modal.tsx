@@ -70,7 +70,7 @@ const GasFeeModalContent = ({
   );
 };
 
-const GasFeeModal = ({ isOpen, onClose }: GasFeeModalProps) => {
+const GasFeeModal = ({ isOpen, onClose, nodeAddress }: GasFeeModalProps) => {
   const depositTokens = useDepositTokens({
     onSuccess: onClose,
   });
