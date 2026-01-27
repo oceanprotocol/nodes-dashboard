@@ -40,10 +40,6 @@ async function waitForBootstrapConnections(
 
       if (connections.length >= minConnections) {
         clearInterval(checkInterval);
-        console.log(
-          'peers',
-          connections.map((conn) => conn.remotePeer.toString())
-        );
 
         console.log('✓ Bootstrap connections established');
         resolve();
@@ -62,10 +58,6 @@ async function waitForBootstrapConnections(
       if (connections.length >= minConnections) {
         clearInterval(checkInterval);
         node.removeEventListener('peer:connect', onPeerConnect);
-        console.log(
-          'peers',
-          connections.map((conn) => conn.remotePeer.toString())
-        );
         console.log('✓ Bootstrap connections established');
         resolve();
       }
@@ -327,12 +319,36 @@ export async function sendCommandToPeer(
       return { status: { httpStatus: 500, error: 'No response from peer' } };
     }
 
-    let response;
-    for await (const chunk of stream) {
-      response = JSON.parse(uint8ArrayToString(chunk.subarray()));
+    const metadata = JSON.parse(uint8ArrayToString(value.subarray()));
+
+    if (metadata.httpStatus !== 200) {
+      return { status: { httpStatus: metadata.httpStatus, error: metadata.error } };
     }
 
-    return response;
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk.subarray());
+    }
+
+    if (chunks.length === 0) {
+      return { status: { httpStatus: 500, error: 'No data in response' } };
+    }
+
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const fullData = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fullData.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    const firstByte = fullData[0];
+    // Check if the response is a JSON
+    if (firstByte === 123 || firstByte === 91) {
+      return JSON.parse(uint8ArrayToString(fullData));
+    }
+
+    return fullData;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
