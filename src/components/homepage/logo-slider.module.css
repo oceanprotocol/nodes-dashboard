@@ -1,0 +1,112 @@
+.root {
+  position: relative;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  margin: 120px 0 50px;
+}
+
+.marquee {
+  --gap: 2rem;
+  --duration: 20s;
+}
+
+.track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap);
+  white-space: nowrap;
+  will-change: transform;
+  animation: scroll var(--duration) linear infinite;
+}
+
+@keyframes scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.sliderItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+}
+
+.logoWrapper {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  flex: 0 0 auto;
+}
+
+.logoImage {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 9999px;
+  background-color: white;
+}
+
+.name {
+  font-size: 20px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* .root:hover .track {
+  animation-play-state: paused;
+} */
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .root {
+    margin: 90px 0 40px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+
+  .marquee {
+    --gap: 1.5rem;
+  }
+
+  .logoWrapper,
+  .logoImage {
+    width: 64px;
+    height: 64px;
+  }
+
+  .name {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .root {
+    margin: 70px 0 30px;
+  }
+
+  .marquee {
+    --gap: 1.25rem;
+    --duration: 24s;
+  }
+
+  .logoWrapper,
+  .logoImage {
+    width: 52px;
+    height: 52px;
+  }
+
+  .name {
+    font-size: 16px;
+  }
+}

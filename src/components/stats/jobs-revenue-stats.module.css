@@ -1,0 +1,31 @@
+.root {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 48px;
+}
+
+.revenueWrapper {
+  align-content: start;
+  align-items: center;
+  display: grid;
+  grid-template-rows: auto 110px;
+  gap: 24px;
+
+  .heading {
+    text-align: center;
+  }
+
+  .revenue {
+    text-align: center;
+
+    .token {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .amount {
+      font-size: 48px;
+      font-weight: 600;
+    }
+  }
+}

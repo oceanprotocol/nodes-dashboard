@@ -1,0 +1,21 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+
+  .inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    @media (min-width: 576px) {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (min-width: 992px) {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+}
