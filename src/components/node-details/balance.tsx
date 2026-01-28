@@ -81,7 +81,11 @@ export const Balance = ({ admins }: BalanceProps) => {
             </Button>
           </>
         ) : null}
-        <GasFeeModal isOpen={isGasFeeModalOpen} onClose={() => setIsGasFeeModalOpen(false)} />
+        <GasFeeModal
+          isOpen={isGasFeeModalOpen}
+          onClose={() => setIsGasFeeModalOpen(false)}
+          nodeAddress={envs[0]?.consumerAddress ?? ''}
+        />
         <WithdrawModal balances={balances} isOpen={isWithdrawModalOpen} onClose={() => setIsWithdrawModalOpen(false)} />
       </div>
     </Card>

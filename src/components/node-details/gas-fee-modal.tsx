@@ -1,14 +1,14 @@
 import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
-import { ETH_SEPOLIA_ADDRESS } from '@/constants/tokens';
-import { useDepositTokens, UseDepositTokensReturn } from '@/lib/use-deposit-tokens';
+import { useGasFee, UseGasFeeReturn } from '@/lib/use-node-gas-fee';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 type GasFeeModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  nodeAddress: string;
 };
 
 type GasFeeModalFormValues = {
@@ -17,8 +17,9 @@ type GasFeeModalFormValues = {
 
 const GasFeeModalContent = ({
   depositTokens,
+  nodeAddress,
   onClose,
-}: Pick<GasFeeModalProps, 'onClose'> & { depositTokens: UseDepositTokensReturn }) => {
+}: Pick<GasFeeModalProps, 'onClose' | 'nodeAddress'> & { depositTokens: UseGasFeeReturn }) => {
   const formik = useFormik<GasFeeModalFormValues>({
     initialValues: {
       amount: '',
@@ -26,14 +27,13 @@ const GasFeeModalContent = ({
     onSubmit: (values) => {
       if (values.amount !== '') {
         depositTokens.handleDeposit({
-          tokenAddress: ETH_SEPOLIA_ADDRESS,
+          nodeAddress,
           amount: values.amount.toString(),
         });
       }
     },
     validationSchema: Yup.object({
       amount: Yup.number().required('Amount is required').min(0, 'Amount must be greater than 0'),
-      // .not(0, 'Amount must be greater than 0'),
     }),
   });
 
@@ -70,8 +70,8 @@ const GasFeeModalContent = ({
   );
 };
 
-const GasFeeModal = ({ isOpen, onClose }: GasFeeModalProps) => {
-  const depositTokens = useDepositTokens({
+const GasFeeModal = ({ isOpen, onClose, nodeAddress }: GasFeeModalProps) => {
+  const depositTokens = useGasFee({
     onSuccess: onClose,
   });
   return (
@@ -82,7 +82,7 @@ const GasFeeModal = ({ isOpen, onClose }: GasFeeModalProps) => {
       title="Send tokens for gas fee"
       width="xs"
     >
-      <GasFeeModalContent depositTokens={depositTokens} onClose={onClose} />
+      <GasFeeModalContent depositTokens={depositTokens} nodeAddress={nodeAddress} onClose={onClose} />
     </Modal>
   );
 };
