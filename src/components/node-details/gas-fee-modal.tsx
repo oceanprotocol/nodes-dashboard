@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
-import { useDepositTokens, UseDepositTokensReturn } from '@/lib/use-deposit-tokens';
+import { useGasFee, UseGasFeeReturn } from '@/lib/use-node-gas-fee';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
@@ -19,7 +19,7 @@ const GasFeeModalContent = ({
   depositTokens,
   nodeAddress,
   onClose,
-}: Pick<GasFeeModalProps, 'onClose' | 'nodeAddress'> & { depositTokens: UseDepositTokensReturn }) => {
+}: Pick<GasFeeModalProps, 'onClose' | 'nodeAddress'> & { depositTokens: UseGasFeeReturn }) => {
   const formik = useFormik<GasFeeModalFormValues>({
     initialValues: {
       amount: '',
@@ -71,7 +71,7 @@ const GasFeeModalContent = ({
 };
 
 const GasFeeModal = ({ isOpen, onClose, nodeAddress }: GasFeeModalProps) => {
-  const depositTokens = useDepositTokens({
+  const depositTokens = useGasFee({
     onSuccess: onClose,
   });
   return (
