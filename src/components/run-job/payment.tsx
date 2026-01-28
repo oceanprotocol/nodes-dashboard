@@ -98,6 +98,7 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
       ) : step === 'authorize' ? (
         <PaymentAuthorize
           // authorizations={authorizations}
+          loadingAuthorizations={loadingAuthorizations}
           loadPaymentInfo={loadPaymentInfo}
           selectedEnv={selectedEnv}
           selectedResources={selectedResources}

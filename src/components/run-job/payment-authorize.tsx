@@ -16,6 +16,7 @@ type AuthorizeFormValues = {
 
 type PaymentAuthorizeProps = {
   // authorizations: any;
+  loadingAuthorizations: boolean;
   loadPaymentInfo: () => void;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
@@ -25,6 +26,7 @@ type PaymentAuthorizeProps = {
 
 const PaymentAuthorize = ({
   // authorizations,
+  loadingAuthorizations,
   loadPaymentInfo,
   selectedEnv,
   selectedResources,
@@ -33,13 +35,15 @@ const PaymentAuthorize = ({
 }: PaymentAuthorizeProps) => {
   const { handleAuthorize, isAuthorizing } = useAuthorizeTokens({ onSuccess: loadPaymentInfo });
 
+  const maxJobDurationSec = selectedResources.maxJobDurationHours * 60 * 60;
+
   const formik = useFormik<AuthorizeFormValues>({
     enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
       maxLockedAmount: totalCost,
       maxLockCount: 10,
-      maxLockSeconds: selectedResources.maxJobDurationHours * 60 * 60,
+      maxLockSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
     },
     onSubmit: async (values) => {
       handleAuthorize({
@@ -51,7 +55,11 @@ const PaymentAuthorize = ({
       });
     },
     validateOnMount: true,
-    validationSchema: Yup.object({}),
+    validationSchema: Yup.object({
+      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
+      maxLockCount: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
+      maxLockedAmount: Yup.number().required('Required'),
+    }),
   });
 
   return (
@@ -106,7 +114,13 @@ const PaymentAuthorize = ({
           value={formik.values.maxLockCount}
         />
       </div>
-      <Button className="alignSelfEnd" color="accent2" loading={isAuthorizing} size="lg" type="submit">
+      <Button
+        className="alignSelfEnd"
+        color="accent2"
+        loading={loadingAuthorizations || isAuthorizing}
+        size="lg"
+        type="submit"
+      >
         Authorize
       </Button>
     </form>

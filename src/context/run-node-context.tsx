@@ -1,6 +1,5 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -20,13 +19,9 @@ type RunNodeContextType = {
 const RunNodeContext = createContext<RunNodeContextType | undefined>(undefined);
 
 export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-
-  const { account } = useOceanAccount();
   const { fetchConfig: p2pFetchConfig, pushConfig: p2pPushConfig, sendCommand } = useP2P();
+
+  const { account, signMessage } = useOceanAccount();
 
   const [configErrors, setConfigErrors] = useState<string[]>([]);
   const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(null);
@@ -61,12 +56,10 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     if (!peerId || !account?.address) {
       return;
     }
-    const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-    const signedMessage = await signMessageAsync({
-      message: timestamp.toString(),
-    });
     setLoadingFetchConfig(true);
     try {
+      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+      const signedMessage = await signMessage(timestamp.toString());
       const config = await p2pFetchConfig(peerId, signedMessage, timestamp, account.address);
       setNodeConfig(config);
     } catch (error) {
@@ -75,7 +68,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoadingFetchConfig(false);
     }
-  }, [account.address, p2pFetchConfig, peerId, signMessageAsync]);
+  }, [account.address, p2pFetchConfig, peerId, signMessage]);
 
   const pushConfig = useCallback(
     async (config: Record<string, any>) => {
@@ -83,12 +76,10 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       let success = false;
-      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-      const signedMessage = await signMessageAsync({
-        message: timestamp.toString(),
-      });
       setLoadingPushConfig(true);
       try {
+        const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+        const signedMessage = await signMessage(timestamp.toString());
         await p2pPushConfig(peerId, signedMessage, timestamp, config, account.address);
         setNodeConfig(config);
         setConfigErrors([]);
@@ -112,7 +103,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     },
-    [peerId, account.address, signMessageAsync, p2pPushConfig]
+    [peerId, account.address, signMessage, p2pPushConfig]
   );
 
   return (

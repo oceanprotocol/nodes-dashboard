@@ -1,6 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
-import { useSendUserOperation, useSmartAccountClient } from '@account-kit/react';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -27,16 +28,16 @@ export interface UseDepositTokensReturn {
 }
 
 export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): UseDepositTokensReturn => {
+  const { client, ocean, user } = useOceanAccount();
+
   const [isDepositing, setIsDepositing] = useState(false);
   const [error, setError] = useState<string>();
   const [currentStep, setCurrentStep] = useState<'idle' | 'approving' | 'depositing'>('idle');
   const [pendingParams, setPendingParams] = useState<DepositTokensParams | null>(null);
   const chainId = CHAIN_ID;
 
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-
   const handleSuccess = () => {
-    if (currentStep === 'approving' && pendingParams) {
+    if (currentStep === 'approving' && pendingParams && user?.type !== 'eoa') {
       setCurrentStep('depositing');
       performDeposit(pendingParams.tokenAddress, pendingParams.amount);
     } else {
@@ -129,6 +130,21 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
 
   const handleDeposit = useCallback(
     async ({ tokenAddress, amount }: DepositTokensParams) => {
+      if (user?.type === 'eoa') {
+        try {
+          setIsDepositing(true);
+          if (!ocean) {
+            return;
+          }
+          const tx = await ocean.depositTokensEoa({ tokenAddress, amount });
+          await tx.wait();
+          handleSuccess();
+        } catch (error) {
+          handleError(error as Error);
+        }
+        return;
+      }
+
       if (!client) {
         setError('Wallet not connected');
         toast.error('Wallet not connected');
@@ -182,7 +198,7 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         setPendingParams(null);
       }
     },
-    [client, sendUserOperation, chainId]
+    [user?.type, client, ocean, sendUserOperation, chainId]
   );
 
   const transactionUrl = useMemo(() => {
