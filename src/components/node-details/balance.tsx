@@ -156,7 +156,11 @@ export const Balance = ({ admins }: BalanceProps) => {
             >
               Send tokens for gas fee
             </Button>
-            <GasFeeModal isOpen={isGasFeeModalOpen} onClose={() => setIsGasFeeModalOpen(false)} />
+            <GasFeeModal
+              isOpen={isGasFeeModalOpen}
+              nodeAddress={envs[0]?.consumerAddress ?? ''}
+              onClose={() => setIsGasFeeModalOpen(false)}
+            />
           </>
         ) : null}
         {ocean && hasAnyEscrowBalance ? (
