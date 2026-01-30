@@ -199,7 +199,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           eligibilityCauseStr={node.eligibilityCauseStr}
           banInfo={node.banInfo}
         />
-        <Balance admins={node.allowedAdmins?.addresses ?? []} />
+        {account.isConnected ? <Balance admins={node.allowedAdmins?.addresses ?? []} /> : null}
       </div>
     </Card>
   );
