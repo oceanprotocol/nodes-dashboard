@@ -18,11 +18,17 @@ interface P2PContextType {
   config: Record<string, any>;
   envs: ComputeEnvironment[];
   error: string | null;
+  /**
+   *
+   * This is a request that uses admin signature validation on the ocean-node.
+   * If user is `Externally Owned Account (EOA)`, address must be undefined.
+   * If user is `Smart Account`, address must be sent.
+   */
   fetchConfig: (
     peerId: string,
     signature: string,
     expiryTimestamp: number,
-    address: string
+    address?: string
   ) => Promise<Record<string, any>>;
   getComputeResult: (
     peerId: string,
@@ -34,12 +40,18 @@ interface P2PContextType {
   getEnvs: (peerId: string) => Promise<any>;
   isReady: boolean;
   node: Libp2p | null;
+  /**
+   *
+   * This is a request that uses admin signature validation on the ocean-node.
+   * If user is `Externally Owned Account (EOA)`, address must be undefined.
+   * If user is `Smart Account`, address must be sent.
+   */
   pushConfig: (
     peerId: string,
     signature: string,
     expiryTimestamp: number,
     config: Record<string, any>,
-    address: string
+    address?: string
   ) => Promise<void>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
 }
@@ -126,7 +138,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const fetchConfig = useCallback(
-    async (peerId: string, signature: string, expiryTimestamp: number, address: string) => {
+    async (peerId: string, signature: string, expiryTimestamp: number, address?: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
@@ -143,7 +155,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       signature: string,
       expiryTimestamp: number,
       config: Record<string, any>,
-      address: string
+      address?: string
     ) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');

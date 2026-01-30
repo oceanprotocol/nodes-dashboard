@@ -10,7 +10,7 @@ import {
   OwnerStats,
   OwnerStatsPerEpoch,
 } from '@/types/stats';
-import { useSendUserOperation, useSmartAccountClient } from '@account-kit/react';
+import { useSendUserOperation } from '@account-kit/react';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -44,8 +44,7 @@ type ProfileContextType = {
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider = ({ children }: { children: ReactNode }) => {
-  const { account } = useOceanAccount();
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { account, client } = useOceanAccount();
   const { sendUserOperationAsync } = useSendUserOperation({
     client,
     waitForTxn: true,
@@ -195,7 +194,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   // Handle profile fetching when connected
   useEffect(() => {
-    if (account.status === 'connected' && account.address) {
+    if (account.isConnected && account.address) {
       fetchEnsAddress(account.address);
       fetchEnsName(account.address);
       fetchEnsProfile(account.address);
@@ -204,7 +203,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsName(undefined);
       setEnsProfile(undefined);
     }
-  }, [account.address, account.status, fetchEnsAddress, fetchEnsName, fetchEnsProfile]);
+  }, [account.address, account.isConnected, fetchEnsAddress, fetchEnsName, fetchEnsProfile]);
 
   // Auto-deploy account if needed when user connects
   useEffect(() => {
@@ -214,7 +213,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const handleAutoDeployment = async () => {
-      if (account.status === 'connected' && account.address && client?.account) {
+      if (account.isConnected && account.address && client?.account) {
         const isDeployed = await client.account.isAccountDeployed();
 
         if (!isDeployed) {
@@ -242,7 +241,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
     handleAutoDeployment();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account.status, account.address, client]);
+  }, [account.isConnected, account.address, client]);
 
   return (
     <ProfileContext.Provider

@@ -7,7 +7,6 @@ import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
@@ -31,12 +30,7 @@ const Summary = ({
   selectedResources,
   token,
 }: SummaryProps) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-
-  const { account, ocean } = useOceanAccount();
+  const { account, ocean, signMessage } = useOceanAccount();
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,
@@ -54,9 +48,7 @@ const Summary = ({
     try {
       const nonce = await ocean.getNonce(account.address, nodeInfo.id);
       const incrementedNonce = nonce + 1;
-      const signedMessage = await signMessageAsync({
-        message: account.address + incrementedNonce,
-      });
+      const signedMessage = await signMessage(account.address + incrementedNonce);
       const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, nodeInfo.id);
       setAuthToken(token);
     } catch (error) {

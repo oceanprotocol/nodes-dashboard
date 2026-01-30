@@ -22,6 +22,7 @@ export const config = createConfig(
       sections: [
         [{ type: 'email' }],
         [{ type: 'passkey' }, { type: 'social', authProviderId: 'google', mode: 'popup' }],
+        [{ type: 'external_wallets' }],
       ],
       addPasskeyOnSignup: true,
     },
