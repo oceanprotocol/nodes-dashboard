@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import classNames from 'classnames';
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import styles from './stepper.module.css';
 
 export type Step<T> = {
@@ -27,7 +27,7 @@ const Stepper = <T extends string>({ currentStep, steps }: StepperProps<T>) => {
     const isActive = currentStepIndex === index;
     const isComplete = currentStepIndex > index;
     return (
-      <>
+      <Fragment key={step.key}>
         {index > 0 ? (
           <div className={classNames(styles.separator, { [styles.active]: isActive || isComplete })}>—</div>
         ) : null}
@@ -35,7 +35,7 @@ const Stepper = <T extends string>({ currentStep, steps }: StepperProps<T>) => {
           {isComplete ? <CheckCircleOutlineIcon /> : null}
           {step.label}
         </div>
-      </>
+      </Fragment>
     );
   };
 
