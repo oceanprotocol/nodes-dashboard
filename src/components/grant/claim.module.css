@@ -1,0 +1,41 @@
+.root {
+  align-self: center;
+  max-width: 100%;
+  text-align: center;
+  width: 500px;
+}
+
+.group {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.amountCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 24px;
+  text-align: left;
+
+  @media (min-width: 768px) {
+    align-items: center;
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .values {
+    text-align: right;
+
+    .token {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .amount {
+      font-size: 32px;
+      font-weight: 700;
+    }
+  }
+}
