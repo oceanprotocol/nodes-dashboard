@@ -21,7 +21,7 @@ const RunNodeContext = createContext<RunNodeContextType | undefined>(undefined);
 export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
   const { fetchConfig: p2pFetchConfig, pushConfig: p2pPushConfig, sendCommand } = useP2P();
 
-  const { account, signMessage } = useOceanAccount();
+  const { account, signMessage, user } = useOceanAccount();
 
   const [configErrors, setConfigErrors] = useState<string[]>([]);
   const [nodeConfig, setNodeConfig] = useState<Record<string, any> | null>(null);
@@ -60,7 +60,8 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
       const signedMessage = await signMessage(timestamp.toString());
-      const config = await p2pFetchConfig(peerId, signedMessage, timestamp, account.address);
+      const addressToSend = user?.type === 'sca' ? account.address : undefined;
+      const config = await p2pFetchConfig(peerId, signedMessage, timestamp, addressToSend);
       setNodeConfig(config);
     } catch (error) {
       console.error('Error fetching node config:', error);
@@ -68,7 +69,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoadingFetchConfig(false);
     }
-  }, [account.address, p2pFetchConfig, peerId, signMessage]);
+  }, [account.address, p2pFetchConfig, peerId, signMessage, user?.type]);
 
   const pushConfig = useCallback(
     async (config: Record<string, any>) => {
@@ -80,7 +81,8 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       try {
         const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
         const signedMessage = await signMessage(timestamp.toString());
-        await p2pPushConfig(peerId, signedMessage, timestamp, config, account.address);
+        const addressToSend = user?.type === 'sca' ? account.address : undefined;
+        await p2pPushConfig(peerId, signedMessage, timestamp, config, addressToSend);
         setNodeConfig(config);
         setConfigErrors([]);
         success = true;

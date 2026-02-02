@@ -23,7 +23,7 @@ type NodeInfoProps = {
 const NodeInfo = ({ node }: NodeInfoProps) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
-  const { account, ocean, signMessage } = useOceanAccount();
+  const { account, ocean, signMessage, user } = useOceanAccount();
   const { config, fetchConfig, pushConfig, isReady } = useP2P();
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
@@ -84,7 +84,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
       const signedMessage = await signMessage(timestamp.toString());
-      const addressToSend = account.isWallet ? undefined : account.address;
+      const addressToSend = user?.type === 'sca' ? account.address : undefined;
       await fetchConfig(node.id, signedMessage, timestamp, addressToSend);
     } catch (error) {
       console.error('Error fetching node config :', error);
@@ -106,7 +106,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
       const signedMessage = await signMessage(timestamp.toString());
-      const addressToSend = account.isWallet ? undefined : account.address;
+      const addressToSend = user?.type === 'sca' ? account.address : undefined;
       await pushConfig(node.id, signedMessage, timestamp, config, addressToSend);
       success = true;
     } catch (error) {
