@@ -1,17 +1,15 @@
-import VscodeLogoWhite from '@/assets/icons/ide/vscode-white.svg';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import { SelectedToken } from '@/context/run-job-context';
+import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
 import styles from './summary.module.css';
 
 type SummaryProps = {
@@ -31,11 +29,7 @@ const Summary = ({
   selectedResources,
   token,
 }: SummaryProps) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-
+  const { generateAuthToken } = useP2P();
   const { account, ocean } = useOceanAccount();
 
   const { gpus } = useEnvResources({
@@ -46,23 +40,15 @@ const Summary = ({
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const [selectedIde, setSelectedIde] = useState(Ide.vscode);
 
-  const generateToken = async () => {
-    if (!account.address || !ocean) {
-      return;
+  const createAuthToken = async () => {
+    if (!account.address || !nodeInfo.id) {
+      return null;
     }
-    try {
-      const nonce = await ocean.getNonce(account.address, nodeInfo.id);
-      const incrementedNonce = nonce + 1;
-      const signedMessage = await signMessageAsync({
-        message: account.address + incrementedNonce,
-      });
-      const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, nodeInfo.id);
-      setAuthToken(token);
-    } catch (error) {
-      console.error('Failed to generate auth token:', error);
-      toast.error('Failed to generate auth token');
-    }
+    const authToken = await generateAuthToken(nodeInfo.id, account.address);
+    console.log('authToken', authToken);
+    setAuthToken(authToken);
   };
 
   const openIde = async (uriScheme: string) => {
@@ -182,7 +168,7 @@ const Summary = ({
                 <MenuItem
                   key={ide.uriScheme}
                   onClick={() => {
-                    openIde(ide.uriScheme);
+                    setSelectedIde(ide);
                     handleCloseIdeMenu();
                   }}
                 >
@@ -194,11 +180,15 @@ const Summary = ({
             <Button
               autoLoading
               color="accent2"
-              contentBefore={<VscodeLogoWhite style={{ height: '18px', width: 'auto' }} />}
-              onClick={async () => await openIde('vscode')}
+              contentBefore={
+                <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
+                  {selectedIde.icon}
+                </span>
+              }
+              onClick={async () => await openIde(selectedIde.uriScheme)}
               size="lg"
             >
-              Open VSCode
+              Open {selectedIde.name}
             </Button>
           </div>
         </div>
@@ -206,7 +196,7 @@ const Summary = ({
         <div className={styles.footer}>
           <div>Continue on our VSCode extension, or select your editor of choice</div>
           <div className={styles.buttons}>
-            <Button autoLoading color="accent2" onClick={generateToken} size="lg">
+            <Button autoLoading color="accent2" onClick={createAuthToken} size="lg">
               Generate token
             </Button>
           </div>

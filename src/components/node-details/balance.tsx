@@ -5,6 +5,7 @@ import Card from '@/components/card/card';
 import GasFeeModal from '@/components/node-details/gas-fee-modal';
 import WithdrawModal from '@/components/node-details/withdraw-modal';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { ComputeEnvironment } from '@/types/environments';
 import { NodeBalance } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -13,9 +14,10 @@ import styles from './balance.module.css';
 interface BalanceProps {
   admins: string[];
   peerId: string;
+  environments: ComputeEnvironment[];
 }
 
-export const Balance = ({ admins, peerId }: BalanceProps) => {
+export const Balance = ({ admins, peerId, environments }: BalanceProps) => {
   const { account, ocean } = useOceanAccount();
 
   const [balances, setBalances] = useState<NodeBalance[]>([]);
@@ -29,7 +31,7 @@ export const Balance = ({ admins, peerId }: BalanceProps) => {
     if (ocean && peerId) {
       setLoadingBalance(true);
 
-      ocean.getNodeBalance(peerId).then((res) => {
+      ocean.getNodeBalance(environments).then((res) => {
         res.length === 0 ? setBalances([]) : setBalances(res);
         setLoadingBalance(false);
       });

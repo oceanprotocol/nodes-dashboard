@@ -9,6 +9,8 @@ import {
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
+import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
+import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -41,12 +43,17 @@ interface P2PContextType {
     config: Record<string, any>,
     address: string
   ) => Promise<void>;
+  generateAuthToken: (peerId: string, address: string) => Promise<string>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
 
 export function P2PProvider({ children }: { children: React.ReactNode }) {
+  const { client } = useSmartAccountClient({ type: 'LightAccount' });
+  const { signMessageAsync } = useSignMessage({
+    client,
+  });
   const [config, setConfig] = useState<Record<string, any>>({});
   const [envs, setEnvs] = useState<ComputeEnvironment[]>([]);
   const [node, setNode] = useState<Libp2p | null>(null);
@@ -154,6 +161,17 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const generateAuthToken = useCallback(
+    async (peerId: string, address: string) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+
+      return generateAuthTokenWithSmartAccount(peerId, address, signMessageAsync);
+    },
+    [isReady, node]
+  );
+
   return (
     <P2PContext.Provider
       value={{
@@ -169,6 +187,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         node,
         pushConfig,
         sendCommand,
+        generateAuthToken,
       }}
     >
       {children}

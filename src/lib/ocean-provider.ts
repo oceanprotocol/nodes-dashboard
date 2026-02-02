@@ -1,9 +1,10 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { getTokenSymbol } from '@/lib/token-symbol';
+import { ComputeEnvironment } from '@/types/environments';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
-import { ComputeEnvFees, ComputeEnvironment, ComputeResourceRequest } from '@oceanprotocol/lib';
+import { ComputeEnvFees, ComputeResourceRequest } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 
@@ -34,10 +35,6 @@ export class OceanProvider {
     return new BigNumber(number).div(new BigNumber(10).pow(decimalsNumber)).decimalPlaces(decimalsNumber).toString();
   }
 
-  private normalizeNumber(number: string, decimals: number) {
-    return new BigNumber(number).multipliedBy(new BigNumber(10).pow(decimals)).toFixed(0);
-  }
-
   private async getEscrowContract(chainId: number) {
     const config = await this.getConfigByChainId(chainId);
     if (!config.Escrow) {
@@ -58,10 +55,9 @@ export class OceanProvider {
     }
   }
 
-  async getNodeBalance(peerId: string) {
+  async getNodeBalance(environments: ComputeEnvironment[]) {
     const result = [];
     try {
-      const environments = await this.getEnvironmentsByNode(peerId);
       const balancesMap = new Map<string, string[]>();
       const addressMap = new Map<string, string>();
       for (const env of environments) {
@@ -138,54 +134,6 @@ export class OceanProvider {
     const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
     const balanceString = this.denominateNumber(availableFunds.toString(), tokenDecimals);
     return parseFloat(balanceString);
-  }
-
-  async getNonce(address: string, peerId: string): Promise<number> {
-    const response = await directNodeCommand('nonce', peerId, { address });
-    const data = await response.json();
-    return Number(data);
-  }
-
-  async generateAuthToken(address: string, nonce: number, signature: string, peerId: string) {
-    const response = await directNodeCommand('createAuthToken', peerId, {
-      address,
-      signature,
-      nonce: nonce.toString(),
-    });
-    const data = await response.json();
-    const token = data.token;
-
-    return token;
-  }
-
-  async initializeCompute(
-    environment: ComputeEnvironment,
-    tokenAddress: string,
-    validUntil: number,
-    peerId: string,
-    address: string,
-    resources: ComputeResourceRequest[]
-  ): Promise<any> {
-    const response = await directNodeCommand('initializeCompute', peerId, {
-      datasets: [],
-      algorithm: { meta: { rawcode: 'rawcode' } },
-      environment: environment.id,
-      payment: {
-        chainId: this.chainId,
-        token: tokenAddress,
-        resources,
-      },
-      maxJobDuration: validUntil,
-      consumerAddress: address,
-      signature: '',
-    });
-
-    const data = await response.json();
-    const cost = data.payment.amount;
-    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
-    const denominatedCost = this.denominateNumber(cost, tokenDecimals);
-
-    return denominatedCost;
   }
 
   async updateConfiguration(
