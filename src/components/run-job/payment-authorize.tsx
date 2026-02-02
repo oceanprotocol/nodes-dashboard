@@ -2,8 +2,10 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import { SelectedToken } from '@/context/run-job-context';
 import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { useFormik } from 'formik';
+import { useMemo } from 'react';
 import * as Yup from 'yup';
 import styles from './payment-authorize.module.css';
 
@@ -21,6 +23,7 @@ type PaymentAuthorizeProps = {
   selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
   totalCost: number;
+  peerId: string;
 };
 
 const PaymentAuthorize = ({
@@ -30,8 +33,20 @@ const PaymentAuthorize = ({
   selectedResources,
   selectedToken,
   totalCost,
+  peerId,
 }: PaymentAuthorizeProps) => {
   const { handleAuthorize, isAuthorizing } = useAuthorizeTokens({ onSuccess: loadPaymentInfo });
+  const { ocean } = useOceanAccount();
+
+  const resources = useMemo(
+    () => [
+      { id: selectedResources.cpuId, amount: selectedResources.cpuCores },
+      { id: selectedResources.diskId, amount: selectedResources.diskSpace },
+      { id: selectedResources.ramId, amount: selectedResources.ram },
+      ...selectedResources.gpus.map((gpu) => ({ id: gpu.id, amount: 1 })),
+    ],
+    [selectedResources]
+  );
 
   const formik = useFormik<AuthorizeFormValues>({
     enableReinitialize: true,
@@ -42,11 +57,21 @@ const PaymentAuthorize = ({
       maxLockSeconds: selectedResources.maxJobDurationHours * 60 * 60,
     },
     onSubmit: async (values) => {
+      const { minLockSeconds } = await ocean!.initializeCompute(
+        { ...selectedEnv, description: selectedEnv.description ?? '' },
+        selectedToken,
+        values.maxLockSeconds,
+        peerId,
+        selectedEnv.consumerAddress,
+        resources
+      );
+
       handleAuthorize({
         tokenAddress: selectedToken.address,
         spender: selectedEnv.consumerAddress,
         maxLockedAmount: values.maxLockedAmount.toString(),
-        maxLockSeconds: values.maxLockSeconds.toString(),
+        maxLockSeconds:
+          minLockSeconds > values.maxLockSeconds ? minLockSeconds.toString() : values.maxLockSeconds.toString(),
         maxLockCount: values.maxLockCount.toString(),
       });
     },

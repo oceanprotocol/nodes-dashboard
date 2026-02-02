@@ -15,9 +15,10 @@ type PaymentProps = {
   selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
   totalCost: number;
+  peerId: string;
 };
 
-const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
+const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
   const router = useRouter();
 
   const { account, ocean } = useOceanAccount();
@@ -103,6 +104,7 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
           selectedResources={selectedResources}
           selectedToken={selectedToken}
           totalCost={totalCost}
+          peerId={peerId}
         />
       ) : null}
     </Card>

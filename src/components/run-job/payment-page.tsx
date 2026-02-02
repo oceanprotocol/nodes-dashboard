@@ -10,7 +10,8 @@ import { useEffect } from 'react';
 const PaymentPage = () => {
   const router = useRouter();
 
-  const { estimatedTotalCost, freeCompute, selectedEnv, selectedResources, selectedToken } = useRunJobContext();
+  const { estimatedTotalCost, freeCompute, nodeInfo, selectedEnv, selectedResources, selectedToken } =
+    useRunJobContext();
 
   useEffect(() => {
     if (!selectedToken) {
@@ -33,6 +34,7 @@ const PaymentPage = () => {
             selectedResources={selectedResources}
             selectedToken={selectedToken}
             totalCost={estimatedTotalCost ?? 0}
+            peerId={nodeInfo?.id ?? ''}
           />
         </div>
       ) : null}
