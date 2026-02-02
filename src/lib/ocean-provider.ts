@@ -140,6 +140,7 @@ export class OceanProvider {
     authToken: string,
     address: string,
     peerId: string,
+    peerMultiaddr: string,
     isFreeCompute: boolean,
     environmentId: string,
     feeToken: string,
@@ -151,6 +152,7 @@ export class OceanProvider {
     const url = new URL(extensionUrl);
     url.searchParams.set('authToken', authToken);
     url.searchParams.set('peerId', peerId);
+    url.searchParams.set('multiaddresses', peerMultiaddr);
     url.searchParams.set('isFreeCompute', isFreeCompute.toString());
     url.searchParams.set('environmentId', environmentId);
     url.searchParams.set('feeToken', feeToken);

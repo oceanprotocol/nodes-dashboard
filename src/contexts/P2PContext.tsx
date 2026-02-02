@@ -3,6 +3,7 @@ import {
   getComputeJobResult,
   getNodeEnvs,
   getNodeReadyState,
+  getPeerMultiaddr as getPeerMultiaddrFromService,
   initializeNode,
   pushNodeConfig,
   sendCommandToPeer,
@@ -45,6 +46,7 @@ interface P2PContextType {
   ) => Promise<void>;
   generateAuthToken: (peerId: string, address: string) => Promise<string>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
+  getPeerMultiaddr: (peerId: string) => Promise<string>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
@@ -96,6 +98,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
     };
   }, []);
+
+  const getPeerMultiaddr = useCallback(
+    async (peerId: string) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+      return getPeerMultiaddrFromService(peerId);
+    },
+    [isReady, node]
+  );
 
   const sendCommand = useCallback(
     async (peerId: string, command: any, protocol?: string) => {
@@ -186,6 +198,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         isReady,
         node,
         pushConfig,
+        getPeerMultiaddr,
         sendCommand,
         generateAuthToken,
       }}

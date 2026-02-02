@@ -29,7 +29,7 @@ const Summary = ({
   selectedResources,
   token,
 }: SummaryProps) => {
-  const { generateAuthToken } = useP2P();
+  const { generateAuthToken, getPeerMultiaddr } = useP2P();
   const { account, ocean } = useOceanAccount();
 
   const { gpus } = useEnvResources({
@@ -47,7 +47,6 @@ const Summary = ({
       return null;
     }
     const authToken = await generateAuthToken(nodeInfo.id, account.address);
-    console.log('authToken', authToken);
     setAuthToken(authToken);
   };
 
@@ -55,6 +54,8 @@ const Summary = ({
     if (!authToken || !account.address || !ocean) {
       return;
     }
+
+    const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
     const resources = [
       {
         id: selectedResources.cpuId,
@@ -78,6 +79,7 @@ const Summary = ({
       authToken,
       account.address,
       nodeInfo.id,
+      peerMultiaddr,
       isFreeCompute,
       selectedEnv.id,
       token.address,

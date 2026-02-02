@@ -290,6 +290,21 @@ async function* remainingChunks(
   }
 }
 
+export async function getPeerMultiaddr(peerId: string) {
+  if (!nodeInstance) {
+    throw new Error('Node not initialized');
+  }
+
+  if (!isNodeReady) {
+    throw new Error('Node not ready');
+  }
+
+  const connection = await nodeInstance.dial(peerIdFromString(peerId), {
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+  });
+  return connection.remoteAddr.toString();
+}
+
 export async function sendCommandToPeer(
   peerId: string,
   command: Record<string, any>,
