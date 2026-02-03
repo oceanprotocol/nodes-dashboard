@@ -12,6 +12,5 @@ export async function generateAuthTokenWithSmartAccount(
     message: messageToSign,
   });
   const response = await createAuthToken(peerId, address, signedMessage, incrementedNonce);
-  const token = response.token;
-  return token;
+  return response.token;
 }
