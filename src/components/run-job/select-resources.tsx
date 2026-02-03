@@ -148,6 +148,16 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     formik.setFieldValue('maxJobDurationHours', maxAllowedJobDurationHours);
   };
 
+  const handleDiskSpaceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const num = Number(e.target.value);
+    formik.setFieldValue('diskSpace', e.target.value === '' ? 0 : Math.max(0, num));
+  };
+
+  const handleMaxJobDurationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const num = Number(e.target.value);
+    formik.setFieldValue('maxJobDurationHours', e.target.value === '' ? 0 : Math.max(0, num));
+  };
+
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Select resources</h3>
@@ -212,9 +222,11 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
             hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token.symbol}/GB`}
             label="Disk space"
+            max={maxAllowedDiskSpace}
+            min={0}
             name="diskSpace"
             onBlur={formik.handleBlur}
-            onChange={formik.handleChange}
+            onChange={handleDiskSpaceChange}
             startAdornment="GB"
             topRight={`${minAllowedDiskSpace}-${maxAllowedDiskSpace}`}
             type="number"
@@ -232,9 +244,11 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                 : undefined
             }
             label="Max job duration"
+            max={maxAllowedJobDurationHours}
+            min={0}
             name="maxJobDurationHours"
             onBlur={formik.handleBlur}
-            onChange={formik.handleChange}
+            onChange={handleMaxJobDurationChange}
             startAdornment="hours"
             topRight={`${minAllowedJobDurationHours}-${maxAllowedJobDurationHours}`}
             type="number"
