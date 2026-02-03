@@ -33,7 +33,7 @@ const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalC
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
   const step: 'authorize' | 'deposit' = useMemo(() => {
-    if ((escrowBalance ?? 0) + currentLockedAmount >= totalCost) {
+    if ((escrowBalance ?? 0) - currentLockedAmount >= totalCost) {
       return 'authorize';
     }
     return 'deposit';
