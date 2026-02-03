@@ -4,14 +4,13 @@ import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { sendCommandToPeer } from '@/services/nodeService';
 import { Node, NodeEligibility } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import UploadIcon from '@mui/icons-material/Upload';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
 import styles from './node-info.module.css';
@@ -30,32 +29,34 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
   const [editedConfig, setEditedConfig] = useState<Record<string, any>>({});
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   // TODO: replace this
   // This is temporary, used for local testing because `node` from props was
   // naked, as it was a local node and the request is made to elastic.
   // In the final solution the isAdmin with useMemo from below should be used.
-  const getNodeStatus = useCallback(
-    async (peerId: string) => {
-      const res = await sendCommandToPeer(peerId, { command: 'status' });
-      const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
-      node.allowedAdmins = res.allowedAdmins;
-      setIsAdmin(!!isInAllowedAdmins);
-    },
-    [account?.address]
+
+  // const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  // const getNodeStatus = useCallback(
+  //   async (peerId: string) => {
+  //     const res = await sendCommandToPeer(peerId, { command: 'status' });
+  //     const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
+  //     node.allowedAdmins = res.allowedAdmins;
+  //     setIsAdmin(!!isInAllowedAdmins);
+  //   },
+  //   [account?.address]
+  // );
+
+  // useEffect(() => {
+  //   if (isReady && node.id) {
+  //     getNodeStatus(node.id);
+  //   }
+  // }, [isReady, node?.id, getNodeStatus]);
+
+  const isAdmin = useMemo(
+    () => node.allowedAdmins?.addresses.includes(account?.address as string),
+    [node.allowedAdmins, account]
   );
-
-  useEffect(() => {
-    if (isReady && node.id) {
-      getNodeStatus(node.id);
-    }
-  }, [isReady, node?.id, getNodeStatus]);
-
-  //const isAdmin = useMemo(
-  //  () => node.allowedAdmins?.addresses.includes(account?.address as string),
-  //  [node.allowedAdmins, account]
-  //);
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
