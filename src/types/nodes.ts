@@ -20,10 +20,7 @@ export type NodeBanInfo = {
 };
 
 export type Node = {
-  allowedAdmins?: {
-    addresses: string[];
-    accessLists?: string[] | null;
-  };
+  allowedAdmins?: string[];
   banInfo?: NodeBanInfo;
   cpus: CPU[];
   eligible?: boolean;

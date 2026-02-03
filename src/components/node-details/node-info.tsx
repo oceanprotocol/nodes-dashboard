@@ -54,7 +54,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   // }, [isReady, node?.id, getNodeStatus]);
 
   const isAdmin = useMemo(
-    () => node.allowedAdmins?.addresses.includes(account?.address as string),
+    () => account.address && node.allowedAdmins?.includes(account.address),
     [node.allowedAdmins, account]
   );
 
@@ -177,14 +177,16 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           ) : null}
         </div>
         <div className={styles.infoFooter}>
-          <div>
-            <strong>Admins:</strong>
-            {node.allowedAdmins?.addresses?.map((admin) => (
-              <div key={admin} className={styles.hash}>
-                {admin}
-              </div>
-            ))}
-          </div>
+          {node.allowedAdmins?.length ? (
+            <div>
+              <strong>Admins:</strong>
+              {node.allowedAdmins.map((admin) => (
+                <div key={admin} className={styles.hash}>
+                  {admin}
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div>{node.version && <span>Ocean Node v{node.version}</span>}</div>
         </div>
       </div>
@@ -200,7 +202,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           eligibilityCauseStr={node.eligibilityCauseStr}
           banInfo={node.banInfo}
         />
-        {account.isConnected ? <Balance admins={node.allowedAdmins?.addresses ?? []} /> : null}
+        {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} /> : null}
       </div>
     </Card>
   );
