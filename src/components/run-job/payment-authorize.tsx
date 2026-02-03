@@ -58,13 +58,15 @@ const PaymentAuthorize = ({
     },
     onSubmit: async (values) => {
       const { minLockSeconds } = await ocean!.initializeCompute(
-        { ...selectedEnv, description: selectedEnv.description ?? '' },
-        selectedToken,
+        selectedEnv,
+        selectedToken.address,
         values.maxLockSeconds,
         peerId,
         selectedEnv.consumerAddress,
         resources
       );
+
+      console.log('minLockSeconds', minLockSeconds);
 
       handleAuthorize({
         tokenAddress: selectedToken.address,
