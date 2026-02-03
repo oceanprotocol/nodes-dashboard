@@ -4,11 +4,13 @@ import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { getPeerMultiaddr } from '@/services/nodeService';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './summary.module.css';
 
 type SummaryProps = {
@@ -54,8 +56,6 @@ const Summary = ({
       console.error('Failed to generate auth token:', error);
       toast.error('Failed to generate auth token');
     }
-    const authToken = await generateAuthToken(nodeInfo.id, account.address);
-    setAuthToken(authToken);
   };
 
   const openIde = async (uriScheme: string) => {
@@ -206,7 +206,7 @@ const Summary = ({
         <div className={styles.footer}>
           <div>Continue on our VSCode extension, or select your editor of choice</div>
           <div className={styles.buttons}>
-            <Button autoLoading color="accent2" onClick={createAuthToken} size="lg">
+            <Button autoLoading color="accent2" onClick={generateToken} size="lg">
               Generate token
             </Button>
           </div>

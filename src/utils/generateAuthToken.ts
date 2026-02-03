@@ -1,6 +1,6 @@
 import { createAuthToken, getNonce } from '@/services/nodeService';
 
-export async function generateAuthTokenWithSmartAccount(
+export async function generateAuthToken(
   peerId: string,
   address: string,
   signMessage: (message: string) => Promise<string>
@@ -9,6 +9,6 @@ export async function generateAuthTokenWithSmartAccount(
   const incrementedNonce = (nonce + 1).toString();
   const messageToSign = address + incrementedNonce;
   const signedMessage = await signMessage(messageToSign);
-  const token = await createAuthToken(peerId, address, signedMessage, incrementedNonce);
-  return token;
+  const response = await createAuthToken(peerId, address, signedMessage, incrementedNonce);
+  return response.token;
 }

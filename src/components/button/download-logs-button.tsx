@@ -2,7 +2,7 @@ import Button from '@/components/button/button';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeJob } from '@/types/jobs';
-import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
+import { generateAuthToken } from '@/utils/generateAuthToken';
 import DownloadIcon from '@mui/icons-material/Download';
 import JSZip from 'jszip';
 import { useState } from 'react';
@@ -24,7 +24,7 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
     try {
       const jobId = job.environment.split('-')[0] + '-' + job.jobId;
 
-      const authToken = await generateAuthTokenWithSmartAccount(job.peerId, account.address, signMessage);
+      const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
 
       const logFiles = job.results.filter((result: any) => result.filename.includes('.log'));
       const logPromises = logFiles.map((logFile: any) =>

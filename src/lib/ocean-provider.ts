@@ -35,6 +35,10 @@ export class OceanProvider {
     return new BigNumber(number).div(new BigNumber(10).pow(decimalsNumber)).decimalPlaces(decimalsNumber).toString();
   }
 
+  private normalizeNumber(number: string, decimals: number) {
+    return new BigNumber(number).multipliedBy(new BigNumber(10).pow(decimals)).toFixed(0);
+  }
+
   private async getEscrowContract(chainId: number) {
     const config = await this.getConfigByChainId(chainId);
     if (!config.Escrow) {

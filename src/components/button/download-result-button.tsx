@@ -2,7 +2,7 @@ import Button from '@/components/button/button';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeJob } from '@/types/jobs';
-import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
+import { generateAuthToken } from '@/utils/generateAuthToken';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -25,7 +25,7 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
       setIsDownloading(true);
       const archive = job.results.find((result: any) => result.filename.includes('.tar'));
 
-      const authToken = await generateAuthTokenWithSmartAccount(job.peerId, account.address, signMessage);
+      const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
 
       const result = await getComputeResult(job.peerId, jobId, archive?.index, authToken, account.address);
       if (result instanceof Uint8Array) {
