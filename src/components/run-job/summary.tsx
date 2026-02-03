@@ -3,10 +3,11 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import { SelectedToken } from '@/context/run-job-context';
+import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { getPeerMultiaddr } from '@/services/nodeService';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
+import { generateAuthToken } from '@/utils/generateAuthToken';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
@@ -31,6 +32,7 @@ const Summary = ({
   token,
 }: SummaryProps) => {
   const { account, ocean, signMessage } = useOceanAccount();
+  const { getPeerMultiaddr } = useP2P();
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,
@@ -47,11 +49,9 @@ const Summary = ({
       return;
     }
     try {
-      const nonce = await ocean.getNonce(account.address, nodeInfo.id);
-      const incrementedNonce = nonce + 1;
-      const signedMessage = await signMessage(account.address + incrementedNonce);
-      const token = await ocean.generateAuthToken(account.address, incrementedNonce, signedMessage, nodeInfo.id);
-      setAuthToken(token);
+      const authToken = await generateAuthToken(nodeInfo.id, account.address, signMessage);
+
+      setAuthToken(authToken);
     } catch (error) {
       console.error('Failed to generate auth token:', error);
       toast.error('Failed to generate auth token');
