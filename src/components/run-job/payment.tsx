@@ -30,12 +30,14 @@ const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalC
   const [loadingAuthorizations, setLoadingAuthorizations] = useState(false);
   const [loadingUserFunds, setLoadingUserFunds] = useState(false);
 
+  const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
+
   const step: 'authorize' | 'deposit' = useMemo(() => {
-    if ((escrowBalance ?? 0) >= totalCost) {
+    if ((escrowBalance ?? 0) + currentLockedAmount >= totalCost) {
       return 'authorize';
     }
     return 'deposit';
-  }, [escrowBalance, totalCost]);
+  }, [currentLockedAmount, escrowBalance, totalCost]);
 
   const loadPaymentInfo = useCallback(() => {
     if (ocean && account?.address) {
@@ -62,8 +64,8 @@ const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalC
   }, [loadPaymentInfo]);
 
   useEffect(() => {
-    const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
-    const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost;
+    const sufficientEscrow = (escrowBalance ?? 0) + currentLockedAmount >= totalCost;
+    const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost + currentLockedAmount;
     const enoughLockSeconds = (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationHours;
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
       router.push('/run-job/summary');
@@ -71,6 +73,7 @@ const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalC
   }, [
     authorizations?.maxLockSeconds,
     authorizations?.maxLockedAmount,
+    currentLockedAmount,
     escrowBalance,
     router,
     selectedResources.maxJobDurationHours,
@@ -98,7 +101,7 @@ const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalC
         />
       ) : step === 'authorize' ? (
         <PaymentAuthorize
-          // authorizations={authorizations}
+          currentLockedAmount={currentLockedAmount}
           loadingAuthorizations={loadingAuthorizations}
           loadPaymentInfo={loadPaymentInfo}
           selectedEnv={selectedEnv}

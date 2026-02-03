@@ -17,7 +17,7 @@ type AuthorizeFormValues = {
 };
 
 type PaymentAuthorizeProps = {
-  // authorizations: any;
+  currentLockedAmount: number;
   loadingAuthorizations: boolean;
   loadPaymentInfo: () => void;
   selectedEnv: ComputeEnvironment;
@@ -28,7 +28,7 @@ type PaymentAuthorizeProps = {
 };
 
 const PaymentAuthorize = ({
-  // authorizations,
+  currentLockedAmount,
   loadingAuthorizations,
   loadPaymentInfo,
   selectedEnv,
@@ -57,7 +57,7 @@ const PaymentAuthorize = ({
     enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
-      maxLockedAmount: totalCost,
+      maxLockedAmount: totalCost + currentLockedAmount,
       maxLockCount: 10,
       maxLockSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
     },
