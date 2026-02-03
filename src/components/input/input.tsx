@@ -38,6 +38,8 @@ type InputProps = {
   errorText?: string;
   hint?: string;
   label?: string;
+  max?: number;
+  min?: number;
   name?: string;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -56,6 +58,8 @@ const Input = ({
   errorText,
   hint,
   label,
+  max,
+  min,
   name,
   onBlur,
   onChange,
@@ -78,6 +82,7 @@ const Input = ({
       custom_size={size}
       disabled={disabled}
       has_error={!!errorText}
+      inputProps={{ max, min }}
       name={name}
       onBlur={onBlur}
       onChange={onChange}

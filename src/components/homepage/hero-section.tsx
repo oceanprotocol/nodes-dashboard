@@ -1,3 +1,4 @@
+import { getRoutes } from '@/config';
 import Button from '../button/button';
 import Container from '../container/container';
 import styles from './hero-section.module.css';
@@ -19,7 +20,7 @@ export default function HeroSection() {
         </div>
         <div className={styles.actionsAndTextWrapper}>
           <div className={styles.actions}>
-            <Button color="accent2" size="lg">
+            <Button color="accent2" size="lg" href={getRoutes().runJob.path}>
               Run Compute Job
             </Button>
             <Button size="lg">Run a Node</Button>

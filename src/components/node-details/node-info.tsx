@@ -26,8 +26,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   });
   const { openAuthModal } = useAuthModal();
   const { account, ocean } = useOceanAccount();
-  const { config, fetchConfig, pushConfig } = useP2P();
-
+  const { config, envs, fetchConfig, pushConfig } = useP2P();
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
@@ -175,7 +174,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           eligibilityCauseStr={node.eligibilityCauseStr}
           banInfo={node.banInfo}
         />
-        <Balance peerId={node.id ?? node.nodeId} admins={node.allowedAdmins ?? []} />
+        <Balance peerId={node.id ?? node.nodeId} admins={node.allowedAdmins ?? []} environments={envs} />
       </div>
     </Card>
   );

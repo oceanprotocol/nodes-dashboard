@@ -276,6 +276,35 @@ async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multia
   return finalmultiaddrs;
 }
 
+function toBytes(chunk: Uint8Array | { subarray(): Uint8Array }): Uint8Array {
+  return chunk instanceof Uint8Array ? chunk : chunk.subarray();
+}
+
+async function* remainingChunks(
+  it: AsyncIterator<Uint8Array | { subarray(): Uint8Array }>
+): AsyncGenerator<Uint8Array> {
+  let next = await it.next();
+  while (!next.done && next.value !== null) {
+    yield toBytes(next.value);
+    next = await it.next();
+  }
+}
+
+export async function getPeerMultiaddr(peerId: string) {
+  if (!nodeInstance) {
+    throw new Error('Node not initialized');
+  }
+
+  if (!isNodeReady) {
+    throw new Error('Node not ready');
+  }
+
+  const connection = await nodeInstance.dial(peerIdFromString(peerId), {
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+  });
+  return connection.remoteAddr.toString();
+}
+
 export async function sendCommandToPeer(
   peerId: string,
   command: Record<string, any>,
@@ -312,43 +341,45 @@ export async function sendCommandToPeer(
     stream.send(uint8ArrayFromString(JSON.stringify(command)));
     await stream.close();
 
-    const iterator = stream[Symbol.asyncIterator]();
-    const { done, value } = await iterator.next();
+    const it = stream[Symbol.asyncIterator]();
+    const { done, value } = await it.next();
+    const firstChunk = value !== null ? toBytes(value) : null;
 
-    if (done || !value) {
+    if (done || !firstChunk?.length) {
       return { status: { httpStatus: 500, error: 'No response from peer' } };
     }
 
-    const metadata = JSON.parse(uint8ArrayToString(value.subarray()));
-
-    if (metadata.httpStatus !== 200) {
-      return { status: { httpStatus: metadata.httpStatus, error: metadata.error } };
+    const statusText = uint8ArrayToString(firstChunk);
+    try {
+      const status = JSON.parse(statusText);
+      if (typeof status?.httpStatus === 'number' && status.httpStatus >= 400) {
+        return { status: { httpStatus: status.httpStatus, error: status.error } };
+      }
+    } catch {
+      // First chunk not valid JSON status, continue
     }
 
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk.subarray());
+    const chunks: Uint8Array[] = [firstChunk];
+    for await (const c of remainingChunks(it)) {
+      chunks.push(c);
     }
 
-    if (chunks.length === 0) {
-      return { status: { httpStatus: 500, error: 'No data in response' } };
+    let response: unknown;
+    for (let i = 0; i < chunks.length; i++) {
+      const text = uint8ArrayToString(chunks[i]);
+      try {
+        response = JSON.parse(text);
+      } catch {
+        response = chunks[i];
+      }
     }
 
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const fullData = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      fullData.set(chunk, offset);
-      offset += chunk.length;
+    const res = response as { httpStatus?: number; error?: string } | null;
+    if (typeof res?.httpStatus === 'number' && res.httpStatus >= 400) {
+      return { status: { httpStatus: res.httpStatus, error: res.error } };
     }
 
-    const firstByte = fullData[0];
-    // Check if the response is a JSON
-    if (firstByte === 123 || firstByte === 91) {
-      return JSON.parse(uint8ArrayToString(fullData));
-    }
-
-    return fullData;
+    return response;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
@@ -396,7 +427,7 @@ export async function createAuthToken(
   consumerAddress: string,
   signature: string,
   nonce: string
-): Promise<string> {
+): Promise<{ token: string }> {
   return sendCommandToPeer(peerId, {
     command: Command.CREATE_AUTH_TOKEN,
     address: consumerAddress,

@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import classNames from 'classnames';
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import styles from './stepper.module.css';
 
 export type Step<T> = {
@@ -41,7 +41,9 @@ const Stepper = <T extends string>({ currentStep, steps }: StepperProps<T>) => {
 
   return (
     <Card className={styles.root} variant="glass-shaded">
-      {visibleSteps.map((step, index) => renderStep(step, index))}
+      {visibleSteps.map((step, index) => (
+        <Fragment key={step.key}>{renderStep(step, index)}</Fragment>
+      ))}
     </Card>
   );
 };
