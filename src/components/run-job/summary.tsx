@@ -1,4 +1,3 @@
-import VscodeLogoWhite from '@/assets/icons/ide/vscode-white.svg';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
@@ -10,7 +9,6 @@ import { Ide } from '@/types/ide';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
 import styles from './summary.module.css';
 
 type SummaryProps = {
@@ -40,6 +38,7 @@ const Summary = ({
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const [selectedIde, setSelectedIde] = useState(Ide.vscode);
 
   const generateToken = async () => {
     if (!account.address || !ocean) {
@@ -55,12 +54,16 @@ const Summary = ({
       console.error('Failed to generate auth token:', error);
       toast.error('Failed to generate auth token');
     }
+    const authToken = await generateAuthToken(nodeInfo.id, account.address);
+    setAuthToken(authToken);
   };
 
   const openIde = async (uriScheme: string) => {
     if (!authToken || !account.address || !ocean) {
       return;
     }
+
+    const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
     const resources = [
       {
         id: selectedResources.cpuId,
@@ -84,6 +87,7 @@ const Summary = ({
       authToken,
       account.address,
       nodeInfo.id,
+      peerMultiaddr,
       isFreeCompute,
       selectedEnv.id,
       token.address,
@@ -174,7 +178,7 @@ const Summary = ({
                 <MenuItem
                   key={ide.uriScheme}
                   onClick={() => {
-                    openIde(ide.uriScheme);
+                    setSelectedIde(ide);
                     handleCloseIdeMenu();
                   }}
                 >
@@ -186,11 +190,15 @@ const Summary = ({
             <Button
               autoLoading
               color="accent2"
-              contentBefore={<VscodeLogoWhite style={{ height: '18px', width: 'auto' }} />}
-              onClick={async () => await openIde('vscode')}
+              contentBefore={
+                <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
+                  {selectedIde.icon}
+                </span>
+              }
+              onClick={async () => await openIde(selectedIde.uriScheme)}
               size="lg"
             >
-              Open VSCode
+              Open {selectedIde.name}
             </Button>
           </div>
         </div>
@@ -198,7 +206,7 @@ const Summary = ({
         <div className={styles.footer}>
           <div>Continue on our VSCode extension, or select your editor of choice</div>
           <div className={styles.buttons}>
-            <Button autoLoading color="accent2" onClick={generateToken} size="lg">
+            <Button autoLoading color="accent2" onClick={createAuthToken} size="lg">
               Generate token
             </Button>
           </div>
