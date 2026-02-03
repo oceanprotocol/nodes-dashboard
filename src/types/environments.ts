@@ -1,16 +1,17 @@
-export interface ComputeEnvFeesStructure {
-  feeToken: string;
-  prices: { id: string; price: number }[];
-}
-
 type ComputeResourceType = 'cpu' | 'ram' | 'disk' | 'gpu';
 type ComputeResourceId = 'cpu' | 'ram' | 'disk' | string;
 
-type SlimComputeResource = {
+export interface ComputeResourcesPricingInfo {
   id: ComputeResourceId;
-  max: number;
-  inUse?: number;
-};
+  price: number;
+}
+export interface ComputeEnvFees {
+  feeToken: string;
+  prices: ComputeResourcesPricingInfo[];
+}
+export interface ComputeEnvFeesStructure {
+  [chainId: string]: ComputeEnvFees[];
+}
 
 export type ComputeResource = {
   description?: string;
@@ -26,11 +27,12 @@ export type ComputeResource = {
 export type ComputeEnvironment = {
   consumerAddress: string;
   description?: string;
-  fees: Record<string, ComputeEnvFeesStructure[]>;
+  fees: ComputeEnvFeesStructure;
   free?: {
+    storageExpiry?: number;
     maxJobDuration?: number;
     maxJobs?: number;
-    resources?: SlimComputeResource[];
+    resources?: ComputeResource[];
   };
   id: string;
   maxJobDuration?: number;

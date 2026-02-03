@@ -247,7 +247,10 @@ export class OceanProvider {
     const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
     const denominatedCost = this.denominateNumber(cost, tokenDecimals);
 
-    return denominatedCost;
+    return {
+      cost: denominatedCost,
+      minLockSeconds: data.payment.minLockSeconds,
+    };
   }
 
   async updateConfiguration(
