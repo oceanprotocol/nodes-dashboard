@@ -3,11 +3,12 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import type { Connection, ConnectionGater } from '@libp2p/interface';
+import type { Connection } from '@libp2p/interface';
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
+import { multiaddr, type Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string';
@@ -98,7 +99,6 @@ export async function initializeNode(bootstrapNodes: string[]) {
           peerInfoMapper: passthroughMapper,
         }),
       },
-      connectionGater: createConnectionGater(),
       connectionManager: {
         maxConnections: 100,
         dialTimeout: DEFAULT_TIMEOUT,
@@ -129,18 +129,41 @@ export async function initializeNode(bootstrapNodes: string[]) {
   }
 }
 
-function createConnectionGater(): ConnectionGater {
-  return {
-    denyDialPeer: async () => false,
-    denyDialMultiaddr: async () => false,
-    denyInboundConnection: async () => false,
-    denyOutboundConnection: async () => false,
-    denyInboundEncryptedConnection: async () => false,
-    denyOutboundEncryptedConnection: async () => false,
-    denyInboundUpgradedConnection: async () => false,
-    denyOutboundUpgradedConnection: async () => false,
-    filterMultiaddrForPeer: async () => true,
-  };
+function hasMultiAddr(addr: Multiaddr, multiAddresses: Multiaddr[]) {
+  const addrStr = addr.toString();
+  for (let i = 0; i < multiAddresses.length; i++) {
+    if (multiAddresses[i].toString() === addrStr) return true;
+  }
+  return false;
+}
+
+function normalizeMultiaddr(addr: Multiaddr): Multiaddr | null {
+  try {
+    let addrStr = addr.toString();
+
+    if (addrStr.includes('/ws/tcp/')) {
+      addrStr = addrStr.replace('/ws/tcp/', '/tcp/');
+      if (addrStr.includes('/p2p/')) {
+        addrStr = addrStr.replace('/p2p/', '/ws/p2p/');
+      } else {
+        addrStr = addrStr + '/ws';
+      }
+    }
+    if (addrStr.includes('/wss/tcp/')) {
+      addrStr = addrStr.replace('/wss/tcp/', '/tcp/');
+      if (addrStr.includes('/p2p/')) {
+        addrStr = addrStr.replace('/p2p/', '/wss/p2p/');
+      } else {
+        addrStr = addrStr + '/wss';
+      }
+    }
+
+    return multiaddr(addrStr);
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    console.warn(`Failed to normalize address ${addr.toString()}: ${errorMessage}`);
+    return null;
+  }
 }
 
 function toBytes(chunk: Uint8Array | { subarray(): Uint8Array }): Uint8Array {
