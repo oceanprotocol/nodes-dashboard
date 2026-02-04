@@ -70,20 +70,6 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   // Ref to track deployment attempts and prevent infinite loop
   const deploymentAttempted = useRef<string | null>(null);
 
-  const fetchEnsAddress = useCallback(async (accountId: string) => {
-    if (!accountId || accountId === '' || !accountId.includes('.')) {
-      return;
-    }
-    try {
-      const response = await axios.get(`${getApiRoute('ensAddress')}?name=${accountId}`);
-      if (response.data?.address) {
-        setEnsAddress(response.data.address);
-      }
-    } catch (error) {
-      console.error('Error fetching ENS address:', error);
-    }
-  }, []);
-
   const fetchEnsName = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '') {
       return;
@@ -113,6 +99,9 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const fetchOwnerStats = useCallback(async () => {
+    if (!ensAddress) {
+      return;
+    }
     try {
       const response = await axios.get<OwnerStats>(`${getApiRoute('ownerStats')}/${ensAddress}/stats`);
       if (response.data) {
@@ -139,9 +128,12 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('Error fetching owner stats: ', err);
     }
-  }, []);
+  }, [ensAddress]);
 
   const fetchConsumerStats = useCallback(async () => {
+    if (!ensAddress) {
+      return;
+    }
     try {
       const response = await axios.get<ConsumerStats>(`${getApiRoute('consumerStats')}/${ensAddress}/stats`);
       if (response.data) {
@@ -152,9 +144,12 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('Error fetching consumer stats: ', err);
     }
-  }, []);
+  }, [ensAddress]);
 
   const fetchActiveNodes = useCallback(async () => {
+    if (!ensAddress) {
+      return;
+    }
     try {
       const response = await axios.get<ActiveNodes>(`${getApiRoute('nodesStats')}/${ensAddress}/nodesStats`);
       if (response.data) {
@@ -164,9 +159,12 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('Error fetching active nodes: ', err);
     }
-  }, []);
+  }, [ensAddress]);
 
   const fetchJobsSuccessRate = useCallback(async () => {
+    if (!ensAddress) {
+      return;
+    }
     try {
       const response = await axios.get<JobsSuccessRate>(
         `${getApiRoute('jobsSuccessRate')}/${ensAddress}/jobs-success-rate`
@@ -178,7 +176,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('Error fetching jobs success rate: ', err);
     }
-  }, []);
+  }, [ensAddress]);
 
   const fetchNodeEnv = useCallback(async (peerId: string, envId: string) => {
     try {
@@ -195,7 +193,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   // Handle profile fetching when connected
   useEffect(() => {
     if (account.isConnected && account.address) {
-      fetchEnsAddress(account.address);
+      setEnsAddress(account.address);
       fetchEnsName(account.address);
       fetchEnsProfile(account.address);
     } else {
@@ -203,7 +201,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsName(undefined);
       setEnsProfile(undefined);
     }
-  }, [account.address, account.isConnected, fetchEnsAddress, fetchEnsName, fetchEnsProfile]);
+  }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile]);
 
   // Auto-deploy account if needed when user connects
   useEffect(() => {

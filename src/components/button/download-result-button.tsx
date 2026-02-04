@@ -13,7 +13,7 @@ interface DownloadResultButtonProps {
 
 export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
   const { account, signMessage } = useOceanAccount();
-  const { getComputeResult, isReady } = useP2P();
+  const { getComputeResult, getComputeJobStatus, isReady } = useP2P();
 
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -23,11 +23,14 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
     try {
       const jobId = job.environment.split('-')[0] + '-' + job.jobId;
       setIsDownloading(true);
-      const archive = job.results.find((result: any) => result.filename.includes('.tar'));
+      const jobStatus = await getComputeJobStatus(job.peerId, jobId, account.address);
+      const archive = jobStatus?.[0]?.results?.find((result: any) => result.filename.includes('.tar'));
 
       const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
 
       const result = await getComputeResult(job.peerId, jobId, archive?.index, authToken, account.address);
+      console.log('result', result);
+
       if (result instanceof Uint8Array) {
         if (result.byteLength === 0) {
           console.log('Received empty response (0 bytes). Skipping download.');
