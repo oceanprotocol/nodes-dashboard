@@ -51,6 +51,17 @@
   display: flex;
   font-size: 14px;
 
+  .freeCompute {
+    align-items: center;
+    color: var(--success);
+    display: inline-flex;
+    gap: 4px;
+
+    .freeIcon {
+      font-size: 14px;
+    }
+  }
+
   &.heading,
   .heading {
     color: var(--text-primary);
@@ -67,6 +78,10 @@
   .icon {
     color: var(--accent1);
     margin-right: 4px;
+  }
+
+  .allUsed {
+    color: var(--warning);
   }
 }
 
