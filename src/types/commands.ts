@@ -5,4 +5,5 @@ export enum Command {
   COMPUTE_GET_STATUS = 'getComputeStatus',
   NONCE = 'nonce',
   CREATE_AUTH_TOKEN = 'createAuthToken',
+  INITIALIZE_COMPUTE = 'initializeCompute',
 }

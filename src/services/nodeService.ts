@@ -323,6 +323,17 @@ export async function getNonce(peerId: string, consumerAddress: string): Promise
   });
 }
 
+export async function initializeCompute(
+  peerId: string,
+  body: Record<string, unknown>
+): Promise<{ payment: { amount: string; minLockSeconds: number }; status?: { httpStatus: number; error?: string } }> {
+  return sendCommandToPeer(peerId, {
+    command: Command.INITIALIZE_COMPUTE,
+    node: peerId,
+    ...body,
+  });
+}
+
 export async function createAuthToken(
   peerId: string,
   consumerAddress: string,

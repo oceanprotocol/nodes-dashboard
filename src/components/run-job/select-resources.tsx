@@ -5,7 +5,9 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
+import { useP2P } from '@/contexts/P2PContext';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
+import { CHAIN_ID } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
@@ -38,7 +40,8 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const { nodeInfo, setEstimatedTotalCost, setMinLockSeconds, setSelectedResources } = useRunJobContext();
 
-  const { ocean } = useOceanAccount();
+  const { initializeCompute } = useP2P();
+  const { provider } = useOceanAccount();
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
@@ -139,20 +142,22 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       return;
     }
 
-    if (!ocean || !nodeInfo?.id) {
+    if (!provider || !nodeInfo?.id) {
       return;
     }
 
     setIsLoadingCost(true);
     try {
       const maxJobDurationSec = formik.values.maxJobDurationHours * 60 * 60;
-      const { cost, minLockSeconds } = await ocean.initializeCompute(
+      const { cost, minLockSeconds } = await initializeCompute(
         environment,
         token.address,
         maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
         nodeInfo.id,
         environment.consumerAddress,
-        resources
+        resources,
+        CHAIN_ID,
+        provider
       );
       setLocalEstimatedTotalCost(Number(cost));
       setMinLockSeconds(minLockSeconds);
@@ -161,7 +166,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     } finally {
       setIsLoadingCost(false);
     }
-  }, [environment, freeCompute, formik.values.maxJobDurationHours, nodeInfo?.id, ocean, resources, setMinLockSeconds, token.address]);
+  }, [environment, freeCompute, formik.values.maxJobDurationHours, nodeInfo?.id, initializeCompute, provider, resources, setMinLockSeconds, token.address]);
 
   useEffect(() => {
     fetchEstimatedCost();
