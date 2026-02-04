@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 const PaymentPage = () => {
   const router = useRouter();
 
-  const { estimatedTotalCost, freeCompute, nodeInfo, selectedEnv, selectedResources, selectedToken } =
+  const { estimatedTotalCost, freeCompute, minLockSeconds, selectedEnv, selectedResources, selectedToken } =
     useRunJobContext();
 
   useEffect(() => {
@@ -30,11 +30,11 @@ const PaymentPage = () => {
       {selectedEnv && selectedResources && selectedToken ? (
         <div className="pageContentWrapper">
           <Payment
+            minLockSeconds={minLockSeconds ?? 0}
             selectedEnv={selectedEnv}
             selectedResources={selectedResources}
             selectedToken={selectedToken}
             totalCost={estimatedTotalCost ?? 0}
-            peerId={nodeInfo?.id ?? ''}
           />
         </div>
       ) : null}

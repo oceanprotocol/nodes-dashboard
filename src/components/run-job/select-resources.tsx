@@ -36,7 +36,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const { account } = useOceanAccount();
 
-  const { nodeInfo, setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
+  const { nodeInfo, setEstimatedTotalCost, setMinLockSeconds, setSelectedResources } = useRunJobContext();
 
   const { ocean } = useOceanAccount();
 
@@ -146,7 +146,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     setIsLoadingCost(true);
     try {
       const maxJobDurationSec = formik.values.maxJobDurationHours * 60 * 60;
-      const { cost } = await ocean.initializeCompute(
+      const { cost, minLockSeconds } = await ocean.initializeCompute(
         environment,
         token.address,
         maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
@@ -155,12 +155,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         resources
       );
       setLocalEstimatedTotalCost(Number(cost));
+      setMinLockSeconds(minLockSeconds);
     } catch (error) {
       console.error('Failed to fetch estimated cost:', error);
     } finally {
       setIsLoadingCost(false);
     }
-  }, [environment, freeCompute, formik.values.maxJobDurationHours, nodeInfo?.id, ocean, resources, token.address]);
+  }, [environment, freeCompute, formik.values.maxJobDurationHours, nodeInfo?.id, ocean, resources, setMinLockSeconds, token.address]);
 
   useEffect(() => {
     fetchEstimatedCost();

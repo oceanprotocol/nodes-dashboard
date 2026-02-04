@@ -11,14 +11,14 @@ import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type PaymentProps = {
+  minLockSeconds: number;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
   totalCost: number;
-  peerId: string;
 };
 
-const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
+const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
   const router = useRouter();
 
   const { account, ocean } = useOceanAccount();
@@ -104,11 +104,11 @@ const Payment = ({ peerId, selectedEnv, selectedResources, selectedToken, totalC
           currentLockedAmount={currentLockedAmount}
           loadingAuthorizations={loadingAuthorizations}
           loadPaymentInfo={loadPaymentInfo}
+          minLockSeconds={minLockSeconds}
           selectedEnv={selectedEnv}
           selectedResources={selectedResources}
           selectedToken={selectedToken}
           totalCost={totalCost}
-          peerId={peerId}
         />
       ) : null}
     </Card>
