@@ -12,7 +12,7 @@ import { formatNumber } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
 
@@ -36,7 +36,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const { account } = useOceanAccount();
 
-  const { setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
+  const { nodeInfo, setEstimatedTotalCost, setSelectedResources } = useRunJobContext();
+
+  const { ocean } = useOceanAccount();
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
@@ -118,31 +120,51 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     }),
   });
 
-  const estimatedTotalCost = useMemo(() => {
+  const [estimatedTotalCost, setLocalEstimatedTotalCost] = useState(0);
+  const [isLoadingCost, setIsLoadingCost] = useState(false);
+
+  const resources = useMemo(
+    () => [
+      { id: cpu?.id ?? 'cpu', amount: formik.values.cpuCores },
+      { id: disk?.id ?? 'disk', amount: formik.values.diskSpace },
+      { id: ram?.id ?? 'ram', amount: formik.values.ram },
+      ...formik.values.gpus.map((gpuId) => ({ id: gpuId, amount: 1 })),
+    ],
+    [cpu?.id, disk?.id, ram?.id, formik.values.cpuCores, formik.values.diskSpace, formik.values.ram, formik.values.gpus]
+  );
+
+  const fetchEstimatedCost = useCallback(async () => {
     if (freeCompute) {
-      return 0;
+      setLocalEstimatedTotalCost(0);
+      return;
     }
-    const timeInMinutes = Number(formik.values.maxJobDurationHours) * 60;
-    const cpuCost = Number(formik.values.cpuCores) * (cpuFee ?? 0) * timeInMinutes;
-    const ramCost = Number(formik.values.ram) * (ramFee ?? 0) * timeInMinutes;
-    const diskCost = Number(formik.values.diskSpace) * (diskFee ?? 0) * timeInMinutes;
-    const gpuCost = formik.values.gpus.reduce((total, gpuId) => {
-      const fee = gpuFees[gpuId] ?? 0;
-      return total + fee * timeInMinutes;
-    }, 0);
-    return cpuCost + ramCost + diskCost + gpuCost;
-  }, [
-    cpuFee,
-    diskFee,
-    formik.values.cpuCores,
-    formik.values.diskSpace,
-    formik.values.gpus,
-    formik.values.maxJobDurationHours,
-    formik.values.ram,
-    freeCompute,
-    gpuFees,
-    ramFee,
-  ]);
+
+    if (!ocean || !nodeInfo?.id) {
+      return;
+    }
+
+    setIsLoadingCost(true);
+    try {
+      const maxJobDurationSec = formik.values.maxJobDurationHours * 60 * 60;
+      const { cost } = await ocean.initializeCompute(
+        environment,
+        token.address,
+        maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
+        nodeInfo.id,
+        environment.consumerAddress,
+        resources
+      );
+      setLocalEstimatedTotalCost(Number(cost));
+    } catch (error) {
+      console.error('Failed to fetch estimated cost:', error);
+    } finally {
+      setIsLoadingCost(false);
+    }
+  }, [environment, freeCompute, formik.values.maxJobDurationHours, nodeInfo?.id, ocean, resources, token.address]);
+
+  useEffect(() => {
+    fetchEstimatedCost();
+  }, [fetchEstimatedCost]);
 
   const selectAllGpus = () => {
     formik.setFieldValue(
@@ -273,7 +295,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
               <div>
                 <span className={styles.token}>{token.symbol}</span>
                 &nbsp;
-                <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
+                <span className={styles.amount}>
+                  {isLoadingCost ? 'Calculating...' : formatNumber(estimatedTotalCost)}
+                </span>
               </div>
               <div className={styles.reimbursment}>
                 If your job finishes early, the unconsumed tokens remain in escrow
