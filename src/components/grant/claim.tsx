@@ -1,10 +1,9 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import { formatDateTime, formatNumber } from '@/utils/formatters';
+import { formatNumber } from '@/utils/formatters';
 import styles from './claim.module.css';
 
 const Claim: React.FC = () => {
-  const mockRedeemBefore = new Date();
   const mockSymbol = 'USDC';
   const mockAmount = 100;
 
@@ -21,8 +20,6 @@ const Claim: React.FC = () => {
           &nbsp;
           <span className={styles.amount}>{formatNumber(mockAmount)}</span>
         </div>
-        <h3>Redeem before</h3>
-        <h3 className={styles.values}>{formatDateTime(mockRedeemBefore.getTime() / 1000)}</h3>
       </Card>
       <Button className="alignSelfStretch" color="accent2" size="lg" type="submit" variant="filled">
         Redeem grant
