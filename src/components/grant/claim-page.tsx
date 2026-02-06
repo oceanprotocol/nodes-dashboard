@@ -3,8 +3,21 @@ import Claim from '@/components/grant/claim';
 import SectionTitle from '@/components/section-title/section-title';
 import { getGrantSteps, GrantStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
+import { useGrantContext } from '@/context/grant-context';
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 const ClaimPage = () => {
+  const router = useRouter();
+
+  const { grantDetails } = useGrantContext();
+
+  useEffect(() => {
+    if (!grantDetails) {
+      router.replace('/grant/details');
+    }
+  }, [grantDetails, router]);
+
   return (
     <Container className="pageRoot">
       <SectionTitle
@@ -12,9 +25,11 @@ const ClaimPage = () => {
         subTitle="Complete the claim process to receive the grant"
         contentBetween={<Stepper<GrantStep> currentStep="claim" steps={getGrantSteps()} />}
       />
-      <div className="pageContentWrapper">
-        <Claim />
-      </div>
+      {grantDetails ? (
+        <div className="pageContentWrapper">
+          <Claim grantDetails={grantDetails} />
+        </div>
+      ) : null}
     </Container>
   );
 };

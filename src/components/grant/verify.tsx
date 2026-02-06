@@ -2,16 +2,23 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import TwoFactorInput from '@/components/input/two-factor-input';
 import useCooldown from '@/hooks/use-cooldown';
+import { GrantDetails } from '@/types/grant';
+import axios from 'axios';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { toast } from 'react-toastify';
 import styles from './verify.module.css';
+
+type VerifyProps = {
+  grantDetails: GrantDetails;
+};
 
 type VerifyFormValues = {
   code: string;
 };
 
-const Verify: React.FC = () => {
+const Verify: React.FC<VerifyProps> = ({ grantDetails }) => {
   const router = useRouter();
 
   const resendCooldown = useCooldown(5);
@@ -20,14 +27,37 @@ const Verify: React.FC = () => {
     initialValues: {
       code: '',
     },
-    onSubmit: () => {
-      router.push('/grant/claim');
+    onSubmit: async (values) => {
+      try {
+        await axios.post('/api/grant/verify', {
+          code: values.code,
+          email: grantDetails?.email,
+        });
+        router.push('/grant/claim');
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.data?.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error('Failed to verify code. Please try again.');
+        }
+      }
     },
   });
 
-  const handleResend = () => {
+  const handleResend = async () => {
     resendCooldown.initiateCooldown();
-    console.log('Resend');
+    try {
+      await axios.post('/api/grant/submit', {
+        email: grantDetails?.email,
+        resend: true,
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to resend code. Please try again.');
+      }
+    }
   };
 
   useEffect(() => {
@@ -59,6 +89,7 @@ const Verify: React.FC = () => {
             className="alignSelfStretch"
             disabled={formik.values.code.length !== 6}
             color="accent2"
+            loading={formik.isSubmitting}
             size="lg"
             type="submit"
             variant="filled"

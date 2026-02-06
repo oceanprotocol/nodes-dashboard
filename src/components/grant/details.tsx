@@ -2,9 +2,14 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
 import Input from '@/components/input/input';
+import { useGrantContext } from '@/context/grant-context';
+import { GRANT_GOAL_CHOICES, GRANT_HARDWARE_CHOICES, GRANT_OS_CHOICES, GRANT_ROLE_CHOICES } from '@/types/grant';
+import axios from 'axios';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
+import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import styles from './details.module.css';
 
@@ -19,60 +24,14 @@ type DetailsFormValues = {
   walletAddress: string;
 };
 
-const ROLE_CHOICES = [
-  { label: 'AI developer', value: 'ai_developer' },
-  { label: 'Data scientist', value: 'data_scientist' },
-  { label: 'Student/ Researcher', value: 'student_researcher' },
-  { label: 'Node operator/ Miner', value: 'node_operator' },
-  { label: 'Web3 builder/ Founder', value: 'web3_builder' },
-  { label: 'Crypto investor/ Trader', value: 'crypto_investor' },
-];
-
-const HARDWARE_CHOICES = [
-  { label: 'Ultra high-end gaming PC (NVIDIA GPU 4090/5090)', value: 'highend_gaming_pc' },
-  { label: 'Lightweight gaming PC', value: 'lightweight_gaming_pc' },
-  { label: 'Apple (MacBook M1 - M5)', value: 'apple' },
-  { label: 'Enterprise/ Data center GPU (eg. H100/ A100)', value: 'enterprise_data_center_gpu' },
-  { label: 'Standard laptop/ CPU only', value: 'standard_laptop_cpu_only' },
-  { label: 'None/ Cloud resources only', value: 'none_cloud_resources_only' },
-];
-
-const OS_CHOICES = [
-  { label: 'Windows', value: 'windows' },
-  { label: 'MacOS', value: 'macos' },
-  { label: 'Linux', value: 'linux' },
-];
-
-const GOAL_CHOICES = [
-  {
-    description: 'I need affordable compute to train or fine-tune my own models',
-    label: 'Train AI models',
-    value: 'train_ai_models',
-  },
-  {
-    description: 'I want to run autonomous bots for trading, predictions, or automation',
-    label: 'Deploy AI agents',
-    value: 'deploy_ai_agents',
-  },
-  {
-    description: 'I am a developer building an App that would benefit from an out-of-the-box decentralized AI backend',
-    label: 'Build an application',
-    value: 'build_an_application',
-  },
-  {
-    description: 'I am conducting research and need privacy-preserving infrastructure',
-    label: 'Academic/ Private research',
-    value: 'academic_private_research',
-  },
-  {
-    description: 'I want to earn revenue by renting out my GPU/CPU power',
-    label: 'Monetize idle hardware',
-    value: 'monetize_idle_hardware',
-  },
-];
-
 const Details: React.FC = () => {
   const router = useRouter();
+
+  const { clearGrantSelection, setGrantDetails } = useGrantContext();
+
+  useEffect(() => {
+    clearGrantSelection();
+  }, [clearGrantSelection]);
 
   const formik = useFormik<DetailsFormValues>({
     initialValues: {
@@ -85,9 +44,32 @@ const Details: React.FC = () => {
       role: null,
       walletAddress: '',
     },
-    onSubmit: (values) => {
-      console.log(values);
-      router.push('/grant/verify');
+    onSubmit: async (values) => {
+      try {
+        const response = await axios.post<{ shouldValidateEmail: boolean }>('/api/grant/details', values);
+        setGrantDetails({
+          email: values.email,
+          goal: values.goal!,
+          handle: values.handle,
+          hardware: values.hardware,
+          name: values.name,
+          os: values.os!,
+          role: values.role!,
+          walletAddress: values.walletAddress,
+        });
+        if (response.data.shouldValidateEmail) {
+          router.push('/grant/verify');
+        } else {
+          router.push('/grant/claim');
+        }
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.data?.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error('Failed to submit form. Please try again.');
+        }
+        console.error('Failed to submit form', error);
+      }
     },
     validationSchema: Yup.object({
       email: Yup.string().email('Invalid email').required('Required'),
@@ -151,7 +133,7 @@ const Details: React.FC = () => {
             {formik.touched.role && formik.errors.role ? <div className="textError">{formik.errors.role}</div> : null}
           </div>
           <div className={classNames(styles.choices, styles.choices3cols)}>
-            {ROLE_CHOICES.map((choice) => (
+            {GRANT_ROLE_CHOICES.map((choice) => (
               <Checkbox
                 checked={formik.values.role === choice.value}
                 key={choice.value}
@@ -172,7 +154,7 @@ const Details: React.FC = () => {
             ) : null}
           </div>
           <div className={classNames(styles.choices, styles.choices2cols)}>
-            {HARDWARE_CHOICES.map((choice) => (
+            {GRANT_HARDWARE_CHOICES.map((choice) => (
               <Checkbox
                 checked={formik.values.hardware.includes(choice.value)}
                 key={choice.value}
@@ -191,7 +173,7 @@ const Details: React.FC = () => {
             {formik.touched.os && formik.errors.os ? <div className="textError">{formik.errors.os}</div> : null}
           </div>
           <div className={classNames(styles.choices, styles.choicesRow)}>
-            {OS_CHOICES.map((choice) => (
+            {GRANT_OS_CHOICES.map((choice) => (
               <Checkbox
                 checked={formik.values.os === choice.value}
                 key={choice.value}
@@ -210,7 +192,7 @@ const Details: React.FC = () => {
             {formik.touched.goal && formik.errors.goal ? <div className="textError">{formik.errors.goal}</div> : null}
           </div>
           <div className={styles.choices}>
-            {GOAL_CHOICES.map((choice) => (
+            {GRANT_GOAL_CHOICES.map((choice) => (
               <Checkbox
                 checked={formik.values.goal === choice.value}
                 key={choice.value}
@@ -228,7 +210,14 @@ const Details: React.FC = () => {
             ))}
           </div>
         </div>
-        <Button className="alignSelfEnd" color="accent2" type="submit" size="lg" variant="filled">
+        <Button
+          className="alignSelfEnd"
+          color="accent2"
+          loading={formik.isSubmitting}
+          type="submit"
+          size="lg"
+          variant="filled"
+        >
           Continue
         </Button>
       </form>

@@ -1,4 +1,5 @@
 import RootLayout from '@/components/Layout';
+import { GrantProvider } from '@/context/grant-context';
 import { NodesProvider } from '@/context/nodes-context';
 import { ProfileProvider } from '@/context/profile-context';
 import { RunJobProvider } from '@/context/run-job-context';
@@ -45,25 +46,27 @@ export default function App({ Component, pageProps }: AppProps) {
     <main className={cx(inter.variable, orbitron.variable)}>
       <QueryClientProvider client={queryClientRef.current}>
         <AlchemyProvider>
-          <NodesProvider>
-            <UnbanRequestsProvider>
-              <ProfileProvider>
-                <StatsProvider>
-                  <P2PProvider>
-                    <RunJobEnvsProvider>
-                      <RunJobProvider>
-                        <RunNodeProvider>
-                          <RootLayout>
-                            <Component {...pageProps} />
-                          </RootLayout>
-                        </RunNodeProvider>
-                      </RunJobProvider>
-                    </RunJobEnvsProvider>
-                  </P2PProvider>
-                </StatsProvider>
-              </ProfileProvider>
-            </UnbanRequestsProvider>
-          </NodesProvider>
+          <GrantProvider>
+            <NodesProvider>
+              <UnbanRequestsProvider>
+                <ProfileProvider>
+                  <StatsProvider>
+                    <P2PProvider>
+                      <RunJobEnvsProvider>
+                        <RunJobProvider>
+                          <RunNodeProvider>
+                            <RootLayout>
+                              <Component {...pageProps} />
+                            </RootLayout>
+                          </RunNodeProvider>
+                        </RunJobProvider>
+                      </RunJobEnvsProvider>
+                    </P2PProvider>
+                  </StatsProvider>
+                </ProfileProvider>
+              </UnbanRequestsProvider>
+            </NodesProvider>
+          </GrantProvider>
         </AlchemyProvider>
         <ToastContainer hideProgressBar theme="colored" />
       </QueryClientProvider>
