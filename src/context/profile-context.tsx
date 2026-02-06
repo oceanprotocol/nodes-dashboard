@@ -182,6 +182,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${peerId}`);
       const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
+
       const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === envId);
       setEnvironment(env);
       setNodeInfo({ id: sanitizedData.id, friendlyName: sanitizedData.friendlyName });

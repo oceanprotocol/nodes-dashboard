@@ -13,6 +13,12 @@ export interface ComputeEnvFeesStructure {
   [chainId: string]: ComputeEnvFees[];
 }
 
+type SlimComputeResource = {
+  id: ComputeResourceId;
+  max: number;
+  inUse?: number;
+};
+
 export type ComputeResource = {
   description?: string;
   id: ComputeResourceId;
@@ -32,7 +38,7 @@ export type ComputeEnvironment = {
     storageExpiry?: number;
     maxJobDuration?: number;
     maxJobs?: number;
-    resources?: ComputeResource[];
+    resources?: SlimComputeResource[];
   };
   id: string;
   maxJobDuration?: number;

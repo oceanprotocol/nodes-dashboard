@@ -29,7 +29,6 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
       const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
 
       const result = await getComputeResult(job.peerId, jobId, archive?.index, authToken, account.address);
-      console.log('result', result);
 
       if (result instanceof Uint8Array) {
         if (result.byteLength === 0) {
