@@ -2,7 +2,7 @@ import Avatar from '@/components/avatar/avatar';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
-import { useAuthModal, useLogout, useSignerStatus } from '@account-kit/react';
+import { useAuthModal, useLogout } from '@account-kit/react';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import WalletIcon from '@mui/icons-material/Wallet';
@@ -13,10 +13,10 @@ import Button from '../button/button';
 import styles from './navigation.module.css';
 
 const ProfileButton = () => {
-  const { openAuthModal } = useAuthModal();
-  const { logout, isLoggingOut } = useLogout();
   const router = useRouter();
-  const { isAuthenticating, isInitializing } = useSignerStatus();
+
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+  const { isLoggingOut, logout } = useLogout();
 
   const { account } = useOceanAccount();
 
@@ -24,6 +24,15 @@ const ProfileButton = () => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     setIsClient(true);
@@ -38,7 +47,7 @@ const ProfileButton = () => {
   };
 
   const accountName = useMemo(() => {
-    if (account.status === 'connected' && account.address) {
+    if (account.isConnected && account.address) {
       if (ensName) {
         return ensName;
       }
@@ -49,7 +58,7 @@ const ProfileButton = () => {
     return 'Not connected';
   }, [account, ensName]);
 
-  return isClient && account?.status === 'connected' ? (
+  return isClient && account?.isConnected ? (
     <>
       <Button
         className={styles.loginButton}
@@ -118,11 +127,7 @@ const ProfileButton = () => {
       </Menu>
     </>
   ) : (
-    <Button
-      className={styles.loginButton}
-      loading={isAuthenticating || isInitializing || isLoggingOut}
-      onClick={openAuthModal}
-    >
+    <Button className={styles.loginButton} loading={isLoggingOut} onClick={openAuthModal}>
       Log in
     </Button>
   );

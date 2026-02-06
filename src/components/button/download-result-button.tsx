@@ -2,8 +2,7 @@ import Button from '@/components/button/button';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeJob } from '@/types/jobs';
-import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
+import { generateAuthToken } from '@/utils/generateAuthToken';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -13,13 +12,10 @@ interface DownloadResultButtonProps {
 }
 
 export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
+  const { account, signMessage } = useOceanAccount();
   const { getComputeResult, isReady } = useP2P();
+
   const [isDownloading, setIsDownloading] = useState(false);
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-  const { account } = useOceanAccount();
 
   const handleDownload = async () => {
     if (!isReady || isDownloading || !account?.address) return;
@@ -29,7 +25,7 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
       setIsDownloading(true);
       const archive = job.results.find((result: any) => result.filename.includes('.tar'));
 
-      const authToken = await generateAuthTokenWithSmartAccount(job.peerId, account.address, signMessageAsync);
+      const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
 
       const result = await getComputeResult(job.peerId, jobId, archive?.index, authToken, account.address);
       if (result instanceof Uint8Array) {

@@ -1,6 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
-import { useSendUserOperation, useSmartAccountClient } from '@account-kit/react';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -27,11 +28,11 @@ export interface UseWithdrawTokensReturn {
 }
 
 export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): UseWithdrawTokensReturn => {
+  const { client, ocean, user } = useOceanAccount();
+
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [error, setError] = useState<string>();
   const chainId = CHAIN_ID;
-
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
 
   const handleSuccess = () => {
     setIsWithdrawing(false);
@@ -77,6 +78,21 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
 
   const handleWithdraw = useCallback(
     async ({ tokenAddresses, amounts }: WithdrawTokensParams) => {
+      if (user?.type === 'eoa') {
+        try {
+          setIsWithdrawing(true);
+          if (!ocean) {
+            return;
+          }
+          const tx = await ocean.withdrawTokensEoa({ tokenAddresses, amounts });
+          await tx.wait();
+          handleSuccess();
+        } catch (error) {
+          handleError(error as Error);
+        }
+        return;
+      }
+
       if (!client) return;
       if (tokenAddresses.length !== amounts.length) return;
 
@@ -117,7 +133,7 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
         setIsWithdrawing(false);
       }
     },
-    [client, sendUserOperation, chainId]
+    [user?.type, client, ocean, sendUserOperation, chainId]
   );
 
   const transactionUrl = useMemo(() => {

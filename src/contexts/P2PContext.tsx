@@ -1,3 +1,4 @@
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
   fetchNodeConfig,
   getComputeJobResult,
@@ -10,8 +11,6 @@ import {
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
-import { generateAuthTokenWithSmartAccount } from '@/utils/generateAuthToken';
-import { useSignMessage, useSmartAccountClient } from '@account-kit/react';
 import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -21,11 +20,17 @@ interface P2PContextType {
   config: Record<string, any>;
   envs: ComputeEnvironment[];
   error: string | null;
+  /**
+   *
+   * This is a request that uses admin signature validation on the ocean-node.
+   * If user is `Externally Owned Account (EOA)`, address must be undefined.
+   * If user is `Smart Account`, address must be sent.
+   */
   fetchConfig: (
     peerId: string,
     signature: string,
     expiryTimestamp: number,
-    address: string
+    address?: string
   ) => Promise<Record<string, any>>;
   getComputeResult: (
     peerId: string,
@@ -37,14 +42,19 @@ interface P2PContextType {
   getEnvs: (peerId: string) => Promise<any>;
   isReady: boolean;
   node: Libp2p | null;
+  /**
+   *
+   * This is a request that uses admin signature validation on the ocean-node.
+   * If user is `Externally Owned Account (EOA)`, address must be undefined.
+   * If user is `Smart Account`, address must be sent.
+   */
   pushConfig: (
     peerId: string,
     signature: string,
     expiryTimestamp: number,
     config: Record<string, any>,
-    address: string
+    address?: string
   ) => Promise<void>;
-  generateAuthToken: (peerId: string, address: string) => Promise<string>;
   sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
   getPeerMultiaddr: (peerId: string) => Promise<string>;
 }
@@ -52,10 +62,8 @@ interface P2PContextType {
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
 
 export function P2PProvider({ children }: { children: React.ReactNode }) {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
+  const { signMessage } = useOceanAccount();
+
   const [config, setConfig] = useState<Record<string, any>>({});
   const [envs, setEnvs] = useState<ComputeEnvironment[]>([]);
   const [node, setNode] = useState<Libp2p | null>(null);
@@ -145,7 +153,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const fetchConfig = useCallback(
-    async (peerId: string, signature: string, expiryTimestamp: number, address: string) => {
+    async (peerId: string, signature: string, expiryTimestamp: number, address?: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
@@ -162,24 +170,13 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       signature: string,
       expiryTimestamp: number,
       config: Record<string, any>,
-      address: string
+      address?: string
     ) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
       await pushNodeConfig(peerId, signature, expiryTimestamp, config, address);
       setConfig(config);
-    },
-    [isReady, node]
-  );
-
-  const generateAuthToken = useCallback(
-    async (peerId: string, address: string) => {
-      if (!isReady || !node) {
-        throw new Error('Node not ready');
-      }
-
-      return generateAuthTokenWithSmartAccount(peerId, address, signMessageAsync);
     },
     [isReady, node]
   );
@@ -200,7 +197,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         pushConfig,
         getPeerMultiaddr,
         sendCommand,
-        generateAuthToken,
       }}
     >
       {children}
