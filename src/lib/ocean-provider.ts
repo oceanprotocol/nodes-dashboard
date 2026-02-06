@@ -10,9 +10,9 @@ import { ethers } from 'ethers';
 
 export class OceanProvider {
   private chainId: number;
-  private provider: ethers.JsonRpcProvider;
+  private provider: ethers.BrowserProvider | ethers.JsonRpcProvider;
 
-  constructor(chainId: number, provider: ethers.JsonRpcProvider) {
+  constructor(chainId: number, provider: ethers.BrowserProvider | ethers.JsonRpcProvider) {
     this.chainId = chainId;
     this.provider = provider;
   }
@@ -35,6 +35,10 @@ export class OceanProvider {
     return new BigNumber(number).div(new BigNumber(10).pow(decimalsNumber)).decimalPlaces(decimalsNumber).toString();
   }
 
+  private normalizeNumber(number: string, decimals: number) {
+    return new BigNumber(number).multipliedBy(new BigNumber(10).pow(decimals)).toFixed(0);
+  }
+
   private async getEscrowContract(chainId: number) {
     const config = await this.getConfigByChainId(chainId);
     if (!config.Escrow) {
@@ -43,16 +47,6 @@ export class OceanProvider {
 
     const escrow = new ethers.Contract(config.Escrow, Escrow.abi, this.provider);
     return escrow;
-  }
-
-  async getEnvironmentsByNode(peerId: string): Promise<ComputeEnvironment[]> {
-    try {
-      const response = await directNodeCommand('getComputeEnvironments', peerId, {});
-      const data = await response.json();
-      return data;
-    } catch {
-      return [];
-    }
   }
 
   async getNodeBalance(environments: ComputeEnvironment[]) {
@@ -110,6 +104,10 @@ export class OceanProvider {
   }
 
   async getAuthorizations(tokenAddress: string, payer: string, payee: string) {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer) || !ethers.isAddress(payee)) {
+      console.error('Invalid address passed to getAuthorizations', { tokenAddress, payer, payee });
+      return null;
+    }
     const escrow = await this.getEscrowContract(this.chainId);
     const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
     const authorizations = await escrow.getAuthorizations(tokenAddress, payer, payee);
@@ -134,6 +132,122 @@ export class OceanProvider {
     const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
     const balanceString = this.denominateNumber(availableFunds.toString(), tokenDecimals);
     return parseFloat(balanceString);
+  }
+
+  async authorizeTokensEoa({
+    tokenAddress,
+    spender,
+    maxLockedAmount,
+    maxLockSeconds,
+    maxLockCount,
+  }: {
+    tokenAddress: string;
+    spender: string;
+    maxLockedAmount: string;
+    maxLockSeconds: string;
+    maxLockCount: string;
+  }): Promise<any> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(spender)) {
+      console.error('Invalid address passed to authorizeTokensEoa', { tokenAddress, spender });
+      throw new Error('Invalid address');
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const normalizedMaxLockedAmount = this.normalizeNumber(maxLockedAmount, tokenDecimals);
+    const signer = await this.provider.getSigner();
+    const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
+    const authorize = await escrowWithSigner.authorize(
+      tokenAddress,
+      spender,
+      normalizedMaxLockedAmount,
+      maxLockSeconds,
+      maxLockCount
+    );
+    return authorize;
+  }
+
+  async depositTokensEoa({ tokenAddress, amount }: { tokenAddress: string; amount: string }): Promise<any> {
+    if (!ethers.isAddress(tokenAddress)) {
+      console.error('Invalid address passed to depositTokensEoa', { tokenAddress });
+      throw new Error('Invalid address');
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const normalizedAmount = this.normalizeNumber(amount, tokenDecimals);
+    const signer = await this.provider.getSigner();
+    const token = new ethers.Contract(tokenAddress, ERC20Template.abi, signer);
+    const approve = await token.approve(escrow.target, normalizedAmount);
+    await approve.wait();
+    const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
+    const deposit = await escrowWithSigner.deposit(tokenAddress, normalizedAmount);
+    return deposit;
+  }
+
+  async withdrawTokensEoa({ tokenAddresses, amounts }: { tokenAddresses: string[]; amounts: string[] }): Promise<any> {
+    if (!tokenAddresses.every((addr) => ethers.isAddress(addr))) {
+      console.error('Invalid address passed to withdrawTokensEoa', { tokenAddresses });
+      throw new Error('Invalid address');
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const signer = await this.provider.getSigner();
+    const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
+    const normalizedAmounts = await Promise.all(
+      tokenAddresses.map(async (tokenAddress, index) => {
+        const tokenContract = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
+        const tokenDecimals = await tokenContract.decimals();
+        return this.normalizeNumber(amounts[index], tokenDecimals);
+      })
+    );
+    const withdraw = await escrowWithSigner.withdraw(tokenAddresses, normalizedAmounts);
+    return withdraw;
+  }
+
+  async getNonce(address: string, peerId: string): Promise<number> {
+    const response = await directNodeCommand('nonce', peerId, { address });
+    const data = await response.json();
+    return Number(data);
+  }
+
+  async generateAuthToken(address: string, nonce: number, signature: string, peerId: string) {
+    const response = await directNodeCommand('createAuthToken', peerId, {
+      address,
+      signature,
+      nonce: nonce.toString(),
+    });
+    const data = await response.json();
+    const token = data.token;
+
+    return token;
+  }
+
+  async initializeCompute(
+    environment: ComputeEnvironment,
+    tokenAddress: string,
+    validUntil: number,
+    peerId: string,
+    address: string,
+    resources: ComputeResourceRequest[]
+  ): Promise<any> {
+    const response = await directNodeCommand('initializeCompute', peerId, {
+      datasets: [],
+      algorithm: { meta: { rawcode: 'rawcode' } },
+      environment: environment.id,
+      payment: {
+        chainId: this.chainId,
+        token: tokenAddress,
+        resources,
+      },
+      maxJobDuration: validUntil,
+      consumerAddress: address,
+      signature: '',
+    });
+
+    const data = await response.json();
+    const cost = data.payment.amount;
+    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const denominatedCost = this.denominateNumber(cost, tokenDecimals);
+
+    return denominatedCost;
   }
 
   async updateConfiguration(

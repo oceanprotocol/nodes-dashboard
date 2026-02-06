@@ -6,8 +6,8 @@ import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
-import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
-import { useMemo, useState } from 'react';
+import { useAuthModal } from '@account-kit/react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './unban-requests.module.css';
 
 type UnbanRequestsProps = {
@@ -15,18 +15,25 @@ type UnbanRequestsProps = {
 };
 
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-  const { openAuthModal } = useAuthModal();
-  const { account, ocean } = useOceanAccount();
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+
+  const { account, ocean, signMessage } = useOceanAccount();
+
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
 
   const [loading, setLoading] = useState(false);
 
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
+
   const isAdmin = useMemo(
-    () => node.allowedAdmins?.includes(account?.address as string),
+    () => account.address && node.allowedAdmins?.includes(account.address),
     [node.allowedAdmins, account]
   );
 
@@ -41,10 +48,7 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
     setLoading(true);
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-      const signedMessage = await signMessageAsync({
-        message: timestamp.toString(),
-      });
-
+      const signedMessage = await signMessage(timestamp.toString());
       await requestNodeUnban(node.id, signedMessage as string, timestamp, account.address as string);
       await fetchUnbanRequests(node.id);
     } catch (error) {

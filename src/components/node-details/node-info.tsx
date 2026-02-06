@@ -5,7 +5,7 @@ import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node, NodeEligibility } from '@/types/nodes';
-import { useAuthModal, useSignMessage, useSmartAccountClient } from '@account-kit/react';
+import { useAuthModal } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
@@ -20,22 +20,52 @@ type NodeInfoProps = {
 };
 
 const NodeInfo = ({ node }: NodeInfoProps) => {
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({
-    client,
-  });
-  const { openAuthModal } = useAuthModal();
-  const { account, ocean } = useOceanAccount();
-  const { config, envs, fetchConfig, pushConfig } = useP2P();
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+
+  const { account, ocean, signMessage, user } = useOceanAccount();
+  const { config, fetchConfig, pushConfig } = useP2P();
+
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
   const [editedConfig, setEditedConfig] = useState<Record<string, any>>({});
 
+  // TODO: replace this
+  // This is temporary, used for local testing because `node` from props was
+  // naked, as it was a local node and the request is made to elastic.
+  // In the final solution the isAdmin with useMemo from below should be used.
+
+  // const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  // const getNodeStatus = useCallback(
+  //   async (peerId: string) => {
+  //     const res = await sendCommandToPeer(peerId, { command: 'status' });
+  //     const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
+  //     node.allowedAdmins = res.allowedAdmins;
+  //     setIsAdmin(!!isInAllowedAdmins);
+  //   },
+  //   [account?.address]
+  // );
+
+  // useEffect(() => {
+  //   if (isReady && node.id) {
+  //     getNodeStatus(node.id);
+  //   }
+  // }, [isReady, node?.id, getNodeStatus]);
+
   const isAdmin = useMemo(
-    () => node.allowedAdmins?.includes(account?.address as string),
+    () => account.address && node.allowedAdmins?.includes(account.address),
     [node.allowedAdmins, account]
   );
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     if (config) {
@@ -51,14 +81,12 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     if (!ocean || !node?.id) {
       return;
     }
-    const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-    const signedMessage = await signMessageAsync({
-      message: timestamp.toString(),
-    });
-
     setFetchingConfig(true);
     try {
-      await fetchConfig(node.id, signedMessage, timestamp, account.address as string);
+      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+      const signedMessage = await signMessage(timestamp.toString());
+      const addressToSend = user?.type === 'sca' ? account.address : undefined;
+      await fetchConfig(node.id, signedMessage, timestamp, addressToSend);
     } catch (error) {
       console.error('Error fetching node config :', error);
     } finally {
@@ -75,14 +103,12 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     if (!ocean || !node?.id) {
       return;
     }
-    const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-    const signedMessage = await signMessageAsync({
-      message: timestamp.toString(),
-    });
-
     setPushingConfig(true);
     try {
-      await pushConfig(node.id, signedMessage, timestamp, config, account.address as string);
+      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+      const signedMessage = await signMessage(timestamp.toString());
+      const addressToSend = user?.type === 'sca' ? account.address : undefined;
+      await pushConfig(node.id, signedMessage, timestamp, config, addressToSend);
       success = true;
     } catch (error) {
       console.error('Error pushing node config :', error);
@@ -151,14 +177,16 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           ) : null}
         </div>
         <div className={styles.infoFooter}>
-          <div>
-            <strong>Admins:</strong>
-            {node.allowedAdmins?.map((admin) => (
-              <div key={admin} className={styles.hash}>
-                {admin}
-              </div>
-            ))}
-          </div>
+          {node.allowedAdmins?.length ? (
+            <div>
+              <strong>Admins:</strong>
+              {node.allowedAdmins.map((admin) => (
+                <div key={admin} className={styles.hash}>
+                  {admin}
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div>{node.version && <span>Ocean Node v{node.version}</span>}</div>
         </div>
       </div>
@@ -174,7 +202,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           eligibilityCauseStr={node.eligibilityCauseStr}
           banInfo={node.banInfo}
         />
-        <Balance peerId={node.id ?? node.nodeId} admins={node.allowedAdmins ?? []} environments={envs} />
+        {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} /> : null}
       </div>
     </Card>
   );

@@ -7,9 +7,11 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
+import { generateAuthToken } from '@/utils/generateAuthToken';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './summary.module.css';
 
 type SummaryProps = {
@@ -29,8 +31,8 @@ const Summary = ({
   selectedResources,
   token,
 }: SummaryProps) => {
-  const { generateAuthToken, getPeerMultiaddr } = useP2P();
-  const { account, ocean } = useOceanAccount();
+  const { account, ocean, signMessage } = useOceanAccount();
+  const { getPeerMultiaddr } = useP2P();
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,
@@ -42,12 +44,18 @@ const Summary = ({
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [selectedIde, setSelectedIde] = useState(Ide.vscode);
 
-  const createAuthToken = async () => {
-    if (!account.address || !nodeInfo.id) {
-      return null;
+  const generateToken = async () => {
+    if (!account.address || !ocean) {
+      return;
     }
-    const authToken = await generateAuthToken(nodeInfo.id, account.address);
-    setAuthToken(authToken);
+    try {
+      const authToken = await generateAuthToken(nodeInfo.id, account.address, signMessage);
+
+      setAuthToken(authToken);
+    } catch (error) {
+      console.error('Failed to generate auth token:', error);
+      toast.error('Failed to generate auth token');
+    }
   };
 
   const openIde = async (uriScheme: string) => {
@@ -198,7 +206,7 @@ const Summary = ({
         <div className={styles.footer}>
           <div>Continue on our VSCode extension, or select your editor of choice</div>
           <div className={styles.buttons}>
-            <Button autoLoading color="accent2" onClick={createAuthToken} size="lg">
+            <Button autoLoading color="accent2" onClick={generateToken} size="lg">
               Generate token
             </Button>
           </div>

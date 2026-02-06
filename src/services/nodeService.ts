@@ -3,7 +3,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import type { Connection, PeerId } from '@libp2p/interface';
+import type { Connection } from '@libp2p/interface';
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
@@ -166,116 +166,6 @@ function normalizeMultiaddr(addr: Multiaddr): Multiaddr | null {
   }
 }
 
-async function discoverPeerAddresses(node: Libp2p, peer: string): Promise<Multiaddr[]> {
-  const allMultiaddrs: Multiaddr[] = [];
-
-  let peerId: PeerId;
-  try {
-    peerId = peerIdFromString(peer);
-  } catch (e: unknown) {
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    console.error('Failed to parse peerId:', errorMessage);
-    throw new Error(`Invalid peerId format: ${peer}`);
-  }
-
-  try {
-    const peerData = await node.peerStore.get(peerId);
-
-    if (peerData && peerData.addresses) {
-      console.log(`Found ${peerData.addresses.length} addresses in peerStore`);
-      for (const addr of peerData.addresses) {
-        // Convert to string and back to ensure type compatibility
-        const addrStr = addr.multiaddr.toString();
-        const addrMultiaddr = multiaddr(addrStr);
-        if (!hasMultiAddr(addrMultiaddr, allMultiaddrs)) {
-          const normalized = normalizeMultiaddr(addrMultiaddr);
-          if (normalized) {
-            allMultiaddrs.push(normalized);
-          }
-        }
-      }
-    }
-  } catch (e: unknown) {
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    console.log('peerStore query failed:', errorMessage);
-  }
-
-  try {
-    const peerInfo = await node.peerRouting.findPeer(peerId, {
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-      useCache: false,
-      useNetwork: true,
-    });
-
-    if (peerInfo && peerInfo.multiaddrs) {
-      console.log(`Found ${peerInfo.multiaddrs.length} addresses via DHT`);
-      for (const addr of peerInfo.multiaddrs) {
-        // Convert to string and back to ensure type compatibility
-        const addrStr = addr.toString();
-        const addrMultiaddr = multiaddr(addrStr);
-        if (!hasMultiAddr(addrMultiaddr, allMultiaddrs)) {
-          const normalized = normalizeMultiaddr(addrMultiaddr);
-          if (normalized) {
-            allMultiaddrs.push(normalized);
-          }
-        }
-      }
-    }
-  } catch (e: unknown) {
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    console.log('DHT query failed:', errorMessage);
-  }
-
-  console.log(`\nDiscovery summary: ${allMultiaddrs.length} total addresses found`);
-
-  if (allMultiaddrs.length === 0) {
-    console.error(`No addresses found for peer ${peer}`);
-    throw new Error(
-      `Could not discover any addresses for peer ${peer}. ` + `Ensure the target peer is online and accessible.`
-    );
-  }
-
-  const wssAddrs = allMultiaddrs.filter((ma) => {
-    const str = ma.toString();
-    return str.includes('/wss');
-  });
-
-  console.log(`WebSocket-compatible addresses: ${wssAddrs.length}`);
-
-  if (wssAddrs.length === 0) {
-    console.error(`Found ${allMultiaddrs.length} addresses but none use WebSocketSecure protocol`);
-  }
-
-  const finalmultiaddrsWithPeerId: Multiaddr[] = [];
-  const finalmultiaddrsWithoutPeerId: Multiaddr[] = [];
-
-  for (const addr of wssAddrs) {
-    const addrStr = addr.toString();
-
-    if (addrStr.includes(`/p2p/${peer}`)) {
-      finalmultiaddrsWithPeerId.push(addr);
-    } else {
-      // For p2p-circuit (circuit relay), always add peer ID
-      if (addrStr.includes('p2p-circuit')) {
-        finalmultiaddrsWithPeerId.push(multiaddr(`${addrStr}/p2p/${peer}`));
-      } else {
-        finalmultiaddrsWithoutPeerId.push(addr);
-      }
-    }
-  }
-
-  const finalmultiaddrs =
-    finalmultiaddrsWithPeerId.length > finalmultiaddrsWithoutPeerId.length
-      ? finalmultiaddrsWithPeerId
-      : finalmultiaddrsWithoutPeerId;
-
-  if (finalmultiaddrs.length === 0) {
-    throw new Error(`No valid addresses found for peer ${peer}`);
-  }
-
-  return finalmultiaddrs;
-}
-
 function toBytes(chunk: Uint8Array | { subarray(): Uint8Array }): Uint8Array {
   return chunk instanceof Uint8Array ? chunk : chunk.subarray();
 }
@@ -436,7 +326,7 @@ export async function createAuthToken(
   });
 }
 
-export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number, address: string) {
+export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number, address?: string) {
   return sendCommandToPeer(peerId, { command: 'fetchConfig', signature, expiryTimestamp, address });
 }
 
@@ -445,7 +335,7 @@ export async function pushNodeConfig(
   signature: string,
   expiryTimestamp: number,
   config: Record<string, any>,
-  address: string
+  address?: string
 ) {
   return sendCommandToPeer(peerId, { command: 'pushConfig', signature, expiryTimestamp, config, address });
 }

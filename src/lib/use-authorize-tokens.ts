@@ -1,6 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { RPC_URL } from '@/lib/constants';
-import { useSendUserOperation, useSmartAccountClient } from '@account-kit/react';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -30,11 +31,11 @@ export interface UseAuthorizeTokensReturn {
 }
 
 export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {}): UseAuthorizeTokensReturn => {
+  const { client, ocean, user } = useOceanAccount();
+
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [error, setError] = useState<string>();
   const chainId = CHAIN_ID;
-
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
 
   const handleSuccess = () => {
     setIsAuthorizing(false);
@@ -63,6 +64,27 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
 
   const handleAuthorize = useCallback(
     async ({ tokenAddress, spender, maxLockedAmount, maxLockSeconds, maxLockCount }: AuthorizeTokensParams) => {
+      if (user?.type === 'eoa') {
+        try {
+          setIsAuthorizing(true);
+          if (!ocean) {
+            return;
+          }
+          const tx = await ocean.authorizeTokensEoa({
+            tokenAddress,
+            spender,
+            maxLockedAmount,
+            maxLockSeconds,
+            maxLockCount,
+          });
+          await tx.wait();
+          handleSuccess();
+        } catch (error) {
+          handleError(error as Error);
+        }
+        return;
+      }
+
       if (!client) {
         setError('Wallet not connected');
         toast.error('Wallet not connected');
@@ -116,7 +138,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
         setIsAuthorizing(false);
       }
     },
-    [client, sendUserOperation, chainId]
+    [user?.type, client, ocean, sendUserOperation, chainId]
   );
 
   const transactionUrl = useMemo(() => {
