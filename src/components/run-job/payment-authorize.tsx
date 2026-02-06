@@ -15,9 +15,10 @@ type AuthorizeFormValues = {
 };
 
 type PaymentAuthorizeProps = {
-  // authorizations: any;
+  currentLockedAmount: number;
   loadingAuthorizations: boolean;
   loadPaymentInfo: () => void;
+  minLockSeconds: number;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
@@ -25,9 +26,10 @@ type PaymentAuthorizeProps = {
 };
 
 const PaymentAuthorize = ({
-  // authorizations,
+  currentLockedAmount,
   loadingAuthorizations,
   loadPaymentInfo,
+  minLockSeconds,
   selectedEnv,
   selectedResources,
   selectedToken,
@@ -41,16 +43,17 @@ const PaymentAuthorize = ({
     enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
-      maxLockedAmount: totalCost,
+      maxLockedAmount: totalCost + currentLockedAmount,
       maxLockCount: 10,
       maxLockSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
     },
-    onSubmit: async (values) => {
+    onSubmit: (values) => {
       handleAuthorize({
         tokenAddress: selectedToken.address,
         spender: selectedEnv.consumerAddress,
         maxLockedAmount: values.maxLockedAmount.toString(),
-        maxLockSeconds: values.maxLockSeconds.toString(),
+        maxLockSeconds:
+          minLockSeconds > values.maxLockSeconds ? minLockSeconds.toString() : values.maxLockSeconds.toString(),
         maxLockCount: values.maxLockCount.toString(),
       });
     },

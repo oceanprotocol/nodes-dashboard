@@ -19,7 +19,7 @@ export interface ComputeJobHistory {
   resultHashes?: number;
   seed?: string;
   difficulty?: number;
-  paymentInfo?: {
+  payment?: {
     token: string;
     cost: number;
     [key: string]: any;
@@ -72,7 +72,7 @@ export interface ComputeJob {
   isFree: boolean;
   algoStartTimestamp: number;
   maxJobDuration: number;
-  paymentInfo: {
+  payment: {
     token: string;
     cost: number;
   };

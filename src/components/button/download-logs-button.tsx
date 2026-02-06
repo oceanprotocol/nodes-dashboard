@@ -14,7 +14,7 @@ interface DownloadLogsButtonProps {
 
 export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
   const { account, signMessage } = useOceanAccount();
-  const { getComputeResult, isReady } = useP2P();
+  const { getComputeResult, getComputeJobStatus, isReady } = useP2P();
 
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -26,8 +26,10 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
 
       const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
 
-      const logFiles = job.results.filter((result: any) => result.filename.includes('.log'));
-      const logPromises = logFiles.map((logFile: any) =>
+      const jobStatus = await getComputeJobStatus(job.peerId, jobId, account.address);
+
+      const logFiles = jobStatus?.[0]?.results?.filter((result: any) => result.filename.includes('.log'));
+      const logPromises = logFiles?.map((logFile: any) =>
         getComputeResult(job.peerId, jobId, logFile.index, authToken, account.address!)
       );
 

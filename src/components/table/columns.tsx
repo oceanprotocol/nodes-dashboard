@@ -286,13 +286,13 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     flex: 1,
     headerName: 'Amount Paid',
     sortable: false,
-    valueGetter: (_value, row) => row.paymentInfo?.cost,
+    valueGetter: (_value, row) => row.payment?.cost,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
   },
   {
-    field: 'duration',
+    field: 'algoDuration',
     filterable: true,
     flex: 1,
     headerName: 'Duration',
@@ -300,6 +300,13 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      if (value < 60) return `${value.toFixed(2)}s`;
+      const mins = Math.floor(value / 60);
+      const secs = (value % 60).toFixed(0);
+      return `${mins}m ${secs}s`;
+    },
   },
   {
     align: 'right',

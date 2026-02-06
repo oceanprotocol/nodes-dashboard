@@ -11,13 +11,14 @@ import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type PaymentProps = {
+  minLockSeconds: number;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
   totalCost: number;
 };
 
-const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
+const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
   const router = useRouter();
 
   const { account, ocean } = useOceanAccount();
@@ -29,12 +30,18 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
   const [loadingAuthorizations, setLoadingAuthorizations] = useState(false);
   const [loadingUserFunds, setLoadingUserFunds] = useState(false);
 
+  const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
+
   const step: 'authorize' | 'deposit' = useMemo(() => {
+    // If total escrow covers cost, skip deposit and go to authorize
     if ((escrowBalance ?? 0) >= totalCost) {
       return 'authorize';
     }
+    if ((escrowBalance ?? 0) - currentLockedAmount >= totalCost) {
+      return 'authorize';
+    }
     return 'deposit';
-  }, [escrowBalance, totalCost]);
+  }, [currentLockedAmount, escrowBalance, totalCost]);
 
   const loadPaymentInfo = useCallback(() => {
     if (ocean && account?.address) {
@@ -61,8 +68,8 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
   }, [loadPaymentInfo]);
 
   useEffect(() => {
-    const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
-    const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost;
+    const sufficientEscrow = (escrowBalance ?? 0) + currentLockedAmount >= totalCost;
+    const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost + currentLockedAmount;
     const enoughLockSeconds = (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationHours;
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
       router.push('/run-job/summary');
@@ -70,6 +77,7 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
   }, [
     authorizations?.maxLockSeconds,
     authorizations?.maxLockedAmount,
+    currentLockedAmount,
     escrowBalance,
     router,
     selectedResources.maxJobDurationHours,
@@ -97,9 +105,10 @@ const Payment = ({ selectedEnv, selectedResources, selectedToken, totalCost }: P
         />
       ) : step === 'authorize' ? (
         <PaymentAuthorize
-          // authorizations={authorizations}
+          currentLockedAmount={currentLockedAmount}
           loadingAuthorizations={loadingAuthorizations}
           loadPaymentInfo={loadPaymentInfo}
+          minLockSeconds={minLockSeconds}
           selectedEnv={selectedEnv}
           selectedResources={selectedResources}
           selectedToken={selectedToken}
