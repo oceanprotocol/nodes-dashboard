@@ -1,12 +1,12 @@
+import { sendOTP } from '@/api-services/email';
 import { validateGrantDataWithAI } from '@/api-services/gemini';
+import { getGrantStore, initializeGrantStore } from '@/api-services/grant-store';
 import { findGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
-import { GrantDetails, GrantStatus } from '@/types/grant';
+import { generateOTP } from '@/api-services/otp';
+import { GrantDetails, GrantStatus, SubmitGrantDetailsResponse } from '@/types/grant';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Simple in-memory storage for OTPs (In production, use Redis or a DB)
-// Using a global variable for persistence across hot-reloads in dev
-const globalAny: any = global;
-globalAny.otpStore = globalAny.otpStore || new Map<string, { code: string; data: GrantDetails; expires: number }>();
+initializeGrantStore();
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
   if (request.method !== 'POST') {
@@ -36,39 +36,43 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   // Check if grant already exists
-  const existingGrant = await findGrantInSheet(data.email);
-  if (existingGrant) {
-    if (existingGrant.status === GrantStatus.REDEEMED) {
-      // Grant already redeemed, return error
-      return response.status(403).json({ message: 'Grant already redeemed' });
-    }
-    if (existingGrant.status === GrantStatus.NOT_REDEEMED) {
-      // Grant already exists but not redeemed
-      try {
-        // Update grant in sheet with new data
-        const newGrant = { ...existingGrant, ...data };
-        await updateGrantInSheet(newGrant);
-        return response.status(200).json({ shouldValidateEmail: false });
-      } catch (error) {
-        return response.status(500).json({ message: 'Failed to save grant details' });
+  try {
+    const existingGrant = await findGrantInSheet(data.email);
+    if (existingGrant) {
+      const newGrant = { ...existingGrant, ...data };
+      switch (existingGrant.status) {
+        case GrantStatus.EMAIL_VERIFIED:
+        case GrantStatus.SIGNED_FAUCET_MESSAGE: {
+          // Grant already exists, reward not claimed
+          // => Update details and continue with claiming
+          await updateGrantInSheet(newGrant);
+          const responseData: SubmitGrantDetailsResponse = {
+            shouldValidateEmail: false,
+          };
+          return response.status(200).json(responseData);
+        }
+        case GrantStatus.CLAIMED: {
+          // Grant already claimed
+          // => Return error
+          return response.status(403).json({ message: 'Grant already claimed' });
+        }
       }
     }
+  } catch (error) {
+    return response.status(500).json({ message: 'Failed to process grant details' });
   }
 
   // Generate OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
-  globalAny.otpStore.set(data.email, { code: otp, data, expires });
+  const { otp, otpExpires } = generateOTP();
+  getGrantStore().set(data.email, { otp, otpExpires, data });
 
   // Send OTP via email
   try {
-    // TODO
-    // await sendOTP(data.email, otp);
-    return response.status(200).json({
+    await sendOTP(data.email, otp);
+    const responseData: SubmitGrantDetailsResponse = {
       shouldValidateEmail: true,
-      // TODO remove OTP from response
-      otp,
-    });
+    };
+    return response.status(200).json(responseData);
   } catch (error) {
     return response.status(500).json({ message: 'Failed to send OTP' });
   }

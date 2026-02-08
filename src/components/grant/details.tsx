@@ -3,15 +3,24 @@ import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
 import Input from '@/components/input/input';
 import { useGrantContext } from '@/context/grant-context';
-import { GRANT_GOAL_CHOICES, GRANT_HARDWARE_CHOICES, GRANT_OS_CHOICES, GRANT_ROLE_CHOICES } from '@/types/grant';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import {
+  GRANT_GOAL_CHOICES,
+  GRANT_HARDWARE_CHOICES,
+  GRANT_OS_CHOICES,
+  GRANT_ROLE_CHOICES,
+  SubmitGrantDetailsResponse,
+} from '@/types/grant';
+import { useAuthModal } from '@account-kit/react';
 import axios from 'axios';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import styles from './details.module.css';
+import VerifyModal from './verify-modal';
 
 type DetailsFormValues = {
   email: string;
@@ -25,9 +34,22 @@ type DetailsFormValues = {
 };
 
 const Details: React.FC = () => {
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+  const { account } = useOceanAccount();
   const router = useRouter();
 
-  const { clearGrantSelection, setGrantDetails } = useGrantContext();
+  const { clearGrantSelection, grantDetails, setGrantDetails } = useGrantContext();
+
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     clearGrantSelection();
@@ -42,12 +64,16 @@ const Details: React.FC = () => {
       name: '',
       os: null,
       role: null,
-      walletAddress: '',
+      walletAddress: account?.address ?? '',
     },
     onSubmit: async (values) => {
+      if (!account.isConnected) {
+        openAuthModal();
+        return;
+      }
       try {
-        const response = await axios.post<{ shouldValidateEmail: boolean }>('/api/grant/details', values);
-        setGrantDetails({
+        const response = await axios.post<SubmitGrantDetailsResponse>('/api/grant/details', values);
+        const details = {
           email: values.email,
           goal: values.goal!,
           handle: values.handle,
@@ -56,9 +82,10 @@ const Details: React.FC = () => {
           os: values.os!,
           role: values.role!,
           walletAddress: values.walletAddress,
-        });
+        };
+        setGrantDetails(details);
         if (response.data.shouldValidateEmail) {
-          router.push('/grant/verify');
+          setIsVerifyModalOpen(true);
         } else {
           router.push('/grant/claim');
         }
@@ -82,6 +109,11 @@ const Details: React.FC = () => {
       walletAddress: Yup.string().required('Required'),
     }),
   });
+
+  const handleVerifySuccess = () => {
+    setIsVerifyModalOpen(false);
+    router.push('/grant/claim');
+  };
 
   return (
     <Card padding="md" radius="lg" variant="glass-shaded">
@@ -221,6 +253,14 @@ const Details: React.FC = () => {
           Continue
         </Button>
       </form>
+      {grantDetails ? (
+        <VerifyModal
+          isOpen={isVerifyModalOpen}
+          onClose={() => setIsVerifyModalOpen(false)}
+          onSuccess={handleVerifySuccess}
+          grantDetails={grantDetails}
+        />
+      ) : null}
     </Card>
   );
 };

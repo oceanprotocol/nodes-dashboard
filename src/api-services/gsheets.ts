@@ -14,8 +14,13 @@ import { google } from 'googleapis';
  * G: OS
  * H: Goal
  * I: Application date
- * J: Redeem date
+ * J: Claim date
  * K: Status
+ * L: Amount
+ * M: Raw amount
+ * N: Nonce
+ * O: Signed faucet message
+ * P: Transaction hash
  *
  * Row 1: This sheet is auto-generated.
  * Row 2: Headers
@@ -23,7 +28,13 @@ import { google } from 'googleapis';
  */
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_GRANT_SPREADSHEET_ID;
-const RANGE = `${process.env.GOOGLE_SHEETS_GRANT_SHEET_NAME}!A3:K`;
+
+function getRange(row?: number) {
+  if (row || row === 0) {
+    return `${process.env.GOOGLE_SHEETS_GRANT_SHEET_NAME}!A${row}:P${row}`;
+  }
+  return `${process.env.GOOGLE_SHEETS_GRANT_SHEET_NAME}!A3:P`;
+}
 
 async function getSheetsService() {
   const auth = new google.auth.JWT({
@@ -38,7 +49,7 @@ export async function findGrantInSheet(email: string): Promise<GrantWithStatus |
   const service = await getSheetsService();
   const response = await service.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: RANGE,
+    range: getRange(),
   });
   const rows = response.data.values;
   if (!rows || rows.length === 0) return null;
@@ -55,8 +66,13 @@ export async function findGrantInSheet(email: string): Promise<GrantWithStatus |
     os: row[6],
     goal: row[7],
     applicationDate: new Date(row[8]),
-    redeemDate: row[9] ? new Date(row[9]) : null,
+    claimDate: row[9] ? new Date(row[9]) : undefined,
     status: row[10] as GrantStatus,
+    amount: row[11],
+    rawAmount: row[12],
+    nonce: row[13] ? Number(row[13]) : undefined,
+    signedFaucetMessage: row[14],
+    txHash: row[15],
   };
 }
 
@@ -64,22 +80,33 @@ export async function insertGrantInSheet(data: GrantDetails) {
   const service = await getSheetsService();
   const values = [
     [
+      // A: Name
       data.name,
+      // B: Email
       data.email,
+      // C: Wallet address
       data.walletAddress,
+      // D: Handle
       data.handle,
+      // E: Role
       data.role,
+      // F: Hardware
       data.hardware.join(', '),
+      // G: OS
       data.os,
+      // H: Goal
       data.goal,
+      // I: Application date
       new Date().toISOString(),
+      // J: Claim date
       '',
-      'not-redeemed',
+      // K: Status
+      GrantStatus.EMAIL_VERIFIED,
     ],
   ];
   await service.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: RANGE,
+    range: getRange(),
     valueInputOption: 'USER_ENTERED',
     requestBody: { values },
   });
@@ -89,27 +116,48 @@ export async function updateGrantInSheet(data: GrantWithStatus) {
   const service = await getSheetsService();
   const response = await service.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: RANGE,
+    range: getRange(),
   });
   const rows = response.data.values;
   if (!rows) return;
   const rowIndex = rows.findIndex((row) => row[1] === data.email);
   if (rowIndex === -1) return;
   const rowNumber = rowIndex + 3; // +3 because of header rows and 1-based indexing
-  const updateRange = `${process.env.GOOGLE_SHEETS_GRANT_SHEET_NAME}!A${rowNumber}:K${rowNumber}`;
+  const updateRange = getRange(rowNumber);
   const values = [
     [
+      // A: Name
       data.name,
+      // B: Email
       data.email,
+      // C: Wallet address
       data.walletAddress,
+      // D: Handle
       data.handle,
+      // E: Role
       data.role,
+      // F: Hardware
       data.hardware.join(', '),
+      // G: OS
       data.os,
+      // H: Goal
       data.goal,
+      // I: Application date
       data.applicationDate.toISOString(),
-      data.redeemDate ? data.redeemDate.toISOString() : '',
+      // J: Claim date
+      data.claimDate ? data.claimDate.toISOString() : '',
+      // K: Status
       data.status,
+      // L: Amount
+      data.amount,
+      // M: Raw amount
+      data.rawAmount,
+      // N: Nonce
+      data.nonce,
+      // O: Signed faucet message
+      data.signedFaucetMessage,
+      // P: Transaction hash
+      data.txHash,
     ],
   ];
   await service.spreadsheets.values.update({

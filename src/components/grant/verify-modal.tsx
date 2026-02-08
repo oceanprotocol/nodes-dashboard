@@ -1,16 +1,18 @@
 import Button from '@/components/button/button';
-import Card from '@/components/card/card';
 import TwoFactorInput from '@/components/input/two-factor-input';
-import useCooldown from '@/hooks/use-cooldown';
+import Modal from '@/components/modal/modal';
+import useCountdown from '@/hooks/use-countdown';
 import { GrantDetails } from '@/types/grant';
 import axios from 'axios';
 import { useFormik } from 'formik';
-import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
-import styles from './verify.module.css';
+import styles from './verify-modal.module.css';
 
-type VerifyProps = {
+type VerifyModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
   grantDetails: GrantDetails;
 };
 
@@ -18,10 +20,9 @@ type VerifyFormValues = {
   code: string;
 };
 
-const Verify: React.FC<VerifyProps> = ({ grantDetails }) => {
-  const router = useRouter();
-
-  const resendCooldown = useCooldown(5);
+const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, grantDetails }) => {
+  const expiryCountdown = useCountdown(10 * 60); // 10 minutes
+  const resendCountdown = useCountdown(5);
 
   const formik = useFormik<VerifyFormValues>({
     initialValues: {
@@ -31,9 +32,9 @@ const Verify: React.FC<VerifyProps> = ({ grantDetails }) => {
       try {
         await axios.post('/api/grant/verify', {
           code: values.code,
-          email: grantDetails?.email,
+          email: grantDetails.email,
         });
-        router.push('/grant/claim');
+        onSuccess();
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.data?.message) {
           toast.error(error.response.data.message);
@@ -45,12 +46,12 @@ const Verify: React.FC<VerifyProps> = ({ grantDetails }) => {
   });
 
   const handleResend = async () => {
-    resendCooldown.initiateCooldown();
+    resendCountdown.initiateCountdown();
     try {
-      await axios.post('/api/grant/submit', {
-        email: grantDetails?.email,
-        resend: true,
+      await axios.post('/api/grant/resend-otp', {
+        email: grantDetails.email,
       });
+      toast.success(`A new code was sent to ${grantDetails.email}`);
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         toast.error(error.response.data.message);
@@ -61,16 +62,21 @@ const Verify: React.FC<VerifyProps> = ({ grantDetails }) => {
   };
 
   useEffect(() => {
-    resendCooldown.initiateCooldown();
+    if (isOpen) {
+      expiryCountdown.initiateCountdown();
+      resendCountdown.initiateCountdown();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isOpen]);
 
   return (
-    <Card className={styles.root} padding="md" radius="lg" variant="glass-shaded">
+    <Modal isOpen={isOpen} onClose={onClose} title="Verify your email" width="xs">
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         <div className={styles.group}>
-          <h3>Verify your email</h3>
           <div>Enter the 6-digit verification code sent to your email</div>
+          <div>
+            Code expires in {expiryCountdown.remainingCountdown / 60}:{expiryCountdown.remainingCountdown % 60}
+          </div>
         </div>
         <TwoFactorInput onChange={(code) => formik.setFieldValue('code', code)} value={formik.values.code} />
         <div className={styles.group}>
@@ -78,16 +84,16 @@ const Verify: React.FC<VerifyProps> = ({ grantDetails }) => {
             Didn&apos;t receive the code?&nbsp;
             <button
               className={styles.linkButton}
-              disabled={resendCooldown.isCoolingDown}
+              disabled={resendCountdown.isCountingDown}
               onClick={handleResend}
               type="button"
             >
-              {resendCooldown.isCoolingDown ? `Resend in ${resendCooldown.remainingCooldown}s` : 'Resend'}
+              {resendCountdown.isCountingDown ? `Resend in ${resendCountdown.remainingCountdown}s` : 'Resend'}
             </button>
           </div>
           <Button
             className="alignSelfStretch"
-            disabled={formik.values.code.length !== 6}
+            disabled={formik.values.code.length !== 6 || formik.isSubmitting}
             color="accent2"
             loading={formik.isSubmitting}
             size="lg"
@@ -98,8 +104,8 @@ const Verify: React.FC<VerifyProps> = ({ grantDetails }) => {
           </Button>
         </div>
       </form>
-    </Card>
+    </Modal>
   );
 };
 
-export default Verify;
+export default VerifyModal;

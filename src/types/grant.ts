@@ -10,32 +10,50 @@ export type GrantDetails = {
 };
 
 export type GrantWithStatus = GrantDetails & {
+  amount?: string;
   applicationDate: Date;
-  redeemDate: Date | null;
+  claimDate?: Date;
+  nonce?: number;
+  rawAmount?: string;
+  signedFaucetMessage?: string;
   status: GrantStatus;
+  txHash?: string;
 };
 
 export enum GrantStatus {
-  NOT_REDEEMED = 'not-redeemed',
-  REDEEMED = 'redeemed',
+  EMAIL_VERIFIED = 'email-verified',
+  SIGNED_FAUCET_MESSAGE = 'signed-faucet-message',
+  CLAIMED = 'claimed',
 }
 
+export type SubmitGrantDetailsResponse = {
+  shouldValidateEmail: boolean;
+};
+
+export type ClaimGrantResponse = {
+  faucetAddress: string;
+  nonce: number;
+  rawAmount: string;
+  signature: string;
+  walletAddress: string;
+};
+
 export const GRANT_ROLE_CHOICES = [
-  { label: 'AI developer', value: 'ai_developer' },
+  { label: 'AI developer', value: 'ai_dev' },
   { label: 'Data scientist', value: 'data_scientist' },
-  { label: 'Student/ Researcher', value: 'student_researcher' },
-  { label: 'Node operator/ Miner', value: 'node_operator' },
-  { label: 'Web3 builder/ Founder', value: 'web3_builder' },
-  { label: 'Crypto investor/ Trader', value: 'crypto_investor' },
+  { label: 'Student/ Researcher', value: 'student_or_researcher' },
+  { label: 'Node operator/ Miner', value: 'node_operator_or_miner' },
+  { label: 'Web3 builder/ Founder', value: 'web3_builder_or_founder' },
+  { label: 'Crypto investor/ Trader', value: 'crypto_investor_or_trader' },
 ];
 
 export const GRANT_HARDWARE_CHOICES = [
   { label: 'Ultra high-end gaming PC (NVIDIA GPU 4090/5090)', value: 'highend_gaming_pc' },
-  { label: 'Lightweight gaming PC', value: 'lightweight_gaming_pc' },
-  { label: 'Apple (MacBook M1 - M5)', value: 'apple' },
-  { label: 'Enterprise/ Data center GPU (eg. H100/ A100)', value: 'enterprise_data_center_gpu' },
-  { label: 'Standard laptop/ CPU only', value: 'standard_laptop_cpu_only' },
-  { label: 'None/ Cloud resources only', value: 'none_cloud_resources_only' },
+  { label: 'Lightweight gaming PC', value: 'light_gaming_pc' },
+  { label: 'Apple (Mac M1 - M5)', value: 'apple' },
+  { label: 'Enterprise/ Data center GPU (eg. H100/ A100)', value: 'data_center_gpu' },
+  { label: 'Standard laptop/ CPU only', value: 'laptop_cpu_only' },
+  { label: 'None/ Cloud resources only', value: 'none_or_cloud' },
 ];
 
 export const GRANT_OS_CHOICES = [
@@ -58,12 +76,12 @@ export const GRANT_GOAL_CHOICES = [
   {
     description: 'I am a developer building an App that would benefit from an out-of-the-box decentralized AI backend',
     label: 'Build an application',
-    value: 'build_an_application',
+    value: 'build_an_app',
   },
   {
     description: 'I am conducting research and need privacy-preserving infrastructure',
     label: 'Academic/ Private research',
-    value: 'academic_private_research',
+    value: 'research',
   },
   {
     description: 'I want to earn revenue by renting out my GPU/CPU power',

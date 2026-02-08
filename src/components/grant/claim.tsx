@@ -1,11 +1,14 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import { GrantDetails } from '@/types/grant';
-import { formatNumber } from '@/utils/formatters';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import FaucetAbi from '@/constants/abis/faucet.json';
+import useTokenSymbol from '@/lib/token-symbol';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { ClaimGrantResponse, GrantDetails } from '@/types/grant';
+import { useAuthModal } from '@account-kit/react';
 import axios from 'axios';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { encodeFunctionData } from 'viem';
 import styles from './claim.module.css';
 
 type ClaimProps = {
@@ -13,22 +16,76 @@ type ClaimProps = {
 };
 
 const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
+  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+
+  const { account, sendTransaction, isSendingTransaction } = useOceanAccount();
+
   const [claimed, setClaimed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const mockSymbol = 'USDC';
-  const mockAmount = 100;
+  const tokenAmount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
+  const tokenSymbol = useTokenSymbol(process.env.NEXT_PUBLIC_GRANT_TOKEN_ADDRESS);
 
-  const handleRedeem = async () => {
+  // This is a workaround for the modal not closing after connecting
+  // https://github.com/alchemyplatform/aa-sdk/issues/2327
+  // TODO remove once the issue is fixed
+  useEffect(() => {
+    if (isAuthModalOpen && account.isConnected) {
+      closeAuthModal();
+    }
+  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
+
+  const handleClaim = async () => {
+    if (!account.isConnected) {
+      openAuthModal();
+      return;
+    }
     try {
-      await axios.post('/api/grant/redeem', { email: grantDetails?.email });
-      setClaimed(true);
+      setIsLoading(true);
+      const response = await axios.post<ClaimGrantResponse>('/api/grant/claim', { email: grantDetails?.email });
+      const { faucetAddress, nonce, rawAmount, signature } = response.data;
+      const data = encodeFunctionData({
+        abi: FaucetAbi,
+        functionName: 'claim',
+        args: [
+          grantDetails.walletAddress as `0x${string}`,
+          BigInt(nonce),
+          BigInt(rawAmount),
+          signature as `0x${string}`,
+        ],
+      });
+      sendTransaction({
+        target: faucetAddress,
+        data,
+        onSuccess: async (result) => {
+          try {
+            await axios.post('/api/grant/confirm', {
+              email: grantDetails?.email,
+              txHash: result.hash,
+            });
+            setClaimed(true);
+            toast.success('Grant claimed successfully!');
+          } catch (error) {
+            console.error('Failed to confirm claim', error);
+            toast.error('Transaction succeeded but failed to update status. Please contact support.');
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        onError: (error) => {
+          setIsLoading(false);
+          console.error('Claim error:', error);
+          toast.error('Failed to claim grant. Please try again.');
+        },
+      });
     } catch (error) {
+      setIsLoading(false);
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else {
-        toast.error('Failed to redeem grant. Please try again.');
+        toast.error('Failed to initiate claim. Please try again.');
       }
-      console.error('Failed to redeem grant', error);
+      console.error('Failed to initiate claim', error);
     }
   };
 
@@ -39,25 +96,30 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
         <div>You are eligible for grant distribution</div>
       </div>
       <Card className={styles.amountCard} radius="md" variant="accent1-outline">
-        <h3>Claimable amount</h3>
+        <h3>{claimed ? 'Claimed amount' : 'Claimable amount'}</h3>
         <div className={styles.values}>
-          <span className={styles.token}>{mockSymbol}</span>
+          <span className={styles.token}>{tokenSymbol}</span>
           &nbsp;
-          <span className={styles.amount}>{formatNumber(mockAmount)}</span>
+          <span className={styles.amount}>{tokenAmount}</span>
         </div>
       </Card>
-      <Button
-        autoLoading
-        className="alignSelfStretch"
-        color="accent2"
-        contentBefore={claimed ? <CheckCircleOutlineIcon /> : null}
-        disabled={claimed}
-        onClick={handleRedeem}
-        size="lg"
-        variant="filled"
-      >
-        {claimed ? 'Claimed' : 'Redeem grant'}
-      </Button>
+      {claimed ? (
+        <Button className="alignSelfStretch" color="accent2" href="/" size="lg" variant="filled">
+          Return to homepage
+        </Button>
+      ) : (
+        <Button
+          autoLoading
+          className="alignSelfStretch"
+          color="accent2"
+          loading={isLoading || isSendingTransaction}
+          onClick={handleClaim}
+          size="lg"
+          variant="filled"
+        >
+          Claim grant
+        </Button>
+      )}
     </Card>
   );
 };

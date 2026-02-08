@@ -12,12 +12,13 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendOTP(email: string, code: string) {
+  const splitCode = `${code.slice(0, 3)} ${code.slice(3, 6)}`;
   const mailOptions = {
     from: process.env.GRANT_GMAIL_ADDRESS,
     to: email,
-    subject: 'Verification Code for Ocean Nodes Grant',
-    text: `Your verification code is: ${code}`,
-    html: `<p>Your verification code is: <strong>${code}</strong></p>`,
+    subject: 'Verification Code for Ocean Network Grant',
+    text: `Your verification code is: ${splitCode}`,
+    html: `<p>Your verification code is: <strong>${splitCode}</strong></p>`,
   };
   try {
     await transporter.sendMail(mailOptions);
