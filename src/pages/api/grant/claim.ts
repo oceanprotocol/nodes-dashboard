@@ -44,7 +44,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     if (grant.status === GrantStatus.EMAIL_VERIFIED) {
       const amount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
       const faucetPrivateKey = process.env.GRANT_FAUCET_PRIVATE_KEY;
-      const tokenAddress = process.env.GRANT_TOKEN_ADDRESS;
+      const tokenAddress = process.env.NEXT_PUBLIC_GRANT_TOKEN_ADDRESS;
       const nonce = Date.now();
       if (!faucetAddress || !amount || !faucetPrivateKey || !tokenAddress) {
         return response.status(500).json({ message: 'Failed to configure faucet' });

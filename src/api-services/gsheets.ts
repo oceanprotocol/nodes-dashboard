@@ -27,19 +27,19 @@ import { google } from 'googleapis';
  * Rows 3...N: Data
  */
 
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_GRANT_SPREADSHEET_ID;
+const SPREADSHEET_ID = process.env.GRANT_GSHEETS_SPREADSHEET_ID;
 
 function getRange(row?: number) {
   if (row || row === 0) {
-    return `${process.env.GOOGLE_SHEETS_GRANT_SHEET_NAME}!A${row}:P${row}`;
+    return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${row}:P${row}`;
   }
-  return `${process.env.GOOGLE_SHEETS_GRANT_SHEET_NAME}!A3:P`;
+  return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A3:P`;
 }
 
 async function getSheetsService() {
   const auth = new google.auth.JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    email: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL,
+    key: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   return google.sheets({ version: 'v4', auth });

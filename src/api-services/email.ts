@@ -5,9 +5,9 @@ const transporter = nodemailer.createTransport({
   auth: {
     type: 'OAuth2',
     user: process.env.GRANT_GMAIL_ADDRESS,
-    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-    refreshToken: process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
+    clientId: process.env.GRANT_GMAIL_OAUTH_CLIENT_ID,
+    clientSecret: process.env.GRANT_GMAIL_OAUTH_CLIENT_SECRET,
+    refreshToken: process.env.GRANT_GMAIL_OAUTH_REFRESH_TOKEN,
   },
 });
 
