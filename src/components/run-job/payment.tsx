@@ -33,10 +33,6 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
   const step: 'authorize' | 'deposit' = useMemo(() => {
-    // If total escrow covers cost, skip deposit and go to authorize
-    if ((escrowBalance ?? 0) >= totalCost) {
-      return 'authorize';
-    }
     if ((escrowBalance ?? 0) - currentLockedAmount >= totalCost) {
       return 'authorize';
     }
@@ -98,6 +94,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
       />
       {step === 'deposit' ? (
         <PaymentDeposit
+          currentLockedAmount={currentLockedAmount}
           escrowBalance={escrowBalance ?? 0}
           loadPaymentInfo={loadPaymentInfo}
           selectedToken={selectedToken}

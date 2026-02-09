@@ -11,17 +11,24 @@ type DepositFormValues = {
 };
 
 type PaymentDepositProps = {
+  currentLockedAmount: number;
   escrowBalance: number;
   loadPaymentInfo: () => void;
   selectedToken: SelectedToken;
   totalCost: number;
 };
 
-const PaymentDeposit = ({ escrowBalance, loadPaymentInfo, selectedToken, totalCost }: PaymentDepositProps) => {
+const PaymentDeposit = ({
+  currentLockedAmount,
+  escrowBalance,
+  loadPaymentInfo,
+  selectedToken,
+  totalCost,
+}: PaymentDepositProps) => {
   const { handleDeposit, isDepositing } = useDepositTokens({ onSuccess: loadPaymentInfo });
 
   const amountToDeposit = Math.max(0, totalCost - escrowBalance);
-  const hasSufficientFunds = totalCost - escrowBalance <= 0;
+  const hasSufficientFunds = escrowBalance - currentLockedAmount >= totalCost;
 
   const formik = useFormik<DepositFormValues>({
     enableReinitialize: true,
