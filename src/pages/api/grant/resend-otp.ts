@@ -10,25 +10,25 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { email } = request.body;
+  const { walletAddress } = request.body;
 
-  if (!email) {
+  if (!walletAddress) {
     return response.status(400).json({ message: 'Missing required fields' });
   }
 
-  const storedGrant = grantStore?.get(email);
+  const storedGrant = grantStore?.get(walletAddress);
 
   if (!storedGrant) {
-    return response.status(400).json({ message: 'No pending grant found for this email' });
+    return response.status(400).json({ message: 'No pending grant found for this wallet address' });
   }
 
   // Generate OTP
   const { otp, otpExpires } = generateOTP();
-  getGrantStore().set(email, { otp, otpExpires, data: storedGrant.data });
+  getGrantStore().set(walletAddress, { otp, otpExpires, data: storedGrant.data });
 
   // Send OTP via email
   try {
-    await sendOTP(email, otp);
+    await sendOTP(storedGrant.data.email, otp);
     return response.status(200).json('');
   } catch (error) {
     return response.status(500).json({ message: 'Failed to send OTP' });

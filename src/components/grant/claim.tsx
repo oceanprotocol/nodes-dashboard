@@ -42,7 +42,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
     }
     try {
       setIsLoading(true);
-      const response = await axios.post<ClaimGrantResponse>('/api/grant/claim', { email: grantDetails?.email });
+      const response = await axios.post<ClaimGrantResponse>('/api/grant/claim', { walletAddress: account.address });
       const { faucetAddress, nonce, rawAmount, signature } = response.data;
       const data = encodeFunctionData({
         abi: FaucetAbi,
@@ -60,8 +60,8 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
         onSuccess: async (result) => {
           try {
             await axios.post('/api/grant/confirm', {
-              email: grantDetails?.email,
               txHash: result.hash,
+              walletAddress: account.address,
             });
             setClaimed(true);
             toast.success('Grant claimed successfully!');

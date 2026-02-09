@@ -6,17 +6,16 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { email, walletAddress } = request.query as {
-    email: string;
+  const { walletAddress } = request.query as {
     walletAddress: string;
   };
 
-  if (!email && !walletAddress) {
+  if (!walletAddress) {
     return response.status(400).json({ message: 'Missing required fields' });
   }
 
   try {
-    const grant = await findGrantInSheet({ email, walletAddress });
+    const grant = await findGrantInSheet({ walletAddress });
     if (!grant) {
       return response.status(404).json({ message: 'Grant not found' });
     }

@@ -9,27 +9,27 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { email, code } = request.body;
+  const { walletAddress, code } = request.body;
 
-  if (!email || !code) {
+  if (!walletAddress || !code) {
     return response.status(400).json({ message: 'Missing required fields' });
   }
 
-  const storedGrant = grantStore?.get(email);
+  const storedGrant = grantStore?.get(walletAddress);
 
   if (!storedGrant || storedGrant.otp !== code) {
     return response.status(400).json({ message: 'Invalid code' });
   }
 
   if (Date.now() > storedGrant.otpExpires) {
-    grantStore.delete(email);
+    grantStore.delete(walletAddress);
     return response.status(400).json({ message: 'Code expired' });
   }
 
   // OTP is valid
   try {
     await insertGrantInSheet(storedGrant.data);
-    grantStore.delete(email);
+    grantStore.delete(walletAddress);
   } catch (error) {
     console.error('Error inserting grant in sheet:', error);
     return response.status(500).json({ message: 'Failed to save grant data' });

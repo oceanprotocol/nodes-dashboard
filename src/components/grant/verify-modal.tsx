@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import TwoFactorInput from '@/components/input/two-factor-input';
 import Modal from '@/components/modal/modal';
 import useCountdown from '@/hooks/use-countdown';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantDetails } from '@/types/grant';
 import axios from 'axios';
 import { useFormik } from 'formik';
@@ -21,6 +22,8 @@ type VerifyFormValues = {
 };
 
 const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, grantDetails }) => {
+  const { account } = useOceanAccount();
+
   const expiryCountdown = useCountdown(10 * 60); // 10 minutes
   const resendCountdown = useCountdown(5);
 
@@ -32,7 +35,7 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
       try {
         await axios.post('/api/grant/verify', {
           code: values.code,
-          email: grantDetails.email,
+          walletAddress: account.address,
         });
         onSuccess();
       } catch (error) {
@@ -49,7 +52,7 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
     resendCountdown.initiateCountdown();
     try {
       await axios.post('/api/grant/resend-otp', {
-        email: grantDetails.email,
+        walletAddress: account.address,
       });
       toast.success(`A new code was sent to ${grantDetails.email}`);
     } catch (error) {

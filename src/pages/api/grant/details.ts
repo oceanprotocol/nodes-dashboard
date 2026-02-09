@@ -64,7 +64,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   // Generate OTP
   const { otp, otpExpires } = generateOTP();
-  getGrantStore().set(data.email, { otp, otpExpires, data });
+  getGrantStore().set(data.walletAddress, { otp, otpExpires, data });
 
   // Send OTP via email
   try {
