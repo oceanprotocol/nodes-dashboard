@@ -52,14 +52,13 @@ const PaymentAuthorize = ({
         tokenAddress: selectedToken.address,
         spender: selectedEnv.consumerAddress,
         maxLockedAmount: values.maxLockedAmount.toString(),
-        maxLockSeconds:
-          minLockSeconds > values.maxLockSeconds ? minLockSeconds.toString() : values.maxLockSeconds.toString(),
+        maxLockSeconds: values.maxLockSeconds.toString(),
         maxLockCount: values.maxLockCount.toString(),
       });
     },
     validateOnMount: true,
     validationSchema: Yup.object({
-      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
+      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(minLockSeconds, 'Minimum 1'),
       maxLockCount: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
       maxLockedAmount: Yup.number().required('Required'),
     }),

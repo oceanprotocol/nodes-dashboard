@@ -209,8 +209,6 @@ export async function sendCommandToPeer(
       throw new Error('Node not ready - still establishing bootstrap connections');
     }
 
-    console.log('command', JSON.stringify(command));
-
     let connection: Connection;
     try {
       connection = await nodeInstance.dial(peerIdFromString(peerId), {
@@ -244,7 +242,6 @@ export async function sendCommandToPeer(
     const statusText = uint8ArrayToString(firstChunk);
     try {
       const status = JSON.parse(statusText);
-      console.log('status', status);
       if (typeof status?.httpStatus === 'number' && status.httpStatus >= 400) {
         return { status: { httpStatus: status.httpStatus, error: status.error } };
       }
