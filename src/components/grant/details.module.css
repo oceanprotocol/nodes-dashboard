@@ -9,6 +9,13 @@
     gap: 24px;
   }
 
+  .walletAddress {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 16px;
+  }
+
   .choices {
     align-self: flex-start;
     display: grid;
