@@ -30,7 +30,6 @@ type DetailsFormValues = {
   name: string;
   os: string | null;
   role: string | null;
-  walletAddress: string;
 };
 
 const Details: React.FC = () => {
@@ -64,10 +63,9 @@ const Details: React.FC = () => {
       name: '',
       os: null,
       role: null,
-      walletAddress: account?.address ?? '',
     },
     onSubmit: async (values) => {
-      if (!account.isConnected) {
+      if (!account.isConnected || !account.address) {
         openAuthModal();
         return;
       }
@@ -81,7 +79,7 @@ const Details: React.FC = () => {
           name: values.name,
           os: values.os!,
           role: values.role!,
-          walletAddress: values.walletAddress,
+          walletAddress: account.address,
         };
         setGrantDetails(details);
         if (response.data.shouldValidateEmail) {
@@ -106,7 +104,6 @@ const Details: React.FC = () => {
       name: Yup.string().required('Required'),
       os: Yup.string().required('Selection required'),
       role: Yup.string().required('Selection required'),
-      walletAddress: Yup.string().required('Required'),
     }),
   });
 
@@ -138,17 +135,7 @@ const Details: React.FC = () => {
             type="email"
             value={formik.values.email}
           />
-          <Input
-            errorText={
-              formik.touched.walletAddress && formik.errors.walletAddress ? formik.errors.walletAddress : undefined
-            }
-            label="ERC-20 Wallet Address "
-            name="walletAddress"
-            onBlur={formik.handleBlur}
-            onChange={formik.handleChange}
-            type="text"
-            value={formik.values.walletAddress}
-          />
+          <Input disabled label="ERC-20 Wallet Address " type="text" value={account.address} />
           <Input
             errorText={formik.touched.handle && formik.errors.handle ? formik.errors.handle : undefined}
             label="Discord or Telegram handle"
