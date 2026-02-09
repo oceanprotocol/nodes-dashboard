@@ -97,6 +97,19 @@ const ProfileButton = () => {
           horizontal: 'center',
         }}
       >
+        {grantStatus === GrantStatus.CLAIMED ? null : (
+          <MenuItem
+            onClick={() => {
+              router.push('/grant/details');
+              handleCloseMenu();
+            }}
+          >
+            <ListItemIcon>
+              <RedeemIcon />
+            </ListItemIcon>
+            {grantAmount && grantTokenSymbol ? `Get ${grantAmount} ${grantTokenSymbol}` : 'Get grant'}
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             router.push('/profile/consumer');
@@ -108,19 +121,6 @@ const ProfileButton = () => {
           </ListItemIcon>
           Profile
         </MenuItem>
-        {grantStatus === GrantStatus.CLAIMED ? null : (
-          <MenuItem
-            onClick={() => {
-              router.push('/grant/details');
-              handleCloseMenu();
-            }}
-          >
-            <ListItemIcon>
-              <RedeemIcon />
-            </ListItemIcon>
-            {grantAmount && grantTokenSymbol ? `Get ${grantAmount} ${grantTokenSymbol}` : 'Grant'}
-          </MenuItem>
-        )}
         {/* <MenuItem
           onClick={() => {
             openAuthModal();
