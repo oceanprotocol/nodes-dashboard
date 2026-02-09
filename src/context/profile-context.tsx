@@ -227,7 +227,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsName(undefined);
       setEnsProfile(undefined);
     }
-  }, [account.address, account.isConnected, fetchEnsAddress, fetchEnsName, fetchEnsProfile]);
+  }, [account.address, account.isConnected, fetchEnsAddress, fetchEnsName, fetchEnsProfile, fetchGrantStatus]);
 
   // Auto-deploy account if needed when user connects
   useEffect(() => {
