@@ -135,7 +135,6 @@ const Details: React.FC = () => {
             type="email"
             value={formik.values.email}
           />
-          <Input disabled label="ERC-20 Wallet Address " type="text" value={account.address} />
           <Input
             errorText={formik.touched.handle && formik.errors.handle ? formik.errors.handle : undefined}
             label="Discord or Telegram handle"
@@ -145,6 +144,10 @@ const Details: React.FC = () => {
             type="text"
             value={formik.values.handle}
           />
+          <div className={styles.walletAddress}>
+            <strong>Wallet address</strong>
+            <div>{account.address}</div>
+          </div>
         </div>
         <div className={styles.section}>
           <div>
