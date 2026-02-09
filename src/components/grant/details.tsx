@@ -70,7 +70,6 @@ const Details: React.FC = () => {
         return;
       }
       try {
-        const response = await axios.post<SubmitGrantDetailsResponse>('/api/grant/details', values);
         const details = {
           email: values.email,
           goal: values.goal!,
@@ -81,6 +80,7 @@ const Details: React.FC = () => {
           role: values.role!,
           walletAddress: account.address,
         };
+        const response = await axios.post<SubmitGrantDetailsResponse>('/api/grant/details', details);
         setGrantDetails(details);
         if (response.data.shouldValidateEmail) {
           setIsVerifyModalOpen(true);
