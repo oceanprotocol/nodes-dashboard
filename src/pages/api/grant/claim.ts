@@ -15,7 +15,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   try {
-    const grant = await findGrantInSheet(email);
+    const grant = await findGrantInSheet({ email });
 
     if (!grant) {
       return response.status(404).json({ message: 'Grant not found' });

@@ -45,7 +45,16 @@ async function getSheetsService() {
   return google.sheets({ version: 'v4', auth });
 }
 
-export async function findGrantInSheet(email: string): Promise<GrantWithStatus | null> {
+export async function findGrantInSheet({
+  email,
+  walletAddress,
+}: {
+  email?: string;
+  walletAddress?: string;
+}): Promise<GrantWithStatus | null> {
+  if (!email && !walletAddress) {
+    throw new Error('Missing required fields');
+  }
   const service = await getSheetsService();
   const response = await service.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -53,7 +62,7 @@ export async function findGrantInSheet(email: string): Promise<GrantWithStatus |
   });
   const rows = response.data.values;
   if (!rows || rows.length === 0) return null;
-  const rowIndex = rows.findIndex((row) => row[1] === email);
+  const rowIndex = rows.findIndex((row) => row[1] === email || row[2] === walletAddress);
   if (rowIndex === -1) return null;
   const row = rows[rowIndex];
   return {

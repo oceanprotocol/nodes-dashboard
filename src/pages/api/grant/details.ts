@@ -37,7 +37,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   // Check if grant already exists
   try {
-    const existingGrant = await findGrantInSheet(data.email);
+    const existingGrant = await findGrantInSheet({ email: data.email });
     if (existingGrant) {
       const newGrant = { ...existingGrant, ...data };
       switch (existingGrant.status) {
