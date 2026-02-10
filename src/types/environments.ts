@@ -23,11 +23,18 @@ export type ComputeResource = {
   type?: ComputeResourceType;
 };
 
+export type EnvironmentAccess = {
+  addresses: string[];
+  accessLists: any;
+};
+
 export type ComputeEnvironment = {
+  access?: EnvironmentAccess;
   consumerAddress: string;
   description?: string;
   fees: Record<string, ComputeEnvFeesStructure[]>;
   free?: {
+    access?: EnvironmentAccess;
     maxJobDuration?: number;
     maxJobs?: number;
     resources?: SlimComputeResource[];
