@@ -243,11 +243,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.status.error ?? 'Initialize compute failed');
       }
       const cost = data.payment.amount;
-      const tokenDecimals = await new ethers.Contract(
-        tokenAddress,
-        ERC20Template.abi,
-        provider
-      ).decimals();
+      const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, provider).decimals();
       const decimalsNumber = Number(tokenDecimals);
       const denominatedCost = new BigNumber(cost)
         .div(new BigNumber(10).pow(decimalsNumber))

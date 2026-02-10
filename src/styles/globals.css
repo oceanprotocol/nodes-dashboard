@@ -127,6 +127,9 @@ a {
 .alignSelfStart {
   align-self: start;
 }
+.alignSelfStretch {
+  align-self: stretch;
+}
 
 .flexColumn {
   display: flex;

@@ -5,9 +5,9 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
-import { useP2P } from '@/contexts/P2PContext';
-import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { CHAIN_ID } from '@/constants/chains';
+import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
+import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
@@ -166,7 +166,17 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     } finally {
       setIsLoadingCost(false);
     }
-  }, [environment, freeCompute, formik.values.maxJobDurationHours, nodeInfo?.id, initializeCompute, provider, resources, setMinLockSeconds, token.address]);
+  }, [
+    environment,
+    freeCompute,
+    formik.values.maxJobDurationHours,
+    nodeInfo?.id,
+    initializeCompute,
+    provider,
+    resources,
+    setMinLockSeconds,
+    token.address,
+  ]);
 
   useEffect(() => {
     fetchEstimatedCost();

@@ -1,0 +1,26 @@
+.root {
+  display: flex;
+  gap: 24px;
+}
+
+.half {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  background: var(--background-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 32px;
+  line-height: 18px;
+  padding: 12px 0;
+  text-align: center;
+  width: 60px;
+
+  &:disabled {
+    background: transparent;
+  }
+}

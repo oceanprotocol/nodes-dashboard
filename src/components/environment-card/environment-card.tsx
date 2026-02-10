@@ -8,6 +8,7 @@ import { useRunJobContext } from '@/context/run-job-context';
 import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -37,6 +38,17 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
     freeCompute: false,
+    tokenAddress: selectedTokenAddress,
+  });
+
+  const {
+    cpu: freeCpu,
+    disk: freeDisk,
+    gpus: freeGpus,
+    ram: freeRam,
+  } = useEnvResources({
+    environment,
+    freeCompute: true,
     tokenAddress: selectedTokenAddress,
   });
 
@@ -76,6 +88,9 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
     const inUse = cpu.inUse ?? 0;
     const available = max - inUse;
     const fee = cpuFee ?? 0;
+    const freeMax = freeCpu?.max ?? 0;
+    const freeInUse = freeCpu?.inUse ?? 0;
+    const freeAvailable = freeMax - freeInUse;
     if (compact) {
       return (
         <div>
@@ -90,36 +105,64 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
             <span className={styles.em}>
               {available}/{max}
             </span>
-            &nbsp; available
+            &nbsp; total available
           </div>
+          {freeMax > 0 ? (
+            <div className={styles.label}>
+              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+                <CheckCircleIcon className={styles.freeIcon} />
+                Free compute
+              </div>
+              &nbsp;-&nbsp;
+              <span className={styles.em}>
+                {freeAvailable}/{freeMax}
+              </span>
+              &nbsp;available
+            </div>
+          ) : null}
         </div>
       );
     }
     const percentage = (100 * inUse) / max;
     return (
-      <ProgressBar
-        value={percentage}
-        topLeftContent={
-          <span className={classNames(styles.label, styles.em)}>
-            <MemoryIcon className={styles.icon} /> CPU - {cpu?.description}
-          </span>
-        }
-        topRightContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{max}</span>&nbsp;total
-          </span>
-        }
-        bottomLeftContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
-          </span>
-        }
-        bottomRightContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{inUse}</span>&nbsp;used
-          </span>
-        }
-      />
+      <div>
+        <ProgressBar
+          value={percentage}
+          topLeftContent={
+            <span className={classNames(styles.label, styles.em)}>
+              <MemoryIcon className={styles.icon} /> CPU - {cpu?.description}
+            </span>
+          }
+          topRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{max}</span>&nbsp;total
+            </span>
+          }
+          bottomLeftContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            </span>
+          }
+          bottomRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{inUse}</span>&nbsp;used
+            </span>
+          }
+        />
+        {freeMax > 0 ? (
+          <div className={styles.label}>
+            <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+              <CheckCircleIcon className={styles.freeIcon} />
+              Free compute
+            </div>
+            &nbsp;-&nbsp;
+            <span className={styles.em}>
+              {freeAvailable}/{freeMax}
+            </span>
+            &nbsp;available
+          </div>
+        ) : null}
+      </div>
     );
   };
 
@@ -144,6 +187,10 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       const inUse = gpu.inUse ?? 0;
       const available = max - inUse;
       const fee = gpuFees[gpu.id] ?? 0;
+      const freeGpu = freeGpus.find((freeGpu) => freeGpu.id === gpu.id);
+      const freeMax = freeGpu?.max ?? 0;
+      const freeInUse = freeGpu?.inUse ?? 0;
+      const freeAvailable = freeMax - freeInUse;
       if (compact) {
         return (
           <div key={gpu.id}>
@@ -155,33 +202,60 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
               <span className={styles.em}>
                 {available}/{max}
               </span>
-              &nbsp;available
+              &nbsp;total available
             </div>
+            {freeMax > 0 ? (
+              <div className={styles.label}>
+                <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+                  <CheckCircleIcon className={styles.freeIcon} />
+                  Free compute
+                </div>
+                &nbsp;-&nbsp;
+                <span className={styles.em}>
+                  {freeAvailable}/{freeMax}
+                </span>
+                &nbsp;available
+              </div>
+            ) : null}
           </div>
         );
       }
       const percentage = (100 * inUse) / max;
       return (
-        <ProgressBar
-          key={gpu.id}
-          value={percentage}
-          topLeftContent={<GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />}
-          topRightContent={
-            <span className={styles.label}>
-              <span className={styles.em}>{max}</span>&nbsp;total
-            </span>
-          }
-          bottomLeftContent={
-            <span className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
-            </span>
-          }
-          bottomRightContent={
-            <span className={styles.label}>
-              <span className={styles.em}>{inUse}</span>&nbsp;used
-            </span>
-          }
-        />
+        <div key={gpu.id}>
+          <ProgressBar
+            value={percentage}
+            topLeftContent={<GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />}
+            topRightContent={
+              <span className={styles.label}>
+                <span className={styles.em}>{max}</span>&nbsp;total
+              </span>
+            }
+            bottomLeftContent={
+              <span className={styles.label}>
+                <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+              </span>
+            }
+            bottomRightContent={
+              <span className={styles.label}>
+                <span className={styles.em}>{inUse}</span>&nbsp;used
+              </span>
+            }
+          />
+          {freeMax > 0 ? (
+            <div className={styles.label}>
+              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+                <CheckCircleIcon className={styles.freeIcon} />
+                Free compute
+              </div>
+              &nbsp;-&nbsp;
+              <span className={styles.em}>
+                {freeAvailable}/{freeMax}
+              </span>
+              &nbsp;available
+            </div>
+          ) : null}
+        </div>
       );
     });
   };
@@ -194,6 +268,9 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
     const inUse = ram.inUse ?? 0;
     const available = max - inUse;
     const fee = ramFee ?? 0;
+    const freeMax = freeRam?.max ?? 0;
+    const freeInUse = freeRam?.inUse ?? 0;
+    const freeAvailable = freeMax - freeInUse;
     if (compact) {
       return (
         <div>
@@ -208,36 +285,64 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
             <span className={styles.em}>
               {available}/{max}
             </span>
-            &nbsp;available
+            &nbsp;total available
           </div>
+          {freeMax > 0 ? (
+            <div className={styles.label}>
+              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+                <CheckCircleIcon className={styles.freeIcon} />
+                Free compute
+              </div>
+              &nbsp;-&nbsp;
+              <span className={styles.em}>
+                {freeAvailable}/{freeMax}
+              </span>
+              &nbsp;available
+            </div>
+          ) : null}
         </div>
       );
     }
     const percentage = (100 * inUse) / max;
     return (
-      <ProgressBar
-        value={percentage}
-        topLeftContent={
-          <span className={classNames(styles.label, styles.em)}>
-            <SdStorageIcon className={styles.icon} /> RAM capacity
-          </span>
-        }
-        topRightContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{max}</span>&nbsp;GB total
-          </span>
-        }
-        bottomLeftContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
-          </span>
-        }
-        bottomRightContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{inUse}</span>&nbsp;GB used
-          </span>
-        }
-      />
+      <div>
+        <ProgressBar
+          value={percentage}
+          topLeftContent={
+            <span className={classNames(styles.label, styles.em)}>
+              <SdStorageIcon className={styles.icon} /> RAM capacity
+            </span>
+          }
+          topRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{max}</span>&nbsp;GB total
+            </span>
+          }
+          bottomLeftContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            </span>
+          }
+          bottomRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{inUse}</span>&nbsp;GB used
+            </span>
+          }
+        />
+        {freeMax > 0 ? (
+          <div className={styles.label}>
+            <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+              <CheckCircleIcon className={styles.freeIcon} />
+              Free compute
+            </div>
+            &nbsp;-&nbsp;
+            <span className={styles.em}>
+              {freeAvailable}/{freeMax}
+            </span>
+            &nbsp;available
+          </div>
+        ) : null}
+      </div>
     );
   };
 
@@ -249,6 +354,9 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
     const inUse = disk.inUse ?? 0;
     const available = max - inUse;
     const fee = diskFee ?? 0;
+    const freeMax = freeDisk?.max ?? 0;
+    const freeInUse = freeDisk?.inUse ?? 0;
+    const freeAvailable = freeMax - freeInUse;
     if (compact) {
       return (
         <div>
@@ -263,36 +371,64 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
             <span className={styles.em}>
               {available}/{max}
             </span>
-            &nbsp;available
+            &nbsp;total available
           </div>
+          {freeMax > 0 ? (
+            <div className={styles.label}>
+              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+                <CheckCircleIcon className={styles.freeIcon} />
+                Free compute
+              </div>
+              &nbsp;-&nbsp;
+              <span className={styles.em}>
+                {freeAvailable}/{freeMax}
+              </span>
+              &nbsp;available
+            </div>
+          ) : null}
         </div>
       );
     }
     const percentage = (100 * inUse) / max;
     return (
-      <ProgressBar
-        value={percentage}
-        topLeftContent={
-          <span className={classNames(styles.label, styles.em)}>
-            <DnsIcon className={styles.icon} /> Disk space
-          </span>
-        }
-        topRightContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{max}</span>&nbsp;GB total
-          </span>
-        }
-        bottomLeftContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
-          </span>
-        }
-        bottomRightContent={
-          <span className={styles.label}>
-            <span className={styles.em}>{inUse}</span>&nbsp;GB used
-          </span>
-        }
-      />
+      <div>
+        <ProgressBar
+          value={percentage}
+          topLeftContent={
+            <span className={classNames(styles.label, styles.em)}>
+              <DnsIcon className={styles.icon} /> Disk space
+            </span>
+          }
+          topRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{max}</span>&nbsp;GB total
+            </span>
+          }
+          bottomLeftContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            </span>
+          }
+          bottomRightContent={
+            <span className={styles.label}>
+              <span className={styles.em}>{inUse}</span>&nbsp;GB used
+            </span>
+          }
+        />
+        {freeMax > 0 ? (
+          <div className={styles.label}>
+            <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
+              <CheckCircleIcon className={styles.freeIcon} />
+              Free compute
+            </div>
+            &nbsp;-&nbsp;
+            <span className={styles.em}>
+              {freeAvailable}/{freeMax}
+            </span>
+            &nbsp;available
+          </div>
+        ) : null}
+      </div>
     );
   };
 
