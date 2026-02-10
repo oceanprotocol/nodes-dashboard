@@ -1,22 +1,28 @@
-import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
   fetchNodeConfig,
   getComputeJobResult,
+  getComputeStatus,
   getNodeEnvs,
   getNodeReadyState,
   getPeerMultiaddr as getPeerMultiaddrFromService,
+  initializeCompute as initializeComputeFromService,
   initializeNode,
   pushNodeConfig,
   sendCommandToPeer,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
+import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
+import { ComputeResourceRequest } from '@oceanprotocol/lib';
+import BigNumber from 'bignumber.js';
+import { ethers } from 'ethers';
 import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface P2PContextType {
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
+  computeStatus: Record<string, any> | null;
   config: Record<string, any>;
   envs: ComputeEnvironment[];
   error: string | null;
@@ -39,7 +45,18 @@ interface P2PContextType {
     authToken: string,
     address: string
   ) => Promise<Record<string, any> | Uint8Array>;
+  getComputeJobStatus: (peerId: string, jobId: string, address: string) => Promise<Record<string, any>>;
   getEnvs: (peerId: string) => Promise<any>;
+  initializeCompute: (
+    environment: ComputeEnvironment,
+    tokenAddress: string,
+    validUntil: number,
+    peerId: string,
+    address: string,
+    resources: ComputeResourceRequest[],
+    chainId: number,
+    provider: ethers.BrowserProvider | ethers.JsonRpcProvider
+  ) => Promise<{ cost: string; minLockSeconds: number }>;
   isReady: boolean;
   node: Libp2p | null;
   /**
@@ -62,8 +79,6 @@ interface P2PContextType {
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
 
 export function P2PProvider({ children }: { children: React.ReactNode }) {
-  const { signMessage } = useOceanAccount();
-
   const [config, setConfig] = useState<Record<string, any>>({});
   const [envs, setEnvs] = useState<ComputeEnvironment[]>([]);
   const [node, setNode] = useState<Libp2p | null>(null);
@@ -71,6 +86,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [computeLogs, setComputeLogs] = useState<any>(undefined);
   const [computeResult, setComputeResult] = useState<Record<string, any> | Uint8Array | undefined>(undefined);
+  const [computeStatus, setComputeStatus] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -152,6 +168,20 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const getComputeJobStatus = useCallback(
+    async (peerId: string, jobId: string, address: string) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+
+      const result = await getComputeStatus(peerId, jobId, address);
+
+      setComputeStatus(result);
+      return result;
+    },
+    [isReady, node]
+  );
+
   const fetchConfig = useCallback(
     async (peerId: string, signature: string, expiryTimestamp: number, address?: string) => {
       if (!isReady || !node) {
@@ -181,17 +211,66 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const initializeCompute = useCallback(
+    async (
+      environment: ComputeEnvironment,
+      tokenAddress: string,
+      validUntil: number,
+      peerId: string,
+      address: string,
+      resources: ComputeResourceRequest[],
+      chainId: number,
+      provider: ethers.BrowserProvider | ethers.JsonRpcProvider
+    ) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+      const payload = {
+        datasets: [],
+        algorithm: { meta: { rawcode: 'rawcode' } },
+        environment: environment.id,
+        payment: {
+          chainId,
+          token: tokenAddress,
+          resources,
+        },
+        maxJobDuration: validUntil,
+        consumerAddress: address,
+        signature: '',
+      };
+      const data = await initializeComputeFromService(peerId, payload);
+      if (data?.status?.httpStatus != null && data.status.httpStatus >= 400) {
+        throw new Error(data.status.error ?? 'Initialize compute failed');
+      }
+      const cost = data.payment.amount;
+      const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, provider).decimals();
+      const decimalsNumber = Number(tokenDecimals);
+      const denominatedCost = new BigNumber(cost)
+        .div(new BigNumber(10).pow(decimalsNumber))
+        .decimalPlaces(decimalsNumber)
+        .toString();
+      return {
+        cost: denominatedCost,
+        minLockSeconds: data.payment.minLockSeconds,
+      };
+    },
+    [isReady, node]
+  );
+
   return (
     <P2PContext.Provider
       value={{
         computeLogs,
         computeResult,
+        computeStatus,
         config,
         envs,
         error,
         fetchConfig,
         getComputeResult,
+        getComputeJobStatus,
         getEnvs,
+        initializeCompute,
         isReady,
         node,
         pushConfig,

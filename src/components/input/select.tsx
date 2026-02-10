@@ -8,7 +8,9 @@ const StyledMultipleValueContainer = styled('div')({
   gap: 4,
 });
 
-const StyledSelect = styled(MaterialSelect)<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
+const StyledSelect = styled(MaterialSelect, {
+  shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
+})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
   ({ custom_size, has_error }) => ({
     background: 'var(--background-glass)',
     border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
