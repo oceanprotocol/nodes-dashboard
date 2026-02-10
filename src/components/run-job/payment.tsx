@@ -107,7 +107,6 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
           loadPaymentInfo={loadPaymentInfo}
           minLockSeconds={minLockSeconds}
           selectedEnv={selectedEnv}
-          selectedResources={selectedResources}
           selectedToken={selectedToken}
           totalCost={totalCost}
         />
