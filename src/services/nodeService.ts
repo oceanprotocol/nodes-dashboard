@@ -326,6 +326,16 @@ export async function createAuthToken(
   });
 }
 
+export async function getNodeLogs(
+  peerId: string,
+  signature: string,
+  expiryTimestamp: number,
+  params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
+  address?: string
+) {
+  return sendCommandToPeer(peerId, { command: Command.GET_LOGS, signature, expiryTimestamp, address, ...params });
+}
+
 export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number, address?: string) {
   return sendCommandToPeer(peerId, { command: 'fetchConfig', signature, expiryTimestamp, address });
 }

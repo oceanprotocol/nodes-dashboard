@@ -3,6 +3,7 @@ import {
   fetchNodeConfig,
   getComputeJobResult,
   getNodeEnvs,
+  getNodeLogs as getNodeLogsService,
   getNodeReadyState,
   getPeerMultiaddr as getPeerMultiaddrFromService,
   initializeNode,
@@ -40,6 +41,19 @@ interface P2PContextType {
     address: string
   ) => Promise<Record<string, any> | Uint8Array>;
   getEnvs: (peerId: string) => Promise<any>;
+  /**
+   *
+   * This is a request that uses admin signature validation on the ocean-node.
+   * If user is `Externally Owned Account (EOA)`, address must be undefined.
+   * If user is `Smart Account`, address must be sent.
+   */
+  getNodeLogs: (
+    peerId: string,
+    signature: string,
+    expiryTimestamp: number,
+    params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
+    address?: string
+  ) => Promise<any>;
   isReady: boolean;
   node: Libp2p | null;
   /**
@@ -164,6 +178,22 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const getNodeLogs = useCallback(
+    async (
+      peerId: string,
+      signature: string,
+      expiryTimestamp: number,
+      params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
+      address?: string
+    ) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+      return getNodeLogsService(peerId, signature, expiryTimestamp, params, address);
+    },
+    [isReady, node]
+  );
+
   const pushConfig = useCallback(
     async (
       peerId: string,
@@ -192,6 +222,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         fetchConfig,
         getComputeResult,
         getEnvs,
+        getNodeLogs,
         isReady,
         node,
         pushConfig,

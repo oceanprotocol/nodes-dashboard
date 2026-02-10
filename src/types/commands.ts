@@ -4,4 +4,5 @@ export enum Command {
   COMPUTE_GET_RESULT = 'getComputeResult',
   NONCE = 'nonce',
   CREATE_AUTH_TOKEN = 'createAuthToken',
+  GET_LOGS = 'getLogs',
 }
