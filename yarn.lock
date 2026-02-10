@@ -4815,6 +4815,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ramp-network/ramp-instant-sdk@npm:^6.2.0":
+  version: 6.2.0
+  resolution: "@ramp-network/ramp-instant-sdk@npm:6.2.0"
+  checksum: 10c0/f4753e1d462a6489ee6aaf4417f8cdd2e9d7233ded946a8e531a586413e4022a41b443c257a20be33dd7045f58b268104ca6a7ea97f7b698573352a91059a747
+  languageName: node
+  linkType: hard
+
 "@rdfjs/data-model@npm:^2, @rdfjs/data-model@npm:^2.0.1, @rdfjs/data-model@npm:^2.0.2":
   version: 2.1.1
   resolution: "@rdfjs/data-model@npm:2.1.1"
@@ -16024,6 +16031,7 @@ __metadata:
     "@multiformats/multiaddr": "npm:^12.2.3"
     "@oceanprotocol/contracts": "npm:2.5.0"
     "@oceanprotocol/lib": "npm:5.1.1"
+    "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
     "@svgr/webpack": "npm:^8.1.0"
     "@tanstack/react-query": "npm:^5.28.4"
     "@types/node": "npm:^20"

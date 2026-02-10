@@ -13,6 +13,7 @@ type DepositFormValues = {
 type PaymentDepositProps = {
   currentLockedAmount: number;
   escrowBalance: number;
+  loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
   selectedToken: SelectedToken;
   totalCost: number;
@@ -21,6 +22,7 @@ type PaymentDepositProps = {
 const PaymentDeposit = ({
   currentLockedAmount,
   escrowBalance,
+  loadingPaymentInfo,
   loadPaymentInfo,
   selectedToken,
   totalCost,
@@ -47,21 +49,8 @@ const PaymentDeposit = ({
     }),
   });
 
-  const handleContinue = () => {
-    loadPaymentInfo();
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (hasSufficientFunds) {
-      e.preventDefault();
-      handleContinue();
-    } else {
-      formik.handleSubmit(e);
-    }
-  };
-
   return (
-    <form className={styles.root} onSubmit={handleSubmit}>
+    <form className={styles.root} onSubmit={formik.handleSubmit}>
       <Input
         endAdornment={selectedToken.symbol}
         errorText={formik.touched.amount && formik.errors.amount ? formik.errors.amount : undefined}
@@ -73,11 +62,26 @@ const PaymentDeposit = ({
         value={formik.values.amount}
       />
       {hasSufficientFunds ? (
-        <Button className="alignSelfEnd" color="accent2" size="lg" type="submit">
+        <Button
+          autoLoading
+          className="alignSelfEnd"
+          color="accent2"
+          disabled={loadingPaymentInfo || isDepositing}
+          onClick={loadPaymentInfo}
+          size="lg"
+          type="button"
+        >
           Continue
         </Button>
       ) : (
-        <Button className="alignSelfEnd" color="accent2" loading={isDepositing} size="lg" type="submit">
+        <Button
+          className="alignSelfEnd"
+          color="accent2"
+          disabled={loadingPaymentInfo}
+          loading={isDepositing}
+          size="lg"
+          type="submit"
+        >
           Deposit
         </Button>
       )}

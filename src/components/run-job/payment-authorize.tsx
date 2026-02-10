@@ -16,7 +16,7 @@ type AuthorizeFormValues = {
 
 type PaymentAuthorizeProps = {
   currentLockedAmount: number;
-  loadingAuthorizations: boolean;
+  loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
   minLockSeconds: number;
   selectedEnv: ComputeEnvironment;
@@ -26,7 +26,7 @@ type PaymentAuthorizeProps = {
 
 const PaymentAuthorize = ({
   currentLockedAmount,
-  loadingAuthorizations,
+  loadingPaymentInfo,
   loadPaymentInfo,
   minLockSeconds,
   selectedEnv,
@@ -117,7 +117,7 @@ const PaymentAuthorize = ({
       <Button
         className="alignSelfEnd"
         color="accent2"
-        loading={loadingAuthorizations || isAuthorizing}
+        loading={loadingPaymentInfo || isAuthorizing}
         size="lg"
         type="submit"
       >

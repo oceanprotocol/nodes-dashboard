@@ -1,6 +1,7 @@
 import Card from '@/components/card/card';
 import PaymentAuthorize from '@/components/run-job/payment-authorize';
 import PaymentDeposit from '@/components/run-job/payment-deposit';
+import PaymentFiatTopup from '@/components/run-job/payment-fiat-topup';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -26,36 +27,34 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
   const [authorizations, setAuthorizations] = useState<Authorizations | null>(null);
   const [escrowBalance, setEscrowBalance] = useState<number | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
-
-  const [loadingAuthorizations, setLoadingAuthorizations] = useState(false);
-  const [loadingUserFunds, setLoadingUserFunds] = useState(false);
+  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
 
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
-  const step: 'authorize' | 'deposit' = useMemo(() => {
+  const step: 'topup' | 'deposit' | 'authorize' = useMemo(() => {
+    if ((walletBalance ?? 0) + (escrowBalance ?? 0) - currentLockedAmount < totalCost) {
+      return 'topup';
+    }
     if ((escrowBalance ?? 0) - currentLockedAmount >= totalCost) {
       return 'authorize';
     }
     return 'deposit';
-  }, [currentLockedAmount, escrowBalance, totalCost]);
+  }, [currentLockedAmount, escrowBalance, totalCost, walletBalance]);
 
-  const loadPaymentInfo = useCallback(() => {
+  const loadPaymentInfo = useCallback(async () => {
     if (ocean && account?.address) {
-      setLoadingAuthorizations(true);
-      ocean
-        .getAuthorizations(selectedToken.address, account.address, selectedEnv.consumerAddress)
-        .then((authorizations) => {
-          setAuthorizations(authorizations);
-          setLoadingAuthorizations(false);
-        });
-      ocean.getBalance(selectedToken.address, account.address).then((balance) => {
-        setWalletBalance(Number(balance));
-      });
-      setLoadingUserFunds(true);
-      ocean.getUserFunds(selectedToken.address, account.address).then((balance) => {
-        setEscrowBalance(Number(balance));
-        setLoadingUserFunds(false);
-      });
+      setLoadingPaymentInfo(true);
+      const authorizations = await ocean.getAuthorizations(
+        selectedToken.address,
+        account.address,
+        selectedEnv.consumerAddress
+      );
+      setAuthorizations(authorizations);
+      const walletBalance = await ocean.getBalance(selectedToken.address, account.address);
+      setWalletBalance(Number(walletBalance));
+      const escrowBalance = await ocean.getUserFunds(selectedToken.address, account.address);
+      setEscrowBalance(Number(escrowBalance));
+      setLoadingPaymentInfo(false);
     }
   }, [ocean, account.address, selectedToken.address, selectedEnv.consumerAddress]);
 
@@ -80,7 +79,52 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
     totalCost,
   ]);
 
-  return loadingAuthorizations || loadingUserFunds ? (
+  const renderStep = () => {
+    switch (step) {
+      case 'topup': {
+        return (
+          <PaymentFiatTopup
+            currentLockedAmount={currentLockedAmount}
+            escrowBalance={escrowBalance ?? 0}
+            loadingPaymentInfo={loadingPaymentInfo}
+            loadPaymentInfo={loadPaymentInfo}
+            selectedToken={selectedToken}
+            totalCost={totalCost}
+            walletBalance={walletBalance ?? 0}
+          />
+        );
+      }
+      case 'deposit': {
+        return (
+          <PaymentDeposit
+            currentLockedAmount={currentLockedAmount}
+            escrowBalance={escrowBalance ?? 0}
+            loadingPaymentInfo={loadingPaymentInfo}
+            loadPaymentInfo={loadPaymentInfo}
+            selectedToken={selectedToken}
+            totalCost={totalCost}
+          />
+        );
+      }
+      case 'authorize': {
+        return (
+          <PaymentAuthorize
+            currentLockedAmount={currentLockedAmount}
+            loadingPaymentInfo={loadingPaymentInfo}
+            loadPaymentInfo={loadPaymentInfo}
+            minLockSeconds={minLockSeconds}
+            selectedEnv={selectedEnv}
+            selectedToken={selectedToken}
+            totalCost={totalCost}
+          />
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
     <CircularProgress />
   ) : (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
@@ -92,25 +136,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
         totalCost={totalCost}
         walletBalance={walletBalance ?? 0}
       />
-      {step === 'deposit' ? (
-        <PaymentDeposit
-          currentLockedAmount={currentLockedAmount}
-          escrowBalance={escrowBalance ?? 0}
-          loadPaymentInfo={loadPaymentInfo}
-          selectedToken={selectedToken}
-          totalCost={totalCost}
-        />
-      ) : step === 'authorize' ? (
-        <PaymentAuthorize
-          currentLockedAmount={currentLockedAmount}
-          loadingAuthorizations={loadingAuthorizations}
-          loadPaymentInfo={loadPaymentInfo}
-          minLockSeconds={minLockSeconds}
-          selectedEnv={selectedEnv}
-          selectedToken={selectedToken}
-          totalCost={totalCost}
-        />
-      ) : null}
+      {renderStep()}
     </Card>
   );
 };

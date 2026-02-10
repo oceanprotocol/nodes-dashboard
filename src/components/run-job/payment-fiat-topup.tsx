@@ -1,0 +1,183 @@
+import Button from '@/components/button/button';
+import { SelectedToken } from '@/context/run-job-context';
+import { RPC_URL } from '@/lib/constants';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
+import { RampInstantEventTypes, RampInstantSDK } from '@ramp-network/ramp-instant-sdk';
+import axios from 'axios';
+import BigNumber from 'bignumber.js';
+import { ethers } from 'ethers';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
+import styles from './payment-fiat-topup.module.css';
+
+type PaymentFiatTopupProps = {
+  currentLockedAmount: number;
+  escrowBalance: number;
+  loadingPaymentInfo: boolean;
+  loadPaymentInfo: () => void;
+  selectedToken: SelectedToken;
+  totalCost: number;
+  walletBalance: number;
+};
+
+const GET_STATUS_MAX_TRIES = Number(process.env.NEXT_PUBLIC_RAMP_GET_STATUS_MAX_TRIES ?? 20);
+const GET_STATUS_INTERVAL = Number(process.env.NEXT_PUBLIC_RAMP_GET_STATUS_INTERVAL ?? 5000);
+
+const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
+  currentLockedAmount,
+  escrowBalance,
+  loadingPaymentInfo,
+  loadPaymentInfo,
+  selectedToken,
+  totalCost,
+  walletBalance,
+}) => {
+  const { account } = useOceanAccount();
+
+  // Using refs here to avoid stale state in the ramp event handlers
+  // With useState, the events are handled with the state from the time the event handler was registered
+  const apiBaseUrlRef = useRef<string | null>(null);
+  const getStatusCrtTryRef = useRef(0);
+  const purchaseRef = useRef<any>(null);
+  const purchaseViewTokenRef = useRef<string | null>(null);
+
+  const [getStatusTimeout, setGetStatusTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [loadingGetStatus, setLoadingGetStatus] = useState(false);
+
+  const handleTopup = async () => {
+    const amountToTopup = totalCost + currentLockedAmount - escrowBalance - walletBalance;
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const tokenContract = new ethers.Contract(selectedToken.address, ERC20Template.abi, provider);
+    const tokenDecimals = await tokenContract.decimals();
+    const normalizedAmountToTopup = new BigNumber(amountToTopup)
+      .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
+      .toFixed(0);
+    new RampInstantSDK({
+      enabledFlows: ['ONRAMP'],
+      hideExitButton: false,
+      hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
+      hostAppName: 'Ocean Network',
+      // TODO
+      hostLogoUrl: 'https://assets.rampnetwork.com/misc/test-logo.png',
+      swapAsset: selectedToken.address,
+      swapAmount: normalizedAmountToTopup,
+      // TODO
+      url: 'https://app.demo.rampnetwork.com',
+      userAddress: account.address,
+    })
+      .on(RampInstantEventTypes.PURCHASE_CREATED, (event: any) => {
+        console.log('PURCHASE_CREATED', event);
+        getStatusCrtTryRef.current = 0;
+        apiBaseUrlRef.current = event.payload.apiUrl;
+        purchaseRef.current = event.payload.purchase;
+        purchaseViewTokenRef.current = event.payload.purchaseViewToken;
+      })
+      .on(RampInstantEventTypes.WIDGET_CLOSE, () => {
+        if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
+          toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
+          return;
+        }
+        setLoadingGetStatus(true);
+        getTransactionInfo();
+      })
+      .show();
+  };
+
+  const getTransactionInfo = async () => {
+    if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
+      toast.error('Failed to load top-up status');
+      setLoadingGetStatus(false);
+      return;
+    }
+    try {
+      const response = await axios.get(`${apiBaseUrlRef.current}/host-api/purchase/${purchaseRef.current.id}`, {
+        params: {
+          secret: purchaseViewTokenRef.current,
+        },
+      });
+      switch (response.data.status) {
+        case 'INITIALIZED': {
+          toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
+          setLoadingGetStatus(false);
+          break;
+        }
+        case 'RELEASED': {
+          toast.success('Top-up completed');
+          setLoadingGetStatus(false);
+          loadPaymentInfo();
+          break;
+        }
+        case 'EXPIRED': {
+          toast.error('Top-up expired');
+          setLoadingGetStatus(false);
+          break;
+        }
+        case 'CANCELLED': {
+          toast.error('Top-up cancelled');
+          setLoadingGetStatus(false);
+          break;
+        }
+        default: {
+          if (getStatusTimeout) {
+            clearTimeout(getStatusTimeout);
+          }
+          if (getStatusCrtTryRef.current >= GET_STATUS_MAX_TRIES) {
+            toast.error('Loading top-up status timed out');
+            setLoadingGetStatus(false);
+            return;
+          }
+          getStatusCrtTryRef.current += 1;
+          const timeout = setTimeout(() => {
+            getTransactionInfo();
+          }, GET_STATUS_INTERVAL);
+          setGetStatusTimeout(timeout);
+          break;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching top-up status', error);
+      toast.error('Failed to load top-up status');
+      setLoadingGetStatus(false);
+    } finally {
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (getStatusTimeout) {
+        clearTimeout(getStatusTimeout);
+      }
+    };
+  }, [getStatusTimeout]);
+
+  return (
+    <div className={styles.buttons}>
+      <Button
+        autoLoading
+        color="accent2"
+        contentBefore={<RefreshIcon />}
+        onClick={loadPaymentInfo}
+        size="lg"
+        variant="outlined"
+      >
+        Refresh
+      </Button>
+      <Button
+        color="accent2"
+        contentBefore={loadingGetStatus ? null : <CreditCardIcon />}
+        disabled={loadingPaymentInfo}
+        loading={loadingGetStatus}
+        onClick={handleTopup}
+        size="lg"
+        variant="filled"
+      >
+        {loadingGetStatus ? 'Topping up...' : 'Top up'}
+      </Button>
+    </div>
+  );
+};
+
+export default PaymentFiatTopup;
