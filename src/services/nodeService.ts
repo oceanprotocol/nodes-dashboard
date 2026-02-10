@@ -301,7 +301,15 @@ export async function getComputeJobResult(
     jobId,
     index,
     consumerAddress: address,
-    authorization: authToken.token,
+    authorization: authToken,
+  });
+}
+
+export async function getComputeStatus(peerId: string, jobId: string, consumerAddress: string) {
+  return sendCommandToPeer(peerId, {
+    command: Command.COMPUTE_GET_STATUS,
+    jobId,
+    consumerAddress,
   });
 }
 
@@ -309,6 +317,17 @@ export async function getNonce(peerId: string, consumerAddress: string): Promise
   return sendCommandToPeer(peerId, {
     command: Command.NONCE,
     address: consumerAddress,
+  });
+}
+
+export async function initializeCompute(
+  peerId: string,
+  body: Record<string, unknown>
+): Promise<{ payment: { amount: string; minLockSeconds: number }; status?: { httpStatus: number; error?: string } }> {
+  return sendCommandToPeer(peerId, {
+    command: Command.INITIALIZE_COMPUTE,
+    node: peerId,
+    ...body,
   });
 }
 

@@ -1,7 +1,9 @@
 import InputWrapper from '@/components/input/input-wrapper';
 import { styled, TextField } from '@mui/material';
 
-const StyledTextField = styled(TextField)<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
+const StyledTextField = styled(TextField, {
+  shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
+})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
   ({ custom_size, disabled, has_error }) => ({
     background: disabled ? 'transparent' : 'var(--background-glass)',
     border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
@@ -13,7 +15,7 @@ const StyledTextField = styled(TextField)<{ custom_size?: 'sm' | 'md'; has_error
     },
 
     '& .Mui-disabled': {
-      '-webkit-text-fill-color': 'var(--text-primary)',
+      WebkitTextFillColor: 'var(--text-primary)',
     },
 
     '& .MuiInputBase-root': {

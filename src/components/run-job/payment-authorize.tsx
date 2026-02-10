@@ -2,7 +2,7 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import { SelectedToken } from '@/context/run-job-context';
 import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
-import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
+import { ComputeEnvironment } from '@/types/environments';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import styles from './payment-authorize.module.css';
@@ -15,37 +15,37 @@ type AuthorizeFormValues = {
 };
 
 type PaymentAuthorizeProps = {
-  // authorizations: any;
+  currentLockedAmount: number;
   loadingAuthorizations: boolean;
   loadPaymentInfo: () => void;
+  minLockSeconds: number;
   selectedEnv: ComputeEnvironment;
-  selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
   totalCost: number;
 };
 
 const PaymentAuthorize = ({
-  // authorizations,
+  currentLockedAmount,
   loadingAuthorizations,
   loadPaymentInfo,
+  minLockSeconds,
   selectedEnv,
-  selectedResources,
   selectedToken,
   totalCost,
 }: PaymentAuthorizeProps) => {
   const { handleAuthorize, isAuthorizing } = useAuthorizeTokens({ onSuccess: loadPaymentInfo });
 
-  const maxJobDurationSec = selectedResources.maxJobDurationHours * 60 * 60;
-
   const formik = useFormik<AuthorizeFormValues>({
     enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
-      maxLockedAmount: totalCost,
+      maxLockedAmount: totalCost + currentLockedAmount,
       maxLockCount: 10,
-      maxLockSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
+      // Min lock seconds in the minum number or seconds for the lock.
+      // Job duration + claimTimeout, it is computed and set with initializeCompute.
+      maxLockSeconds: minLockSeconds < 1 ? 1 : Math.ceil(minLockSeconds),
     },
-    onSubmit: async (values) => {
+    onSubmit: (values) => {
       handleAuthorize({
         tokenAddress: selectedToken.address,
         spender: selectedEnv.consumerAddress,
@@ -56,7 +56,7 @@ const PaymentAuthorize = ({
     },
     validateOnMount: true,
     validationSchema: Yup.object({
-      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
+      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(minLockSeconds, 'Minimum 1'),
       maxLockCount: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
       maxLockedAmount: Yup.number().required('Required'),
     }),

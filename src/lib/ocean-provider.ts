@@ -220,36 +220,6 @@ export class OceanProvider {
     return token;
   }
 
-  async initializeCompute(
-    environment: ComputeEnvironment,
-    tokenAddress: string,
-    validUntil: number,
-    peerId: string,
-    address: string,
-    resources: ComputeResourceRequest[]
-  ): Promise<any> {
-    const response = await directNodeCommand('initializeCompute', peerId, {
-      datasets: [],
-      algorithm: { meta: { rawcode: 'rawcode' } },
-      environment: environment.id,
-      payment: {
-        chainId: this.chainId,
-        token: tokenAddress,
-        resources,
-      },
-      maxJobDuration: validUntil,
-      consumerAddress: address,
-      signature: '',
-    });
-
-    const data = await response.json();
-    const cost = data.payment.amount;
-    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
-    const denominatedCost = this.denominateNumber(cost, tokenDecimals);
-
-    return denominatedCost;
-  }
-
   async updateConfiguration(
     authToken: string,
     address: string,

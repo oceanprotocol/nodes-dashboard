@@ -15,6 +15,7 @@ type RunJobContextType = {
   fetchGpus: () => Promise<void>;
   freeCompute: boolean;
   gpus: GPUPopularityDisplay;
+  minLockSeconds: number | null;
   nodeInfo: EnvNodeInfo | null;
   selectedEnv: ComputeEnvironment | null;
   selectedResources: EnvResourcesSelection | null;
@@ -32,6 +33,7 @@ type RunJobContextType = {
   }) => void;
   selectToken: (address: string, symbol?: string | null) => void | Promise<void>;
   setEstimatedTotalCost: (cost: number | null) => void;
+  setMinLockSeconds: (seconds: number | null) => void;
   setSelectedResources: (selection: EnvResourcesSelection | null) => void;
 };
 
@@ -40,6 +42,7 @@ const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
   const [freeCompute, setFreeCompute] = useState<boolean>(false);
+  const [minLockSeconds, setMinLockSeconds] = useState<number | null>(null);
   const [nodeInfo, setNodeInfo] = useState<EnvNodeInfo | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
@@ -49,6 +52,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const clearRunJobSelection = useCallback(() => {
     setEstimatedTotalCost(null);
     setFreeCompute(false);
+    setMinLockSeconds(null);
     setNodeInfo(null);
     setSelectedEnv(null);
     setSelectedResources(null);
@@ -116,6 +120,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         fetchGpus,
         freeCompute,
         gpus,
+        minLockSeconds,
         nodeInfo,
         selectedEnv,
         selectEnv,
@@ -123,6 +128,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         selectedToken,
         selectToken,
         setEstimatedTotalCost,
+        setMinLockSeconds,
         setSelectedResources,
       }}
     >
