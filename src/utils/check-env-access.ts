@@ -6,7 +6,7 @@ export function checkEnvAccess(
 ): boolean | null {
   if (!walletAddress) return null;
   if (!access?.addresses) return true;
-  if (access.addresses.length === 0) return false;
+  if (access.addresses.length === 0) return true;
   if (access.addresses.some((a) => a === '*')) return true;
 
   const lower = walletAddress.toLowerCase();
