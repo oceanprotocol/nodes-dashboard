@@ -494,12 +494,7 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
         <div className={styles.buttons}>
           {environment.free ? (
             <div className={styles.buttonWithInfo}>
-              <Button
-                color="accent2"
-                disabled={freeAccess !== true}
-                onClick={selectFreeCompute}
-                variant="outlined"
-              >
+              <Button color="accent2" disabled={freeAccess !== true} onClick={selectFreeCompute} variant="outlined">
                 Try it
               </Button>
               {freeAccess === false ? (
