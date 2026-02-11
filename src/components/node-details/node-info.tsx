@@ -39,23 +39,23 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   // naked, as it was a local node and the request is made to elastic.
   // In the final solution the isAdmin with useMemo from below should be used.
 
-  // const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  //const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-  // const getNodeStatus = useCallback(
-  //   async (peerId: string) => {
-  //     const res = await sendCommandToPeer(peerId, { command: 'status' });
-  //     const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
-  //     node.allowedAdmins = res.allowedAdmins;
-  //     setIsAdmin(!!isInAllowedAdmins);
-  //   },
-  //   [account?.address]
-  // );
+  //const getNodeStatus = useCallback(
+  //  async (peerId: string) => {
+  //    const res = await sendCommandToPeer(peerId, { command: 'status' });
+  //    const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
+  //    node.allowedAdmins = res.allowedAdmins;
+  //    setIsAdmin(!!isInAllowedAdmins);
+  //  },
+  //  [account?.address]
+  //);
 
-  // useEffect(() => {
-  //   if (isReady && node.id) {
-  //     getNodeStatus(node.id);
-  //   }
-  // }, [isReady, node?.id, getNodeStatus]);
+  //useEffect(() => {
+  //  if (isReady && node.id) {
+  //    getNodeStatus(node.id);
+  //  }
+  //}, [isReady, node?.id, getNodeStatus]);
 
   const isAdmin = useMemo(
     () => account.address && node.allowedAdmins?.includes(account.address),
@@ -139,7 +139,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     setIsEditConfigDialogOpen(false);
   }
 
-  async function handleDownloadLogs(startTime: string, endTime: string) {
+  async function handleDownloadLogs(startTime: string, endTime: string, maxLogs: number) {
     if (!account.isConnected) {
       openAuthModal();
       return;
@@ -152,7 +152,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       const timestamp = Date.now() + 5 * 60 * 1000;
       const signedMessage = await signMessage(timestamp.toString());
       const addressToSend = user?.type === 'sca' ? account.address : undefined;
-      const logs = await getNodeLogs(node.id, signedMessage, timestamp, { startTime, endTime }, addressToSend);
+      const logs = await getNodeLogs(node.id, signedMessage, timestamp, { startTime, endTime, maxLogs }, addressToSend);
       const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

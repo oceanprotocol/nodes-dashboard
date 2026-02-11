@@ -62,6 +62,17 @@
     }
   }
 
+  .maxLogs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+  }
+
   .buttons {
     display: flex;
     flex-wrap: wrap;

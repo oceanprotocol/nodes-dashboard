@@ -5,10 +5,12 @@ import styles from './download-logs-modal.module.css';
 
 type Preset = '1h' | '24h' | '7d' | '30d' | 'custom';
 
+const MAX_LOGS_OPTIONS = [100, 500, 1_000, 5_000, 10_000];
+
 type DownloadLogsModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onDownload: (startTime: string, endTime: string) => Promise<void>;
+  onDownload: (startTime: string, endTime: string, maxLogs: number) => Promise<void>;
   loading: boolean;
 };
 
@@ -30,6 +32,7 @@ const DownloadLogsModal = ({ isOpen, onClose, onDownload, loading }: DownloadLog
   const [preset, setPreset] = useState<Preset>('24h');
   const [customStart, setCustomStart] = useState(() => toDatetimeLocal(new Date(Date.now() - 86400000)));
   const [customEnd, setCustomEnd] = useState(() => toDatetimeLocal(new Date()));
+  const [maxLogs, setMaxLogs] = useState(1_000);
 
   function handleDownload() {
     let startTime: string;
@@ -42,7 +45,7 @@ const DownloadLogsModal = ({ isOpen, onClose, onDownload, loading }: DownloadLog
       startTime = range.startTime;
       endTime = range.endTime;
     }
-    return onDownload(startTime, endTime);
+    return onDownload(startTime, endTime, maxLogs);
   }
 
   const presets: { label: string; value: Preset }[] = [
@@ -81,6 +84,22 @@ const DownloadLogsModal = ({ isOpen, onClose, onDownload, loading }: DownloadLog
             </div>
           </div>
         )}
+
+        <div className={styles.maxLogs}>
+          <label>Max log lines</label>
+          <div className={styles.presets}>
+            {MAX_LOGS_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                className={`${styles.preset} ${maxLogs === opt ? styles.active : ''}`}
+                onClick={() => setMaxLogs(opt)}
+                type="button"
+              >
+                {opt.toLocaleString()}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className={styles.buttons}>
           <Button color="accent1" onClick={onClose} type="button" variant="outlined">
