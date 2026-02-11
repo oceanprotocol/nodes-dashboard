@@ -62,38 +62,44 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
 
   const handleTopup = async () => {
     const amountToTopup = totalCost + currentLockedAmount - escrowBalance - walletBalance;
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const tokenContract = new ethers.Contract(selectedToken.address, ERC20Template.abi, provider);
-    const tokenDecimals = await tokenContract.decimals();
-    const normalizedAmountToTopup = new BigNumber(amountToTopup)
-      .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
-      .toFixed(0);
-    new RampInstantSDK({
-      enabledFlows: ['ONRAMP'],
-      hideExitButton: false,
-      hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
-      hostAppName: 'Ocean Network',
-      swapAsset: selectedToken.address,
-      swapAmount: normalizedAmountToTopup,
-      url: process.env.NODE_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
-      userAddress: account.address,
-    })
-      .on(RampInstantEventTypes.PURCHASE_CREATED, (event: IPurchaseCreatedEvent) => {
-        console.log('PURCHASE_CREATED', event);
-        getStatusCrtTryRef.current = 0;
-        apiBaseUrlRef.current = event.payload.apiUrl;
-        purchaseRef.current = event.payload.purchase;
-        purchaseViewTokenRef.current = event.payload.purchaseViewToken;
+    try {
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const tokenContract = new ethers.Contract(selectedToken.address, ERC20Template.abi, provider);
+      const tokenDecimals = await tokenContract.decimals();
+      const normalizedAmountToTopup = new BigNumber(amountToTopup)
+        .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
+        .toFixed(0);
+      new RampInstantSDK({
+        enabledFlows: ['ONRAMP'],
+        hideExitButton: false,
+        hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
+        hostAppName: 'Ocean Network',
+        swapAsset: selectedToken.address,
+        swapAmount: normalizedAmountToTopup,
+        url: process.env.NODE_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
+        userAddress: account.address,
       })
-      .on(RampInstantEventTypes.WIDGET_CLOSE, () => {
-        if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
-          toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
-          return;
-        }
-        setLoadingGetStatus(true);
-        getTransactionInfo();
-      })
-      .show();
+        .on(RampInstantEventTypes.PURCHASE_CREATED, (event: IPurchaseCreatedEvent) => {
+          console.log('PURCHASE_CREATED', event);
+          getStatusCrtTryRef.current = 0;
+          apiBaseUrlRef.current = event.payload.apiUrl;
+          purchaseRef.current = event.payload.purchase;
+          purchaseViewTokenRef.current = event.payload.purchaseViewToken;
+        })
+        .on(RampInstantEventTypes.WIDGET_CLOSE, () => {
+          if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
+            toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
+            return;
+          }
+          setLoadingGetStatus(true);
+          getTransactionInfo();
+        })
+        .show();
+    } catch (error) {
+      console.error('Error initiating top-up', error);
+      toast.error('Failed to initiate top-up. Please try again.');
+      clearState();
+    }
   };
 
   const getTransactionInfo = async () => {
