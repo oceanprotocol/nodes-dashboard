@@ -20,7 +20,7 @@ import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
@@ -34,10 +34,18 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
   const router = useRouter();
 
   const { selectEnv, selectToken } = useRunJobContext();
-  const { account } = useOceanAccount();
+  const { account, provider } = useOceanAccount();
 
-  const paidAccess = checkEnvAccess(environment.access, account.address);
-  const freeAccess = checkEnvAccess(environment.free?.access, account.address);
+  const [paidAccess, setPaidAccess] = useState<boolean | null>(null);
+  const [freeAccess, setFreeAccess] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkEnvAccess(environment.access, account.address, provider).then(setPaidAccess);
+  }, [environment.access, account.address, provider]);
+
+  useEffect(() => {
+    checkEnvAccess(environment.free?.access, account.address, provider).then(setFreeAccess);
+  }, [environment.free?.access, account.address, provider]);
 
   // const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getEnvSupportedTokens(environment)[0]);
   const selectedTokenAddress = USDC_TOKEN_ADDRESS;

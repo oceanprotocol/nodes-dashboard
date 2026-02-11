@@ -30,9 +30,13 @@ export type ComputeResource = {
   type?: ComputeResourceType;
 };
 
+export type AccessListContract = {
+  [chainId: string]: string[];
+};
+
 export type EnvironmentAccess = {
   addresses: string[];
-  accessLists: any;
+  accessLists: AccessListContract;
 };
 
 export type ComputeEnvironment = {
