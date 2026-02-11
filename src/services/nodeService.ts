@@ -78,7 +78,7 @@ export async function initializeNode(bootstrapNodes: string[]) {
       connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
       // overwrite connectionGater for local testing
-      //connectionGater: createConnectionGater(),
+      // connectionGater: createConnectionGater(),
       peerDiscovery: [
         bootstrap({
           list: bootstrapNodes,
@@ -132,19 +132,19 @@ export async function initializeNode(bootstrapNodes: string[]) {
 }
 
 // Used for local testing to overwrite libp2p connectionGater
-//function createConnectionGater(): ConnectionGater {
-//  return {
-//    denyDialPeer: async () => false,
-//    denyDialMultiaddr: async () => false,
-//    denyInboundConnection: async () => false,
-//    denyOutboundConnection: async () => false,
-//    denyInboundEncryptedConnection: async () => false,
-//    denyOutboundEncryptedConnection: async () => false,
-//    denyInboundUpgradedConnection: async () => false,
-//    denyOutboundUpgradedConnection: async () => false,
-//    filterMultiaddrForPeer: async () => true,
-//  };
-//}
+// function createConnectionGater(): ConnectionGater {
+//   return {
+//     denyDialPeer: async () => false,
+//     denyDialMultiaddr: async () => false,
+//     denyInboundConnection: async () => false,
+//     denyOutboundConnection: async () => false,
+//     denyInboundEncryptedConnection: async () => false,
+//     denyOutboundEncryptedConnection: async () => false,
+//     denyInboundUpgradedConnection: async () => false,
+//     denyOutboundUpgradedConnection: async () => false,
+//     filterMultiaddrForPeer: async () => true,
+//   };
+// }
 
 function toBytes(chunk: Uint8Array | { subarray(): Uint8Array }): Uint8Array {
   return chunk instanceof Uint8Array ? chunk : chunk.subarray();

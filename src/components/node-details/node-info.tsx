@@ -39,23 +39,23 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   // naked, as it was a local node and the request is made to elastic.
   // In the final solution the isAdmin with useMemo from below should be used.
 
-  //const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  // const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-  //const getNodeStatus = useCallback(
-  //  async (peerId: string) => {
-  //    const res = await sendCommandToPeer(peerId, { command: 'status' });
-  //    const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
-  //    node.allowedAdmins = res.allowedAdmins;
-  //    setIsAdmin(!!isInAllowedAdmins);
-  //  },
-  //  [account?.address]
-  //);
+  // const getNodeStatus = useCallback(
+  //   async (peerId: string) => {
+  //     const res = await sendCommandToPeer(peerId, { command: 'status' });
+  //     const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
+  //     node.allowedAdmins = res.allowedAdmins;
+  //     setIsAdmin(!!isInAllowedAdmins);
+  //   },
+  //   [account?.address]
+  // );
 
-  //useEffect(() => {
-  //  if (isReady && node.id) {
-  //    getNodeStatus(node.id);
-  //  }
-  //}, [isReady, node?.id, getNodeStatus]);
+  // useEffect(() => {
+  //   if (isReady && node.id) {
+  //     getNodeStatus(node.id);
+  //   }
+  // }, [isReady, node?.id, getNodeStatus]);
 
   const isAdmin = useMemo(
     () => account.address && node.allowedAdmins?.includes(account.address),
