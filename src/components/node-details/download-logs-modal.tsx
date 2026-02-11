@@ -5,7 +5,7 @@ import styles from './download-logs-modal.module.css';
 
 type Preset = '1h' | '24h' | '7d' | '30d' | 'custom';
 
-const MAX_LOGS_OPTIONS = [100, 500, 1_000, 5_000, 10_000];
+const MAX_LOGS_OPTIONS = [100, 500, 1_000];
 
 type DownloadLogsModalProps = {
   isOpen: boolean;
