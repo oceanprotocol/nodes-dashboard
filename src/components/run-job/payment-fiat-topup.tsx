@@ -6,6 +6,7 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { RampInstantEventTypes, RampInstantSDK } from '@ramp-network/ramp-instant-sdk';
+import { IPurchaseCreatedEvent } from '@ramp-network/ramp-instant-sdk/dist/types/types';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
@@ -47,6 +48,18 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   const [getStatusTimeout, setGetStatusTimeout] = useState<NodeJS.Timeout | null>(null);
   const [loadingGetStatus, setLoadingGetStatus] = useState(false);
 
+  const clearState = () => {
+    apiBaseUrlRef.current = null;
+    getStatusCrtTryRef.current = 0;
+    purchaseRef.current = null;
+    purchaseViewTokenRef.current = null;
+    if (getStatusTimeout) {
+      clearTimeout(getStatusTimeout);
+    }
+    setGetStatusTimeout(null);
+    setLoadingGetStatus(false);
+  };
+
   const handleTopup = async () => {
     const amountToTopup = totalCost + currentLockedAmount - escrowBalance - walletBalance;
     const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -65,7 +78,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
       url: process.env.NODE_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
       userAddress: account.address,
     })
-      .on(RampInstantEventTypes.PURCHASE_CREATED, (event: any) => {
+      .on(RampInstantEventTypes.PURCHASE_CREATED, (event: IPurchaseCreatedEvent) => {
         console.log('PURCHASE_CREATED', event);
         getStatusCrtTryRef.current = 0;
         apiBaseUrlRef.current = event.payload.apiUrl;
@@ -86,7 +99,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   const getTransactionInfo = async () => {
     if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
       toast.error('Failed to load top-up status');
-      setLoadingGetStatus(false);
+      clearState();
       return;
     }
     try {
@@ -98,23 +111,23 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
       switch (response.data.status) {
         case 'INITIALIZED': {
           toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
-          setLoadingGetStatus(false);
+          clearState();
           break;
         }
         case 'RELEASED': {
           toast.success('Top-up completed');
-          setLoadingGetStatus(false);
+          clearState();
           loadPaymentInfo();
           break;
         }
         case 'EXPIRED': {
           toast.error('Top-up expired');
-          setLoadingGetStatus(false);
+          clearState();
           break;
         }
         case 'CANCELLED': {
           toast.error('Top-up cancelled');
-          setLoadingGetStatus(false);
+          clearState();
           break;
         }
         default: {
@@ -123,7 +136,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
           }
           if (getStatusCrtTryRef.current >= GET_STATUS_MAX_TRIES) {
             toast.error('Loading top-up status timed out');
-            setLoadingGetStatus(false);
+            clearState();
             return;
           }
           getStatusCrtTryRef.current += 1;
@@ -137,7 +150,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
     } catch (error) {
       console.error('Error fetching top-up status', error);
       toast.error('Failed to load top-up status');
-      setLoadingGetStatus(false);
+      clearState();
     } finally {
     }
   };
