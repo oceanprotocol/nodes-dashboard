@@ -60,12 +60,9 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
       hideExitButton: false,
       hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
       hostAppName: 'Ocean Network',
-      // TODO
-      hostLogoUrl: 'https://assets.rampnetwork.com/misc/test-logo.png',
       swapAsset: selectedToken.address,
       swapAmount: normalizedAmountToTopup,
-      // TODO
-      url: 'https://app.demo.rampnetwork.com',
+      url: process.env.NODE_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
       userAddress: account.address,
     })
       .on(RampInstantEventTypes.PURCHASE_CREATED, (event: any) => {
