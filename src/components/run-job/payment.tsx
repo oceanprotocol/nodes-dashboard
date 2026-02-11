@@ -99,6 +99,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
           loadPaymentInfo={loadPaymentInfo}
           selectedToken={selectedToken}
           totalCost={totalCost}
+          walletBalance={walletBalance ?? 0}
         />
       ) : step === 'authorize' ? (
         <PaymentAuthorize
