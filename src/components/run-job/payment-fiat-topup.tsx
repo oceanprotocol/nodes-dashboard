@@ -171,7 +171,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
       }
     } catch (error) {
       console.error('Error fetching top-up status', error);
-      toast.error('Failed to load top-up status');
+      toast.error('Failed to load top-up status. Please check your email for updates');
       clearState();
     } finally {
     }
@@ -195,7 +195,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         size="lg"
         variant="outlined"
       >
-        Refresh
+        Refresh wallet balance
       </Button>
       <Button
         color="accent2"
