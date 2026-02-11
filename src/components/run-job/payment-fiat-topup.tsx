@@ -6,7 +6,7 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { RampInstantEventTypes, RampInstantSDK } from '@ramp-network/ramp-instant-sdk';
-import { IPurchaseCreatedEvent } from '@ramp-network/ramp-instant-sdk/dist/types/types';
+import { IPurchase, IPurchaseCreatedEvent } from '@ramp-network/ramp-instant-sdk/dist/types/types';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
@@ -42,7 +42,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   // With useState, the events are handled with the state from the time the event handler was registered
   const apiBaseUrlRef = useRef<string | null>(null);
   const getStatusCrtTryRef = useRef(0);
-  const purchaseRef = useRef<any>(null);
+  const purchaseRef = useRef<IPurchase | null>(null);
   const purchaseViewTokenRef = useRef<string | null>(null);
 
   const [getStatusTimeout, setGetStatusTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -58,6 +58,10 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
     }
     setGetStatusTimeout(null);
     setLoadingGetStatus(false);
+  };
+
+  const isBankTransfer = (purchase: IPurchase) => {
+    return purchase.paymentMethodType.includes('BANK');
   };
 
   const handleTopup = async () => {
@@ -104,19 +108,26 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
 
   const getTransactionInfo = async () => {
     if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
-      toast.error('Failed to load top-up status');
+      toast.error('Failed to load top-up status. Please check your email for updates');
       clearState();
       return;
     }
     try {
-      const response = await axios.get(`${apiBaseUrlRef.current}/host-api/purchase/${purchaseRef.current.id}`, {
-        params: {
-          secret: purchaseViewTokenRef.current,
-        },
-      });
+      const response = await axios.get<IPurchase>(
+        `${apiBaseUrlRef.current}/host-api/purchase/${purchaseRef.current.id}`,
+        {
+          params: {
+            secret: purchaseViewTokenRef.current,
+          },
+        }
+      );
       switch (response.data.status) {
         case 'INITIALIZED': {
-          toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
+          if (isBankTransfer(response.data)) {
+            toast.info('Bank trasnfers are not processed instantly. Please check your email for updates');
+          } else {
+            toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
+          }
           clearState();
           break;
         }
@@ -140,8 +151,13 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
           if (getStatusTimeout) {
             clearTimeout(getStatusTimeout);
           }
+          if (isBankTransfer(response.data)) {
+            toast.info('Bank trasnfers are not processed instantly. Please check your email for updates');
+            clearState();
+            return;
+          }
           if (getStatusCrtTryRef.current >= GET_STATUS_MAX_TRIES) {
-            toast.error('Loading top-up status timed out');
+            toast.error('Loading top-up status timed out. Please check your email for updates');
             clearState();
             return;
           }
