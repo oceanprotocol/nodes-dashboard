@@ -17,6 +17,7 @@ type PaymentDepositProps = {
   loadPaymentInfo: () => void;
   selectedToken: SelectedToken;
   totalCost: number;
+  walletBalance: number;
 };
 
 const PaymentDeposit = ({
@@ -26,6 +27,7 @@ const PaymentDeposit = ({
   loadPaymentInfo,
   selectedToken,
   totalCost,
+  walletBalance,
 }: PaymentDepositProps) => {
   const { handleDeposit, isDepositing } = useDepositTokens({ onSuccess: loadPaymentInfo });
 
@@ -77,7 +79,7 @@ const PaymentDeposit = ({
         <Button
           className="alignSelfEnd"
           color="accent2"
-          disabled={loadingPaymentInfo}
+          disabled={isDepositing || walletBalance < amountToDeposit}
           loading={isDepositing}
           size="lg"
           type="submit"

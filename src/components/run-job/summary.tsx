@@ -10,7 +10,7 @@ import { Ide } from '@/types/ide';
 import { generateAuthToken } from '@/utils/generateAuthToken';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import classNames from 'classnames';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './summary.module.css';
 
@@ -43,6 +43,15 @@ const Summary = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [selectedIde, setSelectedIde] = useState(Ide.vscode);
+
+  useEffect(() => {
+    const selectedIdeKey = localStorage.getItem('selectedIde');
+    if (!selectedIdeKey || !(selectedIdeKey in Ide)) {
+      return;
+    }
+
+    setSelectedIde(Ide[selectedIdeKey as keyof typeof Ide]);
+  }, []);
 
   const generateToken = async () => {
     if (!account.address || !ocean) {
@@ -174,10 +183,11 @@ const Summary = ({
                 horizontal: 'center',
               }}
             >
-              {Object.values(Ide).map((ide) => (
+              {Object.entries(Ide).map(([key, ide]) => (
                 <MenuItem
                   key={ide.uriScheme}
                   onClick={() => {
+                    localStorage.setItem('selectedIde', key);
                     setSelectedIde(ide);
                     handleCloseIdeMenu();
                   }}
