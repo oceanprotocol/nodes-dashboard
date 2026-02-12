@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
-import { USDC_TOKEN_ADDRESS } from '@/constants/tokens';
+import { getSupportedTokens } from '@/constants/tokens';
 import { ComputeEnvironment } from '@/types/environments';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -45,7 +45,7 @@ const NodeEnvPreview = ({
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
     freeCompute: false,
-    tokenAddress: USDC_TOKEN_ADDRESS,
+    tokenAddress: getSupportedTokens().USDC,
   });
 
   // TODO

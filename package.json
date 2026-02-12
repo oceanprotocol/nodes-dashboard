@@ -46,6 +46,7 @@
     "@ramp-network/ramp-instant-sdk": "^6.2.0",
     "@tanstack/react-query": "^5.28.4",
     "@wagmi/core": "^3.0.0",
+    "alchemy-sdk": "^3.6.5",
     "axios": "^1.12.2",
     "bignumber.js": "^9.3.1",
     "classnames": "^2.5.0",
