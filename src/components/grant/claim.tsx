@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
+import { useProfileContext } from '../../context/profile-context';
 import styles from './claim.module.css';
 
 type ClaimProps = {
@@ -19,6 +20,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, sendTransaction, isSendingTransaction } = useOceanAccount();
+  const { fetchGrantStatus } = useProfileContext();
 
   const [claimed, setClaimed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,6 +66,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
               walletAddress: account.address,
             });
             setClaimed(true);
+            fetchGrantStatus(account.address!);
             toast.success('Grant claimed successfully!');
           } catch (error) {
             console.error('Failed to confirm claim', error);
