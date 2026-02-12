@@ -78,7 +78,11 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         hideExitButton: false,
         hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
         hostAppName: 'Ocean Network',
-        swapAsset: selectedToken.address,
+        // TODO swapAsset is deprecated - replace with enabledCryptoAssets once Ramp SDK types are updated
+        // enabledCryptoAssets: 'BASE_USDC',
+        swapAsset: 'BASE_USDC',
+        // TODO swapAmount is deprecated - replace with outAssetValue once Ramp SDK types are updated
+        // outAssetValue: normalizedAmountToTopup,
         swapAmount: normalizedAmountToTopup,
         url: process.env.NODE_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
         userAddress: account.address,
