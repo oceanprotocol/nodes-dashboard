@@ -173,7 +173,6 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
       console.error('Error fetching top-up status', error);
       toast.error('Failed to load top-up status. Please check your email for updates');
       clearState();
-    } finally {
     }
   };
 
