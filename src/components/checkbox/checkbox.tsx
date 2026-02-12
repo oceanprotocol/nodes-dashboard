@@ -2,6 +2,7 @@ import { FormControlLabel, Checkbox as MaterialCheckbox, Radio as MaterialRadio,
 
 type CheckboxProps = {
   checked: boolean;
+  className?: string;
   label?: React.ReactNode;
   name?: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -31,9 +32,10 @@ const StyledRadio = styled(MaterialRadio)({
   },
 });
 
-const Checkbox: React.FC<CheckboxProps> = ({ checked, label, name, onChange, type, value }) => {
+const Checkbox: React.FC<CheckboxProps> = ({ checked, className, label, name, onChange, type, value }) => {
   return (
     <StyledFormControlLabel
+      className={className}
       control={
         type === 'multiple' ? (
           <StyledCheckbox checked={checked} name={name} onChange={onChange} value={value} />
