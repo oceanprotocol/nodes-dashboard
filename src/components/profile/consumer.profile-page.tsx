@@ -1,4 +1,5 @@
 import Container from '@/components/container/container';
+import ConsumerBalance from '@/components/profile/consumer-balance';
 import ConsumerJobs from '@/components/profile/consumer-jobs';
 import ConsumerStats from '@/components/profile/consumer-stats';
 import ProfileHeader from '@/components/profile/profile-header';
@@ -15,6 +16,7 @@ const ConsumerProfilePage = () => {
       <div className="pageContentWrapper">
         <ProfileHeader role="consumer" />
         <ConsumerStats />
+        <ConsumerBalance />
         <ConsumerJobs />
       </div>
     </Container>
