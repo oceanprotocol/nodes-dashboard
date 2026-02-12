@@ -65,7 +65,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   };
 
   const handleTopup = async () => {
-    const amountToTopup = totalCost + currentLockedAmount - escrowBalance - walletBalance;
+    const amountToTopup = Math.max(0, totalCost + currentLockedAmount - escrowBalance - walletBalance);
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const tokenContract = new ethers.Contract(selectedToken.address, ERC20Template.abi, provider);
