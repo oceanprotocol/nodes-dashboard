@@ -74,19 +74,16 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
         .toFixed(0);
       new RampInstantSDK({
+        enabledCryptoAssets: 'BASE_USDC',
         enabledFlows: ['ONRAMP'],
         hideExitButton: false,
         hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
         hostAppName: 'Ocean Network',
-        // TODO swapAsset is deprecated - replace with enabledCryptoAssets once Ramp SDK types are updated
-        // enabledCryptoAssets: 'BASE_USDC',
-        swapAsset: 'BASE_USDC',
-        // TODO swapAmount is deprecated - replace with outAssetValue once Ramp SDK types are updated
-        // outAssetValue: normalizedAmountToTopup,
-        swapAmount: normalizedAmountToTopup,
+        outAssetValue: normalizedAmountToTopup,
         url: process.env.NODE_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
         userAddress: account.address,
-      })
+        // TODO remove 'as any' once Ramp SDK types are updated
+      } as any)
         .on(RampInstantEventTypes.PURCHASE_CREATED, (event: IPurchaseCreatedEvent) => {
           console.log('PURCHASE_CREATED', event);
           getStatusCrtTryRef.current = 0;
