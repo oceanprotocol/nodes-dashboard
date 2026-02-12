@@ -3,7 +3,7 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
-import { USDC_TOKEN_ADDRESS } from '@/constants/tokens';
+import { getSupportedTokens } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
 import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
@@ -32,7 +32,7 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
   const { selectEnv, selectToken } = useRunJobContext();
 
   // const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getEnvSupportedTokens(environment)[0]);
-  const selectedTokenAddress = USDC_TOKEN_ADDRESS;
+  const selectedTokenAddress = getSupportedTokens().USDC;
   const tokenSymbol = useTokenSymbol(selectedTokenAddress);
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({

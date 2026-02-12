@@ -107,6 +107,30 @@
   text-align: center;
 }
 
+.showMoreButton {
+  align-items: center;
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.showMoreButton:hover {
+  color: var(--text-primary);
+  background: var(--background-glass);
+}
+
+.showMoreIcon {
+  font-size: 18px !important;
+}
+
 .emptyState {
   color: var(--text-secondary);
   font-size: 14px;
