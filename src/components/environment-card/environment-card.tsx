@@ -47,7 +47,9 @@ const EnvironmentCard = ({
 
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
 
-  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(forcePricingToken ?? supportedTokens[0]);
+  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(
+    !!forcePricingToken ? forcePricingToken : supportedTokens[0]
+  );
   const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
 
   const [isFreeCompute, setIsFreeCompute] = useState<boolean>(forcePricing === 'free' ? true : false);
