@@ -4,6 +4,7 @@ import EnvironmentCard from '@/components/environment-card/environment-card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import { getSupportedTokens } from '@/constants/tokens';
 import { RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
@@ -39,18 +40,29 @@ const SelectEnvironment = () => {
 
   const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
 
+  const feeTokenOptions = useMemo(() => {
+    const tokens = getSupportedTokens();
+    return [
+      { label: 'Any', value: '' },
+      ...Object.keys(tokens).map((token) => ({ value: tokens[token as keyof typeof tokens], label: token })),
+    ];
+  }, []);
+
   const formik = useFormik<FilterFormValues>({
     initialValues: {
+      feeToken: filters.feeToken ?? '',
       gpuName: filters.gpuName ?? [],
       fromMaxJobDuration: filters.fromMaxJobDuration ?? '',
       minimumCPU: filters.minimumCPU ?? '',
       minimumRAM: filters.minimumRAM ?? '',
       minimumStorage: filters.minimumStorage ?? '',
-      feeToken: '',
       sortBy: sort ?? '',
     },
     onSubmit: async (values) => {
       const filters: RawFilters = { gpuName: values.gpuName };
+      if (values.feeToken) {
+        filters.feeToken = values.feeToken;
+      }
       if (values.fromMaxJobDuration !== '') {
         filters.fromMaxJobDuration = Number(values.fromMaxJobDuration);
       }
@@ -75,11 +87,11 @@ const SelectEnvironment = () => {
     if (expanded) {
       formik.setValues({
         ...formik.values,
+        feeToken: '',
         fromMaxJobDuration: '',
         minimumCPU: '',
         minimumRAM: '',
         minimumStorage: '',
-        feeToken: '',
       });
     }
     setExpanded(!expanded);
@@ -142,24 +154,24 @@ const SelectEnvironment = () => {
                 type="number"
                 value={formik.values.fromMaxJobDuration}
               />
-              {/* <Select
-                label="Pricing token"
-                name="feeToken"
-                onChange={formik.handleChange}
-                size="sm"
-                value={formik.values.feeToken}
-              /> */}
             </div>
           </Collapse>
-          <div className={styles.footer}>
+          <div className={styles.filtersFooter}>
             <Select
-              className={styles.sortSelect}
               label="Sort"
               name="sortBy"
               onChange={formik.handleChange}
               options={sortOptions}
               size="sm"
               value={formik.values.sortBy}
+            />
+            <Select
+              label="Fee token"
+              name="feeToken"
+              onChange={formik.handleChange}
+              options={feeTokenOptions}
+              size="sm"
+              value={formik.values.feeToken}
             />
             <div className={styles.buttons}>
               <Button color="accent1" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="outlined">
@@ -178,6 +190,7 @@ const SelectEnvironment = () => {
             <EnvironmentCard
               compact
               environment={env}
+              forcePricingToken={filters.feeToken}
               key={env.id}
               nodeInfo={{
                 friendlyName: node.friendlyName,
