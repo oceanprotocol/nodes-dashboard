@@ -124,7 +124,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
       switch (response.data.status) {
         case 'INITIALIZED': {
           if (isBankTransfer(response.data)) {
-            toast.info('Bank trasnfers are not processed instantly. Please check your email for updates');
+            toast.info('Bank transfers are not processed instantly. Please check your email for updates');
           } else {
             toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
           }
@@ -152,7 +152,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
             clearTimeout(getStatusTimeout);
           }
           if (isBankTransfer(response.data)) {
-            toast.info('Bank trasnfers are not processed instantly. Please check your email for updates');
+            toast.info('Bank transfers are not processed instantly. Please check your email for updates');
             clearState();
             return;
           }
