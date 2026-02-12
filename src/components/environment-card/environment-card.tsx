@@ -42,7 +42,7 @@ const EnvironmentCard = ({
   const { selectEnv, selectToken } = useRunJobContext();
 
   const supportedTokens = useMemo(() => {
-    return getEnvSupportedTokens(environment);
+    return getEnvSupportedTokens(environment, true);
   }, [environment]);
 
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
