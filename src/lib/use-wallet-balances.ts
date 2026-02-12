@@ -1,4 +1,4 @@
-import { CHAIN_ID, BASE_CHAIN_ID, ETH_SEPOLIA_CHAIN_ID } from '@/constants/chains';
+import { alchemyClient } from '@/lib/alchemy-client';
 import { RPC_URL } from '@/lib/constants';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -15,24 +15,6 @@ export interface UseWalletBalancesReturn {
   refetch: () => void;
 }
 
-const getAlchemyBaseUrl = () => {
-  if (CHAIN_ID === ETH_SEPOLIA_CHAIN_ID) return 'https://eth-sepolia.g.alchemy.com/v2';
-  if (CHAIN_ID === BASE_CHAIN_ID) return 'https://base-mainnet.g.alchemy.com/v2';
-  return 'https://eth-mainnet.g.alchemy.com/v2';
-};
-
-interface AlchemyTokenBalance {
-  contractAddress: string;
-  tokenBalance: string;
-}
-
-interface AlchemyTokenBalancesResponse {
-  result: {
-    address: string;
-    tokenBalances: AlchemyTokenBalance[];
-  };
-}
-
 export const useWalletBalances = (): UseWalletBalancesReturn => {
   const { account, ocean } = useOceanAccount();
 
@@ -45,30 +27,12 @@ export const useWalletBalances = (): UseWalletBalancesReturn => {
       return;
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
-    if (!apiKey) {
-      console.error('Alchemy API key not configured');
-      return;
-    }
-
     setLoading(true);
     try {
-      const baseUrl = getAlchemyBaseUrl();
-      const response = await fetch(`${baseUrl}/${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'alchemy_getTokenBalances',
-          params: [account.address, 'erc20'],
-        }),
-      });
+      const data = await alchemyClient.core.getTokenBalances(account.address);
+      const tokenBalances = data.tokenBalances ?? [];
 
-      const data: AlchemyTokenBalancesResponse = await response.json();
-      const tokenBalances = data.result?.tokenBalances ?? [];
-
-      // Filter out zero balances and resolve symbols
+      // Filter out zero balances
       const nonZeroBalances = tokenBalances.filter(
         (tb) =>
           tb.tokenBalance &&
@@ -85,7 +49,7 @@ export const useWalletBalances = (): UseWalletBalancesReturn => {
           const tokenContract = new ethers.Contract(tb.contractAddress, ERC20Template.abi, provider);
           const decimals = await tokenContract.decimals();
           const amount = Number(
-            OceanProvider.denominateNumber(BigInt(tb.tokenBalance).toString(), Number(decimals))
+            OceanProvider.denominateNumber(BigInt(tb.tokenBalance!).toString(), Number(decimals))
           );
           return {
             token: symbol || tb.contractAddress,

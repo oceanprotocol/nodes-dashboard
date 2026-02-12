@@ -26,7 +26,7 @@ export interface UseTransferTokensReturn {
 }
 
 export const useTransferTokens = ({ onSuccess }: UseTransferTokensParams = {}): UseTransferTokensReturn => {
-  const { client, ocean, provider, user } = useOceanAccount();
+  const { client, provider, user } = useOceanAccount();
 
   const [isTransferring, setIsTransferring] = useState(false);
   const [error, setError] = useState<string>();
@@ -38,25 +38,34 @@ export const useTransferTokens = ({ onSuccess }: UseTransferTokensParams = {}): 
     onSuccess?.();
   };
 
+  const isTimeoutError = (error: any): boolean => {
+    const message = error?.message || error?.details || '';
+    return (
+      message.includes('Timed out') ||
+      message.includes('Failed to find User Operation') ||
+      (error?.name === 'AASDKError' && message.includes('to be confirmed'))
+    );
+  };
+
   const handleError = (error: any) => {
     console.error('Transfer error:', error);
     setIsTransferring(false);
-    let prettyErr = '';
-    if (error.details) {
-      let d = 0,
-        v = 0;
-      const arr = error.details;
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i] === 'D' && arr.slice(i, i + 7) === 'Details') {
-          d = i;
-        }
-        if (arr[i] === 'V' && arr.slice(i, i + 7) === 'Version') {
-          v = i;
-        }
-      }
-      prettyErr = arr.slice(d + 8, v);
+
+    if (isTimeoutError(error)) {
+      setError(undefined);
+      toast.warning(
+        'Transaction submitted but confirmation is taking longer than expected. It may still complete — please check your wallet balance shortly.',
+        { autoClose: 8000 }
+      );
+      onSuccess?.();
+      return;
     }
-    const errorText = prettyErr ?? error.details ?? 'Transfer failed';
+
+    const errorText =
+      error.details?.match(/Details:\s*(.*?)\s*Version:/)?.[1] ||
+      error.details ||
+      error.message ||
+      'Transfer failed';
     setError(errorText);
     toast.error(errorText);
   };

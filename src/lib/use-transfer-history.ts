@@ -1,33 +1,8 @@
-import { CHAIN_ID, BASE_CHAIN_ID, ETH_SEPOLIA_CHAIN_ID } from '@/constants/chains';
+import { alchemyClient } from '@/lib/alchemy-client';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { TransferEvent } from '@/types/transfers';
+import { AssetTransfersCategory, SortingOrder } from 'alchemy-sdk';
 import { useCallback, useEffect, useState } from 'react';
-
-const getAlchemyBaseUrl = () => {
-  if (CHAIN_ID === ETH_SEPOLIA_CHAIN_ID) return 'https://eth-sepolia.g.alchemy.com/v2';
-  if (CHAIN_ID === BASE_CHAIN_ID) return 'https://base-mainnet.g.alchemy.com/v2';
-  return 'https://eth-mainnet.g.alchemy.com/v2';
-};
-
-interface AlchemyTransfer {
-  from: string;
-  to: string;
-  value: number | null;
-  asset: string | null;
-  rawContract: {
-    address: string | null;
-    value: string | null;
-    decimal: string | null;
-  };
-  hash: string;
-  blockNum: string;
-}
-
-interface AlchemyTransfersResponse {
-  result: {
-    transfers: AlchemyTransfer[];
-  };
-}
 
 export interface UseTransferHistoryReturn {
   transfers: TransferEvent[];
@@ -47,64 +22,27 @@ export const useTransferHistory = (): UseTransferHistoryReturn => {
       return;
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
-    if (!apiKey) {
-      console.error('Alchemy API key not configured');
-      return;
-    }
-
     setLoading(true);
     try {
-      const baseUrl = getAlchemyBaseUrl();
-      const url = `${baseUrl}/${apiKey}`;
-
       // Fetch both sent and received transfers in parallel
-      const [sentResponse, receivedResponse] = await Promise.all([
-        fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'alchemy_getAssetTransfers',
-            params: [
-              {
-                fromAddress: account.address,
-                category: ['erc20'],
-                order: 'desc',
-                maxCount: '0x32', // 50
-                withMetadata: false,
-              },
-            ],
-          }),
+      const [sentData, receivedData] = await Promise.all([
+        alchemyClient.core.getAssetTransfers({
+          fromAddress: account.address,
+          category: [AssetTransfersCategory.ERC20],
+          order: SortingOrder.DESCENDING,
+          maxCount: 50,
+          withMetadata: false,
         }),
-        fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 2,
-            method: 'alchemy_getAssetTransfers',
-            params: [
-              {
-                toAddress: account.address,
-                category: ['erc20'],
-                order: 'desc',
-                maxCount: '0x32', // 50
-                withMetadata: false,
-              },
-            ],
-          }),
+        alchemyClient.core.getAssetTransfers({
+          toAddress: account.address,
+          category: [AssetTransfersCategory.ERC20],
+          order: SortingOrder.DESCENDING,
+          maxCount: 50,
+          withMetadata: false,
         }),
       ]);
 
-      const sentData: AlchemyTransfersResponse = await sentResponse.json();
-      const receivedData: AlchemyTransfersResponse = await receivedResponse.json();
-
-      const allRaw = [
-        ...(sentData.result?.transfers ?? []),
-        ...(receivedData.result?.transfers ?? []),
-      ];
+      const allRaw = [...(sentData.transfers ?? []), ...(receivedData.transfers ?? [])];
 
       const allTransfers: TransferEvent[] = allRaw
         .filter((t) => t.rawContract?.address)
@@ -112,7 +50,7 @@ export const useTransferHistory = (): UseTransferHistoryReturn => {
           tokenSymbol: t.asset || t.rawContract.address || 'Unknown',
           tokenAddress: t.rawContract.address!,
           from: t.from,
-          to: t.to,
+          to: t.to!,
           amount: t.value != null ? String(t.value) : '0',
           txHash: t.hash,
           blockNumber: parseInt(t.blockNum, 16),
