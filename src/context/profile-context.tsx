@@ -197,7 +197,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchGrantStatus = useCallback(async (walletAddress: string) => {
     try {
-      const response = await axios.get<GrantStatus>('api/grant/status', {
+      const response = await axios.get<GrantStatus>('/api/grant/status', {
         params: {
           walletAddress,
         },
