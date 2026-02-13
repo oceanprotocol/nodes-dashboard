@@ -43,3 +43,15 @@
     }
   }
 }
+
+.linkButton {
+  background: none;
+  border: none;
+  color: var(--accent1);
+  cursor: pointer;
+  padding: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

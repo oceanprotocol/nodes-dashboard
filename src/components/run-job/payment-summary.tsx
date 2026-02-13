@@ -1,13 +1,18 @@
 import Card from '@/components/card/card';
+import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
+import { getSupportedTokens } from '@/constants/tokens';
+import { SelectedToken } from '@/context/run-job-context';
 import { Authorizations } from '@/types/payment';
 import { formatNumber } from '@/utils/formatters';
 import classNames from 'classnames';
+import { useState } from 'react';
 import styles from './payment-summary.module.css';
 
 type PaymentSummaryProps = {
   authorizations: Authorizations | null;
   escrowBalance: number | null;
-  tokenSymbol: string;
+  loadPaymentInfo: () => void;
+  selectedToken: SelectedToken;
   totalCost: number;
   walletBalance: number;
 };
@@ -15,10 +20,15 @@ type PaymentSummaryProps = {
 const PaymentSummary = ({
   authorizations,
   escrowBalance,
-  tokenSymbol,
+  loadPaymentInfo,
+  selectedToken,
   totalCost,
   walletBalance,
 }: PaymentSummaryProps) => {
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+
+  const tokenSymbol = selectedToken.symbol;
+
   const insufficientAutorized = (Number(authorizations?.maxLockedAmount) ?? 0) < totalCost;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < totalCost;
 
@@ -66,10 +76,24 @@ const PaymentSummary = ({
       </div>
       {/* User available funds in wallet */}
       <h3 className={styles.sm}>User available funds in wallet</h3>
-      <div className={classNames(styles.values, styles.sm)}>
-        <span className={styles.token}>{tokenSymbol}</span>
-        &nbsp;
-        <span className={classNames(styles.amount, styles.sm)}>{formatNumber(walletBalance)}</span>
+      <div className={styles.values}>
+        <div className={styles.sm}>
+          <span className={styles.token}>{tokenSymbol}</span>
+          &nbsp;
+          <span className={classNames(styles.amount, styles.sm)}>{formatNumber(walletBalance)}</span>
+        </div>
+        {selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.toLowerCase() ? (
+          <>
+            <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
+              Get more COMPY
+            </button>
+            <SwapTokensModal
+              isOpen={isSwapModalOpen}
+              onClose={() => setIsSwapModalOpen(false)}
+              onSuccess={loadPaymentInfo}
+            />
+          </>
+        ) : null}
       </div>
     </Card>
   );

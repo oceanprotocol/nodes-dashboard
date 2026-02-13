@@ -5,6 +5,7 @@ import { formatWalletAddress } from '@/utils/formatters';
 import { useAuthModal, useLogout } from '@account-kit/react';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WalletIcon from '@mui/icons-material/Wallet';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -101,6 +102,17 @@ const ProfileButton = () => {
             <PersonIcon />
           </ListItemIcon>
           Profile
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            router.push('/swap-tokens');
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <SwapHorizIcon />
+          </ListItemIcon>
+          Get COMPY
         </MenuItem>
         {/* <MenuItem
           onClick={() => {
