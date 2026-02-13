@@ -5,6 +5,7 @@ import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Select from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import { getSupportedTokens } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
@@ -22,21 +23,19 @@ import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
   compact?: boolean;
+  defaultToken?: string;
   environment: ComputeEnvironment;
-  forcePricing?: 'free' | 'paid';
-  forcePricingToken?: string;
   nodeInfo: EnvNodeInfo;
   showNodeName?: boolean;
 };
 
-const EnvironmentCard = ({
+const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   compact,
+  defaultToken,
   environment,
-  forcePricing,
-  forcePricingToken,
   nodeInfo,
   showNodeName,
-}: EnvironmentCardProps) => {
+}) => {
   const router = useRouter();
 
   const { selectEnv, selectToken } = useRunJobContext();
@@ -47,12 +46,20 @@ const EnvironmentCard = ({
 
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
 
-  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(
-    !!forcePricingToken ? forcePricingToken : supportedTokens[0]
-  );
+  const getDefaultToken = () => {
+    if (defaultToken && supportedTokens.includes(defaultToken)) {
+      return defaultToken;
+    }
+    if (supportedTokens.some((t) => t.toLowerCase() === getSupportedTokens().USDC.toLowerCase())) {
+      return getSupportedTokens().USDC;
+    }
+    return supportedTokens[0];
+  };
+
+  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getDefaultToken());
   const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
 
-  const [isFreeCompute, setIsFreeCompute] = useState<boolean>(forcePricing === 'free' ? true : false);
+  const [isFreeCompute, setIsFreeCompute] = useState<boolean>(false);
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
@@ -377,7 +384,7 @@ const EnvironmentCard = ({
               </Link>
             </div>
           ) : null}
-          {environment.free && !forcePricing ? (
+          {environment.free ? (
             <Checkbox
               className={styles.freeComputeCheckbox}
               label="Free compute"
@@ -388,7 +395,7 @@ const EnvironmentCard = ({
           ) : null}
         </div>
         <div className={styles.buttons}>
-          {isFreeCompute || !!forcePricingToken ? null : (
+          {Object.entries(supportedTokensSymbols).length > 1 && !isFreeCompute ? (
             <Select
               onChange={(e) => setSelectedTokenAddress(e.target.value)}
               options={Object.entries(supportedTokensSymbols).map(([address, symbol]) => ({
@@ -398,7 +405,7 @@ const EnvironmentCard = ({
               size="sm"
               value={selectedTokenAddress}
             />
-          )}
+          ) : null}
           <Button
             color="accent2"
             contentBefore={<PlayArrowIcon />}

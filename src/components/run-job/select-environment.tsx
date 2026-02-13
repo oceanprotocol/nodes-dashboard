@@ -189,8 +189,8 @@ const SelectEnvironment = () => {
           node.computeEnvironments.environments.map((env) => (
             <EnvironmentCard
               compact
+              defaultToken={filters.feeToken}
               environment={env}
-              forcePricingToken={filters.feeToken}
               key={env.id}
               nodeInfo={{
                 friendlyName: node.friendlyName,
