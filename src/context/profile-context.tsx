@@ -1,6 +1,7 @@
 import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { EnvNodeInfo } from '@/types/environments';
+import { GrantStatus } from '@/types/grant';
 import { EnsProfile } from '@/types/profile';
 import {
   ActiveNodes,
@@ -33,10 +34,12 @@ type ProfileContextType = {
   successfullJobs: number;
   environment: any;
   nodeInfo: EnvNodeInfo;
+  grantStatus: GrantStatus | null;
   // API functions
   fetchOwnerStats: () => Promise<void>;
   fetchConsumerStats: () => Promise<void>;
   fetchActiveNodes: () => Promise<void>;
+  fetchGrantStatus: (walletAddress: string) => Promise<void>;
   fetchJobsSuccessRate: () => Promise<void>;
   fetchNodeEnv: (peerId: string, envId: string) => Promise<any>;
 };
@@ -66,6 +69,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
   const [environment, setEnvironment] = useState<any>(null);
   const [nodeInfo, setNodeInfo] = useState<any>();
+  const [grantStatus, setGrantStatus] = useState<GrantStatus | null>(null);
 
   // Ref to track deployment attempts and prevent infinite loop
   const deploymentAttempted = useRef<string | null>(null);
@@ -191,18 +195,38 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const fetchGrantStatus = useCallback(async (walletAddress: string) => {
+    try {
+      const response = await axios.get<GrantStatus>('/api/grant/status', {
+        params: {
+          walletAddress,
+        },
+      });
+      if (response.data) {
+        setGrantStatus(response.data);
+      }
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setGrantStatus(null);
+      } else {
+        console.error('Error fetching grant status: ', err);
+      }
+    }
+  }, []);
+
   // Handle profile fetching when connected
   useEffect(() => {
     if (account.isConnected && account.address) {
       setEnsAddress(account.address);
       fetchEnsName(account.address);
       fetchEnsProfile(account.address);
+      fetchGrantStatus(account.address);
     } else {
       setEnsAddress(undefined);
       setEnsName(undefined);
       setEnsProfile(undefined);
     }
-  }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile]);
+  }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile, fetchGrantStatus]);
 
   // Auto-deploy account if needed when user connects
   useEffect(() => {
@@ -261,9 +285,11 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         successfullJobs,
         environment,
         nodeInfo,
+        grantStatus,
         fetchOwnerStats,
         fetchConsumerStats,
         fetchActiveNodes,
+        fetchGrantStatus,
         fetchJobsSuccessRate,
         fetchNodeEnv,
       }}

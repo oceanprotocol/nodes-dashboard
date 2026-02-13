@@ -4,6 +4,7 @@ import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
 import {
   useAccount,
+  useSendUserOperation,
   useSignerStatus,
   useSignMessage,
   useSmartAccountClient,
@@ -12,7 +13,7 @@ import {
 } from '@account-kit/react';
 import { CircularProgress } from '@mui/material';
 import { ethers } from 'ethers';
-import { createContext, ReactNode, useCallback, useContext, useMemo } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 type OceanAccountContextType = {
   account: {
@@ -20,8 +21,15 @@ type OceanAccountContextType = {
     isConnected: boolean;
   };
   client?: ReturnType<typeof useSmartAccountClient>['client'];
-  provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
+  isSendingTransaction: boolean;
   ocean: OceanProvider | null;
+  provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
+  sendTransaction: (params: {
+    target: string;
+    data: string;
+    onSuccess?: (result: any) => void;
+    onError?: (error: any) => void;
+  }) => void;
   signMessage: (message: string) => Promise<string>;
   user: UseUserResult;
 };
@@ -53,13 +61,52 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
     [signMessageAsync]
   );
 
+  const { sendUserOperation, isSendingUserOperation } = useSendUserOperation({
+    client,
+    waitForTxn: true,
+  });
+
+  const sendTransactionWrapper = useCallback(
+    ({
+      target,
+      data,
+      onSuccess,
+      onError,
+    }: {
+      target: string;
+      data: string;
+      onSuccess?: (result: any) => void;
+      onError?: (error: any) => void;
+    }) => {
+      sendUserOperation(
+        {
+          uo: {
+            target: target as `0x${string}`,
+            data: data as `0x${string}`,
+          },
+        },
+        {
+          onSuccess: (result: any) => {
+            onSuccess?.(result);
+          },
+          onError: (error: any) => {
+            onError?.(error);
+          },
+        }
+      );
+    },
+    [sendUserOperation]
+  );
+
   return (
     <OceanAccountContext.Provider
       value={{
         account: { address, isConnected },
+        isSendingTransaction: isSendingUserOperation,
         client,
         ocean,
         provider,
+        sendTransaction: sendTransactionWrapper,
         signMessage: signMessageWrapper,
         user,
       }}
@@ -71,6 +118,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
 const EOAHandler = ({ children }: { children: ReactNode }) => {
   const user = useUser();
+  const [isSendingTransaction, setIsSendingTransaction] = useState(false);
 
   const address = user?.address;
   const isConnected = !!user;
@@ -98,12 +146,49 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
     [address, provider]
   );
 
+  const sendTransactionWrapper = useCallback(
+    async ({
+      target,
+      data,
+      onSuccess,
+      onError,
+    }: {
+      target: string;
+      data: string;
+      onSuccess?: (result: any) => void;
+      onError?: (error: any) => void;
+    }) => {
+      if (!provider) {
+        onError?.(new Error('No provider available'));
+        return;
+      }
+      try {
+        setIsSendingTransaction(true);
+        const signer = await provider.getSigner();
+        const tx = await signer.sendTransaction({
+          to: target,
+          data,
+        });
+        const recipe = await tx.wait();
+        onSuccess?.(recipe);
+      } catch (error) {
+        console.error('EOA Transaction error:', error);
+        onError?.(error);
+      } finally {
+        setIsSendingTransaction(false);
+      }
+    },
+    [provider]
+  );
+
   return (
     <OceanAccountContext.Provider
       value={{
         account: { address, isConnected },
+        isSendingTransaction,
         ocean,
         provider,
+        sendTransaction: sendTransactionWrapper,
         signMessage: signMessageWrapper,
         user,
       }}
