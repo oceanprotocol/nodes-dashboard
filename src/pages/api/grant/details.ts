@@ -29,6 +29,23 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(400).json({ message: 'Missing required fields' });
   }
 
+  // Input validation
+  const nameRegex = /^[\p{L}\s.'-]{1,100}$/u;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const handleRegex = /^[a-zA-Z0-9@\._\-]{1,100}$/;
+
+  if (!nameRegex.test(data.name)) {
+    return response.status(400).json({ message: 'Invalid name format or length' });
+  }
+
+  if (!emailRegex.test(data.email) || data.email.length > 255) {
+    return response.status(400).json({ message: 'Invalid email format or length' });
+  }
+
+  if (!handleRegex.test(data.handle)) {
+    return response.status(400).json({ message: 'Invalid handle format or length' });
+  }
+
   // AI validation
   const validationResult = await validateGrantDataWithAI(data);
   if (!validationResult.valid) {
