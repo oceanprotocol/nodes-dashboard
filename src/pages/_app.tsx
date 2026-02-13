@@ -1,4 +1,5 @@
 import RootLayout from '@/components/Layout';
+import { GrantProvider } from '@/context/grant-context';
 import { NodesProvider } from '@/context/nodes-context';
 import { ProfileProvider } from '@/context/profile-context';
 import { RunJobProvider } from '@/context/run-job-context';
@@ -47,25 +48,27 @@ export default function App({ Component, pageProps }: AppProps) {
       <QueryClientProvider client={queryClientRef.current}>
         <AlchemyProvider>
           <OceanAccountProvider>
-            <NodesProvider>
-              <UnbanRequestsProvider>
-                <ProfileProvider>
-                  <StatsProvider>
-                    <P2PProvider>
-                      <RunJobEnvsProvider>
-                        <RunJobProvider>
-                          <RunNodeProvider>
-                            <RootLayout>
-                              <Component {...pageProps} />
-                            </RootLayout>
-                          </RunNodeProvider>
-                        </RunJobProvider>
-                      </RunJobEnvsProvider>
-                    </P2PProvider>
-                  </StatsProvider>
-                </ProfileProvider>
-              </UnbanRequestsProvider>
-            </NodesProvider>
+            <GrantProvider>
+              <NodesProvider>
+                <UnbanRequestsProvider>
+                  <ProfileProvider>
+                    <StatsProvider>
+                      <P2PProvider>
+                        <RunJobEnvsProvider>
+                          <RunJobProvider>
+                            <RunNodeProvider>
+                              <RootLayout>
+                                <Component {...pageProps} />
+                              </RootLayout>
+                            </RunNodeProvider>
+                          </RunJobProvider>
+                        </RunJobEnvsProvider>
+                      </P2PProvider>
+                    </StatsProvider>
+                  </ProfileProvider>
+                </UnbanRequestsProvider>
+              </NodesProvider>
+            </GrantProvider>
           </OceanAccountProvider>
         </AlchemyProvider>
         <ToastContainer hideProgressBar theme="colored" />
