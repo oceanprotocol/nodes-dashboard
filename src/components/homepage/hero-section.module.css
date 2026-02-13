@@ -1,0 +1,128 @@
+.root {
+  position: relative;
+  --nav-overlap: 120px;
+  margin-top: calc(var(--nav-overlap) * -1);
+  padding: calc(140px + var(--nav-overlap)) 0 120px;
+  overflow: hidden;
+}
+
+.title {
+  font-size: 88px;
+  line-height: 1;
+  margin: 0;
+}
+
+.title span {
+  color: #009bff;
+}
+
+.relative {
+  position: relative;
+}
+
+.titleWrapper {
+  display: flex;
+  gap: 15px;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.subTitle {
+  font-size: 24px;
+  max-width: 580px;
+}
+
+.actionsAndTextWrapper {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.textBadge {
+  font-size: 70px;
+  text-align: right;
+  line-height: 1;
+  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+}
+
+.textBadge span {
+  color: #009bff;
+}
+
+@media (max-width: 1200px) {
+  .title {
+    font-size: 72px;
+  }
+
+  .textBadge {
+    font-size: 60px;
+  }
+}
+
+@media (max-width: 992px) {
+  .root {
+    --nav-overlap: 100px;
+    padding: calc(110px + var(--nav-overlap)) 0 90px;
+  }
+
+  .title {
+    font-size: 64px;
+  }
+
+  .subTitle {
+    font-size: 22px;
+  }
+
+  .textBadge {
+    font-size: 52px;
+  }
+}
+
+@media (max-width: 768px) {
+  .root {
+    --nav-overlap: 90px;
+    padding: calc(100px + var(--nav-overlap)) 0 80px;
+  }
+
+  .actionsAndTextWrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 30px;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .textBadge {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .title {
+    font-size: 48px;
+  }
+
+  .subTitle {
+    font-size: 18px;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .textBadge {
+    font-size: 42px;
+  }
+}
