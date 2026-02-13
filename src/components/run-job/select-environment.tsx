@@ -185,25 +185,31 @@ const SelectEnvironment = () => {
         </Card>
       </form>
       <div className={styles.list}>
-        {nodeEnvs.map((node) =>
-          node.computeEnvironments.environments.map((env) => (
-            <EnvironmentCard
-              compact
-              defaultToken={filters.feeToken}
-              environment={env}
-              key={env.id}
-              nodeInfo={{
-                friendlyName: node.friendlyName,
-                id: node.id,
-              }}
-              showNodeName
-            />
-          ))
-        )}
-        {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-          <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
-            Load more
-          </Button>
+        {nodeEnvs?.length > 0 ? (
+          <>
+            {nodeEnvs.map((node) =>
+              node.computeEnvironments.environments.map((env) => (
+                <EnvironmentCard
+                  compact
+                  defaultToken={filters.feeToken}
+                  environment={env}
+                  key={env.id}
+                  nodeInfo={{
+                    friendlyName: node.friendlyName,
+                    id: node.id,
+                  }}
+                  showNodeName
+                />
+              ))
+            )}
+            {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
+              <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
+                Load more
+              </Button>
+            )}
+          </>
+        ) : (
+          <p className="alignSelfCenter">No environments found</p>
         )}
       </div>
     </Card>
