@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import { getSupportedTokens } from '@/constants/tokens';
+import { useSwapTokens } from '@/lib/use-swap-tokens';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
 import { formatNumber } from '@/utils/formatters';
 import { useFormik } from 'formik';
@@ -22,30 +23,42 @@ type SwapTokensFormValues = {
 
 const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, refetchOnSuccess }) => {
   const { balances, loading: loadingBalances, refetch: refetchBalances } = useWalletBalances();
-
-  const formik = useFormik<SwapTokensFormValues>({
-    initialValues: {
-      amount: '',
-    },
-    onSubmit: async (values) => {
-      try {
-        if (refetchOnSuccess) {
-          await refetchBalances();
-        }
-        onSuccess?.();
-      } catch (error) {
-        onError?.(error);
+  const { handleSwap, isSwapping } = useSwapTokens({
+    onSuccess: async () => {
+      if (refetchOnSuccess) {
+        await refetchBalances();
       }
+      onSuccess?.();
     },
-    validationSchema: Yup.object({
-      amount: Yup.number().required('Amount is required').min(0, 'Amount must be greater than 0'),
-    }),
+    onError: (error: any) => {
+      onError?.(error);
+    },
   });
 
   const filteredBalances = useMemo(() => {
     const supportedTokens = [getSupportedTokens().USDC.toLowerCase(), getSupportedTokens().COMPY.toLowerCase()];
     return [...balances].filter((b) => supportedTokens.includes(b.address.toLowerCase()));
   }, [balances]);
+
+  const usdcBalance = useMemo(() => {
+    return filteredBalances.find((b) => b.token === 'USDC')?.amount ?? 0;
+  }, [filteredBalances]);
+
+  const formik = useFormik<SwapTokensFormValues>({
+    initialValues: {
+      amount: '',
+    },
+    onSubmit: async (values) => {
+      await handleSwap({ amount: values.amount.toString() });
+    },
+    validateOnMount: true,
+    validationSchema: Yup.object({
+      amount: Yup.number()
+        .required('Amount is required')
+        .min(0, 'Amount must be greater than 0')
+        .max(usdcBalance, 'Insufficient USDC balance'),
+    }),
+  });
 
   return (
     <>
@@ -71,12 +84,13 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
               ? `You will receive ${formik.values.amount} COMPY`
               : undefined
           }
-          label="Amount to swap"
+          label="Amount to convert"
           name="amount"
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
           type="number"
           value={formik.values.amount}
+          disabled={isSwapping}
         />
         <div className="flexRow gapMd justifyContentEnd">
           {onCancel ? (
@@ -87,12 +101,20 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
               size="lg"
               type="button"
               variant="outlined"
+              disabled={isSwapping}
             >
               Cancel
             </Button>
           ) : null}
-          <Button className="alignSelfEnd" color="accent2" size="lg" type="submit">
-            Convert
+          <Button
+            className="alignSelfEnd"
+            color="accent2"
+            size="lg"
+            type="submit"
+            loading={isSwapping}
+            disabled={!formik.isValid || !formik.dirty}
+          >
+            {isSwapping ? 'Converting...' : 'Convert'}
           </Button>
         </div>
       </form>
