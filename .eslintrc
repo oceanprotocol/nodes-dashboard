@@ -1,13 +1,5 @@
 {
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "sourceType": "module",
-    "ecmaFeatures": {
-      "jsx": false
-    }
-  },
-  "extends": ["oceanprotocol", "plugin:prettier/recommended"],
-  "plugins": ["@typescript-eslint"],
+  "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
     "no-empty": ["error", { "allowEmptyCatch": true }],
     "prefer-destructuring": ["warn", { "object": true, "array": false }],
@@ -16,15 +8,5 @@
     "constructor-super": ["warn"],
     "require-await": "error",
     "no-unused-vars": ["error"]
-  },
-  "env": {
-    "es6": true,
-    "browser": true,
-    "mocha": true,
-    "node": true,
-    "jest": true
-  },
-  "globals": {
-    "NodeJS": true
   }
 }

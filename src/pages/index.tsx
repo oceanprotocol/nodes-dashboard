@@ -1,5 +1,13 @@
-import HomePage from '../components/Pages/Homepage'
+import HomePage from '@/components/homepage/homepage';
+import Head from 'next/head';
 
 export default function Home() {
-  return <HomePage />
+  return (
+    <>
+      <Head>
+        <title>Ocean Network — Global Compute Power</title>
+      </Head>
+      <HomePage />
+    </>
+  );
 }

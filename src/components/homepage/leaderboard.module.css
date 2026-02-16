@@ -1,0 +1,151 @@
+.loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  font-size: 1.2rem;
+  color: #888;
+}
+
+.root {
+  padding: 60px 50px;
+  background-color: var(--black-900);
+  position: relative;
+  overflow: hidden;
+}
+
+.root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/circuit.svg') center/cover no-repeat;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.relative {
+  position: relative;
+}
+
+.leaderboardWrapper {
+  margin-top: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tableLine {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 25px 0;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 600px;
+}
+
+.tableHeader {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+  color: rgba(225, 241, 255, 0.75);
+}
+
+.tableCell {
+  font-size: 15px;
+  color: rgba(225, 241, 255, 0.9);
+}
+
+.tableValue {
+  display: inline-block;
+}
+
+.tableLine:not(:last-child) {
+  border-bottom: 1px solid rgba(0, 153, 255, 0.4);
+}
+
+.leaderboardFooter {
+  margin-top: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.viewButton {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 32px;
+  min-width: 218px;
+  font-family: var(--font-inter), sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 22px;
+  letter-spacing: 0;
+  text-transform: capitalize;
+  vertical-align: middle;
+  background: #ffffff;
+  color: #030713;
+  border-radius: 999px;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.viewButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 1100px) {
+  .root {
+    padding: 50px 40px;
+  }
+
+  .leaderboardWrapper {
+    padding: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .root {
+    padding: 40px 24px;
+  }
+
+  .leaderboardWrapper {
+    padding: 28px 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .root {
+    padding: 32px 18px;
+  }
+
+  .leaderboardWrapper {
+    border-radius: 28px;
+    padding: 24px 18px;
+  }
+
+  .tableLine {
+    gap: 12px 16px;
+  }
+
+  .viewButton {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}

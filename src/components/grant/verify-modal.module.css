@@ -1,0 +1,27 @@
+.form {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.group {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.linkButton {
+  background: transparent;
+  border: none;
+  color: var(--accent1);
+  cursor: pointer;
+  display: inline;
+  padding: 0;
+
+  &:disabled {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+  }
+}

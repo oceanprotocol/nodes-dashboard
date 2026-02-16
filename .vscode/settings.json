@@ -8,5 +8,11 @@
   "search.exclude": {
     "**/.next": true,
     "**/out": true
+  },
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "files.watcherExclude": {
+      "**/node_modules/**": true,
+      "**/dist/**": true,
+      "**/.git/**": true
   }
 }

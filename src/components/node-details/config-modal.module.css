@@ -1,0 +1,29 @@
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .editorWrapper {
+    border-radius: 16px;
+    border: 1px solid var(--border-glass);
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+  }
+
+  .fetching {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+}

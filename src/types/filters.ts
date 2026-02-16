@@ -1,0 +1,101 @@
+export type StringFilterOperator = 'contains' | 'eq' | 'value';
+export type NumberFilterOperator = 'eq' | 'gt' | 'gte' | 'lt' | 'lte';
+export type FilterOperator = StringFilterOperator | NumberFilterOperator;
+
+export interface FilterValue {
+  operator: FilterOperator;
+  value: string;
+}
+
+export interface CountryStatsFilters {
+  country?: {
+    operator: StringFilterOperator;
+    value: string;
+  };
+  totalNodes?: {
+    operator: NumberFilterOperator;
+    value: string;
+  };
+  citiesWithNodes?: {
+    operator: NumberFilterOperator;
+    value: string;
+  };
+  cityWithMostNodes?: {
+    operator: StringFilterOperator;
+    value: string;
+  };
+  cityWithMostNodesCount?: {
+    operator: NumberFilterOperator;
+    value: string;
+  };
+}
+
+export interface PaginationParams {
+  page: number;
+  pageSize: number;
+}
+
+export interface SortModel {
+  [field: string]: 'asc' | 'desc';
+}
+
+export interface NodeFilters {
+  id?: FilterValue;
+  uptime?: FilterValue;
+  dns?: FilterValue;
+  city?: FilterValue;
+  country?: FilterValue;
+  eligible?: FilterValue;
+}
+
+export interface BenchmarkJobsHistoryFilters {
+  startTime?: FilterValue;
+  endTime?: FilterValue;
+  difficulty?: FilterValue;
+  resultHashes?: FilterValue;
+  gpuScore?: FilterValue;
+}
+
+export interface JobsFilters {
+  startTime?: FilterValue;
+  status?: FilterValue;
+  nodeFriendlyName?: FilterValue;
+  duration?: FilterValue;
+  amountPaid?: FilterValue;
+}
+
+export interface MyNodesFilters {
+  region?: FilterValue;
+  eligible?: FilterValue;
+  gpuScore?: FilterValue;
+  cpuScore?: FilterValue;
+  bandwidth?: FilterValue;
+  totalScore?: FilterValue;
+}
+
+export interface EnvironmentsFilters {
+  feeToken?: {
+    operator: 'eq';
+    value: string;
+  };
+  fromMaxJobDuration?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
+  gpuName?: {
+    operator: 'in';
+    value: string;
+  };
+  minimumCPU?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
+  minimumRAM?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
+  minimumStorage?: {
+    operator: NumberFilterOperator;
+    value: number;
+  };
+}

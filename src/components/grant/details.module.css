@@ -1,0 +1,45 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .walletAddress {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 16px;
+  }
+
+  .choices {
+    align-self: flex-start;
+    display: grid;
+    grid-template-columns: 100%;
+    column-gap: 48px;
+
+    &.choicesRow {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      column-gap: 48px;
+    }
+
+    @media (min-width: 768px) {
+      &.choices2cols,
+      &.choices3cols {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 992px) {
+      &.choices3cols {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  }
+}

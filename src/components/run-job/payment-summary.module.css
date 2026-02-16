@@ -1,0 +1,45 @@
+.cost {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 24px;
+
+  @media (min-width: 768px) {
+    align-items: center;
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .valueWithChip {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .values {
+    text-align: right;
+
+    .token {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .amount {
+      font-size: 32px;
+      font-weight: 700;
+    }
+  }
+
+  .sm {
+    color: var(--text-secondary);
+    font-size: 16px;
+
+    .token {
+      font-size: 12px;
+    }
+
+    .amount {
+      font-size: 20px;
+    }
+  }
+}

@@ -1,0 +1,27 @@
+.root {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+
+  .tab {
+    border-radius: 32px;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 8px 18px;
+
+    &:not(.tabActive) {
+      cursor: pointer;
+
+      &:hover {
+        background-color: var(--background-glass);
+      }
+    }
+  }
+
+  .tabActive {
+    background-color: var(--accent1);
+    color: var(--text-primary);
+  }
+}
