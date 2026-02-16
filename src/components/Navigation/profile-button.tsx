@@ -1,10 +1,13 @@
 import Avatar from '@/components/avatar/avatar';
 import { useProfileContext } from '@/context/profile-context';
+import useTokenSymbol from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { GrantStatus } from '@/types/grant';
 import { formatWalletAddress } from '@/utils/formatters';
 import { useAuthModal, useLogout } from '@account-kit/react';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import RedeemIcon from '@mui/icons-material/Redeem';
 import WalletIcon from '@mui/icons-material/Wallet';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -20,10 +23,13 @@ const ProfileButton = () => {
 
   const { account } = useOceanAccount();
 
-  const { ensName, ensProfile } = useProfileContext();
+  const { ensName, ensProfile, grantStatus } = useProfileContext();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
+
+  const grantAmount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
+  const grantTokenSymbol = useTokenSymbol(process.env.NEXT_PUBLIC_GRANT_TOKEN_ADDRESS);
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
@@ -91,6 +97,19 @@ const ProfileButton = () => {
           horizontal: 'center',
         }}
       >
+        {grantStatus === GrantStatus.CLAIMED ? null : (
+          <MenuItem
+            onClick={() => {
+              router.push('/grant/details');
+              handleCloseMenu();
+            }}
+          >
+            <ListItemIcon>
+              <RedeemIcon />
+            </ListItemIcon>
+            {grantAmount && grantTokenSymbol ? `Get ${grantAmount} ${grantTokenSymbol}` : 'Get grant'}
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             router.push('/profile/consumer');
