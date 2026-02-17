@@ -5,7 +5,7 @@
   grid-template-columns: auto 1fr;
 
   .icon {
-    color: var(--text-secondary);
+    /* color: var(--text-secondary); */
     font-size: 28px;
   }
 

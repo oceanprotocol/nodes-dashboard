@@ -86,10 +86,10 @@ const SelectEnvironment = () => {
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <form onSubmit={formik.handleSubmit}>
-        <Card direction="column" padding="sm" radius="md" spacing="sm" variant="glass-outline">
+        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass-outline">
           <Select
             label="GPUs"
             multiple
@@ -162,10 +162,10 @@ const SelectEnvironment = () => {
               value={formik.values.sortBy}
             />
             <div className={styles.buttons}>
-              <Button color="accent1" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="outlined">
+              <Button color="primary" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="transparent">
                 {expanded ? 'Fewer filters' : 'More filters'}
               </Button>
-              <Button color="accent1" loading={loading} type="submit">
+              <Button color="accent2" loading={loading} type="submit" variant="filled">
                 Find environments
               </Button>
             </div>
@@ -188,7 +188,7 @@ const SelectEnvironment = () => {
           ))
         )}
         {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-          <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
+          <Button className="alignSelfCenter" color="accent2" loading={loading} onClick={loadMoreEnvs}>
             Load more
           </Button>
         )}

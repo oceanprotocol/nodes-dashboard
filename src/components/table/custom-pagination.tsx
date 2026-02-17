@@ -1,131 +1,27 @@
+import Button from '@/components/button/button';
+import Input from '@/components/input/input';
+import Select from '@/components/input/select';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import {
-  Button,
-  IconButton,
-  InputAdornment,
-  MenuItem,
-  Pagination,
-  Select,
-  styled,
-  TextField,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { Pagination, styled, Typography, useMediaQuery, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useState } from 'react';
 import styles from './custom-pagination.module.css';
 
 const StyledPagination = styled(Pagination)(({ theme }) => ({
   '& .MuiPaginationItem-root': {
-    color: '#ffffff',
+    color: 'var(--text-primary)',
     fontFamily: 'var(--font-inter), sans-serif',
     fontSize: '16px',
     fontWeight: 400,
-    lineHeight: '16px',
-    paddingTop: '3px',
   },
-  '& .MuiPaginationItem-page.Mui-selected': {
-    backgroundColor: 'var(--accent1)',
-    color: '#FFFFFF',
-    '&:hover': {
-      backgroundColor: 'var(--accent1)',
-    },
+  '& .MuiPaginationItem-page': {
     minWidth: '32px',
     height: '32px',
     borderRadius: '8px',
     padding: '3px 8px',
-  },
-}));
-
-const NavButton = styled(Button)(({ theme }) => ({
-  minWidth: 'auto',
-  padding: '6px',
-  '&.Mui-disabled': {
-    opacity: 0.5,
-  },
-  '& .MuiTypography-root': {
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: '16px',
-    fontWeight: 400,
-    lineHeight: '24px',
-  },
-}));
-
-const StyledSelect = styled(Select)(({ theme }) => ({
-  minWidth: 80,
-  marginLeft: theme.spacing(2),
-  '& .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'var(--accent1)',
-  },
-  '&:hover .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'var(--accent1)',
-  },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'var(--accent1)',
-  },
-  '& .MuiSelect-icon': {
-    color: 'var(--accent1)',
-  },
-  '& .MuiSelect-select': {
-    paddingTop: 5,
-    paddingBottom: 5,
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: '16px',
-    fontWeight: 400,
-    lineHeight: '24px',
-    color: '#ffffff',
-  },
-  '& .MuiMenuItem-root': {
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: '16px',
-    fontWeight: 400,
-    lineHeight: '16px',
-    color: '#ffffff',
-  },
-}));
-
-const StyledTextField = styled(TextField)(({ theme }) => ({
-  '& .MuiOutlinedInput-root': {
-    '& fieldset': {
-      borderColor: 'var(--accent1)',
-      borderRadius: '4px',
-    },
-    '&:hover fieldset': {
-      borderColor: 'var(--accent1)',
-    },
-    '&.Mui-focused fieldset': {
-      borderColor: 'var(--accent1)',
-    },
-  },
-  '& .MuiInputBase-input': {
-    padding: '5px 12px',
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: '16px',
-    fontWeight: 400,
-    lineHeight: '24px',
-    color: '#ffffff',
-    minWidth: '42px',
-  },
-  '& .MuiInputBase-input::placeholder': {
-    color: '#A0AEC0',
-    opacity: 1,
-  },
-  '& input[type=number]::-webkit-inner-spin-button, & input[type=number]::-webkit-outer-spin-button': {
-    WebkitAppearance: 'none',
-    margin: 0,
-  },
-  '& input[type=number]': {
-    MozAppearance: 'textfield',
-  },
-  '& .MuiInputAdornment-root': {
-    '& button': {
-      color: 'var(--accent1)',
-      '&:hover': {
-        backgroundColor: 'transparent',
-      },
+    '&.MuiPaginationItem-page.Mui-selected': {
+      backgroundColor: 'var(--accent1)',
+      color: 'var(--text-primary-inverse)',
     },
   },
 }));
@@ -195,88 +91,48 @@ const CustomPagination = React.memo(function CustomPagination({
     return (
       <div className={styles.pagination}>
         <div className={styles.mobileArrowsRow}>
-          <NavButton className={styles.paginationButton} onClick={() => onPageChange(page - 1)} disabled={page === 1}>
-            <ArrowBackIcon style={{ color: '#CF1FB1' }} />
-          </NavButton>
+          <Button
+            className={styles.paginationButton}
+            color="accent1"
+            disabled={page === 1}
+            onClick={() => onPageChange(page - 1)}
+          >
+            <ArrowBackIcon />
+          </Button>
           <Typography className={styles.pageInfo}>
             Page {page} of {totalPages}
           </Typography>
-          <NavButton
+          <Button
             className={styles.paginationButton}
-            onClick={() => onPageChange(page + 1)}
+            color="accent1"
             disabled={page >= totalPages}
+            onClick={() => onPageChange(page + 1)}
           >
-            <ArrowForwardIcon style={{ color: '#CF1FB1' }} />
-          </NavButton>
+            <ArrowForwardIcon />
+          </Button>
         </div>
-        <div className={styles.mobileControlsRow}>
-          <StyledSelect value={pageSize} onChange={handlePageSizeChange} variant="outlined">
-            {[10, 25, 50, 100].map((size) => (
-              <MenuItem key={size} value={size}>
-                {size}
-              </MenuItem>
-            ))}
-          </StyledSelect>
-          <div>
-            <StyledTextField
-              size="small"
-              value={pageInput}
+        <div className={styles.controlsRow}>
+          <Select
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            options={[10, 25, 50, 100].map((size) => ({
+              label: String(size),
+              value: size,
+            }))}
+            size="sm"
+          />
+          <div className={styles.controlsRow}>
+            <Input
+              max={totalPages}
+              min={1}
               onChange={(e) => setPageInput(e.target.value)}
               placeholder="Page"
+              size="sm"
               type="number"
-              inputProps={{
-                min: 1,
-                max: totalPages,
-              }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0px',
-                        margin: '-4px -8px -4px 0',
-                      }}
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={() => setPageInput(String(Math.min(Number(pageInput || 1) + 1, totalPages)))}
-                        sx={{
-                          color: 'var(--accent1)',
-                          padding: '4px 2px 0 2px',
-                          '&:hover': { backgroundColor: 'transparent' },
-                        }}
-                      >
-                        <ArrowDropUpIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => setPageInput(String(Math.max(Number(pageInput || 1) - 1, 1)))}
-                        sx={{
-                          color: 'var(--accent1)',
-                          padding: '0 2px 4px 2px',
-                          '&:hover': { backgroundColor: 'transparent' },
-                        }}
-                      >
-                        <ArrowDropDownIcon fontSize="small" />
-                      </IconButton>
-                    </div>
-                  </InputAdornment>
-                ),
-              }}
-              onKeyPress={(e) => e.key === 'Enter' && handlePageJump()}
+              value={pageInput}
+              onKeyDown={(e) => e.key === 'Enter' && handlePageJump()}
             />
-            <Button
-              variant="contained"
-              onClick={handlePageJump}
-              sx={{
-                backgroundColor: 'var(--accent1)',
-                '&:hover': { backgroundColor: 'var(--accent2)' },
-                ml: 1,
-                fontFamily: 'var(--font-inter), sans-serif',
-              }}
-            >
+            <Button color="accent1" onClick={handlePageJump} variant="filled">
               Go
             </Button>
           </div>
@@ -287,10 +143,15 @@ const CustomPagination = React.memo(function CustomPagination({
 
   return (
     <div className={styles.pagination}>
-      <NavButton className={styles.paginationButton} onClick={() => onPageChange(page - 1)} disabled={page === 1}>
-        <ArrowBackIcon style={{ color: 'var(--accent1)' }} />
-        <Typography className={styles.paginationArrowText}>Previous</Typography>
-      </NavButton>
+      <Button
+        color="accent1"
+        contentBefore={<ArrowBackIcon />}
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 1}
+        variant="transparent"
+      >
+        Previous
+      </Button>
       <div className={styles.paginationCore}>
         <StyledPagination
           color="primary"
@@ -301,85 +162,40 @@ const CustomPagination = React.memo(function CustomPagination({
           hidePrevButton
           hideNextButton
         />
-        <StyledSelect value={pageSize} onChange={handlePageSizeChange} variant="outlined">
-          {[10, 25, 50, 100].map((size) => (
-            <MenuItem key={size} value={size}>
-              {size}
-            </MenuItem>
-          ))}
-        </StyledSelect>
-        <div>
-          <StyledTextField
-            size="small"
-            value={pageInput}
+        <div className={styles.controlsRow}>
+          <Select
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            options={[10, 25, 50, 100].map((size) => ({
+              label: String(size),
+              value: size,
+            }))}
+            size="sm"
+          />
+          <Input
+            max={totalPages}
+            min={1}
             onChange={(e) => setPageInput(e.target.value)}
             placeholder="Page"
+            size="sm"
             type="number"
-            inputProps={{
-              min: 1,
-              max: totalPages,
-            }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0px',
-                      margin: '-4px -8px -4px 0',
-                    }}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={() => setPageInput(String(Math.min(Number(pageInput || 1) + 1, totalPages)))}
-                      sx={{
-                        color: 'var(--accent1)',
-                        padding: '4px 2px 0 2px',
-                        '&:hover': { backgroundColor: 'transparent' },
-                      }}
-                    >
-                      <ArrowDropUpIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => setPageInput(String(Math.max(Number(pageInput || 1) - 1, 1)))}
-                      sx={{
-                        color: 'var(--accent1)',
-                        padding: '0 2px 4px 2px',
-                        '&:hover': { backgroundColor: 'transparent' },
-                      }}
-                    >
-                      <ArrowDropDownIcon fontSize="small" />
-                    </IconButton>
-                  </div>
-                </InputAdornment>
-              ),
-            }}
-            onKeyPress={(e) => e.key === 'Enter' && handlePageJump()}
+            value={pageInput}
+            onKeyDown={(e) => e.key === 'Enter' && handlePageJump()}
           />
-          <Button
-            variant="contained"
-            onClick={handlePageJump}
-            sx={{
-              backgroundColor: 'var(--accent1)',
-              '&:hover': { backgroundColor: 'var(--accent2)' },
-              ml: 1,
-              fontFamily: 'var(--font-inter), sans-serif',
-            }}
-          >
+          <Button color="accent1" onClick={handlePageJump} variant="filled">
             Go
           </Button>
         </div>
       </div>
-      <NavButton
-        className={styles.paginationButton}
+      <Button
+        color="accent1"
+        contentAfter={<ArrowForwardIcon />}
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages}
+        variant="transparent"
       >
-        <Typography className={styles.paginationArrowText}>Next</Typography>
-        <ArrowForwardIcon style={{ color: 'var(--accent1)' }} />
-      </NavButton>
+        Next
+      </Button>
     </div>
   );
 });

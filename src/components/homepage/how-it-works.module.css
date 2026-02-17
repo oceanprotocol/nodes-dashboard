@@ -1,5 +1,5 @@
 .root {
-  background-color: #040a12;
+  background-color: var(--accent1-lighter);
   padding: 60px 50px;
   position: relative;
   z-index: 2;
@@ -60,15 +60,15 @@
 }
 
 .featureItem:hover .indexNumber {
-  color: #be00ff;
+  color: #b7fd79;
 }
 
 .featureItemActive .indexNumber {
-  color: #be00ff;
+  color: #b7fd79;
 }
 
 .indexNumber {
-  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
   font-size: 18px;
   transition: 0.2s all ease-in-out;
   font-weight: bold;

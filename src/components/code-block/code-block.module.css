@@ -2,6 +2,7 @@
   align-items: start;
   background: var(--background-glass);
   border-radius: 16px;
+  box-shadow: var(--inner-shadow-black);
   display: flex;
   font-family: monospace;
   gap: 16px;

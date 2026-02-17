@@ -11,7 +11,7 @@ const TopGpuModels = () => {
   }, [fetchTopGpus]);
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Top GPUs by popularity</h3>
       <HBarChart axisKey="gpuName" barKey="popularity" data={topGpuModels} />
     </Card>

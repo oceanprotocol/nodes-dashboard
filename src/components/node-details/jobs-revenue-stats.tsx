@@ -50,7 +50,7 @@ const JobsRevenueStats = () => {
   }, [envs]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalRevenue"

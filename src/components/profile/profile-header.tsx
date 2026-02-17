@@ -45,7 +45,7 @@ const ProfileHeader = ({ role }: ProfileHeaderProps) => {
           },
         ]}
       />
-      <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
+      <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
         {account.address ? <Avatar accountId={account.address} size="lg" src={ensProfile?.avatar} /> : null}
         <div>
           <h2 className={styles.name}>{accountName}</h2>

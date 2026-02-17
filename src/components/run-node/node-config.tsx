@@ -16,7 +16,7 @@ const NodeConfig = () => {
   }, [nodeConfig]);
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       {loadingFetchConfig ? (
         'Loading config...'
       ) : (
@@ -52,7 +52,7 @@ const NodeConfig = () => {
       <div className={styles.buttons}>
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={loadingPushConfig}
           href="/run-node/setup"
           size="lg"
@@ -62,7 +62,7 @@ const NodeConfig = () => {
         </Button>
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           loading={loadingPushConfig}
           onClick={() => pushConfig(editedConfig)}
           size="lg"

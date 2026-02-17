@@ -1,8 +1,8 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { getApiRoute, getRoutes } from '@/config';
 import { Node } from '@/types';
 import axios from 'axios';
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
@@ -116,7 +116,7 @@ export default function LeaderboardSection() {
     <div className={styles.root}>
       <Container className={styles.relative}>
         <SectionTitle title="Leaderboard Preview" subTitle="Explore the most active nodes in the Ocean Network" />
-        <Card className={styles.leaderboardWrapper} padding="md" radius="lg" variant="glass-shaded">
+        <Card className={styles.leaderboardWrapper} padding="md" radius="lg" shadow="black" variant="glass-shaded">
           <div className={`${styles.tableLine} ${styles.tableHeader}`}>
             {columns.map((column) => (
               <div key={column.key} className={styles.tableCell}>
@@ -139,9 +139,9 @@ export default function LeaderboardSection() {
           )}
         </Card>
         <div className={styles.leaderboardFooter}>
-          <Link href={routes.leaderboard.path} className={styles.viewButton}>
-            View Full Leaderboard
-          </Link>
+          <Button color="accent2" href={routes.leaderboard.path} size="lg" variant="filled">
+            View full leaderboard
+          </Button>
         </div>
       </Container>
     </div>

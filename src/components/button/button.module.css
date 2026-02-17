@@ -10,18 +10,43 @@
   justify-content: center;
   text-align: center;
   white-space: nowrap;
+  transition: 0.3s ease;
 
-  &:disabled {
+  &.disabled {
     cursor: not-allowed;
     opacity: 0.5;
   }
+
+  &:not(.disabled) {
+    &:hover {
+      transform: translateY(-2px);
+    }
+
+    &:active {
+      transform: translateY(-2px) scale(0.95);
+    }
+  }
 }
 
+.size-link {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  gap: 2px;
+  line-height: inherit;
+  padding: 0;
+}
 .size-sm {
   font-size: 14px;
   gap: 2px;
   line-height: 18px;
   padding: 4px 12px;
+}
+.size-sm-const {
+  font-size: 14px;
+  gap: 2px;
+  line-height: 18px;
+  padding: 4px;
 }
 .size-md {
   font-size: 16px;
@@ -29,21 +54,46 @@
   line-height: 20px;
   padding: 6px 18px;
 }
+.size-md-const {
+  font-size: 16px;
+  gap: 4px;
+  line-height: 20px;
+  padding: 6px;
+}
 .size-lg {
   font-size: 20px;
   gap: 8px;
   line-height: 24px;
   padding: 12px 32px;
 }
+.size-lg-const {
+  font-size: 20px;
+  gap: 8px;
+  line-height: 24px;
+  padding: 12px;
+}
 
 .color-accent1 {
   &.variant-filled {
     background: var(--accent1);
-    color: var(--text-primary);
+    color: var(--text-primary-inverse);
+  }
+  &.variant-glass {
+    background: color-mix(in srgb, var(--accent1) 75%, transparent 25%);
+    backdrop-filter: var(--backdrop-filter-glass);
+    color: var(--text-primary-inverse);
+    box-shadow: var(--inner-shadow-glass);
   }
   &.variant-outlined {
     box-shadow: inset 0 0 0 2px var(--accent1);
     color: var(--accent1);
+  }
+  &.variant-transparent {
+    background: transparent;
+    color: var(--accent1);
+    &:not(.disabled):hover {
+      background: color-mix(in srgb, var(--accent1) 5%, transparent 95%);
+    }
   }
 }
 .color-accent2 {
@@ -51,9 +101,22 @@
     background: var(--accent2);
     color: var(--text-primary);
   }
+  &.variant-glass {
+    background: color-mix(in srgb, var(--accent2) 75%, transparent 25%);
+    backdrop-filter: var(--backdrop-filter-glass);
+    color: var(--text-primary);
+    box-shadow: var(--inner-shadow-glass);
+  }
   &.variant-outlined {
     box-shadow: inset 0 0 0 2px var(--accent2);
     color: var(--accent2);
+  }
+  &.variant-transparent {
+    background: transparent;
+    color: var(--accent2);
+    &:not(.disabled):not(.size-link):hover {
+      background: color-mix(in srgb, var(--accent2) 5%, transparent 95%);
+    }
   }
 }
 .color-error {
@@ -61,18 +124,67 @@
     background: var(--error);
     color: var(--text-primary);
   }
+  &.variant-glass {
+    background: color-mix(in srgb, var(--error) 75%, transparent 25%);
+    backdrop-filter: var(--backdrop-filter-glass);
+    color: var(--text-primary);
+    box-shadow: var(--inner-shadow-glass);
+  }
   &.variant-outlined {
     box-shadow: inset 0 0 0 2px var(--error);
     color: var(--error);
+  }
+  &.variant-transparent {
+    background: transparent;
+    color: var(--error);
+    &:not(.disabled):not(.size-link):hover {
+      background: color-mix(in srgb, var(--error) 5%, transparent 95%);
+    }
   }
 }
 .color-primary {
   &.variant-filled {
     background: var(--text-primary);
-    color: #000;
+    color: var(--text-primary-inverse);
+  }
+  &.variant-glass {
+    background: color-mix(in srgb, var(--text-primary) 75%, transparent 25%);
+    backdrop-filter: var(--backdrop-filter-glass);
+    color: var(--text-primary-inverse);
+    box-shadow: var(--inner-shadow-glass);
   }
   &.variant-outlined {
     box-shadow: inset 0 0 0 2px var(--text-primary);
     color: var(--text-primary);
+  }
+  &.variant-transparent {
+    background: transparent;
+    color: var(--text-primary);
+    &:not(.disabled):not(.size-link):hover {
+      background: color-mix(in srgb, var(--text-primary) 5%, transparent 95%);
+    }
+  }
+}
+.color-primary-inverse {
+  &.variant-filled {
+    background: var(--text-primary-inverse);
+    color: var(--text-primary);
+  }
+  &.variant-glass {
+    background: color-mix(in srgb, var(--background-glass) 75%, transparent 25%);
+    backdrop-filter: var(--backdrop-filter-glass);
+    color: var(--text-primary);
+    box-shadow: var(--inner-shadow-glass);
+  }
+  &.variant-outlined {
+    box-shadow: inset 0 0 0 2px var(--text-primary-inverse);
+    color: var(--text-primary-inverse);
+  }
+  &.variant-transparent {
+    background: transparent;
+    color: var(--text-primary-inverse);
+    &:not(.disabled):not(.size-link):hover {
+      background: color-mix(in srgb, var(--text-primary-inverse) 5%, transparent 95%);
+    }
   }
 }

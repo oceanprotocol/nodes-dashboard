@@ -208,12 +208,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Select resources</h3>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         <Select
           endAdornment={
-            <Button color="accent1" onClick={selectAllGpus} size="sm" type="button" variant="outlined">
+            <Button color="accent2" onClick={selectAllGpus} size="sm" type="button" variant="filled">
               Select all
             </Button>
           }
@@ -264,7 +264,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           />
           <Input
             endAdornment={
-              <Button color="accent1" onClick={setMaxDiskSpace} size="sm" type="button" variant="outlined">
+              <Button color="accent2" onClick={setMaxDiskSpace} size="sm" type="button" variant="filled">
                 Set max
               </Button>
             }
@@ -283,7 +283,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           />
           <Input
             endAdornment={
-              <Button color="accent1" onClick={setMaxJobDurationHours} size="sm" type="button" variant="outlined">
+              <Button color="accent2" onClick={setMaxJobDurationHours} size="sm" type="button" variant="filled">
                 Set max
               </Button>
             }
@@ -305,7 +305,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           />
         </div>
         {formik.isValid && !freeCompute ? (
-          <Card className={styles.cost} variant="accent1-outline" radius="md">
+          <Card className={styles.cost} radius="md" variant="accent1-outline">
             <h3>Estimated total cost</h3>
             <div className={styles.values}>
               <div>
@@ -315,13 +315,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                   {isLoadingCost ? 'Calculating...' : formatNumber(estimatedTotalCost)}
                 </span>
               </div>
-              <div className={styles.reimbursment}>
+              <div className="textAccent1Lighter">
                 If your job finishes early, the unconsumed tokens remain in escrow
               </div>
             </div>
           </Card>
         ) : null}
-        <Button className={styles.button} color="accent2" size="lg" type="submit">
+        <Button className={styles.button} color="accent1" size="lg" type="submit">
           Continue
         </Button>
       </form>

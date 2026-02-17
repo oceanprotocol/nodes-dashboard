@@ -9,7 +9,7 @@ import { useAuthModal } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
-import UploadIcon from '@mui/icons-material/Upload';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
@@ -136,7 +136,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   }
 
   return (
-    <Card className={styles.root} padding="md" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.infoWrapper}>
         <div className={styles.infoContent}>
           <div>
@@ -170,7 +170,12 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
                 handlePushConfig={handlePushConfig}
                 onClose={handleCloseModal}
               />
-              <Button contentBefore={<UploadIcon />} onClick={handleOpenEditConfigModal} variant="outlined">
+              <Button
+                color="accent2"
+                contentBefore={<SettingsIcon />}
+                onClick={handleOpenEditConfigModal}
+                variant="filled"
+              >
                 Edit node config
               </Button>
             </div>

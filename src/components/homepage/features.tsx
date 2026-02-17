@@ -6,6 +6,7 @@ import PlayIcon from '@/assets/icons/play.svg';
 import ShieldIcon from '@/assets/icons/shield.svg';
 import SliderIcon from '@/assets/icons/slider.svg';
 import UsersIcon from '@/assets/icons/users.svg';
+import Card from '@/components/card/card';
 import cx from 'classnames';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
@@ -68,16 +69,28 @@ export default function FeaturesSection() {
   return (
     <div className={styles.root}>
       <Container className={styles.relative}>
-        <SectionTitle title="Key Features" subTitle="Built for performance, scalability, and ease of use" />
+        <SectionTitle
+          title="Key Features"
+          subTitle="Built for performance, scalability, and ease of use"
+          subTitleClassName="textPrimaryInverse"
+          titleClassName="textAccent2"
+        />
         <div className={styles.featuresWrapper}>
           {features.map((item) => (
-            <div key={item.title} className={cx(styles.featureItem, item.isBlue && styles.featureItemBlue)}>
+            <Card
+              className={cx(styles.featureItem, item.isBlue && styles.featureItemBlue)}
+              key={item.title}
+              padding="sm"
+              radius="lg"
+              shadow="black"
+              variant={item.isBlue ? 'accent2' : 'accent1-outline'}
+            >
               <div className={styles.iconWrapper}>{item.icon}</div>
               <div className={styles.featureTextWrapper}>
                 <h4 className={styles.featureTitle}>{item.title}</h4>
                 <p className={styles.featureDescription}>{item.description}</p>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </Container>

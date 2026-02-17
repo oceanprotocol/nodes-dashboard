@@ -115,7 +115,7 @@ const Summary = ({
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Your selection</h3>
       <div className={styles.grid}>
         {nodeInfo.friendlyName ? (
@@ -154,7 +154,7 @@ const Summary = ({
           <div>Continue on our VSCode extension, or select your editor of choice</div>
           <div className={styles.buttons}>
             <Button
-              color="accent2"
+              color="accent1"
               id="choose-editor-button"
               onClick={() => {
                 handleOpenIdeMenu();
@@ -199,7 +199,7 @@ const Summary = ({
             </Menu>
             <Button
               autoLoading
-              color="accent2"
+              color="accent1"
               contentBefore={
                 <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
                   {selectedIde.icon}
@@ -216,7 +216,7 @@ const Summary = ({
         <div className={styles.footer}>
           <div>Continue on our VSCode extension, or select your editor of choice</div>
           <div className={styles.buttons}>
-            <Button autoLoading color="accent2" onClick={generateToken} size="lg">
+            <Button autoLoading color="accent1" onClick={generateToken} size="lg">
               Generate token
             </Button>
           </div>

@@ -44,7 +44,12 @@ export default function HowItWorksSection() {
   return (
     <div className={styles.root} ref={sectionRef} tabIndex={0} aria-label="How it works, step-by-step">
       <Container className={styles.relative}>
-        <SectionTitle title="How It works" subTitle="Run compute jobs and train AI models in a few simple steps" />
+        <SectionTitle
+          title="How It works"
+          subTitle="Run compute jobs and train AI models in a few simple steps"
+          subTitleClassName="textPrimaryInverse"
+          titleClassName="textAccent2"
+        />
         <div className={styles.twoSections}>
           <div className={styles.featuresWrapper}>
             {itemsList.map((item, index) => (

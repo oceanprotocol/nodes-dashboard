@@ -46,7 +46,7 @@ const StyledDataGrid = styled(DataGrid)({
   color: 'var(--text-primary)',
 
   '& .MuiDataGrid-columnHeaders': {
-    backgroundColor: 'var(--background-glass-opaque)',
+    backgroundColor: 'var(--background-table-header)',
     borderRadius: 0,
 
     '& .MuiDataGrid-columnHeader, & .MuiDataGrid-filler': {
@@ -80,8 +80,9 @@ const StyledDataGrid = styled(DataGrid)({
   },
 
   '& .MuiDataGrid-row': {
+    transition: 'background-color 0.2s ease',
     '&:hover': {
-      backgroundColor: 'var(--background-glass)',
+      backgroundColor: 'color-mix(in srgb, var(--accent1) 7%, transparent 93%);',
     },
   },
 

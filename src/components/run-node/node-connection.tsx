@@ -50,7 +50,7 @@ const NodeConnection = () => {
   });
 
   return (
-    <Card direction="column" padding="sm" radius="sm" spacing="sm" variant="glass">
+    <Card direction="column" padding="sm" radius="sm" shadow="black" spacing="sm" variant="glass">
       <div className={styles.header}>
         <h3>Connect to your node</h3>
         <div className={classNames('chip', { chipError: !isConnected, chipSuccess: isConnected })}>

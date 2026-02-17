@@ -1,7 +1,11 @@
 import DiscordIcon from '@/assets/discord.svg';
 import Logo from '@/assets/logo.svg';
 import XIcon from '@/assets/x.svg';
+import Button from '@/components/button/button';
+import Card from '@/components/card/card';
 import ProfileButton from '@/components/Navigation/profile-button';
+import CloseIcon from '@mui/icons-material/Close';
+import MenuIcon from '@mui/icons-material/Menu';
 import cx from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -63,25 +67,30 @@ const Navigation = () => {
     setIsMenuOpen(false);
   }, [router.pathname]);
 
-  const renderNavLinks = (className: string) =>
-    Object.values(routes).map((route) => (
-      <Link
-        key={route.path}
-        href={route.path}
-        className={cx(className, router.pathname === route.path && styles.active)}
-      >
-        {route.name}
-      </Link>
-    ));
+  const renderNavLinks = (className?: string) =>
+    Object.values(routes).map((route) => {
+      const isActive = router.pathname === route.path;
+      return (
+        <Button
+          className={className}
+          color={isActive ? 'accent2' : 'primary'}
+          key={route.path}
+          href={route.path}
+          variant={isActive ? 'filled' : 'transparent'}
+        >
+          {route.name}
+        </Button>
+      );
+    });
 
   const Actions = ({ className }: { className: string }) => (
     <div className={className}>
-      <Link href={config.socialMedia.discord} className={styles.actionIconLink} target="_blank" rel="noreferrer">
-        <DiscordIcon width={32} height={32} />
-      </Link>
-      <Link href={config.socialMedia.twitter} className={styles.actionIconLink} target="_blank" rel="noreferrer">
-        <XIcon width={30} height={28} />
-      </Link>
+      <Button color="primary-inverse" href={config.socialMedia.discord} size="sm-const" target="_blank" variant="glass">
+        <DiscordIcon width={30} height={30} />
+      </Button>
+      <Button color="primary-inverse" href={config.socialMedia.twitter} size="sm-const" target="_blank" variant="glass">
+        <XIcon width={30} height={30} />
+      </Button>
       <ProfileButton />
     </div>
   );
@@ -94,45 +103,49 @@ const Navigation = () => {
             <Logo width={65} />
           </Link>
         </div>
-        <nav className={styles.desktopNav} aria-label="Primary">
-          {renderNavLinks(styles.navLink)}
-        </nav>
+        <Card aria-label="Primary" className={styles.desktopNav} shadow="black" variant="glass-shaded">
+          {renderNavLinks()}
+        </Card>
         <Actions className={styles.sideActions} />
-        <button
-          type="button"
-          className={cx(styles.menuToggle, isMenuOpen && styles.menuToggleOpen)}
-          aria-expanded={isMenuOpen}
+        <Button
           aria-controls="mobile-navigation"
+          aria-expanded={isMenuOpen}
+          className={styles.menuToggle}
+          color="accent1"
           onClick={() => setIsMenuOpen((prev) => !prev)}
+          size="lg-const"
+          type="button"
+          variant="filled"
         >
-          <span />
-          <span />
-          <span />
-        </button>
+          <MenuIcon />
+        </Button>
       </Container>
-      <div
-        id="mobile-navigation"
-        className={cx(styles.mobileMenu, isMenuOpen && styles.mobileMenuOpen)}
-        role="dialog"
+      <Card
         aria-modal="true"
+        className={cx(styles.mobileMenu, isMenuOpen && styles.mobileMenuOpen)}
+        id="mobile-navigation"
+        role="dialog"
+        shadow="black"
+        variant="glass-shaded"
       >
         <div className={styles.mobileMenuHeader}>
           <Logo width={52} />
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={() => setIsMenuOpen(false)}
+          <Button
             aria-label="Close menu"
+            color="accent1"
+            onClick={() => setIsMenuOpen(false)}
+            size="lg-const"
+            type="button"
+            variant="filled"
           >
-            <span />
-            <span />
-          </button>
+            <CloseIcon />
+          </Button>
         </div>
         <nav className={styles.mobileNavLinks} aria-label="Mobile primary">
-          {renderNavLinks(styles.mobileNavLink)}
+          {renderNavLinks()}
         </nav>
         <Actions className={styles.mobileActions} />
-      </div>
+      </Card>
       <button
         type="button"
         className={cx(styles.mobileBackdrop, isMenuOpen && styles.mobileBackdropVisible)}

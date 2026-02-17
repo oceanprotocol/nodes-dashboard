@@ -68,6 +68,7 @@ const ProfileButton = () => {
     <>
       <Button
         className={styles.loginButton}
+        color="accent1"
         contentBefore={
           account.address ? <Avatar accountId={account.address} size="sm" src={ensProfile?.avatar} /> : <WalletIcon />
         }
@@ -146,7 +147,7 @@ const ProfileButton = () => {
       </Menu>
     </>
   ) : (
-    <Button className={styles.loginButton} loading={isLoggingOut} onClick={openAuthModal}>
+    <Button className={styles.loginButton} color="accent1" loading={isLoggingOut} onClick={openAuthModal}>
       Log in
     </Button>
   );

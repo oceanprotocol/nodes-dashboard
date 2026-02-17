@@ -433,7 +433,7 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
   };
 
   return (
-    <Card direction="column" padding="sm" radius="md" spacing="lg" variant="glass">
+    <Card direction="column" innerShadow="black" padding="sm" radius="md" spacing="lg" variant="glass">
       <div className={styles.gridWrapper}>
         {compact ? (
           <div className={classNames(styles.compactGrid)}>
@@ -485,11 +485,11 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
         </div>
         <div className={styles.buttons}>
           {environment.free ? (
-            <Button color="accent2" onClick={selectFreeCompute} variant="outlined">
+            <Button color="accent1" onClick={selectFreeCompute} variant="outlined">
               Try it
             </Button>
           ) : null}
-          <Button color="accent2" contentBefore={<PlayArrowIcon />} onClick={selectEnvironment}>
+          <Button color="accent1" contentBefore={<PlayArrowIcon />} onClick={selectEnvironment}>
             From {startingFee} {tokenSymbol}/min
           </Button>
         </div>

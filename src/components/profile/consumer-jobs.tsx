@@ -6,7 +6,7 @@ import { Job } from '@/types/jobs';
 
 const ConsumerJobs = () => {
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>My jobs</h3>
       <Table<Job>
         context={useMyJobsTableContext()}

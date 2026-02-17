@@ -10,40 +10,44 @@ const StyledMultipleValueContainer = styled('div')({
 
 const StyledSelect = styled(MaterialSelect, {
   shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
-})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
-  ({ custom_size, has_error }) => ({
-    background: 'var(--background-glass)',
-    border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
-    borderRadius: 24,
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: 16,
-    lineHeight: '18px',
+})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, has_error }) => ({
+  background: 'var(--background-glass)',
+  border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
+  boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
+  borderRadius: 24,
+  color: 'var(--text-primary)',
+  fontFamily: 'var(--font-inter), sans-serif',
+  fontSize: 16,
+  lineHeight: '18px',
+  transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
 
-    fieldset: {
-      border: 'none',
-    },
+  '&.Mui-focused': {
+    boxShadow: has_error ? 'var(--input-shadow-error), var(--input-shadow-focus)' : 'var(--input-shadow-focus)',
+  },
 
-    [`& .${selectClasses.select}`]: {
-      padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
-      minHeight: 0,
+  fieldset: {
+    border: 'none',
+  },
 
-      '& > .MuiListItemText-root': {
-        marginBottom: 0,
-        marginTop: 0,
+  [`& .${selectClasses.select}`]: {
+    padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
+    minHeight: 0,
 
-        '& > .MuiListItemText-primary': {
-          lineHeight: custom_size === 'sm' ? '22px' : '24px',
-        },
+    '& > .MuiListItemText-root': {
+      marginBottom: 0,
+      marginTop: 0,
+
+      '& > .MuiListItemText-primary': {
+        lineHeight: custom_size === 'sm' ? '22px' : '24px',
       },
     },
+  },
 
-    [`& .${selectClasses.icon}`]: {
-      color: 'var(--text-secondary)',
-      position: 'relative',
-    },
-  })
-);
+  [`& .${selectClasses.icon}`]: {
+    color: 'var(--text-secondary)',
+    position: 'relative',
+  },
+}));
 
 export type SelectOption<T> = {
   label: string;
