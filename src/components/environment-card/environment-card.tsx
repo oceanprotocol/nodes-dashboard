@@ -8,6 +8,7 @@ import { useRunJobContext } from '@/context/run-job-context';
 import useTokenSymbol from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
+import posthog from 'posthog-js';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -67,6 +68,11 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       nodeInfo,
     });
     selectToken(selectedTokenAddress, tokenSymbol);
+    posthog.capture('environment_selected', {
+      environmentId: environment.id,
+      nodeId: nodeInfo.id,
+      freeCompute: false,
+    });
     router.push('/run-job/resources');
   };
 
@@ -77,6 +83,11 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       nodeInfo,
     });
     selectToken(selectedTokenAddress, tokenSymbol);
+    posthog.capture('environment_selected', {
+      environmentId: environment.id,
+      nodeId: nodeInfo.id,
+      freeCompute: true,
+    });
     router.push('/run-job/resources');
   };
 

@@ -11,6 +11,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
+import posthog from 'posthog-js';
 import { useAuthModal } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
@@ -93,6 +94,15 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         maxJobDurationHours: values.maxJobDurationHours,
         ram: values.ram,
         ramId: ram?.id ?? 'ram',
+      });
+      posthog.capture('environment_configured', {
+        cpuCores: values.cpuCores,
+        ram: values.ram,
+        diskSpace: values.diskSpace,
+        gpus: values.gpus,
+        maxJobDurationHours: values.maxJobDurationHours,
+        estimatedTotalCost,
+        freeCompute,
       });
       if (estimatedTotalCost > 0 && !freeCompute) {
         router.push('/run-job/payment');

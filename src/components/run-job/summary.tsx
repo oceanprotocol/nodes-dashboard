@@ -9,6 +9,7 @@ import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/
 import { Ide } from '@/types/ide';
 import { generateAuthToken } from '@/utils/generateAuthToken';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
+import posthog from 'posthog-js';
 import classNames from 'classnames';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -61,6 +62,11 @@ const Summary = ({
       const authToken = await generateAuthToken(nodeInfo.id, account.address, signMessage);
 
       setAuthToken(authToken);
+      posthog.capture('authToken_generated', {
+        nodeId: nodeInfo.id,
+        environmentId: selectedEnv.id,
+        freeCompute,
+      });
     } catch (error) {
       console.error('Failed to generate auth token:', error);
       toast.error('Failed to generate auth token');
@@ -104,6 +110,12 @@ const Summary = ({
       resources,
       uriScheme
     );
+    posthog.capture('ide_opened', {
+      ide: uriScheme,
+      nodeId: nodeInfo.id,
+      environmentId: selectedEnv.id,
+      freeCompute: isFreeCompute,
+    });
   };
 
   const handleOpenIdeMenu = () => {
