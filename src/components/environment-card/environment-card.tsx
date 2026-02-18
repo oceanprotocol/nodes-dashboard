@@ -18,11 +18,12 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
-import { Tooltip } from '@mui/material';
+import { Collapse, Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
+import { TransitionGroup } from 'react-transition-group';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
@@ -82,6 +83,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     freeCompute: isFreeCompute,
     tokenAddress: selectedTokenAddress,
   });
+  const noResourcesAvailable = !cpu && !gpus?.length && !ram && !disk;
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
@@ -132,11 +134,15 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             </span>
             &nbsp;cores available
           </div>
-          {isFreeCompute ? null : (
-            <div className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / core / min
-            </div>
-          )}
+          <TransitionGroup>
+            {isFreeCompute ? null : (
+              <Collapse>
+                <div className={styles.label}>
+                  <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / core / min
+                </div>
+              </Collapse>
+            )}
+          </TransitionGroup>
         </div>
       );
     }
@@ -199,11 +205,15 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               </span>
               &nbsp;units available
             </div>
-            {isFreeCompute ? null : (
-              <div className={styles.label}>
-                <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / unit / min
-              </div>
-            )}
+            <TransitionGroup>
+              {isFreeCompute ? null : (
+                <Collapse>
+                  <div className={styles.label}>
+                    <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / unit / min
+                  </div>
+                </Collapse>
+              )}
+            </TransitionGroup>
           </div>
         );
       }
@@ -253,11 +263,15 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             </span>
             &nbsp;GB available
           </div>
-          {isFreeCompute ? null : (
-            <div className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
-            </div>
-          )}
+          <TransitionGroup>
+            {isFreeCompute ? null : (
+              <Collapse>
+                <div className={styles.label}>
+                  <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
+                </div>
+              </Collapse>
+            )}
+          </TransitionGroup>
         </div>
       );
     }
@@ -310,11 +324,15 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             </span>
             &nbsp;GB available
           </div>
-          {isFreeCompute ? null : (
-            <div className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
-            </div>
-          )}
+          <TransitionGroup>
+            {isFreeCompute ? null : (
+              <Collapse>
+                <div className={styles.label}>
+                  <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
+                </div>
+              </Collapse>
+            )}
+          </TransitionGroup>
         </div>
       );
     }
@@ -417,41 +435,53 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       spacing="lg"
       variant="glass"
     >
-      {!cpu && !gpus?.length && !ram && !disk ? (
-        <h3>No resources available</h3>
-      ) : (
-        <div className={styles.gridWrapper}>
-          {compact ? (
-            <div className={classNames(styles.compactGrid)}>
-              {getGpuProgressBars()}
-              {getCpuProgressBar()}
-              {getRamProgressBar()}
-              {getDiskProgressBar()}
-            </div>
-          ) : gpus.length === 1 ? (
-            <>
-              <h4>Specs</h4>
-              <div className={classNames(styles.grid)}>
-                {getGpuProgressBars()}
-                {getCpuProgressBar()}
-                {getRamProgressBar()}
-                {getDiskProgressBar()}
+      <div>
+        <TransitionGroup>
+          {!noResourcesAvailable ? (
+            <Collapse>
+              <div className={styles.gridWrapper}>
+                {compact ? (
+                  <div className={classNames(styles.compactGrid)}>
+                    {getGpuProgressBars()}
+                    {getCpuProgressBar()}
+                    {getRamProgressBar()}
+                    {getDiskProgressBar()}
+                  </div>
+                ) : gpus.length === 1 ? (
+                  <>
+                    <h4>Specs</h4>
+                    <div className={classNames(styles.grid)}>
+                      {getGpuProgressBars()}
+                      {getCpuProgressBar()}
+                      {getRamProgressBar()}
+                      {getDiskProgressBar()}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h4>GPUs</h4>
+                    <div className={classNames(styles.grid, styles.gpuSpecs)}>{getGpuProgressBars()}</div>
+                    <h4>Other specs</h4>
+                    <div className={classNames(styles.grid, styles.specsWithoutGpus)}>
+                      {getCpuProgressBar()}
+                      {getRamProgressBar()}
+                      {getDiskProgressBar()}
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          ) : (
-            <>
-              <h4>GPUs</h4>
-              <div className={classNames(styles.grid, styles.gpuSpecs)}>{getGpuProgressBars()}</div>
-              <h4>Other specs</h4>
-              <div className={classNames(styles.grid, styles.specsWithoutGpus)}>
-                {getCpuProgressBar()}
-                {getRamProgressBar()}
-                {getDiskProgressBar()}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+            </Collapse>
+          ) : null}
+        </TransitionGroup>
+        <TransitionGroup>
+          {noResourcesAvailable ? (
+            <Collapse>
+              <h3>No resources available</h3>
+            </Collapse>
+          ) : null}
+        </TransitionGroup>
+      </div>
+
       <div className={styles.footer}>
         <div>
           <div>
