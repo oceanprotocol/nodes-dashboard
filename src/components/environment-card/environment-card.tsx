@@ -6,17 +6,21 @@ import ProgressBar from '@/components/progress-bar/progress-bar';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
 import useTokenSymbol from '@/lib/token-symbol';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
+import { checkEnvAccess } from '@/utils/check-env-access';
 import { formatNumber } from '@/utils/formatters';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
+import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
@@ -30,6 +34,18 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
   const router = useRouter();
 
   const { selectEnv, selectToken } = useRunJobContext();
+  const { account, provider } = useOceanAccount();
+
+  const [paidAccess, setPaidAccess] = useState<boolean | null>(null);
+  const [freeAccess, setFreeAccess] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkEnvAccess(environment.access, account.address, provider).then(setPaidAccess);
+  }, [environment.access, account.address, provider]);
+
+  useEffect(() => {
+    checkEnvAccess(environment.free?.access, account.address, provider).then(setFreeAccess);
+  }, [environment.free?.access, account.address, provider]);
 
   // const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getEnvSupportedTokens(environment)[0]);
   const selectedTokenAddress = getSupportedTokens().USDC;
@@ -485,13 +501,40 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
         </div>
         <div className={styles.buttons}>
           {environment.free ? (
-            <Button color="accent1" onClick={selectFreeCompute} variant="outlined">
-              Try it
-            </Button>
+            <div className={styles.buttonWithInfo}>
+              <Button color="accent2" disabled={freeAccess !== true} onClick={selectFreeCompute} variant="outlined">
+                Try it
+              </Button>
+              {freeAccess === false ? (
+                <Tooltip title="Your wallet address is not in this environment's free compute access list">
+                  <InfoOutlinedIcon className={styles.accessInfoIcon} />
+                </Tooltip>
+              ) : freeAccess === null ? (
+                <Tooltip title="Connect your wallet to check access">
+                  <InfoOutlinedIcon className={styles.accessInfoIcon} />
+                </Tooltip>
+              ) : null}
+            </div>
           ) : null}
-          <Button color="accent1" contentBefore={<PlayArrowIcon />} onClick={selectEnvironment}>
-            From {startingFee} {tokenSymbol}/min
-          </Button>
+          <div className={styles.buttonWithInfo}>
+            <Button
+              color="accent2"
+              contentBefore={<PlayArrowIcon />}
+              disabled={paidAccess !== true}
+              onClick={selectEnvironment}
+            >
+              From {startingFee} {tokenSymbol}/min
+            </Button>
+            {paidAccess === false ? (
+              <Tooltip title="Your wallet address is not in this environment's access list">
+                <InfoOutlinedIcon className={styles.accessInfoIcon} />
+              </Tooltip>
+            ) : paidAccess === null ? (
+              <Tooltip title="Connect your wallet to check access">
+                <InfoOutlinedIcon className={styles.accessInfoIcon} />
+              </Tooltip>
+            ) : null}
+          </div>
         </div>
       </div>
     </Card>

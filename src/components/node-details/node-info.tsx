@@ -7,12 +7,14 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node, NodeEligibility } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
+import DownloadIcon from '@mui/icons-material/Download';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
+import DownloadLogsModal from './download-logs-modal';
 import styles from './node-info.module.css';
 
 type NodeInfoProps = {
@@ -23,11 +25,13 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, ocean, signMessage, user } = useOceanAccount();
-  const { config, fetchConfig, pushConfig } = useP2P();
+  const { config, fetchConfig, getNodeLogs, pushConfig } = useP2P();
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
+  const [isDownloadLogsDialogOpen, setIsDownloadLogsDialogOpen] = useState<boolean>(false);
+  const [downloadingLogs, setDownloadingLogs] = useState<boolean>(false);
   const [editedConfig, setEditedConfig] = useState<Record<string, any>>({});
 
   // TODO: replace this
@@ -135,6 +139,41 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     setIsEditConfigDialogOpen(false);
   }
 
+  async function handleDownloadLogs(startTime: string, endTime: string, maxLogs: number) {
+    if (!account.isConnected) {
+      openAuthModal();
+      return;
+    }
+    if (!ocean || !node?.id) {
+      return;
+    }
+    setDownloadingLogs(true);
+    try {
+      const timestamp = Date.now() + 5 * 60 * 1000;
+      const signedMessage = await signMessage(timestamp.toString());
+      const addressToSend = user?.type === 'sca' ? account.address : undefined;
+      const logs = await getNodeLogs(node.id, signedMessage, timestamp, { startTime, endTime, maxLogs }, addressToSend);
+      const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const shortId = node.id.slice(0, 8);
+      const date = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `node-logs-${shortId}-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Logs downloaded successfully!');
+      setIsDownloadLogsDialogOpen(false);
+    } catch (error) {
+      console.error('Error downloading node logs:', error);
+      toast.error('Failed to download logs');
+    } finally {
+      setDownloadingLogs(false);
+    }
+  }
+
   return (
     <Card className={styles.root} padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.infoWrapper}>
@@ -178,6 +217,19 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
               >
                 Edit node config
               </Button>
+              <Button
+                contentBefore={<DownloadIcon />}
+                onClick={() => setIsDownloadLogsDialogOpen(true)}
+                variant="outlined"
+              >
+                Download logs
+              </Button>
+              <DownloadLogsModal
+                isOpen={isDownloadLogsDialogOpen}
+                onClose={() => setIsDownloadLogsDialogOpen(false)}
+                onDownload={handleDownloadLogs}
+                loading={downloadingLogs}
+              />
             </div>
           ) : null}
         </div>
