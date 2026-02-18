@@ -1,3 +1,51 @@
+.bgBlur {
+  backdrop-filter: blur(16px);
+  background: radial-gradient(circle, var(--background-glass), transparent);
+  height: 350px;
+  mask-image: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 11%,
+    rgba(0, 0, 0, 0.76) 18%,
+    rgba(0, 0, 0, 0.55) 35%,
+    rgba(0, 0, 0, 0.39) 52%,
+    rgba(0, 0, 0, 0) 70%
+  );
+  position: fixed;
+  pointer-events: none;
+  transform: translate(-150px, -150px);
+  width: 350px;
+  z-index: -1;
+
+  @media (min-width: 940px) {
+    background: linear-gradient(to top, transparent, var(--background-glass));
+    height: 80px;
+    left: 0;
+    mask-image: linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0.39) 15%,
+      rgba(0, 0, 0, 0.55) 25%,
+      rgba(0, 0, 0, 0.76) 49%,
+      rgba(0, 0, 0, 0.92) 74%,
+      rgba(0, 0, 0, 1) 100%
+    );
+    transform: translate(0, 0);
+    top: 0;
+    width: 100%;
+  }
+}
+
+.logo {
+  transition: 0.3s ease;
+  height: 80px;
+  width: 65px;
+
+  &.logoScrolledBottom {
+    height: 52px;
+  }
+}
+
 .root {
   position: sticky;
   top: 0;
@@ -9,6 +57,10 @@
     justify-content: space-between;
     gap: 24px;
     padding: 22px 0;
+
+    &.containerScrolledBottom {
+      padding-top: 16px;
+    }
   }
 
   .logoWrapper {
@@ -26,6 +78,7 @@
 
   .sideActions {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     align-items: center;
     justify-content: flex-end;

@@ -6,7 +6,7 @@ import Card from '@/components/card/card';
 import ProfileButton from '@/components/Navigation/profile-button';
 import CloseIcon from '@mui/icons-material/Close';
 import MenuIcon from '@mui/icons-material/Menu';
-import cx from 'classnames';
+import { default as classNames, default as cx } from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
@@ -21,11 +21,27 @@ const Navigation = () => {
   const scrollPositionRef = useRef(0);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolledBottom, setIsScrolledBottom] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  const handleScroll = () => {
+    setIsScrolledBottom(window.scrollY > 0);
+  };
+
+  useEffect(() => {
+    if (window) {
+      if (isMenuOpen) {
+        window.removeEventListener('scroll', handleScroll);
+      } else {
+        window.addEventListener('scroll', handleScroll);
+      }
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
+  }, [isMenuOpen]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -97,10 +113,14 @@ const Navigation = () => {
 
   return (
     <header className={styles.root}>
-      <Container className={styles.container}>
+      <div className={styles.bgBlur} />
+      <Container className={classNames(styles.container, { [styles.containerScrolledBottom]: isScrolledBottom })}>
         <div className={styles.logoWrapper}>
           <Link href="/" aria-label="Home">
-            <Logo width={65} />
+            <Logo
+              className={classNames(styles.logo, { [styles.logoScrolledBottom]: isScrolledBottom })}
+              preserveAspectRatio="xMidYMin slice"
+            />
           </Link>
         </div>
         <Card aria-label="Primary" className={styles.desktopNav} shadow="black" variant="glass-shaded">
@@ -111,13 +131,14 @@ const Navigation = () => {
           aria-controls="mobile-navigation"
           aria-expanded={isMenuOpen}
           className={styles.menuToggle}
+          contentBefore={<MenuIcon />}
           color="accent1"
           onClick={() => setIsMenuOpen((prev) => !prev)}
-          size="lg-const"
+          size="md"
           type="button"
           variant="filled"
         >
-          <MenuIcon />
+          Menu
         </Button>
       </Container>
       <Card
@@ -134,7 +155,7 @@ const Navigation = () => {
             aria-label="Close menu"
             color="accent1"
             onClick={() => setIsMenuOpen(false)}
-            size="lg-const"
+            size="md-const"
             type="button"
             variant="filled"
           >
