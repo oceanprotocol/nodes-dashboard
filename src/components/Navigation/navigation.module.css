@@ -1,6 +1,6 @@
 .bgBlur {
   backdrop-filter: blur(16px);
-  background: radial-gradient(circle, var(--background-glass), transparent);
+  /* background: radial-gradient(circle, var(--background-glass), transparent); */
   height: 350px;
   mask-image: radial-gradient(
     circle,
@@ -18,7 +18,7 @@
   z-index: -1;
 
   @media (min-width: 940px) {
-    background: linear-gradient(to top, transparent, var(--background-glass));
+    /* background: linear-gradient(to top, transparent, var(--background-glass)); */
     height: 80px;
     left: 0;
     mask-image: linear-gradient(

@@ -81,7 +81,6 @@ const StyledDataGrid = styled(DataGrid)({
   },
 
   '& .MuiDataGrid-row': {
-    transition: 'background-color 0.2s ease',
     '&:hover': {
       backgroundColor: 'color-mix(in srgb, var(--accent1) 7%, transparent 93%);',
     },
