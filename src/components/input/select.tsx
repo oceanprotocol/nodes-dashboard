@@ -75,6 +75,7 @@ const StyledPaper = styled(PopoverPaper)({
   color: 'var(--text-primary)',
   fontFamily: 'var(--font-inter), sans-serif',
   fontSize: 16,
+  marginTop: 8,
 });
 
 const StyledPlaceholder = styled('span')({

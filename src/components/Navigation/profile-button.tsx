@@ -25,6 +25,7 @@ const StyledMenu = styled(Menu)({
     color: 'var(--text-primary)',
     fontFamily: 'var(--font-inter), sans-serif',
     fontSize: 16,
+    marginTop: 8,
   },
 });
 
