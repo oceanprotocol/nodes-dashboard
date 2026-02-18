@@ -1,5 +1,5 @@
 import cx from 'classnames';
-import { ReactNode } from 'react';
+import { CSSProperties, ReactNode } from 'react';
 import styles from './card.module.css';
 
 type Size = 'sm' | 'md' | 'lg';
@@ -32,6 +32,7 @@ type CardProps = {
   role?: string;
   shadow?: Shadow;
   spacing?: Size;
+  style?: CSSProperties;
   variant?: Variant;
 };
 
@@ -48,6 +49,7 @@ const Card: React.FC<CardProps> = ({
   role,
   shadow,
   spacing,
+  style,
   variant,
 }) => {
   let shadowStyles = [];
@@ -78,7 +80,7 @@ const Card: React.FC<CardProps> = ({
       )}
       id={id}
       role={role}
-      style={{ boxShadow: shadowStyles.join(', ') }}
+      style={{ boxShadow: shadowStyles.join(', '), ...style }}
     >
       {children}
     </div>
