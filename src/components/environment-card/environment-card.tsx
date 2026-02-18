@@ -484,13 +484,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
 
       <div className={styles.footer}>
         <div>
-          <div>
-            Job duration:&nbsp;
-            <strong>
-              {formatNumber(minJobDurationHours)} - {formatNumber(maxJobDurationHours)}
-            </strong>
-            &nbsp;hours
-          </div>
           {showNodeName ? (
             <div>
               Node:{' '}
@@ -499,6 +492,13 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               </Link>
             </div>
           ) : null}
+          <div>
+            Job duration:&nbsp;
+            <strong>
+              {formatNumber(minJobDurationHours)} - {formatNumber(maxJobDurationHours)}
+            </strong>
+            &nbsp;hours
+          </div>
           {getFreeComputeCheckbox()}
         </div>
         <div className={styles.buttons}>
