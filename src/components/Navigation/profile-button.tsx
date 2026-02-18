@@ -150,6 +150,9 @@ const ProfileButton = () => {
           Convert USDC to COMPY
         </MenuItem>
         <MenuItem
+          sx={{
+            color: 'var(--error-darker)',
+          }}
           disableRipple
           onClick={() => {
             logout();
@@ -157,7 +160,7 @@ const ProfileButton = () => {
           }}
         >
           <ListItemIcon>
-            <LogoutIcon />
+            <LogoutIcon sx={{ color: 'var(--error-darker)' }} />
           </ListItemIcon>
           Log out
         </MenuItem>
