@@ -11,7 +11,7 @@ import {
   sendCommandToPeer,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
-import { ComputeEnvironment } from '@/types/environments';
+import { ComputeEnvironment, MultiaddrsOrPeerId } from '@/types/environments';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ComputeResourceRequest } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
@@ -33,25 +33,29 @@ interface P2PContextType {
    * If user is `Smart Account`, address must be sent.
    */
   fetchConfig: (
-    peerId: string,
+    multiaddrsOrPeerId: MultiaddrsOrPeerId,
     signature: string,
     expiryTimestamp: number,
     address?: string
   ) => Promise<Record<string, any>>;
   getComputeResult: (
-    peerId: string,
+    multiaddrsOrPeerId: MultiaddrsOrPeerId,
     jobId: string,
     index: number,
     authToken: string,
     address: string
   ) => Promise<Record<string, any> | Uint8Array>;
-  getComputeJobStatus: (peerId: string, jobId: string, address: string) => Promise<Record<string, any>>;
-  getEnvs: (peerId: string) => Promise<any>;
+  getComputeJobStatus: (
+    multiaddrsOrPeerId: MultiaddrsOrPeerId,
+    jobId: string,
+    address: string
+  ) => Promise<Record<string, any>>;
+  getEnvs: (multiaddrsOrPeerId: MultiaddrsOrPeerId) => Promise<any>;
   initializeCompute: (
     environment: ComputeEnvironment,
     tokenAddress: string,
     validUntil: number,
-    peerId: string,
+    multiaddrsOrPeerId: MultiaddrsOrPeerId,
     address: string,
     resources: ComputeResourceRequest[],
     chainId: number,
@@ -66,14 +70,14 @@ interface P2PContextType {
    * If user is `Smart Account`, address must be sent.
    */
   pushConfig: (
-    peerId: string,
+    multiaddrsOrPeerId: MultiaddrsOrPeerId,
     signature: string,
     expiryTimestamp: number,
     config: Record<string, any>,
     address?: string
   ) => Promise<void>;
-  sendCommand: (peerId: string, command: any, protocol?: string) => Promise<any>;
-  getPeerMultiaddr: (peerId: string) => Promise<string>;
+  sendCommand: (multiaddrsOrPeerId: MultiaddrsOrPeerId, command: any, protocol?: string) => Promise<any>;
+  getPeerMultiaddr: (multiaddrsOrPeerId: MultiaddrsOrPeerId) => Promise<string>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
@@ -124,43 +128,49 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getPeerMultiaddr = useCallback(
-    async (peerId: string) => {
+    async (multiaddrsOrPeerId: MultiaddrsOrPeerId) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      return getPeerMultiaddrFromService(peerId);
+      return getPeerMultiaddrFromService(multiaddrsOrPeerId);
     },
     [isReady, node]
   );
 
   const sendCommand = useCallback(
-    async (peerId: string, command: any, protocol?: string) => {
+    async (multiaddrsOrPeerId: MultiaddrsOrPeerId, command: any, protocol?: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      return sendCommandToPeer(peerId, command, protocol);
+      return sendCommandToPeer(multiaddrsOrPeerId, command, protocol);
     },
     [isReady, node]
   );
 
   const getEnvs = useCallback(
-    async (peerId: string) => {
+    async (multiaddrsOrPeerId: MultiaddrsOrPeerId) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      const result = await getNodeEnvs(peerId);
+      const result = await getNodeEnvs(multiaddrsOrPeerId);
       setEnvs(result as ComputeEnvironment[]);
     },
     [isReady, node]
   );
 
   const getComputeResult = useCallback(
-    async (peerId: string, jobId: string, index: number, authToken: string, address: string) => {
+    async (
+      multiaddrsOrPeerId: MultiaddrsOrPeerId,
+      jobId: string,
+      index: number,
+      authToken: string,
+      address: string
+    ) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
 
-      const result = await getComputeJobResult(peerId, jobId, index, authToken, address);
+      const result = await getComputeJobResult(multiaddrsOrPeerId, jobId, index, authToken, address);
 
       setComputeResult(result);
       return result;
@@ -169,12 +179,12 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getComputeJobStatus = useCallback(
-    async (peerId: string, jobId: string, address: string) => {
+    async (multiaddrsOrPeerId: MultiaddrsOrPeerId, jobId: string, address: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
 
-      const result = await getComputeStatus(peerId, jobId, address);
+      const result = await getComputeStatus(multiaddrsOrPeerId, jobId, address);
 
       setComputeStatus(result);
       return result;
@@ -183,11 +193,11 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const fetchConfig = useCallback(
-    async (peerId: string, signature: string, expiryTimestamp: number, address?: string) => {
+    async (multiaddrsOrPeerId: MultiaddrsOrPeerId, signature: string, expiryTimestamp: number, address?: string) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      const result = await fetchNodeConfig(peerId, signature, expiryTimestamp, address);
+      const result = await fetchNodeConfig(multiaddrsOrPeerId, signature, expiryTimestamp, address);
       setConfig(result);
       return result;
     },
@@ -196,7 +206,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
 
   const pushConfig = useCallback(
     async (
-      peerId: string,
+      multiaddrsOrPeerId: MultiaddrsOrPeerId,
       signature: string,
       expiryTimestamp: number,
       config: Record<string, any>,
@@ -205,7 +215,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      await pushNodeConfig(peerId, signature, expiryTimestamp, config, address);
+      await pushNodeConfig(multiaddrsOrPeerId, signature, expiryTimestamp, config, address);
       setConfig(config);
     },
     [isReady, node]
@@ -216,7 +226,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       environment: ComputeEnvironment,
       tokenAddress: string,
       validUntil: number,
-      peerId: string,
+      multiaddrsOrPeerId: MultiaddrsOrPeerId,
       address: string,
       resources: ComputeResourceRequest[],
       chainId: number,
@@ -238,7 +248,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         consumerAddress: address,
         signature: '',
       };
-      const data = await initializeComputeFromService(peerId, payload);
+      const data = await initializeComputeFromService(multiaddrsOrPeerId, payload);
       if (data?.status?.httpStatus != null && data.status.httpStatus >= 400) {
         throw new Error(data.status.error ?? 'Initialize compute failed');
       }

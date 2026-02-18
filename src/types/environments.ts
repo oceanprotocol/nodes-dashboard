@@ -77,6 +77,10 @@ export type NodeEnvironments = EnvNodeInfo & {
 };
 
 export type EnvNodeInfo = {
+  currentAddrs?: string[];
   friendlyName?: string;
   id: string;
+  multiaddrs?: string[];
 };
+
+export type MultiaddrsOrPeerId = string | string[] | null;
