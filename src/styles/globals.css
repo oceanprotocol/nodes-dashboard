@@ -219,26 +219,46 @@ a {
     backdrop-filter: var(--backdrop-filter-glass);
     border-radius: 16px;
 
+    & .Toastify__close-button {
+      color: var(--text-secondary);
+    }
+
     &.Toastify__toast--default,
     &.Toastify__toast--info {
-      border: 2px solid var(--accent1);
-      background: color-mix(in srgb, var(--accent1) 70%, transparent 30%);
+      background: var(--background-glass);
+      box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
       color: var(--text-primary);
+
+      & .Toastify__toast-icon {
+        color: var(--accent1);
+      }
     }
     &.Toastify__toast--error {
-      border: 2px solid var(--error);
-      background: color-mix(in srgb, var(--error-darker) 70%, transparent 30%);
+      background: color-mix(in srgb, var(--error) 80%, transparent 20%);
+      box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
       color: var(--text-primary);
+
+      & .Toastify__toast-icon {
+        color: var(--error-darker);
+      }
     }
     &.Toastify__toast--success {
-      border: 2px solid var(--success);
-      background: color-mix(in srgb, var(--success-darker) 70%, transparent 30%);
+      background: color-mix(in srgb, var(--success) 80%, transparent 20%);
+      box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
       color: var(--text-primary);
+
+      & .Toastify__toast-icon {
+        color: var(--success-darker);
+      }
     }
     &.Toastify__toast--warning {
-      border: 2px solid var(--warning);
-      background: color-mix(in srgb, var(--warning-darker) 70%, transparent 30%);
+      background: color-mix(in srgb, var(--warning) 80%, transparent 20%);
+      box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
       color: var(--text-primary);
+
+      & .Toastify__toast-icon {
+        color: var(--warning-darker);
+      }
     }
   }
 }
