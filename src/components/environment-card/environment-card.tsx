@@ -381,7 +381,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     const isDisabled = !isLoggedIn || (isFreeCompute && !freeAccess) || (!isFreeCompute && !paidAccess);
     const button = (
       <Button
-        color="accent2"
+        color="accent1"
         contentBefore={<PlayArrowIcon />}
         disabled={isDisabled}
         onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
@@ -408,7 +408,15 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   return (
-    <Card direction="column" innerShadow="black" padding="sm" radius="md" spacing="lg" variant="glass">
+    <Card
+      className={styles.root}
+      direction="column"
+      innerShadow="black"
+      padding="sm"
+      radius="md"
+      spacing="lg"
+      variant="glass"
+    >
       {!cpu && !gpus?.length && !ram && !disk ? (
         <h3>No resources available</h3>
       ) : (
