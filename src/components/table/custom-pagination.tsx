@@ -123,6 +123,7 @@ const CustomPagination = React.memo(function CustomPagination({
           />
           <div className={styles.controlsRow}>
             <Input
+              className={styles.pageInput}
               max={totalPages}
               min={1}
               onChange={(e) => setPageInput(e.target.value)}
@@ -173,6 +174,7 @@ const CustomPagination = React.memo(function CustomPagination({
             size="sm"
           />
           <Input
+            className={styles.pageInput}
             max={totalPages}
             min={1}
             onChange={(e) => setPageInput(e.target.value)}
