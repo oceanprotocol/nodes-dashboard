@@ -71,13 +71,13 @@ const StyledDataGrid = styled(DataGrid)({
   },
 
   '& .MuiDataGrid-main': {
-    '& .MuiDataGrid-filler': {
-      background: 'rgba(0, 0, 0, 0.03)',
+    // '& .MuiDataGrid-filler': {
+    // background: 'rgba(0, 0, 0, 0.03)',
 
-      '& > div': {
-        borderTop: '1px solid var(--border)',
-      },
-    },
+    // '& > div': {
+    // borderTop: '1px solid var(--border)',
+    // },
+    // },
 
     '& .MuiDataGrid-scrollbarFiller': {
       background: 'transparent',
@@ -97,8 +97,7 @@ const StyledDataGrid = styled(DataGrid)({
   },
 
   '& .MuiDataGrid-overlay': {
-    // backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    background: 'none',
+    backgroundColor: 'var(--background-glass-secondary)',
   },
 
   '& .MuiLinearProgress-root': {
