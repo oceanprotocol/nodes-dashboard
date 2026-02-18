@@ -97,8 +97,6 @@ const SelectEnvironment = () => {
     setExpanded(!expanded);
   };
 
-  console.log('platformSupportedTokens', getSupportedTokens());
-
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>

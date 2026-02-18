@@ -59,17 +59,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getDefaultToken());
   const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
 
-  console.log(
-    'node',
-    nodeInfo.friendlyName,
-    'envSupportedTokens',
-    supportedTokens,
-    'selectedToken',
-    selectedTokenAddress,
-    'selectedTokenSymbol',
-    selectedTokenSymbol
-  );
-
   const [isFreeCompute, setIsFreeCompute] = useState<boolean>(false);
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
