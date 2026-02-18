@@ -1,28 +1,14 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import { Table } from '@/components/table/table';
+import { TableTypeEnum } from '@/components/table/table-type';
 import { getApiRoute, getRoutes } from '@/config';
 import { Node } from '@/types';
 import axios from 'axios';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
 import styles from './leaderboard.module.css';
-
-type LeaderboardItem = {
-  nodeId: string;
-  gpuCpu: string;
-  benchScore: number;
-  jobsCompleted: number;
-  revenue: string;
-};
-
-const columns: { key: keyof LeaderboardItem; label: string }[] = [
-  { key: 'nodeId', label: 'Node ID' },
-  { key: 'gpuCpu', label: 'GPU/CPU' },
-  { key: 'benchScore', label: 'Bench Score' },
-  { key: 'jobsCompleted', label: 'Jobs Completed' },
-  { key: 'revenue', label: 'Revenue' },
-];
 
 export default function LeaderboardSection() {
   const routes = getRoutes();
@@ -38,9 +24,19 @@ export default function LeaderboardSection() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(
-        `${getApiRoute('nodes')}?page=0&size=3&sort={"latestBenchmarkResults.gpuScore":"desc"}`
-      );
+      const response = await axios.get<{ nodes: Node[] }>(getApiRoute('nodes'), {
+        params: {
+          filters: JSON.stringify({
+            hidden: { operator: 'equals', value: false },
+            eligible: { operator: 'equals', value: true },
+          }),
+          page: 0,
+          size: 3,
+          sort: JSON.stringify({
+            'latestBenchmarkResults.totalScore': 'desc',
+          }),
+        },
+      });
       const sanitizedData = response.data.nodes.map((element: any) => element._source);
 
       const promises = [];
@@ -100,43 +96,19 @@ export default function LeaderboardSection() {
     return '-';
   }
 
-  const itemsList: LeaderboardItem[] = useMemo(
-    () =>
-      topNodes.map((node) => ({
-        nodeId: node.friendlyName ?? node.id ?? '-',
-        gpuCpu: formatNodeGPUCPU(node),
-        benchScore: node.latestBenchmarkResults.gpuScore,
-        jobsCompleted: node.totalJobs,
-        revenue: `USDC ${node.totalRevenue.toFixed(2)}`,
-      })),
-    [topNodes]
-  );
-
   return (
     <div className={styles.root}>
       <Container className={styles.relative}>
         <SectionTitle title="Leaderboard Preview" subTitle="Explore the most active nodes in the Ocean Network" />
         <Card className={styles.leaderboardWrapper} padding="md" radius="lg" shadow="black" variant="glass-shaded">
-          <div className={`${styles.tableLine} ${styles.tableHeader}`}>
-            {columns.map((column) => (
-              <div key={column.key} className={styles.tableCell}>
-                {column.label}
-              </div>
-            ))}
-          </div>
-          {isLoading ? (
-            <div className={styles.loader}>Loading...</div>
-          ) : (
-            itemsList.map((item, index) => (
-              <div key={`${item.nodeId}-${index}`} className={styles.tableLine}>
-                {columns.map((column) => (
-                  <div key={column.key} className={styles.tableCell} data-label={column.label}>
-                    <span className={styles.tableValue}>{item[column.key]}</span>
-                  </div>
-                ))}
-              </div>
-            ))
-          )}
+          <Table<Node>
+            autoHeight
+            data={topNodes}
+            getRowId={(row) => row.id ?? row.nodeId}
+            loading={isLoading}
+            paginationType="none"
+            tableType={TableTypeEnum.NODES_LEADERBOARD_HOME}
+          />
         </Card>
         <div className={styles.leaderboardFooter}>
           <Button color="accent2" href={routes.leaderboard.path} size="lg" variant="filled">

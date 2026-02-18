@@ -1,6 +1,7 @@
 import {
   jobsColumns,
   nodesLeaderboardColumns,
+  nodesLeaderboardHomeColumns,
   nodesTopByJobCountColumns,
   nodesTopByRevenueColumns,
   topNodesByJobsColumns,
@@ -169,6 +170,9 @@ export const Table = <T,>({
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {
         return nodesLeaderboardColumns;
+      }
+      case TableTypeEnum.NODES_LEADERBOARD_HOME: {
+        return nodesLeaderboardHomeColumns;
       }
       case TableTypeEnum.NODES_TOP_JOBS: {
         return nodesTopByJobCountColumns;
