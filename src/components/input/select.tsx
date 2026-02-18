@@ -1,8 +1,18 @@
 import InputWrapper from '@/components/input/input-wrapper';
-import { Checkbox, ListItemText, Select as MaterialSelect, MenuItem, selectClasses, styled } from '@mui/material';
+import {
+  Checkbox,
+  Collapse,
+  ListItemText,
+  Select as MaterialSelect,
+  MenuItem,
+  PopoverPaper,
+  selectClasses,
+  styled,
+} from '@mui/material';
 import { useMemo } from 'react';
+import { TransitionGroup } from 'react-transition-group';
 
-const StyledMultipleValueContainer = styled('div')({
+const StyledTransitionGroup = styled(TransitionGroup)({
   display: 'flex',
   flexWrap: 'wrap',
   gap: 4,
@@ -32,6 +42,10 @@ const StyledSelect = styled(MaterialSelect, {
     border: 'none',
   },
 
+  menu: {
+    background: 'red',
+  },
+
   [`& .${selectClasses.select}`]: {
     padding: custom_size === 'sm' ? '4px 16px' : '8px 16px',
     minHeight: 0,
@@ -52,14 +66,21 @@ const StyledSelect = styled(MaterialSelect, {
   },
 }));
 
+const StyledPaper = styled(PopoverPaper)({
+  backdropFilter: 'var(--backdrop-filter-glass)',
+  background: 'var(--background-glass)',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--drop-shadow-black)',
+  borderRadius: 16,
+  color: 'var(--text-primary)',
+  fontFamily: 'var(--font-inter), sans-serif',
+  fontSize: 16,
+});
+
 const StyledPlaceholder = styled('span')({
   color: 'var(--text-secondary)',
   fontSize: 14,
   lineHeight: '16px',
-});
-
-const StyledChip = styled('div')({
-  // lineHeight: '26px',
 });
 
 export type SelectOption<T> = {
@@ -119,21 +140,21 @@ const Select = <T extends string | number = string>({
     if (multiple) {
       const MultiRenderValue = (value: T[]) => {
         const selectedValues = options?.filter((option) => value.includes(option.value));
-        if (selectedValues?.length) {
-          return (
-            <StyledMultipleValueContainer>
-              {selectedValues.map((option) => (
-                <StyledChip className="chip chipGlass" key={String(option.value)}>
-                  {renderSelectedValue?.(option.label) ?? option.label}
-                </StyledChip>
-              ))}
-            </StyledMultipleValueContainer>
-          );
-        }
-        if (placeholder) {
-          return <StyledPlaceholder>{placeholder}</StyledPlaceholder>;
-        }
-        return null;
+        return (
+          <StyledTransitionGroup>
+            {selectedValues?.length ? (
+              selectedValues.map((option) => (
+                <Collapse key={String(option.value)} orientation="horizontal">
+                  <div className="chip chipGlass">{renderSelectedValue?.(option.label) ?? option.label}</div>
+                </Collapse>
+              ))
+            ) : placeholder ? (
+              <Collapse orientation="horizontal">
+                <StyledPlaceholder>{placeholder}</StyledPlaceholder>
+              </Collapse>
+            ) : null}
+          </StyledTransitionGroup>
+        );
       };
       return MultiRenderValue;
     }
@@ -160,7 +181,7 @@ const Select = <T extends string | number = string>({
         endAdornment={endAdornment}
         has_error={!!errorText}
         inputProps={{}}
-        MenuProps={{ disableScrollLock: true, ...MenuProps }}
+        MenuProps={{ slots: { paper: StyledPaper, ...MenuProps?.slots }, ...MenuProps }}
         multiple={multiple}
         name={name}
         onBlur={onBlur}
@@ -169,7 +190,7 @@ const Select = <T extends string | number = string>({
         value={multiple ? (value ?? []) : value}
       >
         {options?.map((option) => (
-          <MenuItem key={String(option.value)} value={option.value}>
+          <MenuItem disableRipple key={String(option.value)} value={option.value}>
             {multiple ? (
               <Checkbox checked={Array.isArray(value) ? (value as any).includes(option.value) : false} />
             ) : null}
