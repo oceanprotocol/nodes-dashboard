@@ -96,6 +96,7 @@ const SelectEnvironment = () => {
             name="gpuName"
             onChange={formik.handleChange}
             options={gpuOptions}
+            placeholder="No GPU selected"
             renderOption={(option) => <GpuLabel gpu={option.label} />}
             renderSelectedValue={(option) => <GpuLabel gpu={option} />}
             value={formik.values.gpuName}
@@ -158,6 +159,7 @@ const SelectEnvironment = () => {
               name="sortBy"
               onChange={formik.handleChange}
               options={sortOptions}
+              placeholder="No sorting"
               size="sm"
               value={formik.values.sortBy}
             />

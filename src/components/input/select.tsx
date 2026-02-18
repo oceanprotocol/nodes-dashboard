@@ -11,14 +11,17 @@ const StyledMultipleValueContainer = styled('div')({
 const StyledSelect = styled(MaterialSelect, {
   shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
 })<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, has_error }) => ({
+  alignItems: 'center',
   background: 'var(--background-glass)',
   border: `1px solid var(${has_error ? '--error' : '--border'})`,
   boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
   borderRadius: 24,
   color: 'var(--text-primary)',
+  display: 'inline-flex',
   fontFamily: 'var(--font-inter), sans-serif',
   fontSize: 16,
-  lineHeight: '18px',
+  lineHeight: '22px',
+  minHeight: custom_size === 'sm' ? 34 : 50,
   transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
 
   '&.Mui-focused': {
@@ -30,7 +33,7 @@ const StyledSelect = styled(MaterialSelect, {
   },
 
   [`& .${selectClasses.select}`]: {
-    padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
+    padding: custom_size === 'sm' ? '4px 16px' : '8px 16px',
     minHeight: 0,
 
     '& > .MuiListItemText-root': {
@@ -49,6 +52,16 @@ const StyledSelect = styled(MaterialSelect, {
   },
 }));
 
+const StyledPlaceholder = styled('span')({
+  color: 'var(--text-secondary)',
+  fontSize: 14,
+  lineHeight: '16px',
+});
+
+const StyledChip = styled('div')({
+  // lineHeight: '26px',
+});
+
 export type SelectOption<T> = {
   label: string;
   value: T;
@@ -65,6 +78,7 @@ type SelectProps<T> = {
   MenuProps?: any;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   options?: SelectOption<T>[];
+  placeholder?: string;
   renderOption?: (option: SelectOption<T>) => React.ReactNode;
   renderSelectedValue?: (label: string) => React.ReactNode;
   size?: 'sm' | 'md';
@@ -94,6 +108,7 @@ const Select = <T extends string | number = string>({
   onBlur,
   onChange,
   options,
+  placeholder,
   renderOption,
   renderSelectedValue,
   size = 'md',
@@ -102,27 +117,46 @@ const Select = <T extends string | number = string>({
 }: SelectProps<T>) => {
   const memoizedRenderValue = useMemo<((value: any) => React.ReactNode) | undefined>(() => {
     if (multiple) {
-      const MultiRenderValue = (value: T[]) => (
-        <StyledMultipleValueContainer>
-          {options
-            ?.filter((option) => value.includes(option.value))
-            .map((option) => (
-              <div className="chip chipGlass" key={String(option.value)}>
-                {renderSelectedValue?.(option.label) ?? option.label}
-              </div>
-            ))}
-        </StyledMultipleValueContainer>
-      );
-      (MultiRenderValue as any).displayName = 'SelectMultiRenderValue';
-      return MultiRenderValue as (value: any) => React.ReactNode;
+      const MultiRenderValue = (value: T[]) => {
+        const selectedValues = options?.filter((option) => value.includes(option.value));
+        if (selectedValues?.length) {
+          return (
+            <StyledMultipleValueContainer>
+              {selectedValues.map((option) => (
+                <StyledChip className="chip chipGlass" key={String(option.value)}>
+                  {renderSelectedValue?.(option.label) ?? option.label}
+                </StyledChip>
+              ))}
+            </StyledMultipleValueContainer>
+          );
+        }
+        if (placeholder) {
+          return <StyledPlaceholder>{placeholder}</StyledPlaceholder>;
+        }
+        return null;
+      };
+      return MultiRenderValue;
     }
-    return undefined;
-  }, [multiple, options, renderSelectedValue]);
+    const SingleRenderValue = (value: T) => {
+      if (value) {
+        const selectedOption = options?.find((option) => option.value === value);
+        if (selectedOption) {
+          return selectedOption.label;
+        }
+      }
+      if (placeholder) {
+        return <StyledPlaceholder>{placeholder}</StyledPlaceholder>;
+      }
+      return null;
+    };
+    return SingleRenderValue;
+  }, [multiple, options, placeholder, renderSelectedValue]);
 
   return (
     <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
       <StyledSelect
         custom_size={size}
+        displayEmpty
         endAdornment={endAdornment}
         has_error={!!errorText}
         inputProps={{}}

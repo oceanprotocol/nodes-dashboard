@@ -224,6 +224,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
           options={gpus.map((gpu) => ({ label: gpu.description ?? '', value: gpu.id }))}
+          placeholder="No GPU selected"
           renderOption={(option) => {
             const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token.symbol}/min`;
             return <GpuLabel gpu={`${option.label} (${pricing})`} />;

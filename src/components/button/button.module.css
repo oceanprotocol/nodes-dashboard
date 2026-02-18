@@ -51,25 +51,29 @@
 .size-md {
   font-size: 16px;
   gap: 4px;
-  line-height: 20px;
+  line-height: 21px;
+  min-height: 34px;
   padding: 6px 18px;
 }
 .size-md-const {
   font-size: 16px;
   gap: 4px;
-  line-height: 20px;
+  line-height: 21px;
+  min-height: 34px;
   padding: 6px;
 }
 .size-lg {
   font-size: 20px;
   gap: 8px;
-  line-height: 24px;
+  line-height: 25px;
+  min-height: 50px;
   padding: 12px 32px;
 }
 .size-lg-const {
   font-size: 20px;
   gap: 8px;
-  line-height: 24px;
+  line-height: 25px;
+  min-height: 50px;
   padding: 12px;
 }
 

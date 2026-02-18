@@ -10,6 +10,7 @@ const StyledTextField = styled(TextField, {
   boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
   borderRadius: 24,
   lineHeight: '18px',
+  minHeight: custom_size === 'sm' ? 34 : 50,
   transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
 
   '&:focus-within': {
