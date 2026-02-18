@@ -20,10 +20,10 @@ export default function HeroSection() {
         </div>
         <div className={styles.actionsAndTextWrapper}>
           <div className={styles.actions}>
-            <Button color="accent1" size="lg" href={getRoutes().runJob.path}>
+            <Button color="accent1" href={getRoutes().runJob.path} size="lg">
               Run compute job
             </Button>
-            <Button color="accent1" size="lg" variant="outlined">
+            <Button color="accent1" href={getRoutes().runNode.path} size="lg" variant="outlined">
               Run a node
             </Button>
           </div>
