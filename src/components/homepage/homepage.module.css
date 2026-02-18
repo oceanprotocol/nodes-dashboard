@@ -3,13 +3,6 @@
   flex-direction: column;
 }
 
-@media (max-width: 768px) {
-  .root {
-    gap: 50px;
-    padding: 20px;
-  }
-}
-
 .container {
   min-height: 100vh;
   padding: 0 0.5rem;
