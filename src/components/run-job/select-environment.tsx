@@ -172,6 +172,7 @@ const SelectEnvironment = () => {
               name="feeToken"
               onChange={formik.handleChange}
               options={feeTokenOptions}
+              placeholder="Any"
               size="sm"
               value={formik.values.feeToken}
             />
