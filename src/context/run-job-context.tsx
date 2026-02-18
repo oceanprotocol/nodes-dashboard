@@ -1,7 +1,6 @@
 import { getApiRoute } from '@/config';
 import { getTokenSymbol } from '@/lib/token-symbol';
-import { MultiaddrsOrPeerId } from '@/services/nodeService';
-import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
+import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection, MultiaddrsOrPeerId } from '@/types/environments';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import { multiaddr } from '@multiformats/multiaddr';
 import axios from 'axios';

@@ -1,4 +1,5 @@
-import { createAuthToken, getNonce, type MultiaddrsOrPeerId } from '@/services/nodeService';
+import { createAuthToken, getNonce } from '@/services/nodeService';
+import { MultiaddrsOrPeerId } from '@/types/environments';
 
 export async function generateAuthToken(
   multiaddrsOrPeerId: MultiaddrsOrPeerId,
