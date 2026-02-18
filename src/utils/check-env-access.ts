@@ -11,13 +11,13 @@ export async function checkEnvAccess(
   if (!walletAddress) return null;
   if (!access) return true;
 
-  if (access.addresses?.length !== 0) {
+  if (access.addresses && access.addresses.length !== 0) {
     const lower = walletAddress.toLowerCase();
 
     return access.addresses.some((a) => a.toLowerCase() === lower);
   }
 
-  if (Object.keys(access.accessLists).length !== 0) {
+  if (access.accessLists && Object.keys(access.accessLists).length !== 0) {
     if (!provider) return null;
 
     const contractAddresses = access.accessLists[String(CHAIN_ID)];
