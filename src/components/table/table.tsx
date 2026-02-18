@@ -72,11 +72,15 @@ const StyledDataGrid = styled(DataGrid)({
 
   '& .MuiDataGrid-main': {
     '& .MuiDataGrid-filler': {
-      background: 'rgba(0, 0, 0, 0.3)',
+      background: 'rgba(0, 0, 0, 0.03)',
 
       '& > div': {
         borderTop: '1px solid var(--border)',
       },
+    },
+
+    '& .MuiDataGrid-scrollbarFiller': {
+      background: 'transparent',
     },
   },
 
