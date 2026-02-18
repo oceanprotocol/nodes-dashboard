@@ -73,6 +73,7 @@ h4 {
   font-weight: 700;
 }
 h3 {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
   font-size: 20px;
   font-weight: 600;
 }
