@@ -25,7 +25,7 @@ const Gauge = ({ centerLabel, centerValue, label, max, min, title, value, valueS
     const offsetMax = max - clampedValue;
     return [
       { value: offsetValue, color: 'var(--accent1)' },
-      { value: offsetMax, color: 'var(--background-glass)' },
+      { value: offsetMax, color: 'var(--background-glass-secondary)' },
     ];
   }, [max, min, clampedValue]);
 

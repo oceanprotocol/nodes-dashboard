@@ -6,7 +6,6 @@ type Size = 'sm' | 'md' | 'lg';
 type Variant =
   | 'glass'
   | 'glass-shaded'
-  | 'glass-outline'
   | 'success'
   | 'success-outline'
   | 'warning'

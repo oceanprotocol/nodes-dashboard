@@ -6,7 +6,7 @@ const StyledTextField = styled(TextField, {
   shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
 })<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, disabled, has_error }) => ({
   background: disabled ? 'transparent' : 'var(--background-glass)',
-  border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
+  border: `1px solid var(${has_error ? '--error' : '--border'})`,
   boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
   borderRadius: 24,
   lineHeight: '18px',

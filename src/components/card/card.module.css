@@ -78,9 +78,6 @@
   background-color: var(--background-glass);
   backdrop-filter: var(--backdrop-filter-glass);
 }
-.variant-glass-outline {
-  border: 1px solid var(--border-glass);
-}
 .variant-success {
   background: var(--success);
 }

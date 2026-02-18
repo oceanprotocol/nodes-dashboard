@@ -1,8 +1,7 @@
 .root {
   align-items: start;
-  background: var(--background-glass);
+  background: var(--background-glass-secondary);
   border-radius: 16px;
-  box-shadow: var(--inner-shadow-black);
   display: flex;
   font-family: monospace;
   gap: 16px;

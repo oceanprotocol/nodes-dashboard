@@ -41,7 +41,7 @@ const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHei
 const StyledDataGrid = styled(DataGrid)({
   background: 'none',
   border: 'none',
-  borderBottom: '1px solid var(--border-glass)',
+  borderBottom: '1px solid var(--border)',
   borderRadius: 0,
   color: 'var(--text-primary)',
 
@@ -51,7 +51,7 @@ const StyledDataGrid = styled(DataGrid)({
 
     '& .MuiDataGrid-columnHeader, & .MuiDataGrid-filler': {
       background: 'none',
-      borderBottomColor: 'var(--border-glass)',
+      borderBottomColor: 'var(--border)',
 
       '& .MuiDataGrid-columnHeaderTitle': {
         fontSize: 14,
@@ -64,7 +64,7 @@ const StyledDataGrid = styled(DataGrid)({
       },
 
       '& .MuiDataGrid-columnSeparator': {
-        color: 'var(--border-glass)',
+        color: 'var(--border)',
       },
     },
   },
@@ -74,7 +74,7 @@ const StyledDataGrid = styled(DataGrid)({
       background: 'rgba(0, 0, 0, 0.3)',
 
       '& > div': {
-        borderTop: '1px solid var(--border-glass)',
+        borderTop: '1px solid var(--border)',
       },
     },
   },
@@ -87,7 +87,7 @@ const StyledDataGrid = styled(DataGrid)({
   },
 
   '& .MuiDataGrid-cell': {
-    borderTopColor: 'var(--border-glass)',
+    borderTopColor: 'var(--border)',
     fontFamily: 'var(--font-inter), sans-serif',
     fontSize: 14,
   },

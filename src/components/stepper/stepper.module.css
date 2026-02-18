@@ -9,7 +9,7 @@
   padding: 8px;
 
   .separator {
-    color: var(--border-glass);
+    color: var(--border);
     transform: rotate(90deg);
 
     &.active {
@@ -19,7 +19,7 @@
 
   .step {
     align-items: center;
-    background: var(--background-glass);
+    background: var(--background-glass-secondary);
     border: 2px solid transparent;
     border-radius: 18px;
     color: var(--text-primary);

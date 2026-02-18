@@ -114,7 +114,7 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
                   fontSize: '12px',
                   height: '150px',
                   overflowY: 'auto',
-                  borderTop: '1px solid var(--border-glass)',
+                  borderTop: '1px solid var(--border)',
                   paddingTop: '8px',
                   pointerEvents: 'auto',
                 }}

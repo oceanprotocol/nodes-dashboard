@@ -89,7 +89,7 @@ const SelectEnvironment = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <form onSubmit={formik.handleSubmit}>
-        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass-outline">
+        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
           <Select
             label="GPUs"
             multiple

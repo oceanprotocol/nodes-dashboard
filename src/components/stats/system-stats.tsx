@@ -8,7 +8,7 @@ import styles from './system-stats.module.css';
 
 const brandColors = {
   primary: ['#d54335', '#e26256', '#f2776c', '#f89990', '#ffb1aa', '#fbc2b8'],
-  other: '#b7fd79',
+  other: 'var(--background-glass-secondary)',
 };
 
 interface ChartDataItem {

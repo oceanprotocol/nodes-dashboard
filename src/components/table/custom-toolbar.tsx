@@ -1,3 +1,4 @@
+import Input from '@/components/input/input';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { exportToCsv } from '@/components/table/utils';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -42,7 +43,7 @@ const StyledButtonsWrapper = styled('div')({
 const StyledTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
     backgroundColor: 'var(--background-glass)',
-    border: '1px solid var(--border-glass)',
+    border: '1px solid var(--border)',
     borderRadius: 20,
     paddingRight: 8,
 
@@ -114,27 +115,25 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
           Export
         </Button>
       </StyledButtonsWrapper>
-      <StyledTextField
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        onKeyPress={handleKeyPress}
-        placeholder="Search..."
-        variant="outlined"
-        size="small"
-        InputProps={{
-          endAdornment: (
-            <>
-              <IconButton onClick={onSearch} size="small">
-                <SearchIcon />
+      <Input
+        endAdornment={
+          <>
+            <IconButton color="primary" onClick={onSearch} size="small">
+              <SearchIcon />
+            </IconButton>
+            {searchTerm && (
+              <IconButton color="primary" onClick={onReset} size="small">
+                <ClearIcon />
               </IconButton>
-              {searchTerm && (
-                <IconButton onClick={onReset} size="small">
-                  <ClearIcon />
-                </IconButton>
-              )}
-            </>
-          ),
-        }}
+            )}
+          </>
+        }
+        onChange={(e) => onSearchChange(e.target.value)}
+        onKeyDown={handleKeyPress}
+        placeholder="Search..."
+        type="text"
+        size="sm"
+        value={searchTerm}
       />
     </StyledRoot>
   );

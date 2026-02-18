@@ -12,12 +12,14 @@
   --background-primary: #ffffff;
   --background-primary-inverse: #000000;
   --background-glass: #fafafa90;
+  --background-glass-secondary: #aaaaaa28;
   --background-modal: #ffffffc9;
   --background-modal-overlay: #00000035;
   --background-table-header: #f5f5f5;
-  --border-glass: #00000020;
+  --border: #00000025;
+  --border-glass: #00000012;
   --drop-shadow-accent1: 0 8px 48px -32px var(--accent1);
-  --drop-shadow-black: 0 8px 32px -12px #00000025;
+  --drop-shadow-black: 0 8px 32px -12px #00000030;
   --drop-shadow-error: 0 8px 80px -20px var(--error);
   --drop-shadow-success: 0 8px 80px -20px var(--success);
   --drop-shadow-warning: 0 8px 80px -20px var(--warning);
@@ -29,7 +31,7 @@
   --inner-shadow-error: inset 0 8px 80px -20px var(--error);
   --inner-shadow-success: inset 0 8px 80px -20px var(--success);
   --inner-shadow-warning: inset 0 8px 80px -20px var(--warning);
-  --inner-shadow-glass: inset 0 0 0 1px var(--border-glass), inset 0 0 1px 1px #ffffffcc, inset 0 0 16px 1px #00000005;
+  --inner-shadow-glass: inset 0 0 0 1px var(--border-glass), inset 0 0 1px 1px #ffffffd0, inset 0 0 16px 1px #00000007;
   /* inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa, inset -1px -1px 2px -1px #000000aa; */
   --input-shadow-error: 0 4px 32px -18px var(--error), inset 0 4px 32px -24px var(--error);
   --input-shadow-focus: inset 0 4px 32px -8px #00000025;
