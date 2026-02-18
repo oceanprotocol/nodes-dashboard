@@ -94,6 +94,7 @@ a {
 
 .pageRoot {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 48px;
   padding-bottom: 60px;
