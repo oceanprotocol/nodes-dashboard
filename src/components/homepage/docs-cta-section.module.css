@@ -92,12 +92,7 @@
   }
 
   .root::after {
-    background: linear-gradient(
-      125deg,
-      rgba(255, 255, 255, 0.96),
-      rgba(255, 255, 255, 0.72) 45%,
-      rgba(255, 255, 255, 0)
-    );
+    background: linear-gradient(125deg, var(--accent1-light), var(--accent1-lighter) 45%, var(--accent1-lightest));
   }
 
   .socialLinks {
