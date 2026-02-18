@@ -36,6 +36,14 @@ const StyledTextField = styled(TextField, {
     lineHeight: '18px',
     minHeight: 0,
     padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
+
+    '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+      '-webkit-appearance': 'none',
+      margin: 0,
+    },
+    '&[type=number]': {
+      '-moz-appearance': 'textfield',
+    },
   },
 }));
 
