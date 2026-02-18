@@ -87,15 +87,6 @@ export default function LeaderboardSection() {
     };
   }, [fetchData]);
 
-  function formatNodeGPUCPU(node: Node) {
-    if (node.gpus) {
-      return node.gpus.map((gpu) => `${gpu.vendor} ${gpu.name}`).join(', ');
-    } else if (node.cpus) {
-      return node.cpus.map((cpu) => cpu.model).join(', ');
-    }
-    return '-';
-  }
-
   return (
     <div className={styles.root}>
       <Container className={styles.relative}>
