@@ -118,8 +118,7 @@
 }
 
 .accessInfoIcon {
-  color: var(--warning);
-  cursor: help;
+  color: var(--error);
   font-size: 18px;
 }
 
