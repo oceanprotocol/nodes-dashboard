@@ -8,17 +8,21 @@ import ProgressBar from '@/components/progress-bar/progress-bar';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
+import { checkEnvAccess } from '@/utils/check-env-access';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatNumber } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
+import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
@@ -39,6 +43,18 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   const router = useRouter();
 
   const { selectEnv, selectToken } = useRunJobContext();
+  const { account, provider } = useOceanAccount();
+
+  const [paidAccess, setPaidAccess] = useState<boolean | null>(null);
+  const [freeAccess, setFreeAccess] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkEnvAccess(environment.access, account.address, provider).then(setPaidAccess);
+  }, [environment.access, account.address, provider]);
+
+  useEffect(() => {
+    checkEnvAccess(environment.free?.access, account.address, provider).then(setFreeAccess);
+  }, [environment.free?.access, account.address, provider]);
 
   const supportedTokens = useMemo(() => {
     return getEnvSupportedTokens(environment, true);
@@ -330,6 +346,67 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     );
   };
 
+  const getFreeComputeCheckbox = () => {
+    if (!environment.free) {
+      return null;
+    }
+    const isLoggedIn = freeAccess !== null;
+    const isDisabled = !isLoggedIn || !freeAccess;
+    const label = 'Free compute';
+    return (
+      <Checkbox
+        className={styles.freeComputeCheckbox}
+        disabled={isDisabled}
+        label={
+          isDisabled ? (
+            <div className="flexRow alignItemsCenter gapSm">
+              {label}
+              <Tooltip title="Your wallet address is not in this environment's access list">
+                <InfoOutlinedIcon className={styles.accessInfoIcon} />
+              </Tooltip>
+            </div>
+          ) : (
+            label
+          )
+        }
+        checked={isFreeCompute}
+        onChange={() => setIsFreeCompute(!isFreeCompute)}
+        type="multiple"
+      />
+    );
+  };
+
+  const getRunJobButton = () => {
+    const isLoggedIn = freeAccess !== null && paidAccess !== null;
+    const isDisabled = !isLoggedIn || (isFreeCompute && !freeAccess) || (!isFreeCompute && !paidAccess);
+    const button = (
+      <Button
+        color="accent2"
+        contentBefore={<PlayArrowIcon />}
+        disabled={isDisabled}
+        onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
+      >
+        {isFreeCompute ? 'Try for free' : `From ${startingFee} ${selectedTokenSymbol}/min`}
+      </Button>
+    );
+    if (isDisabled) {
+      return (
+        <Tooltip
+          title={
+            isLoggedIn
+              ? isFreeCompute
+                ? "Your wallet address is not in this environment's free compute access list"
+                : "Your wallet address is not in this environment's paid compute access list"
+              : 'You need to login to continue'
+          }
+        >
+          <div>{button}</div>
+        </Tooltip>
+      );
+    }
+    return button;
+  };
+
   return (
     <Card direction="column" padding="sm" radius="md" spacing="lg" variant="glass">
       {!cpu && !gpus?.length && !ram && !disk ? (
@@ -384,15 +461,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               </Link>
             </div>
           ) : null}
-          {environment.free ? (
-            <Checkbox
-              className={styles.freeComputeCheckbox}
-              label="Free compute"
-              checked={isFreeCompute}
-              onChange={() => setIsFreeCompute(!isFreeCompute)}
-              type="multiple"
-            />
-          ) : null}
+          {getFreeComputeCheckbox()}
         </div>
         <div className={styles.buttons}>
           {Object.entries(supportedTokensSymbols).length > 1 && !isFreeCompute ? (
@@ -406,13 +475,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               value={selectedTokenAddress}
             />
           ) : null}
-          <Button
-            color="accent2"
-            contentBefore={<PlayArrowIcon />}
-            onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
-          >
-            {isFreeCompute ? 'Try for free' : `From ${startingFee} ${selectedTokenSymbol}/min`}
-          </Button>
+          {getRunJobButton()}
         </div>
       </div>
     </Card>

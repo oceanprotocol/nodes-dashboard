@@ -104,6 +104,18 @@
   }
 }
 
+.buttonWithInfo {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.accessInfoIcon {
+  color: var(--warning);
+  cursor: help;
+  font-size: 18px;
+}
+
 .footer {
   display: flex;
   flex-direction: column;
