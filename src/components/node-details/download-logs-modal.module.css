@@ -1,0 +1,83 @@
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .preset {
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border-glass);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: var(--accent1);
+    }
+
+    &.active {
+      background: var(--accent1);
+      border-color: var(--accent1);
+      color: var(--text-on-accent);
+    }
+  }
+
+  .dateFields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .dateField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    input {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-glass);
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 14px;
+      color-scheme: dark;
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent1);
+      }
+    }
+  }
+
+  .maxLogs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+  }
+
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+}
