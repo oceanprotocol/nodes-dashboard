@@ -1,16 +1,18 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import Checkbox from '@/components/checkbox/checkbox';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
+import Select from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
-import useTokenSymbol from '@/lib/token-symbol';
+import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
+import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatNumber } from '@/utils/formatters';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -25,12 +27,19 @@ import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
   compact?: boolean;
+  defaultToken?: string;
   environment: ComputeEnvironment;
   nodeInfo: EnvNodeInfo;
   showNodeName?: boolean;
 };
 
-const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: EnvironmentCardProps) => {
+const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
+  compact,
+  defaultToken,
+  environment,
+  nodeInfo,
+  showNodeName,
+}) => {
   const router = useRouter();
 
   const { selectEnv, selectToken } = useRunJobContext();
@@ -47,24 +56,30 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
     checkEnvAccess(environment.free?.access, account.address, provider).then(setFreeAccess);
   }, [environment.free?.access, account.address, provider]);
 
-  // const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getEnvSupportedTokens(environment)[0]);
-  const selectedTokenAddress = getSupportedTokens().USDC;
-  const tokenSymbol = useTokenSymbol(selectedTokenAddress);
+  const supportedTokens = useMemo(() => {
+    return getEnvSupportedTokens(environment, true);
+  }, [environment]);
+
+  const supportedTokensSymbols = useTokensSymbols(supportedTokens);
+
+  const getDefaultToken = () => {
+    if (defaultToken && supportedTokens.includes(defaultToken)) {
+      return defaultToken;
+    }
+    if (supportedTokens.some((t) => t.toLowerCase() === getSupportedTokens().USDC.toLowerCase())) {
+      return getSupportedTokens().USDC;
+    }
+    return supportedTokens[0];
+  };
+
+  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getDefaultToken());
+  const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
+
+  const [isFreeCompute, setIsFreeCompute] = useState<boolean>(false);
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
-    freeCompute: false,
-    tokenAddress: selectedTokenAddress,
-  });
-
-  const {
-    cpu: freeCpu,
-    disk: freeDisk,
-    gpus: freeGpus,
-    ram: freeRam,
-  } = useEnvResources({
-    environment,
-    freeCompute: true,
+    freeCompute: isFreeCompute,
     tokenAddress: selectedTokenAddress,
   });
 
@@ -82,7 +97,7 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       freeCompute: false,
       nodeInfo,
     });
-    selectToken(selectedTokenAddress, tokenSymbol);
+    selectToken(selectedTokenAddress, selectedTokenSymbol);
     router.push('/run-job/resources');
   };
 
@@ -92,7 +107,7 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       freeCompute: true,
       nodeInfo,
     });
-    selectToken(selectedTokenAddress, tokenSymbol);
+    selectToken(selectedTokenAddress, selectedTokenSymbol);
     router.push('/run-job/resources');
   };
 
@@ -104,44 +119,30 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
     const inUse = cpu.inUse ?? 0;
     const available = max - inUse;
     const fee = cpuFee ?? 0;
-    const freeMax = freeCpu?.max ?? 0;
-    const freeInUse = freeCpu?.inUse ?? 0;
-    const freeAvailable = freeMax - freeInUse;
     if (compact) {
       return (
-        <div>
+        <div className={styles.cpuWrapper}>
           <div className={styles.label}>
             <MemoryIcon className={styles.icon} />
             <span className={styles.heading}>{cpu?.description}</span>
           </div>
           <div className={styles.label}>
-            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
-          </div>
-          <div className={styles.label}>
             <span className={styles.em}>
-              {available}/{max}
+              {available} / {max}
             </span>
-            &nbsp; total available
+            &nbsp;cores available
           </div>
-          {freeMax > 0 ? (
+          {isFreeCompute ? null : (
             <div className={styles.label}>
-              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-                <CheckCircleIcon className={styles.freeIcon} />
-                Free compute
-              </div>
-              &nbsp;-&nbsp;
-              <span className={styles.em}>
-                {freeAvailable}/{freeMax}
-              </span>
-              &nbsp;available
+              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / core / min
             </div>
-          ) : null}
+          )}
         </div>
       );
     }
     const percentage = (100 * inUse) / max;
     return (
-      <div>
+      <div className={styles.cpuWrapper}>
         <ProgressBar
           value={percentage}
           topLeftContent={
@@ -149,35 +150,20 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
               <MemoryIcon className={styles.icon} /> CPU - {cpu?.description}
             </span>
           }
-          topRightContent={
-            <span className={styles.label}>
-              <span className={styles.em}>{max}</span>&nbsp;total
-            </span>
-          }
           bottomLeftContent={
             <span className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+              <span className={styles.em}>
+                {available} / {max}
+              </span>
+              &nbsp;cores available
             </span>
           }
           bottomRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{inUse}</span>&nbsp;used
+              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / core / min
             </span>
           }
         />
-        {freeMax > 0 ? (
-          <div className={styles.label}>
-            <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-              <CheckCircleIcon className={styles.freeIcon} />
-              Free compute
-            </div>
-            &nbsp;-&nbsp;
-            <span className={styles.em}>
-              {freeAvailable}/{freeMax}
-            </span>
-            &nbsp;available
-          </div>
-        ) : null}
       </div>
     );
   };
@@ -203,74 +189,44 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       const inUse = gpu.inUse ?? 0;
       const available = max - inUse;
       const fee = gpuFees[gpu.id] ?? 0;
-      const freeGpu = freeGpus.find((freeGpu) => freeGpu.id === gpu.id);
-      const freeMax = freeGpu?.max ?? 0;
-      const freeInUse = freeGpu?.inUse ?? 0;
-      const freeAvailable = freeMax - freeInUse;
       if (compact) {
         return (
-          <div key={gpu.id}>
+          <div className={styles.gpuWrapper} key={gpu.id}>
             <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />
             <div className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
-            </div>
-            <div className={styles.label}>
               <span className={styles.em}>
-                {available}/{max}
+                {available} / {max}
               </span>
-              &nbsp;total available
+              &nbsp;units available
             </div>
-            {freeMax > 0 ? (
+            {isFreeCompute ? null : (
               <div className={styles.label}>
-                <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-                  <CheckCircleIcon className={styles.freeIcon} />
-                  Free compute
-                </div>
-                &nbsp;-&nbsp;
-                <span className={styles.em}>
-                  {freeAvailable}/{freeMax}
-                </span>
-                &nbsp;available
+                <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / unit / min
               </div>
-            ) : null}
+            )}
           </div>
         );
       }
       const percentage = (100 * inUse) / max;
       return (
-        <div key={gpu.id}>
+        <div className={styles.gpuWrapper} key={gpu.id}>
           <ProgressBar
             value={percentage}
             topLeftContent={<GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />}
-            topRightContent={
-              <span className={styles.label}>
-                <span className={styles.em}>{max}</span>&nbsp;total
-              </span>
-            }
             bottomLeftContent={
               <span className={styles.label}>
-                <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+                <span className={styles.em}>
+                  {available} / {max}
+                </span>
+                &nbsp;units available
               </span>
             }
             bottomRightContent={
               <span className={styles.label}>
-                <span className={styles.em}>{inUse}</span>&nbsp;used
+                <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / unit / min
               </span>
             }
           />
-          {freeMax > 0 ? (
-            <div className={styles.label}>
-              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-                <CheckCircleIcon className={styles.freeIcon} />
-                Free compute
-              </div>
-              &nbsp;-&nbsp;
-              <span className={styles.em}>
-                {freeAvailable}/{freeMax}
-              </span>
-              &nbsp;available
-            </div>
-          ) : null}
         </div>
       );
     });
@@ -284,44 +240,30 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
     const inUse = ram.inUse ?? 0;
     const available = max - inUse;
     const fee = ramFee ?? 0;
-    const freeMax = freeRam?.max ?? 0;
-    const freeInUse = freeRam?.inUse ?? 0;
-    const freeAvailable = freeMax - freeInUse;
     if (compact) {
       return (
-        <div>
+        <div className={styles.ramWrapper}>
           <div className={styles.label}>
             <SdStorageIcon className={styles.icon} />
-            <span className={styles.heading}>GB RAM capacity</span>
-          </div>
-          <div className={styles.label}>
-            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            <span className={styles.heading}>RAM capacity</span>
           </div>
           <div className={styles.label}>
             <span className={styles.em}>
-              {available}/{max}
+              {available} / {max}
             </span>
-            &nbsp;total available
+            &nbsp;GB available
           </div>
-          {freeMax > 0 ? (
+          {isFreeCompute ? null : (
             <div className={styles.label}>
-              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-                <CheckCircleIcon className={styles.freeIcon} />
-                Free compute
-              </div>
-              &nbsp;-&nbsp;
-              <span className={styles.em}>
-                {freeAvailable}/{freeMax}
-              </span>
-              &nbsp;available
+              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
             </div>
-          ) : null}
+          )}
         </div>
       );
     }
     const percentage = (100 * inUse) / max;
     return (
-      <div>
+      <div className={styles.ramWrapper}>
         <ProgressBar
           value={percentage}
           topLeftContent={
@@ -329,35 +271,20 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
               <SdStorageIcon className={styles.icon} /> RAM capacity
             </span>
           }
-          topRightContent={
-            <span className={styles.label}>
-              <span className={styles.em}>{max}</span>&nbsp;GB total
-            </span>
-          }
           bottomLeftContent={
             <span className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+              <span className={styles.em}>
+                {available} / {max}
+              </span>
+              &nbsp;GB available
             </span>
           }
           bottomRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{inUse}</span>&nbsp;GB used
+              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
             </span>
           }
         />
-        {freeMax > 0 ? (
-          <div className={styles.label}>
-            <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-              <CheckCircleIcon className={styles.freeIcon} />
-              Free compute
-            </div>
-            &nbsp;-&nbsp;
-            <span className={styles.em}>
-              {freeAvailable}/{freeMax}
-            </span>
-            &nbsp;available
-          </div>
-        ) : null}
       </div>
     );
   };
@@ -370,44 +297,30 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
     const inUse = disk.inUse ?? 0;
     const available = max - inUse;
     const fee = diskFee ?? 0;
-    const freeMax = freeDisk?.max ?? 0;
-    const freeInUse = freeDisk?.inUse ?? 0;
-    const freeAvailable = freeMax - freeInUse;
     if (compact) {
       return (
-        <div>
+        <div className={styles.diskWrapper}>
           <div className={styles.label}>
             <DnsIcon className={styles.icon} />
-            <span className={styles.heading}>GB Disk space</span>
-          </div>
-          <div className={styles.label}>
-            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            <span className={styles.heading}>Disk space</span>
           </div>
           <div className={styles.label}>
             <span className={styles.em}>
-              {available}/{max}
+              {available} / {max}
             </span>
-            &nbsp;total available
+            &nbsp;GB available
           </div>
-          {freeMax > 0 ? (
+          {isFreeCompute ? null : (
             <div className={styles.label}>
-              <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-                <CheckCircleIcon className={styles.freeIcon} />
-                Free compute
-              </div>
-              &nbsp;-&nbsp;
-              <span className={styles.em}>
-                {freeAvailable}/{freeMax}
-              </span>
-              &nbsp;available
+              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
             </div>
-          ) : null}
+          )}
         </div>
       );
     }
     const percentage = (100 * inUse) / max;
     return (
-      <div>
+      <div className={styles.diskWrapper}>
         <ProgressBar
           value={percentage}
           topLeftContent={
@@ -415,72 +328,122 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
               <DnsIcon className={styles.icon} /> Disk space
             </span>
           }
-          topRightContent={
-            <span className={styles.label}>
-              <span className={styles.em}>{max}</span>&nbsp;GB total
-            </span>
-          }
           bottomLeftContent={
             <span className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+              <span className={styles.em}>
+                {available} / {max}
+              </span>
+              &nbsp;GB available
             </span>
           }
           bottomRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{inUse}</span>&nbsp;GB used
+              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
             </span>
           }
         />
-        {freeMax > 0 ? (
-          <div className={styles.label}>
-            <div className={classNames(styles.freeCompute, { [styles.allUsed]: freeAvailable === 0 })}>
-              <CheckCircleIcon className={styles.freeIcon} />
-              Free compute
-            </div>
-            &nbsp;-&nbsp;
-            <span className={styles.em}>
-              {freeAvailable}/{freeMax}
-            </span>
-            &nbsp;available
-          </div>
-        ) : null}
       </div>
     );
   };
 
+  const getFreeComputeCheckbox = () => {
+    if (!environment.free) {
+      return null;
+    }
+    const isLoggedIn = freeAccess !== null;
+    const isDisabled = !isLoggedIn || !freeAccess;
+    const label = 'Free compute';
+    return (
+      <Checkbox
+        className={styles.freeComputeCheckbox}
+        disabled={isDisabled}
+        label={
+          isDisabled ? (
+            <div className="flexRow alignItemsCenter gapSm">
+              {label}
+              <Tooltip title="Your wallet address is not in this environment's access list">
+                <InfoOutlinedIcon className={styles.accessInfoIcon} />
+              </Tooltip>
+            </div>
+          ) : (
+            label
+          )
+        }
+        checked={isFreeCompute}
+        onChange={() => setIsFreeCompute(!isFreeCompute)}
+        type="multiple"
+      />
+    );
+  };
+
+  const getRunJobButton = () => {
+    const isLoggedIn = freeAccess !== null && paidAccess !== null;
+    const isDisabled = !isLoggedIn || (isFreeCompute && !freeAccess) || (!isFreeCompute && !paidAccess);
+    const button = (
+      <Button
+        color="accent2"
+        contentBefore={<PlayArrowIcon />}
+        disabled={isDisabled}
+        onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
+      >
+        {isFreeCompute ? 'Try for free' : `From ${startingFee} ${selectedTokenSymbol}/min`}
+      </Button>
+    );
+    if (isDisabled) {
+      return (
+        <Tooltip
+          title={
+            isLoggedIn
+              ? isFreeCompute
+                ? "Your wallet address is not in this environment's free compute access list"
+                : "Your wallet address is not in this environment's paid compute access list"
+              : 'You need to login to continue'
+          }
+        >
+          <div>{button}</div>
+        </Tooltip>
+      );
+    }
+    return button;
+  };
+
   return (
     <Card direction="column" innerShadow="black" padding="sm" radius="md" spacing="lg" variant="glass">
-      <div className={styles.gridWrapper}>
-        {compact ? (
-          <div className={classNames(styles.compactGrid)}>
-            {getGpuProgressBars()}
-            {getCpuProgressBar()}
-            {getRamProgressBar()}
-            {getDiskProgressBar()}
-          </div>
-        ) : gpus.length === 1 ? (
-          <>
-            <h4>Specs</h4>
-            <div className={classNames(styles.grid)}>
+      {!cpu && !gpus?.length && !ram && !disk ? (
+        <h3>No resources available</h3>
+      ) : (
+        <div className={styles.gridWrapper}>
+          {compact ? (
+            <div className={classNames(styles.compactGrid)}>
               {getGpuProgressBars()}
               {getCpuProgressBar()}
               {getRamProgressBar()}
               {getDiskProgressBar()}
             </div>
-          </>
-        ) : (
-          <>
-            <h4>GPUs</h4>
-            <div className={classNames(styles.grid, styles.gpuSpecs)}>{getGpuProgressBars()}</div>
-            <h4>Other specs</h4>
-            <div className={classNames(styles.grid, styles.specsWithoutGpus)}>
-              {getCpuProgressBar()}
-              {getRamProgressBar()}
-              {getDiskProgressBar()}
-            </div>
-          </>
-        )}
-      </div>
+          ) : gpus.length === 1 ? (
+            <>
+              <h4>Specs</h4>
+              <div className={classNames(styles.grid)}>
+                {getGpuProgressBars()}
+                {getCpuProgressBar()}
+                {getRamProgressBar()}
+                {getDiskProgressBar()}
+              </div>
+            </>
+          ) : (
+            <>
+              <h4>GPUs</h4>
+              <div className={classNames(styles.grid, styles.gpuSpecs)}>{getGpuProgressBars()}</div>
+              <h4>Other specs</h4>
+              <div className={classNames(styles.grid, styles.specsWithoutGpus)}>
+                {getCpuProgressBar()}
+                {getRamProgressBar()}
+                {getDiskProgressBar()}
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <div className={styles.footer}>
         <div>
           <div>
@@ -498,43 +461,21 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
               </Link>
             </div>
           ) : null}
+          {getFreeComputeCheckbox()}
         </div>
         <div className={styles.buttons}>
-          {environment.free ? (
-            <div className={styles.buttonWithInfo}>
-              <Button color="accent2" disabled={freeAccess !== true} onClick={selectFreeCompute} variant="outlined">
-                Try it
-              </Button>
-              {freeAccess === false ? (
-                <Tooltip title="Your wallet address is not in this environment's free compute access list">
-                  <InfoOutlinedIcon className={styles.accessInfoIcon} />
-                </Tooltip>
-              ) : freeAccess === null ? (
-                <Tooltip title="Connect your wallet to check access">
-                  <InfoOutlinedIcon className={styles.accessInfoIcon} />
-                </Tooltip>
-              ) : null}
-            </div>
+          {Object.entries(supportedTokensSymbols).length > 1 && !isFreeCompute ? (
+            <Select
+              onChange={(e) => setSelectedTokenAddress(e.target.value)}
+              options={Object.entries(supportedTokensSymbols).map(([address, symbol]) => ({
+                value: address,
+                label: symbol ?? address,
+              }))}
+              size="sm"
+              value={selectedTokenAddress}
+            />
           ) : null}
-          <div className={styles.buttonWithInfo}>
-            <Button
-              color="accent2"
-              contentBefore={<PlayArrowIcon />}
-              disabled={paidAccess !== true}
-              onClick={selectEnvironment}
-            >
-              From {startingFee} {tokenSymbol}/min
-            </Button>
-            {paidAccess === false ? (
-              <Tooltip title="Your wallet address is not in this environment's access list">
-                <InfoOutlinedIcon className={styles.accessInfoIcon} />
-              </Tooltip>
-            ) : paidAccess === null ? (
-              <Tooltip title="Connect your wallet to check access">
-                <InfoOutlinedIcon className={styles.accessInfoIcon} />
-              </Tooltip>
-            ) : null}
-          </div>
+          {getRunJobButton()}
         </div>
       </div>
     </Card>

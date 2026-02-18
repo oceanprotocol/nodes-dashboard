@@ -35,6 +35,18 @@
   .label {
     font-size: 12px;
   }
+
+  @media (min-width: 1100px) {
+    .cpuWrapper,
+    .gpuWrapper {
+      flex: 3;
+    }
+
+    .diskWrapper,
+    .ramWrapper {
+      flex: 2;
+    }
+  }
 }
 
 .link {
@@ -50,17 +62,6 @@
   color: var(--text-secondary);
   display: flex;
   font-size: 14px;
-
-  .freeCompute {
-    align-items: center;
-    color: var(--success);
-    display: inline-flex;
-    gap: 4px;
-
-    .freeIcon {
-      font-size: 14px;
-    }
-  }
 
   &.heading,
   .heading {
@@ -130,13 +131,18 @@
     }
   }
 
+  .freeComputeCheckbox {
+    margin-bottom: -12px;
+  }
+
   @media (min-width: 768px) {
-    align-items: center;
+    align-items: flex-end;
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: space-between;
 
     .buttons {
+      align-items: flex-end;
       flex-direction: row;
       flex-wrap: wrap;
     }
