@@ -185,7 +185,7 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     field: 'latestBenchmarkResults.totalScore',
     filterable: false,
     flex: 1,
-    headerName: 'Total Score',
+    headerName: 'Bench score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
   },
