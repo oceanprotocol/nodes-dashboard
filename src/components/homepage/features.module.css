@@ -21,10 +21,10 @@
   animation-delay: var(--pulse-delay);
   transition: transform 0.3s ease;
 
-  &:hover {
+  /* &:hover {
     animation-play-state: paused;
     transform: scale(1.02);
-  }
+  } */
 
   &.featureItemBlue {
     color: var(--text-primary);
