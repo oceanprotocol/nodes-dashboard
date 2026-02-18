@@ -111,7 +111,7 @@ a {
   padding: 2px 16px;
 
   &.chipGlass {
-    background: var(--background-glass);
+    background: var(--background-glass-secondary);
     color: var(--text-primary);
   }
   &.chipError {
