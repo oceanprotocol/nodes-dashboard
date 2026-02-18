@@ -108,7 +108,7 @@ const SelectEnvironment = () => {
             name="gpuName"
             onChange={formik.handleChange}
             options={gpuOptions}
-            placeholder="No GPU selected"
+            placeholder="Any GPU"
             renderOption={(option) => <GpuLabel gpu={option.label} />}
             renderSelectedValue={(option) => <GpuLabel gpu={option} />}
             value={formik.values.gpuName}
