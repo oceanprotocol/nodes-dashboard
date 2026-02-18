@@ -6,8 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "NODE_ENV=dev next build",
-    "build:prod": "NODE_ENV=production next build",
+    "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "eslint --ignore-path .gitignore --ext .ts,.tsx .",
     "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix",
