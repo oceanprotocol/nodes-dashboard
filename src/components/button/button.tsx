@@ -8,7 +8,7 @@ export type ButtonProps = {
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
-  color?: 'accent1' | 'accent2' | 'error' | 'primary';
+  color?: 'accent1' | 'accent2' | 'error' | 'primary' | 'primary-inverse';
   contentAfter?: React.ReactNode;
   contentBefore?: React.ReactNode;
   disabled?: boolean;
@@ -17,9 +17,9 @@ export type ButtonProps = {
   loading?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'link' | 'sm' | 'sm-const' | 'md' | 'md-const' | 'lg' | 'lg-const';
   type?: 'button' | 'submit' | 'reset';
-  variant?: 'filled' | 'outlined';
+  variant?: 'filled' | 'glass' | 'outlined' | 'transparent';
 };
 
 const Button = ({
@@ -46,13 +46,19 @@ const Button = ({
     styles[`color-${color}`],
     styles[`size-${size}`],
     styles[`variant-${variant}`],
+    { [styles.disabled]: disabled },
     className
   );
 
   const isLoading = loading || innerLoading;
   const isDisabled = disabled || isLoading;
 
-  const spinner = isLoading ? <CircularProgress color="inherit" size={{ sm: 14, md: 16, lg: 20 }[size]} /> : null;
+  const spinner = isLoading ? (
+    <CircularProgress
+      color="inherit"
+      size={{ link: 12, sm: 14, 'sm-const': 14, md: 16, 'md-const': 16, lg: 20, 'lg-const': 20 }[size]}
+    />
+  ) : null;
 
   const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick) {

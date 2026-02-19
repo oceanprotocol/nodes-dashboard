@@ -15,7 +15,7 @@ const Eligibility = ({ eligibility, eligibilityCauseStr, banInfo }: EligibilityP
   switch (eligibility) {
     case NodeEligibility.ELIGIBLE:
       return (
-        <Card className={styles.root} padding="sm" radius="md" variant="success">
+        <Card className={styles.root} padding="sm" radius="md" shadow="success" variant="success">
           <CheckCircleOutlineIcon className={styles.icon} />
           <h3>Eligible</h3>
           <div className={styles.content}>This node is active and can receive rewards</div>
@@ -23,7 +23,7 @@ const Eligibility = ({ eligibility, eligibilityCauseStr, banInfo }: EligibilityP
       );
     case NodeEligibility.NON_ELIGIBLE:
       return (
-        <Card className={styles.root} padding="sm" radius="md" variant="warning">
+        <Card className={styles.root} padding="sm" radius="md" shadow="warning" variant="warning">
           <ErrorOutlineIcon className={styles.icon} />
           <h3>Not eligible</h3>
           <div className={styles.content}>
@@ -34,7 +34,7 @@ const Eligibility = ({ eligibility, eligibilityCauseStr, banInfo }: EligibilityP
       );
     case NodeEligibility.BANNED:
       return (
-        <Card className={styles.root} padding="sm" radius="md" variant="error">
+        <Card className={styles.root} padding="sm" radius="md" shadow="error" variant="error">
           <HighlightOffIcon className={styles.icon} />
           <h3>Banned</h3>
           <div className={styles.content}>

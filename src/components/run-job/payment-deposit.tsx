@@ -67,7 +67,7 @@ const PaymentDeposit = ({
         <Button
           autoLoading
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={loadingPaymentInfo || isDepositing}
           onClick={loadPaymentInfo}
           size="lg"
@@ -78,7 +78,7 @@ const PaymentDeposit = ({
       ) : (
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={isDepositing || walletBalance < amountToDeposit}
           loading={isDepositing}
           size="lg"

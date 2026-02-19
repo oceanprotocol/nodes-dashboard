@@ -91,7 +91,7 @@ const TransferModalContent = ({
       <Input
         errorText={formik.touched.amount && formik.errors.amount ? formik.errors.amount : undefined}
         endAdornment={
-          <Button color="accent1" size="sm" onClick={setMaxAmount} type="button" variant="outlined">
+          <Button color="accent2" size="sm" onClick={setMaxAmount} type="button" variant="filled">
             Set max
           </Button>
         }
@@ -106,7 +106,7 @@ const TransferModalContent = ({
       <div className="flexRow gapSm justifyContentEnd">
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={transferTokens.isTransferring}
           onClick={onClose}
           size="md"
@@ -115,7 +115,7 @@ const TransferModalContent = ({
         >
           Cancel
         </Button>
-        <Button color="accent2" loading={transferTokens.isTransferring} size="md" type="submit">
+        <Button color="accent1" loading={transferTokens.isTransferring} size="md" type="submit">
           {transferTokens.isTransferring ? 'Transferring...' : 'Transfer'}
         </Button>
       </div>
@@ -136,12 +136,7 @@ const TransferModal = ({ balances, isOpen, onClose }: TransferModalProps) => {
       title="Transfer tokens"
       width="xs"
     >
-      <TransferModalContent
-        balances={balances}
-        isOpen={isOpen}
-        onClose={onClose}
-        transferTokens={transferTokens}
-      />
+      <TransferModalContent balances={balances} isOpen={isOpen} onClose={onClose} transferTokens={transferTokens} />
     </Modal>
   );
 };

@@ -50,7 +50,7 @@ const JobsRevenueStats = () => {
   }, [envs]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalRevenue"
@@ -62,6 +62,7 @@ const JobsRevenueStats = () => {
           currency: 'USDC',
           label: 'Total revenue',
         }}
+        minBars={16}
       />
       <Gauge
         centerLabel="Jobs"
@@ -89,6 +90,7 @@ const JobsRevenueStats = () => {
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
       />
     </Card>
   );

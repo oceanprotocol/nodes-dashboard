@@ -105,7 +105,7 @@ export const Balance = ({ admins }: BalanceProps) => {
   const hasAnyEscrowBalance = useMemo(() => escrowBalances.some((b) => b.amount > 0), [escrowBalances]);
 
   return (
-    <Card className={styles.root} padding="sm" radius="md" variant="glass">
+    <Card className={styles.root} padding="sm" radius="md" innerShadow="black" variant="glass">
       <div className={styles.content}>
         {ocean && isAdmin ? (
           <>
@@ -148,7 +148,7 @@ export const Balance = ({ admins }: BalanceProps) => {
         {isAdmin ? (
           <>
             <Button
-              color="accent2"
+              color="accent1"
               disabled={!ocean}
               onClick={() => setIsGasFeeModalOpen(true)}
               size="md"
@@ -166,7 +166,7 @@ export const Balance = ({ admins }: BalanceProps) => {
         {ocean && hasAnyEscrowBalance ? (
           <>
             <Button
-              color="accent2"
+              color="accent1"
               contentBefore={<DownloadIcon />}
               loading={loadingEscrowBalances}
               onClick={() => setIsWithdrawModalOpen(true)}

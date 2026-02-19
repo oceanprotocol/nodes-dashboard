@@ -12,7 +12,7 @@ const Environments = ({ nodeInfo }: EnvironmentsProps) => {
   const { isReady, envs } = useP2P();
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <div className={styles.list}>
         {!isReady ? (

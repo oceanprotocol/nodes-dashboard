@@ -1,4 +1,6 @@
 .main {
+  display: flex;
+  flex-direction: column;
   position: relative;
   min-height: 100vh;
 }
@@ -13,8 +15,11 @@
   z-index: -1;
 
   .backgorundImage {
-    width: auto;
+    filter: invert(1);
     max-height: 100%;
+    opacity: 0.75;
+    position: fixed;
+    width: auto;
   }
 }
 

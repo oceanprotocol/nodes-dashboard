@@ -59,7 +59,7 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Unban requests</h3>
         {isAdmin && (

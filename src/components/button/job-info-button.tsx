@@ -15,7 +15,7 @@ export const JobInfoButton = ({ job }: JobInfoButtonProps) => {
 
   return (
     <>
-      <Button color="accent1" variant="outlined" onClick={handleOpen}>
+      <Button color="accent1" onClick={handleOpen} size="sm" variant="transparent">
         Job Info
       </Button>
       <JobInfoModal job={job} open={open} onClose={handleClose} />

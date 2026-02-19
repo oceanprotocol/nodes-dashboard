@@ -40,7 +40,7 @@ const Stepper = <T extends string>({ currentStep, steps }: StepperProps<T>) => {
   };
 
   return (
-    <Card className={styles.root} variant="glass-shaded">
+    <Card className={styles.root} shadow="black" variant="glass-shaded">
       {visibleSteps.map((step, index) => (
         <Fragment key={step.key}>{renderStep(step, index)}</Fragment>
       ))}

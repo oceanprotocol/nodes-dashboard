@@ -2,6 +2,8 @@ import { FormControlLabel, Checkbox as MaterialCheckbox, Radio as MaterialRadio,
 
 type CheckboxProps = {
   checked: boolean;
+  className?: string;
+  disabled?: boolean;
   label?: React.ReactNode;
   name?: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -13,32 +15,47 @@ const StyledFormControlLabel = styled(FormControlLabel)({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 8,
+
+  '& .MuiFormControlLabel-label.Mui-disabled': {
+    color: 'var(--text-secondary)',
+  },
 });
 
 const StyledCheckbox = styled(MaterialCheckbox)({
-  color: 'var(--border-glass)',
+  color: 'var(--text-secondary)',
 
   '&.Mui-checked': {
     color: 'var(--accent1)',
+  },
+
+  '&.Mui-disabled': {
+    // color: 'var(--text-secondary)',
+    opacity: 0.5,
   },
 });
 
 const StyledRadio = styled(MaterialRadio)({
-  color: 'var(--border-glass)',
+  color: 'var(--text-secondary)',
 
   '&.Mui-checked': {
     color: 'var(--accent1)',
   },
+
+  '&.Mui-disabled': {
+    // color: 'var(--text-secondary)',
+    opacity: 0.5,
+  },
 });
 
-const Checkbox: React.FC<CheckboxProps> = ({ checked, label, name, onChange, type, value }) => {
+const Checkbox: React.FC<CheckboxProps> = ({ checked, className, disabled, label, name, onChange, type, value }) => {
   return (
     <StyledFormControlLabel
+      className={className}
       control={
         type === 'multiple' ? (
-          <StyledCheckbox checked={checked} name={name} onChange={onChange} value={value} />
+          <StyledCheckbox checked={checked} disabled={disabled} name={name} onChange={onChange} value={value} />
         ) : (
-          <StyledRadio checked={checked} name={name} onChange={onChange} value={value} />
+          <StyledRadio checked={checked} disabled={disabled} name={name} onChange={onChange} value={value} />
         )
       }
       label={label}

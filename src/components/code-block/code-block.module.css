@@ -1,6 +1,6 @@
 .root {
   align-items: start;
-  background: var(--background-glass);
+  background: var(--background-glass-secondary);
   border-radius: 16px;
   display: flex;
   font-family: monospace;

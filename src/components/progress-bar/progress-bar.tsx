@@ -3,8 +3,8 @@ import classNames from 'classnames';
 import styles from './progress-bar.module.css';
 
 const StyledLinearProgress = styled(LinearProgress)({
-  background: 'var(--background-glass)',
-  border: '2px solid var(--background-glass)',
+  background: 'var(--background-glass-secondary)',
+  border: '2px solid var(--background-glass-secondary)',
   borderRadius: 8,
   height: 16,
   '& .MuiLinearProgress-bar': {

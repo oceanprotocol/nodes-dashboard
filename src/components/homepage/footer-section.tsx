@@ -1,7 +1,6 @@
-import Logo from '@/assets/logo.svg';
+import Button from '@/components/button/button';
 import Container from '@/components/container/container';
 import config, { getLinks, getRoutes } from '@/config';
-import Link from 'next/link';
 import styles from './footer-section.module.css';
 
 const FooterSection = () => {
@@ -18,7 +17,6 @@ const FooterSection = () => {
         <div className={styles.upperRow}>
           <div className={styles.brandColumn}>
             <div className={styles.brandHeading}>
-              <Logo width={65} />
               <div className={styles.brandTitleGroup}>
                 <span className={styles.brandTitle}>Ocean Network</span>
               </div>
@@ -29,9 +27,9 @@ const FooterSection = () => {
             </p>
             <p className={styles.copy}>
               © {currentYear} All Rights Reserved. Powered by{' '}
-              <a href={links.website} target="_blank" rel="noreferrer">
+              <Button color="accent2" href={links.website} size="link" target="_blank" variant="transparent">
                 Ocean Network
-              </a>
+              </Button>
               .
             </p>
           </div>
@@ -46,9 +44,9 @@ const FooterSection = () => {
 
                 return (
                   <li key={route.path}>
-                    <Link href={route.path} className={styles.pageLink}>
+                    <Button color="primary-inverse" href={route.path} size="link" variant="transparent">
                       {route.name}
-                    </Link>
+                    </Button>
                   </li>
                 );
               })}
@@ -57,23 +55,41 @@ const FooterSection = () => {
         </div>
         <div className={styles.lowerRow}>
           <div className={styles.socialLinks}>
-            <a href={config.socialMedia.discord} target="_blank" rel="noreferrer">
+            <Button
+              color="primary-inverse"
+              href={config.socialMedia.discord}
+              size="link"
+              target="_blank"
+              variant="transparent"
+            >
               Discord
-            </a>
-            <a href={config.socialMedia.twitter} target="_blank" rel="noreferrer">
+            </Button>
+            <Button
+              color="primary-inverse"
+              href={config.socialMedia.twitter}
+              size="link"
+              target="_blank"
+              variant="transparent"
+            >
               X (Twitter)
-            </a>
-            <a href={config.socialMedia.youtube} target="_blank" rel="noreferrer">
+            </Button>
+            <Button
+              color="primary-inverse"
+              href={config.socialMedia.youtube}
+              size="link"
+              target="_blank"
+              variant="transparent"
+            >
               YouTube
-            </a>
+            </Button>
           </div>
           <div className={styles.legalLinks}>
-            <a href="#" className={styles.legalLink}>
+            <Button color="primary-inverse" href="#" size="link" variant="transparent">
               Terms
-            </a>
-            <a href="#" className={styles.legalLink}>
+            </Button>
+            <Button color="primary-inverse" href="#" size="link" variant="transparent">
               Privacy
-            </a>
+            </Button>
           </div>
         </div>
       </Container>

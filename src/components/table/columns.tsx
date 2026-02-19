@@ -14,7 +14,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
     return (
       <>
-        <CheckCircleOutlinedIcon style={{ fill: 'var(--success)' }} />
+        <CheckCircleOutlinedIcon style={{ fill: 'var(--success-darker)' }} />
         <span>Eligible</span>
       </>
     );
@@ -23,7 +23,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'Invalid status response':
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -31,7 +31,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'Banned':
         return (
           <>
-            <HighlightOffOutlinedIcon style={{ fill: 'var(--error)' }} />
+            <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
             <span>Banned</span>
           </>
         );
@@ -39,7 +39,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'No peer data':
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -47,7 +47,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       default:
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -60,7 +60,7 @@ function getUnbanAttemptResult(result: string) {
     case 'Pending':
       return (
         <>
-          <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+          <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
           <span>Pending</span>
         </>
       );
@@ -68,7 +68,7 @@ function getUnbanAttemptResult(result: string) {
     default:
       return (
         <>
-          <HighlightOffOutlinedIcon style={{ fill: 'var(--error)' }} />
+          <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
           <span>Failed</span>
         </>
       );
@@ -165,6 +165,48 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   },
 ];
 
+export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
+  {
+    field: 'friendlyName',
+    filterable: true,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+  },
+  {
+    field: 'gpus',
+    filterable: false,
+    flex: 1,
+    headerName: 'GPUs',
+    sortable: false,
+    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
+  },
+  {
+    field: 'latestBenchmarkResults.totalScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Bench score',
+    sortable: false,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
+  },
+  {
+    field: 'totalJobs',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total jobs',
+    sortable: false,
+    valueGetter: (_value, row) => row.totalJobs || 0,
+  },
+  {
+    field: 'totalRevenue',
+    filterable: false,
+    flex: 1,
+    headerName: 'Revenue',
+    sortable: false,
+    valueGetter: (_value, row) => `USDC ${row.totalRevenue || 0}`,
+  },
+];
+
 export const nodesTopByRevenueColumns: GridColDef<Node>[] = [
   {
     align: 'center',
@@ -194,7 +236,7 @@ export const nodesTopByRevenueColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Revenue',
     sortable: false,
-    valueGetter: (_value, row) => `$ ${row.totalRevenue || 0}`,
+    valueGetter: (_value, row) => `USDC ${row.totalRevenue || 0}`,
   },
   {
     field: 'latestTotalScore',

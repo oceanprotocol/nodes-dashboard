@@ -126,7 +126,7 @@ const WithdrawModalContent = ({
                 : undefined
             }
             endAdornment={
-              <Button color="accent1" size="sm" onClick={() => setMaxAmount(token)} type="button" variant="outlined">
+              <Button color="accent2" size="sm" onClick={() => setMaxAmount(token)} type="button" variant="filled">
                 Set max
               </Button>
             }
@@ -144,7 +144,7 @@ const WithdrawModalContent = ({
       <div className="flexRow gapSm justifyContentEnd">
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={withdrawTokens.isWithdrawing}
           onClick={onClose}
           size="md"
@@ -155,7 +155,7 @@ const WithdrawModalContent = ({
         </Button>
         <Button
           className={styles.modalButton}
-          color="accent2"
+          color="accent1"
           loading={withdrawTokens.isWithdrawing}
           size="md"
           type="submit"

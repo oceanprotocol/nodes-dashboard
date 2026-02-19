@@ -17,7 +17,7 @@ const NodeSetup = () => {
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Set up Ocean Node via Docker</h3>
       <div>Before starting, make sure the system requirements are met</div>
       <div>
@@ -43,7 +43,7 @@ const NodeSetup = () => {
       </div>
       <NodeConnection />
       {peerId ? (
-        <Button autoLoading className="alignSelfEnd" color="accent2" onClick={goToConfig} size="lg" variant="filled">
+        <Button autoLoading className="alignSelfEnd" color="accent1" onClick={goToConfig} size="lg" variant="filled">
           Continue
         </Button>
       ) : null}

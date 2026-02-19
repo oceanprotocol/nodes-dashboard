@@ -53,7 +53,7 @@ const GasFeeModalContent = ({
       <div className="flexRow gapSm justifyContentEnd">
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={depositTokens.isDepositing}
           onClick={onClose}
           size="md"
@@ -62,7 +62,7 @@ const GasFeeModalContent = ({
         >
           Cancel
         </Button>
-        <Button className="alignSelfEnd" color="accent2" loading={depositTokens.isDepositing} size="md" type="submit">
+        <Button className="alignSelfEnd" color="accent1" loading={depositTokens.isDepositing} size="md" type="submit">
           {depositTokens.isDepositing ? 'Sending...' : 'Send'}
         </Button>
       </div>

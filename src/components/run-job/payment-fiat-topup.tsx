@@ -189,7 +189,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
     <div className={styles.buttons}>
       <Button
         autoLoading
-        color="accent2"
+        color="accent1"
         contentBefore={<RefreshIcon />}
         onClick={loadPaymentInfo}
         size="lg"
@@ -198,7 +198,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         Refresh wallet balance
       </Button>
       <Button
-        color="accent2"
+        color="accent1"
         contentBefore={loadingGetStatus ? null : <CreditCardIcon />}
         disabled={loadingPaymentInfo}
         loading={loadingGetStatus}

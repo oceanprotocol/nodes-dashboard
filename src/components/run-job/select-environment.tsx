@@ -4,6 +4,7 @@ import EnvironmentCard from '@/components/environment-card/environment-card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import { getSupportedTokens } from '@/constants/tokens';
 import { RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
@@ -39,18 +40,29 @@ const SelectEnvironment = () => {
 
   const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
 
+  const feeTokenOptions = useMemo(() => {
+    const tokens = getSupportedTokens();
+    return [
+      { label: 'Any', value: '' },
+      ...Object.keys(tokens).map((token) => ({ value: tokens[token as keyof typeof tokens], label: token })),
+    ];
+  }, []);
+
   const formik = useFormik<FilterFormValues>({
     initialValues: {
+      feeToken: filters.feeToken ?? '',
       gpuName: filters.gpuName ?? [],
       fromMaxJobDuration: filters.fromMaxJobDuration ?? '',
       minimumCPU: filters.minimumCPU ?? '',
       minimumRAM: filters.minimumRAM ?? '',
       minimumStorage: filters.minimumStorage ?? '',
-      feeToken: '',
       sortBy: sort ?? '',
     },
     onSubmit: async (values) => {
       const filters: RawFilters = { gpuName: values.gpuName };
+      if (values.feeToken) {
+        filters.feeToken = values.feeToken;
+      }
       if (values.fromMaxJobDuration !== '') {
         filters.fromMaxJobDuration = Number(values.fromMaxJobDuration);
       }
@@ -75,27 +87,28 @@ const SelectEnvironment = () => {
     if (expanded) {
       formik.setValues({
         ...formik.values,
+        feeToken: '',
         fromMaxJobDuration: '',
         minimumCPU: '',
         minimumRAM: '',
         minimumStorage: '',
-        feeToken: '',
       });
     }
     setExpanded(!expanded);
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <form onSubmit={formik.handleSubmit}>
-        <Card direction="column" padding="sm" radius="md" spacing="sm" variant="glass-outline">
+        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
           <Select
             label="GPUs"
             multiple
             name="gpuName"
             onChange={formik.handleChange}
             options={gpuOptions}
+            placeholder="Any GPU"
             renderOption={(option) => <GpuLabel gpu={option.label} />}
             renderSelectedValue={(option) => <GpuLabel gpu={option} />}
             value={formik.values.gpuName}
@@ -142,30 +155,32 @@ const SelectEnvironment = () => {
                 type="number"
                 value={formik.values.fromMaxJobDuration}
               />
-              {/* <Select
-                label="Pricing token"
-                name="feeToken"
-                onChange={formik.handleChange}
-                size="sm"
-                value={formik.values.feeToken}
-              /> */}
             </div>
           </Collapse>
-          <div className={styles.footer}>
+          <div className={styles.filtersFooter}>
             <Select
-              className={styles.sortSelect}
               label="Sort"
               name="sortBy"
               onChange={formik.handleChange}
               options={sortOptions}
+              placeholder="No sorting"
               size="sm"
               value={formik.values.sortBy}
             />
+            <Select
+              label="Fee token"
+              name="feeToken"
+              onChange={formik.handleChange}
+              options={feeTokenOptions}
+              placeholder="Any"
+              size="sm"
+              value={formik.values.feeToken}
+            />
             <div className={styles.buttons}>
-              <Button color="accent1" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="outlined">
+              <Button color="primary" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="transparent">
                 {expanded ? 'Fewer filters' : 'More filters'}
               </Button>
-              <Button color="accent1" loading={loading} type="submit">
+              <Button color="accent2" loading={loading} type="submit" variant="filled">
                 Find environments
               </Button>
             </div>
@@ -173,24 +188,31 @@ const SelectEnvironment = () => {
         </Card>
       </form>
       <div className={styles.list}>
-        {nodeEnvs.map((node) =>
-          node.computeEnvironments.environments.map((env) => (
-            <EnvironmentCard
-              compact
-              environment={env}
-              key={env.id}
-              nodeInfo={{
-                friendlyName: node.friendlyName,
-                id: node.id,
-              }}
-              showNodeName
-            />
-          ))
-        )}
-        {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-          <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
-            Load more
-          </Button>
+        {nodeEnvs?.length > 0 ? (
+          <>
+            {nodeEnvs.map((node) =>
+              node.computeEnvironments.environments.map((env) => (
+                <EnvironmentCard
+                  compact
+                  defaultToken={filters.feeToken}
+                  environment={env}
+                  key={env.id}
+                  nodeInfo={{
+                    friendlyName: node.friendlyName,
+                    id: node.id,
+                  }}
+                  showNodeName
+                />
+              ))
+            )}
+            {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
+              <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
+                Load more
+              </Button>
+            )}
+          </>
+        ) : (
+          <p className="alignSelfCenter">No environments found</p>
         )}
       </div>
     </Card>

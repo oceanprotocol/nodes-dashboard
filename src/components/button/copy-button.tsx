@@ -7,7 +7,7 @@ type CopyButtonProps = Pick<ButtonProps, 'color' | 'size' | 'variant'> & {
   contentToCopy: string;
 };
 
-const CopyButton = ({ color = 'accent1', contentToCopy, size = 'sm', variant = 'outlined' }: CopyButtonProps) => {
+const CopyButton = ({ color = 'accent2', contentToCopy, size = 'sm', variant = 'filled' }: CopyButtonProps) => {
   const [copied, setCopied] = useState(false);
 
   const handleClick = () => {

@@ -98,7 +98,7 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
           <Button
             className="alignSelfStretch"
             disabled={formik.values.code.length !== 6 || formik.isSubmitting}
-            color="accent2"
+            color="accent1"
             loading={formik.isSubmitting}
             size="lg"
             type="submit"

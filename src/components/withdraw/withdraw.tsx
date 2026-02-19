@@ -9,7 +9,7 @@ import styles from './withdraw.module.css';
 
 const Withdraw = () => {
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <Card className={styles.balance} radius="md" variant="accent1-outline">
         <h3>User available funds in escrow</h3>
         <div className={styles.values}>
@@ -25,7 +25,7 @@ const Withdraw = () => {
         </div>
       </Card>
       <Input endAdornment="OCEAN" label="Amount" type="number" />
-      <Button className={styles.nextButton} color="accent2" contentBefore={<DownloadIcon />} size="lg">
+      <Button className={styles.nextButton} color="accent1" contentBefore={<DownloadIcon />} size="lg">
         Withdraw
       </Button>
     </Card>

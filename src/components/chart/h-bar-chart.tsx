@@ -22,7 +22,7 @@ const HBarChart = ({ axisKey, barKey, data }: HBarChartProps) => (
         <YAxis
           axisLine={false}
           dataKey={axisKey}
-          stroke="var(--border-glass)"
+          stroke="var(--border)"
           tick={{ fill: 'var(--text-primary)' }}
           tickLine={false}
           type="category"
@@ -30,7 +30,7 @@ const HBarChart = ({ axisKey, barKey, data }: HBarChartProps) => (
           width={120}
         />
         <Bar barSize={30} dataKey={barKey} fill="var(--accent1)" radius={[0, 10, 10, 0]} />
-        <CartesianGrid horizontal={true} stroke="var(--border-glass)" vertical={false} />
+        <CartesianGrid horizontal={true} stroke="var(--border)" vertical={false} />
       </BarChart>
     </ResponsiveContainer>
   </div>

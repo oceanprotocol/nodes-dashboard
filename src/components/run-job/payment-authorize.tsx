@@ -116,7 +116,7 @@ const PaymentAuthorize = ({
       </div>
       <Button
         className="alignSelfEnd"
-        color="accent2"
+        color="accent1"
         loading={loadingPaymentInfo || isAuthorizing}
         size="lg"
         type="submit"

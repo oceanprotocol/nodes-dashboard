@@ -1,6 +1,6 @@
 import Avatar from '@/components/avatar/avatar';
+import Menu from '@/components/menu/menu';
 import { useProfileContext } from '@/context/profile-context';
-import useTokenSymbol from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
 import { formatWalletAddress } from '@/utils/formatters';
@@ -8,8 +8,9 @@ import { useAuthModal, useLogout } from '@account-kit/react';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { ListItemIcon, Menu, MenuItem } from '@mui/material';
+import { ListItemIcon, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import Button from '../button/button';
@@ -29,7 +30,6 @@ const ProfileButton = () => {
   const [isClient, setIsClient] = useState(false);
 
   const grantAmount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
-  const grantTokenSymbol = useTokenSymbol(process.env.NEXT_PUBLIC_GRANT_TOKEN_ADDRESS);
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
@@ -68,6 +68,7 @@ const ProfileButton = () => {
     <>
       <Button
         className={styles.loginButton}
+        color="accent1"
         contentBefore={
           account.address ? <Avatar accountId={account.address} size="sm" src={ensProfile?.avatar} /> : <WalletIcon />
         }
@@ -97,20 +98,8 @@ const ProfileButton = () => {
           horizontal: 'center',
         }}
       >
-        {grantStatus === GrantStatus.CLAIMED ? null : (
-          <MenuItem
-            onClick={() => {
-              router.push('/grant/details');
-              handleCloseMenu();
-            }}
-          >
-            <ListItemIcon>
-              <RedeemIcon />
-            </ListItemIcon>
-            {grantAmount && grantTokenSymbol ? `Get ${grantAmount} ${grantTokenSymbol}` : 'Get grant'}
-          </MenuItem>
-        )}
         <MenuItem
+          disableRipple
           onClick={() => {
             router.push('/profile/consumer');
             handleCloseMenu();
@@ -121,32 +110,51 @@ const ProfileButton = () => {
           </ListItemIcon>
           Profile
         </MenuItem>
-        {/* <MenuItem
+        {grantStatus === GrantStatus.CLAIMED ? null : (
+          <MenuItem
+            disableRipple
+            onClick={() => {
+              router.push('/grant/details');
+              handleCloseMenu();
+            }}
+          >
+            <ListItemIcon>
+              <RedeemIcon />
+            </ListItemIcon>
+            Claim {grantAmount} COMPY
+          </MenuItem>
+        )}
+        <MenuItem
+          disableRipple
           onClick={() => {
-            openAuthModal();
+            router.push('/swap-tokens');
             handleCloseMenu();
           }}
         >
           <ListItemIcon>
-            <WalletIcon />
+            <SwapHorizIcon />
           </ListItemIcon>
-          Wallet
-        </MenuItem> */}
+          Convert USDC to COMPY
+        </MenuItem>
         <MenuItem
+          sx={{
+            color: 'var(--error-darker)',
+          }}
+          disableRipple
           onClick={() => {
             logout();
             handleCloseMenu();
           }}
         >
           <ListItemIcon>
-            <LogoutIcon />
+            <LogoutIcon sx={{ color: 'var(--error-darker)' }} />
           </ListItemIcon>
           Log out
         </MenuItem>
       </Menu>
     </>
   ) : (
-    <Button className={styles.loginButton} loading={isLoggingOut} onClick={openAuthModal}>
+    <Button className={styles.loginButton} color="accent1" loading={isLoggingOut} onClick={openAuthModal}>
       Log in
     </Button>
   );

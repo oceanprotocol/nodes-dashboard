@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
  * @returns The symbol of the token or null if the token address is invalid.
  */
 export const getTokenSymbol = async (tokenAddress: string | null | undefined): Promise<string | null> => {
-  if (!tokenAddress) {
+  if (!tokenAddress || typeof tokenAddress !== 'string') {
     return null;
   }
   const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
@@ -19,11 +19,22 @@ export const getTokenSymbol = async (tokenAddress: string | null | undefined): P
 };
 
 /**
+ * Fetches the symbols of tokens from their addresses.
+ * @param tokenAddresses The addresses of the tokens.
+ * @returns The symbols of the tokens in a map where the key is the token address and the value is the symbol.
+ */
+export const getTokensSymbols = async (tokenAddresses: string[]): Promise<Record<string, string | null>> => {
+  const symbols = await Promise.all(tokenAddresses.map((tokenAddress) => getTokenSymbol(tokenAddress)));
+  const symbolsMap = Object.fromEntries(tokenAddresses.map((tokenAddress, index) => [tokenAddress, symbols[index]]));
+  return symbolsMap;
+};
+
+/**
  * Custom hook that fetches the symbol of a token from its address.
  * @param tokenAddress The address of the token.
  * @returns The symbol of the token or null if the token address is invalid.
  */
-const useTokenSymbol = (tokenAddress: string | null | undefined) => {
+export const useTokenSymbol = (tokenAddress: string | null | undefined) => {
   const [symbol, setSymbol] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,4 +44,12 @@ const useTokenSymbol = (tokenAddress: string | null | undefined) => {
   return symbol;
 };
 
-export default useTokenSymbol;
+export const useTokensSymbols = (tokenAddresses: string[]) => {
+  const [symbols, setSymbols] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    getTokensSymbols(tokenAddresses).then((symbols) => setSymbols(symbols));
+  }, [tokenAddresses]);
+
+  return symbols;
+};

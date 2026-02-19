@@ -6,12 +6,13 @@ import styles from './modal.module.css';
 const StyledDialog = styled(Dialog)({
   '& .MuiModal-backdrop': {
     backdropFilter: 'var(--backdrop-filter-overlay)',
+    backgroundColor: 'var(--background-modal-overlay)',
   },
 
   '& .MuiDialog-paper': {
     background: 'var(--background-modal)',
     borderRadius: 24,
-    boxShadow: 'var(--shadow-dialog), var(--inner-shadow-glass)',
+    boxShadow: 'var(--inner-shadow-glass), var(--drop-shadow-black)',
     color: 'var(--text-primary)',
     display: 'flex',
     flexDirection: 'column',

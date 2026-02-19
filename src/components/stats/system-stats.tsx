@@ -7,8 +7,8 @@ import { useEffect } from 'react';
 import styles from './system-stats.module.css';
 
 const brandColors = {
-  primary: ['#009bff', '#0084dc', '#006eb9', '#005896', '#004273', '#002c50'],
-  other: '#ffffff',
+  primary: ['#d54335', '#e26256', '#f2776c', '#f89990', '#ffb1aa', '#fbc2b8'],
+  other: 'var(--background-glass-secondary)',
 };
 
 interface ChartDataItem {
@@ -86,7 +86,7 @@ const SystemStats = () => {
   }, [fetchSystemStats, systemStats.cpuCounts]);
 
   return (
-    <Card className={styles.root} paddingX="lg" paddingY="sm" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} paddingX="lg" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <PieChart
         chartType={ChartTypeEnum.CPU_CORES_DISTRIBUTION}
         data={processCpuData(systemStats)}
