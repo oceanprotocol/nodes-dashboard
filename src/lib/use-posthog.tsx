@@ -24,6 +24,9 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
           document.getElementById(`CybotCookiebotDialogBodyLevelButton${category}`)?.parentNode as HTMLElement
         ).style.display = 'none';
         (document.getElementById(`CybotCookiebotDialogBodyLevelButton${category}`) as HTMLInputElement).checked = false;
+        (
+          document.querySelector(`label[for=CybotCookiebotDialogBodyLevelButton${category}]`)?.parentNode as HTMLElement
+        ).style.display = 'none';
       }
     }
 
