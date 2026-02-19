@@ -80,7 +80,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
         hostAppName: 'Ocean Network',
         outAssetValue: normalizedAmountToTopup,
-        url: process.env.NODE_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
+        url: process.env.NEXT_PUBLIC_APP_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
         userAddress: account.address,
         // TODO remove 'as any' once Ramp SDK types are updated
       } as any)

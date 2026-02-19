@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import FaucetAbi from '@/constants/abis/faucet.json';
-import useTokenSymbol from '@/lib/token-symbol';
+import { useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ClaimGrantResponse, GrantDetails } from '@/types/grant';
 import { useAuthModal } from '@account-kit/react';
