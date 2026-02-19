@@ -379,7 +379,13 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           isDisabled ? (
             <div className="flexRow alignItemsCenter gapSm">
               {label}
-              <Tooltip title="Your wallet address is not in this environment's access list">
+              <Tooltip
+                title={
+                  isLoggedIn
+                    ? "Your wallet address is not in this environment's access list"
+                    : 'You need to log in to continue'
+                }
+              >
                 <InfoOutlinedIcon className={styles.accessInfoIcon} />
               </Tooltip>
             </div>
