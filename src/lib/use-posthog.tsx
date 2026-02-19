@@ -22,6 +22,7 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
           api_host: "https://eu.i.posthog.com",
           defaults: '2026-01-30',
           capture_exceptions: true,
+          enable_heatmaps: true
         })
       }
     }
@@ -29,7 +30,11 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
     initPostHog()
 
     window.addEventListener('CookiebotOnAccept', initPostHog)
-    return () => window.removeEventListener('CookiebotOnAccept', initPostHog)
+    window.addEventListener('CookiebotOnDecline', posthog.opt_out_capturing())
+    return () => {
+        window.removeEventListener('CookiebotOnAccept', initPostHog)
+        window.removeEventListener('CookiebotOnDecline', posthog.opt_out_capturing())
+    }
   }, [])
 
   return (
