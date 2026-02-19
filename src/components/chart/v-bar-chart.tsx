@@ -1,5 +1,6 @@
 import { ChartTypeEnum } from '@/components/chart/chart-type';
 import { useCustomTooltip } from '@/components/chart/use-custom-tooltip';
+import { useMemo } from 'react';
 import { Bar, BarChart as RechartsBarChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis } from 'recharts';
 import styles from './v-bar-chart.module.css';
 
@@ -22,6 +23,19 @@ const VBarChart = ({ axisKey, barKey, chartType, data, footer, title }: VBarChar
     labelKey: axisKey,
   });
 
+  const paddedData = useMemo(() => {
+    const maxValue = data.reduce((acc, crt) => {
+      if (crt[barKey] > acc) {
+        return crt[barKey];
+      }
+      return acc;
+    }, 0);
+    const paddedData = data.map((item) => ({ ...item, _maxValue: maxValue }));
+    return paddedData;
+  }, [barKey, data]);
+
+  console.log(paddedData);
+
   return (
     <div className={styles.chartWrapper}>
       <h3 className={styles.heading}>{title}</h3>
@@ -31,8 +45,9 @@ const VBarChart = ({ axisKey, barKey, chartType, data, footer, title }: VBarChar
         style={{ width: '100%', height: '100%', position: 'relative' }}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <RechartsBarChart barSize={8} data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+          <RechartsBarChart barSize={8} data={paddedData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barGap={-8}>
             <XAxis dataKey={axisKey} hide />
+            <Bar fill="var(--background-glass-secondary)" dataKey={'_maxValue'} />
             <Bar fill="var(--accent1)" dataKey={barKey} />
             <RechartsTooltip content={<CustomRechartsTooltipComponent />} cursor={false} />
           </RechartsBarChart>
