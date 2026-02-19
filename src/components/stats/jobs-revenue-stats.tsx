@@ -26,6 +26,7 @@ const JobsRevenueStats = () => {
         barKey="totalRevenue"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={revenuePerEpoch}
+        minBars={16}
         title="Revenue per epoch"
       />
       <VBarChart
@@ -37,6 +38,7 @@ const JobsRevenueStats = () => {
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
         title="Jobs per epoch"
       />
     </Card>

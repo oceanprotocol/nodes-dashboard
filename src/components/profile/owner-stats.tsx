@@ -41,6 +41,7 @@ const OwnerStats = () => {
           currency: 'OCEAN',
           label: 'Total revenue',
         }}
+        minBars={16}
       />
       <VBarChart
         axisKey="epochId"
@@ -52,6 +53,7 @@ const OwnerStats = () => {
           amount: formatNumber(totalNetworkJobs + totalBenchmarkJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
       />
       <Gauge
         label="Eligible"

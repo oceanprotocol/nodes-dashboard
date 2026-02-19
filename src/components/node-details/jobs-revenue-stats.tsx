@@ -62,6 +62,7 @@ const JobsRevenueStats = () => {
           currency: 'USDC',
           label: 'Total revenue',
         }}
+        minBars={16}
       />
       <Gauge
         centerLabel="Jobs"
@@ -89,6 +90,7 @@ const JobsRevenueStats = () => {
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
       />
     </Card>
   );

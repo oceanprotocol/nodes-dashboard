@@ -38,6 +38,7 @@ const ConsumerStats = () => {
           currency: 'OCEAN',
           label: 'Total paid',
         }}
+        minBars={16}
       />
       <VBarChart
         axisKey="epochId"
@@ -49,6 +50,7 @@ const ConsumerStats = () => {
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
       />
       <Gauge
         label="Successful"

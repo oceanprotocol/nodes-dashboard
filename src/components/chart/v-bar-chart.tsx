@@ -14,27 +14,53 @@ type VBarChartProps = {
     currency?: string;
     label: string;
   };
+  minBars?: number;
   title: string;
 };
 
-const VBarChart = ({ axisKey, barKey, chartType, data, footer, title }: VBarChartProps) => {
+const VBarChart = ({ axisKey, barKey, chartType, data, footer, minBars, title }: VBarChartProps) => {
   const { handleMouseMove, handleMouseLeave, CustomRechartsTooltipComponent, renderTooltipPortal } = useCustomTooltip({
     chartType,
     labelKey: axisKey,
   });
 
-  const paddedData = useMemo(() => {
+  const processedData = useMemo(() => {
+    // Sort data
+    const sortedData = data.sort((d1, d2) => (d1[axisKey] ?? 0) - (d2[axisKey] ?? 0));
+
+    // Find max value
     const maxValue = data.reduce((acc, crt) => {
       if (crt[barKey] > acc) {
         return crt[barKey];
       }
       return acc;
     }, 0);
-    const paddedData = data.map((item) => ({ ...item, _maxValue: maxValue }));
-    return paddedData;
-  }, [barKey, data]);
 
-  console.log(paddedData);
+    // Add max value as a separate key to the data
+    const dataWithMaxValue = sortedData.map((item) => ({ ...item, _maxValue: maxValue }));
+
+    // Add padding at the begining if minBars is greater than data length
+    if (minBars && minBars > dataWithMaxValue.length) {
+      // Create empty bars at an equal distance as between the first 2 bars
+      const padding = [];
+      const barsToAdd = minBars - dataWithMaxValue.length;
+      const axisDiff = [0, 1].includes(dataWithMaxValue.length)
+        ? 1
+        : dataWithMaxValue[1][axisKey] - dataWithMaxValue[0][axisKey];
+      const axisStart = dataWithMaxValue.length === 0 ? 0 : dataWithMaxValue[0][axisKey];
+      for (let i = 0; i < barsToAdd; i++) {
+        padding.unshift({
+          [axisKey]: axisStart - (i + 1) * axisDiff,
+          [barKey]: 0,
+          _maxValue: maxValue,
+        });
+      }
+      // Add empty bars before the first bar
+      return [...padding, ...dataWithMaxValue];
+    }
+
+    return dataWithMaxValue;
+  }, [axisKey, barKey, data, minBars]);
 
   return (
     <div className={styles.chartWrapper}>
@@ -45,10 +71,15 @@ const VBarChart = ({ axisKey, barKey, chartType, data, footer, title }: VBarChar
         style={{ width: '100%', height: '100%', position: 'relative' }}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <RechartsBarChart barSize={8} data={paddedData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barGap={-8}>
+          <RechartsBarChart
+            barGap={-8}
+            barSize={8}
+            data={processedData}
+            margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+          >
             <XAxis dataKey={axisKey} hide />
-            <Bar fill="var(--background-glass-secondary)" dataKey={'_maxValue'} />
             <Bar fill="var(--accent1)" dataKey={barKey} />
+            <Bar fill="var(--background-glass-secondary)" dataKey={'_maxValue'} />
             <RechartsTooltip content={<CustomRechartsTooltipComponent />} cursor={false} />
           </RechartsBarChart>
         </ResponsiveContainer>
