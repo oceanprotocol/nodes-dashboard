@@ -17,6 +17,7 @@ declare global {
 export function PHProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function initPostHog() {
+      console.log({ msg: "in initPostHog", statistics: window.Cookiebot?.consent?.statistics })
       if (window.Cookiebot?.consent?.statistics) {
         posthog.init('phc_hD7bhooFbRUWqSWOvRAZiHv4tr6mYYgleeWGkQ52eWD', {
           api_host: 'https://eu.i.posthog.com',
@@ -28,6 +29,7 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
     }
 
     function optOutCapturing() {
+      console.log({ msg: 'in optOutCapturing', statistics: window.Cookiebot?.consent?.statistics}) 
       if (!window.Cookiebot?.consent?.statistics) {
         posthog.opt_out_capturing();
       }
