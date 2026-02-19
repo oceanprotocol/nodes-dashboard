@@ -6,6 +6,14 @@ import { useEffect } from 'react';
 
 declare global {
   interface Window {
+    CookieConsentDialog?: {
+      // cookieTableNecessaryCount?: number;
+      // cookieTablePreferenceCount?: number;
+      // cookieTableStatisticsCount?: number;
+      // cookieTableAdvertisingCount?: number;
+      // cookieTableUnclassifiedCount?: number;
+      [key: string]: number;
+    };
     Cookiebot?: {
       consent?: {
         statistics?: boolean;
@@ -17,17 +25,21 @@ declare global {
 export function PHProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function hideUnusedCookieOptions() {
-      const categories = ['Preferences', 'Marketing'];
-
-      for (const category of categories) {
-        (
-          document.getElementById(`CybotCookiebotDialogBodyLevelButton${category}`)?.parentNode as HTMLElement
-        ).style.display = 'none';
-        (document.getElementById(`CybotCookiebotDialogBodyLevelButton${category}`) as HTMLInputElement).checked = false;
-        (
-          document.querySelector(`label[for=CybotCookiebotDialogBodyLevelButton${category}]`)?.parentNode as HTMLElement
-        ).style.display = 'none';
-      }
+      const detailCategories = ['Preference', 'Statistics', 'Advertising', 'Unclassified'],
+        toggleCategories = ['Preferences', 'Statistics', 'Marketing'];
+      detailCategories.forEach((e) => {
+        if (window.CookieConsentDialog?.[`cookieTable${e}Count`] === 0)
+          (
+            document.getElementById(`CybotCookiebotDialogDetailBodyContentCookieContainer${e}Card`)
+              ?.parentNode as HTMLElement
+          ).style.display = 'none';
+      });
+      for (let i = 0; i < 3; i++)
+        if (window.CookieConsentDialog?.[`cookieTable${detailCategories[i]}Count`] === 0)
+          (
+            document.querySelector(`label[for=CybotCookiebotDialogBodyLevelButton${toggleCategories[i]}]`)
+              ?.parentNode as HTMLElement
+          ).style.display = 'none';
     }
 
     function initPostHog() {
