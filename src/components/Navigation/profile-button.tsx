@@ -12,7 +12,6 @@ import WalletIcon from '@mui/icons-material/Wallet';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
-import posthog from 'posthog-js'
 import Button from '../button/button';
 import styles from './navigation.module.css';
 
@@ -136,7 +135,6 @@ const ProfileButton = () => {
         <MenuItem
           onClick={() => {
             logout();
-            posthog.reset()
             handleCloseMenu();
           }}
         >

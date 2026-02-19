@@ -28,7 +28,9 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
     }
 
     function optOutCapturing() {
-      return posthog.opt_out_capturing();
+      if (!window.Cookiebot?.consent?.statistics) {
+        posthog.opt_out_capturing();
+      }
     }
 
     initPostHog();
