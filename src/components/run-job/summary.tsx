@@ -2,32 +2,18 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
+import Menu from '@/components/menu/menu';
 import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { generateAuthToken } from '@/utils/generateAuthToken';
-import { ListItemIcon, Menu, MenuItem, styled } from '@mui/material';
+import { ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './summary.module.css';
-
-const StyledMenu = styled(Menu)({
-  '& .MuiPaper-root': {
-    backdropFilter: 'var(--backdrop-filter-glass)',
-    background: 'var(--background-glass)',
-    border: '1px solid var(--border)',
-    boxShadow: 'var(--drop-shadow-black)',
-    borderRadius: 16,
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: 16,
-    marginTop: 8,
-  },
-});
-
 type SummaryProps = {
   estimatedTotalCost: number;
   freeCompute: boolean;
@@ -178,7 +164,7 @@ const Summary = ({
             >
               Choose editor
             </Button>
-            <StyledMenu
+            <Menu
               anchorEl={anchorEl}
               anchorOrigin={{
                 vertical: 'bottom',
@@ -211,7 +197,7 @@ const Summary = ({
                   {ide.name}
                 </MenuItem>
               ))}
-            </StyledMenu>
+            </Menu>
             <Button
               autoLoading
               color="accent1"

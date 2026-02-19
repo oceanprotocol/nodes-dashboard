@@ -1,4 +1,5 @@
 import Avatar from '@/components/avatar/avatar';
+import Menu from '@/components/menu/menu';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
@@ -9,25 +10,11 @@ import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { ListItemIcon, Menu, MenuItem, styled } from '@mui/material';
+import { ListItemIcon, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import Button from '../button/button';
 import styles from './navigation.module.css';
-
-const StyledMenu = styled(Menu)({
-  '& .MuiPaper-root': {
-    backdropFilter: 'var(--backdrop-filter-glass)',
-    background: 'var(--background-glass)',
-    border: '1px solid var(--border)',
-    boxShadow: 'var(--drop-shadow-black)',
-    borderRadius: 16,
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: 16,
-    marginTop: 8,
-  },
-});
 
 const ProfileButton = () => {
   const router = useRouter();
@@ -92,7 +79,7 @@ const ProfileButton = () => {
       >
         {accountName}
       </Button>
-      <StyledMenu
+      <Menu
         anchorEl={anchorEl}
         anchorOrigin={{
           vertical: 'bottom',
@@ -164,7 +151,7 @@ const ProfileButton = () => {
           </ListItemIcon>
           Log out
         </MenuItem>
-      </StyledMenu>
+      </Menu>
     </>
   ) : (
     <Button className={styles.loginButton} color="accent1" loading={isLoggingOut} onClick={openAuthModal}>
