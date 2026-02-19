@@ -14,7 +14,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
   if (eligible) {
     return (
       <>
-        <CheckCircleOutlinedIcon style={{ fill: 'var(--success)' }} />
+        <CheckCircleOutlinedIcon style={{ fill: 'var(--success-darker)' }} />
         <span>Eligible</span>
       </>
     );
@@ -23,7 +23,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'Invalid status response':
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -31,7 +31,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'Banned':
         return (
           <>
-            <HighlightOffOutlinedIcon style={{ fill: 'var(--error)' }} />
+            <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
             <span>Banned</span>
           </>
         );
@@ -39,7 +39,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       case 'No peer data':
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -47,7 +47,7 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
       default:
         return (
           <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
             <span>Not eligible</span>
           </>
         );
@@ -60,7 +60,7 @@ function getUnbanAttemptResult(result: string) {
     case 'Pending':
       return (
         <>
-          <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning)' }} />
+          <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
           <span>Pending</span>
         </>
       );
@@ -68,7 +68,7 @@ function getUnbanAttemptResult(result: string) {
     default:
       return (
         <>
-          <HighlightOffOutlinedIcon style={{ fill: 'var(--error)' }} />
+          <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
           <span>Failed</span>
         </>
       );
