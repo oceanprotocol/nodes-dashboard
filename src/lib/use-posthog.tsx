@@ -7,11 +7,11 @@ import { useEffect } from 'react';
 declare global {
   interface Window {
     CookieConsentDialog?: {
-      // cookieTableNecessaryCount?: number;
-      // cookieTablePreferenceCount?: number;
-      // cookieTableStatisticsCount?: number;
-      // cookieTableAdvertisingCount?: number;
-      // cookieTableUnclassifiedCount?: number;
+      // cookieTableNecessaryCount: number;
+      // cookieTablePreferenceCount: number;
+      // cookieTableStatisticsCount: number;
+      // cookieTableAdvertisingCount: number;
+      // cookieTableUnclassifiedCount: number;
       [key: string]: number;
     };
     Cookiebot?: {
@@ -25,8 +25,9 @@ declare global {
 export function PHProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function hideUnusedCookieOptions() {
-      const detailCategories = ['Preference', 'Statistics', 'Advertising', 'Unclassified'],
-        toggleCategories = ['Preferences', 'Statistics', 'Marketing'];
+      // we keep `Statistics` always visible, as we use them for posthog
+      const detailCategories = ['Preference', 'Advertising', 'Unclassified'],
+        toggleCategories = ['Preferences', 'Marketing'];
       detailCategories.forEach((e) => {
         if (window.CookieConsentDialog?.[`cookieTable${e}Count`] === 0)
           (
