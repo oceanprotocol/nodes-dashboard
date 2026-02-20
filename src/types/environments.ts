@@ -30,11 +30,22 @@ export type ComputeResource = {
   type?: ComputeResourceType;
 };
 
+export type AccessListContract = {
+  [chainId: string]: string[];
+};
+
+export type EnvironmentAccess = {
+  addresses: string[];
+  accessLists: AccessListContract;
+};
+
 export type ComputeEnvironment = {
+  access?: EnvironmentAccess;
   consumerAddress: string;
   description?: string;
   fees: ComputeEnvFeesStructure;
   free?: {
+    access?: EnvironmentAccess;
     storageExpiry?: number;
     maxJobDuration?: number;
     maxJobs?: number;

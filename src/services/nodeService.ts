@@ -9,7 +9,7 @@ import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
-import { multiaddr, type Multiaddr } from '@multiformats/multiaddr';
+import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string';
@@ -19,6 +19,7 @@ let isNodeReady = false;
 const DEFAULT_PROTOCOL = '/ocean/nodes/1.0.0';
 const DEFAULT_TIMEOUT = 10000;
 const MULTIADDR_DIAL_TIMEOUT = 5000;
+const RESPONSE_TIMEOUT = 30000;
 const BOOTSTRAP_TIMEOUT = 30000;
 const MIN_BOOTSTRAP_CONNECTIONS = 1;
 
@@ -84,6 +85,8 @@ export async function initializeNode(bootstrapNodes: string[]) {
       transports: [webSockets()],
       connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
+      // overwrite connectionGater for local testing
+      // connectionGater: createConnectionGater(),
       peerDiscovery: [
         bootstrap({
           list: bootstrapNodes,
@@ -164,6 +167,20 @@ async function dialPeer(target: MultiaddrsOrPeerId): Promise<Connection> {
     return nodeInstance.dial(peerIdFromString(peerId), { signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
   }
 }
+// Used for local testing to overwrite libp2p connectionGater
+// function createConnectionGater(): ConnectionGater {
+//   return {
+//     denyDialPeer: async () => false,
+//     denyDialMultiaddr: async () => false,
+//     denyInboundConnection: async () => false,
+//     denyOutboundConnection: async () => false,
+//     denyInboundEncryptedConnection: async () => false,
+//     denyOutboundEncryptedConnection: async () => false,
+//     denyInboundUpgradedConnection: async () => false,
+//     denyOutboundUpgradedConnection: async () => false,
+//     filterMultiaddrForPeer: async () => true,
+//   };
+// }
 
 function toBytes(chunk: Uint8Array | { subarray(): Uint8Array }): Uint8Array {
   return chunk instanceof Uint8Array ? chunk : chunk.subarray();
@@ -220,45 +237,59 @@ export async function sendCommandToPeer(
     stream.send(uint8ArrayFromString(JSON.stringify(command)));
     await stream.close();
 
-    const it = stream[Symbol.asyncIterator]();
-    const { done, value } = await it.next();
-    const firstChunk = value !== null ? toBytes(value) : null;
+    const responsePromise = (async () => {
+      const it = stream[Symbol.asyncIterator]();
+      const { done, value } = await it.next();
+      const firstChunk = value !== null ? toBytes(value) : null;
 
-    if (done || !firstChunk?.length) {
-      return { status: { httpStatus: 500, error: 'No response from peer' } };
-    }
-
-    const statusText = uint8ArrayToString(firstChunk);
-    try {
-      const status = JSON.parse(statusText);
-      if (typeof status?.httpStatus === 'number' && status.httpStatus >= 400) {
-        return { status: { httpStatus: status.httpStatus, error: status.error } };
+      if (done || !firstChunk?.length) {
+        return { status: { httpStatus: 500, error: 'No response from peer' } };
       }
-    } catch {
-      // First chunk not valid JSON status, continue
-    }
 
-    const chunks: Uint8Array[] = [firstChunk];
-    for await (const c of remainingChunks(it)) {
-      chunks.push(c);
-    }
-
-    let response: unknown;
-    for (let i = 0; i < chunks.length; i++) {
-      const text = uint8ArrayToString(chunks[i]);
+      const statusText = uint8ArrayToString(firstChunk);
       try {
-        response = JSON.parse(text);
+        const status = JSON.parse(statusText);
+        if (typeof status?.httpStatus === 'number' && status.httpStatus >= 400) {
+          return { status: { httpStatus: status.httpStatus, error: status.error } };
+        }
       } catch {
-        response = chunks[i];
+        // First chunk not valid JSON status, continue
       }
-    }
 
-    const res = response as { httpStatus?: number; error?: string } | null;
-    if (typeof res?.httpStatus === 'number' && res.httpStatus >= 400) {
-      return { status: { httpStatus: res.httpStatus, error: res.error } };
-    }
+      const chunks: Uint8Array[] = [firstChunk];
+      for await (const c of remainingChunks(it)) {
+        chunks.push(c);
+      }
 
-    return response;
+      let response: unknown;
+      for (let i = 0; i < chunks.length; i++) {
+        const text = uint8ArrayToString(chunks[i]);
+        try {
+          response = JSON.parse(text);
+        } catch {
+          response = chunks[i];
+        }
+      }
+
+      const res = response as { httpStatus?: number; error?: string } | null;
+      if (typeof res?.httpStatus === 'number' && res.httpStatus >= 400) {
+        return { status: { httpStatus: res.httpStatus, error: res.error } };
+      }
+
+      return response;
+    })();
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(`Response timeout: peer ${multiaddrsOrPeerId} did not respond within ${RESPONSE_TIMEOUT}ms`)
+          ),
+        RESPONSE_TIMEOUT
+      )
+    );
+
+    return await Promise.race([responsePromise, timeoutPromise]);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Command failed:', errorMessage);
@@ -350,6 +381,22 @@ export async function fetchNodeConfig(
     signature,
     expiryTimestamp,
     address,
+  });
+}
+
+export async function getNodeLogs(
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
+  signature: string,
+  expiryTimestamp: number,
+  params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
+  address?: string
+) {
+  return sendCommandToPeer(multiaddrsOrPeerId, {
+    command: Command.GET_LOGS,
+    signature,
+    expiryTimestamp,
+    address,
+    ...params,
   });
 }
 
