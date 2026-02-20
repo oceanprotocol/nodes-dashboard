@@ -1,5 +1,6 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -63,6 +64,9 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       const addressToSend = user?.type === 'sca' ? account.address : undefined;
       const config = await p2pFetchConfig(peerId, signedMessage, timestamp, addressToSend);
       setNodeConfig(config);
+      posthog.capture('runNode_fetchConfig', {
+        peerId,
+      });
     } catch (error) {
       console.error('Error fetching node config:', error);
       toast.error('Failed to fetch node config');
@@ -86,6 +90,9 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
         setNodeConfig(config);
         setConfigErrors([]);
         success = true;
+        posthog.capture('runNode_pushConfig', {
+          peerId,
+        });
       } catch (error) {
         if (error instanceof Error) {
           if (error.message.startsWith('Config validation failed:')) {
