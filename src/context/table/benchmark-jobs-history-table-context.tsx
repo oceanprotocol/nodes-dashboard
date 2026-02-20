@@ -75,11 +75,16 @@ export const BenchmarkJobsHistoryTableProvider = ({ children, nodeId }: { childr
       const response = await axios.get(fetchUrl);
       const sanitizedData = response.data.benchmarkJobs.map((element: any, index: number) => ({
         ...element,
-        score: element.benchmarkResults.gpuScore,
-        startTime: formatDateTime(element.startTime),
-        endTime: formatDateTime(element.endTime),
+        score: element.benchmarkResults?.gpuScore,
+        startTime: formatDateTime(element.startTime / 1000),
+        endTime: element.endTime ? formatDateTime(element.endTime / 1000) : '-',
         id: element.jobId,
         index: (crtPage - 1) * pageSize + index + 1,
+        statusText: element.status,
+        payment: element.paymentInfo,
+        algoDuration: element.endTime && element.startTime
+          ? (element.endTime - element.startTime) / 1000
+          : null,
       }));
 
       setData(sanitizedData);
