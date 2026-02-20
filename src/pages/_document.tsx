@@ -1,4 +1,5 @@
 import { Head, Html, Main, NextScript } from 'next/document';
+import Script from 'next/script';
 
 export default function Document() {
   return (
@@ -27,6 +28,7 @@ export default function Document() {
       <body>
         <Main />
         <NextScript />
+        <Script strategy="beforeInteractive" id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="6be0fc4f-9e9c-4dee-a06f-e5bb0584cfe6" data-blockingmode="auto" type="text/javascript"/>
       </body>
     </Html>
   );

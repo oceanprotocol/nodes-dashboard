@@ -9,6 +9,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Authorizations } from '@/types/payment';
 import { CircularProgress } from '@mui/material';
+import posthog from 'posthog-js';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -72,6 +73,11 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
     const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost + currentLockedAmount;
     const enoughLockSeconds = (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationHours;
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
+      posthog.capture('payment_authorized', {
+        totalCost,
+        tokenSymbol: selectedToken.symbol,
+        tokenAddress: selectedToken.address,
+      });
       router.push('/run-job/summary');
     }
   }, [

@@ -4,6 +4,8 @@ import { CodeBlock } from '@/components/code-block/code-block';
 import NodeConnection from '@/components/run-node/node-connection';
 import { useRunNodeContext } from '@/context/run-node-context';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
+import { useEffect } from 'react';
 import styles from './node-setup.module.css';
 
 const NodeSetup = () => {
@@ -11,8 +13,13 @@ const NodeSetup = () => {
 
   const { fetchConfig, peerId } = useRunNodeContext();
 
+  useEffect(() => {
+    posthog.capture('runNode_setup');
+  }, []);
+
   const goToConfig = async () => {
     await fetchConfig();
+    posthog.capture('runNode_configure');
     router.push('/run-node/configure');
   };
 

@@ -13,7 +13,8 @@ import {
 } from '@account-kit/react';
 import { CircularProgress } from '@mui/material';
 import { ethers } from 'ethers';
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import posthog from 'posthog-js';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type OceanAccountContextType = {
   account: {
@@ -43,6 +44,12 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
   const address = client?.account?.address ?? user?.address;
   const isConnected = !!client;
+
+  useEffect(() => {
+    if (address) {
+      posthog.identify(address);
+    }
+  }, [address]);
 
   const provider = useMemo(() => {
     if (!isConnected) return null;
@@ -122,6 +129,12 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
   const address = user?.address;
   const isConnected = !!user;
+
+  useEffect(() => {
+    if (address) {
+      posthog.identify(address);
+    }
+  }, [address]);
 
   const provider = useMemo(() => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {

@@ -10,6 +10,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { formatNumber } from '@/utils/formatters';
+import posthog from 'posthog-js';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -83,6 +84,11 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       nodeInfo,
     });
     selectToken(selectedTokenAddress, tokenSymbol);
+    posthog.capture('environment_selected', {
+      environmentId: environment.id,
+      nodeId: nodeInfo.id,
+      freeCompute: false,
+    });
     router.push('/run-job/resources');
   };
 
@@ -93,6 +99,11 @@ const EnvironmentCard = ({ compact, environment, nodeInfo, showNodeName }: Envir
       nodeInfo,
     });
     selectToken(selectedTokenAddress, tokenSymbol);
+    posthog.capture('environment_selected', {
+      environmentId: environment.id,
+      nodeId: nodeInfo.id,
+      freeCompute: true,
+    });
     router.push('/run-job/resources');
   };
 
