@@ -9,7 +9,7 @@ import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
-import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
+import { multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string';
@@ -137,14 +137,6 @@ export async function initializeNode(bootstrapNodes: string[]) {
     isNodeReady = false;
     throw error;
   }
-}
-
-function hasMultiAddr(addr: Multiaddr, multiAddresses: Multiaddr[]) {
-  const addrStr = addr.toString();
-  for (let i = 0; i < multiAddresses.length; i++) {
-    if (multiAddresses[i].toString() === addrStr) return true;
-  }
-  return false;
 }
 
 async function dialPeer(target: MultiaddrsOrPeerId): Promise<Connection> {
