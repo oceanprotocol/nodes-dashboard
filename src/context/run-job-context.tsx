@@ -1,7 +1,8 @@
 import { getApiRoute } from '@/config';
 import { getTokenSymbol } from '@/lib/token-symbol';
-import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
+import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection, MultiaddrsOrPeerId } from '@/types/environments';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
+import { multiaddr } from '@multiformats/multiaddr';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
@@ -17,6 +18,7 @@ type RunJobContextType = {
   gpus: GPUPopularityDisplay;
   minLockSeconds: number | null;
   nodeInfo: EnvNodeInfo | null;
+  multiaddrsOrPeerId: MultiaddrsOrPeerId | null;
   selectedEnv: ComputeEnvironment | null;
   selectedResources: EnvResourcesSelection | null;
   selectedToken: SelectedToken | null;
@@ -44,6 +46,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [freeCompute, setFreeCompute] = useState<boolean>(false);
   const [minLockSeconds, setMinLockSeconds] = useState<number | null>(null);
   const [nodeInfo, setNodeInfo] = useState<EnvNodeInfo | null>(null);
+  const [multiaddrsOrPeerId, setMultiaddrsOrPeerId] = useState<MultiaddrsOrPeerId | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
@@ -54,6 +57,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setFreeCompute(false);
     setMinLockSeconds(null);
     setNodeInfo(null);
+    setMultiaddrsOrPeerId(null);
     setSelectedEnv(null);
     setSelectedResources(null);
     setSelectedToken(null);
@@ -94,6 +98,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       setSelectedEnv(environment);
       setFreeCompute(freeCompute);
       setNodeInfo(nodeInfo);
+      const multiaddrs = new Set(nodeInfo?.multiaddrs?.filter(Boolean).filter(multiaddr));
+      setMultiaddrsOrPeerId(multiaddrs.size > 0 ? Array.from(multiaddrs) : nodeInfo?.id);
       if (resources) {
         setSelectedResources(resources);
       }
@@ -122,6 +128,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         gpus,
         minLockSeconds,
         nodeInfo,
+        multiaddrsOrPeerId,
         selectedEnv,
         selectEnv,
         selectedResources,

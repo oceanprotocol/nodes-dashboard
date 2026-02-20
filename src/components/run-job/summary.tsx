@@ -2,7 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
-import { SelectedToken } from '@/context/run-job-context';
+import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
@@ -33,6 +33,7 @@ const Summary = ({
 }: SummaryProps) => {
   const { account, ocean, signMessage } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
+  const { multiaddrsOrPeerId } = useRunJobContext();
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,
@@ -58,7 +59,7 @@ const Summary = ({
       return;
     }
     try {
-      const authToken = await generateAuthToken(nodeInfo.id, account.address, signMessage);
+      const authToken = await generateAuthToken(multiaddrsOrPeerId!, account.address, signMessage);
 
       setAuthToken(authToken);
     } catch (error) {
@@ -72,7 +73,7 @@ const Summary = ({
       return;
     }
 
-    const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
+    const peerMultiaddr = await getPeerMultiaddr(multiaddrsOrPeerId!);
     const resources = [
       {
         id: selectedResources.cpuId,
