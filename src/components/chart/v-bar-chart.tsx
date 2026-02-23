@@ -29,12 +29,15 @@ const VBarChart = ({ axisKey, barKey, chartType, data, footer, minBars, title }:
     const sortedData = data.sort((d1, d2) => (d1[axisKey] ?? 0) - (d2[axisKey] ?? 0));
 
     // Find max value
-    const maxValue = data.reduce((acc, crt) => {
+    let maxValue = data.reduce((acc, crt) => {
       if (crt[barKey] > acc) {
         return crt[barKey];
       }
       return acc;
     }, 0);
+    if (maxValue === 0) {
+      maxValue = 1;
+    }
 
     // Add max value as a separate key to the data
     const dataWithMaxValue = sortedData.map((item) => ({ ...item, _maxValue: maxValue }));
