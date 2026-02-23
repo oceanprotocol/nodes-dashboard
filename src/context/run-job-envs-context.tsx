@@ -21,6 +21,7 @@ export type RawFilters = {
 type RunJobEnvsContextType = {
   fetchGpus: () => Promise<void>;
   filters: RawFilters;
+  filtersUnmetFallback: boolean;
   gpus: GPUPopularityDisplay;
   loading: boolean;
   loadMoreEnvs: () => Promise<void>;
@@ -36,6 +37,7 @@ const RunJobEnvsContext = createContext<RunJobEnvsContextType | undefined>(undef
 export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
   const [crtPage, setCrtPage] = useState(INITIAL_PAGE);
   const [filters, setFilters] = useState<RawFilters>({});
+  const [filtersUnmetFallback, setFiltersUnmetFallback] = useState(false);
   const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
   const [loading, setLoading] = useState(false);
   const [nodeEnvs, setNodeEnvs] = useState<NodeEnvironments[]>([]);
@@ -84,18 +86,20 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
     }) => {
       setLoading(true);
       try {
-        const response = await axios.get<{ envs: NodeEnvironments[]; pagination: ApiPaginationResponse }>(
-          getApiRoute('environments'),
-          {
-            params: {
-              filters: JSON.stringify(buildFilterParams(filters)),
-              page: pageNumber,
-              pageSize,
-              sort,
-            },
-          }
-        );
+        const response = await axios.get<{
+          envs: NodeEnvironments[];
+          fallback?: boolean;
+          pagination: ApiPaginationResponse;
+        }>(getApiRoute('environments'), {
+          params: {
+            filters: JSON.stringify(buildFilterParams(filters)),
+            page: pageNumber,
+            pageSize,
+            sort,
+          },
+        });
         if (response.data) {
+          setFiltersUnmetFallback(response.data.fallback ?? false);
           setPaginationResponse(response.data.pagination);
           if (operation === 'load-more') {
             setNodeEnvs((prev) => [...prev, ...response.data.envs]);
@@ -154,6 +158,7 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
       value={{
         fetchGpus,
         filters,
+        filtersUnmetFallback,
         gpus,
         loading,
         loadMoreEnvs,
