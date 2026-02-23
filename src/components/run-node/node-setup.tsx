@@ -43,9 +43,14 @@ const NodeSetup = () => {
       </div>
       <NodeConnection />
       {peerId ? (
-        <Button autoLoading className="alignSelfEnd" color="accent1" onClick={goToConfig} size="lg" variant="filled">
-          Continue
-        </Button>
+        <div className={styles.buttons}>
+          <Button color="accent1" href={`/nodes/${peerId}`} size="lg" target="_blank" variant="outlined">
+            View node details
+          </Button>
+          <Button autoLoading color="accent1" onClick={goToConfig} size="lg" variant="filled">
+            Edit node config
+          </Button>
+        </div>
       ) : null}
     </Card>
   );
