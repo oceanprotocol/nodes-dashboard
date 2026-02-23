@@ -29,8 +29,19 @@ type FilterFormValues = {
 };
 
 const SelectEnvironment = () => {
-  const { fetchGpus, filters, gpus, loading, loadMoreEnvs, nodeEnvs, paginationResponse, setFilters, setSort, sort } =
-    useRunJobEnvsContext();
+  const {
+    fetchGpus,
+    filters,
+    filtersUnmetFallback,
+    gpus,
+    loading,
+    loadMoreEnvs,
+    nodeEnvs,
+    paginationResponse,
+    setFilters,
+    setSort,
+    sort,
+  } = useRunJobEnvsContext();
 
   const [expanded, setExpanded] = useState(!!filters);
 
@@ -188,6 +199,12 @@ const SelectEnvironment = () => {
         </Card>
       </form>
       <div className={styles.list}>
+        {filtersUnmetFallback ? (
+          <p className="alignSelfCenter">
+            We couldn&apos;t find an environment that matches all your filters, but these might be close to what
+            you&apos;re looking for
+          </p>
+        ) : null}
         {nodeEnvs?.length > 0 ? (
           <>
             {nodeEnvs.map((node) =>
