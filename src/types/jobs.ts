@@ -57,6 +57,7 @@ export interface ComputeJob {
   algoDID: string;
   agreementId: string;
   environment: string;
+  environmentId: string;
   clusterHash: string;
   configlogURL: string;
   publishlogURL: string;
