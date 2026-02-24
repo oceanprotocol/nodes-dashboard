@@ -10,6 +10,7 @@ import * as Yup from 'yup';
 type GasFeeModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   nodeAddress: string;
 };
 
@@ -86,9 +87,12 @@ const GasFeeModalContent = ({
   );
 };
 
-const GasFeeModal = ({ isOpen, onClose, nodeAddress }: GasFeeModalProps) => {
+const GasFeeModal = ({ isOpen, onClose, onSuccess, nodeAddress }: GasFeeModalProps) => {
   const depositTokens = useGasFee({
-    onSuccess: onClose,
+    onSuccess: () => {
+      onSuccess?.();
+      onClose();
+    },
   });
   return (
     <Modal

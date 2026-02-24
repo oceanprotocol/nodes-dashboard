@@ -160,6 +160,7 @@ export const Balance = ({ admins }: BalanceProps) => {
               isOpen={isGasFeeModalOpen}
               nodeAddress={envs[0]?.consumerAddress ?? ''}
               onClose={() => setIsGasFeeModalOpen(false)}
+              onSuccess={() => loadNodeBalances()}
             />
           </>
         ) : null}
