@@ -56,6 +56,7 @@ export class OceanProvider {
       const addressMap = new Map<string, string>();
       for (const env of environments) {
         const fees = await this.getFeesByChainId(this.chainId, env);
+        // Add balance for each fee token
         for (const fee of fees) {
           const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
           const symbol = await getTokenSymbol(fee.feeToken);
@@ -72,8 +73,19 @@ export class OceanProvider {
             balancesMap.set(symbol, [balance]);
           }
         }
+        // Add ETH balance
+        const ethBalance = await this.getEthBalance(environments[0].consumerAddress);
+        if (!addressMap.has('ETH')) {
+          addressMap.set('ETH', '');
+        }
+        if (balancesMap.has('ETH')) {
+          const balances = balancesMap.get('ETH') || [];
+          balances.push(ethBalance);
+          balancesMap.set('ETH', balances);
+          continue;
+        }
+        balancesMap.set('ETH', [ethBalance]);
       }
-
       for (const [key, value] of balancesMap) {
         const sum = value.map((val) => new BigNumber(val)).reduce((acc, val) => acc.plus(val), new BigNumber(0));
         result.push({ token: key, address: addressMap.get(key) || '', amount: sum.toNumber() });
@@ -82,6 +94,12 @@ export class OceanProvider {
       console.log(error);
     }
     return result;
+  }
+
+  async getEthBalance(consumerAddress: string): Promise<string> {
+    const balance = await this.provider.getBalance(consumerAddress);
+    const balanceString = this.denominateNumber(balance.toString(), 18);
+    return balanceString;
   }
 
   async getFeesByChainId(chainId: number, environment: ComputeEnvironment): Promise<ComputeEnvFees[]> {
