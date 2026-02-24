@@ -7,6 +7,7 @@ import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.s
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
+import posthog from 'posthog-js';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
@@ -41,6 +42,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
     setIsAuthorizing(false);
     setError(undefined);
     toast.success('Authorization successful!');
+    posthog.capture('payment_authorize');
     onSuccess?.();
   };
 
