@@ -36,7 +36,7 @@ const NodeSetup = () => {
       </div>
       <div className={styles.section}>
         <h5>1. Run the quick start script</h5>
-        <CodeBlock code="curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/oceanprotocol/ocean-node/refs/heads/main/scripts/ocean-node-quickstart.sh | sh" />
+        <CodeBlock code="curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/oceanprotocol/ocean-node/refs/heads/main/scripts/ocean-node-quickstart.sh -o ocean-node-quickstart.sh && sh ocean-node-quickstart.sh" />
       </div>
       <div className={styles.section}>
         <h5>2. Run Ocean Node</h5>
