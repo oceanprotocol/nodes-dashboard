@@ -126,23 +126,27 @@ export const Balance = ({ admins }: BalanceProps) => {
             </div>
           </>
         ) : null}
-        <h3 className={styles.heading}>Escrow balance</h3>
-        <div className={styles.list}>
-          {!ocean ? (
-            <div>Log in to see your funds in escrow</div>
-          ) : loadingEscrowBalances || !isReady ? (
-            <CircularProgress className="alignSelfCenter" size={27} />
-          ) : escrowBalances.length >= 1 ? (
-            escrowBalances.map((balance, index) => (
-              <div className={styles.listItem} key={`${balance.token}-${index}`}>
-                <div>{balance.token}</div>
-                {balance.amount !== undefined && <strong>{formatNumber(balance.amount)}</strong>}
-              </div>
-            ))
-          ) : (
-            <div>No funds</div>
-          )}
-        </div>
+        {isAdmin ? null : (
+          <>
+            <h3 className={styles.heading}>Escrow balance</h3>
+            <div className={styles.list}>
+              {!ocean ? (
+                <div>Log in to see your funds in escrow</div>
+              ) : loadingEscrowBalances || !isReady ? (
+                <CircularProgress className="alignSelfCenter" size={27} />
+              ) : escrowBalances.length >= 1 ? (
+                escrowBalances.map((balance, index) => (
+                  <div className={styles.listItem} key={`${balance.token}-${index}`}>
+                    <div>{balance.token}</div>
+                    {balance.amount !== undefined && <strong>{formatNumber(balance.amount)}</strong>}
+                  </div>
+                ))
+              ) : (
+                <div>No funds</div>
+              )}
+            </div>
+          </>
+        )}
       </div>
       <div className={styles.buttons}>
         {isAdmin ? (
