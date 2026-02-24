@@ -33,7 +33,7 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
         getComputeResult(job.peerId, jobId, logFile.index, authToken, account.address!)
       );
 
-      const downloadedLogs = await Promise.all(logPromises);
+      const downloadedLogs = await Promise.all(logPromises ?? []);
       setIsDownloading(true);
 
       const zip = new JSZip();
