@@ -23,22 +23,27 @@ const NodeSetup = () => {
       <div>
         Docker Engine and Docker Compose are recommended for hosting a node eligible for incentives
         <br />
-        You can explore other options in the Ocean Node readme
+        You can explore other options in the{' '}
+        <Button
+          color="accent1"
+          href="https://github.com/oceanprotocol/ocean-node"
+          size="link"
+          target="_blank"
+          variant="transparent"
+        >
+          Ocean Node readme
+        </Button>
       </div>
       <div className={styles.section}>
-        <h5>1. Download the setup script</h5>
-        <CodeBlock code="curl" />
+        <h5>1. Run the quick start script</h5>
+        <CodeBlock code="curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/oceanprotocol/ocean-node/refs/heads/main/scripts/ocean-node-quickstart.sh | sh" />
       </div>
       <div className={styles.section}>
-        <h5>2. Run the setup script and provide the required info</h5>
-        <CodeBlock code="bash scripts/ocean-node-quickstart.sh" />
-      </div>
-      <div className={styles.section}>
-        <h5>3. Run Ocean Node</h5>
+        <h5>2. Run Ocean Node</h5>
         <CodeBlock code="$ docker-compose up -d" />
       </div>
       <div className={styles.section}>
-        <h5>4. Confirm that Docker containers are running</h5>
+        <h5>3. Confirm that Docker containers are running</h5>
         <CodeBlock code="$ docker ps" />
       </div>
       <NodeConnection />
