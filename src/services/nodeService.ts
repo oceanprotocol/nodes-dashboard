@@ -1,4 +1,5 @@
 import { Command } from '@/types/commands';
+import { MultiaddrsOrPeerId } from '@/types/environments';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
@@ -8,6 +9,7 @@ import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
 import { webSockets } from '@libp2p/websockets';
+import { multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string';
@@ -16,9 +18,15 @@ let nodeInstance: Libp2p | null = null;
 let isNodeReady = false;
 const DEFAULT_PROTOCOL = '/ocean/nodes/1.0.0';
 const DEFAULT_TIMEOUT = 10000;
+const MULTIADDR_DIAL_TIMEOUT = 5000;
 const RESPONSE_TIMEOUT = 30000;
 const BOOTSTRAP_TIMEOUT = 30000;
 const MIN_BOOTSTRAP_CONNECTIONS = 1;
+
+function extractPeerId(target: MultiaddrsOrPeerId): string | undefined {
+  if (typeof target === 'string') return target;
+  return target?.map((a) => a.match(/\/p2p\/(\S+)/)?.[1]).find(Boolean);
+}
 
 /**
  * Wait for the node to establish connections to bootstrap nodes
@@ -131,6 +139,26 @@ export async function initializeNode(bootstrapNodes: string[]) {
   }
 }
 
+async function dialPeer(target: MultiaddrsOrPeerId): Promise<Connection> {
+  if (!nodeInstance) throw new Error('Node not initialized');
+  if (!isNodeReady) throw new Error('Node not ready - still establishing bootstrap connections');
+
+  if (typeof target === 'string') {
+    return nodeInstance.dial(peerIdFromString(target), { signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
+  }
+
+  try {
+    return await nodeInstance.dial(target?.map(multiaddr) ?? [], {
+      signal: AbortSignal.timeout(MULTIADDR_DIAL_TIMEOUT),
+    });
+  } catch (err) {
+    const peerId = extractPeerId(target);
+    if (!peerId) throw err;
+
+    console.warn(`Multiaddr dials failed for ${peerId}, falling back to DHT...`);
+    return nodeInstance.dial(peerIdFromString(peerId), { signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
+  }
+}
 // Used for local testing to overwrite libp2p connectionGater
 // function createConnectionGater(): ConnectionGater {
 //   return {
@@ -160,7 +188,7 @@ async function* remainingChunks(
   }
 }
 
-export async function getPeerMultiaddr(peerId: string) {
+export async function getPeerMultiaddr(multiaddrsOrPeerId: MultiaddrsOrPeerId) {
   if (!nodeInstance) {
     throw new Error('Node not initialized');
   }
@@ -169,14 +197,12 @@ export async function getPeerMultiaddr(peerId: string) {
     throw new Error('Node not ready');
   }
 
-  const connection = await nodeInstance.dial(peerIdFromString(peerId), {
-    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-  });
+  const connection = await dialPeer(multiaddrsOrPeerId);
   return connection.remoteAddr.toString();
 }
 
 export async function sendCommandToPeer(
-  peerId: string,
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
   command: Record<string, any>,
   protocol: string = DEFAULT_PROTOCOL
 ): Promise<any> {
@@ -189,15 +215,7 @@ export async function sendCommandToPeer(
       throw new Error('Node not ready - still establishing bootstrap connections');
     }
 
-    let connection: Connection;
-    try {
-      connection = await nodeInstance.dial(peerIdFromString(peerId), {
-        signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-      });
-    } catch (error: unknown) {
-      console.log({ error, message: 'Failed to dial discovered addresses' });
-      throw error;
-    }
+    const connection = await dialPeer(multiaddrsOrPeerId);
 
     const stream = await connection.newStream(protocol, {
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
@@ -205,7 +223,7 @@ export async function sendCommandToPeer(
     });
 
     if (!stream) {
-      throw new Error(`Failed to create stream to peer ${peerId}`);
+      throw new Error(`Failed to create stream to peer`);
     }
 
     stream.send(uint8ArrayFromString(JSON.stringify(command)));
@@ -255,7 +273,10 @@ export async function sendCommandToPeer(
 
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(
-        () => reject(new Error(`Response timeout: peer ${peerId} did not respond within ${RESPONSE_TIMEOUT}ms`)),
+        () =>
+          reject(
+            new Error(`Response timeout: peer ${multiaddrsOrPeerId} did not respond within ${RESPONSE_TIMEOUT}ms`)
+          ),
         RESPONSE_TIMEOUT
       )
     );
@@ -268,12 +289,16 @@ export async function sendCommandToPeer(
   }
 }
 
-export async function getNodeEnvs(peerId: string) {
-  return sendCommandToPeer(peerId, { command: Command.COMPUTE_GET_ENVIRONMENTS, node: peerId });
+export async function getNodeEnvs(multiaddrsOrPeerId: MultiaddrsOrPeerId) {
+  const peerId = extractPeerId(multiaddrsOrPeerId);
+  return sendCommandToPeer(multiaddrsOrPeerId, {
+    command: Command.COMPUTE_GET_ENVIRONMENTS,
+    ...(peerId && { node: peerId }),
+  });
 }
 
-export async function getComputeStreamableLogs(peerId: string, jobId: string, authToken: any) {
-  return sendCommandToPeer(peerId, {
+export async function getComputeStreamableLogs(multiaddrsOrPeerId: MultiaddrsOrPeerId, jobId: string, authToken: any) {
+  return sendCommandToPeer(multiaddrsOrPeerId, {
     command: Command.COMPUTE_GET_STREAMABLE_LOGS,
     jobId,
     authorization: authToken.token,
@@ -281,13 +306,13 @@ export async function getComputeStreamableLogs(peerId: string, jobId: string, au
 }
 
 export async function getComputeJobResult(
-  peerId: string,
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
   jobId: string,
   index: number,
   authToken: any,
   address: string
 ) {
-  return sendCommandToPeer(peerId, {
+  return sendCommandToPeer(multiaddrsOrPeerId, {
     command: Command.COMPUTE_GET_RESULT,
     jobId,
     index,
@@ -296,39 +321,40 @@ export async function getComputeJobResult(
   });
 }
 
-export async function getComputeStatus(peerId: string, jobId: string, consumerAddress: string) {
-  return sendCommandToPeer(peerId, {
+export async function getComputeStatus(multiaddrsOrPeerId: MultiaddrsOrPeerId, jobId: string, consumerAddress: string) {
+  return sendCommandToPeer(multiaddrsOrPeerId, {
     command: Command.COMPUTE_GET_STATUS,
     jobId,
     consumerAddress,
   });
 }
 
-export async function getNonce(peerId: string, consumerAddress: string): Promise<number> {
-  return sendCommandToPeer(peerId, {
+export async function getNonce(multiaddrsOrPeerId: MultiaddrsOrPeerId, consumerAddress: string): Promise<number> {
+  return sendCommandToPeer(multiaddrsOrPeerId, {
     command: Command.NONCE,
     address: consumerAddress,
   });
 }
 
 export async function initializeCompute(
-  peerId: string,
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
   body: Record<string, unknown>
 ): Promise<{ payment: { amount: string; minLockSeconds: number }; status?: { httpStatus: number; error?: string } }> {
-  return sendCommandToPeer(peerId, {
+  const peerId = extractPeerId(multiaddrsOrPeerId);
+  return sendCommandToPeer(multiaddrsOrPeerId, {
     command: Command.INITIALIZE_COMPUTE,
-    node: peerId,
+    ...(peerId && { node: peerId }),
     ...body,
   });
 }
 
 export async function createAuthToken(
-  peerId: string,
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
   consumerAddress: string,
   signature: string,
   nonce: string
 ): Promise<{ token: string }> {
-  return sendCommandToPeer(peerId, {
+  return sendCommandToPeer(multiaddrsOrPeerId, {
     command: Command.CREATE_AUTH_TOKEN,
     address: consumerAddress,
     signature,
@@ -336,28 +362,50 @@ export async function createAuthToken(
   });
 }
 
+export async function fetchNodeConfig(
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
+  signature: string,
+  expiryTimestamp: number,
+  address?: string
+) {
+  return sendCommandToPeer(multiaddrsOrPeerId, {
+    command: 'fetchConfig',
+    signature,
+    expiryTimestamp,
+    address,
+  });
+}
+
 export async function getNodeLogs(
-  peerId: string,
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
   signature: string,
   expiryTimestamp: number,
   params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
   address?: string
 ) {
-  return sendCommandToPeer(peerId, { command: Command.GET_LOGS, signature, expiryTimestamp, address, ...params });
-}
-
-export async function fetchNodeConfig(peerId: string, signature: string, expiryTimestamp: number, address?: string) {
-  return sendCommandToPeer(peerId, { command: 'fetchConfig', signature, expiryTimestamp, address });
+  return sendCommandToPeer(multiaddrsOrPeerId, {
+    command: Command.GET_LOGS,
+    signature,
+    expiryTimestamp,
+    address,
+    ...params,
+  });
 }
 
 export async function pushNodeConfig(
-  peerId: string,
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
   signature: string,
   expiryTimestamp: number,
   config: Record<string, any>,
   address?: string
 ) {
-  return sendCommandToPeer(peerId, { command: 'pushConfig', signature, expiryTimestamp, config, address });
+  return sendCommandToPeer(multiaddrsOrPeerId, {
+    command: 'pushConfig',
+    signature,
+    expiryTimestamp,
+    config,
+    address,
+  });
 }
 
 export async function stopNode() {

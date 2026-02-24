@@ -316,13 +316,6 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     ),
   },
   {
-    field: 'nodeFriendlyName',
-    filterable: true,
-    flex: 1,
-    headerName: 'Node Name',
-    sortable: false,
-  },
-  {
     field: 'amountPaid',
     filterable: true,
     flex: 1,

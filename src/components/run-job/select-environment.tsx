@@ -217,6 +217,8 @@ const SelectEnvironment = () => {
                   nodeInfo={{
                     friendlyName: node.friendlyName,
                     id: node.id,
+                    multiaddrs: node.multiaddrs,
+                    currentAddrs: node.currentAddrs,
                   }}
                   showNodeName
                 />

@@ -38,7 +38,8 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const { account } = useOceanAccount();
 
-  const { nodeInfo, setEstimatedTotalCost, setMinLockSeconds, setSelectedResources } = useRunJobContext();
+  const { nodeInfo, multiaddrsOrPeerId, setEstimatedTotalCost, setMinLockSeconds, setSelectedResources } =
+    useRunJobContext();
 
   const { initializeCompute } = useP2P();
   const { provider } = useOceanAccount();
@@ -153,7 +154,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         environment,
         token.address,
         maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
-        nodeInfo.id,
+        multiaddrsOrPeerId,
         environment.consumerAddress,
         resources,
         CHAIN_ID,
