@@ -1,4 +1,5 @@
 import {
+  benchmarkJobsColumns,
   jobsColumns,
   nodesLeaderboardColumns,
   nodesLeaderboardHomeColumns,
@@ -162,7 +163,6 @@ export const Table = <T,>({
 
   const columns = useMemo(() => {
     switch (tableType) {
-      case TableTypeEnum.BENCHMARK_JOBS:
       case TableTypeEnum.MY_JOBS: {
         return jobsColumns;
       }
@@ -188,8 +188,9 @@ export const Table = <T,>({
       case TableTypeEnum.NODES_TOP_REVENUE: {
         return topNodesByRevenueColumns;
       }
+      case TableTypeEnum.BENCHMARK_JOBS:
       case TableTypeEnum.BENCHMARK_JOBS_HISTORY: {
-        return jobsColumns;
+        return benchmarkJobsColumns;
       }
     }
   }, [tableType]);
