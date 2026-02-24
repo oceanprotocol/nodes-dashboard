@@ -1,12 +1,14 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
-import { ComputeJob } from '@/types/jobs';
+import { ComputeJob, ComputeJobHistory } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import classNames from 'classnames';
 
@@ -289,7 +291,7 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
   },
 ];
 
-export const benchmarkJobsColumns: GridColDef<ComputeJob>[] = [
+export const jobsColumns: GridColDef<ComputeJob | ComputeJobHistory>[] = [
   {
     align: 'center',
     field: 'index',
@@ -304,73 +306,35 @@ export const benchmarkJobsColumns: GridColDef<ComputeJob>[] = [
     flex: 1,
     headerName: 'Status',
     sortable: false,
-  },
-  {
-    field: 'startTime',
-    filterable: true,
-    flex: 1,
-    headerName: 'Start Time',
-    sortable: false,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'amountPaid',
-    filterable: true,
-    flex: 1,
-    headerName: 'Amount Paid',
-    sortable: false,
-    valueGetter: (_value, row) => row.payment?.cost,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'algoDuration',
-    filterable: true,
-    flex: 1,
-    headerName: 'Duration',
-    sortable: false,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-    renderCell: ({ value }) => {
+    renderCell: ({ value, row }) => {
       if (!value) return '-';
-      if (value < 60) return `${value.toFixed(2)}s`;
-      const mins = Math.floor(value / 60);
-      const secs = (value % 60).toFixed(0);
-      return `${mins}m ${secs}s`;
+      switch (value) {
+        case 'pending':
+          return <span className="chip chipWarning">Pending</span>;
+        case 'running':
+          return <span className="chip chipWarning">Running</span>;
+        case 'completed':
+          return <span className="textSuccessDarker">Completed</span>;
+        case 'failed':
+          return (
+            <span className="textBold textErrorDarker">
+              Failed
+              {'errorMessage' in row && row.errorMessage ? (
+                <>
+                  {' '}
+                  <Tooltip title={row.errorMessage}>
+                    <InfoOutlinedIcon />
+                  </Tooltip>
+                </>
+              ) : null}
+            </span>
+          );
+        case 'timeout':
+          return <span className="textBold textErrorDarker">Timed out</span>;
+        default:
+          return value;
+      }
     },
-  },
-  {
-    align: 'right',
-    field: 'actions',
-    filterable: false,
-    headerAlign: 'center',
-    headerName: 'Actions',
-    sortable: false,
-    renderCell: (params: GridRenderCellParams<ComputeJob>) => {
-      return <JobInfoButton job={params.row} />;
-    },
-  },
-];
-
-export const jobsColumns: GridColDef<ComputeJob>[] = [
-  {
-    align: 'center',
-    field: 'index',
-    filterable: false,
-    headerAlign: 'center',
-    headerName: 'Index',
-    sortable: false,
-  },
-  {
-    field: 'statusText',
-    filterable: false,
-    flex: 1,
-    headerName: 'Status',
-    sortable: false,
   },
   {
     field: 'startTime',
