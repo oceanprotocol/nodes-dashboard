@@ -46,6 +46,7 @@ export interface ComputeJob {
   peerId: string;
   nodeFriendlyName: string;
   epoch: number;
+  errorMessage?: string;
   did: string;
   jobId: string;
   dateCreated: number;

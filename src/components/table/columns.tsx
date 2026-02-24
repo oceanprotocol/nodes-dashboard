@@ -1,6 +1,6 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
-import { ComputeJob, ComputeJobHistory } from '@/types/jobs';
+import { ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { formatNumber } from '@/utils/formatters';
@@ -291,7 +291,7 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
   },
 ];
 
-export const jobsColumns: GridColDef<ComputeJob | ComputeJobHistory>[] = [
+export const jobsColumns: GridColDef<ComputeJob>[] = [
   {
     align: 'center',
     field: 'index',

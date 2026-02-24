@@ -197,6 +197,9 @@ a {
 .textError {
   color: var(--error);
 }
+.textErrorDarker {
+  color: var(--error-darker);
+}
 .textPrimary {
   color: var(--text-primary);
 }
@@ -209,8 +212,18 @@ a {
 .textSuccess {
   color: var(--success);
 }
+.textSuccessDarker {
+  color: var(--success-darker);
+}
 .textWarning {
   color: var(--warning);
+}
+.textWarningDarker {
+  color: var(--warning-darker);
+}
+
+.textBold {
+  font-weight: 700;
 }
 
 /* Overrides */
