@@ -316,6 +316,17 @@ export const benchmarkJobsColumns: GridColDef<ComputeJob>[] = [
     ),
   },
   {
+    field: 'amountPaid',
+    filterable: true,
+    flex: 1,
+    headerName: 'Amount Paid',
+    sortable: false,
+    valueGetter: (_value, row) => row.payment?.cost,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+  },
+  {
     field: 'algoDuration',
     filterable: true,
     flex: 1,
