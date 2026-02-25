@@ -285,7 +285,7 @@ export const Table = <T,>({
   }, []);
 
   const initialState = useMemo(() => {
-    const coreState: GridInitialState = { density: 'comfortable' };
+    const coreState: GridInitialState = { density: 'standard' };
     return paginationType === 'none'
       ? coreState
       : {
