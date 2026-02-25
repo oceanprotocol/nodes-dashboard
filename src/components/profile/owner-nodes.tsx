@@ -11,7 +11,7 @@ const OwnerNodes = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>My nodes</h3>
-        <Button color="accent1" href="/run-node">
+        <Button color="accent1" href="/run-node/setup">
           Run a node
         </Button>
       </div>
