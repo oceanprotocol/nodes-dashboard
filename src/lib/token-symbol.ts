@@ -1,3 +1,4 @@
+import { getSupportedTokens } from '@/constants/tokens';
 import { RPC_URL } from '@/lib/constants';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ethers } from 'ethers';
@@ -12,14 +13,19 @@ export const getTokenSymbol = async (tokenAddress: string | null | undefined): P
   if (!tokenAddress) {
     return null;
   }
-  console.log('tokenAddress', tokenAddress);
-  console.log('RPC_URL', RPC_URL);
+
+  const chainTokens = getSupportedTokens();
+  const tokenSymbol = Object.keys(chainTokens).find(
+    (key) => chainTokens[key as keyof typeof chainTokens] === tokenAddress
+  );
+  if (tokenSymbol) {
+    return tokenSymbol as string;
+  }
 
   const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
   const token = new ethers.Contract(tokenAddress, ERC20Template.abi, provider);
   const symbol = await token.symbol();
 
-  console.log('symbol', symbol);
   return symbol;
 };
 
