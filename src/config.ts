@@ -44,7 +44,7 @@ const config: Config = {
       name: 'Stats',
     },
     docs: {
-      path: '/docs',
+      path: 'https://oceanprotocol.gitbook.io/ocean-network-docs/',
       name: 'Docs',
       hideFromNavbar: true,
     },
