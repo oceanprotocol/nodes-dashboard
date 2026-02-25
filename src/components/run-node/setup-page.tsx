@@ -8,6 +8,7 @@ const SetupPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Run node"
         subTitle="Setup your node, and earn rewards"
         contentBetween={<Stepper<RunNodeStep> currentStep="setup" steps={getRunNodeSteps()} />}

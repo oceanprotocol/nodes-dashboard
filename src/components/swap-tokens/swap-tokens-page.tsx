@@ -7,7 +7,7 @@ import styles from './swap-tokens-page.module.css';
 const SwapTokensPage: React.FC = () => {
   return (
     <Container className="pageRoot">
-      <SectionTitle title="Get COMPY" subTitle="Convert your USDC to COMPY" />
+      <SectionTitle moreReadable title="Get COMPY" subTitle="Convert your USDC to COMPY" />
       <div className="pageContentWrapper">
         <Card className={styles.root} direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
           <SwapTokens refetchOnSuccess />

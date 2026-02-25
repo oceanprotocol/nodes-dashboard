@@ -22,6 +22,7 @@ const PaymentPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Run job"
         subTitle="Verify estimated cost and confirm payment before strating your job"
         contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}

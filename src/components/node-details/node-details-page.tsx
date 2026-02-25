@@ -38,7 +38,7 @@ const NodeDetailsPage = () => {
   if (!selectedNode) {
     return (
       <Container className="pageRoot">
-        <SectionTitle title="Node details" subTitle="Node not found" />
+        <SectionTitle moreReadable title="Node details" subTitle="Node not found" />
       </Container>
     );
   }
@@ -46,6 +46,7 @@ const NodeDetailsPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Node details"
         subTitle="Check node status, performance, and available resources before running a job"
       />

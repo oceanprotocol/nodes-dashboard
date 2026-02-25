@@ -21,6 +21,7 @@ const ConfigurePage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Run node"
         subTitle="Setup your node, and earn rewards"
         contentBetween={<Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />}

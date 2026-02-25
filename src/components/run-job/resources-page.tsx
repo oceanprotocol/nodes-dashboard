@@ -21,6 +21,7 @@ const ResourcesPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Run job"
         subTitle="Pick GPU, CPU, RAM, storage resources, and run time for this job"
         contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}

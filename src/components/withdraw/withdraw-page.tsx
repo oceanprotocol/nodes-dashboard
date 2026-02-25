@@ -8,6 +8,7 @@ const WithdrawPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Withdraw funds"
         // TODO: replace with actual subtitle
         subTitle="Withdraw description text"

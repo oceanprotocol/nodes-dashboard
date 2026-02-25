@@ -7,6 +7,7 @@ type SectionTitleProps = {
   subTitle?: string;
   className?: string;
   contentBetween?: React.ReactNode;
+  moreReadable?: boolean;
   subTitleClassName?: string;
   titleClassName?: string;
 };
@@ -16,11 +17,12 @@ const SectionTitle: React.FC<SectionTitleProps> = ({
   subTitle,
   className,
   contentBetween,
+  moreReadable,
   subTitleClassName,
   titleClassName,
 }) => {
   return (
-    <div className={cx(styles.root, className)}>
+    <div className={cx(styles.root, { [styles.moreReadable]: moreReadable }, className)}>
       <h2 className={cx('textAccent1', styles.title, titleClassName)}>{title}</h2>
       {contentBetween}
       {subTitle && <p className={cx(styles.subTitle, subTitleClassName)}>{subTitle}</p>}
