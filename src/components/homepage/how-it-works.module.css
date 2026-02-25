@@ -1,5 +1,9 @@
 .root {
   background-color: var(--accent1-lighter);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
   padding: 60px 50px;
   position: relative;
   z-index: 2;
