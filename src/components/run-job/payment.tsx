@@ -144,7 +144,8 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
       <PaymentSummary
         authorizations={authorizations}
         escrowBalance={escrowBalance ?? 0}
-        tokenSymbol={selectedToken.symbol}
+        loadPaymentInfo={loadPaymentInfo}
+        selectedToken={selectedToken}
         totalCost={totalCost}
         walletBalance={walletBalance ?? 0}
       />

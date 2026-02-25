@@ -1,9 +1,9 @@
 import { alchemyClient } from '@/lib/alchemy-client';
 import { RPC_URL } from '@/lib/constants';
+import { OceanProvider } from '@/lib/ocean-provider';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { NodeBalance } from '@/types/nodes';
-import { OceanProvider } from '@/lib/ocean-provider';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ethers } from 'ethers';
 import { useCallback, useEffect, useState } from 'react';
@@ -12,7 +12,7 @@ import { toast } from 'react-toastify';
 export interface UseWalletBalancesReturn {
   balances: NodeBalance[];
   loading: boolean;
-  refetch: () => void;
+  refetch: () => Promise<void>;
 }
 
 export const useWalletBalances = (): UseWalletBalancesReturn => {
@@ -48,9 +48,7 @@ export const useWalletBalances = (): UseWalletBalancesReturn => {
           const symbol = await getTokenSymbol(tb.contractAddress);
           const tokenContract = new ethers.Contract(tb.contractAddress, ERC20Template.abi, provider);
           const decimals = await tokenContract.decimals();
-          const amount = Number(
-            OceanProvider.denominateNumber(BigInt(tb.tokenBalance!).toString(), Number(decimals))
-          );
+          const amount = Number(OceanProvider.denominateNumber(BigInt(tb.tokenBalance!).toString(), Number(decimals)));
           return {
             token: symbol || tb.contractAddress,
             address: tb.contractAddress,

@@ -4440,7 +4440,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/contracts@npm:2.5.0, @oceanprotocol/contracts@npm:^2.5.0":
+"@oceanprotocol/contracts@npm:2.6.0":
+  version: 2.6.0
+  resolution: "@oceanprotocol/contracts@npm:2.6.0"
+  checksum: 10c0/cf249f1e5276d3b6807f684c4dc7e925649a7adc1ebbb41d7a262bfcc6ea2dd57d0307b4ac960f04e2c0401dd245f31b7b895335ef02b29fb77fe34e86515739
+  languageName: node
+  linkType: hard
+
+"@oceanprotocol/contracts@npm:^2.5.0":
   version: 2.5.0
   resolution: "@oceanprotocol/contracts@npm:2.5.0"
   checksum: 10c0/860badab8723dd5bcd8facadc29a993798e51efc5fa60b3608ddc883514a1feeffc13b7797a1e24075e2fdeb9797369afb41227a9a5a50cdfef9aec242eb0845
@@ -16430,7 +16437,7 @@ __metadata:
     "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^12.2.3"
-    "@oceanprotocol/contracts": "npm:2.5.0"
+    "@oceanprotocol/contracts": "npm:2.6.0"
     "@oceanprotocol/lib": "npm:5.1.1"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
     "@svgr/webpack": "npm:^8.1.0"
