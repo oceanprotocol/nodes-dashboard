@@ -6,10 +6,10 @@ import Menu from '@/components/menu/menu';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { createAuthToken } from '@/services/nodeService';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { formatDuration } from '@/utils/formatters';
-import { generateAuthToken } from '@/utils/generateAuthToken';
 import { ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import posthog from 'posthog-js';
@@ -61,9 +61,12 @@ const Summary = ({
       return;
     }
     try {
-      const authToken = await generateAuthToken(multiaddrsOrPeerId!, account.address, signMessage);
-
-      setAuthToken(authToken);
+      const { token } = await createAuthToken({
+        consumerAddress: account.address,
+        multiaddrsOrPeerId: multiaddrsOrPeerId!,
+        signMessage,
+      });
+      setAuthToken(token);
       posthog.capture('authToken_generated', {
         nodeId: nodeInfo.id,
         environmentId: selectedEnv.id,
@@ -145,9 +148,7 @@ const Summary = ({
         <div className={styles.label}>Fee token address:</div>
         <div className={styles.value}>{token.address}</div>
         <div className={styles.label}>Job duration:</div>
-        <div className={styles.value}>
-          {formatDuration(selectedResources!.maxJobDurationSeconds)}
-        </div>
+        <div className={styles.value}>{formatDuration(selectedResources!.maxJobDurationSeconds)}</div>
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>
           {selectedResources.gpus.length

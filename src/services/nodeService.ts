@@ -1,3 +1,5 @@
+import { signNodeCommandMessage } from '@/lib/sign-message';
+import { SignMessageFn } from '@/lib/use-ocean-account';
 import { Command } from '@/types/commands';
 import { MultiaddrsOrPeerId } from '@/types/environments';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -348,63 +350,115 @@ export async function initializeCompute(
   });
 }
 
-export async function createAuthToken(
-  multiaddrsOrPeerId: MultiaddrsOrPeerId,
-  consumerAddress: string,
-  signature: string,
-  nonce: string
-): Promise<{ token: string }> {
+export async function createAuthToken({
+  consumerAddress,
+  multiaddrsOrPeerId,
+  signMessage,
+}: {
+  consumerAddress: string;
+  multiaddrsOrPeerId: MultiaddrsOrPeerId;
+  signMessage: SignMessageFn;
+}): Promise<{ token: string }> {
+  const command = Command.CREATE_AUTH_TOKEN;
+  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const signature = await signNodeCommandMessage({
+    command,
+    consumerAddress,
+    nonce,
+    signMessage,
+  });
   return sendCommandToPeer(multiaddrsOrPeerId, {
-    command: Command.CREATE_AUTH_TOKEN,
+    command,
     address: consumerAddress,
     signature,
     nonce,
   });
 }
 
-export async function fetchNodeConfig(
-  multiaddrsOrPeerId: MultiaddrsOrPeerId,
-  signature: string,
-  expiryTimestamp: number,
-  address?: string
-) {
-  return sendCommandToPeer(multiaddrsOrPeerId, {
-    command: 'fetchConfig',
-    signature,
-    expiryTimestamp,
-    address,
+export async function getNodeLogs({
+  consumerAddress,
+  expiryTimestamp,
+  multiaddrsOrPeerId,
+  params,
+  signMessage,
+}: {
+  consumerAddress: string;
+  expiryTimestamp: number;
+  multiaddrsOrPeerId: MultiaddrsOrPeerId;
+  params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string };
+  signMessage: SignMessageFn;
+}) {
+  const command = Command.GET_LOGS;
+  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const signature = await signNodeCommandMessage({
+    command,
+    consumerAddress,
+    nonce,
+    signMessage,
   });
-}
-
-export async function getNodeLogs(
-  multiaddrsOrPeerId: MultiaddrsOrPeerId,
-  signature: string,
-  expiryTimestamp: number,
-  params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
-  address?: string
-) {
   return sendCommandToPeer(multiaddrsOrPeerId, {
-    command: Command.GET_LOGS,
+    command,
     signature,
     expiryTimestamp,
-    address,
+    address: consumerAddress,
     ...params,
   });
 }
 
-export async function pushNodeConfig(
-  multiaddrsOrPeerId: MultiaddrsOrPeerId,
-  signature: string,
-  expiryTimestamp: number,
-  config: Record<string, any>,
-  address?: string
-) {
+export async function fetchNodeConfig({
+  consumerAddress,
+  expiryTimestamp,
+  multiaddrsOrPeerId,
+  signMessage,
+}: {
+  consumerAddress: string;
+  expiryTimestamp: number;
+  multiaddrsOrPeerId: MultiaddrsOrPeerId;
+  signMessage: SignMessageFn;
+}) {
+  const command = Command.FETCH_CONFIG;
+  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const signature = await signNodeCommandMessage({
+    command,
+    consumerAddress,
+    nonce,
+    signMessage,
+  });
   return sendCommandToPeer(multiaddrsOrPeerId, {
-    command: 'pushConfig',
+    command,
+    signature,
+    expiryTimestamp,
+    address: consumerAddress,
+  });
+}
+
+export async function pushNodeConfig({
+  config,
+  consumerAddress,
+  expiryTimestamp,
+  multiaddrsOrPeerId,
+  signMessage,
+}: {
+  consumerAddress: string;
+  config: Record<string, any>;
+  expiryTimestamp: number;
+  multiaddrsOrPeerId: MultiaddrsOrPeerId;
+  signMessage: SignMessageFn;
+}) {
+  const command = Command.PUSH_CONFIG;
+  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const signature = await signNodeCommandMessage({
+    command,
+    consumerAddress,
+    nonce,
+    signMessage,
+  });
+  return sendCommandToPeer(multiaddrsOrPeerId, {
+    command,
     signature,
     expiryTimestamp,
     config,
-    address,
+    address: consumerAddress,
   });
 }
 

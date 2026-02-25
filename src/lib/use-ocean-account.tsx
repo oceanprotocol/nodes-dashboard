@@ -16,6 +16,8 @@ import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+export type SignMessageFn = (message: string) => Promise<string>;
+
 type OceanAccountContextType = {
   account: {
     address: string | undefined;
@@ -31,7 +33,7 @@ type OceanAccountContextType = {
     onSuccess?: (result: any) => void;
     onError?: (error: any) => void;
   }) => void;
-  signMessage: (message: string) => Promise<string>;
+  signMessage: SignMessageFn;
   user: UseUserResult;
 };
 
