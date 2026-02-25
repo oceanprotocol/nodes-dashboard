@@ -85,6 +85,9 @@ const Navigation = () => {
 
   const renderNavLinks = (className?: string) =>
     Object.values(routes).map((route) => {
+      if (route.hideFromNavbar) {
+        return null;
+      }
       const isActive = router.pathname === route.path;
       return (
         <Button

@@ -1,6 +1,7 @@
 type Route = {
   path: string;
   name: string;
+  hideFromNavbar?: boolean;
 };
 
 type Routes = {
@@ -45,6 +46,7 @@ const config: Config = {
     docs: {
       path: '/docs',
       name: 'Docs',
+      hideFromNavbar: true,
     },
     leaderboard: {
       path: '/leaderboard',
