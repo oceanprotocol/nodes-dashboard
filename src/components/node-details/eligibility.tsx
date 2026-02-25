@@ -12,7 +12,6 @@ type EligibilityProps = {
 };
 
 const Eligibility = ({ eligibility, eligibilityCauseStr, banInfo }: EligibilityProps) => {
-  console.log(eligibilityCauseStr);
   switch (eligibility) {
     case NodeEligibility.ELIGIBLE:
       return (
