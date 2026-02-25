@@ -5,7 +5,7 @@ import {
   BenchmarkJobsHistoryTableProvider,
   useBenchmarkJobsHistoryTableContext,
 } from '@/context/table/benchmark-jobs-history-table-context';
-import { Job } from '@/types/jobs';
+import { BenchmarkJobHistory } from '@/types/jobs';
 import { useParams } from 'next/navigation';
 
 const BenchmarkJobsContent = () => {
@@ -14,7 +14,7 @@ const BenchmarkJobsContent = () => {
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Benchmark jobs history</h3>
-      <Table<Job>
+      <Table<BenchmarkJobHistory>
         context={benchmarkJobsHistoryTableContext}
         paginationType="context"
         showToolbar

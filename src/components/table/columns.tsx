@@ -1,6 +1,6 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
-import { ComputeJob } from '@/types/jobs';
+import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { formatNumber } from '@/utils/formatters';
@@ -356,6 +356,10 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatNumber(value);
+    },
   },
   {
     field: 'algoDuration',
@@ -387,7 +391,7 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
   },
 ];
 
-export const benchmarkJobsColumns: GridColDef<ComputeJob>[] = [
+export const benchmarkJobsColumns: GridColDef<BenchmarkJobHistory>[] = [
   {
     align: 'center',
     field: 'index',
@@ -448,10 +452,14 @@ export const benchmarkJobsColumns: GridColDef<ComputeJob>[] = [
     flex: 1,
     headerName: 'Amount Paid',
     sortable: false,
-    valueGetter: (_value, row) => row.payment?.cost,
+    valueGetter: (_value, row) => row.paymentInfo?.cost,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatNumber(value);
+    },
   },
   {
     field: 'algoDuration',
@@ -469,6 +477,38 @@ export const benchmarkJobsColumns: GridColDef<ComputeJob>[] = [
       const secs = (value % 60).toFixed(0);
       return `${mins}m ${secs}s`;
     },
+  },
+  {
+    field: 'gpuScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Bench. GPU Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.benchmarkResults?.gpuScore,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return Math.round(value);
+    },
+  },
+  {
+    field: 'cpuScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Bench. CPU Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.benchmarkResults?.cpuScore,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return Math.round(value);
+    },
+  },
+  {
+    field: 'bandwidthScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Bench. Bandwidth Score',
+    sortable: false,
+    valueGetter: (_value, row) => row.benchmarkResults?.bandwidthScore,
   },
 ];
 

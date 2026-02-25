@@ -1,13 +1,13 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
 import { BenchmarkJobsHistoryFilters, FilterOperator } from '@/types/filters';
-import { ComputeJobHistory } from '@/types/jobs';
+import { BenchmarkJobHistory } from '@/types/jobs';
 import { formatDateTime } from '@/utils/formatters';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-type CtxType = TableContextType<ComputeJobHistory>;
+type CtxType = TableContextType<BenchmarkJobHistory>;
 
 const BenchmarkJobsHistoryTableContext = createContext<CtxType | undefined>(undefined);
 
@@ -82,9 +82,7 @@ export const BenchmarkJobsHistoryTableProvider = ({ children, nodeId }: { childr
         index: (crtPage - 1) * pageSize + index + 1,
         statusText: element.status,
         payment: element.paymentInfo,
-        algoDuration: element.endTime && element.startTime
-          ? (element.endTime - element.startTime) / 1000
-          : null,
+        algoDuration: element.endTime && element.startTime ? (element.endTime - element.startTime) / 1000 : null,
       }));
 
       setData(sanitizedData);
