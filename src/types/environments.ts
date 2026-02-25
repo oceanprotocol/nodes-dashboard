@@ -78,7 +78,7 @@ export type EnvResourcesSelection = {
   diskSpace: number;
   diskId: string;
   gpus: { id: string; description?: string }[];
-  maxJobDurationHours: number;
+  maxJobDurationSeconds: number;
   ram: number;
   ramId: string;
 };
