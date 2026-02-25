@@ -174,6 +174,20 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     }
   }
 
+  const renderNodeIpAndDns = () => {
+    const location: string[] = [];
+    if (node.location?.ip) {
+      location.push(node.location.ip);
+    }
+    if (node.ipAndDns?.dns) {
+      location.push(node.ipAndDns.dns);
+    }
+    if (location.length > 0) {
+      return location.join(' / ');
+    }
+    return 'Unknown';
+  };
+
   return (
     <Card className={styles.root} padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.infoWrapper}>
@@ -184,7 +198,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
           </div>
           <div className={styles.grid}>
             <PublicIcon className={styles.icon} />
-            <div>{`${node.location?.ip} / ${node.ipAndDns?.dns}`}</div>
+            <div>{renderNodeIpAndDns()}</div>
             {
               <>
                 <DnsIcon className={styles.icon} />
