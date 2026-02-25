@@ -333,7 +333,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                     </option>
                   ))}
                 </select>
-                <Button color="accent2" onClick={setMaxJobDuration} size="sm" type="button" variant="outlined">
+                <Button color="accent2" onClick={setMaxJobDuration} size="sm" type="button" variant="filled">
                   Set max
                 </Button>
               </div>
