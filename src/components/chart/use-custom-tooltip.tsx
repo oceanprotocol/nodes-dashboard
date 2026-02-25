@@ -133,24 +133,36 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
         break;
       }
       case ChartTypeEnum.JOBS_PER_EPOCH: {
-        tooltipContent = (
-          <div>
-            Epoch {label}: {Number(value).toLocaleString()} jobs
-          </div>
-        );
+        if (label < 0) {
+          tooltipContent = null;
+        } else {
+          tooltipContent = (
+            <div>
+              Epoch {label}: {Number(value).toLocaleString()} jobs
+            </div>
+          );
+        }
         break;
       }
       case ChartTypeEnum.REVENUE_PER_EPOCH: {
-        tooltipContent = (
-          <div>
-            Epoch {label}: USDC {Number(value).toLocaleString()}
-          </div>
-        );
+        if (label < 0) {
+          tooltipContent = null;
+        } else {
+          tooltipContent = (
+            <div>
+              Epoch {label}: USDC {Number(value).toLocaleString()}
+            </div>
+          );
+        }
         break;
       }
       default: {
         tooltipContent = <div>Value: {Number(value).toLocaleString()}</div>;
       }
+    }
+
+    if (tooltipContent === null || tooltipContent === undefined) {
+      return null;
     }
 
     return ReactDOM.createPortal(
