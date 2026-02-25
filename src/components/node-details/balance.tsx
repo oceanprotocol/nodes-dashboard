@@ -32,7 +32,7 @@ export const Balance = ({ admins }: BalanceProps) => {
   const isAdmin = useMemo(() => admins.includes(account?.address as string), [admins, account]);
 
   const loadEscrowBalances = useCallback(async () => {
-    if (!ocean) {
+    if (!ocean || isAdmin) {
       return;
     }
     setLoadingEscrowBalances(true);
