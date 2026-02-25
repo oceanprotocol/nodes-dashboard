@@ -31,8 +31,9 @@
 }
 
 .brandColumn {
-  flex: 1 1 320px;
-  max-width: 520px;
+  /* flex: 1 1 320px; */
+  flex: 1;
+  /* max-width: 520px; */
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -51,10 +52,11 @@
 }
 
 .brandTitle {
-  font-size: 24px;
+  color: var(--accent2);
+  font-size: 60px;
   font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .brandSubtitle {
