@@ -10,6 +10,7 @@ import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
 import { AlchemyProvider } from '@/lib/alchemy-provider';
 import { OceanAccountProvider } from '@/lib/use-ocean-account';
+import { PHProvider } from '@/lib/use-posthog';
 import '@/styles/globals.css';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -71,7 +72,9 @@ export default function App({ Component, pageProps }: AppProps) {
                             <RunJobProvider>
                               <RunNodeProvider>
                                 <RootLayout>
-                                  <Component {...pageProps} />
+                                  <PHProvider>
+                                    <Component {...pageProps} />
+                                  </PHProvider>
                                 </RootLayout>
                               </RunNodeProvider>
                             </RunJobProvider>

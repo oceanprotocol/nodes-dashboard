@@ -22,6 +22,7 @@ import { Collapse, Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { TransitionGroup } from 'react-transition-group';
 import styles from './environment-card.module.css';
@@ -100,6 +101,11 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       nodeInfo,
     });
     selectToken(selectedTokenAddress, selectedTokenSymbol);
+    posthog.capture('environment_selected', {
+      environmentId: environment.id,
+      nodeId: nodeInfo.id,
+      freeCompute: false,
+    });
     router.push('/run-job/resources');
   };
 
@@ -110,6 +116,11 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       nodeInfo,
     });
     selectToken(selectedTokenAddress, selectedTokenSymbol);
+    posthog.capture('environment_selected', {
+      environmentId: environment.id,
+      nodeId: nodeInfo.id,
+      freeCompute: true,
+    });
     router.push('/run-job/resources');
   };
 
