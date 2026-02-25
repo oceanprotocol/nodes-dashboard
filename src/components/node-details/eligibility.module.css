@@ -9,11 +9,17 @@
     font-size: 28px;
   }
 
-  .content {
+  .description {
     display: flex;
     flex-direction: column;
     gap: 8px;
     grid-column: 2 / span 1;
+  }
+
+  .reason {
+    grid-column: 1 / span 2;
+    word-break: break-word;
+    white-space: pre-wrap;
   }
 
   .button {

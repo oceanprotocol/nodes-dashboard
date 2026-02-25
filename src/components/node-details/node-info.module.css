@@ -5,7 +5,7 @@
 
   @media (min-width: 992px) {
     display: grid;
-    grid-template-columns: 1fr 380px;
+    grid-template-columns: 1fr 420px;
   }
 
   .infoWrapper {
