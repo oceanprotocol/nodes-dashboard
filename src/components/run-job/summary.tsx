@@ -2,13 +2,14 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
-import { SelectedToken } from '@/context/run-job-context';
+import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { generateAuthToken } from '@/utils/generateAuthToken';
 import { ListItemIcon, Menu, MenuItem } from '@mui/material';
+import posthog from 'posthog-js';
 import classNames from 'classnames';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -33,6 +34,7 @@ const Summary = ({
 }: SummaryProps) => {
   const { account, ocean, signMessage } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
+  const { multiaddrsOrPeerId } = useRunJobContext();
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,
@@ -58,9 +60,14 @@ const Summary = ({
       return;
     }
     try {
-      const authToken = await generateAuthToken(nodeInfo.id, account.address, signMessage);
+      const authToken = await generateAuthToken(multiaddrsOrPeerId!, account.address, signMessage);
 
       setAuthToken(authToken);
+      posthog.capture('authToken_generated', {
+        nodeId: nodeInfo.id,
+        environmentId: selectedEnv.id,
+        freeCompute,
+      });
     } catch (error) {
       console.error('Failed to generate auth token:', error);
       toast.error('Failed to generate auth token');
@@ -72,7 +79,7 @@ const Summary = ({
       return;
     }
 
-    const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
+    const peerMultiaddr = await getPeerMultiaddr(multiaddrsOrPeerId!);
     const resources = [
       {
         id: selectedResources.cpuId,
@@ -104,6 +111,12 @@ const Summary = ({
       resources,
       uriScheme
     );
+    posthog.capture('ide_opened', {
+      ide: uriScheme,
+      nodeId: nodeInfo.id,
+      environmentId: selectedEnv.id,
+      freeCompute: isFreeCompute,
+    });
   };
 
   const handleOpenIdeMenu = () => {

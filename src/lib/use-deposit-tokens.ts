@@ -7,6 +7,7 @@ import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.s
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
+import posthog from 'posthog-js';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
@@ -46,6 +47,10 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
       setError(undefined);
       setPendingParams(null);
       toast.success('Deposit successful!');
+      posthog.capture('payment_deposit', {
+        tokenAddress: pendingParams?.tokenAddress,
+        amount: pendingParams?.amount,
+      });
       onSuccess?.();
     }
   };
