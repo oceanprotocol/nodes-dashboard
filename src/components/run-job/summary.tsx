@@ -8,6 +8,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
+import { formatDuration } from '@/utils/formatters';
 import { generateAuthToken } from '@/utils/generateAuthToken';
 import { ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
@@ -107,7 +108,7 @@ const Summary = ({
       isFreeCompute,
       selectedEnv.id,
       token.address,
-      selectedResources.maxJobDurationHours * 60 * 60,
+      selectedResources.maxJobDurationSeconds,
       resources,
       uriScheme
     );
@@ -145,7 +146,7 @@ const Summary = ({
         <div className={styles.value}>{token.address}</div>
         <div className={styles.label}>Job duration:</div>
         <div className={styles.value}>
-          {selectedResources!.maxJobDurationHours} hours ({selectedResources!.maxJobDurationHours * 60 * 60} seconds)
+          {formatDuration(selectedResources!.maxJobDurationSeconds)}
         </div>
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>

@@ -10,11 +10,12 @@ import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
+import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
 import { formatNumber } from '@/utils/formatters';
-import posthog from 'posthog-js';
 import { useAuthModal } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
@@ -29,7 +30,8 @@ type ResourcesFormValues = {
   cpuCores: number;
   diskSpace: number;
   gpus: string[];
-  maxJobDurationHours: number;
+  maxJobDurationUnit: DurationUnit;
+  maxJobDurationValue: number;
   ram: number;
 };
 
@@ -62,12 +64,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const minAllowedCpuCores = cpu?.min ?? 1;
   const minAllowedDiskSpace = disk?.min ?? 0;
-  const minAllowedJobDurationHours = environment.minJobDuration ?? 0;
+  const minAllowedJobDurationSeconds = environment.minJobDuration ?? 0;
   const minAllowedRam = ram?.min ?? 0;
 
   const maxAllowedCpuCores = cpu?.max ?? minAllowedCpuCores;
   const maxAllowedDiskSpace = disk?.max ?? minAllowedDiskSpace;
-  const maxAllowedJobDurationHours = (environment.maxJobDuration ?? minAllowedJobDurationHours) / 60 / 60;
+  const maxAllowedJobDurationSeconds = environment.maxJobDuration ?? environment.minJobDuration ?? 0;
   const maxAllowedRam = ram?.max ?? minAllowedRam;
 
   const formik = useFormik<ResourcesFormValues>({
@@ -75,7 +77,8 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       cpuCores: minAllowedCpuCores,
       diskSpace: minAllowedDiskSpace,
       gpus: [],
-      maxJobDurationHours: minAllowedJobDurationHours,
+      maxJobDurationUnit: 'hours' as DurationUnit,
+      maxJobDurationValue: fromSeconds(minAllowedJobDurationSeconds, 'hours'),
       ram: minAllowedRam,
     },
     onSubmit: (values) => {
@@ -92,7 +95,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         gpus: gpus
           .filter((gpu) => values.gpus.includes(gpu.id))
           .map((gpu) => ({ id: gpu.id, description: gpu.description })),
-        maxJobDurationHours: values.maxJobDurationHours,
+        maxJobDurationSeconds: toSeconds(values.maxJobDurationValue, values.maxJobDurationUnit),
         ram: values.ram,
         ramId: ram?.id ?? 'ram',
       });
@@ -101,7 +104,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         ram: values.ram,
         diskSpace: values.diskSpace,
         gpus: values.gpus,
-        maxJobDurationHours: values.maxJobDurationHours,
+        maxJobDurationSeconds: toSeconds(values.maxJobDurationValue, values.maxJobDurationUnit),
         estimatedTotalCost,
         freeCompute,
       });
@@ -123,10 +126,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         .min(minAllowedDiskSpace, 'Limits exceeded')
         .max(maxAllowedDiskSpace, 'Limits exceeded'),
       gpus: Yup.array().of(Yup.string()),
-      maxJobDurationHours: Yup.number()
+      maxJobDurationValue: Yup.number()
         .required('Required')
-        .min(minAllowedJobDurationHours, 'Limits exceeded')
-        .max(maxAllowedJobDurationHours, 'Limits exceeded'),
+        .test('duration-range', 'Limits exceeded', function (value) {
+          if (value == null) return false;
+          const sec = toSeconds(value, this.parent.maxJobDurationUnit);
+          return sec >= minAllowedJobDurationSeconds && sec <= maxAllowedJobDurationSeconds;
+        }),
       ram: Yup.number()
         .required('Required')
         .min(minAllowedRam, 'Limits exceeded')
@@ -159,7 +165,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
     setIsLoadingCost(true);
     try {
-      const maxJobDurationSec = formik.values.maxJobDurationHours * 60 * 60;
+      const maxJobDurationSec = toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit);
       const { cost, minLockSeconds } = await initializeCompute(
         environment,
         token.address,
@@ -180,7 +186,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   }, [
     environment,
     freeCompute,
-    formik.values.maxJobDurationHours,
+    formik.values.maxJobDurationValue,
+    formik.values.maxJobDurationUnit,
+    multiaddrsOrPeerId,
     nodeInfo?.id,
     initializeCompute,
     provider,
@@ -204,8 +212,20 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     formik.setFieldValue('diskSpace', maxAllowedDiskSpace);
   };
 
-  const setMaxJobDurationHours = () => {
-    formik.setFieldValue('maxJobDurationHours', maxAllowedJobDurationHours);
+  const setMaxJobDuration = () => {
+    formik.setValues((prev) => ({
+      ...prev,
+      maxJobDurationValue: fromSeconds(maxAllowedJobDurationSeconds, prev.maxJobDurationUnit),
+    }));
+  };
+
+  const handleDurationUnitChange = (newUnit: DurationUnit) => {
+    const currentSec = toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit);
+    formik.setValues((prev) => ({
+      ...prev,
+      maxJobDurationUnit: newUnit,
+      maxJobDurationValue: fromSeconds(currentSec, newUnit),
+    }));
   };
 
   const handleDiskSpaceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -215,7 +235,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const handleMaxJobDurationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const num = Number(e.target.value);
-    formik.setFieldValue('maxJobDurationHours', e.target.value === '' ? 0 : Math.max(0, num));
+    formik.setFieldValue('maxJobDurationValue', e.target.value === '' ? 0 : Math.max(0, num));
   };
 
   return (
@@ -295,25 +315,42 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           />
           <Input
             endAdornment={
-              <Button color="accent2" onClick={setMaxJobDurationHours} size="sm" type="button" variant="filled">
-                Set max
-              </Button>
+              <div className={styles.durationControls}>
+                <select
+                  aria-label="Duration unit"
+                  className={styles.unitSelect}
+                  name="maxJobDurationUnit"
+                  onBlur={formik.handleBlur}
+                  onChange={(e) => {
+                    const newUnit = (e.target.value ?? 'minutes') as DurationUnit;
+                    handleDurationUnitChange(newUnit);
+                  }}
+                  value={formik.values.maxJobDurationUnit}
+                >
+                  {DURATION_UNIT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <Button color="accent2" onClick={setMaxJobDuration} size="sm" type="button" variant="outlined">
+                  Set max
+                </Button>
+              </div>
             }
             errorText={
-              formik.touched.maxJobDurationHours && formik.errors.maxJobDurationHours
-                ? formik.errors.maxJobDurationHours
+              formik.touched.maxJobDurationValue && formik.errors.maxJobDurationValue
+                ? formik.errors.maxJobDurationValue
                 : undefined
             }
             label="Max job duration"
-            max={maxAllowedJobDurationHours}
             min={0}
-            name="maxJobDurationHours"
+            name="maxJobDurationValue"
             onBlur={formik.handleBlur}
             onChange={handleMaxJobDurationChange}
-            startAdornment="hours"
-            topRight={`${minAllowedJobDurationHours}-${maxAllowedJobDurationHours}`}
+            topRight={`${Math.ceil(fromSeconds(minAllowedJobDurationSeconds, formik.values.maxJobDurationUnit))}-${Math.ceil(fromSeconds(maxAllowedJobDurationSeconds, formik.values.maxJobDurationUnit))}`}
             type="number"
-            value={formik.values.maxJobDurationHours}
+            value={formik.values.maxJobDurationValue}
           />
         </div>
         {formik.isValid && !freeCompute ? (

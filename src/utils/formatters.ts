@@ -1,3 +1,8 @@
+import dayjs from 'dayjs';
+import duration from 'dayjs/plugin/duration';
+
+dayjs.extend(duration);
+
 export const formatNumber = (num: string | number): string => {
   if (typeof num === 'string') return num;
 
@@ -15,6 +20,14 @@ export const formatWalletAddress = (address: string): string => {
     return address;
   }
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+export const formatDuration = (totalSeconds: number): string => {
+  const d = dayjs.duration(totalSeconds, 'seconds');
+  const sec = d.asSeconds();
+  if (sec < 60) return `${sec} sec`;
+  if (sec < 3600) return `${Math.round(d.asMinutes())} min (${sec} sec)`;
+  return `${d.asHours().toFixed(1)} hrs (${sec} sec)`;
 };
 
 export const formatDateTime = (timestamp: number): string => {

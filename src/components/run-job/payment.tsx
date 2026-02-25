@@ -71,7 +71,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
   useEffect(() => {
     const sufficientEscrow = (escrowBalance ?? 0) + currentLockedAmount >= totalCost;
     const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost + currentLockedAmount;
-    const enoughLockSeconds = (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationHours;
+    const enoughLockSeconds = (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationSeconds;
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
       posthog.capture('payment_authorized', {
         totalCost,
@@ -86,7 +86,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
     currentLockedAmount,
     escrowBalance,
     router,
-    selectedResources.maxJobDurationHours,
+    selectedResources.maxJobDurationSeconds,
     totalCost,
   ]);
 
