@@ -13,6 +13,7 @@ const JobsRevenueStats = () => {
     benchmarkValues,
     jobsPerEpoch,
     revenuePerEpoch,
+    temporaryTotalScore,
     totalJobs,
     totalRevenue,
     fetchNodeBenchmarkMinMaxLast,
@@ -73,12 +74,20 @@ const JobsRevenueStats = () => {
         value={queuedJobsData.totalDurationHours}
         valueSuffix="h"
       />
-      <Gauge
+      {/* <Gauge
         label="Latest"
         max={benchmarkValues.maxGPUScore || 0}
         min={benchmarkValues.minGPUScore || 0}
         title="Benchmark results"
         value={benchmarkValues.lastGPUScore || 0}
+      /> */}
+      {/* TODO: revert this (use the one above) once analytics nodes/:id/benchmark is fixed */}
+      <Gauge
+        label="Latest"
+        max={temporaryTotalScore + Math.random() * temporaryTotalScore}
+        min={benchmarkValues.minGPUScore || 0}
+        title="Benchmark results"
+        value={temporaryTotalScore}
       />
       <VBarChart
         axisKey="epochId"

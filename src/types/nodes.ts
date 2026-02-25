@@ -99,6 +99,7 @@ export type NodeStatsResponse = {
   benchmarkRevenue: number;
   networkRevenue: number;
   totalRevenue: number;
+  latestTotalScore: number;
   data: {
     epochId: number;
     totalBenchmarkJobs: number;
