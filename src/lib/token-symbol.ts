@@ -12,9 +12,14 @@ export const getTokenSymbol = async (tokenAddress: string | null | undefined): P
   if (!tokenAddress) {
     return null;
   }
+  console.log('tokenAddress', tokenAddress);
+  console.log('RPC_URL', RPC_URL);
+
   const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
   const token = new ethers.Contract(tokenAddress, ERC20Template.abi, provider);
   const symbol = await token.symbol();
+
+  console.log('symbol', symbol);
   return symbol;
 };
 
