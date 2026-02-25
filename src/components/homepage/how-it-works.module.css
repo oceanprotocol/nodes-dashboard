@@ -21,10 +21,19 @@
 
 .animation {
   position: relative;
-  width: 568px;
+  /* width: 568px; */
+  width: 538px;
   height: 538px;
   overflow: hidden;
-  border-radius: 32px;
+  /* border-radius: 32px; */
+  filter: invert(1);
+  border-radius: 100%;
+  box-shadow: 0 28px 64px -24px #ffffff78;
+
+  video {
+    margin-left: -2%;
+    transform: scale(1.3);
+  }
 }
 
 .animation img {
