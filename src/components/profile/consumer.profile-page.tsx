@@ -8,11 +8,7 @@ import SectionTitle from '@/components/section-title/section-title';
 const ConsumerProfilePage = () => {
   return (
     <Container className="pageRoot">
-      <SectionTitle
-        title="My profile"
-        // TODO: replace with actual subtitle
-        subTitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit"
-      />
+      <SectionTitle title="My profile" subTitle="Manage your nodes, jobs, tokens and activity in one place" />
       <div className="pageContentWrapper">
         <ProfileHeader role="consumer" />
         <ConsumerStats />

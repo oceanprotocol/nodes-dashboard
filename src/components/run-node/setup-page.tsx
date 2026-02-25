@@ -9,8 +9,7 @@ const SetupPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         title="Run node"
-        // TODO: replace with actual subtitle
-        subTitle="Description text"
+        subTitle="Setup your node, and earn rewards"
         contentBetween={<Stepper<RunNodeStep> currentStep="setup" steps={getRunNodeSteps()} />}
       />
       <div className="pageContentWrapper">

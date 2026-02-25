@@ -22,8 +22,7 @@ const ResourcesPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         title="Run job"
-        // TODO: replace with actual subtitle
-        subTitle="Select resources description text"
+        subTitle="Pick GPU, CPU, RAM, storage resources, and run time for this job"
         contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}
       />
       {selectedEnv && selectedToken ? (

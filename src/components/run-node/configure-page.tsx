@@ -22,8 +22,7 @@ const ConfigurePage = () => {
     <Container className="pageRoot">
       <SectionTitle
         title="Run node"
-        // TODO: replace with actual subtitle
-        subTitle="Description text"
+        subTitle="Setup your node, and earn rewards"
         contentBetween={<Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />}
       />
       {peerId ? (

@@ -47,8 +47,7 @@ const NodeDetailsPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         title="Node details"
-        // TODO: replace with actual subtitle
-        subTitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit"
+        subTitle="Check node status, performance, and available resources before running a job"
       />
       <div className="pageContentWrapper">
         <NodeInfo node={selectedNode} />
