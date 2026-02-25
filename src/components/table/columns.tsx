@@ -387,6 +387,91 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
   },
 ];
 
+export const benchmarkJobsColumns: GridColDef<ComputeJob>[] = [
+  {
+    align: 'center',
+    field: 'index',
+    filterable: false,
+    headerAlign: 'center',
+    headerName: 'Index',
+    sortable: false,
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ value, row }) => {
+      if (!value) return '-';
+      switch (value) {
+        case 'pending':
+          return <span className="chip chipWarning">Pending</span>;
+        case 'running':
+          return <span className="chip chipWarning">Running</span>;
+        case 'completed':
+          return <span className="textSuccessDarker">Completed</span>;
+        case 'failed':
+          return (
+            <span className="textBold textErrorDarker">
+              Failed
+              {'errorMessage' in row && row.errorMessage ? (
+                <>
+                  {' '}
+                  <Tooltip title={row.errorMessage}>
+                    <InfoOutlinedIcon />
+                  </Tooltip>
+                </>
+              ) : null}
+            </span>
+          );
+        case 'timeout':
+          return <span className="textBold textErrorDarker">Timed out</span>;
+        default:
+          return value;
+      }
+    },
+  },
+  {
+    field: 'startTime',
+    filterable: true,
+    flex: 1,
+    headerName: 'Start Time',
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+  },
+  {
+    field: 'amountPaid',
+    filterable: true,
+    flex: 1,
+    headerName: 'Amount Paid',
+    sortable: false,
+    valueGetter: (_value, row) => row.payment?.cost,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+  },
+  {
+    field: 'algoDuration',
+    filterable: true,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: false,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      if (value < 60) return `${value.toFixed(2)}s`;
+      const mins = Math.floor(value / 60);
+      const secs = (value % 60).toFixed(0);
+      return `${mins}m ${secs}s`;
+    },
+  },
+];
+
 export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
   {
     align: 'center',

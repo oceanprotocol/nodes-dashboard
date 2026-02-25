@@ -1,4 +1,5 @@
 import {
+  benchmarkJobsColumns,
   jobsColumns,
   nodesLeaderboardColumns,
   nodesLeaderboardHomeColumns,
@@ -189,7 +190,7 @@ export const Table = <T,>({
       }
       case TableTypeEnum.BENCHMARK_JOBS:
       case TableTypeEnum.BENCHMARK_JOBS_HISTORY: {
-        return jobsColumns;
+        return benchmarkJobsColumns;
       }
     }
   }, [tableType]);
