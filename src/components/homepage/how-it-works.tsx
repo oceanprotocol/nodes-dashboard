@@ -1,4 +1,4 @@
-import { useVideoScroll } from '../../hooks/useVideoScroll';
+import { useEffect, useState } from 'react';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
 import styles from './how-it-works.module.css';
@@ -37,12 +37,21 @@ const videoSrc = '/globe_how-it-works.mp4';
 const posterSrc = '/banner-how-it-works.png';
 
 export default function HowItWorksSection() {
-  const { sectionRef, videoRef, activeIndex } = useVideoScroll({
-    numSteps: itemsList.length,
-  });
+  // const { sectionRef, videoRef, activeIndex } = useVideoScroll({
+  //   numSteps: itemsList.length,
+  // });
+
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveIndex((prevIndex) => (prevIndex + 1) % itemsList.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className={styles.root} ref={sectionRef} tabIndex={0} aria-label="How it works, step-by-step">
+    <div className={styles.root} /*ref={sectionRef}*/ tabIndex={0} aria-label="How it works, step-by-step">
       <Container className={styles.relative}>
         <SectionTitle
           title="How It works"
@@ -66,7 +75,16 @@ export default function HowItWorksSection() {
             ))}
           </div>
           <div className={styles.animation}>
-            <video ref={videoRef} src={videoSrc} muted playsInline preload="auto" poster={posterSrc} />
+            <video
+              // autoPlay
+              // loop
+              muted
+              playsInline
+              preload="auto"
+              poster={posterSrc}
+              // ref={videoRef}
+              src={videoSrc}
+            />
           </div>
         </div>
       </Container>
