@@ -38,7 +38,7 @@ const OwnerStats = () => {
         title="Revenue per epoch"
         footer={{
           amount: formatNumber(totalNetworkRevenue + totalBenchmarkRevenue),
-          currency: 'OCEAN',
+          currency: 'USDC',
           label: 'Total revenue',
         }}
         minBars={16}

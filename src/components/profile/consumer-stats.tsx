@@ -35,7 +35,7 @@ const ConsumerStats = () => {
         title="Amount paid per epoch"
         footer={{
           amount: formatNumber(totalPaidAmount),
-          currency: 'OCEAN',
+          currency: 'USDC',
           label: 'Total paid',
         }}
         minBars={16}
