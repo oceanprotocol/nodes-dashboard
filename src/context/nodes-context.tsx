@@ -9,6 +9,8 @@ type NodesContextType = {
   jobsPerEpoch: JobsPerEpochType[];
   revenuePerEpoch: RevenuePerEpochType[];
   selectedNode: Node | null;
+  // TODO remove once analytics nodes/:id/benchmark is fixed
+  temporaryTotalScore: number;
   totalJobs: number;
   totalRevenue: number;
 
@@ -35,6 +37,8 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
   const [totalJobs, setTotalJobs] = useState<number>(0);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  // TODO remove once analytics nodes/:id/benchmark is fixed
+  const [temporaryTotalScore, setTemporaryTotalScore] = useState<number>(0);
 
   const fetchNode = useCallback(async (nodeId: string) => {
     try {
@@ -76,6 +80,7 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
       if (response.data) {
         setTotalJobs(response.data.totalJobs);
         setTotalRevenue(response.data.totalRevenue);
+        setTemporaryTotalScore(response.data.latestTotalScore);
 
         const jobsPerEpoch = [];
         const revenuePerEpoch = [];
@@ -109,6 +114,7 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
         jobsPerEpoch,
         revenuePerEpoch,
         selectedNode,
+        temporaryTotalScore,
         totalJobs,
         totalRevenue,
         fetchNode,

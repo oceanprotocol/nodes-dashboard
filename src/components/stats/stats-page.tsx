@@ -9,6 +9,7 @@ const StatsPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Stats"
         // TODO: replace with actual subtitle
         subTitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit"

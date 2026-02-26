@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import styles from './node-config.module.css';
 
 const NodeConfig = () => {
-  const { configErrors, loadingPushConfig, loadingFetchConfig, nodeConfig, pushConfig } = useRunNodeContext();
+  const { configErrors, loadingPushConfig, loadingFetchConfig, nodeConfig, peerId, pushConfig } = useRunNodeContext();
 
   const [editedConfig, setEditedConfig] = useState(nodeConfig ?? {});
 
@@ -16,7 +16,7 @@ const NodeConfig = () => {
   }, [nodeConfig]);
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       {loadingFetchConfig ? (
         'Loading config...'
       ) : (
@@ -49,27 +49,31 @@ const NodeConfig = () => {
           ) : null}
         </>
       )}
-      <div className={styles.buttons}>
+      <div className={styles.footer}>
         <Button
-          className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={loadingPushConfig}
-          href="/run-node/setup"
+          href={`/nodes/${peerId}`}
           size="lg"
-          variant="outlined"
+          target="_blank"
+          variant="transparent"
         >
-          Back
+          View node details
         </Button>
-        <Button
-          className="alignSelfEnd"
-          color="accent2"
-          loading={loadingPushConfig}
-          onClick={() => pushConfig(editedConfig)}
-          size="lg"
-          variant="filled"
-        >
-          Push config to node
-        </Button>
+        <div className={styles.buttons}>
+          <Button color="accent1" disabled={loadingPushConfig} href="/run-node/setup" size="lg" variant="outlined">
+            Back
+          </Button>
+          <Button
+            color="accent1"
+            loading={loadingPushConfig}
+            onClick={() => pushConfig(editedConfig)}
+            size="lg"
+            variant="filled"
+          >
+            Push config to node
+          </Button>
+        </div>
       </div>
     </Card>
   );

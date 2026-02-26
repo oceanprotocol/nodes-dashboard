@@ -12,10 +12,11 @@ import { AlchemyProvider } from '@/lib/alchemy-provider';
 import { OceanAccountProvider } from '@/lib/use-ocean-account';
 import { PHProvider } from '@/lib/use-posthog';
 import '@/styles/globals.css';
+import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
 import type { AppProps } from 'next/app';
-import { Inter, Orbitron } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -26,11 +27,22 @@ const inter = Inter({
   display: 'swap',
 });
 
-const orbitron = Orbitron({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-orbitron',
+  variable: '--font-plus-jakarta-sans',
   weight: ['400', '600', '700'],
   display: 'swap',
+});
+
+const muiTheme = createTheme({
+  palette: {
+    primary: {
+      main: '#d54335', // accent1
+    },
+    secondary: {
+      main: '#b7fd79', // accent2
+    },
+  },
 });
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -41,41 +53,43 @@ export default function App({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     const html = document.documentElement;
-    html.classList.add(inter.variable, orbitron.variable);
+    html.classList.add(inter.variable, plusJakartaSans.variable);
   }, []);
 
   return (
-    <main className={cx(inter.variable, orbitron.variable)}>
-      <QueryClientProvider client={queryClientRef.current}>
-        <AlchemyProvider>
-          <OceanAccountProvider>
-            <GrantProvider>
-              <NodesProvider>
-                <UnbanRequestsProvider>
-                  <ProfileProvider>
-                    <StatsProvider>
-                      <P2PProvider>
-                        <RunJobEnvsProvider>
-                          <RunJobProvider>
-                            <RunNodeProvider>
-                              <RootLayout>
-                                <PHProvider>
-                                <Component {...pageProps} />
-                                </PHProvider>
-                              </RootLayout>
-                            </RunNodeProvider>
-                          </RunJobProvider>
-                        </RunJobEnvsProvider>
-                      </P2PProvider>
-                    </StatsProvider>
-                  </ProfileProvider>
-                </UnbanRequestsProvider>
-              </NodesProvider>
-            </GrantProvider>
-          </OceanAccountProvider>
-        </AlchemyProvider>
-        <ToastContainer hideProgressBar theme="colored" />
-      </QueryClientProvider>
+    <main className={cx(inter.variable, plusJakartaSans.variable)}>
+      <ThemeProvider theme={muiTheme}>
+        <QueryClientProvider client={queryClientRef.current}>
+          <AlchemyProvider>
+            <OceanAccountProvider>
+              <GrantProvider>
+                <NodesProvider>
+                  <UnbanRequestsProvider>
+                    <ProfileProvider>
+                      <StatsProvider>
+                        <P2PProvider>
+                          <RunJobEnvsProvider>
+                            <RunJobProvider>
+                              <RunNodeProvider>
+                                <RootLayout>
+                                  <PHProvider>
+                                    <Component {...pageProps} />
+                                  </PHProvider>
+                                </RootLayout>
+                              </RunNodeProvider>
+                            </RunJobProvider>
+                          </RunJobEnvsProvider>
+                        </P2PProvider>
+                      </StatsProvider>
+                    </ProfileProvider>
+                  </UnbanRequestsProvider>
+                </NodesProvider>
+              </GrantProvider>
+            </OceanAccountProvider>
+          </AlchemyProvider>
+          <ToastContainer hideProgressBar theme="colored" />
+        </QueryClientProvider>
+      </ThemeProvider>
     </main>
   );
 }

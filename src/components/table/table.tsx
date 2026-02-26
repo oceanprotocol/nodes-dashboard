@@ -1,6 +1,8 @@
 import {
+  benchmarkJobsColumns,
   jobsColumns,
   nodesLeaderboardColumns,
+  nodesLeaderboardHomeColumns,
   nodesTopByJobCountColumns,
   nodesTopByRevenueColumns,
   topNodesByJobsColumns,
@@ -41,17 +43,17 @@ const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHei
 const StyledDataGrid = styled(DataGrid)({
   background: 'none',
   border: 'none',
-  borderBottom: '1px solid var(--border-glass)',
+  borderBottom: '1px solid var(--border)',
   borderRadius: 0,
   color: 'var(--text-primary)',
 
   '& .MuiDataGrid-columnHeaders': {
-    backgroundColor: 'var(--background-glass-opaque)',
+    backgroundColor: 'var(--background-table-header)',
     borderRadius: 0,
 
     '& .MuiDataGrid-columnHeader, & .MuiDataGrid-filler': {
       background: 'none',
-      borderBottomColor: 'var(--border-glass)',
+      borderBottomColor: 'var(--border)',
 
       '& .MuiDataGrid-columnHeaderTitle': {
         fontSize: 14,
@@ -64,36 +66,39 @@ const StyledDataGrid = styled(DataGrid)({
       },
 
       '& .MuiDataGrid-columnSeparator': {
-        color: 'var(--border-glass)',
+        color: 'var(--border)',
       },
     },
   },
 
   '& .MuiDataGrid-main': {
-    '& .MuiDataGrid-filler': {
-      background: 'rgba(0, 0, 0, 0.3)',
+    // '& .MuiDataGrid-filler': {
+    // background: 'rgba(0, 0, 0, 0.03)',
 
-      '& > div': {
-        borderTop: '1px solid var(--border-glass)',
-      },
+    // '& > div': {
+    // borderTop: '1px solid var(--border)',
+    // },
+    // },
+
+    '& .MuiDataGrid-scrollbarFiller': {
+      background: 'transparent',
     },
   },
 
   '& .MuiDataGrid-row': {
     '&:hover': {
-      backgroundColor: 'var(--background-glass)',
+      backgroundColor: 'color-mix(in srgb, var(--accent1) 7%, transparent 93%);',
     },
   },
 
   '& .MuiDataGrid-cell': {
-    borderTopColor: 'var(--border-glass)',
+    borderTopColor: 'var(--border)',
     fontFamily: 'var(--font-inter), sans-serif',
     fontSize: 14,
   },
 
   '& .MuiDataGrid-overlay': {
-    // backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    background: 'none',
+    backgroundColor: 'var(--background-glass-secondary)',
   },
 
   '& .MuiLinearProgress-root': {
@@ -158,7 +163,6 @@ export const Table = <T,>({
 
   const columns = useMemo(() => {
     switch (tableType) {
-      case TableTypeEnum.BENCHMARK_JOBS:
       case TableTypeEnum.MY_JOBS: {
         return jobsColumns;
       }
@@ -168,6 +172,9 @@ export const Table = <T,>({
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {
         return nodesLeaderboardColumns;
+      }
+      case TableTypeEnum.NODES_LEADERBOARD_HOME: {
+        return nodesLeaderboardHomeColumns;
       }
       case TableTypeEnum.NODES_TOP_JOBS: {
         return nodesTopByJobCountColumns;
@@ -181,8 +188,9 @@ export const Table = <T,>({
       case TableTypeEnum.NODES_TOP_REVENUE: {
         return topNodesByRevenueColumns;
       }
+      case TableTypeEnum.BENCHMARK_JOBS:
       case TableTypeEnum.BENCHMARK_JOBS_HISTORY: {
-        return jobsColumns;
+        return benchmarkJobsColumns;
       }
     }
   }, [tableType]);
@@ -278,7 +286,7 @@ export const Table = <T,>({
   }, []);
 
   const initialState = useMemo(() => {
-    const coreState: GridInitialState = { density: 'comfortable' };
+    const coreState: GridInitialState = { density: 'standard' };
     return paginationType === 'none'
       ? coreState
       : {

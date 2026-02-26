@@ -14,7 +14,7 @@ const JobsRevenueStats = () => {
   }, [fetchAnalyticsGlobalStats]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.revenueWrapper}>
         <h3 className={styles.heading}>Total revenue</h3>
         <div className={styles.revenue}>
@@ -26,6 +26,7 @@ const JobsRevenueStats = () => {
         barKey="totalRevenue"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={revenuePerEpoch}
+        minBars={16}
         title="Revenue per epoch"
       />
       <VBarChart
@@ -37,6 +38,7 @@ const JobsRevenueStats = () => {
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
         title="Jobs per epoch"
       />
     </Card>

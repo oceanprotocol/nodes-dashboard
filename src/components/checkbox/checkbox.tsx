@@ -22,27 +22,27 @@ const StyledFormControlLabel = styled(FormControlLabel)({
 });
 
 const StyledCheckbox = styled(MaterialCheckbox)({
-  color: 'var(--border-glass)',
+  color: 'var(--text-secondary)',
 
   '&.Mui-checked': {
     color: 'var(--accent1)',
   },
 
   '&.Mui-disabled': {
-    color: 'var(--text-secondary)',
+    // color: 'var(--text-secondary)',
     opacity: 0.5,
   },
 });
 
 const StyledRadio = styled(MaterialRadio)({
-  color: 'var(--border-glass)',
+  color: 'var(--text-secondary)',
 
   '&.Mui-checked': {
     color: 'var(--accent1)',
   },
 
   '&.Mui-disabled': {
-    color: 'var(--text-secondary)',
+    // color: 'var(--text-secondary)',
     opacity: 0.5,
   },
 });

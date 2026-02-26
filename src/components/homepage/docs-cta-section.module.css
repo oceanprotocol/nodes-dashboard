@@ -1,22 +1,8 @@
-@keyframes float {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-
-  50% {
-    transform: translate3d(0, -6px, 0);
-  }
-
-  to {
-    transform: translate3d(0, 0, 0);
-  }
-}
-
 .root {
   position: relative;
   padding: 140px 0 120px;
-  background: #f8fbff;
-  color: #021e42;
+  background: var(--accent1-lighter);
+  color: var(--text-primary-inverse);
   overflow: hidden;
 }
 
@@ -48,52 +34,14 @@
 }
 
 .title {
-  font-family: var(--font-orbitron), sans-serif;
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
   font-weight: 700;
   font-style: normal;
   font-size: clamp(42px, 5vw, 56px);
   line-height: clamp(46px, 5.4vw, 60px);
   letter-spacing: 0.02em;
-  text-transform: capitalize;
   max-width: 780px;
   margin: 0;
-}
-
-.docsButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 18px 46px;
-  border-radius: 999px;
-  background: #009bff;
-  color: #ffffff;
-  font-family: var(--font-orbitron), sans-serif;
-  font-weight: 700;
-  font-size: 20px;
-  line-height: 22px;
-  letter-spacing: 0;
-  text-transform: capitalize;
-  vertical-align: middle;
-  box-shadow: 0 18px 40px rgba(0, 114, 255, 0.35);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.docsButton:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 22px 48px rgba(0, 114, 255, 0.45);
-}
-
-.docsButton:active {
-  transform: translateY(0);
-}
-
-.buttonIcon {
-  font-size: 22px;
-  line-height: 1;
-  animation: float 2.6s ease-in-out infinite;
 }
 
 .socialLinks {
@@ -102,27 +50,6 @@
   align-items: center;
   justify-content: center;
   gap: 28px;
-}
-
-.socialLink {
-  display: inline-flex;
-  gap: 12px;
-  align-items: center;
-  color: #be00ff;
-  font-family: var(--font-inter), sans-serif;
-  font-style: normal;
-  font-weight: 700;
-  font-size: 20px;
-  line-height: 22px;
-  text-transform: capitalize;
-  transition:
-    transform 0.2s ease,
-    color 0.2s ease;
-}
-
-.socialLink:hover {
-  transform: translateY(-4px);
-  color: #f066ff;
 }
 
 .socialLinkIcon {
@@ -156,10 +83,6 @@
   .container {
     gap: 32px;
   }
-
-  .docsButton {
-    padding: 16px 36px;
-  }
 }
 
 @media (max-width: 600px) {
@@ -169,17 +92,7 @@
   }
 
   .root::after {
-    background: linear-gradient(
-      125deg,
-      rgba(255, 255, 255, 0.96),
-      rgba(255, 255, 255, 0.72) 45%,
-      rgba(255, 255, 255, 0)
-    );
-  }
-
-  .docsButton {
-    width: 100%;
-    max-width: 320px;
+    background: linear-gradient(125deg, var(--accent1-light), var(--accent1-lighter) 45%, var(--accent1-lightest));
   }
 
   .socialLinks {

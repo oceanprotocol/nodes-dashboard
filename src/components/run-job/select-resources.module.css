@@ -89,9 +89,5 @@
       font-size: 32px;
       font-weight: 700;
     }
-
-    .reimbursment {
-      color: var(--success);
-    }
   }
 }

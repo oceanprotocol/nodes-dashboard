@@ -22,7 +22,7 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
     if (!isReady || isDownloading || !account?.address) return;
 
     try {
-      const jobId = job.environment.split('-')[0] + '-' + job.jobId;
+      const jobId = (job.environment ?? job.environmentId).split('-')[0] + '-' + job.jobId;
 
       const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
 

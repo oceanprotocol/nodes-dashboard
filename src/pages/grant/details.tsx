@@ -9,6 +9,7 @@ const DetailsPage: React.FC = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Grant distribution"
         subTitle="Complete the simple process to receive your grant"
         contentBetween={<Stepper<GrantStep> currentStep="details" steps={getGrantSteps()} />}

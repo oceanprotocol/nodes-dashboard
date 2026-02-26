@@ -1,17 +1,20 @@
+import Button from '@/components/button/button';
+import Input from '@/components/input/input';
+import Menu, { muiMenuPaperStyle } from '@/components/menu/menu';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { exportToCsv } from '@/components/table/utils';
 import ClearIcon from '@mui/icons-material/Clear';
+import DensityLargeIcon from '@mui/icons-material/DensityLarge';
+import DensityMediumIcon from '@mui/icons-material/DensityMedium';
+import DensitySmallIcon from '@mui/icons-material/DensitySmall';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import SearchIcon from '@mui/icons-material/Search';
-import { Button, IconButton, styled, TextField } from '@mui/material';
-import {
-  GridApi,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarFilterButton,
-  GridToolbarProps,
-} from '@mui/x-data-grid';
-import React from 'react';
+import TableRowsIcon from '@mui/icons-material/TableRows';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import { IconButton, ListItemIcon, MenuItem, Popover, styled } from '@mui/material';
+import { GridApi, GridColumnsPanel, GridDensity, GridFilterPanel, GridToolbarProps } from '@mui/x-data-grid';
+import React, { useState } from 'react';
 
 const StyledRoot = styled('div')({
   display: 'flex',
@@ -23,7 +26,7 @@ const StyledRoot = styled('div')({
 
 const StyledButtonsWrapper = styled('div')({
   display: 'flex',
-  gap: 32,
+  gap: 16,
 
   '& .MuiButton-root': {
     color: 'var(--text-primary)',
@@ -39,36 +42,22 @@ const StyledButtonsWrapper = styled('div')({
   },
 });
 
-const StyledTextField = styled(TextField)({
-  '& .MuiOutlinedInput-root': {
-    backgroundColor: 'var(--background-glass)',
-    border: '1px solid var(--border-glass)',
-    borderRadius: 20,
-    paddingRight: 8,
+const StyledPopover = styled(Popover)({
+  '& .MuiPaper-root': muiMenuPaperStyle,
+});
 
-    '& fieldset': {
-      border: 'none',
-    },
+const StyledGridColumnsPanel = styled(GridColumnsPanel)({
+  padding: 12,
+});
 
-    '&:hover fieldset': {
-      border: 'none',
-    },
-
-    '&.Mui-focused fieldset': {
-      border: 'none',
-    },
+const StyledGridFilterPanel = styled(GridFilterPanel)({
+  '& .MuiDataGrid-panelContent': {
+    padding: '14px 0 14px 12px',
   },
-
-  '& .MuiInputBase-input': {
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: 14,
-    fontWeight: 400,
-    padding: '4px 16px',
-  },
-
-  '& .MuiIconButton-root': {
-    color: 'var(--accent1)',
+  '& .MuiDataGrid-filterForm': {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 4,
   },
 });
 
@@ -91,6 +80,10 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
   tableType,
   totalUptime,
 }) => {
+  const [anchorElFilters, setAnchorElFilters] = useState<null | HTMLElement>(null);
+  const [anchorElDensity, setAnchorElDensity] = useState<null | HTMLElement>(null);
+  const [anchorElColumns, setAnchorElColumns] = useState<null | HTMLElement>(null);
+
   const handleExport = () => {
     if (apiRef) {
       exportToCsv(apiRef, tableType, totalUptime);
@@ -104,37 +97,137 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
     }
   };
 
+  const handleCloseFiltersMenu = () => {
+    setAnchorElFilters(null);
+  };
+
+  const handleCloseDensityMenu = () => {
+    setAnchorElDensity(null);
+  };
+
+  const handleCloseColumnsMenu = () => {
+    setAnchorElColumns(null);
+  };
+
+  const handleSelectDensity = (density: GridDensity) => {
+    if (apiRef) {
+      apiRef.setDensity(density);
+    }
+    handleCloseDensityMenu();
+  };
+
   return (
     <StyledRoot>
       <StyledButtonsWrapper>
-        <GridToolbarColumnsButton />
-        <GridToolbarFilterButton />
-        <GridToolbarDensitySelector />
-        <Button color="inherit" startIcon={<FileDownloadIcon />} onClick={handleExport} size="small">
+        <Button
+          color="primary"
+          contentBefore={<ViewColumnIcon className="textAccent1" />}
+          onClick={(e) => setAnchorElColumns(e.currentTarget)}
+          size="sm"
+          variant="transparent"
+        >
+          Columns
+        </Button>
+        <StyledPopover
+          anchorEl={anchorElColumns}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          onClose={handleCloseColumnsMenu}
+          open={!!anchorElColumns}
+        >
+          <StyledGridColumnsPanel />
+        </StyledPopover>
+
+        <Button
+          color="primary"
+          contentBefore={<FilterAltIcon className="textAccent1" />}
+          onClick={(e) => setAnchorElFilters(e.currentTarget)}
+          size="sm"
+          variant="transparent"
+        >
+          Filters
+        </Button>
+        <StyledPopover
+          anchorEl={anchorElFilters}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          onClose={handleCloseFiltersMenu}
+          open={!!anchorElFilters}
+        >
+          <StyledGridFilterPanel />
+        </StyledPopover>
+
+        <Button
+          color="primary"
+          contentBefore={<TableRowsIcon className="textAccent1" />}
+          onClick={(e) => setAnchorElDensity(e.currentTarget)}
+          size="sm"
+          variant="transparent"
+        >
+          Density
+        </Button>
+        <Menu
+          anchorEl={anchorElDensity}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          onClose={handleCloseDensityMenu}
+          open={!!anchorElDensity}
+        >
+          <MenuItem disableRipple onClick={() => handleSelectDensity('compact')}>
+            <ListItemIcon>
+              <DensitySmallIcon />
+            </ListItemIcon>
+            Compact
+          </MenuItem>
+          <MenuItem disableRipple onClick={() => handleSelectDensity('standard')}>
+            <ListItemIcon>
+              <DensityMediumIcon />
+            </ListItemIcon>
+            Standard
+          </MenuItem>
+          <MenuItem disableRipple onClick={() => handleSelectDensity('comfortable')}>
+            <ListItemIcon>
+              <DensityLargeIcon />
+            </ListItemIcon>
+            Comfortable
+          </MenuItem>
+        </Menu>
+
+        <Button
+          color="primary"
+          contentBefore={<FileDownloadIcon className="textAccent1" />}
+          onClick={handleExport}
+          size="sm"
+          variant="transparent"
+        >
           Export
         </Button>
       </StyledButtonsWrapper>
-      <StyledTextField
-        value={searchTerm}
-        onChange={(e) => onSearchChange(e.target.value)}
-        onKeyPress={handleKeyPress}
-        placeholder="Search..."
-        variant="outlined"
-        size="small"
-        InputProps={{
-          endAdornment: (
-            <>
-              <IconButton onClick={onSearch} size="small">
-                <SearchIcon />
+      <Input
+        endAdornment={
+          <>
+            <IconButton color="primary" onClick={onSearch} size="small">
+              <SearchIcon />
+            </IconButton>
+            {searchTerm && (
+              <IconButton color="primary" onClick={onReset} size="small">
+                <ClearIcon />
               </IconButton>
-              {searchTerm && (
-                <IconButton onClick={onReset} size="small">
-                  <ClearIcon />
-                </IconButton>
-              )}
-            </>
-          ),
-        }}
+            )}
+          </>
+        }
+        onChange={(e) => onSearchChange(e.target.value)}
+        onKeyDown={handleKeyPress}
+        placeholder="Search..."
+        type="text"
+        size="sm"
+        value={searchTerm}
       />
     </StyledRoot>
   );

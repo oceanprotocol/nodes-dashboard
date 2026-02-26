@@ -2,12 +2,15 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import { useGasFee, UseGasFeeReturn } from '@/lib/use-node-gas-fee';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useFormik } from 'formik';
+import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
 
 type GasFeeModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   nodeAddress: string;
 };
 
@@ -20,6 +23,16 @@ const GasFeeModalContent = ({
   nodeAddress,
   onClose,
 }: Pick<GasFeeModalProps, 'onClose' | 'nodeAddress'> & { depositTokens: UseGasFeeReturn }) => {
+  const { account, ocean } = useOceanAccount();
+
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (ocean && account?.address) {
+      ocean?.getEthBalance(account.address).then((balance) => setWalletBalance(balance));
+    }
+  }, [ocean, account.address]);
+
   const formik = useFormik<GasFeeModalFormValues>({
     initialValues: {
       amount: '',
@@ -33,12 +46,16 @@ const GasFeeModalContent = ({
       }
     },
     validationSchema: Yup.object({
-      amount: Yup.number().required('Amount is required').min(0, 'Amount must be greater than 0'),
+      amount: Yup.number()
+        .required('Amount is required')
+        .min(0, 'Amount must be greater than 0')
+        .max(Number(walletBalance), 'Insufficient wallet balance'),
     }),
   });
 
   return (
     <form className="flexColumn gapLg" onSubmit={formik.handleSubmit}>
+      {walletBalance === null ? null : <p>Wallet balance: {walletBalance} ETH</p>}
       <Input
         endAdornment="ETH"
         errorText={formik.touched.amount && formik.errors.amount ? formik.errors.amount : undefined}
@@ -53,7 +70,7 @@ const GasFeeModalContent = ({
       <div className="flexRow gapSm justifyContentEnd">
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           disabled={depositTokens.isDepositing}
           onClick={onClose}
           size="md"
@@ -62,7 +79,7 @@ const GasFeeModalContent = ({
         >
           Cancel
         </Button>
-        <Button className="alignSelfEnd" color="accent2" loading={depositTokens.isDepositing} size="md" type="submit">
+        <Button className="alignSelfEnd" color="accent1" loading={depositTokens.isDepositing} size="md" type="submit">
           {depositTokens.isDepositing ? 'Sending...' : 'Send'}
         </Button>
       </div>
@@ -70,9 +87,12 @@ const GasFeeModalContent = ({
   );
 };
 
-const GasFeeModal = ({ isOpen, onClose, nodeAddress }: GasFeeModalProps) => {
+const GasFeeModal = ({ isOpen, onClose, onSuccess, nodeAddress }: GasFeeModalProps) => {
   const depositTokens = useGasFee({
-    onSuccess: onClose,
+    onSuccess: () => {
+      onSuccess?.();
+      onClose();
+    },
   });
   return (
     <Modal

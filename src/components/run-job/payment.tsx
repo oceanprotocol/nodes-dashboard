@@ -139,7 +139,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
     <CircularProgress />
   ) : (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Payment</h3>
       <PaymentSummary
         authorizations={authorizations}

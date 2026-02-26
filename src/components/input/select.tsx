@@ -1,8 +1,18 @@
 import InputWrapper from '@/components/input/input-wrapper';
-import { Checkbox, ListItemText, Select as MaterialSelect, MenuItem, selectClasses, styled } from '@mui/material';
+import {
+  Checkbox,
+  Collapse,
+  ListItemText,
+  Select as MaterialSelect,
+  MenuItem,
+  PopoverPaper,
+  selectClasses,
+  styled,
+} from '@mui/material';
 import { useMemo } from 'react';
+import { TransitionGroup } from 'react-transition-group';
 
-const StyledMultipleValueContainer = styled('div')({
+const StyledTransitionGroup = styled(TransitionGroup)({
   display: 'flex',
   flexWrap: 'wrap',
   gap: 4,
@@ -10,40 +20,69 @@ const StyledMultipleValueContainer = styled('div')({
 
 const StyledSelect = styled(MaterialSelect, {
   shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
-})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
-  ({ custom_size, has_error }) => ({
-    background: 'var(--background-glass)',
-    border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
-    borderRadius: 24,
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-inter), sans-serif',
-    fontSize: 16,
-    lineHeight: '18px',
+})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, has_error }) => ({
+  alignItems: 'center',
+  background: 'var(--background-glass)',
+  border: `1px solid var(${has_error ? '--error' : '--border'})`,
+  boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
+  borderRadius: 24,
+  color: 'var(--text-primary)',
+  display: 'inline-flex',
+  fontFamily: 'var(--font-inter), sans-serif',
+  fontSize: 16,
+  lineHeight: '22px',
+  minHeight: custom_size === 'sm' ? 34 : 50,
+  transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
 
-    fieldset: {
-      border: 'none',
-    },
+  '&.Mui-focused': {
+    boxShadow: has_error ? 'var(--input-shadow-error), var(--input-shadow-focus)' : 'var(--input-shadow-focus)',
+  },
 
-    [`& .${selectClasses.select}`]: {
-      padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
-      minHeight: 0,
+  fieldset: {
+    border: 'none',
+  },
 
-      '& > .MuiListItemText-root': {
-        marginBottom: 0,
-        marginTop: 0,
+  menu: {
+    background: 'red',
+  },
 
-        '& > .MuiListItemText-primary': {
-          lineHeight: custom_size === 'sm' ? '22px' : '24px',
-        },
+  [`& .${selectClasses.select}`]: {
+    padding: custom_size === 'sm' ? '4px 16px' : '8px 16px',
+    minHeight: 0,
+
+    '& > .MuiListItemText-root': {
+      marginBottom: 0,
+      marginTop: 0,
+
+      '& > .MuiListItemText-primary': {
+        lineHeight: custom_size === 'sm' ? '22px' : '24px',
       },
     },
+  },
 
-    [`& .${selectClasses.icon}`]: {
-      color: 'var(--text-secondary)',
-      position: 'relative',
-    },
-  })
-);
+  [`& .${selectClasses.icon}`]: {
+    color: 'var(--text-secondary)',
+    position: 'relative',
+  },
+}));
+
+const StyledPaper = styled(PopoverPaper)({
+  backdropFilter: 'var(--backdrop-filter-glass)',
+  background: 'var(--background-glass)',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--drop-shadow-black)',
+  borderRadius: 16,
+  color: 'var(--text-primary)',
+  fontFamily: 'var(--font-inter), sans-serif',
+  fontSize: 16,
+  marginTop: 8,
+});
+
+const StyledPlaceholder = styled('span')({
+  color: 'var(--text-secondary)',
+  fontSize: 14,
+  lineHeight: '16px',
+});
 
 export type SelectOption<T> = {
   label: string;
@@ -61,6 +100,7 @@ type SelectProps<T> = {
   MenuProps?: any;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   options?: SelectOption<T>[];
+  placeholder?: string;
   renderOption?: (option: SelectOption<T>) => React.ReactNode;
   renderSelectedValue?: (label: string) => React.ReactNode;
   size?: 'sm' | 'md';
@@ -90,6 +130,7 @@ const Select = <T extends string | number = string>({
   onBlur,
   onChange,
   options,
+  placeholder,
   renderOption,
   renderSelectedValue,
   size = 'md',
@@ -98,31 +139,50 @@ const Select = <T extends string | number = string>({
 }: SelectProps<T>) => {
   const memoizedRenderValue = useMemo<((value: any) => React.ReactNode) | undefined>(() => {
     if (multiple) {
-      const MultiRenderValue = (value: T[]) => (
-        <StyledMultipleValueContainer>
-          {options
-            ?.filter((option) => value.includes(option.value))
-            .map((option) => (
-              <div className="chip chipGlass" key={String(option.value)}>
-                {renderSelectedValue?.(option.label) ?? option.label}
-              </div>
-            ))}
-        </StyledMultipleValueContainer>
-      );
-      (MultiRenderValue as any).displayName = 'SelectMultiRenderValue';
-      return MultiRenderValue as (value: any) => React.ReactNode;
+      const MultiRenderValue = (value: T[]) => {
+        const selectedValues = options?.filter((option) => value.includes(option.value));
+        return (
+          <StyledTransitionGroup>
+            {selectedValues?.length ? (
+              selectedValues.map((option) => (
+                <Collapse key={String(option.value)} orientation="horizontal">
+                  <div className="chip chipGlass">{renderSelectedValue?.(option.label) ?? option.label}</div>
+                </Collapse>
+              ))
+            ) : placeholder ? (
+              <Collapse orientation="horizontal">
+                <StyledPlaceholder>{placeholder}</StyledPlaceholder>
+              </Collapse>
+            ) : null}
+          </StyledTransitionGroup>
+        );
+      };
+      return MultiRenderValue;
     }
-    return undefined;
-  }, [multiple, options, renderSelectedValue]);
+    const SingleRenderValue = (value: T) => {
+      if (value) {
+        const selectedOption = options?.find((option) => option.value === value);
+        if (selectedOption) {
+          return selectedOption.label;
+        }
+      }
+      if (placeholder) {
+        return <StyledPlaceholder>{placeholder}</StyledPlaceholder>;
+      }
+      return null;
+    };
+    return SingleRenderValue;
+  }, [multiple, options, placeholder, renderSelectedValue]);
 
   return (
     <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
       <StyledSelect
         custom_size={size}
+        displayEmpty
         endAdornment={endAdornment}
         has_error={!!errorText}
         inputProps={{}}
-        MenuProps={{ disableScrollLock: true, ...MenuProps }}
+        MenuProps={{ slots: { paper: StyledPaper, ...MenuProps?.slots }, ...MenuProps }}
         multiple={multiple}
         name={name}
         onBlur={onBlur}
@@ -131,7 +191,7 @@ const Select = <T extends string | number = string>({
         value={multiple ? (value ?? []) : value}
       >
         {options?.map((option) => (
-          <MenuItem key={String(option.value)} value={option.value}>
+          <MenuItem disableRipple key={String(option.value)} value={option.value}>
             {multiple ? (
               <Checkbox checked={Array.isArray(value) ? (value as any).includes(option.value) : false} />
             ) : null}

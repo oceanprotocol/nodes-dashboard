@@ -21,7 +21,7 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
     if (!isReady || isDownloading || !account?.address) return;
 
     try {
-      const jobId = job.environment.split('-')[0] + '-' + job.jobId;
+      const jobId = (job.environment ?? job.environmentId).split('-')[0] + '-' + job.jobId;
       setIsDownloading(true);
       const jobStatus = await getComputeJobStatus(job.peerId, jobId, account.address);
       const archive = jobStatus?.[0]?.results?.find((result: any) => result.filename.includes('.tar'));

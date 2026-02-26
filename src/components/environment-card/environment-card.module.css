@@ -1,3 +1,10 @@
+.root {
+  transition: transform 0.3s ease;
+  &:hover {
+    transform: scale(1.01);
+  }
+}
+
 .gridWrapper {
   display: flex;
   flex-direction: column;
@@ -111,8 +118,7 @@
 }
 
 .accessInfoIcon {
-  color: var(--warning);
-  cursor: help;
+  color: var(--error);
   font-size: 18px;
 }
 

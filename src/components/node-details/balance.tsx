@@ -32,7 +32,7 @@ export const Balance = ({ admins }: BalanceProps) => {
   const isAdmin = useMemo(() => admins.includes(account?.address as string), [admins, account]);
 
   const loadEscrowBalances = useCallback(async () => {
-    if (!ocean) {
+    if (!ocean || isAdmin) {
       return;
     }
     setLoadingEscrowBalances(true);
@@ -105,7 +105,7 @@ export const Balance = ({ admins }: BalanceProps) => {
   const hasAnyEscrowBalance = useMemo(() => escrowBalances.some((b) => b.amount > 0), [escrowBalances]);
 
   return (
-    <Card className={styles.root} padding="sm" radius="md" variant="glass">
+    <Card className={styles.root} padding="sm" radius="md" innerShadow="black" variant="glass">
       <div className={styles.content}>
         {ocean && isAdmin ? (
           <>
@@ -126,29 +126,33 @@ export const Balance = ({ admins }: BalanceProps) => {
             </div>
           </>
         ) : null}
-        <h3 className={styles.heading}>Escrow balance</h3>
-        <div className={styles.list}>
-          {!ocean ? (
-            <div>Log in to see your funds in escrow</div>
-          ) : loadingEscrowBalances || !isReady ? (
-            <CircularProgress className="alignSelfCenter" size={27} />
-          ) : escrowBalances.length >= 1 ? (
-            escrowBalances.map((balance, index) => (
-              <div className={styles.listItem} key={`${balance.token}-${index}`}>
-                <div>{balance.token}</div>
-                {balance.amount !== undefined && <strong>{formatNumber(balance.amount)}</strong>}
-              </div>
-            ))
-          ) : (
-            <div>No funds</div>
-          )}
-        </div>
+        {isAdmin ? null : (
+          <>
+            <h3 className={styles.heading}>Escrow balance</h3>
+            <div className={styles.list}>
+              {!ocean ? (
+                <div>Log in to see your funds in escrow</div>
+              ) : loadingEscrowBalances || !isReady ? (
+                <CircularProgress className="alignSelfCenter" size={27} />
+              ) : escrowBalances.length >= 1 ? (
+                escrowBalances.map((balance, index) => (
+                  <div className={styles.listItem} key={`${balance.token}-${index}`}>
+                    <div>{balance.token}</div>
+                    {balance.amount !== undefined && <strong>{formatNumber(balance.amount)}</strong>}
+                  </div>
+                ))
+              ) : (
+                <div>No funds</div>
+              )}
+            </div>
+          </>
+        )}
       </div>
       <div className={styles.buttons}>
         {isAdmin ? (
           <>
             <Button
-              color="accent2"
+              color="accent1"
               disabled={!ocean}
               onClick={() => setIsGasFeeModalOpen(true)}
               size="md"
@@ -160,13 +164,14 @@ export const Balance = ({ admins }: BalanceProps) => {
               isOpen={isGasFeeModalOpen}
               nodeAddress={envs[0]?.consumerAddress ?? ''}
               onClose={() => setIsGasFeeModalOpen(false)}
+              onSuccess={() => loadNodeBalances()}
             />
           </>
         ) : null}
         {ocean && hasAnyEscrowBalance ? (
           <>
             <Button
-              color="accent2"
+              color="accent1"
               contentBefore={<DownloadIcon />}
               loading={loadingEscrowBalances}
               onClick={() => setIsWithdrawModalOpen(true)}

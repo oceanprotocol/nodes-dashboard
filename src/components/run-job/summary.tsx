@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
+import Menu from '@/components/menu/menu';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -9,13 +10,12 @@ import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/
 import { Ide } from '@/types/ide';
 import { formatDuration } from '@/utils/formatters';
 import { generateAuthToken } from '@/utils/generateAuthToken';
-import { ListItemIcon, Menu, MenuItem } from '@mui/material';
-import posthog from 'posthog-js';
+import { ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
+import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './summary.module.css';
-
 type SummaryProps = {
   estimatedTotalCost: number;
   freeCompute: boolean;
@@ -129,7 +129,7 @@ const Summary = ({
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Your selection</h3>
       <div className={styles.grid}>
         {nodeInfo.friendlyName ? (
@@ -165,10 +165,10 @@ const Summary = ({
       </div>
       {authToken ? (
         <div className={styles.footer}>
-          <div>Continue on our VSCode extension, or select your editor of choice</div>
+          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
           <div className={styles.buttons}>
             <Button
-              color="accent2"
+              color="accent1"
               id="choose-editor-button"
               onClick={() => {
                 handleOpenIdeMenu();
@@ -199,6 +199,7 @@ const Summary = ({
             >
               {Object.entries(Ide).map(([key, ide]) => (
                 <MenuItem
+                  disableRipple
                   key={ide.uriScheme}
                   onClick={() => {
                     localStorage.setItem('selectedIde', key);
@@ -213,7 +214,7 @@ const Summary = ({
             </Menu>
             <Button
               autoLoading
-              color="accent2"
+              color="accent1"
               contentBefore={
                 <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
                   {selectedIde.icon}
@@ -228,9 +229,9 @@ const Summary = ({
         </div>
       ) : (
         <div className={styles.footer}>
-          <div>Continue on our VSCode extension, or select your editor of choice</div>
+          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
           <div className={styles.buttons}>
-            <Button autoLoading color="accent2" onClick={generateToken} size="lg">
+            <Button autoLoading color="accent1" onClick={generateToken} size="lg">
               Generate token
             </Button>
           </div>

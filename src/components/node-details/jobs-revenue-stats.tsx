@@ -13,6 +13,7 @@ const JobsRevenueStats = () => {
     benchmarkValues,
     jobsPerEpoch,
     revenuePerEpoch,
+    temporaryTotalScore,
     totalJobs,
     totalRevenue,
     fetchNodeBenchmarkMinMaxLast,
@@ -50,7 +51,7 @@ const JobsRevenueStats = () => {
   }, [envs]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalRevenue"
@@ -62,6 +63,7 @@ const JobsRevenueStats = () => {
           currency: 'USDC',
           label: 'Total revenue',
         }}
+        minBars={16}
       />
       <Gauge
         centerLabel="Jobs"
@@ -72,12 +74,20 @@ const JobsRevenueStats = () => {
         value={queuedJobsData.totalDurationHours}
         valueSuffix="h"
       />
-      <Gauge
+      {/* <Gauge
         label="Latest"
         max={benchmarkValues.maxGPUScore || 0}
         min={benchmarkValues.minGPUScore || 0}
         title="Benchmark results"
         value={benchmarkValues.lastGPUScore || 0}
+      /> */}
+      {/* TODO: revert this (use the one above) once analytics nodes/:id/benchmark is fixed */}
+      <Gauge
+        label="Latest"
+        max={temporaryTotalScore + Math.random() * temporaryTotalScore}
+        min={benchmarkValues.minGPUScore || 0}
+        title="Benchmark results"
+        value={temporaryTotalScore}
       />
       <VBarChart
         axisKey="epochId"
@@ -89,6 +99,7 @@ const JobsRevenueStats = () => {
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
       />
     </Card>
   );

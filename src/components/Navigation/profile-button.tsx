@@ -1,4 +1,5 @@
 import Avatar from '@/components/avatar/avatar';
+import Menu from '@/components/menu/menu';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
@@ -9,7 +10,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { ListItemIcon, Menu, MenuItem } from '@mui/material';
+import { ListItemIcon, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import Button from '../button/button';
@@ -67,6 +68,7 @@ const ProfileButton = () => {
     <>
       <Button
         className={styles.loginButton}
+        color="accent1"
         contentBefore={
           account.address ? <Avatar accountId={account.address} size="sm" src={ensProfile?.avatar} /> : <WalletIcon />
         }
@@ -97,6 +99,7 @@ const ProfileButton = () => {
         }}
       >
         <MenuItem
+          disableRipple
           onClick={() => {
             router.push('/profile/consumer');
             handleCloseMenu();
@@ -109,6 +112,7 @@ const ProfileButton = () => {
         </MenuItem>
         {grantStatus === GrantStatus.CLAIMED ? null : (
           <MenuItem
+            disableRipple
             onClick={() => {
               router.push('/grant/details');
               handleCloseMenu();
@@ -121,6 +125,7 @@ const ProfileButton = () => {
           </MenuItem>
         )}
         <MenuItem
+          disableRipple
           onClick={() => {
             router.push('/swap-tokens');
             handleCloseMenu();
@@ -132,20 +137,24 @@ const ProfileButton = () => {
           Convert USDC to COMPY
         </MenuItem>
         <MenuItem
+          sx={{
+            color: 'var(--error-darker)',
+          }}
+          disableRipple
           onClick={() => {
             logout();
             handleCloseMenu();
           }}
         >
           <ListItemIcon>
-            <LogoutIcon />
+            <LogoutIcon sx={{ color: 'var(--error-darker)' }} />
           </ListItemIcon>
           Log out
         </MenuItem>
       </Menu>
     </>
   ) : (
-    <Button className={styles.loginButton} loading={isLoggingOut} onClick={openAuthModal}>
+    <Button className={styles.loginButton} color="accent1" loading={isLoggingOut} onClick={openAuthModal}>
       Log in
     </Button>
   );

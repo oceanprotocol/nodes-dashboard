@@ -1,37 +1,51 @@
 import InputWrapper from '@/components/input/input-wrapper';
 import { styled, TextField } from '@mui/material';
+import React from 'react';
 
 const StyledTextField = styled(TextField, {
   shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
-})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(
-  ({ custom_size, disabled, has_error }) => ({
-    background: disabled ? 'transparent' : 'var(--background-glass)',
-    border: `1px solid var(${has_error ? '--error' : '--border-glass'})`,
-    borderRadius: 24,
+})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, disabled, has_error }) => ({
+  background: disabled ? 'transparent' : 'var(--background-glass)',
+  border: `1px solid var(${has_error ? '--error' : '--border'})`,
+  boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
+  borderRadius: 24,
+  lineHeight: '18px',
+  minHeight: custom_size === 'sm' ? 34 : 50,
+  transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+
+  '&:focus-within': {
+    boxShadow: has_error ? 'var(--input-shadow-error), var(--input-shadow-focus)' : 'var(--input-shadow-focus)',
+  },
+
+  fieldset: {
+    border: 'none',
+  },
+
+  '& .Mui-disabled': {
+    WebkitTextFillColor: 'var(--text-primary)',
+  },
+
+  '& .MuiInputBase-root': {
+    color: 'var(--text-secondary)',
+    fontFamily: 'var(--font-inter), sans-serif',
+  },
+
+  '& .MuiInputBase-input': {
+    color: 'var(--text-primary)',
+    fontSize: 16,
     lineHeight: '18px',
+    minHeight: 0,
+    padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
 
-    fieldset: {
-      border: 'none',
+    '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+      '-webkit-appearance': 'none',
+      margin: 0,
     },
-
-    '& .Mui-disabled': {
-      WebkitTextFillColor: 'var(--text-primary)',
+    '&[type=number]': {
+      '-moz-appearance': 'textfield',
     },
-
-    '& .MuiInputBase-root': {
-      color: 'var(--text-secondary)',
-      fontFamily: 'var(--font-inter), sans-serif',
-    },
-
-    '& .MuiInputBase-input': {
-      color: 'var(--text-primary)',
-      fontSize: 16,
-      lineHeight: '18px',
-      minHeight: 0,
-      padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
-    },
-  })
-);
+  },
+}));
 
 type InputProps = {
   className?: string;
@@ -45,6 +59,8 @@ type InputProps = {
   name?: string;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  onKeyUp?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   placeholder?: string;
   size?: 'sm' | 'md';
   startAdornment?: React.ReactNode;
@@ -53,7 +69,7 @@ type InputProps = {
   value?: string | number;
 };
 
-const Input = ({
+const Input: React.FC<InputProps> = ({
   className,
   disabled,
   endAdornment,
@@ -65,13 +81,15 @@ const Input = ({
   name,
   onBlur,
   onChange,
+  onKeyDown,
+  onKeyUp,
   placeholder,
   size = 'md',
   startAdornment,
   topRight,
   type,
   value,
-}: InputProps) => (
+}) => (
   <InputWrapper
     className={className}
     disabled={disabled}
@@ -88,6 +106,8 @@ const Input = ({
       name={name}
       onBlur={onBlur}
       onChange={onChange}
+      onKeyDown={onKeyDown}
+      onKeyUp={onKeyUp}
       placeholder={placeholder}
       slotProps={{ input: { startAdornment, endAdornment } }}
       type={type}

@@ -17,7 +17,7 @@ const InfoButton = ({ node }: InfoButtonProps) => {
   };
 
   return (
-    <Button color="accent1" variant="outlined" onClick={handleClick}>
+    <Button color="accent1" onClick={handleClick} size="sm" variant="transparent">
       Info
     </Button>
   );

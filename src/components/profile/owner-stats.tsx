@@ -29,7 +29,7 @@ const OwnerStats = () => {
   }, [fetchOwnerStats]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalRevenue"
@@ -41,6 +41,7 @@ const OwnerStats = () => {
           currency: 'OCEAN',
           label: 'Total revenue',
         }}
+        minBars={16}
       />
       <VBarChart
         axisKey="epochId"
@@ -52,6 +53,7 @@ const OwnerStats = () => {
           amount: formatNumber(totalNetworkJobs + totalBenchmarkJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
       />
       <Gauge
         label="Eligible"

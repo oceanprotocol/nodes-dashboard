@@ -5,6 +5,14 @@
   overflow-y: auto;
 }
 
+.footer {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+}
+
 .buttons {
   display: flex;
   flex-direction: row;

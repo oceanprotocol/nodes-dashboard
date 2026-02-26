@@ -109,16 +109,17 @@ const SelectEnvironment = () => {
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
       <form onSubmit={formik.handleSubmit}>
-        <Card direction="column" padding="sm" radius="md" spacing="sm" variant="glass-outline">
+        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
           <Select
             label="GPUs"
             multiple
             name="gpuName"
             onChange={formik.handleChange}
             options={gpuOptions}
+            placeholder="Any GPU"
             renderOption={(option) => <GpuLabel gpu={option.label} />}
             renderSelectedValue={(option) => <GpuLabel gpu={option} />}
             value={formik.values.gpuName}
@@ -173,6 +174,7 @@ const SelectEnvironment = () => {
               name="sortBy"
               onChange={formik.handleChange}
               options={sortOptions}
+              placeholder="No sorting"
               size="sm"
               value={formik.values.sortBy}
             />
@@ -181,14 +183,15 @@ const SelectEnvironment = () => {
               name="feeToken"
               onChange={formik.handleChange}
               options={feeTokenOptions}
+              placeholder="Any"
               size="sm"
               value={formik.values.feeToken}
             />
             <div className={styles.buttons}>
-              <Button color="accent1" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="outlined">
+              <Button color="primary" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="transparent">
                 {expanded ? 'Fewer filters' : 'More filters'}
               </Button>
-              <Button color="accent1" loading={loading} type="submit">
+              <Button color="accent2" loading={loading} type="submit" variant="filled">
                 Find environments
               </Button>
             </div>

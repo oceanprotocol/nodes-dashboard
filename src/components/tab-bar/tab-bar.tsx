@@ -29,7 +29,7 @@ const TabBar = ({ activeKey, className, tabs }: TabBarProps) => {
   };
 
   return (
-    <Card className={classNames(styles.root, className)} radius="lg" variant="glass-shaded">
+    <Card className={classNames(styles.root, className)} radius="lg" shadow="black" variant="glass-shaded">
       {tabs.map((tab) => (
         <div
           className={classNames(styles.tab, { [styles.tabActive]: tab.key === activeKey })}

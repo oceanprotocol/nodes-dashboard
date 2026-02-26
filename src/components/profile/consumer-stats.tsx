@@ -26,7 +26,7 @@ const ConsumerStats = () => {
   }, [fetchJobsSuccessRate]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" variant="glass-shaded">
+    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalPaidAmount"
@@ -38,6 +38,7 @@ const ConsumerStats = () => {
           currency: 'OCEAN',
           label: 'Total paid',
         }}
+        minBars={16}
       />
       <VBarChart
         axisKey="epochId"
@@ -49,6 +50,7 @@ const ConsumerStats = () => {
           amount: formatNumber(totalJobs),
           label: 'Total jobs',
         }}
+        minBars={16}
       />
       <Gauge
         label="Successful"

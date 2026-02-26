@@ -46,6 +46,7 @@ export interface ComputeJob {
   peerId: string;
   nodeFriendlyName: string;
   epoch: number;
+  errorMessage?: string;
   did: string;
   jobId: string;
   dateCreated: number;
@@ -57,6 +58,7 @@ export interface ComputeJob {
   algoDID: string;
   agreementId: string;
   environment: string;
+  environmentId: string;
   clusterHash: string;
   configlogURL: string;
   publishlogURL: string;
@@ -77,3 +79,54 @@ export interface ComputeJob {
     cost: number;
   };
 }
+
+export type BenchmarkJobHistory = {
+  benchmarkResults: {
+    bandwidthMbps: number;
+    bandwidthMegabytes: number;
+    bandwidthScore: number;
+    bandwidthTests: number;
+    cpuScore: number | null;
+    cpuSeed: string;
+    cpuValid: boolean;
+    cpus: {
+      model: string;
+      family: string;
+    }[];
+    gpuScore: number | null;
+    gpuValid: boolean;
+    gpuSeed: string;
+  };
+  consumerAddress: string;
+  difficulty: number;
+  endTime: number;
+  environmentId: string;
+  errorMessage: string;
+  jobId: string;
+  maxDuration: number;
+  nonce: string;
+  paymentInfo: {
+    chainId: number;
+    cost: number;
+    costInSmallestUnits: string;
+    fees: number;
+    maxDuration: number;
+    priceBreakdown: {
+      id: string;
+      price: number;
+    }[];
+    token: string;
+  };
+  providerAddress: string;
+  queueJobId: string;
+  resources: {
+    amount: number;
+    id: string;
+  }[];
+  seed: string;
+  signature: string;
+  startTime: number;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
+  worker1Id: string;
+  worker2Id: string;
+};

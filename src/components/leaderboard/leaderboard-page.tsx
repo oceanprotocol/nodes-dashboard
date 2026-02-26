@@ -12,10 +12,10 @@ const LeaderboardPage = () => {
 
   return (
     <Container className="pageRoot">
-      <SectionTitle title="Leaderboard" subTitle="Explore the most active nodes in the Ocean Network" />
+      <SectionTitle moreReadable title="Leaderboard" subTitle="Explore the most active nodes in the Ocean Network" />
       <div className="pageContentWrapper">
         <JobsRevenueStats />
-        <Card padding="md" radius="lg" variant="glass-shaded">
+        <Card padding="md" radius="lg" shadow="black" variant="glass-shaded">
           <Table<AnyNode>
             context={leaderboardTableContext}
             paginationType="context"

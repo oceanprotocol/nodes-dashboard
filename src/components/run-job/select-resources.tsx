@@ -10,12 +10,7 @@ import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
-import {
-  DURATION_UNIT_OPTIONS,
-  type DurationUnit,
-  fromSeconds,
-  toSeconds,
-} from '@/utils/duration';
+import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
 import { formatNumber } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import { useFormik } from 'formik';
@@ -74,8 +69,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const maxAllowedCpuCores = cpu?.max ?? minAllowedCpuCores;
   const maxAllowedDiskSpace = disk?.max ?? minAllowedDiskSpace;
-  const maxAllowedJobDurationSeconds =
-    environment.maxJobDuration ?? (environment.minJobDuration ?? 0);
+  const maxAllowedJobDurationSeconds = environment.maxJobDuration ?? environment.minJobDuration ?? 0;
   const maxAllowedRam = ram?.max ?? minAllowedRam;
 
   const formik = useFormik<ResourcesFormValues>({
@@ -171,10 +165,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
     setIsLoadingCost(true);
     try {
-      const maxJobDurationSec = toSeconds(
-      formik.values.maxJobDurationValue,
-      formik.values.maxJobDurationUnit
-    );
+      const maxJobDurationSec = toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit);
       const { cost, minLockSeconds } = await initializeCompute(
         environment,
         token.address,
@@ -197,6 +188,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     freeCompute,
     formik.values.maxJobDurationValue,
     formik.values.maxJobDurationUnit,
+    multiaddrsOrPeerId,
     nodeInfo?.id,
     initializeCompute,
     provider,
@@ -228,10 +220,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   };
 
   const handleDurationUnitChange = (newUnit: DurationUnit) => {
-    const currentSec = toSeconds(
-      formik.values.maxJobDurationValue,
-      formik.values.maxJobDurationUnit
-    );
+    const currentSec = toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit);
     formik.setValues((prev) => ({
       ...prev,
       maxJobDurationUnit: newUnit,
@@ -250,12 +239,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Select resources</h3>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         <Select
           endAdornment={
-            <Button color="accent1" onClick={selectAllGpus} size="sm" type="button" variant="outlined">
+            <Button color="accent2" onClick={selectAllGpus} size="sm" type="button" variant="filled">
               Select all
             </Button>
           }
@@ -266,6 +255,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
           options={gpus.map((gpu) => ({ label: gpu.description ?? '', value: gpu.id }))}
+          placeholder="No GPU selected"
           renderOption={(option) => {
             const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token.symbol}/min`;
             return <GpuLabel gpu={`${option.label} (${pricing})`} />;
@@ -306,7 +296,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           />
           <Input
             endAdornment={
-              <Button color="accent1" onClick={setMaxDiskSpace} size="sm" type="button" variant="outlined">
+              <Button color="accent2" onClick={setMaxDiskSpace} size="sm" type="button" variant="filled">
                 Set max
               </Button>
             }
@@ -343,7 +333,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                     </option>
                   ))}
                 </select>
-                <Button color="accent1" onClick={setMaxJobDuration} size="sm" type="button" variant="outlined">
+                <Button color="accent2" onClick={setMaxJobDuration} size="sm" type="button" variant="filled">
                   Set max
                 </Button>
               </div>
@@ -364,7 +354,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           />
         </div>
         {formik.isValid && !freeCompute ? (
-          <Card className={styles.cost} variant="accent1-outline" radius="md">
+          <Card className={styles.cost} radius="md" variant="accent1-outline">
             <h3>Estimated total cost</h3>
             <div className={styles.values}>
               <div>
@@ -374,13 +364,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                   {isLoadingCost ? 'Calculating...' : formatNumber(estimatedTotalCost)}
                 </span>
               </div>
-              <div className={styles.reimbursment}>
+              <div className="textAccent1Lighter">
                 If your job finishes early, the unconsumed tokens remain in escrow
               </div>
             </div>
           </Card>
         ) : null}
-        <Button className={styles.button} color="accent2" size="lg" type="submit">
+        <Button className={styles.button} color="accent1" size="lg" type="submit">
           Continue
         </Button>
       </form>

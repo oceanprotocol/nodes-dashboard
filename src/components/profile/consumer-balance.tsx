@@ -67,12 +67,12 @@ const ConsumerBalance = () => {
   const explorerUrl = getExplorerUrl();
 
   return (
-    <Card direction="column" padding="md" radius="lg" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Account balance</h3>
         {isConnected && (
           <Button
-            color="accent2"
+            color="accent1"
             contentBefore={<SendIcon />}
             onClick={() => setIsTransferModalOpen(true)}
             size="md"
@@ -181,7 +181,7 @@ const ConsumerBalance = () => {
               {transfers.length > PAGE_SIZE && (
                 <div className={styles.pagination}>
                   <Button
-                    color="accent2"
+                    color="accent1"
                     contentBefore={<ChevronLeftIcon />}
                     disabled={page === 0}
                     onClick={() => setPage((p) => p - 1)}
@@ -194,7 +194,7 @@ const ConsumerBalance = () => {
                     {page + 1} / {Math.ceil(transfers.length / PAGE_SIZE)}
                   </span>
                   <Button
-                    color="accent2"
+                    color="accent1"
                     contentAfter={<ChevronRightIcon />}
                     disabled={(page + 1) * PAGE_SIZE >= transfers.length}
                     onClick={() => setPage((p) => p + 1)}

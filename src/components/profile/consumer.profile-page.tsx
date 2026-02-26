@@ -9,9 +9,9 @@ const ConsumerProfilePage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="My profile"
-        // TODO: replace with actual subtitle
-        subTitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit"
+        subTitle="Manage your nodes, jobs, tokens and activity in one place"
       />
       <div className="pageContentWrapper">
         <ProfileHeader role="consumer" />

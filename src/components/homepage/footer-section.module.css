@@ -1,8 +1,8 @@
 .root {
   position: relative;
   padding: 110px 0 60px;
-  background-color: #030713;
-  color: #e7f1ff;
+  background-color: var(--accent1);
+  color: var(--text-primary-inverse);
   overflow: hidden;
 }
 
@@ -11,7 +11,6 @@
   inset: 0;
   background: url('/footer.svg') no-repeat right 40px top 30px;
   background-size: min(620px, 65%);
-  opacity: 0.45;
   pointer-events: none;
 }
 
@@ -32,8 +31,9 @@
 }
 
 .brandColumn {
-  flex: 1 1 320px;
-  max-width: 520px;
+  /* flex: 1 1 320px; */
+  flex: 1;
+  /* max-width: 520px; */
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -52,33 +52,30 @@
 }
 
 .brandTitle {
-  font-size: 24px;
-  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+  color: var(--accent2);
+  font-size: 60px;
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .brandSubtitle {
   font-size: 14px;
   text-transform: uppercase;
-  color: rgba(231, 241, 255, 0.55);
+  color: var(--text-primary-inverse);
   letter-spacing: 0.18em;
 }
 
 .description {
   font-size: 15px;
   line-height: 1.7;
-  color: rgba(231, 241, 255, 0.75);
+  color: var(--text-primary-inverse);
   max-width: 400px;
 }
 
 .copy {
   font-size: 13px;
-  color: rgba(231, 241, 255, 0.6);
-}
-
-.copy a {
-  color: #4fb2ff;
+  color: var(--text-primary-inverse);
 }
 
 .pagesColumn {
@@ -91,7 +88,7 @@
 
 .columnTitle {
   font-size: 16px;
-  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
   letter-spacing: 0.18em;
 }
 
@@ -104,21 +101,6 @@
   margin: 0;
 }
 
-.pageLink {
-  color: rgba(231, 241, 255, 0.75);
-  font-size: 15px;
-  font-family: var(--font-inter), sans-serif;
-  letter-spacing: 0.08em;
-  transition:
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.pageLink:hover {
-  color: #ffffff;
-  transform: translateX(4px);
-}
-
 .lowerRow {
   display: flex;
   flex-wrap: wrap;
@@ -128,7 +110,7 @@
   font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(231, 241, 255, 0.6);
+  color: var(--text-primary-inverse);
 }
 
 .socialLinks,
@@ -146,17 +128,6 @@
   flex: 0 0 220px;
   justify-content: flex-end;
   text-align: right;
-}
-
-.socialLinks a,
-.legalLink {
-  color: inherit;
-  transition: color 0.2s ease;
-}
-
-.socialLinks a:hover,
-.legalLink:hover {
-  color: #ffffff;
 }
 
 @media (max-width: 960px) {

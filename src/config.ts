@@ -1,6 +1,7 @@
 type Route = {
   path: string;
   name: string;
+  hideFromNavbar?: boolean;
 };
 
 type Routes = {
@@ -43,8 +44,9 @@ const config: Config = {
       name: 'Stats',
     },
     docs: {
-      path: '/docs',
+      path: 'https://oceanprotocol.gitbook.io/ocean-network-docs/',
       name: 'Docs',
+      hideFromNavbar: true,
     },
     leaderboard: {
       path: '/leaderboard',

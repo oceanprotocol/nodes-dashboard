@@ -1,5 +1,5 @@
+import Button from '@/components/button/button';
 import config, { getRoutes } from '@/config';
-import Link from 'next/link';
 import Container from '../container/container';
 import styles from './docs-cta-section.module.css';
 
@@ -9,20 +9,31 @@ const DocsCtaSection = () => {
   return (
     <section className={styles.root}>
       <Container className={styles.container}>
-        <h1 className={styles.title}>Build The Future Of AI With Decentralized Compute</h1>
-        <Link href={routes.docs.path} className={styles.docsButton}>
-          <span>Explore Docs</span>
-          <span className={styles.buttonIcon}>▸</span>
-        </Link>
+        <h1 className={styles.title}>Build the future of AI with decentralized compute</h1>
+        <Button color="primary-inverse" href={routes.docs.path} size="lg" variant="filled">
+          Explore docs
+        </Button>
         <div className={styles.socialLinks}>
-          <Link href={config.socialMedia.discord} target="_blank" rel="noreferrer" className={styles.socialLink}>
+          <Button
+            color="accent2"
+            contentAfter={<span className={`${styles.socialLinkIcon} ${styles.discordIcon}`} />}
+            href={config.socialMedia.discord}
+            size="lg"
+            target="_blank"
+            variant="transparent"
+          >
             <span>Join Discord</span>
-            <span className={`${styles.socialLinkIcon} ${styles.discordIcon}`} />
-          </Link>
-          <Link href={config.socialMedia.twitter} target="_blank" rel="noreferrer" className={styles.socialLink}>
-            <span>Follow On</span>
-            <span className={`${styles.socialLinkIcon} ${styles.xIcon}`} />
-          </Link>
+          </Button>
+          <Button
+            color="accent2"
+            contentAfter={<span className={`${styles.socialLinkIcon} ${styles.xIcon}`} />}
+            href={config.socialMedia.twitter}
+            size="lg"
+            target="_blank"
+            variant="transparent"
+          >
+            <span>Follow on</span>
+          </Button>
         </div>
       </Container>
     </section>

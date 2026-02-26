@@ -8,9 +8,9 @@ const EnvironmentsPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Run job"
-        // TODO: replace with actual subtitle
-        subTitle="Select environment description text"
+        subTitle="Choose a compute environment for your workload"
         contentBetween={<Stepper<RunJobStep> currentStep="environment" steps={getRunJobSteps(false)} />}
       />
       <div className="pageContentWrapper">

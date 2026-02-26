@@ -93,7 +93,15 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
   };
 
   return (
-    <Card className={styles.root} direction="column" padding="md" radius="lg" spacing="lg" variant="glass-shaded">
+    <Card
+      className={styles.root}
+      direction="column"
+      padding="md"
+      radius="lg"
+      shadow="black"
+      spacing="lg"
+      variant="glass-shaded"
+    >
       <div className={styles.group}>
         <h3>Verification successful</h3>
         <div>You are eligible for grant distribution</div>
@@ -107,14 +115,14 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
         </div>
       </Card>
       {claimed ? (
-        <Button className="alignSelfStretch" color="accent2" href="/" size="lg" variant="filled">
+        <Button className="alignSelfStretch" color="accent1" href="/" size="lg" variant="filled">
           Return to homepage
         </Button>
       ) : (
         <Button
           autoLoading
           className="alignSelfStretch"
-          color="accent2"
+          color="accent1"
           loading={isLoading || isSendingTransaction}
           onClick={handleClaim}
           size="lg"

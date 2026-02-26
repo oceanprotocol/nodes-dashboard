@@ -22,9 +22,9 @@ const PaymentPage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
+        moreReadable
         title="Run job"
-        // TODO: replace with actual subtitle
-        subTitle="Payment description text"
+        subTitle="Verify estimated cost and confirm payment before strating your job"
         contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
       />
       {selectedEnv && selectedResources && selectedToken ? (

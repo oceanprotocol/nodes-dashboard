@@ -113,7 +113,7 @@ const Details: React.FC = () => {
   };
 
   return (
-    <Card padding="md" radius="lg" variant="glass-shaded">
+    <Card padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         <div className={styles.section}>
           <h3>User details</h3>
@@ -234,7 +234,7 @@ const Details: React.FC = () => {
         </div>
         <Button
           className="alignSelfEnd"
-          color="accent2"
+          color="accent1"
           loading={formik.isSubmitting}
           type="submit"
           size="lg"

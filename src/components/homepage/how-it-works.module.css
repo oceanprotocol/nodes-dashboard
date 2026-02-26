@@ -1,5 +1,9 @@
 .root {
-  background-color: #040a12;
+  background-color: var(--accent1-lighter);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
   padding: 60px 50px;
   position: relative;
   z-index: 2;
@@ -21,10 +25,19 @@
 
 .animation {
   position: relative;
-  width: 568px;
+  /* width: 568px; */
+  width: 538px;
   height: 538px;
   overflow: hidden;
-  border-radius: 32px;
+  /* border-radius: 32px; */
+  filter: invert(1);
+  border-radius: 100%;
+  box-shadow: 0 28px 64px -24px #ffffff78;
+
+  video {
+    margin-left: -2%;
+    transform: scale(1.3);
+  }
 }
 
 .animation img {
@@ -60,15 +73,15 @@
 }
 
 .featureItem:hover .indexNumber {
-  color: #be00ff;
+  color: #b7fd79;
 }
 
 .featureItemActive .indexNumber {
-  color: #be00ff;
+  color: #b7fd79;
 }
 
 .indexNumber {
-  font-family: var(--font-orbitron), var(--font-inter), sans-serif;
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
   font-size: 18px;
   transition: 0.2s all ease-in-out;
   font-weight: bold;

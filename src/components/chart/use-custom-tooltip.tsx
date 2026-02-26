@@ -114,7 +114,7 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
                   fontSize: '12px',
                   height: '150px',
                   overflowY: 'auto',
-                  borderTop: '1px solid var(--border-glass)',
+                  borderTop: '1px solid var(--border)',
                   paddingTop: '8px',
                   pointerEvents: 'auto',
                 }}
@@ -133,24 +133,36 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
         break;
       }
       case ChartTypeEnum.JOBS_PER_EPOCH: {
-        tooltipContent = (
-          <div>
-            Epoch {label}: {Number(value).toLocaleString()} jobs
-          </div>
-        );
+        if (label < 0) {
+          tooltipContent = null;
+        } else {
+          tooltipContent = (
+            <div>
+              Epoch {label}: {Number(value).toLocaleString()} jobs
+            </div>
+          );
+        }
         break;
       }
       case ChartTypeEnum.REVENUE_PER_EPOCH: {
-        tooltipContent = (
-          <div>
-            Epoch {label}: USDC {Number(value).toLocaleString()}
-          </div>
-        );
+        if (label < 0) {
+          tooltipContent = null;
+        } else {
+          tooltipContent = (
+            <div>
+              Epoch {label}: USDC {Number(value).toLocaleString()}
+            </div>
+          );
+        }
         break;
       }
       default: {
         tooltipContent = <div>Value: {Number(value).toLocaleString()}</div>;
       }
+    }
+
+    if (tooltipContent === null || tooltipContent === undefined) {
+      return null;
     }
 
     return ReactDOM.createPortal(
@@ -159,10 +171,10 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
           position: 'fixed',
           top: tooltipInfo.y + 10,
           left: tooltipInfo.x + 10,
-          background: 'rgba(0, 0, 0, 0.6)',
+          background: 'var(--background-glass)',
           backdropFilter: 'var(--backdrop-filter-glass)',
-          boxShadow: 'var(--inner-shadow-glass)',
-          borderRadius: '8px',
+          boxShadow: 'var(--inner-shadow-glass), var(--drop-shadow-black)',
+          borderRadius: '12px',
           color: 'var(--text-primary)',
           padding: '8px 16px',
           zIndex: 9999999,
