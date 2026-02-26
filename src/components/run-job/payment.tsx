@@ -18,10 +18,18 @@ type PaymentProps = {
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
+  setPageSubtitle: (subtitle: string) => void;
   totalCost: number;
 };
 
-const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken, totalCost }: PaymentProps) => {
+const Payment = ({
+  minLockSeconds,
+  selectedEnv,
+  selectedResources,
+  selectedToken,
+  setPageSubtitle,
+  totalCost,
+}: PaymentProps) => {
   const router = useRouter();
 
   const { account, ocean } = useOceanAccount();
@@ -46,6 +54,23 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
     }
     return 'authorize';
   }, [currentLockedAmount, escrowBalance, selectedToken.address, totalCost, walletBalance]);
+
+  useEffect(() => {
+    switch (step) {
+      case 'topup': {
+        setPageSubtitle('You need to top up in order to start your job');
+        break;
+      }
+      case 'deposit': {
+        setPageSubtitle('You need to deposit funds in escrow in order to strart your job');
+        break;
+      }
+      case 'authorize': {
+        setPageSubtitle('Confirm and authorize your payment in order to start your job');
+        break;
+      }
+    }
+  }, [setPageSubtitle, step]);
 
   const loadPaymentInfo = useCallback(async () => {
     if (ocean && account?.address) {
