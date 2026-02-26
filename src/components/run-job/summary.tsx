@@ -145,9 +145,7 @@ const Summary = ({
         <div className={styles.label}>Fee token address:</div>
         <div className={styles.value}>{token.address}</div>
         <div className={styles.label}>Job duration:</div>
-        <div className={styles.value}>
-          {formatDuration(selectedResources!.maxJobDurationSeconds)}
-        </div>
+        <div className={styles.value}>{formatDuration(selectedResources!.maxJobDurationSeconds)}</div>
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>
           {selectedResources.gpus.length

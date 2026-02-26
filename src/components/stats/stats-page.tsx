@@ -12,7 +12,7 @@ const StatsPage = () => {
         moreReadable
         title="Stats"
         // TODO: replace with actual subtitle
-        subTitle="Lorem ipsum dolor sit amet, consectetur adipiscing elit"
+        subTitle="Track jobs, usage, performance and rewards across the network"
       />
       <div className="pageContentWrapper">
         <JobsRevenueStats />

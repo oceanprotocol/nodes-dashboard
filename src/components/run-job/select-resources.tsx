@@ -365,7 +365,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                 </span>
               </div>
               <div className="textAccent1Lighter">
-                If your job finishes early, the unconsumed tokens remain in escrow
+                If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
               </div>
             </div>
           </Card>

@@ -23,7 +23,7 @@ const ResourcesPage = () => {
       <SectionTitle
         moreReadable
         title="Run a job"
-        subTitle="Pick GPU, CPU, RAM, storage resources, and run time for this job"
+        subTitle="Pick the resources you need for your job"
         contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}
       />
       {selectedEnv && selectedToken ? (

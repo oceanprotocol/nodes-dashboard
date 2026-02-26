@@ -121,7 +121,7 @@ const ProfileButton = () => {
             <ListItemIcon>
               <RedeemIcon />
             </ListItemIcon>
-            Claim {grantAmount} COMPY
+            Claim grant tokens
           </MenuItem>
         )}
         <MenuItem
@@ -134,7 +134,7 @@ const ProfileButton = () => {
           <ListItemIcon>
             <SwapHorizIcon />
           </ListItemIcon>
-          Convert USDC to COMPY
+          Convert to COMPY
         </MenuItem>
         <MenuItem
           sx={{

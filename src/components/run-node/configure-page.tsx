@@ -23,7 +23,7 @@ const ConfigurePage = () => {
       <SectionTitle
         moreReadable
         title="Run a node"
-        subTitle="Setup your node, and earn rewards"
+        subTitle="Configure resources, settings and other preferences for your node"
         contentBetween={<Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />}
       />
       {peerId ? (
