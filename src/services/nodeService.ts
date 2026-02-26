@@ -360,18 +360,18 @@ export async function createAuthToken({
   signMessage: SignMessageFn;
 }): Promise<{ token: string }> {
   const command = Command.CREATE_AUTH_TOKEN;
-  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const incrementedNonce = (await getNonce(multiaddrsOrPeerId, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command,
     consumerAddress,
-    nonce,
+    incrementedNonce,
     signMessage,
   });
   return sendCommandToPeer(multiaddrsOrPeerId, {
-    command,
     address: consumerAddress,
+    command,
+    nonce: incrementedNonce,
     signature,
-    nonce,
   });
 }
 
@@ -389,18 +389,19 @@ export async function getNodeLogs({
   signMessage: SignMessageFn;
 }) {
   const command = Command.GET_LOGS;
-  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const incrementedNonce = (await getNonce(multiaddrsOrPeerId, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command,
     consumerAddress,
-    nonce,
+    incrementedNonce,
     signMessage,
   });
   return sendCommandToPeer(multiaddrsOrPeerId, {
-    command,
-    signature,
-    expiryTimestamp,
     address: consumerAddress,
+    command,
+    expiryTimestamp,
+    nonce: incrementedNonce,
+    signature,
     ...params,
   });
 }
@@ -417,18 +418,19 @@ export async function fetchNodeConfig({
   signMessage: SignMessageFn;
 }) {
   const command = Command.FETCH_CONFIG;
-  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const incrementedNonce = (await getNonce(multiaddrsOrPeerId, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command,
     consumerAddress,
-    nonce,
+    incrementedNonce,
     signMessage,
   });
   return sendCommandToPeer(multiaddrsOrPeerId, {
-    command,
-    signature,
-    expiryTimestamp,
     address: consumerAddress,
+    command,
+    expiryTimestamp,
+    nonce: incrementedNonce,
+    signature,
   });
 }
 
@@ -446,19 +448,20 @@ export async function pushNodeConfig({
   signMessage: SignMessageFn;
 }) {
   const command = Command.PUSH_CONFIG;
-  const nonce = await getNonce(multiaddrsOrPeerId, consumerAddress);
+  const incrementedNonce = (await getNonce(multiaddrsOrPeerId, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command,
     consumerAddress,
-    nonce,
+    incrementedNonce,
     signMessage,
   });
   return sendCommandToPeer(multiaddrsOrPeerId, {
-    command,
-    signature,
-    expiryTimestamp,
-    config,
     address: consumerAddress,
+    command,
+    config,
+    expiryTimestamp,
+    nonce: incrementedNonce,
+    signature,
   });
 }
 

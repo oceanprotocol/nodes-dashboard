@@ -117,7 +117,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     },
-    [peerId, account.address, signMessage, p2pPushConfig]
+    [peerId, account.address, p2pPushConfig, user?.type, signMessage]
   );
 
   return (

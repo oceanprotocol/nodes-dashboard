@@ -230,7 +230,7 @@ export class OceanProvider {
     const response = await directNodeCommand('createAuthToken', peerId, {
       address,
       signature,
-      nonce: nonce.toString(),
+      nonce,
     });
     const data = await response.json();
     const token = data.token;

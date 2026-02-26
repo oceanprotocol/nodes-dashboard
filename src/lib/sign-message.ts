@@ -21,15 +21,15 @@ export async function signMessage(message: string, signer: Signer): Promise<stri
 export async function signNodeCommandMessage({
   command,
   consumerAddress,
-  nonce,
+  incrementedNonce,
   signMessage,
 }: {
   command: Command;
   consumerAddress: string;
-  nonce: number;
+  incrementedNonce: number;
   signMessage: SignMessageFn;
 }): Promise<string> {
-  const message = `${consumerAddress}${nonce + 1}${command}`;
+  const message = `${consumerAddress}${incrementedNonce}${command}`;
   const signedMessage = await signMessage(message);
   return signedMessage;
 }
