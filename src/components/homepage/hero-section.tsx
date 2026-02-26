@@ -2,7 +2,6 @@ import { getRoutes } from '@/config';
 import Button from '../button/button';
 import Container from '../container/container';
 import styles from './hero-section.module.css';
-import LogoSlider from './logo-slider';
 
 export default function HeroSection() {
   return (
@@ -33,7 +32,7 @@ export default function HeroSection() {
           </div>
         </div>
       </Container>
-      <LogoSlider />
+      {/* <LogoSlider /> */}
     </div>
   );
 }
