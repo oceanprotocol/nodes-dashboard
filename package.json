@@ -42,7 +42,7 @@
     "@mui/material": "^7.3.6",
     "@mui/x-data-grid": "^8.14.1",
     "@multiformats/multiaddr": "^12.2.3",
-    "@oceanprotocol/contracts": "2.6.0",
+    "@oceanprotocol/contracts": "2.5.0",
     "@oceanprotocol/lib": "5.1.1",
     "@ramp-network/ramp-instant-sdk": "^6.2.0",
     "@tanstack/react-query": "^5.28.4",

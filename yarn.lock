@@ -4417,7 +4417,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/contracts@npm:2.6.0, @oceanprotocol/contracts@npm:^2.5.0":
+"@oceanprotocol/contracts@npm:2.5.0":
+  version: 2.5.0
+  resolution: "@oceanprotocol/contracts@npm:2.5.0"
+  checksum: 10c0/860badab8723dd5bcd8facadc29a993798e51efc5fa60b3608ddc883514a1feeffc13b7797a1e24075e2fdeb9797369afb41227a9a5a50cdfef9aec242eb0845
+  languageName: node
+  linkType: hard
+
+"@oceanprotocol/contracts@npm:^2.5.0":
   version: 2.6.0
   resolution: "@oceanprotocol/contracts@npm:2.6.0"
   checksum: 10c0/cf249f1e5276d3b6807f684c4dc7e925649a7adc1ebbb41d7a262bfcc6ea2dd57d0307b4ac960f04e2c0401dd245f31b7b895335ef02b29fb77fe34e86515739
@@ -4607,9 +4614,9 @@ __metadata:
   linkType: hard
 
 "@opentelemetry/semantic-conventions@npm:^1.29.0":
-  version: 1.39.0
-  resolution: "@opentelemetry/semantic-conventions@npm:1.39.0"
-  checksum: 10c0/1a8cc16e83ccd80aeb910e78146e8cde8482ac45feb3693348eec5983d8ad254f977f2b61db76f043ab0fa6009a27df610a9cff286a217d6cd4c114216861d0f
+  version: 1.40.0
+  resolution: "@opentelemetry/semantic-conventions@npm:1.40.0"
+  checksum: 10c0/3259de0ea11b52eb70e44c12eba21448392baf9cb74c37b62071c4a5ed7fb89b61e194f3898d40ac6bfa7293617a0e132876cb6e355472b66de0cdb13c50b529
   languageName: node
   linkType: hard
 
@@ -8041,9 +8048,9 @@ __metadata:
   linkType: hard
 
 "@turnkey/iframe-stamper@npm:^2.5.0":
-  version: 2.10.0
-  resolution: "@turnkey/iframe-stamper@npm:2.10.0"
-  checksum: 10c0/3a73a383c4ed3a92bf93fd8558c3e5bdcd81cea3bcd08052aa1dee66404c3e793a4f1ecf8c1c14a20399b0a75bb98cb288fe55f6bc9d2291272eb17b33bded38
+  version: 2.11.0
+  resolution: "@turnkey/iframe-stamper@npm:2.11.0"
+  checksum: 10c0/bacad97a0cce7159596ecb771c4c54011d2c4d9e57e97ba3c043b6249e9b9ec027f859898eee84a1c17342512456ffec4a0a250318933e4f3dc7ec529236d10b
   languageName: node
   linkType: hard
 
@@ -8355,11 +8362,11 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*, @types/node@npm:>=13.7.0":
-  version: 25.3.0
-  resolution: "@types/node@npm:25.3.0"
+  version: 25.3.1
+  resolution: "@types/node@npm:25.3.1"
   dependencies:
     undici-types: "npm:~7.18.0"
-  checksum: 10c0/7b2b18c9d68047157367fc2f786d4f166d22dc0ad9f82331ca02fb16f2f391854123dbe604dcb938cda119c87051e4bb71dcb9ece44a579f483a6f96d4bd41de
+  checksum: 10c0/f4714e3f2c393434cdefbf207f3fe470bcf4d6c5717298c3fc9239e362a57cd25e59603c60e9c956e7d5d0dfb97cf2e037b37cf6dc2f3876f6a963146f7adc6d
   languageName: node
   linkType: hard
 
@@ -8396,11 +8403,11 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:^20":
-  version: 20.19.33
-  resolution: "@types/node@npm:20.19.33"
+  version: 20.19.34
+  resolution: "@types/node@npm:20.19.34"
   dependencies:
     undici-types: "npm:~6.21.0"
-  checksum: 10c0/a1a6234a2b6fa577fbb1ccc471e5e54a79c6e1a51be10a67b034461b752a50017854810e943494f20b3c3c6d14df84c93757e0a2ec57aa81c830d6faeab72cf2
+  checksum: 10c0/f2d5beee5fce1458a3756e5410e141c418d981c916b475339a0239ec0d2247b6e195aaa61d4efd926f2825ca67f70a4ba421092eb9c645b254ff2d43fe99f66c
   languageName: node
   linkType: hard
 
@@ -15676,29 +15683,29 @@ __metadata:
   linkType: hard
 
 "minimatch@npm:^10.2.2":
-  version: 10.2.3
-  resolution: "minimatch@npm:10.2.3"
+  version: 10.2.4
+  resolution: "minimatch@npm:10.2.4"
   dependencies:
     brace-expansion: "npm:^5.0.2"
-  checksum: 10c0/d9ae5f355e8bb77a42dd8c20b950141cec8773ef8716a2bb6df7a6840cc44a00ed828883884e4f1c7b5cb505fa06a17e3ea9ca2edb18fd1dec865ea7f9fcf0e5
+  checksum: 10c0/35f3dfb7b99b51efd46afd378486889f590e7efb10e0f6a10ba6800428cf65c9a8dedb74427d0570b318d749b543dc4e85f06d46d2858bc8cac7e1eb49a95945
   languageName: node
   linkType: hard
 
 "minimatch@npm:^3.0.4, minimatch@npm:^3.0.5, minimatch@npm:^3.1.1, minimatch@npm:^3.1.2":
-  version: 3.1.4
-  resolution: "minimatch@npm:3.1.4"
+  version: 3.1.5
+  resolution: "minimatch@npm:3.1.5"
   dependencies:
     brace-expansion: "npm:^1.1.7"
-  checksum: 10c0/868aab7e5f52570107eb283f021383be111cfeee0817a615f2a9ffe61fdc8fb86d535b9bf169fb8882261e7cb9da22b4d7b6f8b3402037f63558bab173f82212
+  checksum: 10c0/2ecbdc0d33f07bddb0315a8b5afbcb761307a8778b48f0b312418ccbced99f104a2d17d8aca7573433c70e8ccd1c56823a441897a45e384ea76ef401a26ace70
   languageName: node
   linkType: hard
 
 "minimatch@npm:^9.0.4":
-  version: 9.0.7
-  resolution: "minimatch@npm:9.0.7"
+  version: 9.0.8
+  resolution: "minimatch@npm:9.0.8"
   dependencies:
     brace-expansion: "npm:^5.0.2"
-  checksum: 10c0/e90f8d8dd1dd3e1257b29c8cb31f554e74e2b89d52391b3903b566a28a287b59e2077a25552bc90a31bbbb79113a59e7422c7783ed9f968fe21c2ccb3c67bdef
+  checksum: 10c0/963e435e30546a5dd09900f916c785efa78aea3b416f0c7b3f5876b23538fecd8056c619b8b00ab545c1bcedbc385566e46735461e45a44e864710f86ed4ed23
   languageName: node
   linkType: hard
 
@@ -16390,7 +16397,7 @@ __metadata:
     "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^12.2.3"
-    "@oceanprotocol/contracts": "npm:2.6.0"
+    "@oceanprotocol/contracts": "npm:2.5.0"
     "@oceanprotocol/lib": "npm:5.1.1"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
     "@svgr/webpack": "npm:^8.1.0"
@@ -19351,9 +19358,9 @@ __metadata:
   linkType: hard
 
 "typebox@npm:^1.0.81":
-  version: 1.1.2
-  resolution: "typebox@npm:1.1.2"
-  checksum: 10c0/0195bcca51348a2d2de5c66e9376680a1093399a02a52de234f15c6c7e2ce4b978a1d2991e2340aff0ba05d3e9220899970fb1db571cd27fdab78d7db2cd2d47
+  version: 1.1.4
+  resolution: "typebox@npm:1.1.4"
+  checksum: 10c0/03a96db40a6be86d6ea615b0eb5e3e101dd4b442f46fc81ae44638f77756f921abe5519d79ab7e5d08355d0169e72506ce7399acc444868ba944a92d64e5b990
   languageName: node
   linkType: hard
 
