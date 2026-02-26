@@ -76,8 +76,8 @@ export default function HowItWorksSection() {
           </div>
           <div className={styles.animation}>
             <video
-              // autoPlay
-              // loop
+              autoPlay
+              loop
               muted
               playsInline
               preload="auto"
