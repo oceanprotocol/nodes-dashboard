@@ -9,8 +9,8 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Authorizations } from '@/types/payment';
 import { CircularProgress } from '@mui/material';
-import posthog from 'posthog-js';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type PaymentProps = {
@@ -87,6 +87,8 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedResources, selectedToken
     escrowBalance,
     router,
     selectedResources.maxJobDurationSeconds,
+    selectedToken.address,
+    selectedToken.symbol,
     totalCost,
   ]);
 
