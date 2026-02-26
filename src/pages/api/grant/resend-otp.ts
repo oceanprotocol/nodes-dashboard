@@ -1,36 +1,40 @@
-import { sendOTP } from '@/api-services/email';
-import { getGrantStore } from '@/api-services/grant-store';
-import { generateOTP } from '@/api-services/otp';
+// import { sendOTP } from '@/api-services/email';
+// import { getGrantStore } from '@/api-services/grant-store';
+// import { generateOTP } from '@/api-services/otp';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-const grantStore = getGrantStore();
+// TODO re-enable grants
+// const grantStore = getGrantStore();
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
-  if (request.method !== 'POST') {
-    return response.status(405).json({ message: 'Method not allowed' });
-  }
+  // TODO re-enable grants
+  return response.status(403).json({ message: 'Grants are not available at the moment' });
 
-  const { walletAddress } = request.body;
+  // if (request.method !== 'POST') {
+  //   return response.status(405).json({ message: 'Method not allowed' });
+  // }
 
-  if (!walletAddress) {
-    return response.status(400).json({ message: 'Missing required fields' });
-  }
+  // const { walletAddress } = request.body;
 
-  const storedGrant = grantStore?.get(walletAddress);
+  // if (!walletAddress) {
+  //   return response.status(400).json({ message: 'Missing required fields' });
+  // }
 
-  if (!storedGrant) {
-    return response.status(400).json({ message: 'No pending grant found for this wallet address' });
-  }
+  // const storedGrant = grantStore?.get(walletAddress);
 
-  // Generate OTP
-  const { otp, otpExpires } = generateOTP();
-  getGrantStore().set(walletAddress, { otp, otpExpires, data: storedGrant.data });
+  // if (!storedGrant) {
+  //   return response.status(400).json({ message: 'No pending grant found for this wallet address' });
+  // }
 
-  // Send OTP via email
-  try {
-    await sendOTP(storedGrant.data.email, otp);
-    return response.status(200).json('');
-  } catch (error) {
-    return response.status(500).json({ message: 'Failed to send OTP' });
-  }
+  // // Generate OTP
+  // const { otp, otpExpires } = generateOTP();
+  // getGrantStore().set(walletAddress, { otp, otpExpires, data: storedGrant.data });
+
+  // // Send OTP via email
+  // try {
+  //   await sendOTP(storedGrant.data.email, otp);
+  //   return response.status(200).json('');
+  // } catch (error) {
+  //   return response.status(500).json({ message: 'Failed to send OTP' });
+  // }
 }
