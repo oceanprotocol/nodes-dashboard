@@ -9,9 +9,13 @@ const DocsCtaSection = () => {
   return (
     <section className={styles.root}>
       <Container className={styles.container}>
-        <h1 className={styles.title}>Build the future of AI with decentralized compute</h1>
-        <Button color="primary-inverse" href={routes.docs.path} size="lg" variant="filled">
-          Explore docs
+        <h1 className={styles.title}>Ready to get started?</h1>
+        <p className={styles.description}>
+          Run a quick CPU test, or claim $100 in Grant Tokens to unlock high-performance GPU workloads in the same
+          environment, all within Ocean Orchestrator
+        </p>
+        <Button color="primary-inverse" href={routes.runJob.path} size="lg" variant="filled">
+          Run a job
         </Button>
         <div className={styles.socialLinks}>
           <Button
