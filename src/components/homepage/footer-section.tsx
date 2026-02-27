@@ -25,6 +25,29 @@ const FooterSection = () => {
               Ocean Network is a decentralized, peer-to-peer (P2P) compute network for pay-per-use compute jobs that
               turns idle or underutilized GPUs into usable distributed compute resources.
             </p>
+            <p className={styles.description}>
+              Need Help?
+              <br />
+              Check our{' '}
+              <Button color="accent2" href={config.links.docs} size="link" target="_blank" variant="transparent">
+                documentation
+              </Button>
+              , ask in{' '}
+              <Button
+                color="accent2"
+                href={config.socialMedia.discord}
+                size="link"
+                target="_blank"
+                variant="transparent"
+              >
+                Discord
+              </Button>
+              , or reach out directly to{' '}
+              <Button color="accent2" href={`mailto:${config.supportEmail}`} size="link" variant="transparent">
+                {config.supportEmail}
+              </Button>
+              .
+            </p>
             <p className={styles.copy}>
               © {currentYear} All Rights Reserved. Powered by{' '}
               <Button color="accent2" href={links.website} size="link" target="_blank" variant="transparent">
