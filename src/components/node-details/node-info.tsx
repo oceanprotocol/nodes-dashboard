@@ -87,10 +87,12 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     }
     setFetchingConfig(true);
     try {
-      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-      const signedMessage = await signMessage(timestamp.toString());
-      const addressToSend = user?.type === 'sca' ? account.address : undefined;
-      await fetchConfig(node.id, signedMessage, timestamp, addressToSend);
+      await fetchConfig({
+        consumerAddress: account.address,
+        expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
+        multiaddrsOrPeerId: node.id,
+        signMessage,
+      });
     } catch (error) {
       console.error('Error fetching node config :', error);
     } finally {
@@ -109,10 +111,13 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     }
     setPushingConfig(true);
     try {
-      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-      const signedMessage = await signMessage(timestamp.toString());
-      const addressToSend = user?.type === 'sca' ? account.address : undefined;
-      await pushConfig(node.id, signedMessage, timestamp, config, addressToSend);
+      await pushConfig({
+        consumerAddress: account.address,
+        expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
+        multiaddrsOrPeerId: node.id,
+        signMessage,
+        config,
+      });
       success = true;
     } catch (error) {
       console.error('Error pushing node config :', error);
@@ -149,10 +154,13 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     }
     setDownloadingLogs(true);
     try {
-      const timestamp = Date.now() + 5 * 60 * 1000;
-      const signedMessage = await signMessage(timestamp.toString());
-      const addressToSend = user?.type === 'sca' ? account.address : undefined;
-      const logs = await getNodeLogs(node.id, signedMessage, timestamp, { startTime, endTime, maxLogs }, addressToSend);
+      const logs = await getNodeLogs({
+        consumerAddress: account.address,
+        expiryTimestamp: Date.now() + 5 * 60 * 1000,
+        multiaddrsOrPeerId: node.id,
+        params: { startTime, endTime, maxLogs },
+        signMessage,
+      });
       const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

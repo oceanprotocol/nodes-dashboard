@@ -59,10 +59,12 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     }
     setLoadingFetchConfig(true);
     try {
-      const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-      const signedMessage = await signMessage(timestamp.toString());
-      const addressToSend = user?.type === 'sca' ? account.address : undefined;
-      const config = await p2pFetchConfig(peerId, signedMessage, timestamp, addressToSend);
+      const config = await p2pFetchConfig({
+        consumerAddress: account.address,
+        expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
+        multiaddrsOrPeerId: peerId,
+        signMessage,
+      });
       setNodeConfig(config);
       posthog.capture('runNode_fetchConfig', {
         peerId,
@@ -73,7 +75,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoadingFetchConfig(false);
     }
-  }, [account.address, p2pFetchConfig, peerId, signMessage, user?.type]);
+  }, [account.address, p2pFetchConfig, peerId, signMessage]);
 
   const pushConfig = useCallback(
     async (config: Record<string, any>) => {
@@ -83,10 +85,13 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       let success = false;
       setLoadingPushConfig(true);
       try {
-        const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
-        const signedMessage = await signMessage(timestamp.toString());
-        const addressToSend = user?.type === 'sca' ? account.address : undefined;
-        await p2pPushConfig(peerId, signedMessage, timestamp, config, addressToSend);
+        await p2pPushConfig({
+          config,
+          consumerAddress: account.address,
+          expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
+          multiaddrsOrPeerId: peerId,
+          signMessage,
+        });
         setNodeConfig(config);
         setConfigErrors([]);
         success = true;
@@ -112,7 +117,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     },
-    [peerId, account.address, signMessage, p2pPushConfig]
+    [peerId, account.address, p2pPushConfig, signMessage]
   );
 
   return (

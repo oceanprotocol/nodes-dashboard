@@ -1,8 +1,8 @@
 import Button from '@/components/button/button';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { createAuthToken } from '@/services/nodeService';
 import { ComputeJob } from '@/types/jobs';
-import { generateAuthToken } from '@/utils/generateAuthToken';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -26,9 +26,13 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
       const jobStatus = await getComputeJobStatus(job.peerId, jobId, account.address);
       const archive = jobStatus?.[0]?.results?.find((result: any) => result.filename.includes('.tar'));
 
-      const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
+      const { token } = await createAuthToken({
+        consumerAddress: account.address,
+        multiaddrsOrPeerId: job.peerId,
+        signMessage,
+      });
 
-      const result = await getComputeResult(job.peerId, jobId, archive?.index, authToken, account.address);
+      const result = await getComputeResult(job.peerId, jobId, archive?.index, token, account.address);
 
       if (result instanceof Uint8Array) {
         if (result.byteLength === 0) {

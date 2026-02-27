@@ -1,3 +1,4 @@
+import { SignMessageFn } from '@/lib/use-ocean-account';
 import {
   fetchNodeConfig,
   getComputeJobResult,
@@ -33,12 +34,12 @@ interface P2PContextType {
    * If user is `Externally Owned Account (EOA)`, address must be undefined.
    * If user is `Smart Account`, address must be sent.
    */
-  fetchConfig: (
-    multiaddrsOrPeerId: MultiaddrsOrPeerId,
-    signature: string,
-    expiryTimestamp: number,
-    address?: string
-  ) => Promise<Record<string, any>>;
+  fetchConfig: (args: {
+    consumerAddress?: string;
+    expiryTimestamp: number;
+    multiaddrsOrPeerId: MultiaddrsOrPeerId;
+    signMessage: SignMessageFn;
+  }) => Promise<Record<string, any>>;
   getComputeResult: (
     multiaddrsOrPeerId: MultiaddrsOrPeerId,
     jobId: string,
@@ -58,13 +59,13 @@ interface P2PContextType {
    * If user is `Externally Owned Account (EOA)`, address must be undefined.
    * If user is `Smart Account`, address must be sent.
    */
-  getNodeLogs: (
-    multiaddrsOrPeerId: MultiaddrsOrPeerId,
-    signature: string,
-    expiryTimestamp: number,
-    params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
-    address?: string
-  ) => Promise<any>;
+  getNodeLogs: (args: {
+    consumerAddress?: string;
+    expiryTimestamp: number;
+    multiaddrsOrPeerId: MultiaddrsOrPeerId;
+    params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string };
+    signMessage: SignMessageFn;
+  }) => Promise<any>;
   initializeCompute: (
     environment: ComputeEnvironment,
     tokenAddress: string,
@@ -83,13 +84,13 @@ interface P2PContextType {
    * If user is `Externally Owned Account (EOA)`, address must be undefined.
    * If user is `Smart Account`, address must be sent.
    */
-  pushConfig: (
-    multiaddrsOrPeerId: MultiaddrsOrPeerId,
-    signature: string,
-    expiryTimestamp: number,
-    config: Record<string, any>,
-    address?: string
-  ) => Promise<void>;
+  pushConfig: (args: {
+    config: Record<string, any>;
+    consumerAddress?: string;
+    expiryTimestamp: number;
+    multiaddrsOrPeerId: MultiaddrsOrPeerId;
+    signMessage: SignMessageFn;
+  }) => Promise<void>;
   sendCommand: (multiaddrsOrPeerId: MultiaddrsOrPeerId, command: any, protocol?: string) => Promise<any>;
   getPeerMultiaddr: (multiaddrsOrPeerId: MultiaddrsOrPeerId) => Promise<string>;
 }
@@ -206,46 +207,94 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
-  const fetchConfig = useCallback(
-    async (multiaddrsOrPeerId: MultiaddrsOrPeerId, signature: string, expiryTimestamp: number, address?: string) => {
+  const getNodeLogs = useCallback(
+    async ({
+      consumerAddress,
+      expiryTimestamp,
+      multiaddrsOrPeerId,
+      params,
+      signMessage,
+    }: {
+      consumerAddress?: string;
+      expiryTimestamp: number;
+      multiaddrsOrPeerId: MultiaddrsOrPeerId;
+      params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string };
+      signMessage: SignMessageFn;
+    }) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      const result = await fetchNodeConfig(multiaddrsOrPeerId, signature, expiryTimestamp, address);
+      if (!consumerAddress) {
+        throw new Error('Missing consumer address');
+      }
+      return getNodeLogsService({
+        consumerAddress,
+        expiryTimestamp,
+        multiaddrsOrPeerId,
+        params,
+        signMessage,
+      });
+    },
+    [isReady, node]
+  );
+
+  const fetchConfig = useCallback(
+    async ({
+      consumerAddress,
+      expiryTimestamp,
+      multiaddrsOrPeerId,
+      signMessage,
+    }: {
+      consumerAddress?: string;
+      expiryTimestamp: number;
+      multiaddrsOrPeerId: MultiaddrsOrPeerId;
+      signMessage: SignMessageFn;
+    }) => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+      if (!consumerAddress) {
+        throw new Error('Missing consumer address');
+      }
+      const result = await fetchNodeConfig({
+        consumerAddress,
+        expiryTimestamp,
+        multiaddrsOrPeerId,
+        signMessage,
+      });
       setConfig(result);
       return result;
     },
     [isReady, node]
   );
 
-  const getNodeLogs = useCallback(
-    async (
-      multiaddrsOrPeerId: MultiaddrsOrPeerId,
-      signature: string,
-      expiryTimestamp: number,
-      params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string },
-      address?: string
-    ) => {
-      if (!isReady || !node) {
-        throw new Error('Node not ready');
-      }
-      return getNodeLogsService(multiaddrsOrPeerId, signature, expiryTimestamp, params, address);
-    },
-    [isReady, node]
-  );
-
   const pushConfig = useCallback(
-    async (
-      multiaddrsOrPeerId: MultiaddrsOrPeerId,
-      signature: string,
-      expiryTimestamp: number,
-      config: Record<string, any>,
-      address?: string
-    ) => {
+    async ({
+      config,
+      consumerAddress,
+      expiryTimestamp,
+      multiaddrsOrPeerId,
+      signMessage,
+    }: {
+      config: Record<string, any>;
+      consumerAddress?: string;
+      expiryTimestamp: number;
+      multiaddrsOrPeerId: MultiaddrsOrPeerId;
+      signMessage: SignMessageFn;
+    }) => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      await pushNodeConfig(multiaddrsOrPeerId, signature, expiryTimestamp, config, address);
+      if (!consumerAddress) {
+        throw new Error('Missing consumer address');
+      }
+      await pushNodeConfig({
+        config,
+        consumerAddress,
+        expiryTimestamp,
+        multiaddrsOrPeerId,
+        signMessage,
+      });
       setConfig(config);
     },
     [isReady, node]

@@ -1,8 +1,8 @@
 import Button from '@/components/button/button';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { createAuthToken } from '@/services/nodeService';
 import { ComputeJob } from '@/types/jobs';
-import { generateAuthToken } from '@/utils/generateAuthToken';
 import DownloadIcon from '@mui/icons-material/Download';
 import JSZip from 'jszip';
 import { useState } from 'react';
@@ -24,13 +24,17 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
     try {
       const jobId = (job.environment ?? job.environmentId).split('-')[0] + '-' + job.jobId;
 
-      const authToken = await generateAuthToken(job.peerId, account.address, signMessage);
+      const { token } = await createAuthToken({
+        consumerAddress: account.address,
+        multiaddrsOrPeerId: job.peerId,
+        signMessage,
+      });
 
       const jobStatus = await getComputeJobStatus(job.peerId, jobId, account.address);
 
       const logFiles = jobStatus?.[0]?.results?.filter((result: any) => result.filename.includes('.log'));
       const logPromises = logFiles?.map((logFile: any) =>
-        getComputeResult(job.peerId, jobId, logFile.index, authToken, account.address!)
+        getComputeResult(job.peerId, jobId, logFile.index, token, account.address!)
       );
 
       const downloadedLogs = await Promise.all(logPromises);
