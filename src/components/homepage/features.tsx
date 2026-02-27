@@ -1,10 +1,10 @@
 import BoxIcon from '@/assets/icons/box.svg';
 import CreditCardIcon from '@/assets/icons/credit-card.svg';
 import GlobeIcon from '@/assets/icons/globe.svg';
-import LockIcon from '@/assets/icons/lock.svg';
 import PlayIcon from '@/assets/icons/play.svg';
 import ShieldIcon from '@/assets/icons/shield.svg';
 import SliderIcon from '@/assets/icons/slider.svg';
+import TransferIcon from '@/assets/icons/transfer.svg';
 import UsersIcon from '@/assets/icons/users.svg';
 import Card from '@/components/card/card';
 import cx from 'classnames';
@@ -54,9 +54,9 @@ const features: {
     isBlue: true,
   },
   {
-    title: 'Wallet integrated fiat on-ramp',
-    description: 'Fund your compute jobs with fiat. No need to buy crypto first.',
-    icon: <LockIcon />,
+    title: 'Fiat-on-ramp wallet integrated',
+    description: 'Top up with credit card via our fiat-on-ramp partner, or top up your wallet directly with USDC.',
+    icon: <TransferIcon />,
     isBlue: true,
   },
   {
