@@ -47,11 +47,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const { initializeCompute } = useP2P();
   const { provider } = useOceanAccount();
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
-    environment,
-    freeCompute,
-    tokenAddress: token.address,
-  });
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
+    useEnvResources({
+      environment,
+      freeCompute,
+      tokenAddress: token.address,
+    });
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
@@ -64,12 +65,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const minAllowedCpuCores = cpu?.min ?? 1;
   const minAllowedDiskSpace = disk?.min ?? 0;
-  const minAllowedJobDurationSeconds = environment.minJobDuration ?? 0;
+  const minAllowedJobDurationSeconds = minJobDurationSeconds ?? 0;
   const minAllowedRam = ram?.min ?? 0;
 
   const maxAllowedCpuCores = cpu?.max ?? minAllowedCpuCores;
   const maxAllowedDiskSpace = disk?.max ?? minAllowedDiskSpace;
-  const maxAllowedJobDurationSeconds = environment.maxJobDuration ?? environment.minJobDuration ?? 0;
+  const maxAllowedJobDurationSeconds = maxJobDurationSeconds ?? 0;
   const maxAllowedRam = ram?.max ?? minAllowedRam;
 
   const formik = useFormik<ResourcesFormValues>({

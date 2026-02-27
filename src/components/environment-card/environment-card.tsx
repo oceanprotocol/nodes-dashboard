@@ -79,20 +79,21 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
 
   const [isFreeCompute, setIsFreeCompute] = useState<boolean>(false);
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
-    environment,
-    freeCompute: isFreeCompute,
-    tokenAddress: selectedTokenAddress,
-  });
+  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
+    useEnvResources({
+      environment,
+      freeCompute: isFreeCompute,
+      tokenAddress: selectedTokenAddress,
+    });
   const noResourcesAvailable = !cpu && !gpus?.length && !ram && !disk;
+
+  const minJobDurationHours = (minJobDurationSeconds ?? 0) / 60 / 60;
+  const maxJobDurationHours = (maxJobDurationSeconds ?? 0) / 60 / 60;
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
     return (cpuFee ?? 0) + (ramFee ?? 0) + (diskFee ?? 0) + (minGpuFee === Infinity ? 0 : minGpuFee);
   }, [cpuFee, diskFee, gpuFees, ramFee]);
-
-  const minJobDurationHours = (environment.minJobDuration ?? 0) / 60 / 60;
-  const maxJobDurationHours = (environment.maxJobDuration ?? 0) / 60 / 60;
 
   const selectEnvironment = () => {
     selectEnv({
