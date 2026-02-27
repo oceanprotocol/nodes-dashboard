@@ -1,6 +1,7 @@
+import { API_ROOTS } from '@/config';
 import axios from 'axios';
 
-const apiUrl = 'https://ens-proxy.oceanprotocol.com/api';
+const apiUrl = API_ROOTS.ens;
 
 export async function getEnsName(accountId: string) {
   if (!accountId || accountId === '') {

@@ -12,6 +12,26 @@ type SocialMedia = {
   [key: string]: string;
 };
 
+export const API_ROOTS: {
+  analytics: string;
+  ens: string;
+  incentive: string;
+  incentive_old: string;
+} =
+  process.env.NEXT_PUBLIC_APP_ENV === 'production'
+    ? {
+        analytics: 'https://analytics.oncompute.ai',
+        ens: 'https://ens-proxy.oceanprotocol.com/api',
+        incentive: 'https://api.oncompute.ai',
+        incentive_old: 'https://api.oncompute.ai',
+      }
+    : {
+        analytics: 'https://analytics.nodes.oceanprotocol.io',
+        ens: 'https://ens-proxy.oceanprotocol.com/api',
+        incentive: 'https://incentive-backend.oceanprotocol.io',
+        incentive_old: 'https://incentive-backend.oceanprotocol.com',
+      };
+
 type Config = {
   backendUrl: string;
   routes: Routes;
@@ -31,7 +51,7 @@ type Config = {
 };
 
 const config: Config = {
-  backendUrl: process.env.NEXT_PUBLIC_API_URL || 'https://incentive-backend.oceanprotocol.com',
+  backendUrl: API_ROOTS.incentive,
   routes: {
     home: {
       path: '/',
@@ -86,13 +106,6 @@ export default config;
 export const getRoutes = (): Routes => config.routes;
 export const getSocialMedia = (): SocialMedia => config.socialMedia;
 export const getLinks = () => config.links;
-
-const API_ROOTS = {
-  ens: 'https://ens-proxy.oceanprotocol.com/api',
-  incentive: 'https://incentive-backend.oceanprotocol.io',
-  incentive_old: 'https://incentive-backend.oceanprotocol.com',
-  analytics: 'https://analytics.nodes.oceanprotocol.io',
-} as const;
 
 const apiRoutes = {
   // Incentive API routes

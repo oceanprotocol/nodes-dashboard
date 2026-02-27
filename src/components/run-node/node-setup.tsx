@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { CodeBlock } from '@/components/code-block/code-block';
 import NodeConnection from '@/components/run-node/node-connection';
+import config from '@/config';
 import { useRunNodeContext } from '@/context/run-node-context';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -31,14 +32,8 @@ const NodeSetup = () => {
         Docker Engine and Docker Compose are recommended for hosting a node eligible for incentives
         <br />
         You can explore other options in the{' '}
-        <Button
-          color="accent1"
-          href="https://github.com/oceanprotocol/ocean-node"
-          size="link"
-          target="_blank"
-          variant="transparent"
-        >
-          Ocean Node readme
+        <Button color="accent1" href={config.links.docs} size="link" target="_blank" variant="transparent">
+          docs
         </Button>
       </div>
       <div className={styles.section}>
