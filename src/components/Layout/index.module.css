@@ -1,4 +1,8 @@
 .main {
+  background: url('/background.svg');
+  background-position: top left;
+  background-repeat: repeat-y;
+  background-size: 100% auto;
   display: flex;
   flex-direction: column;
   position: relative;
