@@ -74,7 +74,7 @@ export default function HowItWorksSection() {
               </div>
             ))}
           </div>
-          <div className={styles.animation}>
+          {/* <div className={styles.animation}>
             <video
               autoPlay
               loop
@@ -85,7 +85,7 @@ export default function HowItWorksSection() {
               // ref={videoRef}
               src={videoSrc}
             />
-          </div>
+          </div> */}
         </div>
       </Container>
     </div>
