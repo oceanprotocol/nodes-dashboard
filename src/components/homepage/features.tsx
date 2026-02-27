@@ -54,7 +54,7 @@ const features: {
     isBlue: true,
   },
   {
-    title: 'Wallet integrated fiat onramp',
+    title: 'Wallet integrated fiat on-ramp',
     description: 'Fund your compute jobs with fiat. No need to buy crypto first.',
     icon: <LockIcon />,
     isBlue: true,
