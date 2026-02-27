@@ -197,14 +197,15 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchGrantStatus = useCallback(async (walletAddress: string) => {
     try {
-      const response = await axios.get<GrantStatus>('/api/grant/status', {
-        params: {
-          walletAddress,
-        },
-      });
-      if (response.data) {
-        setGrantStatus(response.data);
-      }
+      // TODO re-enable grants
+      // const response = await axios.get<GrantStatus>('/api/grant/status', {
+      //   params: {
+      //     walletAddress,
+      //   },
+      // });
+      // if (response.data) {
+      //   setGrantStatus(response.data);
+      // }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 404) {
         setGrantStatus(null);
