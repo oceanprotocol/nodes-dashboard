@@ -88,7 +88,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     setFetchingConfig(true);
     try {
       await fetchConfig({
-        consumerAddress: user?.type === 'sca' ? account.address : undefined,
+        consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
         multiaddrsOrPeerId: node.id,
         signMessage,
@@ -112,7 +112,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     setPushingConfig(true);
     try {
       await pushConfig({
-        consumerAddress: user?.type === 'sca' ? account.address : undefined,
+        consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
         multiaddrsOrPeerId: node.id,
         signMessage,
@@ -155,7 +155,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     setDownloadingLogs(true);
     try {
       const logs = await getNodeLogs({
-        consumerAddress: user?.type === 'sca' ? account.address : undefined,
+        consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000,
         multiaddrsOrPeerId: node.id,
         params: { startTime, endTime, maxLogs },

@@ -60,7 +60,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     setLoadingFetchConfig(true);
     try {
       const config = await p2pFetchConfig({
-        consumerAddress: user?.type === 'sca' ? account.address : undefined,
+        consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
         multiaddrsOrPeerId: peerId,
         signMessage,
@@ -75,7 +75,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoadingFetchConfig(false);
     }
-  }, [account.address, p2pFetchConfig, peerId, signMessage, user?.type]);
+  }, [account.address, p2pFetchConfig, peerId, signMessage]);
 
   const pushConfig = useCallback(
     async (config: Record<string, any>) => {
@@ -87,7 +87,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       try {
         await p2pPushConfig({
           config,
-          consumerAddress: user?.type === 'sca' ? account.address : undefined,
+          consumerAddress: account.address,
           expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
           multiaddrsOrPeerId: peerId,
           signMessage,
@@ -117,7 +117,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     },
-    [peerId, account.address, p2pPushConfig, user?.type, signMessage]
+    [peerId, account.address, p2pPushConfig, signMessage]
   );
 
   return (
