@@ -20,7 +20,7 @@ const features: {
   isBlue?: boolean;
 }[] = [
   {
-    title: 'Pay-as-you-go',
+    title: 'Pay-per-use',
     description:
       'Only pay for the compute you use. You are not billed while idle and you are not locked into a fixed instance.',
     icon: <CreditCardIcon />,
