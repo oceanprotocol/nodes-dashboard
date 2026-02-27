@@ -264,10 +264,10 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       <div className={styles.statusWrapper}>
         <Eligibility
           eligibility={
-            node.eligible
-              ? NodeEligibility.ELIGIBLE
-              : node.eligibilityCauseStr === 'Banned'
-                ? NodeEligibility.BANNED
+            node.banInfo
+              ? NodeEligibility.BANNED
+              : node.eligible
+                ? NodeEligibility.ELIGIBLE
                 : NodeEligibility.NON_ELIGIBLE
           }
           eligibilityCauseStr={node.eligibilityCauseStr}
