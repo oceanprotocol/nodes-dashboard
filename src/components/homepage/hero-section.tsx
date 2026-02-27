@@ -1,10 +1,23 @@
 import { getRoutes } from '@/config';
+import { Collapse } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { TransitionGroup } from 'react-transition-group';
 import Button from '../button/button';
 import Container from '../container/container';
 import styles from './hero-section.module.css';
-import LogoSlider from './logo-slider';
+
+const subtitles = ['ON: Code-to-Node in just one click', 'ON: Run pay-per-use compute jobs', 'ON: Earn with your GPUs'];
 
 export default function HeroSection() {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveIndex((prevIndex) => (prevIndex + 1) % subtitles.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className={styles.root}>
       <Container className={styles.relative}>
@@ -14,26 +27,32 @@ export default function HeroSection() {
             Compute <br />
             <span>Power</span>
           </h1>
-          <div className={styles.subTitle}>
-            Keep control of your data, jobs & infrastructure on a decentralized compute network.
-          </div>
+          <TransitionGroup>
+            {subtitles.map((subtitle, index) =>
+              index === activeIndex ? (
+                <Collapse key={`${index}-${subtitle}`}>
+                  <div className={styles.subTitle}>{subtitle}</div>
+                </Collapse>
+              ) : null
+            )}
+          </TransitionGroup>
         </div>
         <div className={styles.actionsAndTextWrapper}>
           <div className={styles.actions}>
             <Button color="accent1" href={getRoutes().runJob.path} size="lg">
-              Run compute job
+              Run a job
             </Button>
             <Button color="accent1" href={getRoutes().runNode.path} size="lg" variant="outlined">
               Run a node
             </Button>
           </div>
-          <div className={styles.textBadge}>
+          {/* <div className={styles.textBadge}>
             ONE <br />
             <span>NETWORK</span>
-          </div>
+          </div> */}
         </div>
       </Container>
-      <LogoSlider />
+      {/* <LogoSlider /> */}
     </div>
   );
 }

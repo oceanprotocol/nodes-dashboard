@@ -44,6 +44,11 @@
   margin: 0;
 }
 
+.description {
+  font-size: 20px;
+  max-width: 780px;
+}
+
 .socialLinks {
   display: flex;
   flex-wrap: wrap;

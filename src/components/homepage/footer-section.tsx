@@ -22,8 +22,8 @@ const FooterSection = () => {
               </div>
             </div>
             <p className={styles.description}>
-              Keep your data, jobs, and infrastructure secure while tapping into a global network of decentralized
-              compute.
+              Ocean Network is a decentralized, peer-to-peer (P2P) compute network for pay-per-use compute jobs that
+              turns idle or underutilized GPUs into usable distributed compute resources.
             </p>
             <p className={styles.copy}>
               © {currentYear} All Rights Reserved. Powered by{' '}

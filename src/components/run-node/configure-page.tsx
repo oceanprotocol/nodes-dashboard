@@ -22,8 +22,8 @@ const ConfigurePage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run node"
-        subTitle="Setup your node, and earn rewards"
+        title="Run a node"
+        subTitle="Configure resources, settings and other preferences for your node"
         contentBetween={<Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />}
       />
       {peerId ? (

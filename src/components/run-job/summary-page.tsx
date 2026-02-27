@@ -23,7 +23,7 @@ const SummaryPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run job"
+        title="Run a job"
         subTitle="Everything is set up. Below is a summary of your selection"
         contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
       />

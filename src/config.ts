@@ -37,7 +37,7 @@ const config: Config = {
     },
     runJob: {
       path: '/run-job/environments',
-      name: 'Run Job',
+      name: 'Run a job',
     },
     stats: {
       path: '/stats',
@@ -54,7 +54,7 @@ const config: Config = {
     },
     runNode: {
       path: '/run-node/setup',
-      name: 'Run Node',
+      name: 'Run a node',
     },
   },
   socialMedia: {

@@ -5,10 +5,12 @@ import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
 import { useRunJobContext } from '@/context/run-job-context';
 import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const PaymentPage = () => {
   const router = useRouter();
+
+  const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
 
   const { estimatedTotalCost, freeCompute, minLockSeconds, selectedEnv, selectedResources, selectedToken } =
     useRunJobContext();
@@ -23,8 +25,8 @@ const PaymentPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run job"
-        subTitle="Verify estimated cost and confirm payment before strating your job"
+        title="Run a job"
+        subTitle={subtitle}
         contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
       />
       {selectedEnv && selectedResources && selectedToken ? (
@@ -34,6 +36,7 @@ const PaymentPage = () => {
             selectedEnv={selectedEnv}
             selectedResources={selectedResources}
             selectedToken={selectedToken}
+            setPageSubtitle={setSubtitle}
             totalCost={estimatedTotalCost ?? 0}
           />
         </div>

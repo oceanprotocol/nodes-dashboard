@@ -20,11 +20,14 @@
 }
 
 .footer {
-  align-items: center;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 16px;
+
+  @media (min-width: 992px) {
+    align-items: center;
+    flex-direction: row;
+  }
 
   .buttons {
     display: flex;
