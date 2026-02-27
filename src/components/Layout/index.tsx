@@ -4,9 +4,6 @@ import Head from 'next/head';
 import { ReactNode } from 'react';
 import styles from './index.module.css';
 
-const videoSrc = '/banner-video.mp4';
-const posterSrc = '/banner-video.jpg';
-
 type RootLayoutProps = {
   children: ReactNode;
 };
@@ -21,18 +18,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={styles.main}>
-        <div className={styles.backgroundAnimation}>
-          <video
-            className={styles.backgorundImage}
-            src={videoSrc}
-            muted
-            autoPlay
-            playsInline
-            loop
-            preload="auto"
-            poster={posterSrc}
-          />
-        </div>
         <Navigation />
         {children}
         <FooterSection />
