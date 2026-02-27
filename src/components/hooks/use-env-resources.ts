@@ -9,6 +9,8 @@ type UseEnvResources = {
   diskFee?: number;
   gpus: ComputeResource[];
   gpuFees: Record<string, number>;
+  maxJobDurationSeconds?: number;
+  minJobDurationSeconds?: number;
   ram?: ComputeResource;
   ramFee?: number;
   supportedTokens: string[];
@@ -118,6 +120,24 @@ const useEnvResources = ({
     }
   }, [freeCompute, selectedTokenFees, gpus]);
 
+  const { maxJobDurationSeconds, minJobDurationSeconds } = useMemo(() => {
+    const maxJobDurationSeconds =
+      freeCompute && environment.free?.maxJobDuration
+        ? environment.free.maxJobDuration
+        : (environment.maxJobDuration ?? 0);
+    const minJobDurationSeconds =
+      freeCompute && environment.free?.minJobDuration
+        ? environment.free.minJobDuration
+        : (environment.minJobDuration ?? 0);
+    return { maxJobDurationSeconds, minJobDurationSeconds };
+  }, [
+    environment.free?.maxJobDuration,
+    environment.free?.minJobDuration,
+    environment.maxJobDuration,
+    environment.minJobDuration,
+    freeCompute,
+  ]);
+
   return {
     cpu,
     cpuFee,
@@ -125,6 +145,8 @@ const useEnvResources = ({
     diskFee,
     gpus,
     gpuFees,
+    maxJobDurationSeconds,
+    minJobDurationSeconds,
     ram,
     ramFee,
     supportedTokens,

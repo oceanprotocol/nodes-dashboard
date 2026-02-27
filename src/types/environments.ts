@@ -49,6 +49,7 @@ export type ComputeEnvironment = {
     storageExpiry?: number;
     maxJobDuration?: number;
     maxJobs?: number;
+    minJobDuration?: number;
     resources?: SlimComputeResource[];
   };
   id: string;
