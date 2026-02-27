@@ -1,9 +1,21 @@
 .root {
+  background: var(--background-primary);
   position: relative;
   --nav-overlap: 120px;
   margin-top: calc(var(--nav-overlap) * -1);
   padding: calc(140px + var(--nav-overlap)) 0 120px;
   overflow: hidden;
+}
+
+.video {
+  object-fit: cover;
+  opacity: 0.25;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  filter: brightness(1.25) contrast(1.25) invert(1) saturate(0);
 }
 
 .title {

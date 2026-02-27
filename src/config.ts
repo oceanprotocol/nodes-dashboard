@@ -17,6 +17,7 @@ type Config = {
   routes: Routes;
   socialMedia: SocialMedia;
   links: {
+    docs: string;
     website: string;
     github: string;
   };
@@ -26,6 +27,7 @@ type Config = {
   cookies: {
     [key: string]: string;
   };
+  supportEmail: string;
 };
 
 const config: Config = {
@@ -43,11 +45,11 @@ const config: Config = {
       path: '/stats',
       name: 'Stats',
     },
-    docs: {
-      path: 'https://oceanprotocol.gitbook.io/ocean-network-docs/',
-      name: 'Docs',
-      hideFromNavbar: true,
-    },
+    // docs: {
+    //   path: 'https://docs.oncompute.ai/',
+    //   name: 'Docs',
+    //   hideFromNavbar: true,
+    // },
     leaderboard: {
       path: '/leaderboard',
       name: 'Leaderboard',
@@ -65,6 +67,7 @@ const config: Config = {
     telegram: 'https://t.me/oceanprotocol',
   },
   links: {
+    docs: 'https://docs.oncompute.ai/',
     website: 'https://oceanprotocol.com/',
     github: 'https://github.com/oceanprotocol/ocean-node',
   },
@@ -72,6 +75,7 @@ const config: Config = {
     accessToken: 'access_token',
     status: 'status',
   },
+  supportEmail: 'support@oncompute.ai',
   cookies: {
     accessToken: 'access_token',
   },

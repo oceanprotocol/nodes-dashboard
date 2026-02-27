@@ -10,7 +10,7 @@ type HBarChartProps = {
 const HBarChart = ({ axisKey, barKey, data }: HBarChartProps) => (
   <div className={styles.root}>
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} layout="vertical" margin={{ left: 0, right: 0, top: 0, bottom: 0 }}>
+      <BarChart data={data} layout="vertical">
         <XAxis
           axisLine={false}
           dataKey={barKey}
@@ -29,7 +29,7 @@ const HBarChart = ({ axisKey, barKey, data }: HBarChartProps) => (
           allowDecimals={false}
           width={120}
         />
-        <Bar barSize={30} dataKey={barKey} fill="var(--accent1)" radius={[0, 10, 10, 0]} />
+        <Bar barSize={30} dataKey={barKey} fill="var(--accent1)" radius={[4, 8, 8, 4]} />
         <CartesianGrid horizontal={true} stroke="var(--border)" vertical={false} />
       </BarChart>
     </ResponsiveContainer>

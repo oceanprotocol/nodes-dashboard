@@ -32,16 +32,16 @@
 }
 
 .featuresWrapper > *:nth-child(4n + 1) {
-  flex: 0 0 calc(66% - 20px);
+  flex: 0 0 calc(62% - 20px);
 }
 
 .featuresWrapper > *:nth-child(4n + 2),
 .featuresWrapper > *:nth-child(4n + 3) {
-  flex: 0 0 calc(34% - 20px);
+  flex: 0 0 calc(38% - 20px);
 }
 
 .featuresWrapper > *:nth-child(4n + 4) {
-  flex: 0 0 calc(66% - 20px);
+  flex: 0 0 calc(62% - 20px);
 }
 
 .featureTextWrapper {

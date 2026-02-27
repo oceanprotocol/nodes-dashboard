@@ -6,6 +6,9 @@ import Button from '../button/button';
 import Container from '../container/container';
 import styles from './hero-section.module.css';
 
+const videoSrc = '/hero.mp4';
+// const posterSrc = '/hero.jpg';
+
 const subtitles = ['ON: Code-to-Node in just one click', 'ON: Run pay-per-use compute jobs', 'ON: Earn with your GPUs'];
 
 export default function HeroSection() {
@@ -20,6 +23,16 @@ export default function HeroSection() {
 
   return (
     <div className={styles.root}>
+      <video
+        autoPlay
+        className={styles.video}
+        loop
+        muted
+        playsInline
+        // poster={posterSrc}
+        preload="auto"
+        src={videoSrc}
+      />
       <Container className={styles.relative}>
         <div className={styles.titleWrapper}>
           <h1 className={styles.title}>

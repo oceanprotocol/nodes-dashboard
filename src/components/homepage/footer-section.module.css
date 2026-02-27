@@ -9,7 +9,7 @@
 .background {
   position: absolute;
   inset: 0;
-  background: url('/footer.svg') no-repeat right 40px top 30px;
+  background: url('/footer.svg') no-repeat right 0px top 0px;
   background-size: min(620px, 65%);
   pointer-events: none;
 }
