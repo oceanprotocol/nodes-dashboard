@@ -54,8 +54,8 @@ const features: {
     isBlue: true,
   },
   {
-    title: 'Privacy-first jobs',
-    description: 'Run algorithms where data lives. Raw data stays private and never leaves its source.',
+    title: 'Wallet integrated fiat onramp',
+    description: 'Fund your compute jobs with fiat. No need to buy crypto first.',
     icon: <LockIcon />,
     isBlue: true,
   },
