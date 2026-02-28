@@ -15,7 +15,7 @@ import '@/styles/globals.css';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
-import type { AppProps } from 'next/app';
+import App, { type AppContext, type AppProps } from 'next/app';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
@@ -45,7 +45,7 @@ const muiTheme = createTheme({
   },
 });
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function DashboardApp({ Component, pageProps, cookie }: AppProps & { cookie?: string }) {
   const queryClientRef = useRef<QueryClient>();
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient();
@@ -60,7 +60,7 @@ export default function App({ Component, pageProps }: AppProps) {
     <main className={cx(inter.variable, plusJakartaSans.variable)}>
       <ThemeProvider theme={muiTheme}>
         <QueryClientProvider client={queryClientRef.current}>
-          <AlchemyProvider>
+          <AlchemyProvider cookie={cookie}>
             <OceanAccountProvider>
               <GrantProvider>
                 <NodesProvider>
@@ -93,3 +93,14 @@ export default function App({ Component, pageProps }: AppProps) {
     </main>
   );
 }
+
+DashboardApp.getInitialProps = async (context: AppContext) => {
+  const appProps = await App.getInitialProps(context);
+  const req = context.ctx.req;
+  const cookie = req ? req.headers.cookie : undefined;
+
+  return {
+    ...appProps,
+    cookie,
+  };
+};
