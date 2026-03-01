@@ -60,9 +60,7 @@ const NodeDetailsPage = () => {
             id: selectedNode.id ?? selectedNode.nodeId,
           }}
         />
-        {selectedNode.eligibilityCauseStr !== 'Banned' && unbanRequests?.length === 0 ? null : (
-          <UnbanRequests node={selectedNode} />
-        )}
+        {selectedNode.banned === false && unbanRequests?.length === 0 ? null : <UnbanRequests node={selectedNode} />}
       </div>
     </Container>
   );

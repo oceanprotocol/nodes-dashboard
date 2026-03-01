@@ -1,5 +1,5 @@
 import Card from '@/components/card/card';
-import { NodeBanInfo, NodeEligibility } from '@/types/nodes';
+import { NodeEligibility } from '@/types/nodes';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
@@ -8,10 +8,10 @@ import styles from './eligibility.module.css';
 type EligibilityProps = {
   eligibility: NodeEligibility;
   eligibilityCauseStr?: string;
-  banInfo?: NodeBanInfo;
+  banReason?: string;
 };
 
-const Eligibility = ({ eligibility, eligibilityCauseStr, banInfo }: EligibilityProps) => {
+const Eligibility = ({ eligibility, eligibilityCauseStr, banReason }: EligibilityProps) => {
   switch (eligibility) {
     case NodeEligibility.ELIGIBLE:
       return (
@@ -45,7 +45,7 @@ const Eligibility = ({ eligibility, eligibilityCauseStr, banInfo }: EligibilityP
           </div>
           <div>This node is excluded from all operations and rewards</div>
           <div className={styles.reason}>
-            <strong className="alignSelfStart">Reason:</strong> <span>{banInfo?.reason ?? 'Unknown'}</span>
+            <strong className="alignSelfStart">Reason:</strong> <span>{banReason ?? 'Unknown'}</span>
           </div>
         </Card>
       );
