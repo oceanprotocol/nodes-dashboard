@@ -210,17 +210,7 @@ export const Table = <T,>({
       if (paginationType === 'context' && context) {
         if (model.length > 0) {
           const { field, sort } = model[0];
-          const filterModel: GridFilterModel = {
-            items: [
-              {
-                id: 1,
-                field,
-                operator: 'sort',
-                value: sort,
-              },
-            ],
-          };
-          context.setFilterModel(filterModel);
+          context.setSortModel(sort ? { [field]: sort } : {});
         }
       }
     },

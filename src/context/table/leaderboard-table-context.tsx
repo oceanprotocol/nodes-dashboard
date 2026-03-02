@@ -43,7 +43,7 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   };
 
   const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('nodes')}?page=${crtPage}&size=${pageSize}&sort={"latestBenchmarkResults.gpuScore":"desc"}`;
+    let url = `${getApiRoute('nodes')}?page=${crtPage}&size=${pageSize}`;
     const gridFilterToNodeFilters = (gridFilter: GridFilterModel): NodeFilters => {
       const nodeFilters: NodeFilters = {};
       gridFilter.items.forEach((item) => {
@@ -63,8 +63,11 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
     if (searchTerm) {
       url += `&search=${encodeURIComponent(searchTerm)}`;
     }
+    if (sortModel) {
+      url += `&sort=${encodeURIComponent(JSON.stringify(sortModel))}`;
+    }
     return url;
-  }, [crtPage, pageSize, filterModel, searchTerm]);
+  }, [crtPage, pageSize, filterModel, searchTerm, sortModel]);
 
   async function getNodeBanStatus(nodeId: string): Promise<BanStatusResponse> {
     const res = await axios.get(`${getApiRoute('banStatus')}/${nodeId}/banStatus`, {
