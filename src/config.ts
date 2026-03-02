@@ -81,7 +81,7 @@ const config: Config = {
   },
   socialMedia: {
     medium: 'https://medium.com/oceanprotocol',
-    twitter: 'https://twitter.com/oceanprotocol',
+    twitter: 'https://x.com/ONcompute',
     discord: 'https://discord.gg/CjdsWngg47',
     youtube: 'https://www.youtube.com/channel/UCH8TXwmWWAE9TZO0yTBHB3A',
     telegram: 'https://t.me/oceanprotocol',
