@@ -106,7 +106,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterable: true,
     flex: 1,
     headerName: 'Name',
-    sortable: false,
+    sortable: true,
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
     ),
