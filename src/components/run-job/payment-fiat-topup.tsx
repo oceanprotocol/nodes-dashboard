@@ -15,7 +15,7 @@ import { toast } from 'react-toastify';
 import styles from './payment-fiat-topup.module.css';
 
 type PaymentFiatTopupProps = {
-  currentLockedAmount: number;
+  // currentLockedAmount: number;
   escrowBalance: number;
   loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
@@ -28,7 +28,7 @@ const GET_STATUS_MAX_TRIES = Number(process.env.NEXT_PUBLIC_RAMP_GET_STATUS_MAX_
 const GET_STATUS_INTERVAL = Number(process.env.NEXT_PUBLIC_RAMP_GET_STATUS_INTERVAL ?? 5000);
 
 const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
-  currentLockedAmount,
+  // currentLockedAmount,
   escrowBalance,
   loadingPaymentInfo,
   loadPaymentInfo,
@@ -65,7 +65,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   };
 
   const handleTopup = async () => {
-    const amountToTopup = Math.max(0, totalCost + currentLockedAmount - escrowBalance - walletBalance);
+    const amountToTopup = Math.max(0, totalCost - escrowBalance - walletBalance);
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const tokenContract = new ethers.Contract(selectedToken.address, ERC20Template.abi, provider);

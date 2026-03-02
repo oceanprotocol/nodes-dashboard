@@ -42,17 +42,17 @@ const Payment = ({
   const step: 'topup' | 'deposit' | 'authorize' = useMemo(() => {
     // TODO re-enable topup page
     // if (
-    // (walletBalance ?? 0) + (escrowBalance ?? 0) - currentLockedAmount < totalCost &&
+    // (walletBalance ?? 0) + (escrowBalance ?? 0) < totalCost &&
     // selectedToken.address === getSupportedTokens().USDC
     // ) {
     // Only USDC can be topped up with fiat
     // return 'topup';
     // }
-    if ((escrowBalance ?? 0) - currentLockedAmount < totalCost) {
+    if ((escrowBalance ?? 0) < totalCost) {
       return 'deposit';
     }
     return 'authorize';
-  }, [currentLockedAmount, escrowBalance, totalCost]);
+  }, [escrowBalance, totalCost]);
 
   useEffect(() => {
     switch (step) {
@@ -94,7 +94,7 @@ const Payment = ({
   }, [loadPaymentInfo]);
 
   useEffect(() => {
-    const sufficientEscrow = (escrowBalance ?? 0) + currentLockedAmount >= totalCost;
+    const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
     const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost + currentLockedAmount;
     const enoughLockSeconds = (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationSeconds;
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
@@ -123,7 +123,7 @@ const Payment = ({
       // case 'topup': {
       //   return (
       //     <PaymentFiatTopup
-      //       currentLockedAmount={currentLockedAmount}
+      //       // currentLockedAmount={currentLockedAmount}
       //       escrowBalance={escrowBalance ?? 0}
       //       loadingPaymentInfo={loadingPaymentInfo}
       //       loadPaymentInfo={loadPaymentInfo}
@@ -136,7 +136,7 @@ const Payment = ({
       case 'deposit': {
         return (
           <PaymentDeposit
-            currentLockedAmount={currentLockedAmount}
+            // currentLockedAmount={currentLockedAmount}
             escrowBalance={escrowBalance ?? 0}
             loadingPaymentInfo={loadingPaymentInfo}
             loadPaymentInfo={loadPaymentInfo}
