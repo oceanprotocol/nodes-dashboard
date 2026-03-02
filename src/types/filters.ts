@@ -75,6 +75,10 @@ export interface MyNodesFilters {
 
 export interface EnvironmentsFilters {
   feeToken?: {
+    operator: 'eq' | 'in';
+    value: string | string[];
+  };
+  network?: {
     operator: 'eq';
     value: string;
   };

@@ -1,4 +1,6 @@
 import { getApiRoute } from '@/config';
+import { CHAIN_ID } from '@/constants/chains';
+import { getSupportedTokens } from '@/constants/tokens';
 import { ApiPaginationResponse } from '@/types/api';
 import { NodeEnvironments } from '@/types/environments';
 import { EnvironmentsFilters } from '@/types/filters';
@@ -10,12 +12,19 @@ const INITIAL_PAGE = 1;
 const PAGE_SIZE = 10;
 
 export type RawFilters = {
-  feeToken?: string;
+  feeToken?: string | string[];
+  free?: boolean;
+  network?: string;
   fromMaxJobDuration?: number;
   gpuName?: string[];
   minimumCPU?: number;
   minimumRAM?: number;
   minimumStorage?: number;
+};
+
+const DEFAULT_FILTERS: RawFilters = {
+  network: String(CHAIN_ID),
+  feeToken: Object.values(getSupportedTokens()),
 };
 
 type RunJobEnvsContextType = {
@@ -36,7 +45,7 @@ const RunJobEnvsContext = createContext<RunJobEnvsContextType | undefined>(undef
 
 export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
   const [crtPage, setCrtPage] = useState(INITIAL_PAGE);
-  const [filters, setFilters] = useState<RawFilters>({});
+  const [filters, setFilters] = useState<RawFilters>(DEFAULT_FILTERS);
   const [filtersUnmetFallback, setFiltersUnmetFallback] = useState(false);
   const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
   const [loading, setLoading] = useState(false);
@@ -50,7 +59,14 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
     }
     const filterParams: EnvironmentsFilters = {};
     if (rawFilters.feeToken) {
-      filterParams.feeToken = { operator: 'eq', value: rawFilters.feeToken };
+      if (Array.isArray(rawFilters.feeToken)) {
+        filterParams.feeToken = { operator: 'in', value: rawFilters.feeToken };
+      } else {
+        filterParams.feeToken = { operator: 'eq', value: rawFilters.feeToken };
+      }
+    }
+    if (rawFilters.network) {
+      filterParams.network = { operator: 'eq', value: rawFilters.network };
     }
     if (rawFilters.fromMaxJobDuration || rawFilters.fromMaxJobDuration === 0) {
       filterParams.fromMaxJobDuration = { operator: 'gte', value: rawFilters.fromMaxJobDuration };

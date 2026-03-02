@@ -63,7 +63,7 @@ const SelectEnvironment = () => {
 
   const formik = useFormik<FilterFormValues>({
     initialValues: {
-      feeToken: filters.feeToken ?? '',
+      feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
       gpuName: filters.gpuName ?? [],
       fromMaxJobDuration: filters.fromMaxJobDuration ?? '',
       minimumCPU: filters.minimumCPU ?? '',
@@ -244,7 +244,7 @@ const SelectEnvironment = () => {
               node.computeEnvironments.environments.map((env) => (
                 <EnvironmentCard
                   compact
-                  defaultToken={filters.feeToken}
+                  defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                   environment={env}
                   key={env.id}
                   nodeInfo={{
