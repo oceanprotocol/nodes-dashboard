@@ -1,7 +1,6 @@
 import Card from '@/components/card/card';
 import PaymentAuthorize from '@/components/run-job/payment-authorize';
 import PaymentDeposit from '@/components/run-job/payment-deposit';
-import PaymentFiatTopup from '@/components/run-job/payment-fiat-topup';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
@@ -46,8 +45,10 @@ const Payment = ({
       (walletBalance ?? 0) + (escrowBalance ?? 0) - currentLockedAmount < totalCost &&
       selectedToken.address === getSupportedTokens().USDC
     ) {
+      // TODO re-enable topup page
+      return 'deposit';
       // Only USDC can be topped up with fiat
-      return 'topup';
+      // return 'topup';
     }
     if ((escrowBalance ?? 0) - currentLockedAmount < totalCost) {
       return 'deposit';
@@ -57,10 +58,11 @@ const Payment = ({
 
   useEffect(() => {
     switch (step) {
-      case 'topup': {
-        setPageSubtitle('You need to top up in order to start your job');
-        break;
-      }
+      // TODO re-enable topup page
+      // case 'topup': {
+      //   setPageSubtitle('You need to top up in order to start your job');
+      //   break;
+      // }
       case 'deposit': {
         setPageSubtitle('You need to deposit funds in escrow in order to strart your job');
         break;
@@ -119,19 +121,20 @@ const Payment = ({
 
   const renderStep = () => {
     switch (step) {
-      case 'topup': {
-        return (
-          <PaymentFiatTopup
-            currentLockedAmount={currentLockedAmount}
-            escrowBalance={escrowBalance ?? 0}
-            loadingPaymentInfo={loadingPaymentInfo}
-            loadPaymentInfo={loadPaymentInfo}
-            selectedToken={selectedToken}
-            totalCost={totalCost}
-            walletBalance={walletBalance ?? 0}
-          />
-        );
-      }
+      // TODO re-enable topup page
+      // case 'topup': {
+      //   return (
+      //     <PaymentFiatTopup
+      //       currentLockedAmount={currentLockedAmount}
+      //       escrowBalance={escrowBalance ?? 0}
+      //       loadingPaymentInfo={loadingPaymentInfo}
+      //       loadPaymentInfo={loadPaymentInfo}
+      //       selectedToken={selectedToken}
+      //       totalCost={totalCost}
+      //       walletBalance={walletBalance ?? 0}
+      //     />
+      //   );
+      // }
       case 'deposit': {
         return (
           <PaymentDeposit
