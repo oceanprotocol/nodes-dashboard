@@ -79,10 +79,12 @@
 }
 
 .pagesColumn {
-  flex: 0 0 220px;
+  align-items: flex-end;
   display: flex;
+  flex: 0 0 220px;
   flex-direction: column;
   gap: 24px;
+  text-align: right;
   text-transform: uppercase;
 }
 
@@ -93,6 +95,7 @@
 }
 
 .pagesList {
+  align-items: flex-end;
   list-style: none;
   display: flex;
   flex-direction: column;
