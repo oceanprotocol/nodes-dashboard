@@ -47,6 +47,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const { initializeCompute } = useP2P();
   const { provider } = useOceanAccount();
 
+  const [initComputeError, setInitComputeError] = useState<unknown | null>(null);
+  const [estimatedTotalCost, setLocalEstimatedTotalCost] = useState(0);
+  const [isLoadingCost, setIsLoadingCost] = useState(false);
+
+  const isCostEstimationFailed = (!estimatedTotalCost && estimatedTotalCost !== 0) || !!initComputeError;
+
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
     useEnvResources({
       environment,
@@ -141,9 +147,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     }),
   });
 
-  const [estimatedTotalCost, setLocalEstimatedTotalCost] = useState(0);
-  const [isLoadingCost, setIsLoadingCost] = useState(false);
-
   const resources = useMemo(
     () => [
       { id: cpu?.id ?? 'cpu', amount: formik.values.cpuCores },
@@ -155,15 +158,14 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   );
 
   const fetchEstimatedCost = useCallback(async () => {
+    setInitComputeError(null);
     if (freeCompute) {
       setLocalEstimatedTotalCost(0);
       return;
     }
-
     if (!provider || !nodeInfo?.id) {
       return;
     }
-
     setIsLoadingCost(true);
     try {
       const maxJobDurationSec = toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit);
@@ -180,6 +182,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       setLocalEstimatedTotalCost(Number(cost));
       setMinLockSeconds(minLockSeconds);
     } catch (error) {
+      setInitComputeError(error);
       console.error('Failed to fetch estimated cost:', error);
     } finally {
       setIsLoadingCost(false);
@@ -358,20 +361,24 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           <Card className={styles.cost} radius="md" variant="accent1-outline">
             <h3>Estimated total cost</h3>
             <div className={styles.values}>
-              <div>
-                <span className={styles.token}>{token.symbol}</span>
-                &nbsp;
-                <span className={styles.amount}>
-                  {isLoadingCost ? 'Calculating...' : formatNumber(estimatedTotalCost)}
-                </span>
-              </div>
+              {isLoadingCost ? (
+                <div className={styles.amount}>Calculating...</div>
+              ) : isCostEstimationFailed ? (
+                <div className={styles.amount}>Cost estimation failed</div>
+              ) : (
+                <div>
+                  <span className={styles.token}>{token.symbol}</span>
+                  &nbsp;
+                  <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
+                </div>
+              )}
               <div className="textAccent1Lighter">
                 If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
               </div>
             </div>
           </Card>
         ) : null}
-        <Button className={styles.button} color="accent1" size="lg" type="submit">
+        <Button className={styles.button} disabled={isCostEstimationFailed} color="accent1" size="lg" type="submit">
           Continue
         </Button>
       </form>
