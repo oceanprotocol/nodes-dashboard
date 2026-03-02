@@ -51,7 +51,8 @@ const SelectEnvironment = () => {
     fetchGpus();
   }, [fetchGpus]);
 
-  const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
+  // const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
+  const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
 
   const feeTokenOptions = useMemo(() => {
     const tokens = getSupportedTokens();
