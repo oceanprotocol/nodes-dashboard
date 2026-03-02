@@ -1,5 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { RPC_URL } from '@/lib/constants';
+import { getRpc } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
 import {
@@ -55,7 +55,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
   const provider = useMemo(() => {
     if (!isConnected) return null;
-    return new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
+    return new ethers.JsonRpcProvider(getRpc(), undefined, { batchMaxCount: 3 });
   }, [isConnected]);
 
   const ocean = useMemo(() => {

@@ -1,5 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { RPC_URL } from '@/lib/constants';
+import { getRpc } from '@/lib/constants';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
@@ -102,7 +102,7 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
           throw new Error('No escrow found for chainId');
         }
 
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const provider = new ethers.JsonRpcProvider(getRpc());
         const normalizedAmounts = [];
         for (let i = 0; i < tokenAddresses.length; i++) {
           const tokenContract = new ethers.Contract(tokenAddresses[i], ERC20Template.abi, provider);

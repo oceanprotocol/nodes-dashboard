@@ -1,4 +1,4 @@
-import { RPC_URL } from '@/lib/constants';
+import { getRpc } from '@/lib/constants';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSendUserOperation } from '@account-kit/react';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -96,7 +96,7 @@ export const useTransferTokens = ({ onSuccess }: UseTransferTokensParams = {}): 
           if (!provider) {
             return;
           }
-          const rpcProvider = new ethers.JsonRpcProvider(RPC_URL);
+          const rpcProvider = new ethers.JsonRpcProvider(getRpc());
           const tokenContract = new ethers.Contract(tokenAddress, ERC20Template.abi, rpcProvider);
           const tokenDecimals = await tokenContract.decimals();
           const normalizedAmount = new BigNumber(amount)
@@ -127,7 +127,7 @@ export const useTransferTokens = ({ onSuccess }: UseTransferTokensParams = {}): 
       }
 
       try {
-        const rpcProvider = new ethers.JsonRpcProvider(RPC_URL);
+        const rpcProvider = new ethers.JsonRpcProvider(getRpc());
         const tokenContract = new ethers.Contract(tokenAddress, ERC20Template.abi, rpcProvider);
         const tokenDecimals = await tokenContract.decimals();
 
