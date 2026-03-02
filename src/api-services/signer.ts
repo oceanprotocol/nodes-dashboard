@@ -1,4 +1,4 @@
-import { RPC_URL } from '@/lib/constants';
+import { getRpc } from '@/lib/constants';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ethers } from 'ethers';
 
@@ -17,7 +17,7 @@ export async function signFaucetMessage({
   tokenAddress: string;
   walletAddress: string;
 }) {
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const provider = new ethers.JsonRpcProvider(getRpc());
   const wallet = new ethers.Wallet(faucetPrivateKey, provider);
 
   const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, provider).decimals();

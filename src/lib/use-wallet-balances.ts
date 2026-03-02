@@ -1,5 +1,5 @@
 import { alchemyClient } from '@/lib/alchemy-client';
-import { RPC_URL } from '@/lib/constants';
+import { getRpc } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -41,7 +41,7 @@ export const useWalletBalances = (): UseWalletBalancesReturn => {
           tb.tokenBalance !== '0x0000000000000000000000000000000000000000000000000000000000000000'
       );
 
-      const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 3 });
+      const provider = new ethers.JsonRpcProvider(getRpc(), undefined, { batchMaxCount: 3 });
 
       const walletBalances: NodeBalance[] = await Promise.all(
         nonZeroBalances.map(async (tb) => {

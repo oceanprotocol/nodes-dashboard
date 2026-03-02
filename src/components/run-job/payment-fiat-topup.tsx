@@ -1,6 +1,6 @@
 import Button from '@/components/button/button';
 import { SelectedToken } from '@/context/run-job-context';
-import { RPC_URL } from '@/lib/constants';
+import { getRpc } from '@/lib/constants';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -67,7 +67,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   const handleTopup = async () => {
     const amountToTopup = Math.max(0, totalCost - escrowBalance - walletBalance);
     try {
-      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const provider = new ethers.JsonRpcProvider(getRpc());
       const tokenContract = new ethers.Contract(selectedToken.address, ERC20Template.abi, provider);
       const tokenDecimals = await tokenContract.decimals();
       const normalizedAmountToTopup = new BigNumber(amountToTopup)

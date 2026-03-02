@@ -1,7 +1,7 @@
 import CompySwap from '@/constants/abis/compy-swap.json';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
-import { RPC_URL } from '@/lib/constants';
+import { getRpc } from '@/lib/constants';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
@@ -84,7 +84,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
 
       try {
         setIsSwapping(true);
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const provider = new ethers.JsonRpcProvider(getRpc());
         const usdcContract = new ethers.Contract(usdcAddress, ERC20Template.abi, provider);
         const usdcDecimals = await usdcContract.decimals();
         const amountBigInt = ethers.parseUnits(amount, Number(usdcDecimals));
