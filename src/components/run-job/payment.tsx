@@ -2,7 +2,6 @@ import Card from '@/components/card/card';
 import PaymentAuthorize from '@/components/run-job/payment-authorize';
 import PaymentDeposit from '@/components/run-job/payment-deposit';
 import PaymentSummary from '@/components/run-job/payment-summary';
-import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
@@ -41,20 +40,19 @@ const Payment = ({
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
   const step: 'topup' | 'deposit' | 'authorize' = useMemo(() => {
-    if (
-      (walletBalance ?? 0) + (escrowBalance ?? 0) - currentLockedAmount < totalCost &&
-      selectedToken.address === getSupportedTokens().USDC
-    ) {
-      // TODO re-enable topup page
-      return 'deposit';
-      // Only USDC can be topped up with fiat
-      // return 'topup';
-    }
+    // TODO re-enable topup page
+    // if (
+    // (walletBalance ?? 0) + (escrowBalance ?? 0) - currentLockedAmount < totalCost &&
+    // selectedToken.address === getSupportedTokens().USDC
+    // ) {
+    // Only USDC can be topped up with fiat
+    // return 'topup';
+    // }
     if ((escrowBalance ?? 0) - currentLockedAmount < totalCost) {
       return 'deposit';
     }
     return 'authorize';
-  }, [currentLockedAmount, escrowBalance, selectedToken.address, totalCost, walletBalance]);
+  }, [currentLockedAmount, escrowBalance, totalCost]);
 
   useEffect(() => {
     switch (step) {
