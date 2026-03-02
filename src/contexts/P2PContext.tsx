@@ -22,6 +22,7 @@ import { Libp2p } from 'libp2p';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface P2PContextType {
+  clearEnvs: () => void;
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
   computeStatus: Record<string, any> | null;
@@ -346,9 +347,14 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady, node]
   );
 
+  const clearEnvs = useCallback(() => {
+    setEnvs([]);
+  }, []);
+
   return (
     <P2PContext.Provider
       value={{
+        clearEnvs,
         computeLogs,
         computeResult,
         computeStatus,

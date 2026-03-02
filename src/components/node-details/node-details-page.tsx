@@ -13,7 +13,7 @@ import { useEffect } from 'react';
 
 const NodeDetailsPage = () => {
   const { selectedNode, fetchNode } = useNodesContext();
-  const { isReady, getEnvs } = useP2P();
+  const { clearEnvs, getEnvs, isReady } = useP2P();
   const { unbanRequests, fetchUnbanRequests } = useUnbanRequestsContext();
   const params = useParams<{ nodeId: string }>();
 
@@ -24,10 +24,11 @@ const NodeDetailsPage = () => {
   }, [selectedNode, params?.nodeId, fetchNode]);
 
   useEffect(() => {
+    clearEnvs();
     if (selectedNode?.id && isReady) {
       getEnvs(selectedNode.id);
     }
-  }, [selectedNode?.id, isReady, getEnvs]);
+  }, [selectedNode?.id, isReady, getEnvs, clearEnvs]);
 
   useEffect(() => {
     if (selectedNode?.id) {
