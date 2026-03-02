@@ -1,0 +1,22 @@
+.policyContent {
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+  gap: 32px;
+
+  .policySection {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  ul {
+    li {
+      &::before {
+        content: '•';
+        color: var(--text-secondary);
+        margin-right: 8px;
+      }
+    }
+  }
+}
