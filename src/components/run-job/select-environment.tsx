@@ -4,8 +4,10 @@ import EnvironmentCard from '@/components/environment-card/environment-card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
+import { NodeEnvironments } from '@/types/environments';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
 import { useFormik } from 'formik';
@@ -108,6 +110,37 @@ const SelectEnvironment = () => {
     setExpanded(!expanded);
   };
 
+  const filteredNodeEnvs = useMemo(() => {
+    const filteredNodeEnvs: NodeEnvironments[] = [];
+    nodeEnvs.forEach((nodeEnv) => {
+      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter((env) => {
+        if (!env.fees?.[CHAIN_ID]) {
+          return false;
+        }
+        if (
+          !env.fees[CHAIN_ID].some(
+            (fee) =>
+              fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.toLowerCase() ||
+              fee.feeToken.toLowerCase() === getSupportedTokens().USDC.toLowerCase()
+          )
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (filteredEnvs.length > 0) {
+        filteredNodeEnvs.push({
+          ...nodeEnv,
+          computeEnvironments: {
+            ...nodeEnv.computeEnvironments,
+            environments: filteredEnvs,
+          },
+        });
+      }
+    });
+    return filteredNodeEnvs;
+  }, [nodeEnvs]);
+
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Environments</h3>
@@ -205,9 +238,9 @@ const SelectEnvironment = () => {
             you&apos;re looking for
           </p>
         ) : null}
-        {nodeEnvs?.length > 0 ? (
+        {filteredNodeEnvs?.length > 0 ? (
           <>
-            {nodeEnvs.map((node) =>
+            {filteredNodeEnvs.map((node) =>
               node.computeEnvironments.environments.map((env) => (
                 <EnvironmentCard
                   compact
