@@ -87,27 +87,6 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
        * status saved directly on the node and returned in the response, so we
        * don't have to perform multiple GET /banStatus requests at this point.
        */
-      const possiblyBannedNodes = sanitizedData.filter(
-        (item: Node) =>
-          item.eligible === false &&
-          item.eligibilityCauseStr !== 'No peer data' &&
-          item.eligibilityCauseStr !== 'Invalid status response'
-      );
-      const promises = [];
-      for (const node of possiblyBannedNodes) {
-        promises.push(getNodeBanStatus(node.id));
-      }
-      const results = await Promise.all(promises);
-      results.forEach((result) => {
-        if (result.banned) {
-          const currentNodeIndex = sanitizedData.findIndex((item: Node) => item.id === result.nodeId);
-          sanitizedData[currentNodeIndex] = {
-            ...sanitizedData[currentNodeIndex],
-            eligibilityCauseStr: 'Banned',
-            banInfo: result.banInfo,
-          };
-        }
-      });
 
       setData(sanitizedData);
       setTotalItems(response.data.pagination.totalItems);

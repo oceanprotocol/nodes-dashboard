@@ -12,7 +12,15 @@ import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import classNames from 'classnames';
 
-function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
+function getEligibleCheckbox(eligible = false, banned = false, eligibilityCauseStr?: string) {
+  if (banned) {
+    return (
+      <>
+        <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
+        <span>Banned</span>
+      </>
+    );
+  }
   if (eligible) {
     return (
       <>
@@ -27,14 +35,6 @@ function getEligibleCheckbox(eligible = false, eligibilityCauseStr?: string) {
           <>
             <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
             <span>Not eligible</span>
-          </>
-        );
-
-      case 'Banned':
-        return (
-          <>
-            <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
-            <span>Banned</span>
           </>
         );
 
@@ -149,7 +149,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     sortable: false,
     renderCell: (params: GridRenderCellParams<Node>) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {getEligibleCheckbox(params.row.eligible, params.row.eligibilityCauseStr)}
+        {getEligibleCheckbox(params.row.eligible, params.row.banned, params.row.eligibilityCauseStr)}
       </div>
     ),
     filterOperators: getGridStringOperators().filter((operator) => operator.value === 'equals'),

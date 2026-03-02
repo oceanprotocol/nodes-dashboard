@@ -21,7 +21,6 @@ export type NodeBanInfo = {
 
 export type Node = {
   allowedAdmins?: string[];
-  banInfo?: NodeBanInfo;
   cpus: CPU[];
   eligible?: boolean;
   eligibilityCauseStr?: string;
@@ -62,6 +61,10 @@ export type Node = {
   totalRevenue: number;
   version?: string;
   supportedStorage: any;
+  banned: boolean;
+  banReason: string;
+  bannedAt: number;
+  bannedUntil: number;
 };
 
 type GPU = {
