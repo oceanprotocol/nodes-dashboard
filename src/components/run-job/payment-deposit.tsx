@@ -60,6 +60,7 @@ const PaymentDeposit = ({
         name="amount"
         onBlur={formik.handleBlur}
         onChange={formik.handleChange}
+        step="any"
         type="number"
         value={formik.values.amount}
       />
