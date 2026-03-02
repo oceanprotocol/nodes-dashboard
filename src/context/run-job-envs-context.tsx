@@ -22,7 +22,7 @@ export type RawFilters = {
   minimumStorage?: number;
 };
 
-const DEFAULT_FILTERS: RawFilters = {
+export const DEFAULT_FILTERS: RawFilters = {
   network: String(CHAIN_ID),
   feeToken: Object.values(getSupportedTokens()),
 };
