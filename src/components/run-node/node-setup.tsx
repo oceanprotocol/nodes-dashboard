@@ -1,0 +1,66 @@
+import Button from '@/components/button/button';
+import Card from '@/components/card/card';
+import { CodeBlock } from '@/components/code-block/code-block';
+import NodeConnection from '@/components/run-node/node-connection';
+import config from '@/config';
+import { useRunNodeContext } from '@/context/run-node-context';
+import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
+import { useEffect } from 'react';
+import styles from './node-setup.module.css';
+
+const NodeSetup = () => {
+  const router = useRouter();
+
+  const { fetchConfig, peerId } = useRunNodeContext();
+
+  useEffect(() => {
+    posthog.capture('runNode_setup');
+  }, []);
+
+  const goToConfig = async () => {
+    await fetchConfig();
+    posthog.capture('runNode_configure');
+    router.push('/run-node/configure');
+  };
+
+  return (
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+      <h3>Set up Ocean Node via Docker</h3>
+      <div>Before starting, make sure the system requirements are met</div>
+      <div>
+        Docker Engine and Docker Compose are recommended for hosting a node eligible for incentives
+        <br />
+        You can explore other options in the{' '}
+        <Button color="accent1" href={config.links.docs} size="link" target="_blank" variant="transparent">
+          docs
+        </Button>
+      </div>
+      <div className={styles.section}>
+        <h5>1. Run the quick start script</h5>
+        <CodeBlock code="curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/oceanprotocol/ocean-node/refs/heads/main/scripts/ocean-node-quickstart.sh -o ocean-node-quickstart.sh && sh ocean-node-quickstart.sh" />
+      </div>
+      <div className={styles.section}>
+        <h5>2. Run Ocean Node</h5>
+        <CodeBlock code="$ docker-compose up -d" />
+      </div>
+      <div className={styles.section}>
+        <h5>3. Confirm that Docker containers are running</h5>
+        <CodeBlock code="$ docker ps" />
+      </div>
+      <NodeConnection />
+      {peerId ? (
+        <div className={styles.buttons}>
+          <Button color="accent1" href={`/nodes/${peerId}`} size="lg" target="_blank" variant="outlined">
+            View node details
+          </Button>
+          <Button autoLoading color="accent1" onClick={goToConfig} size="lg" variant="filled">
+            Edit node config
+          </Button>
+        </div>
+      ) : null}
+    </Card>
+  );
+};
+
+export default NodeSetup;

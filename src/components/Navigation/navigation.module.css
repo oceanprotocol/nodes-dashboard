@@ -1,0 +1,168 @@
+.bgBlur {
+  backdrop-filter: blur(16px);
+  /* background: radial-gradient(circle, var(--background-glass), transparent); */
+  height: 350px;
+  mask-image: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 11%,
+    rgba(0, 0, 0, 0.76) 18%,
+    rgba(0, 0, 0, 0.55) 35%,
+    rgba(0, 0, 0, 0.39) 52%,
+    rgba(0, 0, 0, 0) 70%
+  );
+  position: fixed;
+  pointer-events: none;
+  transform: translate(-150px, -150px);
+  width: 350px;
+  z-index: -1;
+
+  @media (min-width: 940px) {
+    /* background: linear-gradient(to top, transparent, var(--background-glass)); */
+    height: 80px;
+    left: 0;
+    mask-image: linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0.39) 15%,
+      rgba(0, 0, 0, 0.55) 25%,
+      rgba(0, 0, 0, 0.76) 49%,
+      rgba(0, 0, 0, 0.92) 74%,
+      rgba(0, 0, 0, 1) 100%
+    );
+    transform: translate(0, 0);
+    top: 0;
+    width: 100%;
+  }
+}
+
+.logo {
+  transition: 0.3s ease;
+  height: 80px;
+  width: 65px;
+
+  &.logoScrolledBottom {
+    height: 52px;
+  }
+}
+
+.root {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 22px 0;
+
+    &.containerScrolledBottom {
+      padding-top: 16px;
+    }
+  }
+
+  .logoWrapper {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+  }
+
+  .desktopNav {
+    display: flex;
+    gap: 8px;
+    padding: 12px 12px;
+    border-radius: 40px;
+  }
+
+  .sideActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .menuToggle {
+    display: none;
+  }
+
+  .mobileMenu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(360px, 100vw);
+    height: 100vh;
+    padding: 30px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    transform: translateX(100%);
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease;
+    z-index: 95;
+    overflow-y: auto;
+  }
+
+  .mobileMenuOpen {
+    transform: translateX(0);
+  }
+
+  .mobileMenuHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mobileNavLinks {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mobileActions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: auto;
+  }
+
+  .mobileActions .actionIconLink {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobileActions .loginButton {
+    width: 100%;
+    text-align: center;
+  }
+
+  .mobileBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.3s ease,
+      visibility 0.3s ease;
+    z-index: 90;
+  }
+
+  .mobileBackdropVisible {
+    visibility: visible;
+  }
+
+  @media (max-width: 940px) {
+    .desktopNav,
+    .sideActions {
+      display: none;
+    }
+
+    .menuToggle {
+      display: inline-flex;
+    }
+  }
+}

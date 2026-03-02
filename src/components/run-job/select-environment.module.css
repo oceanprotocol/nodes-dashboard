@@ -1,0 +1,53 @@
+.extraFilters {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  @media (min-width: 576px) {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 992px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.filtersFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  .buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  @media (min-width: 576px) {
+    align-items: flex-end;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+
+    .buttons {
+      grid-column: 1 / span 2;
+      flex-direction: row;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+  }
+
+  @media (min-width: 992px) {
+    grid-template-columns: repeat(4, 1fr);
+
+    .buttons {
+      grid-column: 3 / span 2;
+    }
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

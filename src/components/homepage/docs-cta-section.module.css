@@ -1,0 +1,106 @@
+.root {
+  position: relative;
+  padding: 140px 0 120px;
+  background: var(--accent1-lighter);
+  color: var(--text-primary-inverse);
+  overflow: hidden;
+}
+
+.root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/build-the-future.svg') no-repeat left center;
+  background-size: min(680px, 60%);
+  pointer-events: none;
+}
+
+.root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* background: linear-gradient(115deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.65) 50%, rgba(255, 255, 255, 0)); */
+  pointer-events: none;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 40px;
+}
+
+.title {
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  font-weight: 700;
+  font-style: normal;
+  font-size: clamp(42px, 5vw, 56px);
+  line-height: clamp(46px, 5.4vw, 60px);
+  letter-spacing: 0.02em;
+  max-width: 780px;
+  margin: 0;
+}
+
+.description {
+  font-size: 20px;
+  max-width: 780px;
+}
+
+.socialLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.socialLinkIcon {
+  width: 28px;
+  height: 28px;
+  display: inline-block;
+  background-color: currentColor;
+}
+
+.discordIcon {
+  -webkit-mask: url('/icons/discord.svg') no-repeat center/contain;
+  mask: url('/icons/discord.svg') no-repeat center/contain;
+}
+
+.xIcon {
+  -webkit-mask: url('/icons/x.svg') no-repeat center/contain;
+  mask: url('/icons/x.svg') no-repeat center/contain;
+}
+
+@media (max-width: 900px) {
+  .root {
+    padding: 110px 0 90px;
+  }
+
+  .root::before {
+    background-position: top left;
+    background-size: 320px;
+    opacity: 0.65;
+  }
+
+  .container {
+    gap: 32px;
+  }
+}
+
+@media (max-width: 600px) {
+  .root::before {
+    background-position: top -40px left -40px;
+    background-size: 280px;
+  }
+
+  .root::after {
+    background: linear-gradient(125deg, var(--accent1-light), var(--accent1-lighter) 45%, var(--accent1-lightest));
+  }
+
+  .socialLinks {
+    gap: 20px;
+  }
+}

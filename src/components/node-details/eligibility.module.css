@@ -1,0 +1,16 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .icon {
+    /* color: var(--text-secondary); */
+    font-size: 28px;
+  }
+}
+
+.reason {
+  grid-column: 1 / span 2;
+  word-break: break-word;
+  white-space: pre-wrap;
+}

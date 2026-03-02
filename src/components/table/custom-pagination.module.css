@@ -1,0 +1,60 @@
+.pagination {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  /* padding: 30px 90px; */
+  font-family: var(--font-inter), sans-serif !important;
+}
+
+@media (max-width: 768px) {
+  .pagination {
+    flex-direction: column;
+    padding: 10px;
+    align-items: center;
+  }
+
+  .paginationArrowText {
+    display: none;
+  }
+
+  .pageSizeSelector {
+    flex: 1;
+  }
+}
+
+.pageSizeSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-inter), sans-serif;
+}
+
+.paginationCore {
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--font-inter), sans-serif !important;
+  gap: 8px;
+  justify-content: center;
+}
+
+.mobileArrowsRow {
+  align-items: center;
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  text-align: center;
+}
+
+.controlsRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.pageInput {
+  width: 80px;
+}
