@@ -64,6 +64,7 @@ type InputProps = {
   placeholder?: string;
   size?: 'sm' | 'md';
   startAdornment?: React.ReactNode;
+  step?: number | 'any';
   topRight?: React.ReactNode;
   type: 'text' | 'password' | 'email' | 'number';
   value?: string | number;
@@ -86,6 +87,7 @@ const Input: React.FC<InputProps> = ({
   placeholder,
   size = 'md',
   startAdornment,
+  step,
   topRight,
   type,
   value,
@@ -102,7 +104,7 @@ const Input: React.FC<InputProps> = ({
       custom_size={size}
       disabled={disabled}
       has_error={!!errorText}
-      inputProps={{ max, min }}
+      inputProps={{ max, min, step }}
       name={name}
       onBlur={onBlur}
       onChange={onChange}
