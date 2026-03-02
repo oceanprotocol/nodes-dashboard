@@ -107,11 +107,8 @@ const FooterSection = () => {
             </Button>
           </div>
           <div className={styles.legalLinks}>
-            <Button color="primary-inverse" href="#" size="link" variant="transparent">
-              Terms
-            </Button>
-            <Button color="primary-inverse" href="#" size="link" variant="transparent">
-              Privacy
+            <Button color="primary-inverse" href="/privacy-policy" size="link" variant="transparent">
+              Privacy policy
             </Button>
           </div>
         </div>
