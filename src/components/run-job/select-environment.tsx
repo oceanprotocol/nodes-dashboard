@@ -6,7 +6,7 @@ import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
-import { RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
+import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import { NodeEnvironments } from '@/types/environments';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
@@ -72,7 +72,7 @@ const SelectEnvironment = () => {
       sortBy: sort ?? '',
     },
     onSubmit: async (values) => {
-      const filters: RawFilters = { gpuName: values.gpuName };
+      const filters: RawFilters = { ...DEFAULT_FILTERS, gpuName: values.gpuName };
       if (values.feeToken) {
         filters.feeToken = values.feeToken;
       }
