@@ -68,8 +68,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     if (defaultToken && supportedTokens.includes(defaultToken)) {
       return defaultToken;
     }
-    if (supportedTokens.some((t) => t.toLowerCase() === getSupportedTokens().USDC.toLowerCase())) {
-      return getSupportedTokens().USDC;
+    if (supportedTokens.some((t) => t.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase())) {
+      return getSupportedTokens().USDC.address;
     }
     return supportedTokens[0];
   };

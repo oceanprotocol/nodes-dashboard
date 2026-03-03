@@ -1,5 +1,6 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
+import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
@@ -105,8 +106,7 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
         const provider = new ethers.JsonRpcProvider(getRpc());
         const normalizedAmounts = [];
         for (let i = 0; i < tokenAddresses.length; i++) {
-          const tokenContract = new ethers.Contract(tokenAddresses[i], ERC20Template.abi, provider);
-          const tokenDecimals = await tokenContract.decimals();
+          const tokenDecimals = await getTokenDecimals(tokenAddresses[i]);
 
           normalizedAmounts.push(
             BigInt(new BigNumber(amounts[i]).multipliedBy(new BigNumber(10).pow(Number(tokenDecimals))).toFixed(0))
