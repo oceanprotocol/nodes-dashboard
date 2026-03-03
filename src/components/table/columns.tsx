@@ -3,6 +3,7 @@ import JobInfoButton from '@/components/button/job-info-button';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
+import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
 import { formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
@@ -509,6 +510,23 @@ export const benchmarkJobsColumns: GridColDef<BenchmarkJobHistory>[] = [
     headerName: 'Bandwidth Score',
     sortable: false,
     valueGetter: (_value, row) => row.benchmarkResults?.bandwidthScore,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return Math.round(value).toLocaleString();
+    },
+  },
+  {
+    field: 'totalScore',
+    filterable: false,
+    flex: 1,
+    headerName: 'Total Score',
+    sortable: false,
+    valueGetter: (_value, row) =>
+      calculateTotalBenchmarkScore(
+        row.benchmarkResults?.gpuScore,
+        row.benchmarkResults?.cpuScore,
+        row.benchmarkResults?.bandwidthScore
+      ),
     renderCell: ({ value }) => {
       if (!value) return '-';
       return Math.round(value).toLocaleString();
