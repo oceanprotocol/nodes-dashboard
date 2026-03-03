@@ -248,14 +248,14 @@ const SelectEnvironment = () => {
         </Card>
       </form>
       <div className={styles.list}>
-        {filtersUnmetFallback ? (
-          <p className="alignSelfCenter">
-            We couldn&apos;t find an environment that matches all your filters, but these might be close to what
-            you&apos;re looking for
-          </p>
-        ) : null}
         {filteredNodeEnvs?.length > 0 ? (
           <>
+            {filtersUnmetFallback ? (
+              <p className="alignSelfCenter">
+                We couldn&apos;t find an environment that matches all your filters, but these might be close to what
+                you&apos;re looking for
+              </p>
+            ) : null}
             {filteredNodeEnvs.map((node) =>
               node.computeEnvironments.environments.map((env) => (
                 <EnvironmentCard
