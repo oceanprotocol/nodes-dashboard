@@ -26,7 +26,7 @@ const StyledSelect = styled(MaterialSelect, {
   background: disabled ? 'transparent' : 'var(--background-glass)',
   border: `1px solid var(${has_error ? '--error' : '--border'})`,
   boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
-  borderRadius: 24,
+  borderRadius: custom_size === 'sm' ? 34 / 2 : 50 / 2,
   color: 'var(--text-primary)',
   display: 'inline-flex',
   fontFamily: 'var(--font-inter), sans-serif',
@@ -34,6 +34,11 @@ const StyledSelect = styled(MaterialSelect, {
   lineHeight: custom_size === 'sm' ? '18px' : '22px',
   minHeight: custom_size === 'sm' ? 34 : 50,
   transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+
+  '.MuiSelect-select': {
+    alignItems: 'center',
+    display: 'flex',
+  },
 
   '&.Mui-focused': {
     boxShadow: has_error ? 'var(--input-shadow-error), var(--input-shadow-focus)' : 'var(--input-shadow-focus)',
@@ -87,7 +92,7 @@ const StyledPaper = styled(PopoverPaper)({
 const StyledPlaceholder = styled('span')({
   color: 'var(--text-secondary)',
   fontSize: 14,
-  lineHeight: '16px',
+  // lineHeight: '16px',
 });
 
 export type SelectOption<T> = {
