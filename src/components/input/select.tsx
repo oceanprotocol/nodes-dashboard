@@ -20,9 +20,9 @@ const StyledTransitionGroup = styled(TransitionGroup)({
 
 const StyledSelect = styled(MaterialSelect, {
   shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
-})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, has_error }) => ({
+})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, disabled, has_error }) => ({
   alignItems: 'center',
-  background: 'var(--background-glass)',
+  background: disabled ? 'transparent' : 'var(--background-glass)',
   border: `1px solid var(${has_error ? '--error' : '--border'})`,
   boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
   borderRadius: 24,
@@ -40,6 +40,10 @@ const StyledSelect = styled(MaterialSelect, {
 
   fieldset: {
     border: 'none',
+  },
+
+  '& .Mui-disabled': {
+    WebkitTextFillColor: 'var(--text-primary)',
   },
 
   menu: {
@@ -91,6 +95,7 @@ export type SelectOption<T> = {
 
 type SelectProps<T> = {
   className?: string;
+  disabled?: boolean;
   endAdornment?: React.ReactNode;
   errorText?: string | string[];
   fullWidth?: boolean;
@@ -120,6 +125,7 @@ type SelectProps<T> = {
 
 const Select = <T extends string | number = string>({
   className,
+  disabled,
   endAdornment,
   errorText,
   hint,
@@ -175,9 +181,17 @@ const Select = <T extends string | number = string>({
   }, [multiple, options, placeholder, renderSelectedValue]);
 
   return (
-    <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
+    <InputWrapper
+      className={className}
+      disabled={disabled}
+      errorText={errorText}
+      hint={hint}
+      label={label}
+      topRight={topRight}
+    >
       <StyledSelect
         custom_size={size}
+        disabled={disabled}
         displayEmpty
         endAdornment={endAdornment}
         has_error={!!errorText}
