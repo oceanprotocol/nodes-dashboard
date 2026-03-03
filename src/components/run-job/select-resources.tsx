@@ -16,7 +16,7 @@ import { useAuthModal } from '@account-kit/react';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
 
@@ -50,6 +50,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const [initComputeError, setInitComputeError] = useState<unknown | null>(null);
   const [estimatedTotalCost, setLocalEstimatedTotalCost] = useState(0);
   const [isLoadingCost, setIsLoadingCost] = useState(false);
+
+  const costEstimateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ESTIMATE_COST_DEBOUNCE_MS = 800;
 
   const isCostEstimationFailed = (!estimatedTotalCost && estimatedTotalCost !== 0) || !!initComputeError;
 
@@ -202,7 +205,14 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   ]);
 
   useEffect(() => {
-    fetchEstimatedCost();
+    if (costEstimateTimeoutRef.current) clearTimeout(costEstimateTimeoutRef.current);
+    costEstimateTimeoutRef.current = setTimeout(() => {
+      costEstimateTimeoutRef.current = null;
+      fetchEstimatedCost();
+    }, ESTIMATE_COST_DEBOUNCE_MS);
+    return () => {
+      if (costEstimateTimeoutRef.current) clearTimeout(costEstimateTimeoutRef.current);
+    };
   }, [fetchEstimatedCost]);
 
   const selectAllGpus = () => {
