@@ -266,6 +266,7 @@ const SelectEnvironment = () => {
                   compact
                   defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                   environment={env}
+                  forcePricing={filters.free ? 'free' : 'paid'}
                   key={env.id}
                   nodeInfo={{
                     friendlyName: node.friendlyName,

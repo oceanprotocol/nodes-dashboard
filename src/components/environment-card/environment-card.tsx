@@ -31,6 +31,7 @@ type EnvironmentCardProps = {
   compact?: boolean;
   defaultToken?: string;
   environment: ComputeEnvironment;
+  forcePricing?: 'free' | 'paid';
   nodeInfo: EnvNodeInfo;
   showNodeName?: boolean;
 };
@@ -39,6 +40,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   compact,
   defaultToken,
   environment,
+  forcePricing,
   nodeInfo,
   showNodeName,
 }) => {
@@ -57,6 +59,14 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   useEffect(() => {
     checkEnvAccess(environment.free?.access, account.address, provider).then(setFreeAccess);
   }, [environment.free?.access, account.address, provider]);
+
+  useEffect(() => {
+    if (forcePricing) {
+      setIsFreeCompute(forcePricing === 'free');
+    } else {
+      setIsFreeCompute(false);
+    }
+  }, [forcePricing]);
 
   const supportedTokens = useMemo(() => {
     return getEnvSupportedTokens(environment, true);
@@ -77,7 +87,9 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getDefaultToken());
   const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
 
-  const [isFreeCompute, setIsFreeCompute] = useState<boolean>(false);
+  const [isFreeCompute, setIsFreeCompute] = useState<boolean>(
+    forcePricing ? (forcePricing === 'free' ? true : false) : false
+  );
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
     useEnvResources({
@@ -377,7 +389,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   const getFreeComputeCheckbox = () => {
-    if (!environment.free) {
+    if (!environment.free || forcePricing) {
       return null;
     }
     const isLoggedIn = freeAccess !== null;
