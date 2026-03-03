@@ -80,10 +80,9 @@ const SystemStats = () => {
   const { fetchSystemStats, systemStats } = useStatsContext();
 
   useEffect(() => {
-    if (!systemStats.cpuCounts || Object.keys(systemStats.cpuCounts).length === 0) {
-      fetchSystemStats();
-    }
-  }, [fetchSystemStats, systemStats.cpuCounts]);
+    fetchSystemStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Card className={styles.root} paddingX="lg" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
