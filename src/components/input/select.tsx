@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import { TransitionGroup } from 'react-transition-group';
 
 const StyledTransitionGroup = styled(TransitionGroup)({
+  alignItems: 'center',
   display: 'flex',
   flexWrap: 'wrap',
   gap: 4,
@@ -30,7 +31,7 @@ const StyledSelect = styled(MaterialSelect, {
   display: 'inline-flex',
   fontFamily: 'var(--font-inter), sans-serif',
   fontSize: 16,
-  lineHeight: '22px',
+  lineHeight: custom_size === 'sm' ? '18px' : '22px',
   minHeight: custom_size === 'sm' ? 34 : 50,
   transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
 
