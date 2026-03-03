@@ -4,6 +4,7 @@ import EnvironmentCard from '@/components/environment-card/environment-card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import Switch from '@/components/switch/switch';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
@@ -11,7 +12,7 @@ import { NodeEnvironments } from '@/types/environments';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
 import { useFormik } from 'formik';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
 
 const sortOptions = [
@@ -22,6 +23,7 @@ const sortOptions = [
 
 type FilterFormValues = {
   gpuName: string[];
+  freeCompute: boolean;
   fromMaxJobDuration: number | '';
   minimumCPU: number | '';
   minimumRAM: number | '';
@@ -32,10 +34,10 @@ type FilterFormValues = {
 
 const SelectEnvironment = () => {
   const {
-    fetchGpus,
+    // fetchGpus,
     filters,
     filtersUnmetFallback,
-    gpus,
+    // gpus,
     loading,
     loadMoreEnvs,
     nodeEnvs,
@@ -47,9 +49,9 @@ const SelectEnvironment = () => {
 
   const [expanded, setExpanded] = useState(!!filters);
 
-  useEffect(() => {
-    fetchGpus();
-  }, [fetchGpus]);
+  // useEffect(() => {
+  //   fetchGpus();
+  // }, [fetchGpus]);
 
   // const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
   const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
@@ -65,6 +67,7 @@ const SelectEnvironment = () => {
   const formik = useFormik<FilterFormValues>({
     initialValues: {
       feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
+      freeCompute: false,
       gpuName: filters.gpuName ?? [],
       fromMaxJobDuration: filters.fromMaxJobDuration ?? '',
       minimumCPU: filters.minimumCPU ?? '',
@@ -147,17 +150,30 @@ const SelectEnvironment = () => {
       <h3>Environments</h3>
       <form onSubmit={formik.handleSubmit}>
         <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
-          <Select
-            label="GPUs"
-            multiple
-            name="gpuName"
-            onChange={formik.handleChange}
-            options={gpuOptions}
-            placeholder="Any GPU"
-            renderOption={(option) => <GpuLabel gpu={option.label} />}
-            renderSelectedValue={(option) => <GpuLabel gpu={option} />}
-            value={formik.values.gpuName}
-          />
+          <div className={styles.topFilters}>
+            <Select
+              className={styles.selectGpu}
+              label="GPUs"
+              multiple
+              name="gpuName"
+              onChange={formik.handleChange}
+              options={gpuOptions}
+              placeholder="Any GPU"
+              renderOption={(option) => <GpuLabel gpu={option.label} />}
+              renderSelectedValue={(option) => <GpuLabel gpu={option} />}
+              size="sm"
+              value={formik.values.gpuName}
+            />
+            <Select
+              label="Sorting"
+              name="sortBy"
+              onChange={formik.handleChange}
+              options={sortOptions}
+              placeholder="No sorting"
+              size="sm"
+              value={formik.values.sortBy}
+            />
+          </div>
           <Collapse in={expanded}>
             <div className={styles.extraFilters}>
               <Input
@@ -204,15 +220,7 @@ const SelectEnvironment = () => {
           </Collapse>
           <div className={styles.filtersFooter}>
             <Select
-              label="Sort"
-              name="sortBy"
-              onChange={formik.handleChange}
-              options={sortOptions}
-              placeholder="No sorting"
-              size="sm"
-              value={formik.values.sortBy}
-            />
-            <Select
+              disabled={formik.values.freeCompute}
               label="Fee token"
               name="feeToken"
               onChange={formik.handleChange}
@@ -220,6 +228,13 @@ const SelectEnvironment = () => {
               placeholder="Any"
               size="sm"
               value={formik.values.feeToken}
+            />
+            <Switch
+              checked={formik.values.freeCompute}
+              className="justifySelfStart"
+              label="Free compute"
+              name="freeCompute"
+              onChange={formik.handleChange}
             />
             <div className={styles.buttons}>
               <Button color="primary" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="transparent">
