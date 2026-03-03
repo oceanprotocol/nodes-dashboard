@@ -51,7 +51,7 @@ const StyledSelect = styled(MaterialSelect, {
   },
 
   [`& .${selectClasses.select}`]: {
-    padding: custom_size === 'sm' ? '4px 16px' : '8px 16px',
+    padding: custom_size === 'sm' ? '2px 16px' : '8px 16px',
     minHeight: 0,
 
     '& > .MuiListItemText-root': {
@@ -67,6 +67,7 @@ const StyledSelect = styled(MaterialSelect, {
   [`& .${selectClasses.icon}`]: {
     color: 'var(--text-secondary)',
     position: 'relative',
+    top: 0,
   },
 }));
 
