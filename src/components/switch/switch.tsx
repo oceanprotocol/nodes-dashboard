@@ -6,6 +6,7 @@ type SwitchProps = {
   label?: string;
   name?: string;
   onChange?: (event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => void;
+  value?: unknown;
 };
 
 const StyledFormControlLabel = styled(FormControlLabel)({
@@ -50,12 +51,13 @@ const StyledSwitch = styled(MaterialSwitch)(() => ({
   },
 }));
 
-const Switch: React.FC<SwitchProps> = ({ className, label, name, checked, onChange }) => {
+const Switch: React.FC<SwitchProps> = ({ className, label, name, checked, onChange, value = true }) => {
   return (
     <StyledFormControlLabel
       className={className}
       control={<StyledSwitch checked={checked} name={name} onChange={onChange} />}
       label={label}
+      value={value}
     />
   );
 };

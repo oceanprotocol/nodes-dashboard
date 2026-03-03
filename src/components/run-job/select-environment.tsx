@@ -23,7 +23,7 @@ const sortOptions = [
 
 type FilterFormValues = {
   gpuName: string[];
-  freeCompute: boolean;
+  free: boolean;
   fromMaxJobDuration: number | '';
   minimumCPU: number | '';
   minimumRAM: number | '';
@@ -67,7 +67,7 @@ const SelectEnvironment = () => {
   const formik = useFormik<FilterFormValues>({
     initialValues: {
       feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
-      freeCompute: false,
+      free: false,
       gpuName: filters.gpuName ?? [],
       fromMaxJobDuration: filters.fromMaxJobDuration ?? '',
       minimumCPU: filters.minimumCPU ?? '',
@@ -79,6 +79,9 @@ const SelectEnvironment = () => {
       const filters: RawFilters = { ...DEFAULT_FILTERS, gpuName: values.gpuName };
       if (values.feeToken) {
         filters.feeToken = values.feeToken;
+      }
+      if (values.free) {
+        filters.free = values.free;
       }
       if (values.fromMaxJobDuration !== '') {
         filters.fromMaxJobDuration = Number(values.fromMaxJobDuration);
@@ -95,6 +98,7 @@ const SelectEnvironment = () => {
       if (values.gpuName.length > 0) {
         filters.gpuName = values.gpuName;
       }
+
       setFilters(filters);
       setSort(values.sortBy);
     },
@@ -220,7 +224,7 @@ const SelectEnvironment = () => {
           </Collapse>
           <div className={styles.filtersFooter}>
             <Select
-              disabled={formik.values.freeCompute}
+              disabled={formik.values.free}
               label="Fee token"
               name="feeToken"
               onChange={formik.handleChange}
@@ -230,10 +234,10 @@ const SelectEnvironment = () => {
               value={formik.values.feeToken}
             />
             <Switch
-              checked={formik.values.freeCompute}
+              checked={formik.values.free}
               className="justifySelfStart"
               label="Free compute"
-              name="freeCompute"
+              name="free"
               onChange={formik.handleChange}
             />
             <div className={styles.buttons}>
