@@ -482,33 +482,37 @@ export const benchmarkJobsColumns: GridColDef<BenchmarkJobHistory>[] = [
     field: 'gpuScore',
     filterable: false,
     flex: 1,
-    headerName: 'Bench. GPU Score',
+    headerName: 'GPU Score',
     sortable: false,
     valueGetter: (_value, row) => row.benchmarkResults?.gpuScore,
     renderCell: ({ value }) => {
       if (!value) return '-';
-      return Math.round(value);
+      return Math.round(value).toLocaleString();
     },
   },
   {
     field: 'cpuScore',
     filterable: false,
     flex: 1,
-    headerName: 'Bench. CPU Score',
+    headerName: 'CPU Score',
     sortable: false,
     valueGetter: (_value, row) => row.benchmarkResults?.cpuScore,
     renderCell: ({ value }) => {
       if (!value) return '-';
-      return Math.round(value);
+      return Math.round(value).toLocaleString();
     },
   },
   {
     field: 'bandwidthScore',
     filterable: false,
     flex: 1,
-    headerName: 'Bench. Bandwidth Score',
+    headerName: 'Bandwidth Score',
     sortable: false,
     valueGetter: (_value, row) => row.benchmarkResults?.bandwidthScore,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return Math.round(value).toLocaleString();
+    },
   },
 ];
 
