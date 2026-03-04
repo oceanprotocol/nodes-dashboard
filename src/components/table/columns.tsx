@@ -125,8 +125,8 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterable: false,
     flex: 1,
     headerName: 'Total Score',
-    sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
+    sortable: true,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore?.toLocaleString() || '-',
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
