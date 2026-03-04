@@ -11,27 +11,34 @@ export async function checkEnvAccess(
   if (!walletAddress) return null;
   if (!access) return true;
 
-  if (access.addresses && access.addresses.length !== 0) {
-    const lower = walletAddress.toLowerCase();
+  const hasAddressRestriction = access.addresses && access.addresses.length !== 0;
+  const hasListRestriction = access.accessLists && access.accessLists.length !== 0;
 
-    return access.addresses.some((a) => a.toLowerCase() === lower);
+  if (!hasAddressRestriction && !hasListRestriction) return true;
+
+  // Grant access if wallet is in the direct address whitelist
+  if (hasAddressRestriction) {
+    const lower = walletAddress.toLowerCase();
+    if (access.addresses.some((a) => a.toLowerCase() === lower)) return true;
   }
 
-  if (access.accessLists && Object.keys(access.accessLists).length !== 0) {
+  // Grant access if wallet holds a token from any access list contract
+  if (hasListRestriction) {
     if (!provider) return null;
 
-    const contractAddresses = access.accessLists[String(CHAIN_ID)];
-    if (!contractAddresses || contractAddresses.length === 0) {
-      return true;
+    let hasApplicableList = false;
+    for (const accessListMap of access.accessLists) {
+      const contractAddresses = accessListMap[String(CHAIN_ID)];
+      if (!contractAddresses || contractAddresses.length === 0) continue;
+      hasApplicableList = true;
+      for (const contractAddress of contractAddresses) {
+        const hasAccess = await checkAddressOnAccessList(contractAddress, walletAddress, provider);
+        if (hasAccess) return true;
+      }
     }
 
-    for (const contractAddress of contractAddresses) {
-      const hasAccess = await checkAddressOnAccessList(contractAddress, walletAddress, provider);
-      if (hasAccess) return true;
-    }
-
-    return false;
+    if (!hasApplicableList) return true;
   }
 
-  return true;
+  return false;
 }
