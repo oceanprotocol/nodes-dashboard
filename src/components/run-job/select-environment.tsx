@@ -239,7 +239,7 @@ const SelectEnvironment = () => {
             <Switch
               checked={formik.values.free}
               className="justifySelfStart"
-              label="Free compute"
+              label="Test compute"
               name="free"
               onChange={formik.handleChange}
             />

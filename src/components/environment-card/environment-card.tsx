@@ -396,7 +396,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     }
     const isLoggedIn = freeAccess !== null;
     const isDisabled = !isLoggedIn || !freeAccess;
-    const label = 'Free compute';
+    const label = 'Test compute';
     return (
       <Checkbox
         className={styles.freeComputeCheckbox}
@@ -436,7 +436,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         disabled={isDisabled}
         onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
       >
-        {isFreeCompute ? 'Try for free' : `From ${startingFee} ${selectedTokenSymbol}/min`}
+        {isFreeCompute ? 'Run test job' : `From ${startingFee} ${selectedTokenSymbol}/min`}
       </Button>
     );
     if (isDisabled) {
@@ -445,7 +445,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           title={
             isLoggedIn
               ? isFreeCompute
-                ? "Your wallet address is not in this environment's free compute access list"
+                ? "Your wallet address is not in this environment's test compute access list"
                 : "Your wallet address is not in this environment's paid compute access list"
               : 'You need to login to continue'
           }
