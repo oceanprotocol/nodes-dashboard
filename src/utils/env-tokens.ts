@@ -9,7 +9,7 @@ import { ComputeEnvironment } from '@/types/environments';
  * @returns An array of supported tokens.
  */
 export const getEnvSupportedTokens = (environment: ComputeEnvironment, supportedOnly?: boolean): string[] => {
-  const fees = environment.fees[CHAIN_ID];
+  const fees = environment.fees?.[CHAIN_ID];
 
   if (!fees) {
     return [];

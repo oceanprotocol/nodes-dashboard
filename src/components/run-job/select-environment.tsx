@@ -119,6 +119,9 @@ const SelectEnvironment = () => {
   };
 
   const filteredNodeEnvs = useMemo(() => {
+    if (filters.free) {
+      return nodeEnvs;
+    }
     const filteredNodeEnvs: NodeEnvironments[] = [];
     nodeEnvs.forEach((nodeEnv) => {
       const filteredEnvs = nodeEnv.computeEnvironments.environments.filter((env) => {
@@ -147,7 +150,7 @@ const SelectEnvironment = () => {
       }
     });
     return filteredNodeEnvs;
-  }, [nodeEnvs]);
+  }, [filters.free, nodeEnvs]);
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">

@@ -27,7 +27,7 @@ const useEnvResources = ({
 }): UseEnvResources => {
   const { fees, supportedTokens } = useMemo(() => {
     try {
-      const fees = environment.fees[CHAIN_ID];
+      const fees = environment.fees?.[CHAIN_ID];
       if (!fees) {
         return { fees: [], supportedTokens: [] };
       }
