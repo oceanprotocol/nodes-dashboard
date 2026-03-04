@@ -111,6 +111,11 @@ a {
   font-weight: 500;
   padding: 2px 16px;
 
+  &.chipPrimaryOutlined {
+    background: var(--background-primary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
   &.chipGlass {
     background: var(--background-glass-secondary);
     color: var(--text-primary);

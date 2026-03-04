@@ -272,12 +272,13 @@ const SelectEnvironment = () => {
                   forcePricing={filters.free ? 'free' : 'paid'}
                   key={env.id}
                   nodeInfo={{
+                    currentAddrs: node.currentAddrs,
                     friendlyName: node.friendlyName,
                     id: node.id,
+                    latestBenchmarkResults: node.latestBenchmarkResults,
                     multiaddrs: node.multiaddrs,
-                    currentAddrs: node.currentAddrs,
                   }}
-                  showNodeName
+                  showNodeInfo
                 />
               ))
             )}
