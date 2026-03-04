@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import { TransitionGroup } from 'react-transition-group';
 
 const StyledTransitionGroup = styled(TransitionGroup)({
+  alignItems: 'center',
   display: 'flex',
   flexWrap: 'wrap',
   gap: 4,
@@ -20,19 +21,24 @@ const StyledTransitionGroup = styled(TransitionGroup)({
 
 const StyledSelect = styled(MaterialSelect, {
   shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
-})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, has_error }) => ({
+})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, disabled, has_error }) => ({
   alignItems: 'center',
-  background: 'var(--background-glass)',
+  background: disabled ? 'transparent' : 'var(--background-glass)',
   border: `1px solid var(${has_error ? '--error' : '--border'})`,
   boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
-  borderRadius: 24,
+  borderRadius: custom_size === 'sm' ? 34 / 2 : 50 / 2,
   color: 'var(--text-primary)',
   display: 'inline-flex',
   fontFamily: 'var(--font-inter), sans-serif',
   fontSize: 16,
-  lineHeight: '22px',
+  lineHeight: custom_size === 'sm' ? '18px' : '22px',
   minHeight: custom_size === 'sm' ? 34 : 50,
   transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+
+  '.MuiSelect-select': {
+    alignItems: 'center',
+    display: 'flex',
+  },
 
   '&.Mui-focused': {
     boxShadow: has_error ? 'var(--input-shadow-error), var(--input-shadow-focus)' : 'var(--input-shadow-focus)',
@@ -42,12 +48,16 @@ const StyledSelect = styled(MaterialSelect, {
     border: 'none',
   },
 
+  '& .Mui-disabled': {
+    WebkitTextFillColor: 'var(--text-primary)',
+  },
+
   menu: {
     background: 'red',
   },
 
   [`& .${selectClasses.select}`]: {
-    padding: custom_size === 'sm' ? '4px 16px' : '8px 16px',
+    padding: custom_size === 'sm' ? '2px 16px' : '8px 16px',
     minHeight: 0,
 
     '& > .MuiListItemText-root': {
@@ -63,6 +73,7 @@ const StyledSelect = styled(MaterialSelect, {
   [`& .${selectClasses.icon}`]: {
     color: 'var(--text-secondary)',
     position: 'relative',
+    top: 0,
   },
 }));
 
@@ -81,7 +92,7 @@ const StyledPaper = styled(PopoverPaper)({
 const StyledPlaceholder = styled('span')({
   color: 'var(--text-secondary)',
   fontSize: 14,
-  lineHeight: '16px',
+  // lineHeight: '16px',
 });
 
 export type SelectOption<T> = {
@@ -91,6 +102,7 @@ export type SelectOption<T> = {
 
 type SelectProps<T> = {
   className?: string;
+  disabled?: boolean;
   endAdornment?: React.ReactNode;
   errorText?: string | string[];
   fullWidth?: boolean;
@@ -120,6 +132,7 @@ type SelectProps<T> = {
 
 const Select = <T extends string | number = string>({
   className,
+  disabled,
   endAdornment,
   errorText,
   hint,
@@ -175,9 +188,17 @@ const Select = <T extends string | number = string>({
   }, [multiple, options, placeholder, renderSelectedValue]);
 
   return (
-    <InputWrapper className={className} errorText={errorText} hint={hint} label={label} topRight={topRight}>
+    <InputWrapper
+      className={className}
+      disabled={disabled}
+      errorText={errorText}
+      hint={hint}
+      label={label}
+      topRight={topRight}
+    >
       <StyledSelect
         custom_size={size}
+        disabled={disabled}
         displayEmpty
         endAdornment={endAdornment}
         has_error={!!errorText}

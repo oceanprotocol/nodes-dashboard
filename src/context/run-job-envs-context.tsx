@@ -83,6 +83,9 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
     if (rawFilters.minimumStorage || rawFilters.minimumStorage === 0) {
       filterParams.minimumStorage = { operator: 'gte', value: rawFilters.minimumStorage };
     }
+    if (rawFilters.free) {
+      filterParams.free = { operator: 'eq', value: rawFilters.free };
+    }
     return filterParams;
   }, []);
 

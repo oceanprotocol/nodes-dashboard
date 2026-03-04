@@ -163,6 +163,19 @@ a {
   justify-content: start;
 }
 
+.justifySelfCenter {
+  justify-self: center;
+}
+.justifySelfEnd {
+  justify-self: end;
+}
+.justifySelfStart {
+  justify-self: start;
+}
+.justifySelfStretch {
+  justify-self: stretch;
+}
+
 .gapXs {
   gap: 4px;
 }

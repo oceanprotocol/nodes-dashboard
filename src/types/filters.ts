@@ -82,6 +82,10 @@ export interface EnvironmentsFilters {
     operator: 'eq';
     value: string;
   };
+  free?: {
+    operator: 'eq';
+    value: boolean;
+  };
   fromMaxJobDuration?: {
     operator: NumberFilterOperator;
     value: number;

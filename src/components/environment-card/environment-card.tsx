@@ -31,6 +31,7 @@ type EnvironmentCardProps = {
   compact?: boolean;
   defaultToken?: string;
   environment: ComputeEnvironment;
+  forcePricing?: 'free' | 'paid';
   nodeInfo: EnvNodeInfo;
   showNodeName?: boolean;
 };
@@ -39,6 +40,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   compact,
   defaultToken,
   environment,
+  forcePricing,
   nodeInfo,
   showNodeName,
 }) => {
@@ -57,6 +59,14 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   useEffect(() => {
     checkEnvAccess(environment.free?.access, account.address, provider).then(setFreeAccess);
   }, [environment.free?.access, account.address, provider]);
+
+  useEffect(() => {
+    if (forcePricing) {
+      setIsFreeCompute(forcePricing === 'free');
+    } else {
+      setIsFreeCompute(false);
+    }
+  }, [forcePricing]);
 
   const supportedTokens = useMemo(() => {
     return getEnvSupportedTokens(environment, true);
@@ -77,7 +87,9 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getDefaultToken());
   const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
 
-  const [isFreeCompute, setIsFreeCompute] = useState<boolean>(false);
+  const [isFreeCompute, setIsFreeCompute] = useState<boolean>(
+    forcePricing ? (forcePricing === 'free' ? true : false) : false
+  );
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
     useEnvResources({
@@ -138,7 +150,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         <div className={styles.cpuWrapper}>
           <div className={styles.label}>
             <MemoryIcon className={styles.icon} />
-            <span className={styles.heading}>{cpu?.description}</span>
+            <span className={styles.heading}>{cpu?.description || 'CPU'}</span>
           </div>
           <div className={styles.label}>
             <span className={styles.em}>
@@ -165,7 +177,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           value={percentage}
           topLeftContent={
             <span className={classNames(styles.label, styles.em)}>
-              <MemoryIcon className={styles.icon} /> CPU - {cpu?.description}
+              <MemoryIcon className={styles.icon} /> {cpu?.description || 'CPU'}
             </span>
           }
           bottomLeftContent={
@@ -210,7 +222,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       if (compact) {
         return (
           <div className={styles.gpuWrapper} key={gpu.id}>
-            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />
+            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
             <div className={styles.label}>
               <span className={styles.em}>
                 {available} / {max}
@@ -234,7 +246,9 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         <div className={styles.gpuWrapper} key={gpu.id}>
           <ProgressBar
             value={percentage}
-            topLeftContent={<GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />}
+            topLeftContent={
+              <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
+            }
             bottomLeftContent={
               <span className={styles.label}>
                 <span className={styles.em}>
@@ -377,12 +391,12 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   const getFreeComputeCheckbox = () => {
-    if (!environment.free) {
+    if (!environment.free || forcePricing) {
       return null;
     }
     const isLoggedIn = freeAccess !== null;
     const isDisabled = !isLoggedIn || !freeAccess;
-    const label = 'Free compute';
+    const label = 'Test compute';
     return (
       <Checkbox
         className={styles.freeComputeCheckbox}
@@ -422,7 +436,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         disabled={isDisabled}
         onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
       >
-        {isFreeCompute ? 'Try for free' : `From ${startingFee} ${selectedTokenSymbol}/min`}
+        {isFreeCompute ? 'Run test job' : `From ${startingFee} ${selectedTokenSymbol}/min`}
       </Button>
     );
     if (isDisabled) {
@@ -431,7 +445,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           title={
             isLoggedIn
               ? isFreeCompute
-                ? "Your wallet address is not in this environment's free compute access list"
+                ? "Your wallet address is not in this environment's test compute access list"
                 : "Your wallet address is not in this environment's paid compute access list"
               : 'You need to login to continue'
           }
@@ -506,7 +520,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             <div>
               Node:{' '}
               <Link className={styles.link} href={`/nodes/${nodeInfo.id}`} target="_blank">
-                {nodeInfo.friendlyName ?? nodeInfo.id}
+                {nodeInfo.friendlyName || nodeInfo.id}
               </Link>
             </div>
           ) : null}
