@@ -518,7 +518,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             <div>
               Node:{' '}
               <Link className={styles.link} href={`/nodes/${nodeInfo.id}`} target="_blank">
-                {nodeInfo.friendlyName ?? nodeInfo.id}
+                {nodeInfo.friendlyName || nodeInfo.id}
               </Link>
             </div>
           ) : null}
