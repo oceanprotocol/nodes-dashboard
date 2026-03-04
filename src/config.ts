@@ -95,7 +95,7 @@ const config: Config = {
     accessToken: 'access_token',
     status: 'status',
   },
-  supportEmail: 'support@oncompute.ai',
+  supportEmail: 'help@oncompute.ai',
   cookies: {
     accessToken: 'access_token',
   },
