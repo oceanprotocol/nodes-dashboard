@@ -36,7 +36,7 @@ export type AccessListContract = {
 
 export type EnvironmentAccess = {
   addresses: string[];
-  accessLists: AccessListContract;
+  accessLists: AccessListContract[];
 };
 
 export type ComputeEnvironment = {
