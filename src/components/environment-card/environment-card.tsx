@@ -150,7 +150,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         <div className={styles.cpuWrapper}>
           <div className={styles.label}>
             <MemoryIcon className={styles.icon} />
-            <span className={styles.heading}>{cpu?.description}</span>
+            <span className={styles.heading}>{cpu?.description || 'CPU'}</span>
           </div>
           <div className={styles.label}>
             <span className={styles.em}>
@@ -177,7 +177,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           value={percentage}
           topLeftContent={
             <span className={classNames(styles.label, styles.em)}>
-              <MemoryIcon className={styles.icon} /> CPU - {cpu?.description}
+              <MemoryIcon className={styles.icon} /> {cpu?.description || 'CPU'}
             </span>
           }
           bottomLeftContent={
@@ -222,7 +222,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       if (compact) {
         return (
           <div className={styles.gpuWrapper} key={gpu.id}>
-            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />
+            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
             <div className={styles.label}>
               <span className={styles.em}>
                 {available} / {max}
@@ -246,7 +246,9 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         <div className={styles.gpuWrapper} key={gpu.id}>
           <ProgressBar
             value={percentage}
-            topLeftContent={<GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />}
+            topLeftContent={
+              <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
+            }
             bottomLeftContent={
               <span className={styles.label}>
                 <span className={styles.em}>
