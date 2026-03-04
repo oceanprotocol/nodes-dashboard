@@ -19,7 +19,9 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
   const [loading, setLoading] = useState<CtxType['loading']>(false);
   const [pageSize, setPageSize] = useState<CtxType['pageSize']>(100);
   const [searchTerm, setSearchTerm] = useState<CtxType['searchTerm']>('');
-  const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({});
+  const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({
+    'latestBenchmarkResults.totalScore': 'desc',
+  });
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
 
   const buildFilterParams = (filters: NodeFilters): string => {
