@@ -83,9 +83,6 @@ const Button = ({
     );
   }
 
-  if (children === 'Initializing') {
-    console.log('isdisabled', isDisabled, children?.toString());
-  }
   return (
     <button className={classes} disabled={isDisabled} id={id} onClick={handleClick} type={type}>
       {spinner}
