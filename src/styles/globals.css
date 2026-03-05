@@ -136,6 +136,19 @@ a {
 
 /* Utility classes */
 
+.alignItemsCenter {
+  align-items: center;
+}
+.alignItemsEnd {
+  align-items: flex-end;
+}
+.alignItemsStart {
+  align-items: flex-start;
+}
+.alignItemsStretch {
+  align-items: stretch;
+}
+
 .alignSelfCenter {
   align-self: center;
 }

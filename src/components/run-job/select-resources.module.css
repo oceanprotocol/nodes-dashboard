@@ -65,20 +65,19 @@
   }
 }
 
-.cost {
-  align-items: center;
+.costCard {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 32px;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 4px;
   padding: 12px 24px;
 
-  .values {
+  .costEstimation {
+    align-items: center;
     display: flex;
-    flex-grow: 1;
-    flex-direction: column;
-    align-items: flex-end;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 32px;
+    justify-content: space-between;
 
     .token {
       color: var(--text-secondary);
@@ -88,6 +87,13 @@
     .amount {
       font-size: 32px;
       font-weight: 700;
+    }
+
+    .estimationMessage {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      line-height: 48px;
     }
   }
 }
