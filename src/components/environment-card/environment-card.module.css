@@ -1,7 +1,29 @@
 .root {
+  gap: 24px;
   transition: transform 0.3s ease;
   &:hover {
     transform: scale(1.01);
+  }
+}
+
+.nodeInfo {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+
+  .nodeNameWrapper {
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+
+    .verified {
+      color: var(--success-darker);
+      font-size: 16px;
+    }
   }
 }
 
@@ -53,14 +75,6 @@
     .ramWrapper {
       flex: 2;
     }
-  }
-}
-
-.link {
-  color: var(--accent1);
-
-  &:hover {
-    text-decoration: underline;
   }
 }
 

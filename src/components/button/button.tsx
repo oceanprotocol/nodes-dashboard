@@ -41,17 +41,17 @@ const Button = ({
 }: ButtonProps) => {
   const [innerLoading, setInnerLoading] = useState(false);
 
+  const isLoading = loading || innerLoading;
+  const isDisabled = disabled || isLoading;
+
   const classes = classNames(
     styles.root,
     styles[`color-${color}`],
     styles[`size-${size}`],
     styles[`variant-${variant}`],
-    { [styles.disabled]: disabled },
+    { [styles.disabled]: isDisabled },
     className
   );
-
-  const isLoading = loading || innerLoading;
-  const isDisabled = disabled || isLoading;
 
   const spinner = isLoading ? (
     <CircularProgress

@@ -1,3 +1,4 @@
+import BenchmarkSummary from '@/components/benchmarks/benchmark-summary';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
@@ -18,9 +19,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import { Collapse, Tooltip } from '@mui/material';
 import classNames from 'classnames';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
@@ -33,7 +34,7 @@ type EnvironmentCardProps = {
   environment: ComputeEnvironment;
   forcePricing?: 'free' | 'paid';
   nodeInfo: EnvNodeInfo;
-  showNodeName?: boolean;
+  showNodeInfo?: boolean;
 };
 
 const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
@@ -42,7 +43,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   environment,
   forcePricing,
   nodeInfo,
-  showNodeName,
+  showNodeInfo,
 }) => {
   const router = useRouter();
 
@@ -457,15 +458,27 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   return (
-    <Card
-      className={styles.root}
-      direction="column"
-      innerShadow="black"
-      padding="sm"
-      radius="md"
-      spacing="lg"
-      variant="glass"
-    >
+    <Card className={styles.root} direction="column" innerShadow="black" padding="sm" radius="md" variant="glass">
+      {showNodeInfo ? (
+        <div className={styles.nodeInfo}>
+          <div className={styles.nodeNameWrapper}>
+            Node:
+            <Button color="accent1" href={`/nodes/${nodeInfo.id}`} size="link" target="_blank" variant="transparent">
+              {nodeInfo.friendlyName || nodeInfo.id}
+            </Button>
+            {nodeInfo.latestBenchmarkResults ? <VerifiedIcon className={styles.verified} /> : null}
+          </div>
+          {nodeInfo.latestBenchmarkResults ? (
+            <BenchmarkSummary
+              cpuScore={nodeInfo.latestBenchmarkResults.cpuScore}
+              gpuScore={nodeInfo.latestBenchmarkResults.gpuScore}
+              bandwidthScore={nodeInfo.latestBenchmarkResults.bandwidthScore}
+              totalScore={nodeInfo.latestBenchmarkResults.totalScore}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
       <div>
         <TransitionGroup>
           {!noResourcesAvailable ? (
@@ -515,14 +528,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
 
       <div className={styles.footer}>
         <div>
-          {showNodeName ? (
-            <div>
-              Node:{' '}
-              <Link className={styles.link} href={`/nodes/${nodeInfo.id}`} target="_blank">
-                {nodeInfo.friendlyName || nodeInfo.id}
-              </Link>
-            </div>
-          ) : null}
           <div>
             Job duration:&nbsp;
             <strong>

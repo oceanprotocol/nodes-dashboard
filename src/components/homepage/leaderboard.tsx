@@ -32,9 +32,9 @@ export default function LeaderboardSection() {
           }),
           page: 0,
           size: 3,
-          // sort: JSON.stringify({
-          //   'latestBenchmarkResults.totalScore': 'desc',
-          // }),
+          sort: JSON.stringify({
+            'latestBenchmarkResults.totalScore': 'desc',
+          }),
         },
       });
       const sanitizedData = response.data.nodes.map((element: any) => element._source);

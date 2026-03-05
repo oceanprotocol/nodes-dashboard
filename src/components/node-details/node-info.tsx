@@ -196,6 +196,18 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
     return 'Unknown';
   };
 
+  const renderNodeLocation = () => {
+    const cityAndCountry: string[] = [];
+    if (node.location?.city) {
+      cityAndCountry.push(node.location.city);
+    }
+    if (node.location?.country) {
+      cityAndCountry.push(node.location.country);
+    }
+    const cityAndCountryString = cityAndCountry.join(', ');
+    return [node.location?.region, cityAndCountryString].filter(Boolean).join(' - ') || 'Unknown';
+  };
+
   return (
     <Card className={styles.root} padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.infoWrapper}>
@@ -215,9 +227,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
             }
 
             <LocationPinIcon className={styles.icon} />
-            <div>
-              {node.location?.city}, {node.location?.country}
-            </div>
+            <div>{renderNodeLocation()}</div>
           </div>
           {isAdmin ? (
             <div className={styles.buttons}>

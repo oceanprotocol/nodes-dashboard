@@ -92,6 +92,12 @@ export type EnvNodeInfo = {
   currentAddrs?: string[];
   friendlyName?: string;
   id: string;
+  latestBenchmarkResults?: {
+    gpuScore: number;
+    cpuScore: number;
+    bandwidthScore: number;
+    totalScore: number;
+  };
   multiaddrs?: string[];
 };
 

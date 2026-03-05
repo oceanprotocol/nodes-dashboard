@@ -13,10 +13,13 @@ import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
 import { formatNumber } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TransitionGroup } from 'react-transition-group';
 import * as Yup from 'yup';
 import styles from './select-resources.module.css';
 
@@ -44,17 +47,17 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const { nodeInfo, multiaddrsOrPeerId, setEstimatedTotalCost, setMinLockSeconds, setSelectedResources } =
     useRunJobContext();
 
-  const { initializeCompute } = useP2P();
+  const { initializeCompute, node: p2pNode } = useP2P();
   const { provider } = useOceanAccount();
 
   const [initComputeError, setInitComputeError] = useState<unknown | null>(null);
-  const [estimatedTotalCost, setLocalEstimatedTotalCost] = useState(0);
+  const [estimatedTotalCost, setLocalEstimatedTotalCost] = useState<number | null>(null);
   const [isLoadingCost, setIsLoadingCost] = useState(false);
 
   const costEstimateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ESTIMATE_COST_DEBOUNCE_MS = 800;
 
-  const isCostEstimationFailed = (!estimatedTotalCost && estimatedTotalCost !== 0) || !!initComputeError;
+  const isCostEstimated = (estimatedTotalCost || estimatedTotalCost === 0) && !initComputeError;
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
     useEnvResources({
@@ -118,7 +121,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         estimatedTotalCost,
         freeCompute,
       });
-      if (estimatedTotalCost > 0 && !freeCompute) {
+      if (estimatedTotalCost! > 0 && !freeCompute) {
         router.push('/run-job/payment');
       } else {
         router.push('/run-job/summary');
@@ -166,7 +169,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       setLocalEstimatedTotalCost(0);
       return;
     }
-    if (!provider || !nodeInfo?.id) {
+    if (!provider || !nodeInfo?.id || !p2pNode) {
       return;
     }
     setIsLoadingCost(true);
@@ -191,17 +194,18 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       setIsLoadingCost(false);
     }
   }, [
-    environment,
     freeCompute,
+    provider,
+    nodeInfo?.id,
+    p2pNode,
     formik.values.maxJobDurationValue,
     formik.values.maxJobDurationUnit,
-    multiaddrsOrPeerId,
-    nodeInfo?.id,
     initializeCompute,
-    provider,
+    environment,
+    token,
+    multiaddrsOrPeerId,
     resources,
     setMinLockSeconds,
-    token?.address,
   ]);
 
   useEffect(() => {
@@ -250,6 +254,48 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const handleMaxJobDurationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const num = Number(e.target.value);
     formik.setFieldValue('maxJobDurationValue', e.target.value === '' ? 0 : Math.max(0, num));
+  };
+
+  const renderCostEstimation = () => {
+    if (isLoadingCost) {
+      return (
+        <h3 className={styles.estimationMessage}>
+          <CircularProgress size={24} />
+          Estimating cost...
+        </h3>
+      );
+    }
+    if (!!initComputeError) {
+      let errorText;
+      if (initComputeError instanceof Error) {
+        errorText = initComputeError.message;
+      }
+      return (
+        <h3 className={styles.estimationMessage}>
+          Cost estimation failed{' '}
+          {errorText ? (
+            <Tooltip className="textAccent1" title={errorText}>
+              <InfoOutlinedIcon className={styles.accessInfoIcon} />
+            </Tooltip>
+          ) : null}
+        </h3>
+      );
+    }
+    if (!p2pNode || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
+      return (
+        <h3 className={styles.estimationMessage}>
+          <CircularProgress size={24} />
+          Connecting to node...
+        </h3>
+      );
+    }
+    return (
+      <div>
+        <span className={styles.token}>{token?.symbol}</span>
+        &nbsp;
+        <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
+      </div>
+    );
   };
 
   return (
@@ -367,28 +413,22 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             value={formik.values.maxJobDurationValue}
           />
         </div>
-        {formik.isValid && !freeCompute ? (
-          <Card className={styles.cost} radius="md" variant="accent1-outline">
-            <h3>Estimated total cost</h3>
-            <div className={styles.values}>
-              {isLoadingCost ? (
-                <div className={styles.amount}>Calculating...</div>
-              ) : isCostEstimationFailed ? (
-                <div className={styles.amount}>Cost estimation failed</div>
-              ) : (
-                <div>
-                  <span className={styles.token}>{token?.symbol}</span>
-                  &nbsp;
-                  <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
+        <TransitionGroup>
+          {formik.isValid && !freeCompute ? (
+            <Collapse>
+              <Card className={styles.costCard} radius="md" variant="accent1-outline">
+                <div className={styles.costEstimation}>
+                  <h3>Estimated total cost</h3>
+                  {renderCostEstimation()}
                 </div>
-              )}
-              <div className="textAccent1Lighter">
-                If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
-              </div>
-            </div>
-          </Card>
-        ) : null}
-        <Button className={styles.button} disabled={isCostEstimationFailed} color="accent1" size="lg" type="submit">
+                <div className="alignSelfEnd textAccent1Lighter">
+                  If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
+                </div>
+              </Card>
+            </Collapse>
+          ) : null}
+        </TransitionGroup>
+        <Button className={styles.button} disabled={!isCostEstimated} color="accent1" size="lg" type="submit">
           Continue
         </Button>
       </form>

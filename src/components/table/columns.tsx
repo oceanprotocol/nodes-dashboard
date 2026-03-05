@@ -190,7 +190,7 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Bench score',
     sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore || 0,
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore?.toLocaleString() || '-',
   },
   {
     field: 'totalJobs',
