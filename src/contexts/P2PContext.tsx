@@ -14,7 +14,7 @@ import {
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment, MultiaddrsOrPeerId } from '@/types/environments';
-import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
+import { getTokenDecimals } from '@/lib/token-symbol';
 import { ComputeResourceRequest } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
@@ -333,7 +333,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.status.error ?? 'Initialize compute failed');
       }
       const cost = data.payment.amount;
-      const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, provider).decimals();
+      const tokenDecimals = await getTokenDecimals(tokenAddress);
       const decimalsNumber = Number(tokenDecimals);
       const denominatedCost = new BigNumber(cost)
         .div(new BigNumber(10).pow(decimalsNumber))

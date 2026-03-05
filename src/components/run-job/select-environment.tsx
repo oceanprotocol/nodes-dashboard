@@ -60,7 +60,7 @@ const SelectEnvironment = () => {
     const tokens = getSupportedTokens();
     return [
       { label: 'Any', value: '' },
-      ...Object.keys(tokens).map((token) => ({ value: tokens[token as keyof typeof tokens], label: token })),
+      ...Object.keys(tokens).map((token) => ({ value: tokens[token as keyof typeof tokens].address, label: token })),
     ];
   }, []);
 
@@ -131,8 +131,8 @@ const SelectEnvironment = () => {
         if (
           !env.fees[CHAIN_ID].some(
             (fee) =>
-              fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.toLowerCase() ||
-              fee.feeToken.toLowerCase() === getSupportedTokens().USDC.toLowerCase()
+              fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ||
+              fee.feeToken.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase()
           )
         ) {
           return false;

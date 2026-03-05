@@ -2,6 +2,7 @@ import CompySwap from '@/constants/abis/compy-swap.json';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { getRpc } from '@/lib/constants';
+import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
@@ -76,7 +77,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
         throw new Error('No swap address found for chainId');
       }
 
-      const usdcAddress = getSupportedTokens().USDC;
+      const usdcAddress = getSupportedTokens().USDC.address;
       if (!usdcAddress) {
         handleError(new Error('USDC token address not found'));
         return;
@@ -86,7 +87,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
         setIsSwapping(true);
         const provider = new ethers.JsonRpcProvider(getRpc());
         const usdcContract = new ethers.Contract(usdcAddress, ERC20Template.abi, provider);
-        const usdcDecimals = await usdcContract.decimals();
+        const usdcDecimals = await getTokenDecimals(usdcAddress);
         const amountBigInt = ethers.parseUnits(amount, Number(usdcDecimals));
 
         // EOA Handling

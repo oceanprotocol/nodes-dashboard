@@ -45,7 +45,7 @@ const NodeEnvPreview = ({
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
     freeCompute: false,
-    tokenAddress: getSupportedTokens().USDC,
+    tokenAddress: getSupportedTokens().USDC.address,
   });
 
   // TODO

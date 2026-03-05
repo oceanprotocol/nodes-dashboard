@@ -1,5 +1,5 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
-import { getTokenSymbol } from '@/lib/token-symbol';
+import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
@@ -116,7 +116,7 @@ export class OceanProvider {
   async getBalance(tokenAddress: string, address: string): Promise<string> {
     const token = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
     const balance = await token.balanceOf(address);
-    const decimals = await token.decimals();
+    const decimals = await getTokenDecimals(tokenAddress);
     const balanceString = this.denominateNumber(balance.toString(), decimals);
     return balanceString;
   }
@@ -127,7 +127,7 @@ export class OceanProvider {
       return null;
     }
     const escrow = await this.getEscrowContract(this.chainId);
-    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
     const authorizations = await escrow.getAuthorizations(tokenAddress, payer, payee);
     if (!authorizations || authorizations.length === 0) {
       return null;
@@ -147,7 +147,7 @@ export class OceanProvider {
     const escrow = await this.getEscrowContract(this.chainId);
     const funds = await escrow.getUserFunds(address, tokenAddress);
     const availableFunds = funds.available;
-    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
     const balanceString = this.denominateNumber(availableFunds.toString(), tokenDecimals);
     return parseFloat(balanceString);
   }
@@ -170,7 +170,7 @@ export class OceanProvider {
       throw new Error('Invalid address');
     }
     const escrow = await this.getEscrowContract(this.chainId);
-    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
     const normalizedMaxLockedAmount = this.normalizeNumber(maxLockedAmount, tokenDecimals);
     const signer = await this.provider.getSigner();
     const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
@@ -190,7 +190,7 @@ export class OceanProvider {
       throw new Error('Invalid address');
     }
     const escrow = await this.getEscrowContract(this.chainId);
-    const tokenDecimals = await new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider).decimals();
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
     const normalizedAmount = this.normalizeNumber(amount, tokenDecimals);
     const signer = await this.provider.getSigner();
     const token = new ethers.Contract(tokenAddress, ERC20Template.abi, signer);
@@ -211,8 +211,7 @@ export class OceanProvider {
     const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
     const normalizedAmounts = await Promise.all(
       tokenAddresses.map(async (tokenAddress, index) => {
-        const tokenContract = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
-        const tokenDecimals = await tokenContract.decimals();
+        const tokenDecimals = await getTokenDecimals(tokenAddress);
         return this.normalizeNumber(amounts[index], tokenDecimals);
       })
     );
