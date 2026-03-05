@@ -1,6 +1,6 @@
+import GpuIcon from '@/assets/icons/gpu.svg';
 import Divider from '@/components/divider/divider.module';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import HomeMaxIcon from '@mui/icons-material/HomeMax';
 import MemoryIcon from '@mui/icons-material/Memory';
 import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import classNames from 'classnames';
@@ -37,7 +37,7 @@ const BenchmarkSummary: React.FC<BenchmarkSummaryProps> = ({ bandwidthScore, cpu
     <div className={classNames('chip', 'chipPrimaryOutlined', styles.root)}>
       <div className={styles.label}>Benchmark:</div>
       <div className={styles.result} title={`GPU score: ${formattedGpu}`}>
-        <HomeMaxIcon className={styles.icon} /> {formattedGpu}
+        <GpuIcon className={styles.customIcon} /> {formattedGpu}
       </div>
       <Divider className={styles.divider} orientation="vertical" />
       <div className={styles.result} title={`CPU score: ${formattedCpu}`}>

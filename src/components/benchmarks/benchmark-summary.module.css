@@ -26,6 +26,12 @@
       color: var(--accent1-lighter);
       font-size: 16px;
     }
+
+    .customIcon {
+      fill: var(--accent1-lighter);
+      height: 16px;
+      width: 16px;
+    }
   }
 
   .total {
