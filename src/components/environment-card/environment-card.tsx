@@ -128,7 +128,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       freeCompute: true,
       nodeInfo,
     });
-    selectToken(selectedTokenAddress, selectedTokenSymbol);
     posthog.capture('environment_selected', {
       environmentId: environment.id,
       nodeId: nodeInfo.id,
