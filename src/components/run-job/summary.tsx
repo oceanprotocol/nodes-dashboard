@@ -22,7 +22,7 @@ type SummaryProps = {
   nodeInfo: EnvNodeInfo;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
-  token: SelectedToken;
+  token: SelectedToken | null;
 };
 
 const Summary = ({
@@ -40,7 +40,7 @@ const Summary = ({
   const { gpus } = useEnvResources({
     environment: selectedEnv,
     freeCompute,
-    tokenAddress: token.address,
+    tokenAddress: token?.address ?? '',
   });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -110,7 +110,7 @@ const Summary = ({
       peerMultiaddr,
       isFreeCompute,
       selectedEnv.id,
-      token.address,
+      token?.address ?? '',
       selectedResources.maxJobDurationSeconds,
       resources,
       uriScheme
@@ -145,8 +145,12 @@ const Summary = ({
         <div className={styles.value}>{nodeInfo.id}</div>
         <div className={styles.label}>Environment:</div>
         <div className={styles.value}>{selectedEnv.consumerAddress}</div>
-        <div className={styles.label}>Fee token address:</div>
-        <div className={styles.value}>{token.address}</div>
+        {token ? (
+          <>
+            <div className={styles.label}>Fee token address:</div>
+            <div className={styles.value}>{token.address}</div>
+          </>
+        ) : null}
         <div className={styles.label}>Job duration:</div>
         <div className={styles.value}>{formatDuration(selectedResources!.maxJobDurationSeconds)}</div>
         <div className={styles.label}>GPU:</div>
@@ -162,7 +166,7 @@ const Summary = ({
         <div className={styles.label}>Disk space:</div>
         <div className={styles.value}>{selectedResources!.diskSpace} GB</div>
         <div className={styles.label}>Total cost:</div>
-        <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token.symbol}`}</div>
+        <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token?.symbol}`}</div>
       </div>
       {authToken ? (
         <div className={styles.footer}>

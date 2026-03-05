@@ -23,7 +23,7 @@ import styles from './select-resources.module.css';
 type SelectResourcesProps = {
   environment: ComputeEnvironment;
   freeCompute: boolean;
-  token: SelectedToken;
+  token: SelectedToken | null;
 };
 
 type ResourcesFormValues = {
@@ -60,7 +60,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     useEnvResources({
       environment,
       freeCompute,
-      tokenAddress: token.address,
+      tokenAddress: token?.address ?? '',
     });
 
   // This is a workaround for the modal not closing after connecting
@@ -174,7 +174,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       const maxJobDurationSec = toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit);
       const { cost, minLockSeconds } = await initializeCompute(
         environment,
-        token.address,
+        token!.address,
         maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
         multiaddrsOrPeerId,
         environment.consumerAddress,
@@ -201,7 +201,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     provider,
     resources,
     setMinLockSeconds,
-    token.address,
+    token?.address,
   ]);
 
   useEffect(() => {
@@ -271,7 +271,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           options={gpus.map((gpu) => ({ label: gpu.description ?? '', value: gpu.id }))}
           placeholder="No GPU selected"
           renderOption={(option) => {
-            const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token.symbol}/min`;
+            const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token?.symbol}/min`;
             return <GpuLabel gpu={`${option.label} (${pricing})`} />;
           }}
           renderSelectedValue={(option) => <GpuLabel gpu={option} />}
@@ -280,7 +280,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         <div className={styles.inputsGrid}>
           <Slider
             errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
-            hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token.symbol}/core`}
+            hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}
             label="CPU"
             name="cpuCores"
             marks
@@ -295,7 +295,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           />
           <Slider
             errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
-            hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token.symbol}/GB`}
+            hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}
             label="RAM"
             name="ram"
             marks
@@ -315,7 +315,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
               </Button>
             }
             errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
-            hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token.symbol}/GB`}
+            hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`}
             label="Disk space"
             max={maxAllowedDiskSpace}
             min={0}
@@ -377,7 +377,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                 <div className={styles.amount}>Cost estimation failed</div>
               ) : (
                 <div>
-                  <span className={styles.token}>{token.symbol}</span>
+                  <span className={styles.token}>{token?.symbol}</span>
                   &nbsp;
                   <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
                 </div>
