@@ -15,9 +15,10 @@ type BenchmarkSummaryProps = {
 };
 
 const BenchmarkSummary: React.FC<BenchmarkSummaryProps> = ({ bandwidthScore, cpuScore, gpuScore, totalScore }) => {
-  const formatScore = (value: number | null | undefined) => {
+  const formatScore = (value: number | null | undefined, round: boolean) => {
     if (value || value === 0) {
-      return Math.round(value).toLocaleString();
+      const rounded = round ? Math.round(value) : value;
+      return rounded.toLocaleString();
     }
     return '-';
   };
@@ -25,10 +26,10 @@ const BenchmarkSummary: React.FC<BenchmarkSummaryProps> = ({ bandwidthScore, cpu
   const { formattedBandwidth, formattedCpu, formattedGpu, formattedTotal } = useMemo(() => {
     const total = totalScore ?? calculateTotalBenchmarkScore(gpuScore, cpuScore, bandwidthScore);
     return {
-      formattedBandwidth: formatScore(bandwidthScore),
-      formattedCpu: formatScore(cpuScore),
-      formattedGpu: formatScore(gpuScore),
-      formattedTotal: formatScore(total),
+      formattedBandwidth: formatScore(bandwidthScore, true),
+      formattedCpu: formatScore(cpuScore, true),
+      formattedGpu: formatScore(gpuScore, true),
+      formattedTotal: formatScore(total, false),
     };
   }, [gpuScore, cpuScore, bandwidthScore, totalScore]);
 
