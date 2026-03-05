@@ -27,7 +27,7 @@ const SummaryPage = () => {
         subTitle="Everything is set up. Below is a summary of your selection"
         contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
       />
-      {nodeInfo && selectedEnv && selectedResources && selectedToken ? (
+      {nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (
         <div className="pageContentWrapper">
           <Summary
             estimatedTotalCost={estimatedTotalCost ?? 0}
@@ -35,7 +35,7 @@ const SummaryPage = () => {
             nodeInfo={nodeInfo}
             selectedEnv={selectedEnv}
             selectedResources={selectedResources}
-            token={selectedToken}
+            token={selectedToken ?? null}
           />
         </div>
       ) : null}

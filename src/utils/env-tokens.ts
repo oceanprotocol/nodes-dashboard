@@ -20,7 +20,7 @@ export const getEnvSupportedTokens = (environment: ComputeEnvironment, supported
     return tokenAddresses;
   }
 
-  const supportedTokens = Object.values(getSupportedTokens());
+  const supportedTokens = Object.values(getSupportedTokens()).map((t) => t.address);
 
   return tokenAddresses.filter((address) => supportedTokens.includes(address));
 };

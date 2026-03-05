@@ -1,5 +1,6 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
+import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSendUserOperation } from '@account-kit/react';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
@@ -108,8 +109,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
         }
 
         const provider = new ethers.JsonRpcProvider(getRpc());
-        const tokenContract = new ethers.Contract(tokenAddress, ERC20Template.abi, provider);
-        const tokenDecimals = await tokenContract.decimals();
+        const tokenDecimals = await getTokenDecimals(tokenAddress);
 
         const normalizedMaxLockedAmount = new BigNumber(maxLockedAmount)
           .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))

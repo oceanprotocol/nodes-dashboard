@@ -82,7 +82,7 @@ const PaymentSummary = ({
           &nbsp;
           <span className={classNames(styles.amount, styles.sm)}>{formatNumber(walletBalance)}</span>
         </div>
-        {selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.toLowerCase() ? (
+        {selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ? (
           <>
             <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
               Get more COMPY

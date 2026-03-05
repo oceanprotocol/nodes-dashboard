@@ -36,7 +36,7 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
   });
 
   const filteredBalances = useMemo(() => {
-    const supportedTokens = [getSupportedTokens().USDC.toLowerCase(), getSupportedTokens().COMPY.toLowerCase()];
+    const supportedTokens = [getSupportedTokens().USDC.address.toLowerCase(), getSupportedTokens().COMPY.address.toLowerCase()];
     return [...balances].filter((b) => supportedTokens.includes(b.address.toLowerCase()));
   }, [balances]);
 

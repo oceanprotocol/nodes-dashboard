@@ -24,7 +24,7 @@ export type RawFilters = {
 
 export const DEFAULT_FILTERS: RawFilters = {
   network: String(CHAIN_ID),
-  feeToken: Object.values(getSupportedTokens()),
+  feeToken: Object.values(getSupportedTokens()).map((t) => t.address),
 };
 
 type RunJobEnvsContextType = {

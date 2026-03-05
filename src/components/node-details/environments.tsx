@@ -24,8 +24,8 @@ const Environments = ({ nodeInfo }: EnvironmentsProps) => {
         if (
           !env.fees[CHAIN_ID].some(
             (fee) =>
-              fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.toLowerCase() ||
-              fee.feeToken.toLowerCase() === getSupportedTokens().USDC.toLowerCase()
+              fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ||
+              fee.feeToken.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase()
           )
         ) {
           return false;

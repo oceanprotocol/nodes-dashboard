@@ -4,11 +4,9 @@ import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/template
 import { ethers } from 'ethers';
 import { useEffect, useState } from 'react';
 
-/**
- * Fetches the symbol of a token from its address.
- * @param tokenAddress The address of the token.
- * @returns The symbol of the token or null if the token address is invalid.
- */
+const symbolCache = new Map<string, string>();
+const decimalsCache = new Map<string, number>();
+
 export const getTokenSymbol = async (tokenAddress: string | null | undefined): Promise<string | null> => {
   if (!tokenAddress || typeof tokenAddress !== 'string') {
     return null;
@@ -16,35 +14,47 @@ export const getTokenSymbol = async (tokenAddress: string | null | undefined): P
 
   const chainTokens = getSupportedTokens();
   const tokenSymbol = Object.keys(chainTokens).find(
-    (key) => chainTokens[key as keyof typeof chainTokens] === tokenAddress
+    (key) => chainTokens[key as keyof typeof chainTokens].address === tokenAddress
   );
   if (tokenSymbol) {
     return tokenSymbol as string;
   }
 
+  const addr = tokenAddress.toLowerCase();
+  if (symbolCache.has(addr)) return symbolCache.get(addr)!;
+
   const provider = new ethers.JsonRpcProvider(getRpc(), undefined, { batchMaxCount: 3 });
   const token = new ethers.Contract(tokenAddress, ERC20Template.abi, provider);
   const symbol = await token.symbol();
+  symbolCache.set(addr, symbol);
 
   return symbol;
 };
 
-/**
- * Fetches the symbols of tokens from their addresses.
- * @param tokenAddresses The addresses of the tokens.
- * @returns The symbols of the tokens in a map where the key is the token address and the value is the symbol.
- */
+export const getTokenDecimals = async (tokenAddress: string): Promise<number> => {
+  const chainTokens = getSupportedTokens();
+  const token = Object.values(chainTokens).find((t) => t.address.toLowerCase() === tokenAddress.toLowerCase());
+  if (token) return token.decimals;
+
+  const addr = tokenAddress.toLowerCase();
+  if (decimalsCache.has(addr)) return decimalsCache.get(addr)!;
+
+  const provider = new ethers.JsonRpcProvider(getRpc(), undefined, { batchMaxCount: 3 });
+  const contract = new ethers.Contract(tokenAddress, ERC20Template.abi, provider);
+  const decimals = Number(await contract.decimals());
+  decimalsCache.set(addr, decimals);
+
+  return decimals;
+};
+
+
 export const getTokensSymbols = async (tokenAddresses: string[]): Promise<Record<string, string | null>> => {
   const symbols = await Promise.all(tokenAddresses.map((tokenAddress) => getTokenSymbol(tokenAddress)));
   const symbolsMap = Object.fromEntries(tokenAddresses.map((tokenAddress, index) => [tokenAddress, symbols[index]]));
   return symbolsMap;
 };
 
-/**
- * Custom hook that fetches the symbol of a token from its address.
- * @param tokenAddress The address of the token.
- * @returns The symbol of the token or null if the token address is invalid.
- */
+
 export const useTokenSymbol = (tokenAddress: string | null | undefined) => {
   const [symbol, setSymbol] = useState<string | null>(null);
 

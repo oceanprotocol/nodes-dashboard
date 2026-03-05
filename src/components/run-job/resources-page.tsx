@@ -13,10 +13,10 @@ const ResourcesPage = () => {
   const { freeCompute, selectedEnv, selectedToken } = useRunJobContext();
 
   useEffect(() => {
-    if (!selectedEnv || !selectedToken) {
+    if (!selectedEnv || (!freeCompute && !selectedToken)) {
       router.replace('/run-job/environments');
     }
-  }, [router, selectedEnv, selectedToken]);
+  }, [router, selectedEnv, selectedToken, freeCompute]);
 
   return (
     <Container className="pageRoot">
@@ -26,9 +26,9 @@ const ResourcesPage = () => {
         subTitle="Pick the resources you need for your job"
         contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}
       />
-      {selectedEnv && selectedToken ? (
+      {selectedEnv && (freeCompute || selectedToken) ? (
         <div className="pageContentWrapper">
-          <SelectResources environment={selectedEnv} freeCompute={freeCompute} token={selectedToken} />
+          <SelectResources environment={selectedEnv} freeCompute={freeCompute} token={selectedToken ?? null} />
         </div>
       ) : null}
     </Container>
