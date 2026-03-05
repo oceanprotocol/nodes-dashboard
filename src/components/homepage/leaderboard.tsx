@@ -33,7 +33,7 @@ export default function LeaderboardSection() {
           page: 0,
           size: 3,
           sort: JSON.stringify({
-            totalJobs: 'desc',
+            'latestBenchmarkResults.totalScore': 'desc',
           }),
         },
       });
