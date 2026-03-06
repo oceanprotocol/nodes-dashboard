@@ -12,6 +12,7 @@ import { Ide } from '@/types/ide';
 import { formatDuration } from '@/utils/formatters';
 import { ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
+import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -33,6 +34,8 @@ const Summary = ({
   selectedResources,
   token,
 }: SummaryProps) => {
+  const router = useRouter();
+
   const { account, ocean, signMessage } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
   const { multiaddrsOrPeerId } = useRunJobContext();
@@ -131,6 +134,18 @@ const Summary = ({
     setAnchorEl(null);
   };
 
+  const backButton = (
+    <Button
+      color="accent1"
+      onClick={() => router.replace('/run-job/resources')}
+      size="lg"
+      type="button"
+      variant="transparent"
+    >
+      Edit resources
+    </Button>
+  );
+
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Your selection</h3>
@@ -168,80 +183,81 @@ const Summary = ({
         <div className={styles.label}>Total cost:</div>
         <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token?.symbol}`}</div>
       </div>
-      {authToken ? (
-        <div className={styles.footer}>
-          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+      <div className={styles.footer}>
+        <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+        {authToken ? (
           <div className={styles.buttons}>
-            <Button
-              color="accent1"
-              id="choose-editor-button"
-              onClick={() => {
-                handleOpenIdeMenu();
-              }}
-              size="lg"
-              variant="outlined"
-            >
-              Choose editor
-            </Button>
-            <Menu
-              anchorEl={anchorEl}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'center',
-              }}
-              disableScrollLock
-              onClose={handleCloseIdeMenu}
-              open={!!anchorEl}
-              slotProps={{
-                list: {
-                  'aria-labelledby': 'profile-button',
-                },
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'center',
-              }}
-            >
-              {Object.entries(Ide).map(([key, ide]) => (
-                <MenuItem
-                  disableRipple
-                  key={ide.uriScheme}
-                  onClick={() => {
-                    localStorage.setItem('selectedIde', key);
-                    setSelectedIde(ide);
-                    handleCloseIdeMenu();
-                  }}
-                >
-                  <ListItemIcon>{ide.icon}</ListItemIcon>
-                  {ide.name}
-                </MenuItem>
-              ))}
-            </Menu>
-            <Button
-              autoLoading
-              color="accent1"
-              contentBefore={
-                <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
-                  {selectedIde.icon}
-                </span>
-              }
-              onClick={async () => await openIde(selectedIde.uriScheme)}
-              size="lg"
-            >
-              Open {selectedIde.name}
-            </Button>
+            {backButton}
+            <div className={styles.buttonsGroup}>
+              <Button
+                color="accent1"
+                id="choose-editor-button"
+                onClick={() => {
+                  handleOpenIdeMenu();
+                }}
+                size="lg"
+                variant="outlined"
+              >
+                Choose editor
+              </Button>
+              <Menu
+                anchorEl={anchorEl}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'center',
+                }}
+                disableScrollLock
+                onClose={handleCloseIdeMenu}
+                open={!!anchorEl}
+                slotProps={{
+                  list: {
+                    'aria-labelledby': 'profile-button',
+                  },
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'center',
+                }}
+              >
+                {Object.entries(Ide).map(([key, ide]) => (
+                  <MenuItem
+                    disableRipple
+                    key={ide.uriScheme}
+                    onClick={() => {
+                      localStorage.setItem('selectedIde', key);
+                      setSelectedIde(ide);
+                      handleCloseIdeMenu();
+                    }}
+                  >
+                    <ListItemIcon>{ide.icon}</ListItemIcon>
+                    {ide.name}
+                  </MenuItem>
+                ))}
+              </Menu>
+              <Button
+                autoLoading
+                color="accent1"
+                contentBefore={
+                  <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
+                    {selectedIde.icon}
+                  </span>
+                }
+                onClick={async () => await openIde(selectedIde.uriScheme)}
+                size="lg"
+              >
+                Open {selectedIde.name}
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className={styles.footer}>
-          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+        ) : (
           <div className={styles.buttons}>
+            {backButton}
             <Button autoLoading color="accent1" onClick={generateToken} size="lg">
               Generate token
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </Card>
   );
 };

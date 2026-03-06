@@ -19,6 +19,7 @@ type PaymentAuthorizeProps = {
   loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
   minLockSeconds: number;
+  renderBackButton?: (disabled: boolean) => React.ReactNode;
   selectedEnv: ComputeEnvironment;
   selectedToken: SelectedToken;
   totalCost: number;
@@ -29,6 +30,7 @@ const PaymentAuthorize = ({
   loadingPaymentInfo,
   loadPaymentInfo,
   minLockSeconds,
+  renderBackButton,
   selectedEnv,
   selectedToken,
   totalCost,
@@ -114,15 +116,12 @@ const PaymentAuthorize = ({
           value={formik.values.maxLockCount}
         />
       </div>
-      <Button
-        className="alignSelfEnd"
-        color="accent1"
-        loading={loadingPaymentInfo || isAuthorizing}
-        size="lg"
-        type="submit"
-      >
-        Authorize
-      </Button>
+      <div className={styles.buttons}>
+        {renderBackButton?.(loadingPaymentInfo)}
+        <Button color="accent1" loading={loadingPaymentInfo || isAuthorizing} size="lg" type="submit">
+          Authorize
+        </Button>
+      </div>
     </form>
   );
 };

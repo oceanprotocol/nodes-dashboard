@@ -15,6 +15,7 @@ type PaymentDepositProps = {
   escrowBalance: number;
   loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
+  renderBackButton?: (disabled: boolean) => React.ReactNode;
   selectedToken: SelectedToken;
   totalCost: number;
   walletBalance: number;
@@ -25,6 +26,7 @@ const PaymentDeposit = ({
   escrowBalance,
   loadingPaymentInfo,
   loadPaymentInfo,
+  renderBackButton,
   selectedToken,
   totalCost,
   walletBalance,
@@ -64,30 +66,31 @@ const PaymentDeposit = ({
         type="number"
         value={formik.values.amount}
       />
-      {hasSufficientFunds ? (
-        <Button
-          autoLoading
-          className="alignSelfEnd"
-          color="accent1"
-          disabled={loadingPaymentInfo || isDepositing}
-          onClick={loadPaymentInfo}
-          size="lg"
-          type="button"
-        >
-          Continue
-        </Button>
-      ) : (
-        <Button
-          className="alignSelfEnd"
-          color="accent1"
-          disabled={isDepositing || walletBalance < amountToDeposit}
-          loading={isDepositing}
-          size="lg"
-          type="submit"
-        >
-          Deposit
-        </Button>
-      )}
+      <div className={styles.buttons}>
+        {renderBackButton?.(loadingPaymentInfo)}
+        {hasSufficientFunds ? (
+          <Button
+            autoLoading
+            color="accent1"
+            disabled={loadingPaymentInfo || isDepositing}
+            onClick={loadPaymentInfo}
+            size="lg"
+            type="button"
+          >
+            Continue
+          </Button>
+        ) : (
+          <Button
+            color="accent1"
+            disabled={isDepositing || walletBalance < amountToDeposit}
+            loading={isDepositing}
+            size="lg"
+            type="submit"
+          >
+            Deposit
+          </Button>
+        )}
+      </div>
     </form>
   );
 };
