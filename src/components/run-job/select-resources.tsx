@@ -428,9 +428,20 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             </Collapse>
           ) : null}
         </TransitionGroup>
-        <Button className={styles.button} disabled={!isCostEstimated} color="accent1" size="lg" type="submit">
-          Continue
-        </Button>
+        <div className={styles.buttons}>
+          <Button
+            color="accent1"
+            onClick={() => router.replace('/run-job/environments')}
+            size="lg"
+            type="button"
+            variant="transparent"
+          >
+            Change environment
+          </Button>
+          <Button disabled={!isCostEstimated} color="accent1" size="lg" type="submit">
+            Continue
+          </Button>
+        </div>
       </form>
     </Card>
   );

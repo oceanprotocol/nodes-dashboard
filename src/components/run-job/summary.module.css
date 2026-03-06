@@ -24,21 +24,19 @@
   flex-direction: column;
   gap: 16px;
 
-  @media (min-width: 992px) {
-    align-items: center;
-    flex-direction: row;
-  }
-
   .buttons {
+    align-items: center;
     display: flex;
-    flex-direction: column;
-    flex: 1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
     gap: 16px;
 
-    @media (min-width: 576px) {
-      align-items: center;
+    .buttonsGroup {
+      display: flex;
       flex-direction: row;
-      justify-content: end;
+      flex-wrap: wrap;
+      gap: 16px;
     }
   }
 }

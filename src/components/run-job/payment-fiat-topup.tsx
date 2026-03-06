@@ -17,6 +17,7 @@ type PaymentFiatTopupProps = {
   escrowBalance: number;
   loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
+  renderBackButton?: (disabled: boolean) => React.ReactNode;
   selectedToken: SelectedToken;
   totalCost: number;
   walletBalance: number;
@@ -30,6 +31,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   escrowBalance,
   loadingPaymentInfo,
   loadPaymentInfo,
+  renderBackButton,
   selectedToken,
   totalCost,
   walletBalance,
@@ -183,27 +185,30 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
 
   return (
     <div className={styles.buttons}>
-      <Button
-        autoLoading
-        color="accent1"
-        contentBefore={<RefreshIcon />}
-        onClick={loadPaymentInfo}
-        size="lg"
-        variant="outlined"
-      >
-        Refresh wallet balance
-      </Button>
-      <Button
-        color="accent1"
-        contentBefore={loadingGetStatus ? null : <CreditCardIcon />}
-        disabled={loadingPaymentInfo}
-        loading={loadingGetStatus}
-        onClick={handleTopup}
-        size="lg"
-        variant="filled"
-      >
-        {loadingGetStatus ? 'Topping up...' : 'Top up'}
-      </Button>
+      {renderBackButton?.(loadingPaymentInfo)}
+      <div className={styles.buttonsGroup}>
+        <Button
+          autoLoading
+          color="accent1"
+          contentBefore={<RefreshIcon />}
+          onClick={loadPaymentInfo}
+          size="lg"
+          variant="outlined"
+        >
+          Refresh wallet balance
+        </Button>
+        <Button
+          color="accent1"
+          contentBefore={loadingGetStatus ? null : <CreditCardIcon />}
+          disabled={loadingPaymentInfo}
+          loading={loadingGetStatus}
+          onClick={handleTopup}
+          size="lg"
+          variant="filled"
+        >
+          {loadingGetStatus ? 'Topping up...' : 'Top up'}
+        </Button>
+      </div>
     </div>
   );
 };

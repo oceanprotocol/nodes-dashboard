@@ -36,10 +36,6 @@
     outline: none;
   }
 
-  .button {
-    align-self: flex-end;
-  }
-
   @media (min-width: 768px) {
     .selectRow {
       display: grid;
@@ -96,4 +92,12 @@
       line-height: 48px;
     }
   }
+}
+
+.buttons {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
 }

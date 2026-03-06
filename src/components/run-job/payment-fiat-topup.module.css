@@ -3,5 +3,12 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: 16px;
-  justify-content: flex-end;
+  justify-content: space-between;
+
+  .buttonsGroup {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
 }
