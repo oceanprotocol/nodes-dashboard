@@ -12,14 +12,23 @@ const PaymentPage = () => {
 
   const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
 
-  const { estimatedTotalCost, freeCompute, minLockSeconds, selectedEnv, selectedResources, selectedToken } =
-    useRunJobContext();
+  const {
+    estimatedTotalCost,
+    freeCompute,
+    hydrateFromUrlFinished,
+    minLockSeconds,
+    selectedEnv,
+    selectedResources,
+    selectedToken,
+  } = useRunJobContext();
 
   useEffect(() => {
-    if (!selectedToken) {
-      router.replace('/run-job/environments');
+    if (hydrateFromUrlFinished) {
+      if (!selectedToken) {
+        router.replace('/run-job/environments');
+      }
     }
-  }, [router, selectedToken]);
+  }, [hydrateFromUrlFinished, router, selectedToken]);
 
   return (
     <Container className="pageRoot">
@@ -29,7 +38,7 @@ const PaymentPage = () => {
         subTitle={subtitle}
         contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
       />
-      {selectedEnv && selectedResources && selectedToken ? (
+      {hydrateFromUrlFinished && selectedEnv && selectedResources && selectedToken ? (
         <div className="pageContentWrapper">
           <Payment
             minLockSeconds={minLockSeconds ?? 0}

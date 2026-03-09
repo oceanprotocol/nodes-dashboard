@@ -10,14 +10,23 @@ import { useEffect } from 'react';
 const SummaryPage = () => {
   const router = useRouter();
 
-  const { estimatedTotalCost, freeCompute, nodeInfo, selectedEnv, selectedResources, selectedToken } =
-    useRunJobContext();
+  const {
+    estimatedTotalCost,
+    freeCompute,
+    hydrateFromUrlFinished,
+    nodeInfo,
+    selectedEnv,
+    selectedResources,
+    selectedToken,
+  } = useRunJobContext();
 
   useEffect(() => {
-    if (!selectedEnv || !selectedResources) {
-      router.replace('/run-job/environments');
+    if (hydrateFromUrlFinished) {
+      if (!selectedEnv || !selectedResources) {
+        router.replace('/run-job/environments');
+      }
     }
-  }, [router, selectedEnv, selectedResources]);
+  }, [hydrateFromUrlFinished, router, selectedEnv, selectedResources]);
 
   return (
     <Container className="pageRoot">
@@ -27,7 +36,7 @@ const SummaryPage = () => {
         subTitle="Everything is set up. Below is a summary of your selection"
         contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
       />
-      {nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (
+      {hydrateFromUrlFinished && nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (
         <div className="pageContentWrapper">
           <Summary
             estimatedTotalCost={estimatedTotalCost ?? 0}
