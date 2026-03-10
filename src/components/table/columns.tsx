@@ -143,19 +143,6 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
   },
   {
-    field: 'eligible',
-    filterable: true,
-    flex: 1,
-    headerName: 'Reward eligibility',
-    sortable: false,
-    renderCell: (params: GridRenderCellParams<Node>) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {getEligibleCheckbox(params.row.eligible, params.row.banned, params.row.eligibilityCauseStr)}
-      </div>
-    ),
-    filterOperators: getGridStringOperators().filter((operator) => operator.value === 'equals'),
-  },
-  {
     align: 'right',
     field: 'actions',
     filterable: false,
