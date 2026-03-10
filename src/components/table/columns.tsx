@@ -5,7 +5,6 @@ import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
 import { formatNumber } from '@/utils/formatters';
-import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
@@ -141,7 +140,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
           </>
         ) : (
           <>
-            <CancelIcon className="textError" />
+            <HighlightOffOutlinedIcon className="textError" />
             <span className="textErrorDarker">Not tested</span>
           </>
         )}
@@ -204,7 +203,7 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
           </>
         ) : (
           <>
-            <CancelIcon className="textError" />
+            <HighlightOffOutlinedIcon className="textError" />
             <span className="textErrorDarker">Not tested</span>
           </>
         )}
