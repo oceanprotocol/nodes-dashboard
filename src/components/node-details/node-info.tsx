@@ -281,6 +281,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       </div>
       <div className={styles.statusWrapper}>
         <Eligibility
+          banReason={node.banReason}
           eligibility={
             node.banned
               ? NodeEligibility.BANNED
@@ -289,7 +290,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
                 : NodeEligibility.NON_ELIGIBLE
           }
           eligibilityCauseStr={node.eligibilityCauseStr}
-          banReason={node.banReason}
+          tested={!!node.latestBenchmarkResults}
         />
         {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} /> : null}
       </div>
