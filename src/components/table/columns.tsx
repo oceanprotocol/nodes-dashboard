@@ -5,10 +5,12 @@ import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
 import { formatNumber } from '@/utils/formatters';
+import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import classNames from 'classnames';
@@ -126,9 +128,24 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Total Score',
     sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore?.toLocaleString() || '-',
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+    renderCell: (params) => (
+      <div className="flexRow alignItemsCenter gapSm">
+        {params.value || params.value === 0 ? (
+          <>
+            <span>{params.value.toLocaleString()}</span>
+            <VerifiedIcon className="textSuccessDarker" />
+          </>
+        ) : (
+          <>
+            <CancelIcon className="textError" />
+            <span className="textErrorDarker">Not tested</span>
+          </>
+        )}
+      </div>
     ),
   },
   {
@@ -177,7 +194,22 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Bench score',
     sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore?.toLocaleString() || '-',
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore,
+    renderCell: (params) => (
+      <div className="flexRow alignItemsCenter gapSm">
+        {params.value || params.value === 0 ? (
+          <>
+            <span>{params.value.toLocaleString()}</span>
+            <VerifiedIcon className="textSuccessDarker" />
+          </>
+        ) : (
+          <>
+            <CancelIcon className="textError" />
+            <span className="textErrorDarker">Not tested</span>
+          </>
+        )}
+      </div>
+    ),
   },
   {
     field: 'totalJobs',
