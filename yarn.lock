@@ -3491,6 +3491,37 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@libp2p/utils@npm:^7.0.12":
+  version: 7.0.12
+  resolution: "@libp2p/utils@npm:7.0.12"
+  dependencies:
+    "@chainsafe/is-ip": "npm:^2.1.0"
+    "@chainsafe/netmask": "npm:^2.0.0"
+    "@libp2p/crypto": "npm:^5.1.13"
+    "@libp2p/interface": "npm:^3.1.0"
+    "@libp2p/logger": "npm:^6.2.2"
+    "@multiformats/multiaddr": "npm:^13.0.1"
+    "@sindresorhus/fnv1a": "npm:^3.1.0"
+    any-signal: "npm:^4.1.1"
+    cborg: "npm:^4.2.14"
+    delay: "npm:^7.0.0"
+    is-loopback-addr: "npm:^2.0.2"
+    it-length-prefixed: "npm:^10.0.1"
+    it-pipe: "npm:^3.0.1"
+    it-pushable: "npm:^3.2.3"
+    it-stream-types: "npm:^2.0.2"
+    main-event: "npm:^1.0.1"
+    netmask: "npm:^2.0.2"
+    p-defer: "npm:^4.0.1"
+    p-event: "npm:^7.0.0"
+    race-signal: "npm:^2.0.0"
+    uint8-varint: "npm:^2.0.4"
+    uint8arraylist: "npm:^2.4.8"
+    uint8arrays: "npm:^5.1.0"
+  checksum: 10c0/e5f76a392746ee02229c8a9467d1ff36e16d75676c76bef6c928e2222e7ad4e2f11593aa476c2c45c0df48df5decdc96ac5088d1d073f0493dbf5b20710c41e1
+  languageName: node
+  linkType: hard
+
 "@libp2p/websockets@npm:^10.1.2":
   version: 10.1.3
   resolution: "@libp2p/websockets@npm:10.1.3"
@@ -16426,6 +16457,7 @@ __metadata:
     "@libp2p/tcp": "npm:^11.0.9"
     "@libp2p/tls": "npm:^3.0.10"
     "@libp2p/upnp-nat": "npm:^4.0.9"
+    "@libp2p/utils": "npm:^7.0.12"
     "@libp2p/websockets": "npm:^10.1.2"
     "@mui/icons-material": "npm:^7.3.6"
     "@mui/material": "npm:^7.3.6"
