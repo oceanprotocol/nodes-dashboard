@@ -104,7 +104,7 @@ const Payment = ({
         tokenSymbol: selectedToken.symbol,
         tokenAddress: selectedToken.address,
       });
-      router.push('/run-job/summary');
+      router.push({ pathname: '/run-job/summary', query: router.query });
     }
   }, [
     authorizations?.maxLockSeconds,
@@ -122,7 +122,7 @@ const Payment = ({
     <Button
       color="accent1"
       disabled={disabled}
-      onClick={() => router.replace('/run-job/resources')}
+      onClick={() => router.replace({ pathname: '/run-job/resources', query: router.query })}
       size="lg"
       type="button"
       variant="transparent"
@@ -182,7 +182,7 @@ const Payment = ({
   };
 
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
-    <CircularProgress />
+    <CircularProgress className="alignSelfCenter" />
   ) : (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Payment</h3>

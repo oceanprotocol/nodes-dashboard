@@ -5,7 +5,6 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
-import { CHAIN_ID } from '@/constants/chains';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -44,20 +43,24 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const { account } = useOceanAccount();
 
-  const { nodeInfo, multiaddrsOrPeerId, setEstimatedTotalCost, setMinLockSeconds, setSelectedResources } =
-    useRunJobContext();
+  const {
+    estimatedTotalCost,
+    fetchEstimatedCost,
+    multiaddrsOrPeerId,
+    selectedResources,
+    setEstimatedTotalCost,
+    setSelectedResources,
+  } = useRunJobContext();
 
-  const { initializeCompute, node: p2pNode } = useP2P();
-  const { provider } = useOceanAccount();
+  const { node: p2pNode } = useP2P();
 
   const [initComputeError, setInitComputeError] = useState<unknown | null>(null);
-  const [estimatedTotalCost, setLocalEstimatedTotalCost] = useState<number | null>(null);
   const [isLoadingCost, setIsLoadingCost] = useState(false);
 
   const costEstimateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ESTIMATE_COST_DEBOUNCE_MS = 800;
 
-  const isCostEstimated = (estimatedTotalCost || estimatedTotalCost === 0) && !initComputeError;
+  const isCostEstimated = !isLoadingCost && (estimatedTotalCost || estimatedTotalCost === 0) && !initComputeError;
 
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
     useEnvResources({
@@ -85,14 +88,20 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const maxAllowedJobDurationSeconds = maxJobDurationSeconds ?? 0;
   const maxAllowedRam = ram?.max ?? minAllowedRam;
 
+  const selectedCpu = selectedResources?.cpuCores;
+  const selectedDisk = selectedResources?.diskSpace;
+  const selectedRam = selectedResources?.ram;
+  const selectedGpus = selectedResources?.gpus.map((gpu) => gpu.id);
+  const selectedMaxJobDurationSeconds = selectedResources?.maxJobDurationSeconds;
+
   const formik = useFormik<ResourcesFormValues>({
     initialValues: {
-      cpuCores: minAllowedCpuCores,
-      diskSpace: minAllowedDiskSpace,
-      gpus: [],
+      cpuCores: selectedCpu ?? minAllowedCpuCores,
+      diskSpace: selectedDisk ?? minAllowedDiskSpace,
+      gpus: selectedGpus ?? [],
       maxJobDurationUnit: 'hours' as DurationUnit,
-      maxJobDurationValue: fromSeconds(minAllowedJobDurationSeconds, 'hours'),
-      ram: minAllowedRam,
+      maxJobDurationValue: fromSeconds(selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds, 'hours'),
+      ram: selectedRam ?? minAllowedRam,
     },
     onSubmit: (values) => {
       if (!account?.isConnected) {
@@ -121,10 +130,20 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         estimatedTotalCost,
         freeCompute,
       });
+
+      const query = {
+        ...router.query,
+        cpu: values.cpuCores,
+        ram: values.ram,
+        disk: values.diskSpace,
+        ...(values.gpus.length > 0 && { gpus: values.gpus }),
+        maxJobDuration: toSeconds(values.maxJobDurationValue, values.maxJobDurationUnit),
+      };
+
       if (estimatedTotalCost! > 0 && !freeCompute) {
-        router.push('/run-job/payment');
+        router.push({ pathname: '/run-job/payment', query });
       } else {
-        router.push('/run-job/summary');
+        router.push({ pathname: '/run-job/summary', query });
       }
     },
     validateOnMount: true,
@@ -163,61 +182,40 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     [cpu?.id, disk?.id, ram?.id, formik.values.cpuCores, formik.values.diskSpace, formik.values.ram, formik.values.gpus]
   );
 
-  const fetchEstimatedCost = useCallback(async () => {
-    setInitComputeError(null);
-    if (freeCompute) {
-      setLocalEstimatedTotalCost(0);
-      return;
-    }
-    if (!provider || !nodeInfo?.id || !p2pNode) {
-      return;
-    }
+  const estimateCost = useCallback(async () => {
     setIsLoadingCost(true);
-    try {
-      const maxJobDurationSec = toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit);
-      const { cost, minLockSeconds } = await initializeCompute(
-        environment,
-        token!.address,
-        maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
-        multiaddrsOrPeerId,
-        environment.consumerAddress,
-        resources,
-        CHAIN_ID,
-        provider
-      );
-      setLocalEstimatedTotalCost(Number(cost));
-      setMinLockSeconds(minLockSeconds);
-    } catch (error) {
-      setInitComputeError(error);
-      console.error('Failed to fetch estimated cost:', error);
-    } finally {
-      setIsLoadingCost(false);
-    }
+    setInitComputeError(null);
+    await fetchEstimatedCost({
+      environment,
+      freeCompute,
+      maxJobDurationSeconds: toSeconds(formik.values.maxJobDurationValue, formik.values.maxJobDurationUnit),
+      multiaddrsOrPeerId,
+      onError: (error) => setInitComputeError(error),
+      resources,
+      tokenAddress: token!.address,
+    });
+    setIsLoadingCost(false);
   }, [
+    fetchEstimatedCost,
+    environment,
     freeCompute,
-    provider,
-    nodeInfo?.id,
-    p2pNode,
     formik.values.maxJobDurationValue,
     formik.values.maxJobDurationUnit,
-    initializeCompute,
-    environment,
-    token,
     multiaddrsOrPeerId,
     resources,
-    setMinLockSeconds,
+    token,
   ]);
 
   useEffect(() => {
     if (costEstimateTimeoutRef.current) clearTimeout(costEstimateTimeoutRef.current);
     costEstimateTimeoutRef.current = setTimeout(() => {
       costEstimateTimeoutRef.current = null;
-      fetchEstimatedCost();
+      estimateCost();
     }, ESTIMATE_COST_DEBOUNCE_MS);
     return () => {
       if (costEstimateTimeoutRef.current) clearTimeout(costEstimateTimeoutRef.current);
     };
-  }, [fetchEstimatedCost]);
+  }, [estimateCost, fetchEstimatedCost]);
 
   const selectAllGpus = () => {
     formik.setFieldValue(
