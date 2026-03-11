@@ -190,59 +190,64 @@ export async function getPeerMultiaddr(multiaddrsOrPeerId: MultiaddrsOrPeerId) {
   return connection.remoteAddr.toString();
 }
 
+async function attemptCommand(connection: Connection, command: Record<string, any>, protocol: string): Promise<any> {
+  const stream = await connection.newStream(protocol, {
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+    runOnLimitedConnection: true,
+  });
+
+  if (!stream) {
+    throw new Error('Failed to create stream to peer');
+  }
+
+  const lp = lpStream(stream);
+  await lp.write(uint8ArrayFromString(JSON.stringify(command)), {
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+  });
+
+  const statusBytes = await lp.read({ signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
+  const status = JSON.parse(uint8ArrayToString(statusBytes.subarray()));
+
+  return {
+    status,
+    stream: {
+      [Symbol.asyncIterator]: async function* () {
+        try {
+          while (true) {
+            const chunk = await lp.read();
+            yield chunk.subarray ? chunk.subarray() : chunk;
+          }
+        } catch {
+          // stream ended
+        }
+      },
+    },
+  };
+}
+
 export async function sendCommandToPeer(
   multiaddrsOrPeerId: MultiaddrsOrPeerId,
   command: Record<string, any>,
   protocol: string = DEFAULT_PROTOCOL
 ): Promise<any> {
+  if (!nodeInstance) throw new Error('Node not initialized');
+  if (!isNodeReady) throw new Error('Node not ready - still establishing bootstrap connections');
+
+  let connection = await dialPeer(multiaddrsOrPeerId);
+
   try {
-    if (!nodeInstance) {
-      throw new Error('Node not initialized');
+    return await attemptCommand(connection, command, protocol);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes('closed') && !msg.includes('reset')) {
+      console.error('Command failed:', msg);
+      throw err;
     }
-
-    if (!isNodeReady) {
-      throw new Error('Node not ready - still establishing bootstrap connections');
-    }
-
-    const connection = await dialPeer(multiaddrsOrPeerId);
-
-    const stream = await connection.newStream(protocol, {
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-      runOnLimitedConnection: true,
-    });
-
-    if (!stream) {
-      throw new Error(`Failed to create stream to peer`);
-    }
-
-    const lp = lpStream(stream);
-    const writeSignal = AbortSignal.timeout(DEFAULT_TIMEOUT);
-    const readSignal = AbortSignal.timeout(DEFAULT_TIMEOUT);
-
-    await lp.write(uint8ArrayFromString(JSON.stringify(command)), { signal: writeSignal });
-
-    const statusBytes = await lp.read({ signal: readSignal });
-    const status = JSON.parse(uint8ArrayToString(statusBytes.subarray()));
-
-    return {
-      status,
-      stream: {
-        [Symbol.asyncIterator]: async function* () {
-          try {
-            while (true) {
-              const chunk = await lp.read();
-              yield chunk.subarray ? chunk.subarray() : chunk;
-            }
-          } catch {
-            // stream ended
-          }
-        },
-      },
-    };
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Command failed:', errorMessage);
-    throw error;
+    // Stale connection — evict and retry once
+    console.warn('Stale connection detected, evicting and retrying...');
+    await connection.close().catch(() => {});
+    connection = await dialPeer(multiaddrsOrPeerId);
+    return await attemptCommand(connection, command, protocol);
   }
 }
 
