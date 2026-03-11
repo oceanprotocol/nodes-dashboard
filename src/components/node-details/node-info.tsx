@@ -58,7 +58,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
   // }, [isReady, node?.id, getNodeStatus]);
 
   const isAdmin = useMemo(
-    () => account.address && node.allowedAdmins?.includes(account.address),
+    () => !!(account.address && node.allowedAdmins?.includes(account.address)),
     [node.allowedAdmins, account]
   );
 
@@ -290,7 +290,8 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
                 : NodeEligibility.NON_ELIGIBLE
           }
           eligibilityCauseStr={node.eligibilityCauseStr}
-          tested={!!node.latestBenchmarkResults}
+          isAdmin={isAdmin}
+          verified={!!node.latestBenchmarkResults}
         />
         {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} /> : null}
       </div>

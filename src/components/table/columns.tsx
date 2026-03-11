@@ -141,7 +141,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
         ) : (
           <>
             <HighlightOffOutlinedIcon className="textError" />
-            <span className="textErrorDarker">Not tested</span>
+            <span className="textErrorDarker">Not verified</span>
           </>
         )}
       </div>
@@ -204,7 +204,7 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
         ) : (
           <>
             <HighlightOffOutlinedIcon className="textError" />
-            <span className="textErrorDarker">Not tested</span>
+            <span className="textErrorDarker">Not verified</span>
           </>
         )}
       </div>
