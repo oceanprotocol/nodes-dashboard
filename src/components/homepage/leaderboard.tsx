@@ -90,7 +90,7 @@ export default function LeaderboardSection() {
   return (
     <div className={styles.root}>
       <Container className={styles.relative}>
-        <SectionTitle title="Leaderboard Preview" subTitle="Explore the most active nodes in the Ocean Network" />
+        <SectionTitle title="Leaderboard Preview" subTitle="Explore the most powerful nodes in the Ocean Network" />
         <Card className={styles.leaderboardWrapper} padding="md" radius="lg" shadow="black" variant="glass-shaded">
           <Table<Node>
             autoHeight

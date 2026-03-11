@@ -12,7 +12,7 @@ const LeaderboardPage = () => {
 
   return (
     <Container className="pageRoot">
-      <SectionTitle moreReadable title="Leaderboard" subTitle="Explore the most active nodes in the Ocean Network" />
+      <SectionTitle moreReadable title="Leaderboard" subTitle="Explore the most powerful nodes in the Ocean Network" />
       <div className="pageContentWrapper">
         <JobsRevenueStats />
         <Card padding="md" radius="lg" shadow="black" variant="glass-shaded">
