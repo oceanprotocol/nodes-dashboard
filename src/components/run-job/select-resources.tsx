@@ -95,6 +95,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const selectedMaxJobDurationSeconds = selectedResources?.maxJobDurationSeconds;
 
   const formik = useFormik<ResourcesFormValues>({
+    enableReinitialize: true,
     initialValues: {
       cpuCores: selectedCpu ?? minAllowedCpuCores,
       diskSpace: selectedDisk ?? minAllowedDiskSpace,
