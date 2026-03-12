@@ -99,8 +99,8 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       cpuCores: selectedCpu ?? minAllowedCpuCores,
       diskSpace: selectedDisk ?? minAllowedDiskSpace,
       gpus: selectedGpus ?? [],
-      maxJobDurationUnit: 'hours' as DurationUnit,
-      maxJobDurationValue: fromSeconds(selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds, 'hours'),
+      maxJobDurationUnit: (selectedMaxJobDurationSeconds ? 'seconds' : 'hours') as DurationUnit,
+      maxJobDurationValue: selectedMaxJobDurationSeconds || fromSeconds(minAllowedJobDurationSeconds, 'hours'),
       ram: selectedRam ?? minAllowedRam,
     },
     onSubmit: (values) => {
