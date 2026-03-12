@@ -239,10 +239,13 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const multiaddrs = new Set(foundNode?.multiaddrs?.filter(Boolean).filter(multiaddr));
         const queryFree = searchParams.get('free') === 'true';
         const qJobDuration = searchParams.get('maxJobDuration');
-        const queryGpus = searchParams.getAll('gpus[]'); // Assuming gpus[] format if multiple, or just gpus if array
-        const gpusVal = queryGpus.length > 0 ? queryGpus : searchParams.getAll('gpus');
+        const queryGpusArray = searchParams.getAll('gpus[]');
+        const queryGpus = queryGpusArray.length > 0 ? queryGpusArray : searchParams.getAll('gpus');
         let resources: EnvResourcesSelection = {
-          gpus: gpusVal.map((gpu) => ({ id: gpu })),
+          gpus: queryGpus.map((gpuId) => {
+            const gpuRes = foundEnv.resources?.find((res) => res.type === 'gpu' && res.id === gpuId);
+            return { id: gpuId, description: gpuRes?.description };
+          }),
           maxJobDurationSeconds: qJobDuration
             ? Number(qJobDuration)
             : queryFree
@@ -274,13 +277,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
             ...resources,
             diskSpace: Number(qDisk),
             diskId: disk.id,
-          };
-        }
-        if (gpusVal.length > 0 || qJobDuration) {
-          resources = {
-            ...resources,
-            gpus: gpusVal.map((gpu) => ({ id: gpu })),
-            maxJobDurationSeconds: qJobDuration ? Number(qJobDuration) : 0,
           };
         }
         selectEnv({
