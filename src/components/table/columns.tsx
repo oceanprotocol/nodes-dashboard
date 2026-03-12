@@ -112,6 +112,8 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
     ),
+    valueGetter: (_value, row) => row.friendlyName || row.id || row.nodeId,
+    renderCell: (params) => <span title={params.value}>{params.value}</span>,
   },
   {
     field: 'gpus',
@@ -135,8 +137,8 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
       <div className="flexRow alignItemsCenter gapSm">
         {params.value || params.value === 0 ? (
           <>
-            <span>{params.value.toLocaleString()}</span>
             <VerifiedIcon className="textSuccessDarker" />
+            <span>{params.value.toLocaleString()}</span>
           </>
         ) : (
           <>
@@ -157,6 +159,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
     ),
+    renderCell: (params) => params.value ?? <span className="textSecondary">Unknown</span>,
   },
   {
     align: 'right',
@@ -178,6 +181,8 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Name',
     sortable: false,
+    valueGetter: (_value, row) => row.friendlyName || row.id || row.nodeId,
+    renderCell: (params) => <span title={params.value}>{params.value}</span>,
   },
   {
     field: 'gpus',
@@ -198,8 +203,8 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
       <div className="flexRow alignItemsCenter gapSm">
         {params.value || params.value === 0 ? (
           <>
-            <span>{params.value.toLocaleString()}</span>
             <VerifiedIcon className="textSuccessDarker" />
+            <span>{params.value.toLocaleString()}</span>
           </>
         ) : (
           <>
@@ -224,7 +229,7 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Revenue',
     sortable: false,
-    valueGetter: (_value, row) => `USDC ${row.totalRevenue || 0}`,
+    valueGetter: (_value, row) => `USDC ${formatNumber(row.totalRevenue || 0)}`,
   },
 ];
 
