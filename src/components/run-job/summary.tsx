@@ -71,6 +71,7 @@ const Summary = ({
         nodeId: nodeInfo.id,
         environmentId: selectedEnv.id,
         freeCompute,
+        tokenAddress: token?.address,
       });
     } catch (error) {
       console.error('Failed to generate auth token:', error);
