@@ -16,6 +16,19 @@ import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+// MetaMask returns nonce=null for pending txs in eth_getTransactionByHash, which
+// ethers v6 fails to parse as BigInt. Patch it in send() before ethers processes
+// the response.
+class MetaMaskBrowserProvider extends ethers.BrowserProvider {
+  async send(method: string, params: Array<any>): Promise<any> {
+    const result = await super.send(method, params);
+    if (method === 'eth_getTransactionByHash' && result?.nonce == null) {
+      return null;
+    }
+    return result;
+  }
+}
+
 export type SignMessageFn = (message: string) => Promise<string>;
 
 type OceanAccountContextType = {
@@ -55,7 +68,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
   const provider = useMemo(() => {
     if (!isConnected) return null;
-    return new ethers.JsonRpcProvider(getRpc(), undefined, { batchMaxCount: 3 });
+    return new ethers.JsonRpcProvider(getRpc());
   }, [isConnected]);
 
   const ocean = useMemo(() => {
@@ -140,7 +153,7 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
   const provider = useMemo(() => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
-      return new ethers.BrowserProvider((window as any).ethereum);
+      return new MetaMaskBrowserProvider((window as any).ethereum);
     }
     return null;
   }, []);
