@@ -194,7 +194,7 @@ const Summary = ({
   const backButton = (
     <Button
       color="accent1"
-      onClick={() => router.replace('/run-job/resources')}
+      onClick={() => router.replace({ pathname: '/run-job/resources', query: router.query })}
       size="lg"
       type="button"
       variant="transparent"
