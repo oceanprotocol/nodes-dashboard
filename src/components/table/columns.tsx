@@ -9,6 +9,7 @@ import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import classNames from 'classnames';
@@ -111,6 +112,8 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
     ),
+    valueGetter: (_value, row) => row.friendlyName || row.id || row.nodeId,
+    renderCell: (params) => <span title={params.value}>{params.value}</span>,
   },
   {
     field: 'gpus',
@@ -126,9 +129,24 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Total Score',
     sortable: true,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore?.toLocaleString() || '-',
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+    renderCell: (params) => (
+      <div className="flexRow alignItemsCenter gapSm">
+        {params.value || params.value === 0 ? (
+          <>
+            <VerifiedIcon className="textSuccessDarker" />
+            <span>{params.value.toLocaleString()}</span>
+          </>
+        ) : (
+          <>
+            <HighlightOffOutlinedIcon className="textError" />
+            <span className="textErrorDarker">Not verified</span>
+          </>
+        )}
+      </div>
     ),
   },
   {
@@ -141,19 +159,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
     ),
-  },
-  {
-    field: 'eligible',
-    filterable: true,
-    flex: 1,
-    headerName: 'Reward eligibility',
-    sortable: false,
-    renderCell: (params: GridRenderCellParams<Node>) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {getEligibleCheckbox(params.row.eligible, params.row.banned, params.row.eligibilityCauseStr)}
-      </div>
-    ),
-    filterOperators: getGridStringOperators().filter((operator) => operator.value === 'equals'),
+    renderCell: (params) => params.value ?? <span className="textSecondary">Unknown</span>,
   },
   {
     align: 'right',
@@ -175,6 +181,8 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Name',
     sortable: false,
+    valueGetter: (_value, row) => row.friendlyName || row.id || row.nodeId,
+    renderCell: (params) => <span title={params.value}>{params.value}</span>,
   },
   {
     field: 'gpus',
@@ -190,7 +198,22 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Bench score',
     sortable: false,
-    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore?.toLocaleString() || '-',
+    valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore,
+    renderCell: (params) => (
+      <div className="flexRow alignItemsCenter gapSm">
+        {params.value || params.value === 0 ? (
+          <>
+            <VerifiedIcon className="textSuccessDarker" />
+            <span>{params.value.toLocaleString()}</span>
+          </>
+        ) : (
+          <>
+            <HighlightOffOutlinedIcon className="textError" />
+            <span className="textErrorDarker">Not verified</span>
+          </>
+        )}
+      </div>
+    ),
   },
   {
     field: 'totalJobs',
@@ -206,7 +229,7 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Revenue',
     sortable: false,
-    valueGetter: (_value, row) => `USDC ${row.totalRevenue || 0}`,
+    valueGetter: (_value, row) => `USDC ${formatNumber(row.totalRevenue || 0)}`,
   },
 ];
 
