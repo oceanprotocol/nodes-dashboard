@@ -18,11 +18,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 
 // MetaMask returns nonce=null for pending txs in eth_getTransactionByHash, which
 // ethers v6 fails to parse as BigInt. Patch it in send() before ethers processes
-// the response. Extending BrowserProvider keeps all calls on MetaMask's provider
-// and avoids the RPC proxy entirely.
-// MetaMask returns nonce=null for pending txs in eth_getTransactionByHash, which
-// ethers v6 fails to parse as BigInt. Returning null is the correct signal —
-// it means "not ready yet", and ethers' checkTx already handles null by retrying.
+// the response.
 class MetaMaskBrowserProvider extends ethers.BrowserProvider {
   async send(method: string, params: Array<any>): Promise<any> {
     const result = await super.send(method, params);
