@@ -325,13 +325,15 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         setHydrateFromUrlFinished(true);
       } else {
         const queryFree = searchParams.get('free') === 'true';
-        if (queryFree || p2pNode) {
+        // For paid compute, also wait for p2p node and provider in order to fetch the cost
+        // For free compute, they are not needed
+        if (queryFree || (p2pNode && provider)) {
           setHydrateFromUrlStarted(true);
           hydrateContextFromQueryParams();
         }
       }
     }
-  }, [hydrateContextFromQueryParams, hydrateFromUrlStarted, p2pNode, searchParams]);
+  }, [hydrateContextFromQueryParams, hydrateFromUrlStarted, p2pNode, provider, searchParams]);
 
   return (
     <RunJobContext.Provider
