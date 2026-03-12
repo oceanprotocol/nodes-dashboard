@@ -174,7 +174,10 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     }
     setIsLoadingCost(true);
     try {
-      const maxJobDurationSec = toSeconds(Number(formik.values.maxJobDurationValue) || 0, formik.values.maxJobDurationUnit);
+      const maxJobDurationSec = toSeconds(
+        Number(formik.values.maxJobDurationValue) || 0,
+        formik.values.maxJobDurationUnit
+      );
       const { cost, minLockSeconds } = await initializeCompute(
         environment,
         token!.address,
@@ -424,12 +427,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         <TransitionGroup>
           {formik.isValid && !freeCompute ? (
             <Collapse>
-              <Card className={styles.costCard} radius="md" variant="accent1-outline">
+              <Card className={styles.costCard} innerShadow="black" radius="md" variant="glass">
                 <div className={styles.costEstimation}>
                   <h3>Estimated total cost</h3>
                   {renderCostEstimation()}
                 </div>
-                <div className="alignSelfEnd textAccent1Lighter">
+                <div className="alignSelfEnd textSuccessDarker">
                   If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
                 </div>
               </Card>
