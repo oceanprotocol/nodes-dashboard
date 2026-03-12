@@ -4,6 +4,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GasFeeModal from '@/components/node-details/gas-fee-modal';
 import WithdrawModal from '@/components/node-details/withdraw-modal';
+import { CHAIN_ID } from '@/constants/chains';
 import { useP2P } from '@/contexts/P2PContext';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -39,15 +40,18 @@ export const Balance = ({ admins }: BalanceProps) => {
     try {
       if (account?.address && envs.length > 0) {
         const uniqueTokens = new Set<string>();
-        envs.forEach((env) => {
-          if (env.fees) {
-            Object.values(env.fees).forEach((feeStructures) => {
-              feeStructures.forEach((fee) => {
-                uniqueTokens.add(fee.feeToken);
+        envs
+          // Filter out environments not related to the current chain
+          .filter((env) => Object.keys(env.fees ?? {})[0] === CHAIN_ID.toString())
+          .forEach((env) => {
+            if (env.fees) {
+              Object.values(env.fees).forEach((feeStructures) => {
+                feeStructures.forEach((fee) => {
+                  uniqueTokens.add(fee.feeToken);
+                });
               });
-            });
-          }
-        });
+            }
+          });
         const userBalances: NodeBalance[] = await Promise.all(
           Array.from(uniqueTokens).map(async (tokenAddress) => {
             const symbol = await getTokenSymbol(tokenAddress);
