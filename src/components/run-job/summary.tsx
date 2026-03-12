@@ -101,11 +101,14 @@ const Summary = ({
    * Initiate payment check
    */
   useEffect(() => {
+    if (!ocean || !account.address) {
+      return;
+    }
     if (!paymentCheckStarted) {
       setPaymentCheckStarted(true);
       checkPaymentStatus();
     }
-  }, [checkPaymentStatus, paymentCheckStarted]);
+  }, [account.address, checkPaymentStatus, ocean, paymentCheckStarted]);
 
   const generateToken = async () => {
     if (!account.address || !ocean) {
