@@ -61,12 +61,12 @@ const Summary = ({
       return;
     }
     try {
-      const { token } = await createAuthToken({
+      const { token: generatedAuthToken } = await createAuthToken({
         consumerAddress: account.address,
         multiaddrsOrPeerId: multiaddrsOrPeerId!,
         signMessage,
       });
-      setAuthToken(token);
+      setAuthToken(generatedAuthToken);
       posthog.capture('authToken_generated', {
         nodeId: nodeInfo.id,
         environmentId: selectedEnv.id,
