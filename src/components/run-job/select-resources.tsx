@@ -338,7 +338,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           <Slider
             errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
             hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}
-            label="CPU"
+            label={`CPU - ${formik.values.cpuCores} ${formik.values.cpuCores === 1 ? 'core' : 'cores'}`}
             name="cpuCores"
             marks
             max={maxAllowedCpuCores}
@@ -353,7 +353,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           <Slider
             errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
             hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}
-            label="RAM"
+            label={`RAM - ${formik.values.ram} GB`}
             name="ram"
             marks
             max={maxAllowedRam}
