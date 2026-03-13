@@ -116,6 +116,14 @@ a {
     border: 1px solid var(--border);
     color: var(--text-primary);
   }
+  &.chipAccent1 {
+    background: var(--accent1);
+    color: var(--text-primary-inverse);
+  }
+  &.chipAccent2 {
+    background: var(--accent2);
+    color: var(--text-primary);
+  }
   &.chipGlass {
     background: var(--background-glass-secondary);
     color: var(--text-primary);

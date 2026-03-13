@@ -1,4 +1,5 @@
-import { styled } from '@mui/material';
+import { Collapse, styled } from '@mui/material';
+import { TransitionGroup } from 'react-transition-group';
 
 const StyledRoot = styled('div')<{ disabled?: boolean }>(({ disabled }) => ({
   display: 'flex',
@@ -38,8 +39,8 @@ type InputWrapperProps = {
   className?: string;
   disabled?: boolean;
   errorText?: string | string[];
-  hint?: string;
-  label?: string;
+  hint?: React.ReactNode;
+  label?: React.ReactNode;
   topRight?: React.ReactNode;
 };
 
@@ -52,10 +53,18 @@ const InputWrapper = ({ children, className, disabled, errorText, hint, label, t
       </StyledLabelWrapper>
     ) : null}
     {children}
-    {hint ? <StyledFooterHint>{hint}</StyledFooterHint> : null}
-    {errorText ? (
-      <StyledErrorText>{Array.isArray(errorText) ? errorText.join(' | ') : errorText}</StyledErrorText>
-    ) : null}
+    <TransitionGroup>
+      {hint ? (
+        <Collapse>
+          <StyledFooterHint>{hint}</StyledFooterHint>
+        </Collapse>
+      ) : null}
+      {errorText ? (
+        <Collapse>
+          <StyledErrorText>{Array.isArray(errorText) ? errorText.join(' | ') : errorText}</StyledErrorText>
+        </Collapse>
+      ) : null}
+    </TransitionGroup>
   </StyledRoot>
 );
 
