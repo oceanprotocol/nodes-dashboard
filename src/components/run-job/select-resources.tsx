@@ -373,7 +373,14 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             }
             errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
             hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`}
-            label="Disk space *"
+            label={
+              <div>
+                Disk space{' '}
+                <Tooltip title="The disk space should accommodate the container images, required datasets, temporary results, and final algorithm outputs">
+                  <InfoOutlinedIcon className="textAccent1" />
+                </Tooltip>
+              </div>
+            }
             max={maxAllowedDiskSpace}
             min={0}
             name="diskSpace"
@@ -424,10 +431,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             value={formik.values.maxJobDurationValue}
           />
         </div>
-        <p>
-          * The disk space should accommodate the container images, required datasets, temporary results, and final
-          algorithm outputs
-        </p>
         <TransitionGroup>
           {formik.isValid && !freeCompute ? (
             <Collapse>

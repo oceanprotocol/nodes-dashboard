@@ -39,8 +39,8 @@ type InputWrapperProps = {
   className?: string;
   disabled?: boolean;
   errorText?: string | string[];
-  hint?: string;
-  label?: string;
+  hint?: React.ReactNode;
+  label?: React.ReactNode;
   topRight?: React.ReactNode;
 };
 
