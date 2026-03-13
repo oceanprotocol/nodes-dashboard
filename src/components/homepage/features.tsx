@@ -18,6 +18,7 @@ const features: {
   description: string;
   icon: JSX.Element;
   isBlue?: boolean;
+  isComingSoon?: boolean;
 }[] = [
   {
     title: 'Pay-per-use',
@@ -54,15 +55,16 @@ const features: {
     isBlue: true,
   },
   {
+    title: 'Global GPU/CPU pool',
+    description: 'Access diverse hardware across the network to match your budget and performance needs.',
+    isBlue: true,
+    icon: <GlobeIcon />,
+  },
+  {
     title: 'Fiat-on-ramp wallet integrated',
     description: 'Top up with credit card via our fiat-on-ramp partner, or top up your wallet directly with USDC.',
     icon: <TransferIcon />,
-    isBlue: true,
-  },
-  {
-    title: 'Global GPU/CPU pool',
-    description: 'Access diverse hardware across the network to match your budget and performance needs.',
-    icon: <GlobeIcon />,
+    isComingSoon: true,
   },
 ];
 
@@ -95,6 +97,7 @@ export default function FeaturesSection() {
               >
                 <div className={styles.iconWrapper}>{item.icon}</div>
                 <div className={styles.featureTextWrapper}>
+                  {item.isComingSoon ? <div className="chip chipAccent2 alignSelfStart">Coming soon</div> : null}
                   <h4 className={styles.featureTitle}>{item.title}</h4>
                   <p className={styles.featureDescription}>{item.description}</p>
                 </div>
