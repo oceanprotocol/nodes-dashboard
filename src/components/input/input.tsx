@@ -52,8 +52,8 @@ type InputProps = {
   disabled?: boolean;
   endAdornment?: React.ReactNode;
   errorText?: string;
-  hint?: string;
-  label?: string;
+  hint?: React.ReactNode;
+  label?: React.ReactNode;
   max?: number;
   min?: number;
   name?: string;
