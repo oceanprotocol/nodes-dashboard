@@ -131,14 +131,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         estimatedTotalCost,
         freeCompute,
       });
-
       const query = {
         ...router.query,
         cpu: values.cpuCores,
         ram: values.ram,
         disk: values.diskSpace,
         ...(values.gpus.length > 0 && { gpus: values.gpus }),
-        maxJobDuration: toSeconds(values.maxJobDurationValue, values.maxJobDurationUnit),
+        maxJobDuration: toSeconds(Number(values.maxJobDurationValue) || 0, values.maxJobDurationUnit),
       };
 
       if (estimatedTotalCost! > 0 && !freeCompute) {
