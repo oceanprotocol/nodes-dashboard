@@ -10,6 +10,7 @@ import type { Connection } from '@libp2p/interface';
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
+import { lpStream } from '@libp2p/utils';
 import { webSockets } from '@libp2p/websockets';
 import { multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
@@ -176,20 +177,6 @@ async function dialPeer(target: MultiaddrsOrPeerId): Promise<Connection> {
 //   };
 // }
 
-function toBytes(chunk: Uint8Array | { subarray(): Uint8Array }): Uint8Array {
-  return chunk instanceof Uint8Array ? chunk : chunk.subarray();
-}
-
-async function* remainingChunks(
-  it: AsyncIterator<Uint8Array | { subarray(): Uint8Array }>
-): AsyncGenerator<Uint8Array> {
-  let next = await it.next();
-  while (!next.done && next.value !== null) {
-    yield toBytes(next.value);
-    next = await it.next();
-  }
-}
-
 export async function getPeerMultiaddr(multiaddrsOrPeerId: MultiaddrsOrPeerId) {
   if (!nodeInstance) {
     throw new Error('Node not initialized');
@@ -203,91 +190,64 @@ export async function getPeerMultiaddr(multiaddrsOrPeerId: MultiaddrsOrPeerId) {
   return connection.remoteAddr.toString();
 }
 
+async function attemptCommand(connection: Connection, command: Record<string, any>, protocol: string): Promise<any> {
+  const stream = await connection.newStream(protocol, {
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+    runOnLimitedConnection: true,
+  });
+
+  if (!stream) {
+    throw new Error('Failed to create stream to peer');
+  }
+
+  const lp = lpStream(stream);
+  await lp.write(uint8ArrayFromString(JSON.stringify(command)), {
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+  });
+
+  const statusBytes = await lp.read({ signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
+  const status = JSON.parse(uint8ArrayToString(statusBytes.subarray()));
+
+  return {
+    status,
+    stream: {
+      [Symbol.asyncIterator]: async function* () {
+        try {
+          while (true) {
+            const chunk = await lp.read();
+            yield chunk.subarray ? chunk.subarray() : chunk;
+          }
+        } catch {
+          // stream ended
+        }
+      },
+    },
+  };
+}
+
 export async function sendCommandToPeer(
   multiaddrsOrPeerId: MultiaddrsOrPeerId,
   command: Record<string, any>,
   protocol: string = DEFAULT_PROTOCOL
 ): Promise<any> {
+  if (!nodeInstance) throw new Error('Node not initialized');
+  if (!isNodeReady) throw new Error('Node not ready - still establishing bootstrap connections');
+
+  let connection = await dialPeer(multiaddrsOrPeerId);
+
   try {
-    if (!nodeInstance) {
-      throw new Error('Node not initialized');
+    return await attemptCommand(connection, command, protocol);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes('closed') && !msg.includes('reset')) {
+      console.error('Command failed:', msg);
+      throw err;
     }
-
-    if (!isNodeReady) {
-      throw new Error('Node not ready - still establishing bootstrap connections');
-    }
-
-    const connection = await dialPeer(multiaddrsOrPeerId);
-
-    const stream = await connection.newStream(protocol, {
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
-      runOnLimitedConnection: true,
-    });
-
-    if (!stream) {
-      throw new Error(`Failed to create stream to peer`);
-    }
-
-    stream.send(uint8ArrayFromString(JSON.stringify(command)));
-    await stream.close();
-
-    const responsePromise = (async () => {
-      const it = stream[Symbol.asyncIterator]();
-      const { done, value } = await it.next();
-      const firstChunk = value !== null ? toBytes(value) : null;
-
-      if (done || !firstChunk?.length) {
-        return { status: { httpStatus: 500, error: 'No response from peer' } };
-      }
-
-      const statusText = uint8ArrayToString(firstChunk);
-      try {
-        const status = JSON.parse(statusText);
-        if (typeof status?.httpStatus === 'number' && status.httpStatus >= 400) {
-          return { status: { httpStatus: status.httpStatus, error: status.error } };
-        }
-      } catch {
-        // First chunk not valid JSON status, continue
-      }
-
-      const chunks: Uint8Array[] = [firstChunk];
-      for await (const c of remainingChunks(it)) {
-        chunks.push(c);
-      }
-
-      let response: unknown;
-      for (let i = 0; i < chunks.length; i++) {
-        const text = uint8ArrayToString(chunks[i]);
-        try {
-          response = JSON.parse(text);
-        } catch {
-          response = chunks[i];
-        }
-      }
-
-      const res = response as { httpStatus?: number; error?: string } | null;
-      if (typeof res?.httpStatus === 'number' && res.httpStatus >= 400) {
-        return { status: { httpStatus: res.httpStatus, error: res.error } };
-      }
-
-      return response;
-    })();
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(
-        () =>
-          reject(
-            new Error(`Response timeout: peer ${multiaddrsOrPeerId} did not respond within ${RESPONSE_TIMEOUT}ms`)
-          ),
-        RESPONSE_TIMEOUT
-      )
-    );
-
-    return await Promise.race([responsePromise, timeoutPromise]);
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Command failed:', errorMessage);
-    throw error;
+    // Stale connection — evict and retry once
+    console.warn('Stale connection detected, evicting and retrying...');
+    await connection.close().catch(() => {});
+    connection = await dialPeer(multiaddrsOrPeerId);
+    return await attemptCommand(connection, command, protocol);
   }
 }
 
