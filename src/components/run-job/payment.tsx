@@ -1,3 +1,4 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentAuthorize from '@/components/run-job/payment-authorize';
 import PaymentDeposit from '@/components/run-job/payment-deposit';
@@ -103,7 +104,7 @@ const Payment = ({
         tokenSymbol: selectedToken.symbol,
         tokenAddress: selectedToken.address,
       });
-      router.push('/run-job/summary');
+      router.push({ pathname: '/run-job/summary', query: router.query });
     }
   }, [
     authorizations?.maxLockSeconds,
@@ -117,6 +118,19 @@ const Payment = ({
     totalCost,
   ]);
 
+  const renderBackButton = (disabled: boolean) => (
+    <Button
+      color="accent1"
+      disabled={disabled}
+      onClick={() => router.replace({ pathname: '/run-job/resources', query: router.query })}
+      size="lg"
+      type="button"
+      variant="transparent"
+    >
+      Edit resources
+    </Button>
+  );
+
   const renderStep = () => {
     switch (step) {
       // TODO re-enable topup page
@@ -127,6 +141,7 @@ const Payment = ({
       //       escrowBalance={escrowBalance ?? 0}
       //       loadingPaymentInfo={loadingPaymentInfo}
       //       loadPaymentInfo={loadPaymentInfo}
+      //       renderBackButton={renderBackButton}
       //       selectedToken={selectedToken}
       //       totalCost={totalCost}
       //       walletBalance={walletBalance ?? 0}
@@ -140,6 +155,7 @@ const Payment = ({
             escrowBalance={escrowBalance ?? 0}
             loadingPaymentInfo={loadingPaymentInfo}
             loadPaymentInfo={loadPaymentInfo}
+            renderBackButton={renderBackButton}
             selectedToken={selectedToken}
             totalCost={totalCost}
             walletBalance={walletBalance ?? 0}
@@ -153,6 +169,7 @@ const Payment = ({
             loadingPaymentInfo={loadingPaymentInfo}
             loadPaymentInfo={loadPaymentInfo}
             minLockSeconds={minLockSeconds}
+            renderBackButton={renderBackButton}
             selectedEnv={selectedEnv}
             selectedToken={selectedToken}
             totalCost={totalCost}
@@ -165,7 +182,7 @@ const Payment = ({
   };
 
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
-    <CircularProgress />
+    <CircularProgress className="alignSelfCenter" />
   ) : (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Payment</h3>

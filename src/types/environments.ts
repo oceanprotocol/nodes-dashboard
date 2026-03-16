@@ -74,14 +74,14 @@ export type ComputeEnvironment = {
 };
 
 export type EnvResourcesSelection = {
-  cpuCores: number;
-  cpuId: string;
-  diskSpace: number;
-  diskId: string;
+  cpuCores?: number;
+  cpuId?: string;
+  diskSpace?: number;
+  diskId?: string;
   gpus: { id: string; description?: string }[];
   maxJobDurationSeconds: number;
-  ram: number;
-  ramId: string;
+  ram?: number;
+  ramId?: string;
 };
 
 export type NodeEnvironments = EnvNodeInfo & {

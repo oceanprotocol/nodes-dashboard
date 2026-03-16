@@ -4,7 +4,7 @@ import styles from './section-title.module.css';
 
 type SectionTitleProps = {
   title: string;
-  subTitle?: string;
+  subTitle?: React.ReactNode;
   className?: string;
   contentBetween?: React.ReactNode;
   moreReadable?: boolean;

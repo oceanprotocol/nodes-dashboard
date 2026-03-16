@@ -4,6 +4,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
 import { useRunJobContext } from '@/context/run-job-context';
+import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
@@ -12,24 +13,42 @@ const PaymentPage = () => {
 
   const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
 
-  const { estimatedTotalCost, freeCompute, minLockSeconds, selectedEnv, selectedResources, selectedToken } =
-    useRunJobContext();
+  const {
+    estimatedTotalCost,
+    freeCompute,
+    hydrateFromUrlFinished,
+    minLockSeconds,
+    selectedEnv,
+    selectedResources,
+    selectedToken,
+  } = useRunJobContext();
 
   useEffect(() => {
-    if (!selectedToken) {
-      router.replace('/run-job/environments');
+    if (hydrateFromUrlFinished) {
+      if (!selectedToken) {
+        router.replace('/run-job/environments');
+      }
     }
-  }, [router, selectedToken]);
+  }, [hydrateFromUrlFinished, router, selectedToken]);
 
   return (
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
         title="Run a job"
-        subTitle={subtitle}
+        subTitle={
+          hydrateFromUrlFinished ? (
+            subtitle
+          ) : (
+            <div className="flexRow alignItemsCenter gapMd">
+              <CircularProgress size={24} />
+              <span>Retrieving your preferences...</span>
+            </div>
+          )
+        }
         contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
       />
-      {selectedEnv && selectedResources && selectedToken ? (
+      {hydrateFromUrlFinished && selectedEnv && selectedResources && selectedToken ? (
         <div className="pageContentWrapper">
           <Payment
             minLockSeconds={minLockSeconds ?? 0}

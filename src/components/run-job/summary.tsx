@@ -10,10 +10,11 @@ import { createAuthToken } from '@/services/nodeService';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { formatDuration } from '@/utils/formatters';
-import { ListItemIcon, MenuItem } from '@mui/material';
+import { CircularProgress, ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
+import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './summary.module.css';
 type SummaryProps = {
@@ -33,6 +34,8 @@ const Summary = ({
   selectedResources,
   token,
 }: SummaryProps) => {
+  const router = useRouter();
+
   const { account, ocean, signMessage } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
   const { multiaddrsOrPeerId } = useRunJobContext();
@@ -46,6 +49,8 @@ const Summary = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [selectedIde, setSelectedIde] = useState(Ide.vscode);
+  const [paymentCheckStarted, setPaymentCheckStarted] = useState(false);
+  const [paymentCheckFinished, setPaymentCheckFinished] = useState(false);
 
   useEffect(() => {
     const selectedIdeKey = localStorage.getItem('selectedIde');
@@ -55,6 +60,55 @@ const Summary = ({
 
     setSelectedIde(Ide[selectedIdeKey as keyof typeof Ide]);
   }, []);
+
+  /**
+   * Check if payment was made.
+   * If not, return to payment page
+   */
+  const checkPaymentStatus = useCallback(async () => {
+    if (freeCompute || !token) {
+      setPaymentCheckFinished(true);
+      return;
+    }
+    if (ocean && account?.address) {
+      const authorizations = await ocean.getAuthorizations(token.address, account.address, selectedEnv.consumerAddress);
+      const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
+      const escrowBalanceStr = await ocean.getUserFunds(token.address, account.address);
+      const escrowBalance = Number(escrowBalanceStr);
+      const sufficientEscrow = (escrowBalance ?? 0) >= estimatedTotalCost;
+      const suffficientAuthorized =
+        (Number(authorizations?.maxLockedAmount) ?? 0) >= estimatedTotalCost + currentLockedAmount;
+      const enoughLockSeconds =
+        (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationSeconds;
+      if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
+        setPaymentCheckFinished(true);
+      } else {
+        router.replace({ pathname: '/run-job/payment', query: router.query });
+      }
+    }
+  }, [
+    freeCompute,
+    token,
+    ocean,
+    account.address,
+    selectedEnv.consumerAddress,
+    estimatedTotalCost,
+    selectedResources.maxJobDurationSeconds,
+    router,
+  ]);
+
+  /**
+   * Initiate payment check
+   */
+  useEffect(() => {
+    if (!ocean || !account.address) {
+      return;
+    }
+    if (!paymentCheckStarted) {
+      setPaymentCheckStarted(true);
+      checkPaymentStatus();
+    }
+  }, [account.address, checkPaymentStatus, ocean, paymentCheckStarted]);
 
   const generateToken = async () => {
     if (!account.address || !ocean) {
@@ -82,26 +136,31 @@ const Summary = ({
     if (!authToken || !account.address || !ocean) {
       return;
     }
-
     const peerMultiaddr = await getPeerMultiaddr(multiaddrsOrPeerId!);
     const resources = [
-      {
-        id: selectedResources.cpuId,
-        amount: selectedResources.cpuCores,
-      },
-      {
-        id: selectedResources.ramId,
-        amount: selectedResources.ram,
-      },
-      {
-        id: selectedResources.diskId,
-        amount: selectedResources.diskSpace,
-      },
       ...gpus.map((availableGpu) => ({
         id: availableGpu.id,
         amount: selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id) ? 1 : 0,
       })),
     ];
+    if (selectedResources.cpuId && selectedResources.cpuCores) {
+      resources.push({
+        id: selectedResources.cpuId,
+        amount: selectedResources.cpuCores,
+      });
+    }
+    if (selectedResources.ramId && selectedResources.ram) {
+      resources.push({
+        id: selectedResources.ramId,
+        amount: selectedResources.ram,
+      });
+    }
+    if (selectedResources.diskId && selectedResources.diskSpace) {
+      resources.push({
+        id: selectedResources.diskId,
+        amount: selectedResources.diskSpace,
+      });
+    }
     const isFreeCompute = estimatedTotalCost === 0;
     ocean.updateConfiguration(
       authToken,
@@ -130,6 +189,22 @@ const Summary = ({
   const handleCloseIdeMenu = () => {
     setAnchorEl(null);
   };
+
+  if (!paymentCheckFinished) {
+    return <CircularProgress className="alignSelfCenter" />;
+  }
+
+  const backButton = (
+    <Button
+      color="accent1"
+      onClick={() => router.replace({ pathname: '/run-job/resources', query: router.query })}
+      size="lg"
+      type="button"
+      variant="transparent"
+    >
+      Edit resources
+    </Button>
+  );
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -168,80 +243,81 @@ const Summary = ({
         <div className={styles.label}>Total cost:</div>
         <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token?.symbol}`}</div>
       </div>
-      {authToken ? (
-        <div className={styles.footer}>
-          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+      <div className={styles.footer}>
+        <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+        {authToken ? (
           <div className={styles.buttons}>
-            <Button
-              color="accent1"
-              id="choose-editor-button"
-              onClick={() => {
-                handleOpenIdeMenu();
-              }}
-              size="lg"
-              variant="outlined"
-            >
-              Choose editor
-            </Button>
-            <Menu
-              anchorEl={anchorEl}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'center',
-              }}
-              disableScrollLock
-              onClose={handleCloseIdeMenu}
-              open={!!anchorEl}
-              slotProps={{
-                list: {
-                  'aria-labelledby': 'profile-button',
-                },
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'center',
-              }}
-            >
-              {Object.entries(Ide).map(([key, ide]) => (
-                <MenuItem
-                  disableRipple
-                  key={ide.uriScheme}
-                  onClick={() => {
-                    localStorage.setItem('selectedIde', key);
-                    setSelectedIde(ide);
-                    handleCloseIdeMenu();
-                  }}
-                >
-                  <ListItemIcon>{ide.icon}</ListItemIcon>
-                  {ide.name}
-                </MenuItem>
-              ))}
-            </Menu>
-            <Button
-              autoLoading
-              color="accent1"
-              contentBefore={
-                <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
-                  {selectedIde.icon}
-                </span>
-              }
-              onClick={async () => await openIde(selectedIde.uriScheme)}
-              size="lg"
-            >
-              Open {selectedIde.name}
-            </Button>
+            {backButton}
+            <div className={styles.buttonsGroup}>
+              <Button
+                color="accent1"
+                id="choose-editor-button"
+                onClick={() => {
+                  handleOpenIdeMenu();
+                }}
+                size="lg"
+                variant="outlined"
+              >
+                Choose editor
+              </Button>
+              <Menu
+                anchorEl={anchorEl}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'center',
+                }}
+                disableScrollLock
+                onClose={handleCloseIdeMenu}
+                open={!!anchorEl}
+                slotProps={{
+                  list: {
+                    'aria-labelledby': 'profile-button',
+                  },
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'center',
+                }}
+              >
+                {Object.entries(Ide).map(([key, ide]) => (
+                  <MenuItem
+                    disableRipple
+                    key={ide.uriScheme}
+                    onClick={() => {
+                      localStorage.setItem('selectedIde', key);
+                      setSelectedIde(ide);
+                      handleCloseIdeMenu();
+                    }}
+                  >
+                    <ListItemIcon>{ide.icon}</ListItemIcon>
+                    {ide.name}
+                  </MenuItem>
+                ))}
+              </Menu>
+              <Button
+                autoLoading
+                color="accent1"
+                contentBefore={
+                  <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
+                    {selectedIde.icon}
+                  </span>
+                }
+                onClick={async () => await openIde(selectedIde.uriScheme)}
+                size="lg"
+              >
+                Open {selectedIde.name}
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className={styles.footer}>
-          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+        ) : (
           <div className={styles.buttons}>
+            {backButton}
             <Button autoLoading color="accent1" onClick={generateToken} size="lg">
               Generate token
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </Card>
   );
 };

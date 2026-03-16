@@ -120,7 +120,16 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       nodeId: nodeInfo.id,
       freeCompute: false,
     });
-    router.push('/run-job/resources');
+    router.push({
+      pathname: '/run-job/resources',
+      query: {
+        ...router.query,
+        peerId: nodeInfo.id,
+        env: environment.id,
+        free: false,
+        token: selectedTokenAddress,
+      },
+    });
   };
 
   const selectFreeCompute = () => {
@@ -134,7 +143,15 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       nodeId: nodeInfo.id,
       freeCompute: true,
     });
-    router.push('/run-job/resources');
+    router.push({
+      pathname: '/run-job/resources',
+      query: {
+        ...router.query,
+        peerId: nodeInfo.id,
+        env: environment.id,
+        free: true,
+      },
+    });
   };
 
   const getCpuProgressBar = () => {
