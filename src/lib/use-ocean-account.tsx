@@ -16,13 +16,12 @@ import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-// MetaMask returns nonce=null for pending txs in eth_getTransactionByHash, which
-// ethers v6 fails to parse as BigInt. Patch it in send() before ethers processes
-// the response.
+// MetaMask returns nonce=null or nonce="undefined" for pending txs in eth_getTransactionByHash,
+// which ethers v6 fails to parse as BigInt. Patch it in send() before ethers processes the response.
 class MetaMaskBrowserProvider extends ethers.BrowserProvider {
   async send(method: string, params: Array<any>): Promise<any> {
     const result = await super.send(method, params);
-    if (method === 'eth_getTransactionByHash' && result?.nonce == null) {
+    if (method === 'eth_getTransactionByHash' && (result?.nonce == null || result?.nonce === 'undefined')) {
       return null;
     }
     return result;
