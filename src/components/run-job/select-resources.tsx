@@ -211,15 +211,22 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   ]);
 
   useEffect(() => {
-    if (costEstimateTimeoutRef.current) clearTimeout(costEstimateTimeoutRef.current);
+    if (costEstimateTimeoutRef.current) {
+      clearTimeout(costEstimateTimeoutRef.current);
+    }
+    if (freeCompute || !token) {
+      return;
+    }
     costEstimateTimeoutRef.current = setTimeout(() => {
       costEstimateTimeoutRef.current = null;
       estimateCost();
     }, ESTIMATE_COST_DEBOUNCE_MS);
     return () => {
-      if (costEstimateTimeoutRef.current) clearTimeout(costEstimateTimeoutRef.current);
+      if (costEstimateTimeoutRef.current) {
+        clearTimeout(costEstimateTimeoutRef.current);
+      }
     };
-  }, [estimateCost, fetchEstimatedCost]);
+  }, [estimateCost, fetchEstimatedCost, freeCompute, token]);
 
   const selectAllGpus = () => {
     formik.setFieldValue(
