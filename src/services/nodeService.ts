@@ -10,7 +10,7 @@ import type { Connection } from '@libp2p/interface';
 import { kadDHT, passthroughMapper } from '@libp2p/kad-dht';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
-import { lpStream } from '@libp2p/utils';
+import { lpStream, UnexpectedEOFError } from '@libp2p/utils';
 import { webSockets } from '@libp2p/websockets';
 import { multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p, Libp2p } from 'libp2p';
@@ -205,24 +205,63 @@ async function attemptCommand(connection: Connection, command: Record<string, an
     signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
   });
 
-  const statusBytes = await lp.read({ signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
-  const status = JSON.parse(uint8ArrayToString(statusBytes.subarray()));
+  // const statusBytes = await lp.read({ signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
+  // const status = JSON.parse(uint8ArrayToString(statusBytes.subarray()));
 
-  return {
-    status,
-    stream: {
-      [Symbol.asyncIterator]: async function* () {
-        try {
-          while (true) {
-            const chunk = await lp.read();
-            yield chunk.subarray ? chunk.subarray() : chunk;
-          }
-        } catch {
-          // stream ended
-        }
-      },
-    },
-  };
+  const chunks: Uint8Array[] = [];
+  try {
+    while (true) {
+      const chunk = await lp.read({
+        signal: AbortSignal.timeout(DEFAULT_TIMEOUT),
+      });
+      chunks.push(chunk instanceof Uint8Array ? chunk : chunk.subarray());
+    }
+  } catch (e) {
+    if (!(e instanceof UnexpectedEOFError)) {
+      throw e;
+    }
+  }
+
+  let response: unknown;
+  for (let i = 0; i < chunks.length; i++) {
+    const text = uint8ArrayToString(chunks[i]);
+    try {
+      response = JSON.parse(text);
+    } catch {
+      response = chunks[i];
+    }
+  }
+
+  return response;
+
+  // const res = response as GatewayResponse | null;
+  // if (typeof res?.httpStatus === 'number' && res.httpStatus >= 400) {
+  //   throw new Error(res.error ?? 'Gateway node error');
+  // }
+
+  // const errText = (typeof response === 'string' ? response : res?.error) ?? '';
+  // if (errText.includes('Cannot connect to peer') && retrialNumber < MAX_RETRIES) {
+  //   await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+  //   return P2PCommand(command, multiaddresses, body, signerOrAuthToken, retrialNumber + 1);
+  // }
+
+  // return response;
+
+  // return {
+  //   status,
+  //   stream: {
+  //     [Symbol.asyncIterator]: async function* () {
+  //       try {
+  //         while (true) {
+  //           const chunk = await lp.read();
+  //           yield chunk.subarray ? chunk.subarray() : chunk;
+  //         }
+  //       } catch {
+  //         // stream ended
+  //       }
+  //     },
+  //   },
+  // };
 }
 
 export async function sendCommandToPeer(
