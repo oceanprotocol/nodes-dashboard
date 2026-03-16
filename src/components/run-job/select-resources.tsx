@@ -196,7 +196,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       multiaddrsOrPeerId,
       onError: (error) => setInitComputeError(error),
       resources,
-      tokenAddress: token!.address,
+      tokenAddress: token?.address,
     });
     setIsLoadingCost(false);
   }, [
@@ -214,9 +214,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     if (costEstimateTimeoutRef.current) {
       clearTimeout(costEstimateTimeoutRef.current);
     }
-    if (freeCompute || !token) {
-      return;
-    }
     costEstimateTimeoutRef.current = setTimeout(() => {
       costEstimateTimeoutRef.current = null;
       estimateCost();
@@ -226,7 +223,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         clearTimeout(costEstimateTimeoutRef.current);
       }
     };
-  }, [estimateCost, fetchEstimatedCost, freeCompute, token]);
+  }, [estimateCost, fetchEstimatedCost]);
 
   const selectAllGpus = () => {
     formik.setFieldValue(

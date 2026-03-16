@@ -39,7 +39,7 @@ type RunJobContextType = {
     onError?: (error: unknown) => void;
     onSuccess?: (cost: number, minLockSeconds: number) => void;
     resources: { id: string; amount: number }[];
-    tokenAddress: string;
+    tokenAddress?: string;
   }) => Promise<void>;
   // fetchGpus: () => Promise<void>;
   freeCompute: boolean;
@@ -172,9 +172,9 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       onError?: (error: unknown) => void;
       onSuccess?: (cost: number, minLockSeconds: number) => void;
       resources: { id: string; amount: number }[];
-      tokenAddress: string;
+      tokenAddress?: string;
     }) => {
-      if (freeCompute) {
+      if (freeCompute || !tokenAddress) {
         setEstimatedTotalCost(0);
         return;
       }
