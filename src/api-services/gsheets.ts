@@ -21,6 +21,8 @@ import { google } from 'googleapis';
  * N: Nonce
  * O: Signed faucet message
  * P: Transaction hash
+ * Q: OTP
+ * R: OTP expiry date
  *
  * Row 1: This sheet is auto-generated.
  * Row 2: Headers
@@ -31,9 +33,9 @@ const SPREADSHEET_ID = process.env.GRANT_GSHEETS_SPREADSHEET_ID;
 
 function getRange(row?: number) {
   if (row || row === 0) {
-    return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${row}:P${row}`;
+    return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${row}:R${row}`;
   }
-  return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A3:P`;
+  return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A3:R`;
 }
 
 async function getSheetsService() {
@@ -62,7 +64,11 @@ export async function findGrantInSheet({
   });
   const rows = response.data.values;
   if (!rows || rows.length === 0) return null;
-  const rowIndex = rows.findIndex((row) => row[1] === email || row[2] === walletAddress);
+  const rowIndex = rows.findIndex(
+    (row) =>
+      (email && row[1]?.toLowerCase() === email.toLowerCase()) ||
+      (walletAddress && row[2]?.toLowerCase() === walletAddress.toLowerCase())
+  );
   if (rowIndex === -1) return null;
   const row = rows[rowIndex];
   return {
@@ -82,10 +88,12 @@ export async function findGrantInSheet({
     nonce: row[13] ? Number(row[13]) : undefined,
     signedFaucetMessage: row[14],
     txHash: row[15],
+    otp: row[16],
+    otpExpires: row[17] ? Number(row[17]) : undefined,
   };
 }
 
-export async function insertGrantInSheet(data: GrantDetails) {
+export async function insertGrantInSheet(data: GrantDetails & { otp?: string; otpExpires?: number }) {
   const service = await getSheetsService();
   const values = [
     [
@@ -110,7 +118,21 @@ export async function insertGrantInSheet(data: GrantDetails) {
       // J: Claim date
       '',
       // K: Status
-      GrantStatus.EMAIL_VERIFIED,
+      GrantStatus.PENDING,
+      // L: Amount
+      '',
+      // M: Raw amount
+      '',
+      // N: Nonce
+      '',
+      // O: Signed faucet message
+      '',
+      // P: Transaction hash
+      '',
+      // Q: OTP
+      data.otp,
+      // R: OTP expiry date
+      data.otpExpires,
     ],
   ];
   await service.spreadsheets.values.append({
@@ -129,7 +151,7 @@ export async function updateGrantInSheet(data: GrantWithStatus) {
   });
   const rows = response.data.values;
   if (!rows) return;
-  const rowIndex = rows.findIndex((row) => row[1] === data.email);
+  const rowIndex = rows.findIndex((row) => row[1]?.toLowerCase() === data.email.toLowerCase());
   if (rowIndex === -1) return;
   const rowNumber = rowIndex + 3; // +3 because of header rows and 1-based indexing
   const updateRange = getRange(rowNumber);
@@ -167,6 +189,10 @@ export async function updateGrantInSheet(data: GrantWithStatus) {
       data.signedFaucetMessage,
       // P: Transaction hash
       data.txHash,
+      // Q: OTP
+      data.otp,
+      // R: OTP expiry date
+      data.otpExpires,
     ],
   ];
   await service.spreadsheets.values.update({

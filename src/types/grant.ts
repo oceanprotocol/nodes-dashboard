@@ -14,6 +14,8 @@ export type GrantWithStatus = GrantDetails & {
   applicationDate: Date;
   claimDate?: Date;
   nonce?: number;
+  otp?: string;
+  otpExpires?: number;
   rawAmount?: string;
   signedFaucetMessage?: string;
   status: GrantStatus;
@@ -21,6 +23,7 @@ export type GrantWithStatus = GrantDetails & {
 };
 
 export enum GrantStatus {
+  PENDING = 'pending',
   EMAIL_VERIFIED = 'email-verified',
   SIGNED_FAUCET_MESSAGE = 'signed-faucet-message',
   CLAIMED = 'claimed',
