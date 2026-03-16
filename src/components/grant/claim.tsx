@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
+import posthog from 'posthog-js';
 import { useProfileContext } from '../../context/profile-context';
 import styles from './claim.module.css';
 
@@ -38,6 +39,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
   }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   const handleClaim = async () => {
+    posthog.capture('grant_claim_clicked');
     if (!account.isConnected) {
       openAuthModal();
       return;
@@ -65,6 +67,10 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
               txHash: result.hash,
               walletAddress: account.address,
             });
+            posthog.capture('grant_claim_success', {
+              txHash: result.hash,
+              amount: tokenAmount,
+            });
             setClaimed(true);
             fetchGrantStatus(account.address!);
             toast.success('Grant claimed successfully!');
@@ -77,6 +83,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
         },
         onError: (error) => {
           setIsLoading(false);
+          posthog.capture('grant_claim_failed', { error: String(error) });
           console.error('Claim error:', error);
           toast.error('Failed to claim grant. Please try again.');
         },

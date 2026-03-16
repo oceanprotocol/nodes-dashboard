@@ -6,6 +6,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantDetails } from '@/types/grant';
 import axios from 'axios';
 import { useFormik } from 'formik';
+import posthog from 'posthog-js';
 import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import styles from './verify-modal.module.css';
@@ -37,6 +38,7 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
           code: values.code,
           walletAddress: account.address,
         });
+        posthog.capture('grant_email_verified');
         onSuccess();
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.data?.message) {

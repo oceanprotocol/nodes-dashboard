@@ -1,0 +1,19 @@
+.notConnected {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+  padding: 128px 0;
+  text-align: center;
+
+  h1 {
+    color: var(--accent1);
+    font-size: 32px;
+  }
+
+  p {
+    font-size: 20px;
+    margin-bottom: 32px;
+  }
+}

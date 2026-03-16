@@ -88,7 +88,7 @@ const config: Config = {
   },
   links: {
     docs: 'https://docs.oncompute.ai/',
-    website: 'https://oceanprotocol.com/',
+    website: 'https://www.oncompute.ai/',
     github: 'https://github.com/oceanprotocol/ocean-node',
   },
   queryParams: {
@@ -111,11 +111,7 @@ const apiRoutes = {
   // Incentive API routes
   environments: { root: 'incentive', path: '/envs' },
   nodes: { root: 'incentive', path: '/nodes' },
-  locations: { root: 'incentive', path: '/locations' },
-  countryStats: { root: 'incentive', path: '/countryStats' },
   nodeSystemStats: { root: 'incentive_old', path: '/nodeSystemStats' },
-  history: { root: 'incentive', path: '/history' },
-  weekStats: { root: 'incentive', path: '/weekStats' },
   banStatus: { root: 'incentive', path: '/nodes' },
   nodeBenchmarkMinMaxLast: { root: 'incentive', path: '/nodes' },
   benchmarkHistory: { root: 'incentive', path: '/nodes' },

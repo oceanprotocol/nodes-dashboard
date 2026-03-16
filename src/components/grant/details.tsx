@@ -18,6 +18,7 @@ import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import posthog from 'posthog-js';
 import * as Yup from 'yup';
 import styles from './details.module.css';
 import VerifyModal from './verify-modal';
@@ -82,6 +83,12 @@ const Details: React.FC = () => {
         };
         const response = await axios.post<SubmitGrantDetailsResponse>('/api/grant/details', details);
         setGrantDetails(details);
+        posthog.capture('grant_form_completed', {
+          role: values.role,
+          goal: values.goal,
+          hardware: values.hardware,
+          os: values.os,
+        });
         if (response.data.shouldValidateEmail) {
           setIsVerifyModalOpen(true);
         } else {

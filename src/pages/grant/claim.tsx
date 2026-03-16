@@ -1,4 +1,6 @@
+import AuthRequiredPage from '@/components/auth/auth-required-page';
 import Container from '@/components/container/container';
+import Claim from '@/components/grant/claim';
 import SectionTitle from '@/components/section-title/section-title';
 import { getGrantSteps, GrantStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
@@ -20,18 +22,19 @@ const ClaimPage: React.FC = () => {
   if (!grantDetails) return null;
 
   return (
-    <Container className="pageRoot">
-      <SectionTitle
-        moreReadable
-        title="Grant distribution"
-        subTitle="Complete the simple process to receive your grant"
-        contentBetween={<Stepper<GrantStep> currentStep="claim" steps={getGrantSteps()} />}
-      />
-      <div className="pageContentWrapper">
-        {/* // TODO re-enable grants */}
-        {/* <Claim grantDetails={grantDetails} /> */}
-      </div>
-    </Container>
+    <AuthRequiredPage>
+      <Container className="pageRoot">
+        <SectionTitle
+          moreReadable
+          title="Grant distribution"
+          subTitle="Complete the simple process to receive your grant"
+          contentBetween={<Stepper<GrantStep> currentStep="claim" steps={getGrantSteps()} />}
+        />
+        <div className="pageContentWrapper">
+          <Claim grantDetails={grantDetails} />
+        </div>
+      </Container>
+    </AuthRequiredPage>
   );
 };
 
