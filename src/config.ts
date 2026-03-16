@@ -88,7 +88,7 @@ const config: Config = {
   },
   links: {
     docs: 'https://docs.oncompute.ai/',
-    website: 'https://oceanprotocol.com/',
+    website: 'https://www.oncompute.ai/',
     github: 'https://github.com/oceanprotocol/ocean-node',
   },
   queryParams: {
