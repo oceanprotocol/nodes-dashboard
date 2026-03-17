@@ -57,7 +57,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
         tokenAddress,
         walletAddress: grant.walletAddress,
       });
-      updateGrantInSheet({
+      await updateGrantInSheet({
         ...grant,
         amount,
         rawAmount,
