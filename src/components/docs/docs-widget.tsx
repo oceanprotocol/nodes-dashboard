@@ -14,7 +14,6 @@ const DocsWidget: React.FC = () => {
       <Collapse className={styles.collapse} in={isOpen}>
         <GitBookFrame className={styles.frame} />
       </Collapse>
-      {/* {isOpen ? <GitBookFrame className={styles.frame} /> : null} */}
       <Button color="primary-inverse" onClick={() => setIsOpen(!isOpen)} variant="glass">
         Docs
       </Button>
