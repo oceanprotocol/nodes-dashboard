@@ -62,9 +62,9 @@ export function getGrantOtpEmailTemplate({ otp }: { otp: string }) {
             </li>
             <!-- add also vsx i've added only vs code marketplace -->
             <li>
-              🛠 Ocean Orchestrator: 
+              🛠 Install 
               <a href="https://marketplace.visualstudio.com/items?itemName=OceanProtocol.ocean-protocol-vscode-extension" target="_blank" style="color:#d54335; text-decoration:none;">
-                Install Extension
+                Ocean Orchestrator extension
               </a>
             </li>
           </ul>
@@ -75,15 +75,15 @@ export function getGrantOtpEmailTemplate({ otp }: { otp: string }) {
 
           <ul style="padding-left:18px; margin:0; font-size:14px; color:#374151; line-height:22px;">
             <li>
-              💬 Discord: 
+              💬 Join 
               <a href="${config.socialMedia.discord}" target="_blank" style="color:#d54335; text-decoration:none;">
-                Join Discord
+                Discord
               </a>
             </li>
             <li>
-              🐦 X (Twitter): 
+              🐦 Follow on 
               <a href="${config.socialMedia.twitter}" target="_blank" style="color:#d54335; text-decoration:none;">
-                @ONcompute
+                X (Twitter)
               </a>
             </li>
           </ul>
