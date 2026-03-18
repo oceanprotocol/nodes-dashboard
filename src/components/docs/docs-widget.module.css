@@ -1,0 +1,25 @@
+.root {
+  align-items: flex-end;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: fixed;
+  right: 16px;
+  z-index: 50;
+
+  .collapse {
+    border-radius: 16px;
+
+    .frame {
+      background-color: var(--background-glass);
+      backdrop-filter: var(--backdrop-filter-glass);
+      border-radius: 16px;
+      box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
+      height: 500px;
+      max-height: 70vh;
+      max-width: 70vw;
+      width: 400px;
+    }
+  }
+}
