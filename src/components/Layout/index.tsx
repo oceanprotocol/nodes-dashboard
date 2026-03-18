@@ -1,3 +1,4 @@
+import DocsWidget from '@/components/docs/docs-widget';
 import FooterSection from '@/components/homepage/footer-section';
 import Navigation from '@/components/Navigation/navigation';
 import Head from 'next/head';
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <Navigation />
         {children}
         <FooterSection />
+        <DocsWidget />
       </div>
     </>
   );

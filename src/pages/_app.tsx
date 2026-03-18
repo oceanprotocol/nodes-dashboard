@@ -1,4 +1,5 @@
 import RootLayout from '@/components/Layout';
+import config from '@/config';
 import { GrantProvider } from '@/context/grant-context';
 import { NodesProvider } from '@/context/nodes-context';
 import { ProfileProvider } from '@/context/profile-context';
@@ -16,10 +17,15 @@ import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
 import App, { type AppContext, type AppProps } from 'next/app';
+import dynamic from 'next/dynamic';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+const GitBookProvider = dynamic(() => import('@gitbook/embed/react').then((mod) => mod.GitBookProvider), {
+  ssr: false,
+});
 
 const inter = Inter({
   subsets: ['latin'],
@@ -59,36 +65,38 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
   return (
     <main className={cx(inter.variable, plusJakartaSans.variable)}>
       <ThemeProvider theme={muiTheme}>
-        <QueryClientProvider client={queryClientRef.current}>
-          <AlchemyProvider cookie={cookie}>
-            <OceanAccountProvider>
-              <GrantProvider>
-                <NodesProvider>
-                  <UnbanRequestsProvider>
-                    <ProfileProvider>
-                      <StatsProvider>
-                        <P2PProvider>
-                          <RunJobEnvsProvider>
-                            <RunJobProvider>
-                              <RunNodeProvider>
-                                <RootLayout>
-                                  <PHProvider>
-                                    <Component {...pageProps} />
-                                  </PHProvider>
-                                </RootLayout>
-                              </RunNodeProvider>
-                            </RunJobProvider>
-                          </RunJobEnvsProvider>
-                        </P2PProvider>
-                      </StatsProvider>
-                    </ProfileProvider>
-                  </UnbanRequestsProvider>
-                </NodesProvider>
-              </GrantProvider>
-            </OceanAccountProvider>
-          </AlchemyProvider>
-          <ToastContainer hideProgressBar theme="colored" />
-        </QueryClientProvider>
+        <GitBookProvider siteURL={config.links.docs}>
+          <QueryClientProvider client={queryClientRef.current}>
+            <AlchemyProvider cookie={cookie}>
+              <OceanAccountProvider>
+                <GrantProvider>
+                  <NodesProvider>
+                    <UnbanRequestsProvider>
+                      <ProfileProvider>
+                        <StatsProvider>
+                          <P2PProvider>
+                            <RunJobEnvsProvider>
+                              <RunJobProvider>
+                                <RunNodeProvider>
+                                  <RootLayout>
+                                    <PHProvider>
+                                      <Component {...pageProps} />
+                                    </PHProvider>
+                                  </RootLayout>
+                                </RunNodeProvider>
+                              </RunJobProvider>
+                            </RunJobEnvsProvider>
+                          </P2PProvider>
+                        </StatsProvider>
+                      </ProfileProvider>
+                    </UnbanRequestsProvider>
+                  </NodesProvider>
+                </GrantProvider>
+              </OceanAccountProvider>
+            </AlchemyProvider>
+            <ToastContainer hideProgressBar theme="colored" />
+          </QueryClientProvider>
+        </GitBookProvider>
       </ThemeProvider>
     </main>
   );
