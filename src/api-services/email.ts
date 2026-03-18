@@ -1,3 +1,4 @@
+import { getGrantOtpEmailTemplate } from '@/templates/grant-otp-email';
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
@@ -17,8 +18,8 @@ export async function sendOTP(email: string, code: string) {
     from: process.env.GRANT_GMAIL_ADDRESS,
     to: email,
     subject: 'Verification Code for Ocean Network Grant',
-    text: `Your verification code is: ${splitCode}`,
-    html: `<p>Your verification code is: <strong>${splitCode}</strong></p>`,
+    // text: `Your verification code is: ${splitCode}`,
+    html: getGrantOtpEmailTemplate({ otp: splitCode }),
   };
   try {
     await transporter.sendMail(mailOptions);
