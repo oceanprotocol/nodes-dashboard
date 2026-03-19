@@ -22,6 +22,8 @@ let isNodeReady = false;
 const DEFAULT_PROTOCOL = '/ocean/nodes/1.0.0';
 const DEFAULT_TIMEOUT = 10000;
 const MULTIADDR_DIAL_TIMEOUT = 5000;
+const HANDSHAKE_TIMEOUT_MS = 30_000;
+const DATA_TIMEOUT_MS = 30 * 60_000;
 const RESPONSE_TIMEOUT = 30000;
 const BOOTSTRAP_TIMEOUT = 30000;
 const MIN_BOOTSTRAP_CONNECTIONS = 1;
@@ -320,6 +322,81 @@ export async function getComputeJobResult(
     consumerAddress: address,
     authorization: authToken,
   });
+}
+
+export async function* streamComputeJobResult(
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
+  jobId: string,
+  index: number,
+  authToken: string,
+  address: string,
+  cancelSignal?: AbortSignal
+): AsyncGenerator<Uint8Array> {
+  if (!nodeInstance) throw new Error('Node not initialized');
+  if (!isNodeReady) throw new Error('Node not ready - still establishing bootstrap connections');
+
+  const command = {
+    command: Command.COMPUTE_GET_RESULT,
+    jobId,
+    index,
+    consumerAddress: address,
+    authorization: authToken,
+  };
+
+  let connection = await dialPeer(multiaddrsOrPeerId);
+
+  async function setupStream() {
+    const stream = await connection.newStream(DEFAULT_PROTOCOL, {
+      signal: AbortSignal.timeout(HANDSHAKE_TIMEOUT_MS),
+      runOnLimitedConnection: true,
+    });
+    if (!stream) throw new Error('Failed to create stream to peer');
+    const lp = lpStream(stream);
+    await lp.write(uint8ArrayFromString(JSON.stringify(command)), {
+      signal: AbortSignal.timeout(HANDSHAKE_TIMEOUT_MS),
+    });
+    return lp;
+  }
+
+  let lp: Awaited<ReturnType<typeof setupStream>>;
+  try {
+    lp = await setupStream();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes('closed') && !msg.includes('reset')) throw err;
+    // Stale connection — evict and retry once
+    await connection.close().catch(() => {});
+    connection = await dialPeer(multiaddrsOrPeerId);
+    lp = await setupStream();
+  }
+
+  // Stream data chunks — use a single AbortController with a resettable
+  // timeout so we don't accumulate thousands of AbortSignal.any() listeners
+  // on cancelSignal over a long download.
+  const streamAbort = new AbortController();
+  const signal = cancelSignal
+    ? AbortSignal.any([streamAbort.signal, cancelSignal])
+    : streamAbort.signal;
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const resetTimeout = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      streamAbort.abort(new DOMException('Data chunk timeout', 'TimeoutError'));
+    }, DATA_TIMEOUT_MS);
+  };
+
+  try {
+    while (true) {
+      resetTimeout();
+      const chunk = await lp.read({ signal });
+      yield chunk instanceof Uint8Array ? chunk : chunk.subarray();
+    }
+  } catch (e) {
+    if (!(e instanceof UnexpectedEOFError)) throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function getComputeStatus(multiaddrsOrPeerId: MultiaddrsOrPeerId, jobId: string, consumerAddress: string) {

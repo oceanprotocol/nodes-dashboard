@@ -11,6 +11,7 @@ import {
   initializeNode,
   pushNodeConfig,
   sendCommandToPeer,
+  streamComputeJobResult,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment, MultiaddrsOrPeerId } from '@/types/environments';
@@ -94,6 +95,14 @@ interface P2PContextType {
   }) => Promise<void>;
   sendCommand: (multiaddrsOrPeerId: MultiaddrsOrPeerId, command: any, protocol?: string) => Promise<any>;
   getPeerMultiaddr: (multiaddrsOrPeerId: MultiaddrsOrPeerId) => Promise<string>;
+  streamComputeResult: (
+    multiaddrsOrPeerId: MultiaddrsOrPeerId,
+    jobId: string,
+    index: number,
+    authToken: string,
+    address: string,
+    cancelSignal?: AbortSignal
+  ) => AsyncGenerator<Uint8Array>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
@@ -190,6 +199,23 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
 
       setComputeResult(result);
       return result;
+    },
+    [isReady, node]
+  );
+
+  const streamComputeResult = useCallback(
+    (
+      multiaddrsOrPeerId: MultiaddrsOrPeerId,
+      jobId: string,
+      index: number,
+      authToken: string,
+      address: string,
+      cancelSignal?: AbortSignal
+    ): AsyncGenerator<Uint8Array> => {
+      if (!isReady || !node) {
+        throw new Error('Node not ready');
+      }
+      return streamComputeJobResult(multiaddrsOrPeerId, jobId, index, authToken, address, cancelSignal);
     },
     [isReady, node]
   );
@@ -372,6 +398,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         pushConfig,
         getPeerMultiaddr,
         sendCommand,
+        streamComputeResult,
       }}
     >
       {children}
