@@ -2,7 +2,9 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentAuthorize from '@/components/run-job/payment-authorize';
 import PaymentDeposit from '@/components/run-job/payment-deposit';
+import PaymentFiatTopup from '@/components/run-job/payment-fiat-topup';
 import PaymentSummary from '@/components/run-job/payment-summary';
+import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
@@ -41,27 +43,25 @@ const Payment = ({
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
   const step: 'topup' | 'deposit' | 'authorize' = useMemo(() => {
-    // TODO re-enable topup page
-    // if (
-    // (walletBalance ?? 0) + (escrowBalance ?? 0) < totalCost &&
-    // selectedToken.address === getSupportedTokens().USDC
-    // ) {
-    // Only USDC can be topped up with fiat
-    // return 'topup';
-    // }
+    if (
+      (walletBalance ?? 0) + (escrowBalance ?? 0) < totalCost &&
+      selectedToken.address === getSupportedTokens().USDC.address
+    ) {
+      // Only USDC can be topped up with fiat
+      return 'topup';
+    }
     if ((escrowBalance ?? 0) < totalCost) {
       return 'deposit';
     }
     return 'authorize';
-  }, [escrowBalance, totalCost]);
+  }, [escrowBalance, selectedToken.address, totalCost, walletBalance]);
 
   useEffect(() => {
     switch (step) {
-      // TODO re-enable topup page
-      // case 'topup': {
-      //   setPageSubtitle('You need to top up in order to start your job');
-      //   break;
-      // }
+      case 'topup': {
+        setPageSubtitle('You need to top up in order to start your job');
+        break;
+      }
       case 'deposit': {
         setPageSubtitle('You need to deposit funds in escrow in order to strart your job');
         break;
@@ -133,21 +133,20 @@ const Payment = ({
 
   const renderStep = () => {
     switch (step) {
-      // TODO re-enable topup page
-      // case 'topup': {
-      //   return (
-      //     <PaymentFiatTopup
-      //       // currentLockedAmount={currentLockedAmount}
-      //       escrowBalance={escrowBalance ?? 0}
-      //       loadingPaymentInfo={loadingPaymentInfo}
-      //       loadPaymentInfo={loadPaymentInfo}
-      //       renderBackButton={renderBackButton}
-      //       selectedToken={selectedToken}
-      //       totalCost={totalCost}
-      //       walletBalance={walletBalance ?? 0}
-      //     />
-      //   );
-      // }
+      case 'topup': {
+        return (
+          <PaymentFiatTopup
+            // currentLockedAmount={currentLockedAmount}
+            escrowBalance={escrowBalance ?? 0}
+            loadingPaymentInfo={loadingPaymentInfo}
+            loadPaymentInfo={loadPaymentInfo}
+            renderBackButton={renderBackButton}
+            selectedToken={selectedToken}
+            totalCost={totalCost}
+            walletBalance={walletBalance ?? 0}
+          />
+        );
+      }
       case 'deposit': {
         return (
           <PaymentDeposit

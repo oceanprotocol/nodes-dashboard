@@ -13,6 +13,7 @@ import { AlchemyProvider } from '@/lib/alchemy-provider';
 import { OceanAccountProvider } from '@/lib/use-ocean-account';
 import { PHProvider } from '@/lib/use-posthog';
 import '@/styles/globals.css';
+import { MoonPayProvider } from '@moonpay/moonpay-react';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
@@ -65,38 +66,43 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
   return (
     <main className={cx(inter.variable, plusJakartaSans.variable)}>
       <ThemeProvider theme={muiTheme}>
-        <GitBookProvider siteURL={config.links.docs}>
-          <QueryClientProvider client={queryClientRef.current}>
-            <AlchemyProvider cookie={cookie}>
-              <OceanAccountProvider>
-                <GrantProvider>
-                  <NodesProvider>
-                    <UnbanRequestsProvider>
-                      <ProfileProvider>
-                        <StatsProvider>
-                          <P2PProvider>
-                            <RunJobEnvsProvider>
-                              <RunJobProvider>
-                                <RunNodeProvider>
-                                  <RootLayout>
-                                    <PHProvider>
-                                      <Component {...pageProps} />
-                                    </PHProvider>
-                                  </RootLayout>
-                                </RunNodeProvider>
-                              </RunJobProvider>
-                            </RunJobEnvsProvider>
-                          </P2PProvider>
-                        </StatsProvider>
-                      </ProfileProvider>
-                    </UnbanRequestsProvider>
-                  </NodesProvider>
-                </GrantProvider>
-              </OceanAccountProvider>
-            </AlchemyProvider>
-            <ToastContainer hideProgressBar theme="colored" />
-          </QueryClientProvider>
-        </GitBookProvider>
+        <MoonPayProvider
+          apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY}
+          debug={process.env.NEXT_PUBLIC_APP_ENV !== 'production'}
+        >
+          <GitBookProvider siteURL={config.links.docs}>
+            <QueryClientProvider client={queryClientRef.current}>
+              <AlchemyProvider cookie={cookie}>
+                <OceanAccountProvider>
+                  <GrantProvider>
+                    <NodesProvider>
+                      <UnbanRequestsProvider>
+                        <ProfileProvider>
+                          <StatsProvider>
+                            <P2PProvider>
+                              <RunJobEnvsProvider>
+                                <RunJobProvider>
+                                  <RunNodeProvider>
+                                    <RootLayout>
+                                      <PHProvider>
+                                        <Component {...pageProps} />
+                                      </PHProvider>
+                                    </RootLayout>
+                                  </RunNodeProvider>
+                                </RunJobProvider>
+                              </RunJobEnvsProvider>
+                            </P2PProvider>
+                          </StatsProvider>
+                        </ProfileProvider>
+                      </UnbanRequestsProvider>
+                    </NodesProvider>
+                  </GrantProvider>
+                </OceanAccountProvider>
+              </AlchemyProvider>
+              <ToastContainer hideProgressBar theme="colored" />
+            </QueryClientProvider>
+          </GitBookProvider>
+        </MoonPayProvider>
       </ThemeProvider>
     </main>
   );

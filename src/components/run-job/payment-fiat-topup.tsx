@@ -1,14 +1,11 @@
 import Button from '@/components/button/button';
 import { SelectedToken } from '@/context/run-job-context';
-import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { MoonPayBuyWidget } from '@moonpay/moonpay-react';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { RampInstantEventTypes, RampInstantSDK } from '@ramp-network/ramp-instant-sdk';
-import { IPurchase, IPurchaseCreatedEvent } from '@ramp-network/ramp-instant-sdk/dist/types/types';
 import axios from 'axios';
-import BigNumber from 'bignumber.js';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './payment-fiat-topup.module.css';
 
@@ -23,9 +20,6 @@ type PaymentFiatTopupProps = {
   walletBalance: number;
 };
 
-const GET_STATUS_MAX_TRIES = Number(process.env.NEXT_PUBLIC_RAMP_GET_STATUS_MAX_TRIES ?? 20);
-const GET_STATUS_INTERVAL = Number(process.env.NEXT_PUBLIC_RAMP_GET_STATUS_INTERVAL ?? 5000);
-
 const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   // currentLockedAmount,
   escrowBalance,
@@ -37,179 +31,61 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   walletBalance,
 }) => {
   const { account } = useOceanAccount();
+  const [widgetVisible, setWidgetVisible] = useState(false);
 
-  // Using refs here to avoid stale state in the ramp event handlers
-  // With useState, the events are handled with the state from the time the event handler was registered
-  const apiBaseUrlRef = useRef<string | null>(null);
-  const getStatusCrtTryRef = useRef(0);
-  const purchaseRef = useRef<IPurchase | null>(null);
-  const purchaseViewTokenRef = useRef<string | null>(null);
+  const amountToTopup = Math.max(0, totalCost - escrowBalance - walletBalance);
 
-  const [getStatusTimeout, setGetStatusTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [loadingGetStatus, setLoadingGetStatus] = useState(false);
-
-  const clearState = () => {
-    apiBaseUrlRef.current = null;
-    getStatusCrtTryRef.current = 0;
-    purchaseRef.current = null;
-    purchaseViewTokenRef.current = null;
-    if (getStatusTimeout) {
-      clearTimeout(getStatusTimeout);
-    }
-    setGetStatusTimeout(null);
-    setLoadingGetStatus(false);
-  };
-
-  const isBankTransfer = (purchase: IPurchase) => {
-    return purchase.paymentMethodType.includes('BANK');
-  };
-
-  const handleTopup = async () => {
-    const amountToTopup = Math.max(0, totalCost - escrowBalance - walletBalance);
+  const handleUrlSignatureRequested = async (url: string) => {
     try {
-      const tokenDecimals = await getTokenDecimals(selectedToken.address);
-      const normalizedAmountToTopup = new BigNumber(amountToTopup)
-        .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
-        .toFixed(0);
-      new RampInstantSDK({
-        enabledCryptoAssets: 'BASE_USDC',
-        enabledFlows: ['ONRAMP'],
-        hideExitButton: false,
-        hostApiKey: process.env.NEXT_PUBLIC_RAMP_API_KEY!,
-        hostAppName: 'Ocean Network',
-        outAssetValue: normalizedAmountToTopup,
-        url: process.env.NEXT_PUBLIC_APP_ENV === 'production' ? undefined : 'https://app.demo.rampnetwork.com',
-        userAddress: account.address,
-        // TODO remove 'as any' once Ramp SDK types are updated
-      } as any)
-        .on(RampInstantEventTypes.PURCHASE_CREATED, (event: IPurchaseCreatedEvent) => {
-          console.log('PURCHASE_CREATED', event);
-          getStatusCrtTryRef.current = 0;
-          apiBaseUrlRef.current = event.payload.apiUrl;
-          purchaseRef.current = event.payload.purchase;
-          purchaseViewTokenRef.current = event.payload.purchaseViewToken;
-        })
-        .on(RampInstantEventTypes.WIDGET_CLOSE, () => {
-          if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
-            toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
-            return;
-          }
-          setLoadingGetStatus(true);
-          getTransactionInfo();
-        })
-        .show();
+      const response = await axios.post<{ signature: string }>('/api/moonpay/sign-url', {
+        urlForSignature: url,
+      });
+      return response.data.signature;
     } catch (error) {
-      console.error('Error initiating top-up', error);
-      toast.error('Failed to initiate top-up. Please try again.');
-      clearState();
+      console.error('Error signing MoonPay URL', error);
+      toast.error('Failed to open payment widget. Please try again.');
+      return '';
     }
   };
-
-  const getTransactionInfo = async () => {
-    if (!apiBaseUrlRef.current || !purchaseRef.current || !purchaseViewTokenRef.current) {
-      toast.error('Failed to load top-up status. Please check your email for updates');
-      clearState();
-      return;
-    }
-    try {
-      const response = await axios.get<IPurchase>(
-        `${apiBaseUrlRef.current}/host-api/purchase/${purchaseRef.current.id}`,
-        {
-          params: {
-            secret: purchaseViewTokenRef.current,
-          },
-        }
-      );
-      switch (response.data.status) {
-        case 'INITIALIZED': {
-          if (isBankTransfer(response.data)) {
-            toast.info('Bank transfers are not processed instantly. Please check your email for updates');
-          } else {
-            toast.info('Top-up abandoned. Payment widget closed before payment was initiated');
-          }
-          clearState();
-          break;
-        }
-        case 'RELEASED': {
-          toast.success('Top-up completed');
-          clearState();
-          loadPaymentInfo();
-          break;
-        }
-        case 'EXPIRED': {
-          toast.error('Top-up expired');
-          clearState();
-          break;
-        }
-        case 'CANCELLED': {
-          toast.error('Top-up cancelled');
-          clearState();
-          break;
-        }
-        default: {
-          if (getStatusTimeout) {
-            clearTimeout(getStatusTimeout);
-          }
-          if (isBankTransfer(response.data)) {
-            toast.info('Bank transfers are not processed instantly. Please check your email for updates');
-            clearState();
-            return;
-          }
-          if (getStatusCrtTryRef.current >= GET_STATUS_MAX_TRIES) {
-            toast.error('Loading top-up status timed out. Please check your email for updates');
-            clearState();
-            return;
-          }
-          getStatusCrtTryRef.current += 1;
-          const timeout = setTimeout(() => {
-            getTransactionInfo();
-          }, GET_STATUS_INTERVAL);
-          setGetStatusTimeout(timeout);
-          break;
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching top-up status', error);
-      toast.error('Failed to load top-up status. Please check your email for updates');
-      clearState();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (getStatusTimeout) {
-        clearTimeout(getStatusTimeout);
-      }
-    };
-  }, [getStatusTimeout]);
 
   return (
-    <div className={styles.buttons}>
-      {renderBackButton?.(loadingPaymentInfo)}
-      <div className={styles.buttonsGroup}>
-        <Button
-          autoLoading
-          color="accent1"
-          contentBefore={<RefreshIcon />}
-          onClick={loadPaymentInfo}
-          size="lg"
-          variant="outlined"
-        >
-          Refresh wallet balance
-        </Button>
-        <Button
-          color="accent1"
-          contentBefore={loadingGetStatus ? null : <CreditCardIcon />}
-          disabled={loadingPaymentInfo}
-          loading={loadingGetStatus}
-          onClick={handleTopup}
-          size="lg"
-          variant="filled"
-        >
-          {loadingGetStatus ? 'Topping up...' : 'Top up'}
-        </Button>
+    <>
+      <MoonPayBuyWidget
+        variant="overlay"
+        baseCurrencyAmount={String(Math.ceil(amountToTopup * 100) / 100)}
+        baseCurrencyCode="usd"
+        currencyCode="usdc_base"
+        onUrlSignatureRequested={handleUrlSignatureRequested}
+        visible={widgetVisible}
+        walletAddress={account.address}
+        onClose={async () => setWidgetVisible(false)}
+      />
+      <div className={styles.buttons}>
+        {renderBackButton?.(loadingPaymentInfo)}
+        <div className={styles.buttonsGroup}>
+          <Button
+            autoLoading
+            color="accent1"
+            contentBefore={<RefreshIcon />}
+            onClick={loadPaymentInfo}
+            size="lg"
+            variant="outlined"
+          >
+            Refresh wallet balance
+          </Button>
+          <Button
+            color="accent1"
+            contentBefore={<CreditCardIcon />}
+            disabled={loadingPaymentInfo}
+            onClick={() => setWidgetVisible(true)}
+            size="lg"
+            variant="filled"
+          >
+            Top up
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
