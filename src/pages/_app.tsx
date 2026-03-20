@@ -13,7 +13,6 @@ import { AlchemyProvider } from '@/lib/alchemy-provider';
 import { OceanAccountProvider } from '@/lib/use-ocean-account';
 import { PHProvider } from '@/lib/use-posthog';
 import '@/styles/globals.css';
-import { MoonPayProvider } from '@moonpay/moonpay-react';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
@@ -23,6 +22,10 @@ import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+const MoonPayProvider = dynamic(() => import('@moonpay/moonpay-react').then((mod) => mod.MoonPayProvider), {
+  ssr: false,
+});
 
 const GitBookProvider = dynamic(() => import('@gitbook/embed/react').then((mod) => mod.GitBookProvider), {
   ssr: false,

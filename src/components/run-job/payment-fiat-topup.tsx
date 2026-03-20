@@ -1,12 +1,16 @@
 import Button from '@/components/button/button';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { MoonPayBuyWidget } from '@moonpay/moonpay-react';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import axios from 'axios';
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './payment-fiat-topup.module.css';
+
+const MoonPayBuyWidget = dynamic(() => import('@moonpay/moonpay-react').then((mod) => mod.MoonPayBuyWidget), {
+  ssr: false,
+});
 
 type PaymentFiatTopupProps = {
   // currentLockedAmount: number;
@@ -48,16 +52,17 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   };
 
   return (
-    <>
+    <div>
       <MoonPayBuyWidget
-        variant="overlay"
-        baseCurrencyAmount={String(Math.ceil(amountToTopup * 100) / 100)}
-        baseCurrencyCode="usd"
+        // baseCurrencyCode="usd"
         currencyCode="usdc_base"
         onUrlSignatureRequested={handleUrlSignatureRequested}
+        quoteCurrencyAmount={String(Math.ceil(amountToTopup * 100) / 100)}
+        paymentMethod="credit_debit_card"
+        onClose={async () => setWidgetVisible(false)}
+        variant="overlay"
         visible={widgetVisible}
         walletAddress={account.address}
-        onClose={async () => setWidgetVisible(false)}
       />
       <div className={styles.buttons}>
         {renderBackButton?.(loadingPaymentInfo)}
@@ -84,7 +89,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
