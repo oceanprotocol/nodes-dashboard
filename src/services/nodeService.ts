@@ -324,12 +324,15 @@ export async function getComputeJobResult(
   });
 }
 
-export async function* streamComputeJobResult(
+const STREAM_MAX_RETRIES = 5;
+
+async function* streamComputeJobResultOnce(
   multiaddrsOrPeerId: MultiaddrsOrPeerId,
   jobId: string,
   index: number,
   authToken: string,
   address: string,
+  offset: number,
   cancelSignal?: AbortSignal
 ): AsyncGenerator<Uint8Array> {
   if (!nodeInstance) throw new Error('Node not initialized');
@@ -341,6 +344,7 @@ export async function* streamComputeJobResult(
     index,
     consumerAddress: address,
     authorization: authToken,
+    ...(offset > 0 && { offset }),
   };
 
   let connection = await dialPeer(multiaddrsOrPeerId);
@@ -370,6 +374,19 @@ export async function* streamComputeJobResult(
     lp = await setupStream();
   }
 
+  // Read the status response the node always sends first (length-prefixed).
+  const statusBytes = await lp.read({ signal: AbortSignal.timeout(HANDSHAKE_TIMEOUT_MS) });
+  const statusRaw = statusBytes instanceof Uint8Array ? statusBytes : statusBytes.subarray();
+  let status: { httpStatus: number; error?: string };
+  try {
+    status = JSON.parse(uint8ArrayToString(statusRaw));
+  } catch {
+    throw new Error('Invalid status response from node');
+  }
+  if (status.httpStatus !== 200) {
+    throw new Error(status.error ?? `Node returned HTTP ${status.httpStatus}`);
+  }
+
   // Stream data chunks — use a single AbortController with a resettable
   // timeout so we don't accumulate thousands of AbortSignal.any() listeners
   // on cancelSignal over a long download.
@@ -396,6 +413,57 @@ export async function* streamComputeJobResult(
     if (!(e instanceof UnexpectedEOFError)) throw e;
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Stream a compute job result with automatic retry and resume.
+ * When the P2P stream drops mid-download, reconnects and resumes
+ * from the last received byte using the node's offset parameter.
+ */
+export async function* streamComputeJobResult(
+  multiaddrsOrPeerId: MultiaddrsOrPeerId,
+  jobId: string,
+  index: number,
+  authToken: string,
+  address: string,
+  cancelSignal?: AbortSignal
+): AsyncGenerator<Uint8Array> {
+  let bytesReceived = 0;
+  let retries = 0;
+
+  while (true) {
+    try {
+      const generator = streamComputeJobResultOnce(
+        multiaddrsOrPeerId,
+        jobId,
+        index,
+        authToken,
+        address,
+        bytesReceived,
+        cancelSignal
+      );
+
+      for await (const chunk of generator) {
+        bytesReceived += chunk.byteLength;
+        retries = 0; // reset on successful data
+        yield chunk;
+      }
+      return; // stream completed normally
+    } catch (e) {
+      // Never retry user-initiated cancellation
+      if (cancelSignal?.aborted) throw e;
+      if (e instanceof Error && e.name === 'AbortError') throw e;
+
+      retries++;
+      if (retries > STREAM_MAX_RETRIES) throw e;
+
+      const delay = Math.min(1000 * 2 ** retries, 30_000);
+      console.warn(
+        `Stream interrupted at ${bytesReceived} bytes, retry ${retries}/${STREAM_MAX_RETRIES} in ${delay}ms…`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
   }
 }
 
