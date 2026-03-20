@@ -58,7 +58,8 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
           logFiles[i].index,
           token,
           account.address,
-          abortController.signal
+          abortController.signal,
+          logFiles[i].filesize ?? 0
         );
 
         const chunks: Uint8Array[] = [];

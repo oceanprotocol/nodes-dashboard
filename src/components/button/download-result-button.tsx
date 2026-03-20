@@ -48,7 +48,8 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
         archive?.index,
         token,
         account.address,
-        abortController.signal
+        abortController.signal,
+        filesize
       );
 
       const showSaveFilePicker = (window as any).showSaveFilePicker as

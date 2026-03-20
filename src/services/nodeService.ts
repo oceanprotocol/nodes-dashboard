@@ -324,9 +324,72 @@ export async function getComputeJobResult(
   });
 }
 
-const STREAM_MAX_RETRIES = 5;
+const STREAM_MAX_RETRIES = 10;
 
-async function* streamComputeJobResultOnce(
+/**
+ * Extract an HTTPS base URL from a multiaddr array when a DNS name is present.
+ * Returns undefined when no DNS-based multiaddr is found (IP-only nodes).
+ */
+function extractHttpBaseUrl(target: MultiaddrsOrPeerId): string | undefined {
+  if (typeof target === 'string' || !target) return undefined;
+  for (const addr of target) {
+    const match = addr.match(/\/dns[46]\/([^/]+)/);
+    if (match) return `https://${match[1]}`;
+  }
+  return undefined;
+}
+
+// ── HTTP streaming (preferred when node has a DNS name) ─────────────────
+
+class PrematureEndError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PrematureEndError';
+  }
+}
+
+async function* streamComputeJobResultHTTP(
+  baseUrl: string,
+  jobId: string,
+  index: number,
+  authToken: string,
+  address: string,
+  cancelSignal?: AbortSignal
+): AsyncGenerator<Uint8Array> {
+  const params = new URLSearchParams({
+    jobId,
+    index: String(index),
+    consumerAddress: address,
+  });
+
+  const response = await fetch(`${baseUrl}/api/services/computeResult?${params}`, {
+    headers: { authorization: authToken },
+    signal: cancelSignal,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `HTTP ${response.status}`);
+  }
+
+  const body = response.body;
+  if (!body) throw new Error('No response body');
+
+  const reader = body.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      yield value;
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}
+
+// ── P2P streaming (fallback for IP-only nodes) ─────────────────────────
+
+async function* streamComputeJobResultP2P(
   multiaddrsOrPeerId: MultiaddrsOrPeerId,
   jobId: string,
   index: number,
@@ -368,7 +431,6 @@ async function* streamComputeJobResultOnce(
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (!msg.includes('closed') && !msg.includes('reset')) throw err;
-    // Stale connection — evict and retry once
     await connection.close().catch(() => {});
     connection = await dialPeer(multiaddrsOrPeerId);
     lp = await setupStream();
@@ -387,9 +449,7 @@ async function* streamComputeJobResultOnce(
     throw new Error(status.error ?? `Node returned HTTP ${status.httpStatus}`);
   }
 
-  // Stream data chunks — use a single AbortController with a resettable
-  // timeout so we don't accumulate thousands of AbortSignal.any() listeners
-  // on cancelSignal over a long download.
+  // Stream data chunks with a resettable per-chunk timeout.
   const streamAbort = new AbortController();
   const signal = cancelSignal
     ? AbortSignal.any([streamAbort.signal, cancelSignal])
@@ -416,10 +476,18 @@ async function* streamComputeJobResultOnce(
   }
 }
 
+// ── Public API: auto-selects HTTP vs P2P, retries with resume ───────────
+
 /**
  * Stream a compute job result with automatic retry and resume.
- * When the P2P stream drops mid-download, reconnects and resumes
- * from the last received byte using the node's offset parameter.
+ *
+ * • Prefers HTTP when the node has a DNS name (more reliable for large files).
+ * • Falls back to P2P for IP-only nodes (or if HTTP fails on first attempt).
+ * • On P2P, resumes from last byte using the node's offset parameter.
+ *
+ * @param expectedBytes - optional expected file size; when set, a premature
+ *   stream end (fewer bytes than expected) triggers a retry instead of
+ *   silently completing.
  */
 export async function* streamComputeJobResult(
   multiaddrsOrPeerId: MultiaddrsOrPeerId,
@@ -427,35 +495,73 @@ export async function* streamComputeJobResult(
   index: number,
   authToken: string,
   address: string,
-  cancelSignal?: AbortSignal
+  cancelSignal?: AbortSignal,
+  expectedBytes?: number
 ): AsyncGenerator<Uint8Array> {
+  const httpBaseUrl = extractHttpBaseUrl(multiaddrsOrPeerId);
+  let useHTTP = !!httpBaseUrl;
   let bytesReceived = 0;
   let retries = 0;
 
   while (true) {
     try {
-      const generator = streamComputeJobResultOnce(
-        multiaddrsOrPeerId,
-        jobId,
-        index,
-        authToken,
-        address,
-        bytesReceived,
-        cancelSignal
-      );
+      let generator: AsyncGenerator<Uint8Array>;
+
+      if (useHTTP) {
+        console.log(
+          `Downloading via HTTP from ${httpBaseUrl} (attempt ${retries + 1})`
+        );
+        generator = streamComputeJobResultHTTP(
+          httpBaseUrl!,
+          jobId,
+          index,
+          authToken,
+          address,
+          cancelSignal
+        );
+      } else {
+        console.log(
+          `Downloading via P2P${bytesReceived > 0 ? ` (resuming at ${bytesReceived} bytes)` : ''} (attempt ${retries + 1})`
+        );
+        generator = streamComputeJobResultP2P(
+          multiaddrsOrPeerId,
+          jobId,
+          index,
+          authToken,
+          address,
+          bytesReceived,
+          cancelSignal
+        );
+      }
 
       for await (const chunk of generator) {
         bytesReceived += chunk.byteLength;
-        retries = 0; // reset on successful data
+        retries = 0;
         yield chunk;
       }
+
+      // Detect premature EOF: stream ended cleanly but we haven't
+      // received enough data yet.
+      if (expectedBytes && expectedBytes > 0 && bytesReceived < expectedBytes) {
+        throw new PrematureEndError(
+          `Stream ended at ${bytesReceived}/${expectedBytes} bytes`
+        );
+      }
+
       return; // stream completed normally
     } catch (e) {
-      // Never retry user-initiated cancellation
       if (cancelSignal?.aborted) throw e;
       if (e instanceof Error && e.name === 'AbortError') throw e;
 
       retries++;
+
+      // On first HTTP failure, switch to P2P for all subsequent attempts
+      if (useHTTP && retries === 1) {
+        console.warn(`HTTP download failed, switching to P2P: ${e instanceof Error ? e.message : e}`);
+        useHTTP = false;
+        bytesReceived = 0; // P2P is a fresh start from offset 0
+      }
+
       if (retries > STREAM_MAX_RETRIES) throw e;
 
       const delay = Math.min(1000 * 2 ** retries, 30_000);

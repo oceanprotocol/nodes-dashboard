@@ -101,7 +101,8 @@ interface P2PContextType {
     index: number,
     authToken: string,
     address: string,
-    cancelSignal?: AbortSignal
+    cancelSignal?: AbortSignal,
+    expectedBytes?: number
   ) => AsyncGenerator<Uint8Array>;
 }
 
@@ -210,12 +211,13 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       index: number,
       authToken: string,
       address: string,
-      cancelSignal?: AbortSignal
+      cancelSignal?: AbortSignal,
+      expectedBytes?: number
     ): AsyncGenerator<Uint8Array> => {
       if (!isReady || !node) {
         throw new Error('Node not ready');
       }
-      return streamComputeJobResult(multiaddrsOrPeerId, jobId, index, authToken, address, cancelSignal);
+      return streamComputeJobResult(multiaddrsOrPeerId, jobId, index, authToken, address, cancelSignal, expectedBytes);
     },
     [isReady, node]
   );
