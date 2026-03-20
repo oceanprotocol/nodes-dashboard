@@ -15,12 +15,7 @@ export default function handler(request: NextApiRequest, response: NextApiRespon
   const secretKey = process.env.MOONPAY_SECRET_KEY;
 
   if (!secretKey) {
-    if (process.env.NEXT_PUBLIC_APP_ENV === 'production') {
-      return response.status(500).json({ message: 'On-ramp is not configured for production' });
-    }
-    // In sandbox / local dev without a secret key, return an empty signature.
-    // MoonPay sandbox mode does not enforce signing.
-    return response.status(200).json({ signature: '' });
+    return response.status(500).json({ message: 'On-ramp is not configured properly' });
   }
 
   try {
