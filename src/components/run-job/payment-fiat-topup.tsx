@@ -60,6 +60,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         quoteCurrencyAmount={String(Math.ceil(amountToTopup * 100) / 100)}
         paymentMethod="credit_debit_card"
         onClose={async () => setWidgetVisible(false)}
+        theme="light"
         variant="overlay"
         visible={widgetVisible}
         walletAddress={account.address}
