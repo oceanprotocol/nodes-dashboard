@@ -62,6 +62,7 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (address) {
       posthog.identify(address);
+      posthog.capture('login', { address, type: 'sca' });
     }
   }, [address]);
 
@@ -147,6 +148,7 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (address) {
       posthog.identify(address);
+      posthog.capture('login', { address, type: 'eoa' });
     }
   }, [address]);
 
