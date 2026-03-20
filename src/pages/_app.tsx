@@ -67,7 +67,7 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
     <main className={cx(inter.variable, plusJakartaSans.variable)}>
       <ThemeProvider theme={muiTheme}>
         <MoonPayProvider
-          apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY}
+          apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY!}
           debug={process.env.NEXT_PUBLIC_APP_ENV !== 'production'}
         >
           <GitBookProvider siteURL={config.links.docs}>

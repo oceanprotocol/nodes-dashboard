@@ -1,5 +1,4 @@
 import Button from '@/components/button/button';
-import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { MoonPayBuyWidget } from '@moonpay/moonpay-react';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
@@ -15,7 +14,7 @@ type PaymentFiatTopupProps = {
   loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
   renderBackButton?: (disabled: boolean) => React.ReactNode;
-  selectedToken: SelectedToken;
+  // selectedToken: SelectedToken;
   totalCost: number;
   walletBalance: number;
 };
@@ -26,7 +25,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   loadingPaymentInfo,
   loadPaymentInfo,
   renderBackButton,
-  selectedToken,
+  // selectedToken,
   totalCost,
   walletBalance,
 }) => {

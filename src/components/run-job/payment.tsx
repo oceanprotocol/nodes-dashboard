@@ -141,7 +141,7 @@ const Payment = ({
             loadingPaymentInfo={loadingPaymentInfo}
             loadPaymentInfo={loadPaymentInfo}
             renderBackButton={renderBackButton}
-            selectedToken={selectedToken}
+            // selectedToken={selectedToken}
             totalCost={totalCost}
             walletBalance={walletBalance ?? 0}
           />
