@@ -1,4 +1,9 @@
-import { useEffect, useState } from 'react';
+import LeftArrow from '@/assets/how-it-works-arrows/left.svg';
+import RightArrow from '@/assets/how-it-works-arrows/right.svg';
+import StartArrow from '@/assets/how-it-works-arrows/start.svg';
+import Card from '@/components/card/card';
+import classNames from 'classnames';
+import React, { useEffect, useState } from 'react';
 import Container from '../container/container';
 import SectionTitle from '../section-title/section-title';
 import styles from './how-it-works.module.css';
@@ -13,15 +18,11 @@ const itemsList: {
   },
   {
     title: 'Define Resources',
-    description: 'Pick container or template, set params and limits.',
+    description: 'Pick container or template, set params and choose the resources you need.',
   },
   {
     title: 'Fund the Job',
     description: 'Allocate funds in escrow. See a clear cost estimate before launch.',
-  },
-  {
-    title: 'Maximum flexibility',
-    description: 'You are not constrained to preset CPU/GPU/RAM bundles. Choose the resources you need.',
   },
   {
     title: 'Run Job',
@@ -29,18 +30,11 @@ const itemsList: {
   },
   {
     title: 'Get Results',
-    description: 'Outputs are returned. Raw data remains private.',
+    description: 'The logs and outputs of your algorithm are returned.',
   },
 ];
 
-const videoSrc = '/globe_how-it-works.mp4';
-const posterSrc = '/banner-how-it-works.png';
-
 export default function HowItWorksSection() {
-  // const { sectionRef, videoRef, activeIndex } = useVideoScroll({
-  //   numSteps: itemsList.length,
-  // });
-
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -51,41 +45,45 @@ export default function HowItWorksSection() {
   }, []);
 
   return (
-    <div className={styles.root} /*ref={sectionRef}*/ tabIndex={0} aria-label="How it works, step-by-step">
-      <Container className={styles.relative}>
+    <div className={styles.root} tabIndex={0} aria-label="How it works, step-by-step">
+      <Container className={styles.container}>
         <SectionTitle
           title="How It works"
           subTitle="Run compute jobs and train AI models in a few simple steps"
           subTitleClassName="textPrimaryInverse"
           titleClassName="textAccent2"
         />
-        <div className={styles.twoSections}>
-          <div className={styles.featuresWrapper}>
-            {itemsList.map((item, index) => (
-              <div
-                key={item.title}
-                className={`${styles.featureItem} ${index === activeIndex ? styles.featureItemActive : ''}`}
+        <div className={styles.cards}>
+          {itemsList.map((item, index) => (
+            <React.Fragment key={index}>
+              {index === 0 ? (
+                <StartArrow
+                  className={classNames(styles.startArrow, { [styles.arrowActive]: index === activeIndex })}
+                />
+              ) : null}
+              {index % 2 !== 0 && index < itemsList.length - 1 ? (
+                <LeftArrow
+                  className={classNames(styles.leftArrow, { [styles.arrowActive]: activeIndex === index + 1 })}
+                />
+              ) : null}
+              <Card
+                className={classNames(styles.card, { [styles.cardActive]: index === activeIndex })}
+                padding="sm"
+                radius="md"
+                shadow="black"
+                variant="glass-shaded"
               >
-                <div className={styles.indexNumber}>0{index + 1}</div>
-                <div className={styles.featureTextWrapper}>
-                  <h4 className={styles.featureTitle}>{item.title}</h4>
-                  <p className={styles.featureDescription}>{item.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* <div className={styles.animation}>
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              poster={posterSrc}
-              // ref={videoRef}
-              src={videoSrc}
-            />
-          </div> */}
+                <div className={styles.cardIndex}>0{index + 1}.</div>
+                <h3 className={styles.cardTitle}>{item.title}</h3>
+                <p className={styles.cardDescription}>{item.description}</p>
+              </Card>
+              {index % 2 === 0 && index < itemsList.length - 1 ? (
+                <RightArrow
+                  className={classNames(styles.rightArrow, { [styles.arrowActive]: activeIndex === index + 1 })}
+                />
+              ) : null}
+            </React.Fragment>
+          ))}
         </div>
       </Container>
     </div>
