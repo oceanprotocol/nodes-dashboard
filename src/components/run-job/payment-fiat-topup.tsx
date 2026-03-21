@@ -34,6 +34,8 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   walletBalance,
 }) => {
   const { account } = useOceanAccount();
+
+  const [loadingTopup, setLoadingTopup] = useState(false);
   const [widgetVisible, setWidgetVisible] = useState(false);
 
   const amountToTopup = Math.max(0, totalCost - escrowBalance - walletBalance);
@@ -60,6 +62,36 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         quoteCurrencyAmount={String(Math.ceil(amountToTopup * 100) / 100)}
         paymentMethod="credit_debit_card"
         onClose={async () => setWidgetVisible(false)}
+        onTransactionCreated={async () => {
+          setLoadingTopup(true);
+        }}
+        onTransactionCompleted={async ({ status }) => {
+          setLoadingTopup(false);
+          switch (status) {
+            // 'completed' | 'failed' | 'pending' | 'waitingAuthorization' | 'waitingPayment'
+            case 'completed': {
+              toast.success('Payment completed');
+              loadPaymentInfo();
+              break;
+            }
+            case 'failed': {
+              toast.error('Payment failed');
+              break;
+            }
+            case 'pending': {
+              toast.info('Payment pending');
+              break;
+            }
+            case 'waitingAuthorization': {
+              toast.info('Payment waiting authorization');
+              break;
+            }
+            case 'waitingPayment': {
+              toast.info('Payment waiting payment');
+              break;
+            }
+          }
+        }}
         theme="light"
         variant="overlay"
         visible={widgetVisible}
@@ -72,6 +104,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
             autoLoading
             color="accent1"
             contentBefore={<RefreshIcon />}
+            disabled={loadingTopup || loadingPaymentInfo}
             onClick={loadPaymentInfo}
             size="lg"
             variant="outlined"
@@ -81,7 +114,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
           <Button
             color="accent1"
             contentBefore={<CreditCardIcon />}
-            disabled={loadingPaymentInfo}
+            loading={loadingTopup || loadingPaymentInfo}
             onClick={() => setWidgetVisible(true)}
             size="lg"
             variant="filled"
