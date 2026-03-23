@@ -36,7 +36,14 @@ export default function Document() {
       <body>
         <Main />
         <NextScript />
-        <Script strategy="beforeInteractive" id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="6be0fc4f-9e9c-4dee-a06f-e5bb0584cfe6" data-blockingmode="auto" type="text/javascript"/>
+        <Script
+          strategy="beforeInteractive"
+          id="Cookiebot"
+          src="https://consent.cookiebot.com/uc.js"
+          data-cbid="6be0fc4f-9e9c-4dee-a06f-e5bb0584cfe6"
+          data-blockingmode="auto"
+          type="text/javascript"
+        />
       </body>
     </Html>
   );
