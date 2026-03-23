@@ -56,7 +56,6 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   return (
     <div>
       <MoonPayBuyWidget
-        // baseCurrencyCode="usd"
         currencyCode="usdc_base"
         onUrlSignatureRequested={handleUrlSignatureRequested}
         quoteCurrencyAmount={String(Math.ceil(amountToTopup * 100) / 100)}
@@ -67,6 +66,7 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
         }}
         onTransactionCompleted={async ({ status }) => {
           setLoadingTopup(false);
+          setWidgetVisible(false);
           switch (status) {
             // 'completed' | 'failed' | 'pending' | 'waitingAuthorization' | 'waitingPayment'
             case 'completed': {
