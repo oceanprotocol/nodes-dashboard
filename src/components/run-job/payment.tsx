@@ -99,7 +99,7 @@ const Payment = ({
     const suffficientAuthorized =
       Number(authorizations?.maxLockedAmount ?? 0) >= totalCost + currentLockedAmount;
     const enoughLockSeconds =
-      Number(authorizations?.maxLockSeconds ?? 0) >= selectedResources.maxJobDurationSeconds;
+      Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
     const hasAvailableLockSlot =
       Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
