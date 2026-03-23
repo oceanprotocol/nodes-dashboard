@@ -38,7 +38,7 @@ const Summary = ({
 
   const { account, ocean, signMessage } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
-  const { multiaddrsOrPeerId } = useRunJobContext();
+  const { minLockSeconds, multiaddrsOrPeerId } = useRunJobContext();
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,
@@ -77,10 +77,12 @@ const Summary = ({
       const escrowBalance = Number(escrowBalanceStr);
       const sufficientEscrow = (escrowBalance ?? 0) >= estimatedTotalCost;
       const suffficientAuthorized =
-        (Number(authorizations?.maxLockedAmount) ?? 0) >= estimatedTotalCost + currentLockedAmount;
+        Number(authorizations?.maxLockedAmount ?? 0) >= estimatedTotalCost + currentLockedAmount;
       const enoughLockSeconds =
-        (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationSeconds;
-      if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
+        Number(authorizations?.maxLockSeconds ?? 0) >= (minLockSeconds ?? 0);
+      const hasAvailableLockSlot =
+        Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
+      if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
         setPaymentCheckFinished(true);
       } else {
         router.replace({ pathname: '/run-job/payment', query: router.query });

@@ -96,9 +96,13 @@ const Payment = ({
 
   useEffect(() => {
     const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
-    const suffficientAuthorized = (Number(authorizations?.maxLockedAmount) ?? 0) >= totalCost + currentLockedAmount;
-    const enoughLockSeconds = (Number(authorizations?.maxLockSeconds) ?? 0) >= selectedResources.maxJobDurationSeconds;
-    if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds) {
+    const suffficientAuthorized =
+      Number(authorizations?.maxLockedAmount ?? 0) >= totalCost + currentLockedAmount;
+    const enoughLockSeconds =
+      Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
+    const hasAvailableLockSlot =
+      Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
+    if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
       posthog.capture('payment_authorized', {
         totalCost,
         tokenSymbol: selectedToken.symbol,
@@ -107,6 +111,8 @@ const Payment = ({
       router.push({ pathname: '/run-job/summary', query: router.query });
     }
   }, [
+    authorizations?.currentLocks,
+    authorizations?.maxLockCounts,
     authorizations?.maxLockSeconds,
     authorizations?.maxLockedAmount,
     currentLockedAmount,
