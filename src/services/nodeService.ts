@@ -541,8 +541,9 @@ export async function* streamComputeJobResult(
       }
 
       // Detect premature EOF: stream ended cleanly but we haven't
-      // received enough data yet.
-      if (expectedBytes && expectedBytes > 0 && bytesReceived < expectedBytes) {
+      // received enough data yet. Only retry if we got *some* data —
+      // 0 bytes means there's genuinely nothing to download.
+      if (expectedBytes && expectedBytes > 0 && bytesReceived > 0 && bytesReceived < expectedBytes) {
         throw new PrematureEndError(
           `Stream ended at ${bytesReceived}/${expectedBytes} bytes`
         );
@@ -560,6 +561,10 @@ export async function* streamComputeJobResult(
         console.warn(`HTTP download failed, switching to P2P: ${e instanceof Error ? e.message : e}`);
         useHTTP = false;
         bytesReceived = 0; // P2P is a fresh start from offset 0
+      } else if (bytesReceived === 0) {
+        // Never received any data via P2P — the file likely doesn't
+        // exist or the node can't serve it; retrying won't help.
+        throw e;
       }
 
       if (retries > STREAM_MAX_RETRIES) throw e;
