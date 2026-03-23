@@ -22,6 +22,7 @@ import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Script from 'next/script';
 
 const GitBookProvider = dynamic(() => import('@gitbook/embed/react').then((mod) => mod.GitBookProvider), {
   ssr: false,
@@ -64,6 +65,20 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
 
   return (
     <main className={cx(inter.variable, plusJakartaSans.variable)}>
+      <Script
+        async
+        src="https://www.googletagmanager.com/gtag/js?id=AW-17691004915"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'AW-17691004915');
+        `}
+      </Script>
       <ThemeProvider theme={muiTheme}>
         <GitBookProvider siteURL={config.links.docs}>
           <QueryClientProvider client={queryClientRef.current}>

@@ -116,14 +116,14 @@ const PrivacyPolicyPage: React.FC = () => {
               content.
             </p>
             <p>
-              On our site, only PostHog, Alchemy,and Twitter set cookies. We have to set a cookie of our own though, for
-              remembering your acceptance or rejection of our cookie banner. This cookie will stay in your browser for
-              13 months, unless you delete it manually. This is so we can detect your acceptance or rejection on your
-              next visit, and adapt the site accordingly.
+              On our site, only PostHog, Google Analytics, Alchemy,and Twitter set cookies. We have to set a cookie of
+              our own though, for remembering your acceptance or rejection of our cookie banner. This cookie will stay
+              in your browser for 13 months, unless you delete it manually. This is so we can detect your acceptance or
+              rejection on your next visit, and adapt the site accordingly.
             </p>
             <p>
               If you have Do Not Track activated in your browser, or if you rejected our cookie banner, we won’t let
-              PostHog set any cookies in your browser.
+              PostHog or Google Analytics set any cookies in your browser.
             </p>
             <p>
               You also have the option of disabling cookies in your browser setting, and deleting cookies from your
@@ -137,19 +137,19 @@ const PrivacyPolicyPage: React.FC = () => {
             </p>
           </div>
           <div className={styles.policySection}>
-            <h4>PostHog</h4>
+            <h4>PostHog and Google Analytics</h4>
             <p>
-              The site uses PostHog, which provides us with anonymized information about our users (such as anonymized
-              IP address, browser version, and so on) and how they use the site. We use this information to make the
-              site better.
+              The site uses PostHog and Google Analytics, which provide us with anonymized information about our users
+              (such as anonymized IP address, browser version, and so on) and how they use the site. We use this
+              information to make the site better.
             </p>
             <p>
-              The collected IP addresses are truncated before being sent to PostHog, making them anonymized. PostHog
-              also sets cookies.
+              The collected IP addresses are truncated before being sent to PostHog and Google, making them anonymized.
+              PostHog and Google Analytics also set cookies.
             </p>
             <p>
-              If you hit Reject on the cookie banner, all previously set PostHog cookies will be deleted, and the
-              rejection is stored in a cookie CookieConsent with value of false.
+              If you hit Reject on the cookie banner, all previously set PostHog and Google Analytics cookies will be
+              deleted, and the rejection is stored in a cookie CookieConsent with value of false.
             </p>
           </div>
         </div>
