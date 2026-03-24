@@ -83,6 +83,7 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      toast.success('Logs downloaded successfully');
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') {
         toast.error('Download cancelled');

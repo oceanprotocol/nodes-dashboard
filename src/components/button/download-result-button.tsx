@@ -91,6 +91,8 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
           if (filesize > 0 && bytesReceived < filesize) {
             const pct = ((bytesReceived / filesize) * 100).toFixed(1);
             toast.warning(`Download may be incomplete: received ${pct}% of expected size`);
+          } else {
+            toast.success('Results downloaded successfully');
           }
         }
       }
@@ -113,6 +115,8 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
         if (filesize > 0 && bytesReceived < filesize) {
           const pct = ((bytesReceived / filesize) * 100).toFixed(1);
           toast.warning(`Download may be incomplete: received ${pct}% of expected size`);
+        } else {
+          toast.success('Results downloaded successfully');
         }
 
         const blob = new Blob(chunks as unknown as BlobPart[], { type: 'application/octet-stream' });
