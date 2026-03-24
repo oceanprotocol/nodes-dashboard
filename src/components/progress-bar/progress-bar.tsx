@@ -18,7 +18,8 @@ type ProgressBarProps = {
   topRightContent?: React.ReactNode;
   bottomLeftContent?: React.ReactNode;
   bottomRightContent?: React.ReactNode;
-  value: number;
+  value?: number;
+  variant?: 'determinate' | 'indeterminate';
 };
 
 const ProgressBar = ({
@@ -27,7 +28,8 @@ const ProgressBar = ({
   topRightContent,
   bottomLeftContent,
   bottomRightContent,
-  value,
+  value = 0,
+  variant = 'determinate',
 }: ProgressBarProps) => {
   return (
     <div className={classNames(styles.root, className)}>
@@ -37,7 +39,7 @@ const ProgressBar = ({
           <div>{topRightContent}</div>
         </div>
       ) : null}
-      <StyledLinearProgress value={value} variant="determinate" />
+      <StyledLinearProgress value={variant === 'determinate' ? value : undefined} variant={variant} />
       {bottomLeftContent || bottomRightContent ? (
         <div className={styles.row}>
           <div>{bottomLeftContent}</div>

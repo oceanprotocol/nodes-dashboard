@@ -34,14 +34,19 @@ const JobsRevenueStats = () => {
     let totalRunningJobs = 0;
     let totalWaitTimeSeconds = 0;
 
+    const now = Math.floor(Date.now() / 1000);
+    // queMaxWaitTime / runMaxWaitTime are absolute Unix timestamps (seconds).
+    // Compute time remaining; treat past or zero timestamps as 0.
+    const secondsRemaining = (ts: number) => (ts > now ? ts - now : 0);
+
     for (const env of envs) {
       totalQueuedJobs += (env.queuedJobs ?? 0) + (env.queuedFreeJobs ?? 0);
       totalRunningJobs += (env.runningJobs ?? 0) + (env.runningFreeJobs ?? 0);
       totalWaitTimeSeconds +=
-        (env.queMaxWaitTime ?? 0) +
-        (env.queMaxWaitTimeFree ?? 0) +
-        (env.runMaxWaitTime ?? 0) +
-        (env.runMaxWaitTimeFree ?? 0);
+        secondsRemaining(env.queMaxWaitTime ?? 0) +
+        secondsRemaining(env.queMaxWaitTimeFree ?? 0) +
+        secondsRemaining(env.runMaxWaitTime ?? 0) +
+        secondsRemaining(env.runMaxWaitTimeFree ?? 0);
     }
 
     const jobCount = totalQueuedJobs + totalRunningJobs;

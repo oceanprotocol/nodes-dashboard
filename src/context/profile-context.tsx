@@ -117,13 +117,15 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         setOwnerStatsPerEpoch(response.data.data);
 
         const totalsPerEpoch = response.data.data.map((item) => {
+          const networkRevenue = (item as any).networkRevenue ?? item.totalNetworkRevenue ?? 0;
+          const benchmarkRevenue = (item as any).benchmarkRevenue ?? item.totalBenchmarkRevenue ?? 0;
           return {
             epochId: item.epochId,
-            totalNetworkRevenue: item.totalNetworkRevenue,
-            totalBenchmarkRevenue: item.totalBenchmarkRevenue,
+            totalNetworkRevenue: networkRevenue,
+            totalBenchmarkRevenue: benchmarkRevenue,
             totalBenchmarkJobs: item.totalBenchmarkJobs,
             totalNetworkJobs: item.totalNetworkJobs,
-            totalRevenue: item.totalNetworkRevenue + item.totalBenchmarkRevenue,
+            totalRevenue: networkRevenue + benchmarkRevenue,
             totalJobs: item.totalNetworkJobs + item.totalBenchmarkJobs,
           };
         });
