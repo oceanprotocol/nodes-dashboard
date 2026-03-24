@@ -159,7 +159,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
     ),
-    renderCell: (params) => params.value ?? <span className="textSecondary">Unknown</span>,
+    renderCell: (params) => params.value || <span className="textSecondary">Unknown</span>,
   },
   {
     align: 'right',
@@ -248,13 +248,17 @@ export const nodesTopByRevenueColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Name',
     sortable: false,
+    valueGetter: (_value, row) => row.friendlyName || row.id || row.nodeId,
+    renderCell: (params) => <span title={params.value}>{params.value}</span>,
   },
   {
     field: 'region',
-    filterable: true,
+    filterable: false,
     flex: 1,
     headerName: 'Region',
+    valueGetter: (_value, row) => row.region,
     sortable: false,
+    renderCell: (params) => params.value || <span className="textSecondary">Unknown</span>,
   },
   {
     field: 'totalRevenue',
@@ -262,15 +266,30 @@ export const nodesTopByRevenueColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Revenue',
     sortable: false,
-    valueGetter: (_value, row) => `USDC ${row.totalRevenue || 0}`,
+    valueGetter: (_value, row) => `USDC ${formatNumber(row.totalRevenue || 0)}`,
   },
   {
     field: 'latestTotalScore',
     filterable: false,
     flex: 1,
-    headerName: 'Total Score',
+    headerName: 'Total score',
     sortable: false,
     valueGetter: (_value, row) => row.latestTotalScore || 0,
+    renderCell: (params) => (
+      <div className="flexRow alignItemsCenter gapSm">
+        {params.value ? (
+          <>
+            <VerifiedIcon className="textSuccessDarker" />
+            <span>{params.value.toLocaleString()}</span>
+          </>
+        ) : (
+          <>
+            <HighlightOffOutlinedIcon className="textError" />
+            <span className="textErrorDarker">Not verified</span>
+          </>
+        )}
+      </div>
+    ),
   },
 ];
 
@@ -289,19 +308,23 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Name',
     sortable: false,
+    valueGetter: (_value, row) => row.friendlyName || row.id || row.nodeId,
+    renderCell: (params) => <span title={params.value}>{params.value}</span>,
   },
   {
     field: 'region',
-    filterable: true,
+    filterable: false,
     flex: 1,
     headerName: 'Region',
+    valueGetter: (_value, row) => row.region,
     sortable: false,
+    renderCell: (params) => params.value || <span className="textSecondary">Unknown</span>,
   },
   {
     field: 'totalJobs',
     filterable: false,
     flex: 1,
-    headerName: 'Number of jobs',
+    headerName: 'Total jobs',
     sortable: false,
     valueGetter: (_value, row) => row.totalJobs || 0,
   },
@@ -309,9 +332,24 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
     field: 'latestTotalScore',
     filterable: false,
     flex: 1,
-    headerName: 'Total Score',
+    headerName: 'Total score',
     sortable: false,
     valueGetter: (_value, row) => row.latestTotalScore || 0,
+    renderCell: (params) => (
+      <div className="flexRow alignItemsCenter gapSm">
+        {params.value ? (
+          <>
+            <VerifiedIcon className="textSuccessDarker" />
+            <span>{params.value.toLocaleString()}</span>
+          </>
+        ) : (
+          <>
+            <HighlightOffOutlinedIcon className="textError" />
+            <span className="textErrorDarker">Not verified</span>
+          </>
+        )}
+      </div>
+    ),
   },
 ];
 

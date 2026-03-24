@@ -48,7 +48,7 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<Node[]>(getApiRoute('topNodesByRevenue'), {
         params: {
-          size: 5,
+          size: 3,
           page: 1,
           sort: JSON.stringify({
             totalRevenue: 'desc',
@@ -67,7 +67,7 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<Node[]>(getApiRoute('topNodesByJobCount'), {
         params: {
-          size: 5,
+          size: 3,
           page: 1,
           sort: JSON.stringify({
             totalJobs: 'desc',
