@@ -6,10 +6,10 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ClaimGrantResponse, GrantDetails } from '@/types/grant';
 import { useAuthModal } from '@account-kit/react';
 import axios from 'axios';
+import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
-import posthog from 'posthog-js';
 import { useProfileContext } from '../../context/profile-context';
 import styles from './claim.module.css';
 
@@ -122,8 +122,8 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
         </div>
       </Card>
       {claimed ? (
-        <Button className="alignSelfStretch" color="accent1" href="/" size="lg" variant="filled">
-          Return to homepage
+        <Button className="alignSelfStretch" color="accent1" href="/run-job/environments" size="lg" variant="filled">
+          Select environment
         </Button>
       ) : (
         <Button
