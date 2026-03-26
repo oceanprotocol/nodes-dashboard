@@ -9,29 +9,30 @@ export default function Document() {
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico" />
         <meta
           name="description"
-          content="Run jobs, earn rewards, Run nodes and power the decentralized compute network. Keep control of your data, jobs & infrastructure."
+          content="Run pay-per-use compute jobs on Ocean Network with competitive GPU pricing, editor native workflows, escrow-protected payments, and local outputs."
         />
 
         {/* Open Graph */}
-        <meta property="og:site_name" content="Ocean Nodes Dashboard" />
-        <meta property="og:title" content="Ocean Nodes Dashboard — Run Jobs. Run Nodes. Earn Rewards." />
+        <meta property="og:site_name" content="Ocean Network - Decentralized P2P Compute Network" />
+        <meta property="og:title" content="Ocean Network - Decentralized P2P Compute Network" />
         <meta
           property="og:description"
-          content="Run jobs, run nodes, earn rewards, and power the decentralized compute network. Keep control of your data, jobs & infrastructure."
+          content="Run pay-per-use compute jobs on Ocean Network with competitive GPU pricing, editor native workflows, escrow-protected payments, and local outputs."
         />
+        <meta property="og:url" content="https://dashboard.oncompute.ai" />
         <meta property="og:type" content="website" />
-        <meta property="og:image" content="/logo.svg" />
-        <meta property="og:image:alt" content="Ocean Nodes Dashboard logo" />
+        <meta property="og:image" content="https://dashboard.oncompute.ai/preview.jpg" />
+        <meta property="og:image:alt" content="Ocean Network" />
 
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Ocean Nodes Dashboard — Run jobs. Run nodes. Earn Rewards." />
+        <meta name="twitter:title" content="Ocean Network - Decentralized P2P Compute Network" />
         <meta
           name="twitter:description"
-          content="Run jobs, run nodes, earn rewards, and power the decentralized compute network. Keep control of your data, jobs & infrastructure."
+          content="Run pay-per-use compute jobs on Ocean Network with competitive GPU pricing, editor native workflows, escrow-protected payments, and local outputs."
         />
-        <meta name="twitter:image" content="/logo.svg" />
-        <meta name="twitter:image:alt" content="Ocean Nodes Dashboard logo" />
+        <meta name="twitter:image" content="https://dashboard.oncompute.ai/preview.jpg" />
+        <meta name="twitter:image:alt" content="Ocean Network" />
       </Head>
       <body>
         <Main />
