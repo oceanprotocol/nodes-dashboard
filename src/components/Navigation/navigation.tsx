@@ -125,6 +125,7 @@ const Navigation = () => {
               preserveAspectRatio="xMidYMin slice"
             />
           </Link>
+          <div className={classNames('chip', 'chipAccent2', styles.betaChip)}>BETA</div>
         </div>
         <Card aria-label="Primary" className={styles.desktopNav} shadow="black" variant="glass-shaded">
           {renderNavLinks()}

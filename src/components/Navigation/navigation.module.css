@@ -64,9 +64,15 @@
   }
 
   .logoWrapper {
-    flex: 0 0 auto;
-    display: flex;
     align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 8px;
+
+    .betaChip {
+      font-size: 10px;
+    }
   }
 
   .desktopNav {
