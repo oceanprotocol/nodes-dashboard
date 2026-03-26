@@ -13,8 +13,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <>
       <Head>
-        <title>Ocean Network</title>
-        <meta name="description" content="Ocean network" />
+        <title>Ocean Network - Decentralized P2P Compute Network</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
