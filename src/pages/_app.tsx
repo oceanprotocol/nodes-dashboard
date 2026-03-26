@@ -24,6 +24,10 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Script from 'next/script';
 
+const MoonPayProvider = dynamic(() => import('@moonpay/moonpay-react').then((mod) => mod.MoonPayProvider), {
+  ssr: false,
+});
+
 const GitBookProvider = dynamic(() => import('@gitbook/embed/react').then((mod) => mod.GitBookProvider), {
   ssr: false,
 });
@@ -80,38 +84,43 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
         `}
       </Script>
       <ThemeProvider theme={muiTheme}>
-        <GitBookProvider siteURL={config.links.docs}>
-          <QueryClientProvider client={queryClientRef.current}>
-            <AlchemyProvider cookie={cookie}>
-              <OceanAccountProvider>
-                <GrantProvider>
-                  <NodesProvider>
-                    <UnbanRequestsProvider>
-                      <ProfileProvider>
-                        <StatsProvider>
-                          <P2PProvider>
-                            <RunJobEnvsProvider>
-                              <RunJobProvider>
-                                <RunNodeProvider>
-                                  <RootLayout>
-                                    <PHProvider>
-                                      <Component {...pageProps} />
-                                    </PHProvider>
-                                  </RootLayout>
-                                </RunNodeProvider>
-                              </RunJobProvider>
-                            </RunJobEnvsProvider>
-                          </P2PProvider>
-                        </StatsProvider>
-                      </ProfileProvider>
-                    </UnbanRequestsProvider>
-                  </NodesProvider>
-                </GrantProvider>
-              </OceanAccountProvider>
-            </AlchemyProvider>
-            <ToastContainer hideProgressBar theme="colored" />
-          </QueryClientProvider>
-        </GitBookProvider>
+        <MoonPayProvider
+          apiKey={process.env.NEXT_PUBLIC_MOONPAY_API_KEY!}
+          debug={process.env.NEXT_PUBLIC_APP_ENV !== 'production'}
+        >
+          <GitBookProvider siteURL={config.links.docs}>
+            <QueryClientProvider client={queryClientRef.current}>
+              <AlchemyProvider cookie={cookie}>
+                <OceanAccountProvider>
+                  <GrantProvider>
+                    <NodesProvider>
+                      <UnbanRequestsProvider>
+                        <ProfileProvider>
+                          <StatsProvider>
+                            <P2PProvider>
+                              <RunJobEnvsProvider>
+                                <RunJobProvider>
+                                  <RunNodeProvider>
+                                    <RootLayout>
+                                      <PHProvider>
+                                        <Component {...pageProps} />
+                                      </PHProvider>
+                                    </RootLayout>
+                                  </RunNodeProvider>
+                                </RunJobProvider>
+                              </RunJobEnvsProvider>
+                            </P2PProvider>
+                          </StatsProvider>
+                        </ProfileProvider>
+                      </UnbanRequestsProvider>
+                    </NodesProvider>
+                  </GrantProvider>
+                </OceanAccountProvider>
+              </AlchemyProvider>
+              <ToastContainer hideProgressBar theme="colored" />
+            </QueryClientProvider>
+          </GitBookProvider>
+        </MoonPayProvider>
       </ThemeProvider>
     </main>
   );

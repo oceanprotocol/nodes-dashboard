@@ -229,7 +229,11 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     }
     try {
       const response = await axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
-        params: { filters: JSON.stringify({ id: { operator: 'eq', value: queryPeerId } }) },
+        params: {
+          filters: JSON.stringify({ id: { operator: 'eq', value: queryPeerId } }),
+          // TODO: implement filter by node ID/ env ID on BE
+          size: 1000,
+        },
       });
       const foundNode = response.data.envs.find(
         (node) => node.id === queryPeerId && node.computeEnvironments.environments.find((env) => env.id === queryEnv)
