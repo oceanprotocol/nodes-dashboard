@@ -7,6 +7,7 @@ import { createContext, ReactNode, useCallback, useContext, useState } from 'rea
 type NodesContextType = {
   benchmarkValues: BenchmarkMinMaxLastResponse;
   jobsPerEpoch: JobsPerEpochType[];
+  loadingFetchNode: boolean;
   revenuePerEpoch: RevenuePerEpochType[];
   selectedNode: Node | null;
   // TODO remove once analytics nodes/:id/benchmark is fixed
@@ -33,6 +34,7 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
     maxGPUScore: 0,
   });
   const [jobsPerEpoch, setJobsPerEpoch] = useState<JobsPerEpochType[]>([]);
+  const [loadingFetchNode, setLoadingFetchNode] = useState<boolean>(false);
   const [revenuePerEpoch, setRevenuePerEpoch] = useState<RevenuePerEpochType[]>([]);
   const [totalJobs, setTotalJobs] = useState<number>(0);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
@@ -41,14 +43,18 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
   const [temporaryTotalScore, setTemporaryTotalScore] = useState<number>(0);
 
   const fetchNode = useCallback(async (nodeId: string) => {
+    setLoadingFetchNode(true);
     try {
       const response = await axios.get(`${getApiRoute('nodes')}?page=0&size=1&nodeId=${nodeId}`);
-
       if (response.data?.nodes?.length !== 0) {
         setSelectedNode(response.data.nodes[0]._source);
+      } else {
+        setSelectedNode(null);
       }
     } catch (error) {
       console.error('Error fetching node benchmark min/max/last: ', error);
+    } finally {
+      setLoadingFetchNode(false);
     }
   }, []);
 
@@ -112,6 +118,7 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
       value={{
         benchmarkValues,
         jobsPerEpoch,
+        loadingFetchNode,
         revenuePerEpoch,
         selectedNode,
         temporaryTotalScore,

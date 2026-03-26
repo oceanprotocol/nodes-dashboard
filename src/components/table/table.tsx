@@ -20,6 +20,7 @@ import {
   GridFilterModel,
   GridInitialState,
   GridRowIdGetter,
+  GridRowParams,
   GridSortModel,
   GridValidRowModel,
   useGridApiRef,
@@ -40,7 +41,7 @@ const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHei
   width: '100%',
 }));
 
-const StyledDataGrid = styled(DataGrid)({
+const StyledDataGrid = styled(DataGrid)<{ clickable?: boolean }>(({ clickable }) => ({
   background: 'none',
   border: 'none',
   borderBottom: '1px solid var(--border)',
@@ -86,6 +87,7 @@ const StyledDataGrid = styled(DataGrid)({
   },
 
   '& .MuiDataGrid-row': {
+    cursor: clickable ? 'pointer' : 'inherit',
     '&:hover': {
       backgroundColor: 'color-mix(in srgb, var(--accent1) 7%, transparent 93%);',
     },
@@ -112,9 +114,9 @@ const StyledDataGrid = styled(DataGrid)({
   '& .MuiSkeleton-root': {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-});
+}));
 
-type TableProps<T> = {
+type TableProps<T extends GridValidRowModel> = {
   autoHeight?: boolean;
   context?: TableContextType<T>;
   data?: any[];
@@ -124,9 +126,10 @@ type TableProps<T> = {
   tableType: TableTypeEnum;
   showToolbar?: boolean;
   getRowId?: GridRowIdGetter<GridValidRowModel>;
+  onRowClick?: (params: GridRowParams<T>) => void;
 };
 
-export const Table = <T,>({
+export const Table = <T extends GridValidRowModel>({
   autoHeight,
   context,
   data: propsData,
@@ -135,6 +138,7 @@ export const Table = <T,>({
   showToolbar,
   tableType,
   getRowId,
+  onRowClick,
 }: TableProps<T>) => {
   const apiRef = useGridApiRef();
 
@@ -325,6 +329,7 @@ export const Table = <T,>({
       <StyledDataGridWrapper autoHeight={autoHeight}>
         <StyledDataGrid
           apiRef={apiRef}
+          clickable={!!onRowClick}
           columns={columns as GridColDef<GridValidRowModel>[]}
           disableColumnMenu
           disableRowSelectionOnClick
@@ -335,6 +340,7 @@ export const Table = <T,>({
           loading={loading ?? context?.loading}
           onFilterModelChange={handleFilterModelChange}
           onPaginationModelChange={handlePaginationChange}
+          onRowClick={onRowClick}
           onSortModelChange={handleSortModelChange}
           pageSizeOptions={[10, 25, 50, 100]}
           // pagination
