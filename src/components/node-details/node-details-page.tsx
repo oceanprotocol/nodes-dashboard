@@ -8,35 +8,60 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useNodesContext } from '@/context/nodes-context';
 import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useP2P } from '@/contexts/P2PContext';
+import { CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 const NodeDetailsPage = () => {
-  const { selectedNode, fetchNode } = useNodesContext();
-  const { clearEnvs, getEnvs, isReady } = useP2P();
+  const { selectedNode, fetchNode, loadingFetchNode } = useNodesContext();
+  const { clearEnvs, getEnvs, isReady: isP2PReady } = useP2P();
   const { unbanRequests, fetchUnbanRequests } = useUnbanRequestsContext();
   const params = useParams<{ nodeId: string }>();
 
+  const node = useMemo(() => {
+    if (params?.nodeId === selectedNode?.id || params?.nodeId === selectedNode?.nodeId) {
+      return selectedNode;
+    }
+    return null;
+  }, [params?.nodeId, selectedNode]);
+
   useEffect(() => {
-    if (!selectedNode && params?.nodeId) {
+    if (!node) {
       fetchNode(params?.nodeId);
     }
-  }, [selectedNode, params?.nodeId, fetchNode]);
+  }, [params?.nodeId, fetchNode, node]);
 
   useEffect(() => {
     clearEnvs();
-    if (selectedNode?.id && isReady) {
-      getEnvs(selectedNode.id);
+    if (node && isP2PReady) {
+      getEnvs(node.id ?? node.nodeId);
     }
-  }, [selectedNode?.id, isReady, getEnvs, clearEnvs]);
+  }, [isP2PReady, clearEnvs, node, getEnvs]);
 
   useEffect(() => {
-    if (selectedNode?.id) {
-      fetchUnbanRequests(selectedNode.id);
+    if (node) {
+      fetchUnbanRequests(node.id ?? node.nodeId);
     }
-  }, [selectedNode?.id, fetchUnbanRequests]);
+  }, [fetchUnbanRequests, node]);
 
-  if (!selectedNode) {
+  if (loadingFetchNode) {
+    return (
+      <Container className="pageRoot">
+        <SectionTitle
+          moreReadable
+          title="Node details"
+          subTitle={
+            <div className="flexRow alignItemsCenter gapMd">
+              <CircularProgress size={24} />
+              <span>Retrieving node details...</span>
+            </div>
+          }
+        />
+      </Container>
+    );
+  }
+
+  if (!node) {
     return (
       <Container className="pageRoot">
         <SectionTitle moreReadable title="Node details" subTitle="Node not found" />
@@ -52,16 +77,16 @@ const NodeDetailsPage = () => {
         subTitle="Check node status, performance, and available resources before running a job"
       />
       <div className="pageContentWrapper">
-        <NodeInfo node={selectedNode} />
+        <NodeInfo node={node} />
         <JobsRevenueStats />
         <BenchmarkJobs />
         <Environments
           nodeInfo={{
-            friendlyName: selectedNode.friendlyName,
-            id: selectedNode.id ?? selectedNode.nodeId,
+            friendlyName: node.friendlyName,
+            id: node.id ?? node.nodeId,
           }}
         />
-        {selectedNode.banned === false && unbanRequests?.length === 0 ? null : <UnbanRequests node={selectedNode} />}
+        {node.banned === false && unbanRequests?.length === 0 ? null : <UnbanRequests node={node} />}
       </div>
     </Container>
   );
