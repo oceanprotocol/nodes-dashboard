@@ -13,7 +13,7 @@ export default function Document() {
         />
 
         {/* Open Graph */}
-        <meta property="og:site_name" content="Ocean Nodes Dashboard" />
+        <meta property="og:site_name" content="Ocean Network - Decentralized P2P Compute Network" />
         <meta property="og:title" content="Ocean Network - Decentralized P2P Compute Network" />
         <meta
           property="og:description"
