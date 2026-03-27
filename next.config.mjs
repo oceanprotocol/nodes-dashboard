@@ -16,8 +16,8 @@ const nextConfig = {
         net: false,
         tls: false,
         dgram: false,
-        dns: false
-      }
+        dns: false,
+      };
     }
     config.module.rules.push({
       test: /\.svg$/,
@@ -32,7 +32,14 @@ const nextConfig = {
 
     return config;
   },
-  transpilePackages: ['@mui/x-data-grid', '@mui/x-data-grid-pro', '@mui/x-data-grid-premium'],
+  transpilePackages: [
+    '@mui/x-data-grid',
+    '@mui/x-data-grid-pro',
+    '@mui/x-data-grid-premium',
+    '@ledgerhq/errors',
+    '@ledgerhq/devices',
+    '@ledgerhq/cryptoassets',
+  ],
 };
 
 export default nextConfig;
