@@ -43,7 +43,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/infra@npm:^4.84.1":
+"@account-kit/infra@npm:4.84.1, @account-kit/infra@npm:^4.84.1":
   version: 4.84.1
   resolution: "@account-kit/infra@npm:4.84.1"
   dependencies:
@@ -93,7 +93,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/react@npm:^4.84.1":
+"@account-kit/react@npm:4.84.1":
   version: 4.84.1
   resolution: "@account-kit/react@npm:4.84.1"
   dependencies:
@@ -10030,7 +10030,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"alchemy-sdk@npm:^3.0.0, alchemy-sdk@npm:^3.6.5":
+"alchemy-sdk@npm:3.6.5, alchemy-sdk@npm:^3.0.0":
   version: 3.6.5
   resolution: "alchemy-sdk@npm:3.6.5"
   dependencies:
@@ -16509,8 +16509,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ocean-node-dashboard@workspace:."
   dependencies:
-    "@account-kit/infra": "npm:^4.84.1"
-    "@account-kit/react": "npm:^4.84.1"
+    "@account-kit/infra": "npm:4.84.1"
+    "@account-kit/react": "npm:4.84.1"
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
     "@emotion/react": "npm:^11.14.0"
@@ -16552,7 +16552,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^6.21.0"
     "@typescript-eslint/parser": "npm:^6.21.0"
     "@wagmi/core": "npm:^3.0.0"
-    alchemy-sdk: "npm:^3.6.5"
+    alchemy-sdk: "npm:3.6.5"
     axios: "npm:^1.12.2"
     bignumber.js: "npm:^9.3.1"
     classnames: "npm:^2.5.0"
