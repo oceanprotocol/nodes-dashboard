@@ -63,7 +63,7 @@ const Payment = ({
       //   break;
       // }
       case 'deposit': {
-        setPageSubtitle('You need to deposit funds in escrow in order to strart your job');
+        setPageSubtitle('You need to deposit funds in escrow in order to start your job');
         break;
       }
       case 'authorize': {
@@ -96,12 +96,9 @@ const Payment = ({
 
   useEffect(() => {
     const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
-    const suffficientAuthorized =
-      Number(authorizations?.maxLockedAmount ?? 0) >= totalCost + currentLockedAmount;
-    const enoughLockSeconds =
-      Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
-    const hasAvailableLockSlot =
-      Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
+    const suffficientAuthorized = Number(authorizations?.maxLockedAmount ?? 0) >= totalCost + currentLockedAmount;
+    const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
+    const hasAvailableLockSlot = Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
       posthog.capture('payment_authorized', {
         totalCost,
