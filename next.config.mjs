@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['wagmi', '@wagmi/core', '@wagmi/connectors', '@walletconnect/ethereum-provider', '@walletconnect/universal-provider', 'pino', 'pino-pretty', 'thread-stream'],
   turbopack: {
     rules: {
       '*.svg': {
@@ -32,7 +33,19 @@ const nextConfig = {
 
     return config;
   },
-  transpilePackages: ['@mui/x-data-grid', '@mui/x-data-grid-pro', '@mui/x-data-grid-premium'],
+  transpilePackages: [
+    '@mui/x-data-grid',
+    '@mui/x-data-grid-pro',
+    '@mui/x-data-grid-premium',
+    '@account-kit/react',
+    '@account-kit/infra',
+    '@account-kit/signer',
+    '@account-kit/core',
+    '@aa-sdk/core',
+    '@solana/wallet-adapter-wallets',
+    '@solana/wallet-adapter-ledger',
+    '@ledgerhq/errors',
+  ],
 };
 
 export default nextConfig;
