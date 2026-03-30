@@ -58,7 +58,10 @@ const PaymentAuthorize = ({
     },
     validateOnMount: true,
     validationSchema: Yup.object({
-      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(minLockSeconds, 'Minimum 1'),
+      maxLockSeconds: Yup.number()
+        .required('Required')
+        .integer('Integer required')
+        .min(minLockSeconds, `Minimum ${minLockSeconds}`),
       maxLockCount: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
       maxLockedAmount: Yup.number().required('Required'),
     }),
