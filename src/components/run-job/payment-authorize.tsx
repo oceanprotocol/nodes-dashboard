@@ -5,6 +5,7 @@ import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
 import { ComputeEnvironment } from '@/types/environments';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { roundTokenAmount } from '@/utils/formatters';
 import styles from './payment-authorize.module.css';
 
 type AuthorizeFormValues = {
@@ -41,7 +42,7 @@ const PaymentAuthorize = ({
     enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
-      maxLockedAmount: totalCost + currentLockedAmount,
+      maxLockedAmount: roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address),
       maxLockCount: 10,
       // Min lock seconds in the minum number or seconds for the lock.
       // Job duration + claimTimeout, it is computed and set with initializeCompute.

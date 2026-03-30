@@ -1,7 +1,52 @@
+import { CHAIN_ID } from '@/constants/chains';
+import { tokenAddressesByChainId } from '@/constants/tokens';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 
 dayjs.extend(duration);
+
+/**
+ * Get the number of decimals for a known token from tokenAddressesByChainId, by its address.
+ * Falls back to 6 if the token is not in tokenAddressesByChainId.
+ */
+const getTokenDecimals = (tokenAddress: string): number => {
+  const tokens = tokenAddressesByChainId[CHAIN_ID];
+  if (!tokens) return 6;
+  for (const token of Object.values(tokens)) {
+    if (token.address.toLowerCase() === tokenAddress.toLowerCase()) {
+      return token.decimals;
+    }
+  }
+  return 6;
+};
+
+/**
+ * Round a token amount to the token's decimal precision.
+ * Use this for arithmetic results to eliminate floating point noise
+ * before comparisons or displaying values.
+ */
+export const roundTokenAmount = (amount: number, tokenAddress: string): number => {
+  const decimals = getTokenDecimals(tokenAddress);
+  return Number(amount.toFixed(decimals));
+};
+
+/**
+ * Format a token amount for display, showing up to the token's decimal precision
+ * without trailing zeros.
+ */
+export const formatTokenAmount = (amount: number, tokenAddress: string): string => {
+  const decimals = getTokenDecimals(tokenAddress);
+  const rounded = Number(amount.toFixed(decimals));
+
+  if (rounded >= 1000 && rounded < 1000000) {
+    return `${(rounded / 1000).toFixed(1)}K`;
+  }
+  if (rounded >= 1000000) {
+    return `${(rounded / 1000000).toFixed(2)}M`;
+  }
+
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: decimals }).format(rounded);
+};
 
 export const formatNumber = (num: string | number): string => {
   if (typeof num === 'string') return num;

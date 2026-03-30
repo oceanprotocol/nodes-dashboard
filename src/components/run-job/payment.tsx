@@ -7,6 +7,7 @@ import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Authorizations } from '@/types/payment';
+import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -97,11 +98,17 @@ const Payment = ({
   useEffect(() => {
     const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
     const suffficientAuthorized =
-      Number(authorizations?.maxLockedAmount ?? 0) >= totalCost + currentLockedAmount;
-    const enoughLockSeconds =
-      Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
-    const hasAvailableLockSlot =
-      Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
+      roundTokenAmount(Number(authorizations?.maxLockedAmount ?? 0), selectedToken.address) >=
+      roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address);
+    const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
+    const hasAvailableLockSlot = Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
+    console.log('maxLockedAmount', Number(authorizations?.maxLockedAmount ?? 0));
+    console.log('currentLockedAmount', currentLockedAmount);
+    console.log('totalCost', totalCost);
+    console.log('--- sufficientEscrow', sufficientEscrow);
+    console.log('--- suffficientAuthorized', suffficientAuthorized);
+    console.log('--- enoughLockSeconds', enoughLockSeconds);
+    console.log('--- hasAvailableLockSlot', hasAvailableLockSlot);
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
       posthog.capture('payment_authorized', {
         totalCost,
@@ -117,6 +124,7 @@ const Payment = ({
     authorizations?.maxLockedAmount,
     currentLockedAmount,
     escrowBalance,
+    minLockSeconds,
     router,
     selectedResources.maxJobDurationSeconds,
     selectedToken.address,
