@@ -22,7 +22,7 @@ export const UnbanRequestsProvider = ({ children }: { children: ReactNode }) => 
       );
 
       if (response.data?.requests?.length !== 0) {
-        setUnbanRequests(response.data.requests.map((item, i) => ({ ...item, index: i + 1 })));
+        setUnbanRequests(response.data.requests.map((item: any, i) => ({ ...(item._source ?? item), index: i + 1 })));
       }
     } catch (error) {
       console.error('Error fetching node unban requests: ', error);
