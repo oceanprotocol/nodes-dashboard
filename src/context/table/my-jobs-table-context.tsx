@@ -20,15 +20,14 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   const [loading, setLoading] = useState<CtxType['loading']>(false);
   const [pageSize, setPageSize] = useState<CtxType['pageSize']>(100);
   const [searchTerm, setSearchTerm] = useState<CtxType['searchTerm']>('');
-  const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({});
+  const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({ dateCreated: 'desc' });
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
 
   const buildFilterParams = (filters: JobsFilters): string => {
     const filtersObject: Record<string, { operator: string; value: any }> = {};
-
-    if (!filters || Object.keys(filters).length === 0)
-      return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
-
+    if (!filters || Object.keys(filters).length === 0) {
+      return JSON.stringify(filtersObject);
+    }
     Object.entries(filters).forEach(([field, filterData]) => {
       if (filterData?.value !== undefined && filterData?.operator) {
         filtersObject[field] = {
@@ -37,12 +36,15 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
         };
       }
     });
-
-    return `filters=${encodeURIComponent(JSON.stringify(filtersObject))}`;
+    return JSON.stringify(filtersObject);
   };
 
-  const fetchUrl = useMemo(() => {
-    let url = `${getApiRoute('owners')}/${consumer}/computeJobs?page=${crtPage}&size=${pageSize}&sort={"createdAt":"desc"}`;
+  const fetchParams: Record<string, string> = useMemo(() => {
+    const fetchParams: Record<string, string> = {
+      page: crtPage.toString(),
+      size: pageSize.toString(),
+      sort: sortModel ? JSON.stringify(sortModel) : JSON.stringify({}),
+    };
     const gridFilterToJobsFilters = (gridFilter: GridFilterModel): JobsFilters => {
       const jobsFilters: JobsFilters = {};
       gridFilter.items.forEach((item) => {
@@ -57,13 +59,13 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
     };
     const filterString = buildFilterParams(gridFilterToJobsFilters(filterModel));
     if (filterString) {
-      url += `&${filterString}`;
+      fetchParams.filters = filterString;
     }
     if (searchTerm) {
-      url += `&search=${encodeURIComponent(searchTerm)}`;
+      fetchParams.search = encodeURIComponent(searchTerm);
     }
-    return url;
-  }, [consumer, crtPage, filterModel, pageSize, searchTerm]);
+    return fetchParams;
+  }, [crtPage, filterModel, pageSize, searchTerm, sortModel]);
 
   const fetchData = useCallback(async () => {
     if (!consumer) {
@@ -71,7 +73,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
     }
     setLoading(true);
     try {
-      const response = await axios.get(fetchUrl);
+      const response = await axios.get(`${getApiRoute('owners')}/${consumer}/computeJobs`, { params: fetchParams });
       const sanitizedData = response.data.computeJobs.map((element: any, index: number) => ({
         ...element,
         id: element.jobId,
@@ -86,7 +88,7 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
     } finally {
       setLoading(false);
     }
-  }, [fetchUrl, crtPage, pageSize, consumer]);
+  }, [consumer, fetchParams, crtPage, pageSize]);
 
   useEffect(() => {
     let mounted = true;
