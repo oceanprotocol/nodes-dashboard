@@ -618,6 +618,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
     flex: 1,
     headerName: 'Start Time',
     sortable: false,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
   {
     field: 'completedAt',
@@ -625,6 +626,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
     flex: 1,
     headerName: 'End Time',
     sortable: false,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
   {
     field: 'benchmarkResult',
