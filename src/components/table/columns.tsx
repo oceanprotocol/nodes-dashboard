@@ -4,7 +4,7 @@ import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatNumber } from '@/utils/formatters';
+import { formatDateTime, formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
