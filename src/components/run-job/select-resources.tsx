@@ -10,7 +10,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
-import { formatTokenAmount } from '@/utils/formatters';
+import { formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
@@ -109,7 +109,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         openAuthModal();
         return;
       }
-      setEstimatedTotalCost(estimatedTotalCost);
+      if (!freeCompute && !estimatedTotalCost) {
+        return;
+      }
+      setEstimatedTotalCost(
+        estimatedTotalCost && token?.address ? roundTokenAmount(estimatedTotalCost, token.address, 'up') : 0
+      );
       setSelectedResources({
         cpuCores: values.cpuCores,
         cpuId: cpu?.id ?? 'cpu',

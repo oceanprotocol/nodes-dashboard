@@ -10,6 +10,7 @@ import {
   MultiaddrsOrPeerId,
   NodeEnvironments,
 } from '@/types/environments';
+import { roundTokenAmount } from '@/utils/formatters';
 import { multiaddr } from '@multiformats/multiaddr';
 import axios from 'axios';
 import { useSearchParams } from 'next/navigation';
@@ -192,7 +193,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           CHAIN_ID,
           provider
         );
-        setEstimatedTotalCost(Number(cost));
+        setEstimatedTotalCost(roundTokenAmount(Number(cost), tokenAddress, 'up'));
         setMinLockSeconds(minLockSeconds);
         onSuccess?.(Number(cost), minLockSeconds);
       } catch (error) {

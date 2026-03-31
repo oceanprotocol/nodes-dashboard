@@ -22,12 +22,23 @@ const getTokenDecimals = (tokenAddress: string): number => {
 
 /**
  * Round a token amount to the token's decimal precision.
- * Use this for arithmetic results to eliminate floating point noise
- * before comparisons or displaying values.
+ * Use this for arithmetic results to eliminate floating point noise before comparisons or displaying values.
  */
-export const roundTokenAmount = (amount: number, tokenAddress: string): number => {
+export const roundTokenAmount = (
+  amount: number,
+  tokenAddress: string,
+  direction: 'up' | 'down' | 'auto' = 'auto'
+): number => {
   const decimals = getTokenDecimals(tokenAddress);
-  return Number(amount.toFixed(decimals));
+  if (direction === 'auto') {
+    return Number(amount.toFixed(decimals));
+  }
+  const factor = Math.pow(10, decimals);
+  if (direction === 'up') {
+    return Math.ceil(amount * factor) / factor;
+  }
+  // down
+  return Math.floor(amount * factor) / factor;
 };
 
 /**
