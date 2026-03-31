@@ -1,5 +1,4 @@
-import { CHAIN_ID } from '@/constants/chains';
-import { tokenAddressesByChainId } from '@/constants/tokens';
+import { getSupportedTokens } from '@/constants/tokens';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 
@@ -10,7 +9,7 @@ dayjs.extend(duration);
  * Falls back to 6 if the token is not in tokenAddressesByChainId.
  */
 const getTokenDecimals = (tokenAddress: string): number => {
-  const tokens = tokenAddressesByChainId[CHAIN_ID];
+  const tokens = getSupportedTokens();
   if (!tokens) return 6;
   for (const token of Object.values(tokens)) {
     if (token.address.toLowerCase() === tokenAddress.toLowerCase()) {
