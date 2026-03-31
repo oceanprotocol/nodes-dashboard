@@ -102,13 +102,6 @@ const Payment = ({
       roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address);
     const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
     const hasAvailableLockSlot = Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
-    console.log('maxLockedAmount', Number(authorizations?.maxLockedAmount ?? 0));
-    console.log('currentLockedAmount', currentLockedAmount);
-    console.log('totalCost', totalCost);
-    console.log('--- sufficientEscrow', sufficientEscrow);
-    console.log('--- suffficientAuthorized', suffficientAuthorized);
-    console.log('--- enoughLockSeconds', enoughLockSeconds);
-    console.log('--- hasAvailableLockSlot', hasAvailableLockSlot);
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
       posthog.capture('payment_authorized', {
         totalCost,
