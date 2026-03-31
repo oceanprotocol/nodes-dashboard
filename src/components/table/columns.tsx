@@ -4,7 +4,7 @@ import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatNumber } from '@/utils/formatters';
+import { formatDateTime, formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
@@ -618,6 +618,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
     flex: 1,
     headerName: 'Start Time',
     sortable: false,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
   {
     field: 'completedAt',
@@ -625,6 +626,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
     flex: 1,
     headerName: 'End Time',
     sortable: false,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
   {
     field: 'benchmarkResult',

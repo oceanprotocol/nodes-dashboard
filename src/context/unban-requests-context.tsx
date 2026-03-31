@@ -16,6 +16,7 @@ export const UnbanRequestsProvider = ({ children }: { children: ReactNode }) => 
   const [unbanRequests, setUnbanRequests] = useState<UnbanRequest[]>([]);
 
   const fetchUnbanRequests = useCallback(async (nodeId: string) => {
+    setUnbanRequests([]);
     try {
       const response = await axios.get<UnbanRequestsResponse>(
         `${getApiRoute('nodeUnbanRequests')}/${nodeId}/unbanRequests?page=1&size=5`
