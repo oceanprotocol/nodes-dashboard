@@ -37,7 +37,7 @@ type RunJobEnvsContextType = {
   nodeEnvs: NodeEnvironments[];
   paginationResponse: ApiPaginationResponse | null;
   setFilters: (filters: RawFilters) => void;
-  setSort: (sort: string | null) => void;
+  setSort: (sort: string) => void;
   sort: string | null;
 };
 
@@ -51,7 +51,7 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const [nodeEnvs, setNodeEnvs] = useState<NodeEnvironments[]>([]);
   const [paginationResponse, setPaginationResponse] = useState<ApiPaginationResponse | null>(null);
-  const [sort, setSort] = useState<string | null>(null);
+  const [sort, setSort] = useState<string>(JSON.stringify({ benchmarkTotalScore: 'desc' }));
 
   const buildFilterParams = useCallback((rawFilters?: RawFilters) => {
     if (!rawFilters) {
