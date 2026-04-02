@@ -68,7 +68,11 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
           </Button>
         )}
       </div>
-      <Table<UnbanRequest> data={unbanRequests} paginationType="none" tableType={TableTypeEnum.UNBAN_REQUESTS} />
+      {unbanRequests.length === 0 ? (
+        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>No unban history</p>
+      ) : (
+        <Table<UnbanRequest> data={unbanRequests} getRowId={(row) => row.requestId} paginationType="none" tableType={TableTypeEnum.UNBAN_REQUESTS} />
+      )}
     </Card>
   );
 };

@@ -16,13 +16,14 @@ export const UnbanRequestsProvider = ({ children }: { children: ReactNode }) => 
   const [unbanRequests, setUnbanRequests] = useState<UnbanRequest[]>([]);
 
   const fetchUnbanRequests = useCallback(async (nodeId: string) => {
+    setUnbanRequests([]);
     try {
       const response = await axios.get<UnbanRequestsResponse>(
         `${getApiRoute('nodeUnbanRequests')}/${nodeId}/unbanRequests?page=1&size=5`
       );
 
       if (response.data?.requests?.length !== 0) {
-        setUnbanRequests(response.data.requests.map((item, i) => ({ ...item, index: i + 1 })));
+        setUnbanRequests(response.data.requests.map((item: any, i) => ({ ...(item._source ?? item), index: i + 1 })));
       }
     } catch (error) {
       console.error('Error fetching node unban requests: ', error);

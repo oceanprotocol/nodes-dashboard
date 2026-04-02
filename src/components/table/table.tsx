@@ -215,6 +215,8 @@ export const Table = <T extends GridValidRowModel>({
         if (model.length > 0) {
           const { field, sort } = model[0];
           context.setSortModel(sort ? { [field]: sort } : {});
+        } else {
+          context.setSortModel({});
         }
       }
     },

@@ -1,10 +1,12 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
+import { CHAIN_ID } from '@/constants/chains';
+import { tokenAddressesByChainId } from '@/constants/tokens';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatNumber } from '@/utils/formatters';
+import { formatDateTime, formatNumber } from '@/utils/formatters';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
@@ -399,28 +401,41 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     },
   },
   {
-    field: 'startTime',
+    field: 'dateCreated',
     filterable: true,
     flex: 1,
-    headerName: 'Start Time',
-    sortable: false,
-    filterOperators: getGridNumericOperators().filter(
-      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
-    ),
-  },
-  {
-    field: 'amountPaid',
-    filterable: true,
-    flex: 1,
-    headerName: 'Amount Paid',
-    sortable: false,
-    valueGetter: (_value, row) => row.payment?.cost,
+    headerName: 'Start time',
+    sortable: true,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
     renderCell: ({ value }) => {
       if (!value) return '-';
-      return formatNumber(value);
+      return formatDateTime(value);
+    },
+  },
+  {
+    field: 'payment.cost',
+    filterable: true,
+    flex: 1,
+    headerName: 'Amount paid',
+    sortable: true,
+    valueGetter: (_value, row) => row.payment?.cost,
+    filterOperators: getGridNumericOperators().filter(
+      (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+    ),
+    renderCell: ({ value, row }) => {
+      if (!value) {
+        return '-';
+      }
+      const tokenEntry = Object.entries(tokenAddressesByChainId[CHAIN_ID]).find(
+        ([, t]) => t.address.toLowerCase() === row.payment?.token?.toLowerCase()
+      );
+      const formattedAmount = formatNumber(row.payment?.cost);
+      if (!tokenEntry) {
+        return formattedAmount;
+      }
+      return `${formattedAmount} ${tokenEntry[0]}`;
     },
   },
   {
@@ -428,7 +443,7 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterable: true,
     flex: 1,
     headerName: 'Duration',
-    sortable: false,
+    sortable: true,
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
@@ -618,6 +633,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
     flex: 1,
     headerName: 'Start Time',
     sortable: false,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
   {
     field: 'completedAt',
@@ -625,6 +641,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
     flex: 1,
     headerName: 'End Time',
     sortable: false,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
   {
     field: 'benchmarkResult',
