@@ -76,12 +76,6 @@ type CPU = {
   model: string;
 };
 
-export enum NodeEligibility {
-  ELIGIBLE = 'eligible',
-  NON_ELIGIBLE = 'non-eligible',
-  BANNED = 'banned',
-}
-
 export type GPUPopularityStats = GPUPopularity[];
 
 export interface GPUPopularity {

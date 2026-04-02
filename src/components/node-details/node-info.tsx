@@ -4,7 +4,7 @@ import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { Node, NodeEligibility } from '@/types/nodes';
+import { Node } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
 import DnsIcon from '@mui/icons-material/Dns';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -280,19 +280,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
         </div>
       </div>
       <div className={styles.statusWrapper}>
-        <Eligibility
-          banReason={node.banReason}
-          eligibility={
-            node.banned
-              ? NodeEligibility.BANNED
-              : node.eligible
-                ? NodeEligibility.ELIGIBLE
-                : NodeEligibility.NON_ELIGIBLE
-          }
-          eligibilityCauseStr={node.eligibilityCauseStr}
-          isAdmin={isAdmin}
-          verified={!!node.latestBenchmarkResults}
-        />
+        <Eligibility isAdmin={isAdmin} node={node} />
         {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} /> : null}
       </div>
     </Card>
