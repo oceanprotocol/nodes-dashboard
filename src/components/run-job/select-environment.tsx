@@ -16,9 +16,9 @@ import { useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
 
 const sortOptions = [
-  { label: 'No sorting', value: '' },
-  { label: 'Price ascending', value: JSON.stringify({ price: 'asc' }) },
-  { label: 'Price descending', value: JSON.stringify({ price: 'desc' }) },
+  { label: 'Most powerful', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
+  { label: 'Cheapest', value: JSON.stringify({ price: 'asc' }) },
+  { label: 'Most expensive', value: JSON.stringify({ price: 'desc' }) },
 ];
 
 type FilterFormValues = {
