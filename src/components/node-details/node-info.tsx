@@ -4,6 +4,7 @@ import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { ComputeEnvironment } from '@/types/environments';
 import { Node } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -22,11 +23,12 @@ import DownloadLogsModal from './download-logs-modal';
 import styles from './node-info.module.css';
 
 type NodeInfoProps = {
+  envs: ComputeEnvironment[];
   node: Node;
   nodeOnline: boolean | null;
 };
 
-const NodeInfo = ({ node, nodeOnline }: NodeInfoProps) => {
+const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, ocean, signMessage, user } = useOceanAccount();
@@ -299,7 +301,7 @@ const NodeInfo = ({ node, nodeOnline }: NodeInfoProps) => {
       </div>
       <div className={styles.statusWrapper}>
         <Eligibility isAdmin={isAdmin} node={node} />
-        {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} /> : null}
+        {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} envs={envs} /> : null}
       </div>
     </Card>
   );
