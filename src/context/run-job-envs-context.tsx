@@ -1,10 +1,12 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
+import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ApiPaginationResponse } from '@/types/api';
 import { NodeEnvironments } from '@/types/environments';
 import { EnvironmentsFilters } from '@/types/filters';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
+import { ProviderInstance } from '@oceanprotocol/lib';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -125,6 +127,12 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
           } else {
             setNodeEnvs(response.data.envs);
           }
+          const dynamicBootstraps = response.data.envs.flatMap((node) =>
+            (node.multiaddrs ?? []).map((addr) => (addr.includes('/p2p/') ? addr : `${addr}/p2p/${node.id}`))
+          );
+          ProviderInstance.setupP2P({
+            bootstrapPeers: [...new Set([...OCEAN_BOOTSTRAP_NODES, ...dynamicBootstraps])],
+          });
         }
       } catch (error) {
         console.error('Failed to fetch environments:', error);

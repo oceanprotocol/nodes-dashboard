@@ -52,7 +52,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     setSelectedResources,
   } = useRunJobContext();
 
-  const { node: p2pNode } = useP2P();
+  const { isReady: p2pReady } = useP2P();
 
   const [initComputeError, setInitComputeError] = useState<unknown | null>(null);
   const [isLoadingCost, setIsLoadingCost] = useState(false);
@@ -193,7 +193,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       environment,
       freeCompute,
       maxJobDurationSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
-      multiaddrsOrPeerId,
+      peerId: multiaddrsOrPeerId!,
       onError: (error) => setInitComputeError(error),
       resources,
       tokenAddress: token?.address,
@@ -223,7 +223,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         clearTimeout(costEstimateTimeoutRef.current);
       }
     };
-  }, [estimateCost, fetchEstimatedCost]);
+  }, [estimateCost]);
 
   const selectAllGpus = () => {
     formik.setFieldValue(
@@ -295,7 +295,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         </h3>
       );
     }
-    if (!p2pNode || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
+    if (!p2pReady || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
       return (
         <h3 className={styles.estimationMessage}>
           <CircularProgress size={24} />

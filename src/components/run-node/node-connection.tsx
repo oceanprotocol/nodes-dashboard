@@ -20,7 +20,7 @@ const NodeConnection = () => {
 
   const { account } = useOceanAccount();
 
-  const { clearRunNodeSelection, connectToNode, p2pNode, peerId } = useRunNodeContext();
+  const { clearRunNodeSelection, connectToNode, isP2PReady, peerId } = useRunNodeContext();
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
@@ -81,11 +81,11 @@ const NodeConnection = () => {
           <Button
             className="alignSelfEnd"
             color="accent1"
-            contentBefore={p2pNode ? <LinkIcon /> : null}
-            loading={!p2pNode || formik.isSubmitting}
+            contentBefore={isP2PReady ? <LinkIcon /> : null}
+            loading={!isP2PReady || formik.isSubmitting}
             onClick={formik.submitForm}
           >
-            {p2pNode ? 'Connect' : 'Initializing...'}
+            {isP2PReady ? 'Connect' : 'Initializing...'}
           </Button>
         </>
       )}

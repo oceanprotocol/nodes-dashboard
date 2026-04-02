@@ -78,8 +78,7 @@ const Summary = ({
       const sufficientEscrow = (escrowBalance ?? 0) >= estimatedTotalCost;
       const suffficientAuthorized =
         Number(authorizations?.maxLockedAmount ?? 0) >= estimatedTotalCost + currentLockedAmount;
-      const enoughLockSeconds =
-        Number(authorizations?.maxLockSeconds ?? 0) >= (minLockSeconds ?? 0);
+      const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= (minLockSeconds ?? 0);
       const hasAvailableLockSlot =
         Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
       if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
@@ -119,7 +118,7 @@ const Summary = ({
     try {
       const { token: generatedAuthToken } = await createAuthToken({
         consumerAddress: account.address,
-        multiaddrsOrPeerId: multiaddrsOrPeerId!,
+        peerId: multiaddrsOrPeerId!,
         signMessage,
       });
       setAuthToken(generatedAuthToken);

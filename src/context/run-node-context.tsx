@@ -1,6 +1,5 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { Libp2p } from 'libp2p';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -10,10 +9,10 @@ type RunNodeContextType = {
   configErrors: string[];
   connectToNode: (peerId: string) => Promise<void>;
   fetchConfig: () => Promise<void>;
+  isP2PReady: boolean;
   loadingFetchConfig: boolean;
   loadingPushConfig: boolean;
   nodeConfig: Record<string, any> | null;
-  p2pNode: Libp2p | null;
   peerId: string | null;
   pushConfig: (config: Record<string, any>) => Promise<void>;
   setNodeConfig: (config: Record<string, any> | null) => void;
@@ -22,7 +21,7 @@ type RunNodeContextType = {
 const RunNodeContext = createContext<RunNodeContextType | undefined>(undefined);
 
 export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
-  const { fetchConfig: p2pFetchConfig, node: p2pNode, pushConfig: p2pPushConfig, sendCommand } = useP2P();
+  const { fetchConfig: p2pFetchConfig, isReady: isP2PReady, pushConfig: p2pPushConfig, sendCommand } = useP2P();
 
   const { account, signMessage, user } = useOceanAccount();
 
@@ -64,7 +63,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       const config = await p2pFetchConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        multiaddrsOrPeerId: peerId,
+        peerId: peerId,
         signMessage,
       });
       setNodeConfig(config);
@@ -91,7 +90,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
           config,
           consumerAddress: account.address,
           expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-          multiaddrsOrPeerId: peerId,
+          peerId: peerId,
           signMessage,
         });
         setNodeConfig(config);
@@ -129,10 +128,10 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
         configErrors,
         connectToNode,
         fetchConfig,
+        isP2PReady,
         loadingFetchConfig,
         loadingPushConfig,
         nodeConfig,
-        p2pNode,
         peerId,
         pushConfig,
         setNodeConfig,
