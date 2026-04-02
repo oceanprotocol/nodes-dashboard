@@ -30,7 +30,7 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
 
       const { token } = await createAuthToken({
         consumerAddress: account.address,
-        multiaddrsOrPeerId: job.peerId,
+        peerId: job.peerId,
         signMessage,
       });
 

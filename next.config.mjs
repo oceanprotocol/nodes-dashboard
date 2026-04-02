@@ -1,7 +1,13 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['wagmi', '@wagmi/core', '@wagmi/connectors', '@walletconnect/ethereum-provider', '@walletconnect/universal-provider', 'pino', 'pino-pretty', 'thread-stream'],
   turbopack: {
+    resolveAlias: {},
     rules: {
       '*.svg': {
         loaders: ['@svgr/webpack'],
@@ -10,6 +16,12 @@ const nextConfig = {
     },
   },
   webpack(config, { isServer }) {
+    config.resolve.symlinks = false;
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@oceanprotocol/lib': path.resolve(__dirname, 'node_modules/@oceanprotocol/lib/dist/lib.module.mjs'),
+    };
+
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,

@@ -90,7 +90,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       await fetchConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        multiaddrsOrPeerId: node.id,
+        peerId: node.id,
         signMessage,
       });
     } catch (error) {
@@ -114,7 +114,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       await pushConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        multiaddrsOrPeerId: node.id,
+        peerId: node.id,
         signMessage,
         config,
       });
@@ -157,7 +157,7 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
       const logs = await getNodeLogs({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000,
-        multiaddrsOrPeerId: node.id,
+        peerId: node.id,
         params: { startTime, endTime, maxLogs },
         signMessage,
       });

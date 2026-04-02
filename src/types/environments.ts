@@ -101,4 +101,4 @@ export type EnvNodeInfo = {
   multiaddrs?: string[];
 };
 
-export type MultiaddrsOrPeerId = string | string[] | null;
+export type MultiaddrsOrPeerId = string | null;
