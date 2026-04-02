@@ -1,13 +1,24 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['wagmi', '@wagmi/core', '@wagmi/connectors', '@walletconnect/ethereum-provider', '@walletconnect/universal-provider', 'pino', 'pino-pretty', 'thread-stream'],
+  serverExternalPackages: [
+    'wagmi',
+    '@wagmi/core',
+    '@wagmi/connectors',
+    '@walletconnect/ethereum-provider',
+    '@walletconnect/universal-provider',
+    'pino',
+    'pino-pretty',
+    'thread-stream',
+  ],
   turbopack: {
-    resolveAlias: {},
+    resolveAlias: {
+      fs: { browser: './src/empty.js' },
+      net: { browser: './src/empty.js' },
+      tls: { browser: './src/empty.js' },
+      dgram: { browser: './src/empty.js' },
+      dns: { browser: './src/empty.js' },
+      'rdf-canonize-native': { browser: './src/empty.js' },
+    },
     rules: {
       '*.svg': {
         loaders: ['@svgr/webpack'],
@@ -16,12 +27,6 @@ const nextConfig = {
     },
   },
   webpack(config, { isServer }) {
-    config.resolve.symlinks = false;
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@oceanprotocol/lib': path.resolve(__dirname, 'node_modules/@oceanprotocol/lib/dist/lib.module.mjs'),
-    };
-
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -29,8 +34,8 @@ const nextConfig = {
         net: false,
         tls: false,
         dgram: false,
-        dns: false
-      }
+        dns: false,
+      };
     }
     config.module.rules.push({
       test: /\.svg$/,
@@ -57,6 +62,7 @@ const nextConfig = {
     '@solana/wallet-adapter-wallets',
     '@solana/wallet-adapter-ledger',
     '@ledgerhq/errors',
+    '@oceanprotocol/lib',
   ],
 };
 
