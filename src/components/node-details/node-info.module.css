@@ -26,6 +26,13 @@
         overflow: hidden;
       }
 
+      .statusChip {
+        align-items: center;
+        align-self: flex-start;
+        display: flex;
+        gap: 6px;
+      }
+
       .grid {
         display: grid;
         grid-template-columns: auto 1fr;

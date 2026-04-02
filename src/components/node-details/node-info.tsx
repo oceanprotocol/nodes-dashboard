@@ -6,11 +6,15 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
 import DownloadIcon from '@mui/icons-material/Download';
 import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import SettingsIcon from '@mui/icons-material/Settings';
+import { CircularProgress } from '@mui/material';
+import classNames from 'classnames';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
@@ -19,9 +23,10 @@ import styles from './node-info.module.css';
 
 type NodeInfoProps = {
   node: Node;
+  nodeOnline: boolean | null;
 };
 
-const NodeInfo = ({ node }: NodeInfoProps) => {
+const NodeInfo = ({ node, nodeOnline }: NodeInfoProps) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, ocean, signMessage, user } = useOceanAccount();
@@ -216,6 +221,19 @@ const NodeInfo = ({ node }: NodeInfoProps) => {
             <h2 className={styles.title}>{node.friendlyName ?? node.id}</h2>
             <div className={styles.hash}>{node.id}</div>
           </div>
+          {nodeOnline === null ? (
+            <div className={classNames('chip chipGlass', styles.statusChip)}>
+              <CircularProgress size={16} /> Checking node status...
+            </div>
+          ) : nodeOnline ? (
+            <div className={classNames('chip chipSuccess', styles.statusChip)}>
+              <CheckCircleIcon fontSize="small" /> Online
+            </div>
+          ) : (
+            <div className={classNames('chip chipError', styles.statusChip)}>
+              <CancelIcon fontSize="small" /> Offline
+            </div>
+          )}
           <div className={styles.grid}>
             <PublicIcon className={styles.icon} />
             <div>{renderNodeIpAndDns()}</div>
