@@ -27,30 +27,22 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
       const jobId = (job.environment ?? job.environmentId).split('-')[0] + '-' + job.jobId;
       setIsDownloading(true);
 
-      const jobStatus = await getComputeJobStatus(job.peerId, jobId, account.address);
-      const archive = jobStatus?.[0]?.results?.find((result: any) => result.filename.includes('.tar'));
-      const filesize: number = archive?.filesize ?? 0;
-
       const { token } = await createAuthToken({
         consumerAddress: account.address,
-        peerId: job.peerId,
+        nodeUri: job.peerId,
         signMessage,
       });
+
+      const jobStatus = await getComputeJobStatus(job.peerId, jobId, token);
+      const archive = jobStatus?.[0]?.results?.find((result: any) => result.filename.includes('.tar'));
+      const filesize: number = archive?.filesize ?? 0;
 
       const abortController = new AbortController();
       abortRef.current = abortController;
 
       setDownloadProgress({ bytes: 0, total: filesize });
 
-      const generator = streamComputeResult(
-        job.peerId,
-        jobId,
-        archive?.index,
-        token,
-        account.address,
-        abortController.signal,
-        filesize
-      );
+      const generator = await streamComputeResult(job.peerId, token, jobId, archive?.index);
 
       const showSaveFilePicker = (window as any).showSaveFilePicker as
         | ((options?: any) => Promise<FileSystemFileHandle>)

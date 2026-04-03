@@ -1,68 +1,72 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
+import { multiaddr } from '@multiformats/multiaddr';
 import { PROTOCOL_COMMANDS, ProviderInstance } from '@oceanprotocol/lib';
+
+type NodeUri = string[] | string;
+
+function toNodeUri(input: NodeUri) {
+  if (Array.isArray(input)) return input.map((a) => multiaddr(a));
+  return input;
+}
 
 export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
   await ProviderInstance.setupP2P({ bootstrapPeers: bootstrapNodes });
 }
 
-export async function getNodeEnvs(peerId: string) {
-  return ProviderInstance.getComputeEnvironments(peerId);
+export async function getNodeEnvs(nodeUri: NodeUri) {
+  return ProviderInstance.getComputeEnvironments(toNodeUri(nodeUri));
 }
 
-export async function getNonce(peerId: string, consumerAddress: string): Promise<number> {
-  return ProviderInstance.getNonce(peerId, consumerAddress);
+export async function getNonce(nodeUri: NodeUri, consumerAddress: string): Promise<number> {
+  return ProviderInstance.getNonce(toNodeUri(nodeUri), consumerAddress);
 }
 
-export async function getComputeStatus(peerId: string, jobId: string, consumerAddress: string) {
-  return ProviderInstance.fetchConfig(peerId, {
-    command: PROTOCOL_COMMANDS.COMPUTE_GET_STATUS,
-    jobId,
-    consumerAddress,
-  });
+export async function getComputeStatus(nodeUri: NodeUri, authToken: string, jobId: string) {
+  return ProviderInstance.computeStatus(toNodeUri(nodeUri), authToken, jobId);
 }
 
-export async function getComputeJobResult(
-  peerId: string,
-  jobId: string,
-  index: number,
-  authToken: string,
-  address: string
-) {
-  return ProviderInstance.fetchConfig(peerId, {
-    command: PROTOCOL_COMMANDS.COMPUTE_GET_RESULT,
-    jobId,
-    index,
-    consumerAddress: address,
-    authorization: authToken,
-  });
+export async function getComputeJobResult(nodeUri: NodeUri, authToken: string, jobId: string, index: number) {
+  const stream = await ProviderInstance.getComputeResult(toNodeUri(nodeUri), authToken, jobId, index);
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  const totalLength = chunks.reduce((sum, c) => sum + c.byteLength, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
 }
 
-export async function getComputeStreamableLogs(peerId: string, jobId: string, authToken: any) {
-  return ProviderInstance.fetchConfig(peerId, {
-    command: PROTOCOL_COMMANDS.COMPUTE_GET_STREAMABLE_LOGS,
-    jobId,
-    authorization: authToken?.token ?? authToken,
-  });
+export async function streamComputeResult(nodeUri: NodeUri, authToken: string, jobId: string, index: number) {
+  return ProviderInstance.getComputeResult(toNodeUri(nodeUri), authToken, jobId, index);
+}
+
+export async function getComputeStreamableLogs(nodeUri: NodeUri, authToken: string, jobId: string) {
+  return ProviderInstance.computeStreamableLogs(toNodeUri(nodeUri), authToken, jobId);
 }
 
 export async function createAuthToken({
   consumerAddress,
-  peerId,
+  nodeUri,
   signMessage,
 }: {
   consumerAddress: string;
-  peerId: string;
+  nodeUri: NodeUri;
   signMessage: SignMessageFn;
 }): Promise<{ token: string }> {
-  const incrementedNonce = (await getNonce(peerId, consumerAddress)) + 1;
+  const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command: PROTOCOL_COMMANDS.CREATE_AUTH_TOKEN,
     consumerAddress,
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchConfig(peerId, {
+  return ProviderInstance.fetchConfig(toNodeUri(nodeUri), {
     address: consumerAddress,
     command: PROTOCOL_COMMANDS.CREATE_AUTH_TOKEN,
     nonce: incrementedNonce,
@@ -70,27 +74,53 @@ export async function createAuthToken({
   });
 }
 
+export async function initializeCompute(
+  nodeUri: NodeUri,
+  assets: any[],
+  algorithm: any,
+  computeEnv: string,
+  token: string,
+  validUntil: number,
+  consumerAddress: string,
+  resources: { id: string; amount: number }[],
+  chainId: number
+) {
+  return ProviderInstance.initializeCompute(
+    assets,
+    algorithm,
+    computeEnv,
+    token,
+    validUntil,
+    toNodeUri(nodeUri),
+    consumerAddress,
+    resources,
+    chainId
+  );
+}
+
+// --- Admin commands (keep fetchConfig/pushConfig -- custom signing with expiry) ---
+
 export async function getNodeLogs({
   consumerAddress,
   expiryTimestamp,
-  peerId,
+  nodeUri,
   params,
   signMessage,
 }: {
   consumerAddress: string;
   expiryTimestamp: number;
-  peerId: string;
+  nodeUri: NodeUri;
   params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string };
   signMessage: SignMessageFn;
 }) {
-  const incrementedNonce = (await getNonce(peerId, consumerAddress)) + 1;
+  const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command: PROTOCOL_COMMANDS.GET_LOGS,
     consumerAddress,
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchConfig(peerId, {
+  return ProviderInstance.fetchConfig(toNodeUri(nodeUri), {
     address: consumerAddress,
     command: PROTOCOL_COMMANDS.GET_LOGS,
     expiryTimestamp,
@@ -103,22 +133,22 @@ export async function getNodeLogs({
 export async function fetchNodeConfig({
   consumerAddress,
   expiryTimestamp,
-  peerId,
+  nodeUri,
   signMessage,
 }: {
   consumerAddress: string;
   expiryTimestamp: number;
-  peerId: string;
+  nodeUri: NodeUri;
   signMessage: SignMessageFn;
 }) {
-  const incrementedNonce = (await getNonce(peerId, consumerAddress)) + 1;
+  const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command: PROTOCOL_COMMANDS.FETCH_CONFIG,
     consumerAddress,
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchConfig(peerId, {
+  return ProviderInstance.fetchConfig(toNodeUri(nodeUri), {
     address: consumerAddress,
     expiryTimestamp,
     nonce: incrementedNonce,
@@ -130,23 +160,23 @@ export async function pushNodeConfig({
   config,
   consumerAddress,
   expiryTimestamp,
-  peerId,
+  nodeUri,
   signMessage,
 }: {
   consumerAddress: string;
   config: Record<string, any>;
   expiryTimestamp: number;
-  peerId: string;
+  nodeUri: NodeUri;
   signMessage: SignMessageFn;
 }) {
-  const incrementedNonce = (await getNonce(peerId, consumerAddress)) + 1;
+  const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command: PROTOCOL_COMMANDS.PUSH_CONFIG,
     consumerAddress,
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.pushConfig(peerId, {
+  return ProviderInstance.pushConfig(toNodeUri(nodeUri), {
     address: consumerAddress,
     config,
     expiryTimestamp,
@@ -155,26 +185,6 @@ export async function pushNodeConfig({
   });
 }
 
-export async function initializeCompute(
-  peerId: string,
-  body: Record<string, unknown>
-): Promise<{ payment: { amount: string; minLockSeconds: number }; status?: { httpStatus: number; error?: string } }> {
-  return ProviderInstance.fetchConfig(peerId, {
-    command: PROTOCOL_COMMANDS.COMPUTE_INITIALIZE,
-    ...body,
-  });
-}
-
-/**
- * Returns the peer identifier for use as a connection reference (e.g. VSCode extension).
- */
 export async function getPeerMultiaddr(peerId: string): Promise<string> {
-  try {
-    console.log('🔍 getPeerMultiaddr: Getting multiaddr for peerId:', peerId);
-    const multiaddr = await ProviderInstance.getMultiaddrFromPeerId(peerId);
-    console.log('🔍 getPeerMultiaddr: Multiaddr:', multiaddr);
-    return multiaddr;
-  } catch (error) {
-    throw new Error('Failed to get peer multiaddr');
-  }
+  return ProviderInstance.getMultiaddrFromPeerId(peerId);
 }

@@ -30,11 +30,11 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
 
       const { token } = await createAuthToken({
         consumerAddress: account.address,
-        peerId: job.peerId,
+        nodeUri: job.peerId,
         signMessage,
       });
 
-      const jobStatus = await getComputeJobStatus(job.peerId, jobId, account.address);
+      const jobStatus = await getComputeJobStatus(job.peerId, jobId, token);
       const logFiles: any[] = jobStatus?.[0]?.results?.filter((result: any) => result.filename.includes('.log')) ?? [];
 
       if (logFiles.length === 0) {
@@ -52,15 +52,7 @@ export const DownloadLogsButton = ({ job }: DownloadLogsButtonProps) => {
       for (let i = 0; i < logFiles.length; i++) {
         setDownloadProgress({ current: i, total: logFiles.length });
 
-        const generator = streamComputeResult(
-          job.peerId,
-          jobId,
-          logFiles[i].index,
-          token,
-          account.address,
-          abortController.signal,
-          logFiles[i].filesize ?? 0
-        );
+        const generator = await streamComputeResult(job.peerId, token, jobId, logFiles[i].index);
 
         const chunks: Uint8Array[] = [];
         for await (const chunk of generator) {

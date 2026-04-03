@@ -63,7 +63,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       const config = await p2pFetchConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        peerId: peerId,
+        nodeUri: peerId,
         signMessage,
       });
       setNodeConfig(config);
@@ -90,7 +90,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
           config,
           consumerAddress: account.address,
           expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-          peerId: peerId,
+          nodeUri: peerId,
           signMessage,
         });
         setNodeConfig(config);

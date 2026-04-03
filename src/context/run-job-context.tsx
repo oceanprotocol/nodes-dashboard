@@ -34,7 +34,7 @@ type RunJobContextType = {
     environment: ComputeEnvironment;
     freeCompute: boolean;
     maxJobDurationSeconds: number;
-    peerId: string;
+    peerId: string[] | string;
     onError?: (error: unknown) => void;
     onSuccess?: (cost: number, minLockSeconds: number) => void;
     resources: { id: string; amount: number }[];
@@ -132,7 +132,12 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       setSelectedEnv(environment);
       setFreeCompute(freeCompute);
       setNodeInfo(nodeInfo);
-      setMultiaddrsOrPeerId(nodeInfo.id);
+
+      const addrs = (nodeInfo.multiaddrs ?? []).map((a) =>
+        a.includes('/p2p/') ? a : `${a}/p2p/${nodeInfo.id}`
+      );
+      setMultiaddrsOrPeerId(addrs.length > 0 ? addrs : nodeInfo.id);
+
       if (resources) {
         setSelectedResources(resources);
       }
@@ -166,7 +171,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       environment: ComputeEnvironment;
       freeCompute: boolean;
       maxJobDurationSeconds: number;
-      peerId: string;
+      peerId: string[] | string;
       onError?: (error: unknown) => void;
       onSuccess?: (cost: number, minLockSeconds: number) => void;
       resources: { id: string; amount: number }[];
@@ -187,8 +192,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           peerId,
           environment.consumerAddress,
           resources,
-          CHAIN_ID,
-          provider
+          CHAIN_ID
         );
         setEstimatedTotalCost(Number(cost));
         setMinLockSeconds(minLockSeconds);
@@ -282,6 +286,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           nodeInfo: foundNode,
           resources,
         });
+        const foundAddrs = (foundNode.multiaddrs ?? []).map((a) =>
+          a.includes('/p2p/') ? a : `${a}/p2p/${foundNode.id}`
+        );
+        const resolvedNodeUri = foundAddrs.length > 0 ? foundAddrs : foundNode.id;
         if (!queryFree) {
           const queryToken = searchParams.get('token');
           if (queryToken) {
@@ -290,7 +298,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               environment: foundEnv,
               freeCompute: queryFree,
               maxJobDurationSeconds: resources.maxJobDurationSeconds,
-              peerId: foundNode.id,
+              peerId: resolvedNodeUri,
               resources: [
                 ...(resources.cpuId && resources.cpuCores ? [{ id: resources.cpuId, amount: resources.cpuCores }] : []),
                 ...(resources.ramId && resources.ram ? [{ id: resources.ramId, amount: resources.ram }] : []),
