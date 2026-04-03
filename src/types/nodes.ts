@@ -22,6 +22,7 @@ export type NodeBanInfo = {
 export type Node = {
   allowedAdmins?: string[];
   cpus: CPU[];
+  currentAddrs?: string[];
   eligible?: boolean;
   eligibilityCauseStr?: string;
   friendlyName?: string;

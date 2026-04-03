@@ -46,17 +46,21 @@ const NodeDetailsPage = () => {
     if (!node) {
       return;
     }
-    // TODO further improvement - use multiaddrs alongside peerId
     const peerId = node.id ?? node.nodeId;
     if (isP2PReady) {
-      getEnvsP2P(peerId)
+      getEnvsP2P(node.currentAddrs?.length ? node.currentAddrs : peerId)
         .then((envs) => {
           setNodeEnvs((prev) => (prev.length > 0 ? prev : envs));
           setConnectedP2P(true);
         })
         .catch(() => setConnectedP2P(false));
     }
-    directNodeCommand('getComputeEnvironments', peerId, {})
+    directNodeCommand({
+      command: 'getComputeEnvironments',
+      body: {},
+      multiaddrs: node.currentAddrs,
+      peerId,
+    })
       .then(async (response) => {
         try {
           const envs = await response.json();
