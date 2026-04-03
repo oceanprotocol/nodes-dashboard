@@ -10,7 +10,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
-import { formatNumber } from '@/utils/formatters';
+import { formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
@@ -109,7 +109,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         openAuthModal();
         return;
       }
-      setEstimatedTotalCost(estimatedTotalCost);
+      if (!freeCompute && !estimatedTotalCost) {
+        return;
+      }
+      setEstimatedTotalCost(
+        estimatedTotalCost && token?.address ? roundTokenAmount(estimatedTotalCost, token.address, 'up') : 0
+      );
       setSelectedResources({
         cpuCores: values.cpuCores,
         cpuId: cpu?.id ?? 'cpu',
@@ -279,7 +284,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         </h3>
       );
     }
-    if (!!initComputeError) {
+    if (!!initComputeError || !token) {
       let errorText;
       if (initComputeError instanceof Error) {
         errorText = initComputeError.message;
@@ -307,7 +312,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       <div>
         <span className={styles.token}>{token?.symbol}</span>
         &nbsp;
-        <span className={styles.amount}>{formatNumber(estimatedTotalCost)}</span>
+        <span className={styles.amount}>{formatTokenAmount(estimatedTotalCost, token.address)}</span>
       </div>
     );
   };

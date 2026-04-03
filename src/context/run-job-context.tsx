@@ -10,6 +10,7 @@ import {
   MultiaddrsOrPeerId,
   NodeEnvironments,
 } from '@/types/environments';
+import { roundTokenAmount } from '@/utils/formatters';
 import { multiaddr } from '@multiformats/multiaddr';
 import axios from 'axios';
 import { useSearchParams } from 'next/navigation';
@@ -192,7 +193,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           CHAIN_ID,
           provider
         );
-        setEstimatedTotalCost(Number(cost));
+        setEstimatedTotalCost(roundTokenAmount(Number(cost), tokenAddress, 'up'));
         setMinLockSeconds(minLockSeconds);
         onSuccess?.(Number(cost), minLockSeconds);
       } catch (error) {
@@ -229,7 +230,11 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     }
     try {
       const response = await axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
-        params: { filters: JSON.stringify({ id: { operator: 'eq', value: queryPeerId } }) },
+        params: {
+          filters: JSON.stringify({ id: { operator: 'eq', value: queryPeerId } }),
+          // TODO: implement filter by node ID/ env ID on BE
+          size: 1000,
+        },
       });
       const foundNode = response.data.envs.find(
         (node) => node.id === queryPeerId && node.computeEnvironments.environments.find((env) => env.id === queryEnv)

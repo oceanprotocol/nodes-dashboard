@@ -3,7 +3,7 @@ import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
 import { Authorizations } from '@/types/payment';
-import { formatNumber } from '@/utils/formatters';
+import { formatTokenAmount } from '@/utils/formatters';
 import classNames from 'classnames';
 import { useState } from 'react';
 import styles from './payment-summary.module.css';
@@ -39,7 +39,7 @@ const PaymentSummary = ({
       <div className={styles.values}>
         <span className={styles.token}>{tokenSymbol}</span>
         &nbsp;
-        <span className={styles.amount}>{formatNumber(totalCost)}</span>
+        <span className={styles.amount}>{formatTokenAmount(totalCost, selectedToken.address)}</span>
       </div>
       {/* User available funds in escrow */}
       <h3>User available funds in escrow</h3>
@@ -48,7 +48,7 @@ const PaymentSummary = ({
           <span className={styles.token}>{tokenSymbol}</span>
           &nbsp;
           <span className={classNames(styles.amount, { textError: insufficientEscrow })}>
-            {formatNumber(escrowBalance ?? 0)}
+            {formatTokenAmount(escrowBalance ?? 0, selectedToken.address)}
           </span>
         </div>
         {insufficientEscrow ? <div className="chip chipError">Insufficient funds</div> : null}
@@ -59,7 +59,7 @@ const PaymentSummary = ({
         <div className={styles.values}>
           <span className={styles.token}>{tokenSymbol}</span>
           &nbsp;
-          <span className={classNames(styles.amount)}>{formatNumber(authorizations?.currentLockedAmount ?? 0)}</span>
+          <span className={classNames(styles.amount)}>{formatTokenAmount(Number(authorizations?.currentLockedAmount ?? 0), selectedToken.address)}</span>
         </div>
       </div>
       {/* Max locked amount */}
@@ -69,7 +69,7 @@ const PaymentSummary = ({
           <span className={styles.token}>{tokenSymbol}</span>
           &nbsp;
           <span className={classNames(styles.amount, { textError: insufficientAutorized })}>
-            {formatNumber(authorizations?.maxLockedAmount ?? 0)}
+            {formatTokenAmount(Number(authorizations?.maxLockedAmount ?? 0), selectedToken.address)}
           </span>
         </div>
         {insufficientAutorized ? <div className="chip chipError">Insufficient allowance</div> : null}
@@ -80,7 +80,7 @@ const PaymentSummary = ({
         <div className={styles.sm}>
           <span className={styles.token}>{tokenSymbol}</span>
           &nbsp;
-          <span className={classNames(styles.amount, styles.sm)}>{formatNumber(walletBalance)}</span>
+          <span className={classNames(styles.amount, styles.sm)}>{formatTokenAmount(walletBalance, selectedToken.address)}</span>
         </div>
         {selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ? (
           <>

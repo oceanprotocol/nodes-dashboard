@@ -3,6 +3,7 @@ import Input from '@/components/input/input';
 import { SelectedToken } from '@/context/run-job-context';
 import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
 import { ComputeEnvironment } from '@/types/environments';
+import { roundTokenAmount } from '@/utils/formatters';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import styles from './payment-authorize.module.css';
@@ -41,7 +42,7 @@ const PaymentAuthorize = ({
     enableReinitialize: true,
     initialValues: {
       // amountToAuthorize: totalCost - (authorizations?.currentLockedAmount ?? 0),
-      maxLockedAmount: totalCost + currentLockedAmount,
+      maxLockedAmount: roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address, 'up'),
       maxLockCount: 10,
       // Min lock seconds in the minum number or seconds for the lock.
       // Job duration + claimTimeout, it is computed and set with initializeCompute.
@@ -58,7 +59,10 @@ const PaymentAuthorize = ({
     },
     validateOnMount: true,
     validationSchema: Yup.object({
-      maxLockSeconds: Yup.number().required('Required').integer('Integer required').min(minLockSeconds, 'Minimum 1'),
+      maxLockSeconds: Yup.number()
+        .required('Required')
+        .integer('Integer required')
+        .min(minLockSeconds, `Minimum ${minLockSeconds}`),
       maxLockCount: Yup.number().required('Required').integer('Integer required').min(1, 'Minimum 1'),
       maxLockedAmount: Yup.number().required('Required'),
     }),
