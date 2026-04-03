@@ -84,9 +84,9 @@ const Payment = ({
       );
       setAuthorizations(authorizations);
       const walletBalance = await ocean.getBalance(selectedToken.address, account.address);
-      setWalletBalance(Number(walletBalance));
+      setWalletBalance(roundTokenAmount(Number(walletBalance), selectedToken.address, 'down'));
       const escrowBalance = await ocean.getUserFunds(selectedToken.address, account.address);
-      setEscrowBalance(Number(escrowBalance));
+      setEscrowBalance(roundTokenAmount(Number(escrowBalance), selectedToken.address, 'down'));
       setLoadingPaymentInfo(false);
     }
   }, [ocean, account.address, selectedToken.address, selectedEnv.consumerAddress]);
