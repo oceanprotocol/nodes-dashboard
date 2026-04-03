@@ -22,6 +22,7 @@ export type NodeBanInfo = {
 export type Node = {
   allowedAdmins?: string[];
   cpus: CPU[];
+  currentAddrs?: string[];
   eligible?: boolean;
   eligibilityCauseStr?: string;
   friendlyName?: string;
@@ -75,12 +76,6 @@ type CPU = {
   family: string;
   model: string;
 };
-
-export enum NodeEligibility {
-  ELIGIBLE = 'eligible',
-  NON_ELIGIBLE = 'non-eligible',
-  BANNED = 'banned',
-}
 
 export type GPUPopularityStats = GPUPopularity[];
 

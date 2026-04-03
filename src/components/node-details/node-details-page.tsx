@@ -8,15 +8,23 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useNodesContext } from '@/context/nodes-context';
 import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useP2P } from '@/contexts/P2PContext';
+import { directNodeCommand } from '@/lib/direct-node-command';
+import { ComputeEnvironment } from '@/types/environments';
 import { CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const NodeDetailsPage = () => {
-  const { selectedNode, fetchNode, loadingFetchNode } = useNodesContext();
-  const { clearEnvs, getEnvs, isReady: isP2PReady } = useP2P();
-  const { unbanRequests, fetchUnbanRequests } = useUnbanRequestsContext();
   const params = useParams<{ nodeId: string }>();
+
+  const { getEnvs: getEnvsP2P, isReady: isP2PReady, sendCommand } = useP2P();
+
+  const { selectedNode, fetchNode, loadingFetchNode } = useNodesContext();
+  const { unbanRequests, fetchUnbanRequests } = useUnbanRequestsContext();
+
+  const [connectedP2P, setConnectedP2P] = useState<boolean | null>(null);
+  const [connectedDirectNodeCommand, setConnectedDirectNodeCommand] = useState<boolean | null>(null);
+  const [nodeEnvs, setNodeEnvs] = useState<ComputeEnvironment[]>([]);
 
   const node = useMemo(() => {
     if (params?.nodeId === selectedNode?.id || params?.nodeId === selectedNode?.nodeId) {
@@ -31,12 +39,39 @@ const NodeDetailsPage = () => {
     }
   }, [params?.nodeId, fetchNode, node]);
 
+  /**
+   * Check node connectivity by p2p and direct node command by loading its envs
+   */
   useEffect(() => {
-    clearEnvs();
-    if (node && isP2PReady) {
-      getEnvs(node.id ?? node.nodeId);
+    if (!node) {
+      return;
     }
-  }, [isP2PReady, clearEnvs, node, getEnvs]);
+    const peerId = node.id ?? node.nodeId;
+    if (isP2PReady) {
+      getEnvsP2P(node.currentAddrs?.length ? node.currentAddrs : peerId)
+        .then((envs) => {
+          setNodeEnvs((prev) => (prev.length > 0 ? prev : envs));
+          setConnectedP2P(true);
+        })
+        .catch(() => setConnectedP2P(false));
+    }
+    directNodeCommand({
+      command: 'getComputeEnvironments',
+      body: {},
+      multiaddrs: node.currentAddrs,
+      peerId,
+    })
+      .then(async (response) => {
+        try {
+          const envs = await response.json();
+          setNodeEnvs((prev) => (prev.length > 0 ? prev : envs));
+          setConnectedDirectNodeCommand(true);
+        } catch (error) {
+          setConnectedDirectNodeCommand(false);
+        }
+      })
+      .catch(() => setConnectedDirectNodeCommand(false));
+  }, [node, isP2PReady, sendCommand, getEnvsP2P]);
 
   useEffect(() => {
     if (node) {
@@ -77,10 +112,11 @@ const NodeDetailsPage = () => {
         subTitle="Check node status, performance, and available resources before running a job"
       />
       <div className="pageContentWrapper">
-        <NodeInfo node={node} />
-        <JobsRevenueStats />
+        <NodeInfo envs={nodeEnvs} node={node} nodeOnline={connectedP2P || connectedDirectNodeCommand} />
+        <JobsRevenueStats envs={nodeEnvs} />
         <BenchmarkJobs />
         <Environments
+          envs={nodeEnvs}
           nodeInfo={{
             friendlyName: node.friendlyName,
             id: node.id ?? node.nodeId,
