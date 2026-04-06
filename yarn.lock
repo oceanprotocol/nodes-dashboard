@@ -3928,7 +3928,7 @@ __metadata:
     jsonwebtoken: "npm:^9.0.2"
   peerDependencies:
     web3: ^1.8.0
-  checksum: 10c0/08b290891cc7c38f1745c030b6aa08b28e6dda0f5ae2dc9b0d10eacd0a508589f6e274c402bb6f19ab047bb546b1e3a7213184d30e89fde7e02b671df79d68ef
+  checksum: 10c0/2877aee3dee9de3ba5132b10bace2645d37dceebd4ae2a90d26c3f386068bba4922022ee15ef17b9dbfc02720f345ca8fda981a569d5f1210a76efbe9cfb32d2
   languageName: node
   linkType: hard
 
