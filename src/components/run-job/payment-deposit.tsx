@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import { SelectedToken } from '@/context/run-job-context';
 import { useDepositTokens } from '@/lib/use-deposit-tokens';
+import { roundTokenAmount } from '@/utils/formatters';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import styles from './payment-deposit.module.css';
@@ -33,7 +34,7 @@ const PaymentDeposit = ({
 }: PaymentDepositProps) => {
   const { handleDeposit, isDepositing } = useDepositTokens({ onSuccess: loadPaymentInfo });
 
-  const amountToDeposit = Math.max(0, totalCost - escrowBalance);
+  const amountToDeposit = roundTokenAmount(Math.max(0, totalCost - escrowBalance), selectedToken.address, 'up');
   const hasSufficientFunds = escrowBalance >= totalCost;
 
   const formik = useFormik<DepositFormValues>({

@@ -24,7 +24,7 @@ import { Collapse, Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TransitionGroup } from 'react-transition-group';
 import styles from './environment-card.module.css';
 
@@ -75,7 +75,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
 
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
 
-  const getDefaultToken = () => {
+  const getDefaultToken = useCallback(() => {
     if (defaultToken && supportedTokens.includes(defaultToken)) {
       return defaultToken;
     }
@@ -83,10 +83,14 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       return getSupportedTokens().USDC.address;
     }
     return supportedTokens[0];
-  };
+  }, [defaultToken, supportedTokens]);
 
   const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getDefaultToken());
   const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
+
+  useEffect(() => {
+    setSelectedTokenAddress(getDefaultToken());
+  }, [getDefaultToken]);
 
   const [isFreeCompute, setIsFreeCompute] = useState<boolean>(
     forcePricing ? (forcePricing === 'free' ? true : false) : false

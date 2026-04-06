@@ -7,6 +7,7 @@ import { SelectedToken } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
 import { Authorizations } from '@/types/payment';
+import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -83,9 +84,9 @@ const Payment = ({
       );
       setAuthorizations(authorizations);
       const walletBalance = await ocean.getBalance(selectedToken.address, account.address);
-      setWalletBalance(Number(walletBalance));
+      setWalletBalance(roundTokenAmount(Number(walletBalance), selectedToken.address, 'down'));
       const escrowBalance = await ocean.getUserFunds(selectedToken.address, account.address);
-      setEscrowBalance(Number(escrowBalance));
+      setEscrowBalance(roundTokenAmount(Number(escrowBalance), selectedToken.address, 'down'));
       setLoadingPaymentInfo(false);
     }
   }, [ocean, account.address, selectedToken.address, selectedEnv.consumerAddress]);
@@ -97,11 +98,10 @@ const Payment = ({
   useEffect(() => {
     const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
     const suffficientAuthorized =
-      Number(authorizations?.maxLockedAmount ?? 0) >= totalCost + currentLockedAmount;
-    const enoughLockSeconds =
-      Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
-    const hasAvailableLockSlot =
-      Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
+      roundTokenAmount(Number(authorizations?.maxLockedAmount ?? 0), selectedToken.address) >=
+      roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address);
+    const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
+    const hasAvailableLockSlot = Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
       posthog.capture('payment_authorized', {
         totalCost,
@@ -117,6 +117,7 @@ const Payment = ({
     authorizations?.maxLockedAmount,
     currentLockedAmount,
     escrowBalance,
+    minLockSeconds,
     router,
     selectedResources.maxJobDurationSeconds,
     selectedToken.address,
