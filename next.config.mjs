@@ -62,7 +62,6 @@ const nextConfig = {
     '@solana/wallet-adapter-wallets',
     '@solana/wallet-adapter-ledger',
     '@ledgerhq/errors',
-    '@oceanprotocol/lib',
   ],
 };
 
