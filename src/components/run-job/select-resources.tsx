@@ -198,7 +198,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       environment,
       freeCompute,
       maxJobDurationSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
-      peerId: multiaddrsOrPeerId!,
+      multiaddrsOrPeerId: multiaddrsOrPeerId!,
       onError: (error) => setInitComputeError(error),
       resources,
       tokenAddress: token?.address,

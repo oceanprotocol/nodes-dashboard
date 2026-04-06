@@ -26,7 +26,7 @@ type RunJobContextType = {
     environment,
     freeCompute,
     maxJobDurationSeconds,
-    peerId,
+    multiaddrsOrPeerId,
     onError,
     onSuccess,
     resources,
@@ -35,7 +35,7 @@ type RunJobContextType = {
     environment: ComputeEnvironment;
     freeCompute: boolean;
     maxJobDurationSeconds: number;
-    peerId: string[] | string;
+    multiaddrsOrPeerId: string[] | string;
     onError?: (error: unknown) => void;
     onSuccess?: (cost: number, minLockSeconds: number) => void;
     resources: { id: string; amount: number }[];
@@ -134,9 +134,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       setFreeCompute(freeCompute);
       setNodeInfo(nodeInfo);
 
-      const addrs = (nodeInfo.multiaddrs ?? []).map((a) =>
-        a.includes('/p2p/') ? a : `${a}/p2p/${nodeInfo.id}`
-      );
+      const addrs = (nodeInfo.multiaddrs ?? []).map((a) => (a.includes('/p2p/') ? a : `${a}/p2p/${nodeInfo.id}`));
       setMultiaddrsOrPeerId(addrs.length > 0 ? addrs : nodeInfo.id);
 
       if (resources) {
@@ -163,7 +161,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       environment,
       freeCompute,
       maxJobDurationSeconds,
-      peerId,
+      multiaddrsOrPeerId,
       onError,
       onSuccess,
       resources,
@@ -172,7 +170,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       environment: ComputeEnvironment;
       freeCompute: boolean;
       maxJobDurationSeconds: number;
-      peerId: string[] | string;
+      multiaddrsOrPeerId: string[] | string;
       onError?: (error: unknown) => void;
       onSuccess?: (cost: number, minLockSeconds: number) => void;
       resources: { id: string; amount: number }[];
@@ -190,7 +188,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           environment,
           tokenAddress,
           maxJobDurationSeconds < 1 ? 1 : Math.ceil(maxJobDurationSeconds),
-          peerId,
+          multiaddrsOrPeerId,
           environment.consumerAddress,
           resources,
           CHAIN_ID
@@ -303,7 +301,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               environment: foundEnv,
               freeCompute: queryFree,
               maxJobDurationSeconds: resources.maxJobDurationSeconds,
-              peerId: resolvedNodeUri,
+              multiaddrsOrPeerId: resolvedNodeUri,
               resources: [
                 ...(resources.cpuId && resources.cpuCores ? [{ id: resources.cpuId, amount: resources.cpuCores }] : []),
                 ...(resources.ramId && resources.ram ? [{ id: resources.ramId, amount: resources.ram }] : []),
