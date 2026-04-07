@@ -220,16 +220,20 @@ export class OceanProvider {
   }
 
   async getNonce(address: string, peerId: string): Promise<number> {
-    const response = await directNodeCommand('nonce', peerId, { address });
+    const response = await directNodeCommand({ command: 'nonce', peerId, body: { address } });
     const data = await response.json();
     return Number(data);
   }
 
   async generateAuthToken(address: string, nonce: number, signature: string, peerId: string) {
-    const response = await directNodeCommand('createAuthToken', peerId, {
-      address,
-      signature,
-      nonce,
+    const response = await directNodeCommand({
+      command: 'createAuthToken',
+      peerId,
+      body: {
+        address,
+        signature,
+        nonce,
+      },
     });
     const data = await response.json();
     const token = data.token;

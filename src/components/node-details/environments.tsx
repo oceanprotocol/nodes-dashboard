@@ -4,17 +4,18 @@ import EnvironmentCard from '@/components/environment-card/environment-card';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useP2P } from '@/contexts/P2PContext';
-import { EnvNodeInfo } from '@/types/environments';
+import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { Collapse } from '@mui/material';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styles from './environments.module.css';
 
 type EnvironmentsProps = {
+  envs: ComputeEnvironment[];
   nodeInfo: EnvNodeInfo;
 };
 
-const Environments = ({ nodeInfo }: EnvironmentsProps) => {
-  const { isReady, envs } = useP2P();
+const Environments: React.FC<EnvironmentsProps> = ({ envs, nodeInfo }) => {
+  const { isReady } = useP2P();
 
   const [showingMore, setShowingMore] = useState(false);
 

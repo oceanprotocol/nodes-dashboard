@@ -8,6 +8,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { useP2P } from '@/contexts/P2PContext';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { ComputeEnvironment } from '@/types/environments';
 import { NodeBalance } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -17,11 +18,12 @@ import styles from './balance.module.css';
 
 interface BalanceProps {
   admins: string[];
+  envs: ComputeEnvironment[];
 }
 
-export const Balance = ({ admins }: BalanceProps) => {
+export const Balance: React.FC<BalanceProps> = ({ admins, envs }) => {
   const { account, ocean } = useOceanAccount();
-  const { envs, isReady } = useP2P();
+  const { isReady } = useP2P();
 
   const [escrowBalances, setEscrowBalances] = useState<NodeBalance[]>([]);
   const [isGasFeeModalOpen, setIsGasFeeModalOpen] = useState<boolean>(false);
