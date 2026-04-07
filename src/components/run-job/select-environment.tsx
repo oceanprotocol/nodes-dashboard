@@ -12,7 +12,7 @@ import { NodeEnvironments } from '@/types/environments';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
 import { useFormik } from 'formik';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
 
 const sortOptions = [
@@ -151,6 +151,20 @@ const SelectEnvironment = () => {
     });
     return filteredNodeEnvs;
   }, [filters.free, nodeEnvs]);
+
+  /**
+   * If all environments were filtered out, and there are more pages, load the next page.
+   */
+  useEffect(() => {
+    if (
+      !loading &&
+      !filteredNodeEnvs.length &&
+      paginationResponse &&
+      paginationResponse.currentPage < paginationResponse.totalPages
+    ) {
+      loadMoreEnvs();
+    }
+  }, [filteredNodeEnvs.length, loading, loadMoreEnvs, paginationResponse]);
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
