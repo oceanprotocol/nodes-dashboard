@@ -8,12 +8,19 @@
 
 .title {
   margin: 0;
-  font-size: 48px;
+  font-size: 32px;
   font-weight: 600;
 }
-
 .subTitle {
-  font-size: 20px;
+  font-size: 16px;
+}
+@media (min-width: 768px) {
+  .title {
+    font-size: 48px;
+  }
+  .subTitle {
+    font-size: 20px;
+  }
 }
 
 .moreReadable {
