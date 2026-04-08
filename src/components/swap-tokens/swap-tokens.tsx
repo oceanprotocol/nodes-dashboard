@@ -97,12 +97,12 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
         />
         <div className={styles.buttons}>
           {onCancel ? (
-            <Button color="accent2" onClick={onCancel} size="lg" type="button" variant="outlined" disabled={isSwapping}>
+            <Button color="accent1" onClick={onCancel} size="lg" type="button" variant="outlined" disabled={isSwapping}>
               Cancel
             </Button>
           ) : null}
           <Button
-            color="accent2"
+            color="accent1"
             size="lg"
             type="submit"
             loading={isSwapping}
