@@ -3,6 +3,7 @@ import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import { useRunNodeContext } from '@/context/run-node-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { formatWalletAddress } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import LinkIcon from '@mui/icons-material/Link';
 import classNames from 'classnames';
@@ -60,9 +61,9 @@ const NodeConnection = () => {
       {isConnected ? (
         <>
           <div>
-            Currently connected to node ID: <strong>{peerId}</strong>
+            Currently connected to node ID: <strong title={peerId}>{formatWalletAddress(peerId)}</strong>
           </div>
-          <Button className="alignSelfEnd" color="accent1" onClick={clearRunNodeSelection} variant="outlined">
+          <Button className={styles.button} color="accent1" onClick={clearRunNodeSelection} variant="outlined">
             Connect to another node
           </Button>
         </>
@@ -79,7 +80,7 @@ const NodeConnection = () => {
             value={formik.values.nodeId}
           />
           <Button
-            className="alignSelfEnd"
+            className={styles.button}
             color="accent1"
             contentBefore={p2pNode ? <LinkIcon /> : null}
             loading={!p2pNode || formik.isSubmitting}
