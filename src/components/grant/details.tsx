@@ -16,9 +16,9 @@ import axios from 'axios';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import posthog from 'posthog-js';
 import * as Yup from 'yup';
 import styles from './details.module.css';
 import VerifyModal from './verify-modal';
@@ -239,16 +239,11 @@ const Details: React.FC = () => {
             ))}
           </div>
         </div>
-        <Button
-          className="alignSelfEnd"
-          color="accent1"
-          loading={formik.isSubmitting}
-          type="submit"
-          size="lg"
-          variant="filled"
-        >
-          Continue
-        </Button>
+        <div className={styles.buttons}>
+          <Button color="accent1" loading={formik.isSubmitting} type="submit" size="lg" variant="filled">
+            Continue
+          </Button>
+        </div>
       </form>
       {grantDetails ? (
         <VerifyModal

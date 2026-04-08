@@ -14,6 +14,7 @@
     flex-direction: column;
     gap: 4px;
     margin-left: 16px;
+    word-break: break-word;
   }
 
   .choices {
@@ -21,6 +22,7 @@
     display: grid;
     grid-template-columns: 100%;
     column-gap: 48px;
+    gap: 6px 48px;
 
     &.choicesRow {
       display: flex;
@@ -40,6 +42,19 @@
       &.choices3cols {
         grid-template-columns: repeat(3, 1fr);
       }
+    }
+  }
+
+  .buttons {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    @media (min-width: 576px) {
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-end;
     }
   }
 }
