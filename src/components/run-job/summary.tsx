@@ -248,9 +248,9 @@ const Summary = ({
       <div className={styles.footer}>
         <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
         {authToken ? (
-          <div className={styles.buttons}>
+          <div className="actionsGroupLgBetween">
             {backButton}
-            <div className={styles.buttonsGroup}>
+            <div className="actionsGroupLgEnd">
               <Button
                 color="accent1"
                 id="choose-editor-button"
@@ -312,7 +312,7 @@ const Summary = ({
             </div>
           </div>
         ) : (
-          <div className={styles.buttons}>
+          <div className="actionsGroupLgBetween">
             {backButton}
             <Button autoLoading color="accent1" onClick={generateToken} size="lg">
               Generate token

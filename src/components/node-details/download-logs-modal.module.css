@@ -72,18 +72,4 @@
       color: var(--text-secondary);
     }
   }
-
-  .buttons {
-    align-items: stretch;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    @media (min-width: 576px) {
-      align-items: center;
-      flex-wrap: wrap;
-      flex-direction: row;
-      justify-content: flex-end;
-    }
-  }
 }

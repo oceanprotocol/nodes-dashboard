@@ -239,7 +239,7 @@ const Details: React.FC = () => {
             ))}
           </div>
         </div>
-        <div className={styles.buttons}>
+        <div className="actionsGroupLgEnd">
           <Button color="accent1" loading={formik.isSubmitting} type="submit" size="lg" variant="filled">
             Continue
           </Button>

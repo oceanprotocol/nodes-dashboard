@@ -6,7 +6,6 @@ import { useWithdrawTokens, UseWithdrawTokensReturn } from '@/lib/use-withdraw-t
 import { NodeBalance } from '@/types/nodes';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import styles from './withdraw-modal.module.css';
 
 interface WithdrawModalProps {
   balances: NodeBalance[];
@@ -141,7 +140,7 @@ const WithdrawModalContent = ({
           />
         );
       })}
-      <div className={styles.buttons}>
+      <div className="actionsGroupMdEnd">
         <Button
           color="accent1"
           disabled={withdrawTokens.isWithdrawing}

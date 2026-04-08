@@ -6,7 +6,6 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
-import styles from './gas-fee-modal.module.css';
 
 type GasFeeModalProps = {
   isOpen: boolean;
@@ -68,7 +67,7 @@ const GasFeeModalContent = ({
         type="number"
         value={formik.values.amount}
       />
-      <div className={styles.buttons}>
+      <div className="actionsGroupMdEnd">
         <Button
           color="accent1"
           disabled={depositTokens.isDepositing}

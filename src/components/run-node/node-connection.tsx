@@ -63,9 +63,11 @@ const NodeConnection = () => {
           <div>
             Currently connected to node ID: <strong title={peerId}>{formatWalletAddress(peerId)}</strong>
           </div>
-          <Button className={styles.button} color="accent1" onClick={clearRunNodeSelection} variant="outlined">
-            Connect to another node
-          </Button>
+          <div className="actionsGroupMdEnd">
+            <Button color="accent1" onClick={clearRunNodeSelection} variant="outlined">
+              Connect to another node
+            </Button>
+          </div>
         </>
       ) : (
         <>
@@ -79,15 +81,16 @@ const NodeConnection = () => {
             type="text"
             value={formik.values.nodeId}
           />
-          <Button
-            className={styles.button}
-            color="accent1"
-            contentBefore={p2pNode ? <LinkIcon /> : null}
-            loading={!p2pNode || formik.isSubmitting}
-            onClick={formik.submitForm}
-          >
-            {p2pNode ? 'Connect' : 'Initializing...'}
-          </Button>
+          <div className="actionsGroupMdEnd">
+            <Button
+              color="accent1"
+              contentBefore={p2pNode ? <LinkIcon /> : null}
+              loading={!p2pNode || formik.isSubmitting}
+              onClick={formik.submitForm}
+            >
+              {p2pNode ? 'Connect' : 'Initializing...'}
+            </Button>
+          </div>
         </>
       )}
     </Card>

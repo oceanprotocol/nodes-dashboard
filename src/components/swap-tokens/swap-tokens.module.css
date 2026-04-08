@@ -9,16 +9,3 @@
   display: flex;
   justify-content: space-between;
 }
-
-.buttons {
-  align-items: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  @media (min-width: 576px) {
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-  }
-}

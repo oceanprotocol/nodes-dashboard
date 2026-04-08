@@ -95,7 +95,7 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
           value={formik.values.amount}
           disabled={isSwapping}
         />
-        <div className={styles.buttons}>
+        <div className="actionsGroupLgEnd">
           {onCancel ? (
             <Button color="accent1" onClick={onCancel} size="lg" type="button" variant="outlined" disabled={isSwapping}>
               Cancel
