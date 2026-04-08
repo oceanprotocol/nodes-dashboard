@@ -13,7 +13,7 @@ import {
   streamComputeResult as streamComputeResultService,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
-import { ComputeEnvironment } from '@/types/environments';
+import { ComputeEnvironment, MultiaddrsOrPeerId } from '@/types/environments';
 import { multiaddr } from '@multiformats/multiaddr';
 import { ComputeResourceRequest, ProviderInstance } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
@@ -27,12 +27,10 @@ function toNodeUri(input: NodeUri) {
 }
 
 interface P2PContextType {
-  clearEnvs: () => void;
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
   computeStatus: Record<string, any> | null;
   config: Record<string, any>;
-  envs: ComputeEnvironment[];
   error: string | null;
   /**
    *
@@ -99,7 +97,6 @@ const P2PContext = createContext<P2PContextType | undefined>(undefined);
 
 export function P2PProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<Record<string, any>>({});
-  const [envs, setEnvs] = useState<ComputeEnvironment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [computeLogs] = useState<any>(undefined);
@@ -156,7 +153,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Node not ready');
       }
       const result = await getNodeEnvs(nodeUri);
-      setEnvs(result as ComputeEnvironment[]);
+      return result as ComputeEnvironment[];
     },
     [isReady]
   );
@@ -331,19 +328,13 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
-  const clearEnvs = useCallback(() => {
-    setEnvs([]);
-  }, []);
-
   return (
     <P2PContext.Provider
       value={{
-        clearEnvs,
         computeLogs,
         computeResult,
         computeStatus,
         config,
-        envs,
         error,
         fetchConfig: fetchConfigCtx,
         getComputeResult,

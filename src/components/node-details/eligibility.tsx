@@ -1,20 +1,21 @@
 import Card from '@/components/card/card';
-import { NodeEligibility } from '@/types/nodes';
+import { Node } from '@/types/nodes';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import styles from './eligibility.module.css';
 
 type EligibilityProps = {
-  banReason?: string;
-  eligibility: NodeEligibility;
-  eligibilityCauseStr?: string;
   isAdmin: boolean;
-  verified: boolean;
+  node: Node;
 };
 
-const Eligibility = ({ banReason, eligibility, eligibilityCauseStr, isAdmin, verified }: EligibilityProps) => {
-  if (verified) {
+const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
+  const { banReason, eligibilityCauseStr } = node;
+  const verified = !!node.latestBenchmarkResults;
+
+  // [All roles] Verified and not banned
+  if (verified && !node.banned) {
     return (
       <Card direction="column" padding="sm" radius="md" shadow="success" spacing="sm" variant="success">
         <div className={styles.header}>
@@ -26,33 +27,62 @@ const Eligibility = ({ banReason, eligibility, eligibilityCauseStr, isAdmin, ver
     );
   }
 
-  if (eligibility === NodeEligibility.BANNED) {
+  if (isAdmin) {
+    // [Admins] Banned
+    if (node.banned) {
+      return (
+        <Card direction="column" padding="sm" radius="md" shadow="error" spacing="sm" variant="error">
+          <div className={styles.header}>
+            <HighlightOffIcon className={styles.icon} />
+            <h3>Banned</h3>
+          </div>
+          <div>This node is excluded from all operations and rewards</div>
+          <div className={styles.reason}>
+            <strong className="alignSelfStart">Reason:</strong> <span>{banReason ?? 'Unknown'}</span>
+          </div>
+        </Card>
+      );
+    }
+
+    // [Admins] Non-eligible
+    if (!node.eligible) {
+      return (
+        <Card direction="column" padding="sm" radius="md" shadow="warning" spacing="sm" variant="warning">
+          <div className={styles.header}>
+            <ErrorOutlineIcon className={styles.icon} />
+            <h3>Not eligible</h3>
+          </div>
+          <div>This node is active, but not eligible for rewards</div>
+          <div className={styles.reason}>
+            <strong className="alignSelfStart">Reason:</strong> <span>{eligibilityCauseStr ?? 'Unknown'}</span>
+          </div>
+        </Card>
+      );
+    }
+
+    // [Admins] Not verified
     return (
-      <Card direction="column" padding="sm" radius="md" shadow="error" spacing="sm" variant="error">
+      <Card direction="column" padding="sm" radius="md" shadow="warning" spacing="sm" variant="warning">
         <div className={styles.header}>
-          <HighlightOffIcon className={styles.icon} />
-          <h3>Banned</h3>
+          <ErrorOutlineIcon className={styles.icon} />
+          <h3>Not verified</h3>
         </div>
-        <div>This node is excluded from all operations and rewards</div>
+        <div>This node is active, but not verified via benchmark</div>
         <div className={styles.reason}>
-          <strong className="alignSelfStart">Reason:</strong> <span>{banReason ?? 'Unknown'}</span>
+          <strong className="alignSelfStart">Reason:</strong> <span>{eligibilityCauseStr ?? 'Unknown'}</span>
         </div>
       </Card>
     );
   }
 
+  // [Non-admins] Not verified
   return (
     <Card direction="column" padding="sm" radius="md" shadow="warning" spacing="sm" variant="warning">
       <div className={styles.header}>
         <ErrorOutlineIcon className={styles.icon} />
         <h3>Not verified</h3>
       </div>
-      <div>This node is active, but not verified via benchmark yet</div>
-      {isAdmin ? (
-        <div className={styles.reason}>
-          <strong className="alignSelfStart">Reason:</strong> <span>{eligibilityCauseStr ?? 'Unknown'}</span>
-        </div>
-      ) : null}
+      <div>This node is active, but not verified via benchmark</div>
     </Card>
   );
 };

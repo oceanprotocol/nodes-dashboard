@@ -3,12 +3,16 @@ import { ChartTypeEnum } from '@/components/chart/chart-type';
 import Gauge from '@/components/chart/gauge';
 import VBarChart from '@/components/chart/v-bar-chart';
 import { useNodesContext } from '@/context/nodes-context';
-import { useP2P } from '@/contexts/P2PContext';
+import { ComputeEnvironment } from '@/types/environments';
 import { formatNumber } from '@/utils/formatters';
 import { useEffect, useMemo } from 'react';
 import styles from './jobs-revenue-stats.module.css';
 
-const JobsRevenueStats = () => {
+type JobsRevenueStatsProps = {
+  envs: ComputeEnvironment[];
+};
+
+const JobsRevenueStats: React.FC<JobsRevenueStatsProps> = ({ envs }) => {
   const {
     benchmarkValues,
     jobsPerEpoch,
@@ -19,7 +23,6 @@ const JobsRevenueStats = () => {
     fetchNodeBenchmarkMinMaxLast,
     fetchNodeStats,
   } = useNodesContext();
-  const { envs } = useP2P();
 
   useEffect(() => {
     fetchNodeStats();
