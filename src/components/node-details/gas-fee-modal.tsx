@@ -6,6 +6,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
+import styles from './gas-fee-modal.module.css';
 
 type GasFeeModalProps = {
   isOpen: boolean;
@@ -67,9 +68,8 @@ const GasFeeModalContent = ({
         type="number"
         value={formik.values.amount}
       />
-      <div className="flexRow gapSm justifyContentEnd">
+      <div className={styles.buttons}>
         <Button
-          className="alignSelfEnd"
           color="accent1"
           disabled={depositTokens.isDepositing}
           onClick={onClose}
@@ -79,7 +79,7 @@ const GasFeeModalContent = ({
         >
           Cancel
         </Button>
-        <Button className="alignSelfEnd" color="accent1" loading={depositTokens.isDepositing} size="md" type="submit">
+        <Button color="accent1" loading={depositTokens.isDepositing} size="md" type="submit">
           {depositTokens.isDepositing ? 'Sending...' : 'Send'}
         </Button>
       </div>
