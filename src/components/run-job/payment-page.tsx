@@ -47,6 +47,7 @@ const PaymentPage = () => {
           )
         }
         contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
+        mobileWarning
       />
       {hydrateFromUrlFinished && selectedEnv && selectedResources && selectedToken ? (
         <div className="pageContentWrapper">

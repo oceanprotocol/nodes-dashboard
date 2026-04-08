@@ -37,6 +37,7 @@ const ResourcesPage = () => {
           )
         }
         contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}
+        mobileWarning
       />
       {hydrateFromUrlFinished && selectedEnv && (freeCompute || selectedToken) ? (
         <div className="pageContentWrapper">

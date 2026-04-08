@@ -23,6 +23,15 @@
   }
 }
 
+.mobileBanner {
+  white-space: pre-wrap;
+  .mobileBannerIcon {
+    /* color: var(--warning-darker); */
+    font-size: 20px;
+    margin-right: 8px;
+  }
+}
+
 .moreReadable {
   .title,
   .subTitle {
