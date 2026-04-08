@@ -36,7 +36,10 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
   });
 
   const filteredBalances = useMemo(() => {
-    const supportedTokens = [getSupportedTokens().USDC.address.toLowerCase(), getSupportedTokens().COMPY.address.toLowerCase()];
+    const supportedTokens = [
+      getSupportedTokens().USDC.address.toLowerCase(),
+      getSupportedTokens().COMPY.address.toLowerCase(),
+    ];
     return [...balances].filter((b) => supportedTokens.includes(b.address.toLowerCase()));
   }, [balances]);
 
@@ -92,22 +95,13 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
           value={formik.values.amount}
           disabled={isSwapping}
         />
-        <div className="flexRow gapMd justifyContentEnd">
+        <div className={styles.buttons}>
           {onCancel ? (
-            <Button
-              className="alignSelfEnd"
-              color="accent2"
-              onClick={onCancel}
-              size="lg"
-              type="button"
-              variant="outlined"
-              disabled={isSwapping}
-            >
+            <Button color="accent2" onClick={onCancel} size="lg" type="button" variant="outlined" disabled={isSwapping}>
               Cancel
             </Button>
           ) : null}
           <Button
-            className="alignSelfEnd"
             color="accent2"
             size="lg"
             type="submit"
