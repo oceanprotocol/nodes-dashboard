@@ -2,6 +2,7 @@
   backdrop-filter: blur(16px);
   /* background: radial-gradient(circle, var(--background-glass), transparent); */
   height: 350px;
+  left: 0;
   mask-image: radial-gradient(
     circle,
     rgba(0, 0, 0, 1) 0%,
@@ -14,13 +15,13 @@
   position: fixed;
   pointer-events: none;
   transform: translate(-150px, -150px);
+  top: 0;
   width: 350px;
   z-index: -1;
 
   @media (min-width: 940px) {
     /* background: linear-gradient(to top, transparent, var(--background-glass)); */
     height: 80px;
-    left: 0;
     mask-image: linear-gradient(
       0deg,
       rgba(0, 0, 0, 0) 0%,
@@ -31,7 +32,6 @@
       rgba(0, 0, 0, 1) 100%
     );
     transform: translate(0, 0);
-    top: 0;
     width: 100%;
   }
 }
