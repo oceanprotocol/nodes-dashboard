@@ -3,7 +3,7 @@ import { Breakpoint, Dialog, styled } from '@mui/material';
 import { ReactNode } from 'react';
 import styles from './modal.module.css';
 
-const StyledDialog = styled(Dialog)({
+const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiModal-backdrop': {
     backdropFilter: 'var(--backdrop-filter-overlay)',
     backgroundColor: 'var(--background-modal-overlay)',
@@ -18,8 +18,16 @@ const StyledDialog = styled(Dialog)({
     flexDirection: 'column',
     gap: 24,
     padding: 24,
+
+    [theme.breakpoints.down('sm')]: {
+      borderRadius: 16,
+      gap: 16,
+      margin: 16,
+      padding: 16,
+      width: 'calc(100% - 32px)',
+    },
   },
-});
+}));
 
 type ModalProps = {
   children: ReactNode;

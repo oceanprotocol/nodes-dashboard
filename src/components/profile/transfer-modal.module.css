@@ -1,0 +1,12 @@
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 576px) {
+  .actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}

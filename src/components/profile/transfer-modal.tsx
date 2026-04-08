@@ -7,6 +7,7 @@ import { NodeBalance } from '@/types/nodes';
 import { ethers } from 'ethers';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import styles from './transfer-modal.module.css';
 
 interface TransferModalProps {
   balances: NodeBalance[];
@@ -103,9 +104,8 @@ const TransferModalContent = ({
         type="number"
         value={formik.values.amount}
       />
-      <div className="flexRow gapSm justifyContentEnd">
+      <div className={styles.actions}>
         <Button
-          className="alignSelfEnd"
           color="accent1"
           disabled={transferTokens.isTransferring}
           onClick={onClose}
