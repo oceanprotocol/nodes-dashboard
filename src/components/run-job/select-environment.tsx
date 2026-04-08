@@ -297,7 +297,7 @@ const SelectEnvironment = () => {
               ))
             )}
             {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-              <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
+              <Button className="alignSelfCenter" color="accent2" loading={loading} onClick={loadMoreEnvs}>
                 Load more
               </Button>
             )}
