@@ -6,7 +6,7 @@ import { useWithdrawTokens, UseWithdrawTokensReturn } from '@/lib/use-withdraw-t
 import { NodeBalance } from '@/types/nodes';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import styles from './balance.module.css';
+import styles from './withdraw-modal.module.css';
 
 interface WithdrawModalProps {
   balances: NodeBalance[];
@@ -141,9 +141,8 @@ const WithdrawModalContent = ({
           />
         );
       })}
-      <div className="flexRow gapSm justifyContentEnd">
+      <div className={styles.buttons}>
         <Button
-          className="alignSelfEnd"
           color="accent1"
           disabled={withdrawTokens.isWithdrawing}
           onClick={onClose}
@@ -153,13 +152,7 @@ const WithdrawModalContent = ({
         >
           Cancel
         </Button>
-        <Button
-          className={styles.modalButton}
-          color="accent1"
-          loading={withdrawTokens.isWithdrawing}
-          size="md"
-          type="submit"
-        >
+        <Button color="accent1" loading={withdrawTokens.isWithdrawing} size="md" type="submit">
           {withdrawTokens.isWithdrawing ? 'Withdrawing...' : 'Withdraw'}
         </Button>
       </div>
