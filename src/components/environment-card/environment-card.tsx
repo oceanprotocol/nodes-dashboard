@@ -474,7 +474,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               : 'You need to login to continue'
           }
         >
-          <div>{button}</div>
+          <div className="flexColumn">{button}</div>
         </Tooltip>
       );
     }
