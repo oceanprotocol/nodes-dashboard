@@ -266,6 +266,13 @@ a {
   font-weight: 700;
 }
 
+.wordBreakWord {
+  word-break: break-word;
+}
+.wordBreakAll {
+  word-break: break-all;
+}
+
 /* Overrides */
 
 .Toastify__toast-theme--colored {
