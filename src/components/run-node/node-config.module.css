@@ -7,18 +7,36 @@
 
 .footer {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 16px;
-  justify-content: space-between;
+
+  @media (min-width: 768px) {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
 }
 
 .buttons {
+  align-items: stretch;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 16px;
-  justify-content: flex-end;
+
+  @media (min-width: 768px) {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+.viewButton {
+  width: 100%;
+
+  @media (min-width: 768px) {
+    width: auto;
+  }
 }
 
 .errorsList {

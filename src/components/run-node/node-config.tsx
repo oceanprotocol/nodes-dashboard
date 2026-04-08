@@ -51,6 +51,7 @@ const NodeConfig = () => {
       )}
       <div className={styles.footer}>
         <Button
+          className={styles.viewButton}
           color="accent1"
           disabled={loadingPushConfig}
           href={`/nodes/${peerId}`}
