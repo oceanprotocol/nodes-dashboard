@@ -4,11 +4,17 @@
   gap: 24px;
 
   .buttons {
+    align-items: stretch;
     display: flex;
-    flex-wrap: wrap;
-    flex-direction: row;
+    flex-direction: column;
     gap: 8px;
-    justify-content: flex-end;
+
+    @media (min-width: 576px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: flex-end;
+    }
   }
 
   .editorWrapper {
