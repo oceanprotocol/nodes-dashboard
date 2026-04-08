@@ -9,7 +9,7 @@ export const CodeBlock = ({ code }: CodeBlockProps) => {
   return (
     <div className={styles.root}>
       <div>{code}</div>
-      <CopyButton color="accent2" contentToCopy={code} variant="filled" />
+      <CopyButton className={styles.copyButton} color="accent2" contentToCopy={code} variant="filled" />
     </div>
   );
 };
