@@ -26,7 +26,7 @@
     &.active {
       background: var(--accent1);
       border-color: var(--accent1);
-      color: var(--text-on-accent);
+      color: var(--text-primary-inverse);
     }
   }
 
@@ -74,10 +74,16 @@
   }
 
   .buttons {
+    align-items: stretch;
     display: flex;
-    flex-wrap: wrap;
-    flex-direction: row;
+    flex-direction: column;
     gap: 8px;
-    justify-content: flex-end;
+
+    @media (min-width: 576px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: flex-end;
+    }
   }
 }
