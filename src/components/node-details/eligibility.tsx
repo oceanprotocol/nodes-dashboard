@@ -12,7 +12,7 @@ type EligibilityProps = {
 
 const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
   const now = Date.now();
-  const isBanned = node.banned && node.bannedUntil && now < node.bannedUntil;
+  const isBanned = node.banned || (node.bannedUntil && now < node.bannedUntil);
   const isSuspended = node.suspendedUntil && now < node.suspendedUntil;
   const isVerified = !!node.latestBenchmarkResults && !isBanned && !isSuspended;
 
