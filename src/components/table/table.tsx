@@ -37,7 +37,7 @@ const StyledRoot = styled('div')({
 });
 
 const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHeight }) => ({
-  height: autoHeight ? 'auto' : 'calc(100vh - 200px)',
+  height: autoHeight ? 'auto' : 'calc(100dvh - 200px)',
   width: '100%',
 }));
 

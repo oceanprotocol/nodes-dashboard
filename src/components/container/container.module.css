@@ -1,5 +1,5 @@
 .root {
-  width: calc(100% - 40px);
+  width: calc(100% - 40px - env(safe-area-inset-left) - env(safe-area-inset-right));
   max-width: 1160px;
   margin: 0 auto;
 }

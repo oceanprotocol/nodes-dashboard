@@ -50,6 +50,7 @@
   position: sticky;
   top: 0;
   z-index: 100;
+  padding-top: env(safe-area-inset-top);
 
   .container {
     display: flex;
@@ -98,8 +99,8 @@
     position: fixed;
     top: 0;
     right: 0;
-    width: min(360px, 100vw);
-    height: 100vh;
+    width: min(300px, 100dvw);
+    height: 100dvh;
     padding: 30px 28px;
     display: flex;
     flex-direction: column;

@@ -20,6 +20,7 @@
   flex-direction: column;
   gap: 40px;
   z-index: 1;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .upperRow {
