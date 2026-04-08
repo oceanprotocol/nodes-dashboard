@@ -11,11 +11,13 @@ type EligibilityProps = {
 };
 
 const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
-  const { banReason, eligibilityCauseStr } = node;
-  const verified = !!node.latestBenchmarkResults;
+  const now = Date.now();
+  const isBanned = node.banned && node.bannedUntil && now < node.bannedUntil;
+  const isSuspended = node.suspendedUntil && now < node.suspendedUntil;
+  const isVerified = !!node.latestBenchmarkResults && !isBanned && !isSuspended;
 
-  // [All roles] Verified and not banned
-  if (verified && !node.banned) {
+  // [All roles] Verified and NOT Banned / Suspended
+  if (isVerified) {
     return (
       <Card direction="column" padding="sm" radius="md" shadow="success" spacing="sm" variant="success">
         <div className={styles.header}>
@@ -28,8 +30,8 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
   }
 
   if (isAdmin) {
-    // [Admins] Banned
-    if (node.banned) {
+    // [Admins] Banned / Suspended
+    if (isBanned || isSuspended) {
       return (
         <Card direction="column" padding="sm" radius="md" shadow="error" spacing="sm" variant="error">
           <div className={styles.header}>
@@ -38,13 +40,14 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
           </div>
           <div>This node is excluded from all operations and rewards</div>
           <div className={styles.reason}>
-            <strong className="alignSelfStart">Reason:</strong> <span>{banReason ?? 'Unknown'}</span>
+            <strong className="alignSelfStart">Reason:</strong>{' '}
+            <span>{node.banReason || node.eligibilityCauseStr || 'Unknown'}</span>
           </div>
         </Card>
       );
     }
 
-    // [Admins] Non-eligible
+    // [Admins] NOT Eligible
     if (!node.eligible) {
       return (
         <Card direction="column" padding="sm" radius="md" shadow="warning" spacing="sm" variant="warning">
@@ -54,13 +57,13 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
           </div>
           <div>This node is active, but not eligible for rewards</div>
           <div className={styles.reason}>
-            <strong className="alignSelfStart">Reason:</strong> <span>{eligibilityCauseStr ?? 'Unknown'}</span>
+            <strong className="alignSelfStart">Reason:</strong> <span>{node.eligibilityCauseStr || 'Unknown'}</span>
           </div>
         </Card>
       );
     }
 
-    // [Admins] Not verified
+    // [Admins] NOT Verified
     return (
       <Card direction="column" padding="sm" radius="md" shadow="warning" spacing="sm" variant="warning">
         <div className={styles.header}>
@@ -69,13 +72,13 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
         </div>
         <div>This node is active, but not verified via benchmark</div>
         <div className={styles.reason}>
-          <strong className="alignSelfStart">Reason:</strong> <span>{eligibilityCauseStr ?? 'Unknown'}</span>
+          <strong className="alignSelfStart">Reason:</strong> <span>{node.eligibilityCauseStr || 'Unknown'}</span>
         </div>
       </Card>
     );
   }
 
-  // [Non-admins] Not verified
+  // [Non-admins] NOT Verified
   return (
     <Card direction="column" padding="sm" radius="md" shadow="warning" spacing="sm" variant="warning">
       <div className={styles.header}>
