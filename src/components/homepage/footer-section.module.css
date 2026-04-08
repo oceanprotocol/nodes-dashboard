@@ -1,6 +1,6 @@
 .root {
   position: relative;
-  padding: 110px 0 60px;
+  padding: 60px 0 80px;
   background-color: var(--accent1);
   color: var(--text-primary-inverse);
   overflow: hidden;
@@ -18,22 +18,17 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 60px;
+  gap: 40px;
   z-index: 1;
 }
 
 .upperRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 48px;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 36px;
 }
 
 .brandColumn {
-  /* flex: 1 1 320px; */
-  flex: 1;
-  /* max-width: 520px; */
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -41,7 +36,7 @@
 
 .brandHeading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 20px;
 }
 
@@ -53,7 +48,7 @@
 
 .brandTitle {
   color: var(--accent2);
-  font-size: 60px;
+  font-size: 40px;
   font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
   font-weight: 700;
   text-transform: uppercase;
@@ -79,12 +74,10 @@
 }
 
 .pagesColumn {
-  align-items: flex-end;
+  align-items: flex-start;
   display: flex;
-  flex: 0 0 220px;
   flex-direction: column;
   gap: 24px;
-  text-align: right;
   text-transform: uppercase;
 }
 
@@ -95,7 +88,7 @@
 }
 
 .pagesList {
-  align-items: flex-end;
+  align-items: flex-start;
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -106,10 +99,8 @@
 
 .lowerRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 16px;
   font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -123,53 +114,70 @@
   flex-wrap: wrap;
 }
 
-.socialLinks {
-  flex: 1 1 320px;
-}
-
-.legalLinks {
-  flex: 0 0 220px;
-  justify-content: flex-end;
-  text-align: right;
-}
-
-@media (max-width: 960px) {
+@media (min-width: 768px) {
   .root {
-    padding: 90px 0 40px;
+    padding: 60px 0 90px;
   }
 
   .container {
     gap: 48px;
   }
 
-  .brandHeading {
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 640px) {
   .upperRow {
-    flex-direction: column;
-    gap: 36px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 48px;
+  }
+
+  .brandColumn {
+    flex: 1;
   }
 
   .pagesColumn {
-    flex: 1 1 auto;
+    align-items: flex-end;
+    flex: 0 0 220px;
+    text-align: right;
+  }
+
+  .pagesList {
+    align-items: flex-end;
   }
 
   .lowerRow {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
   }
 
   .socialLinks {
-    flex: unset;
+    flex: 1 1 320px;
   }
 
   .legalLinks {
-    flex: unset;
-    justify-content: flex-start;
-    text-align: left;
+    flex: 0 0 220px;
+    justify-content: flex-end;
+    text-align: right;
+  }
+}
+
+@media (min-width: 992px) {
+  .root {
+    padding: 90px 0;
+  }
+
+  .container {
+    gap: 60px;
+  }
+
+  .brandTitle {
+    font-size: 60px;
+  }
+
+  .brandHeading {
+    align-items: center;
   }
 }
