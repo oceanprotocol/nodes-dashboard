@@ -1,5 +1,6 @@
 import Card from '@/components/card/card';
 import { Node } from '@/types/nodes';
+import { formatDateTime } from '@/utils/formatters';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -29,7 +30,24 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
     );
   }
 
-  if (isAdmin) {
+  if (!isAdmin) {
+    const suspensionDate = (
+      <>
+        {node.bannedUntil ? (
+          <div className={styles.reason}>
+            <strong className="alignSelfStart">Banned until:</strong>{' '}
+            <span>{formatDateTime(node.bannedUntil / 1000)}</span>
+          </div>
+        ) : null}
+        {node.suspendedUntil ? (
+          <div className={styles.reason}>
+            <strong className="alignSelfStart">Suspended until:</strong>{' '}
+            <span>{formatDateTime(node.suspendedUntil / 1000)}</span>
+          </div>
+        ) : null}
+      </>
+    );
+
     // [Admins] Banned / Suspended
     if (isBanned || isSuspended) {
       return (
@@ -39,6 +57,7 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
             <h3>Banned</h3>
           </div>
           <div>This node is excluded from all operations and rewards</div>
+          {suspensionDate}
           <div className={styles.reason}>
             <strong className="alignSelfStart">Reason:</strong>{' '}
             <span>{node.banReason || node.eligibilityCauseStr || 'Unknown'}</span>
@@ -56,6 +75,7 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
             <h3>Not eligible</h3>
           </div>
           <div>This node is active, but not eligible for rewards</div>
+          {suspensionDate}
           <div className={styles.reason}>
             <strong className="alignSelfStart">Reason:</strong> <span>{node.eligibilityCauseStr || 'Unknown'}</span>
           </div>
@@ -71,6 +91,7 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
           <h3>Not verified</h3>
         </div>
         <div>This node is active, but not verified via benchmark</div>
+        {suspensionDate}
         <div className={styles.reason}>
           <strong className="alignSelfStart">Reason:</strong> <span>{node.eligibilityCauseStr || 'Unknown'}</span>
         </div>
