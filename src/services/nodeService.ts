@@ -66,12 +66,13 @@ export async function createAuthToken({
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchConfig(toNodeUri(nodeUri), {
-    address: consumerAddress,
-    command: PROTOCOL_COMMANDS.CREATE_AUTH_TOKEN,
-    nonce: incrementedNonce,
+  const token = await ProviderInstance.generateSignedAuthToken(
+    consumerAddress,
     signature,
-  });
+    incrementedNonce.toString(),
+    toNodeUri(nodeUri),
+  );
+  return { token };
 }
 
 export async function initializeCompute(
