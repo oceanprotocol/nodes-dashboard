@@ -5,6 +5,7 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
+import config from '@/config';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -275,45 +276,83 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     formik.setFieldValue('maxJobDurationValue', Math.max(0, num));
   };
 
-  const renderCostEstimation = () => {
-    if (isLoadingCost) {
-      return (
-        <h3 className={styles.estimationMessage}>
-          <CircularProgress size={24} />
-          Estimating cost...
-        </h3>
-      );
-    }
-    if (!!initComputeError || !token) {
-      let errorText;
-      if (initComputeError instanceof Error) {
-        errorText = initComputeError.message;
+  const renderCostCard = () => {
+    const renderCostEstimation = () => {
+      if (isLoadingCost) {
+        return (
+          <h3 className={styles.estimationMessage}>
+            <CircularProgress size={24} />
+            Estimating cost...
+          </h3>
+        );
+      }
+      if (!p2pNode || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
+        return (
+          <h3 className={styles.estimationMessage}>
+            <CircularProgress size={24} />
+            Connecting to node...
+          </h3>
+        );
       }
       return (
-        <h3 className={styles.estimationMessage}>
-          Cost estimation failed{' '}
-          {errorText ? (
-            <Tooltip className="textAccent1" title={errorText}>
-              <InfoOutlinedIcon className={styles.accessInfoIcon} />
-            </Tooltip>
-          ) : null}
-        </h3>
+        <div>
+          <span className={styles.token}>{token?.symbol}</span>
+          &nbsp;
+          <span className={styles.amount}>{token ? formatTokenAmount(estimatedTotalCost, token.address) : null}</span>
+        </div>
       );
+    };
+
+    return (
+      <Card
+        className={styles.costCard}
+        direction="column"
+        innerShadow="black"
+        paddingX="md"
+        paddingY="sm"
+        radius="md"
+        spacing="sm"
+        variant="glass"
+      >
+        <div className={styles.costEstimation}>
+          <h3>Estimated total cost</h3>
+          {renderCostEstimation()}
+        </div>
+        <div className="alignSelfEnd textSuccessDarker">
+          If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
+        </div>
+      </Card>
+    );
+  };
+
+  const renderConnectionErrorCard = () => {
+    if (!initComputeError) {
+      return null;
     }
-    if (!p2pNode || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
-      return (
-        <h3 className={styles.estimationMessage}>
-          <CircularProgress size={24} />
-          Connecting to node...
-        </h3>
-      );
+    let errorText;
+    if (initComputeError instanceof Error) {
+      errorText = initComputeError.message;
     }
     return (
-      <div>
-        <span className={styles.token}>{token?.symbol}</span>
-        &nbsp;
-        <span className={styles.amount}>{formatTokenAmount(estimatedTotalCost, token.address)}</span>
-      </div>
+      <Card direction="column" paddingX="md" paddingY="sm" radius="md" spacing="sm" variant="error">
+        <h3>Could not reach this node</h3>
+        {errorText ? <p>{errorText}</p> : null}
+        <p>
+          This may be due to missing WSS, TLS, or P2P circuit relay configuration on the node.
+          <br />
+          If you are the node operator, please check your node&apos;s network setup.
+        </p>
+        <Button
+          className="alignSelfStart"
+          color="accent2"
+          href={config.links.docs}
+          size="sm"
+          target="_blank"
+          variant="filled"
+        >
+          Visit docs
+        </Button>
+      </Card>
     );
   };
 
@@ -439,21 +478,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             value={formik.values.maxJobDurationValue}
           />
         </div>
-        <TransitionGroup>
-          {formik.isValid && !freeCompute ? (
-            <Collapse>
-              <Card className={styles.costCard} innerShadow="black" radius="md" variant="glass">
-                <div className={styles.costEstimation}>
-                  <h3>Estimated total cost</h3>
-                  {renderCostEstimation()}
-                </div>
-                <div className="alignSelfEnd textSuccessDarker">
-                  If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
-                </div>
-              </Card>
-            </Collapse>
-          ) : null}
-        </TransitionGroup>
+        {freeCompute ? null : (
+          <TransitionGroup>
+            {initComputeError ? <Collapse>{renderConnectionErrorCard()}</Collapse> : null}
+            {!initComputeError && formik.isValid ? <Collapse>{renderCostCard()}</Collapse> : null}
+          </TransitionGroup>
+        )}
         <div className={styles.buttons}>
           <Button
             color="accent1"
