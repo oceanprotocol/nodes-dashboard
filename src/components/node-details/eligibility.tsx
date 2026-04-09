@@ -30,7 +30,7 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
     );
   }
 
-  if (!isAdmin) {
+  if (isAdmin) {
     const suspensionDate = (
       <>
         {node.bannedUntil ? (
