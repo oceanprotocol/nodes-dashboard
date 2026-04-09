@@ -1,7 +1,7 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { multiaddr } from '@multiformats/multiaddr';
-import { PROTOCOL_COMMANDS, ProviderInstance } from '@oceanprotocol/lib';
+import { PROTOCOL_COMMANDS, ProviderInstance, type NodeLogsParams } from '@oceanprotocol/lib';
 
 type NodeUri = string[] | string;
 
@@ -102,15 +102,13 @@ export async function initializeCompute(
 
 export async function getNodeLogs({
   consumerAddress,
-  expiryTimestamp,
   nodeUri,
   params,
   signMessage,
 }: {
   consumerAddress: string;
-  expiryTimestamp: number;
   nodeUri: NodeUri;
-  params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string };
+  params: NodeLogsParams;
   signMessage: SignMessageFn;
 }) {
   const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
@@ -120,14 +118,13 @@ export async function getNodeLogs({
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchConfig(toNodeUri(nodeUri), {
-    address: consumerAddress,
-    command: PROTOCOL_COMMANDS.GET_LOGS,
-    expiryTimestamp,
-    nonce: incrementedNonce,
+  return ProviderInstance.fetchNodeLogs(
+    toNodeUri(nodeUri),
+    consumerAddress,
     signature,
-    ...params,
-  });
+    incrementedNonce.toString(),
+    params,
+  );
 }
 
 export async function fetchNodeConfig({

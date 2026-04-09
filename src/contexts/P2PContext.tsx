@@ -15,7 +15,7 @@ import {
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment, MultiaddrsOrPeerId } from '@/types/environments';
 import { multiaddr } from '@multiformats/multiaddr';
-import { ComputeResourceRequest, ProviderInstance } from '@oceanprotocol/lib';
+import { ComputeResourceRequest, type NodeLogEntry, type NodeLogsParams, ProviderInstance } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -60,11 +60,10 @@ interface P2PContextType {
    */
   getNodeLogs: (args: {
     consumerAddress?: string;
-    expiryTimestamp: number;
     nodeUri: NodeUri;
-    params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string };
+    params: NodeLogsParams;
     signMessage: SignMessageFn;
-  }) => Promise<any>;
+  }) => Promise<NodeLogEntry[]>;
   initializeCompute: (
     environment: ComputeEnvironment,
     tokenAddress: string,
@@ -189,15 +188,13 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   const getNodeLogs = useCallback(
     async ({
       consumerAddress,
-      expiryTimestamp,
       nodeUri,
       params,
       signMessage,
     }: {
       consumerAddress?: string;
-      expiryTimestamp: number;
       nodeUri: NodeUri;
-      params: { startTime?: string; endTime?: string; maxLogs?: number; moduleName?: string; level?: string };
+      params: NodeLogsParams;
       signMessage: SignMessageFn;
     }) => {
       if (!isReady) {
@@ -208,7 +205,6 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       }
       return getNodeLogsService({
         consumerAddress,
-        expiryTimestamp,
         nodeUri,
         params,
         signMessage,

@@ -163,7 +163,6 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     try {
       const logs = await getNodeLogs({
         consumerAddress: account.address,
-        expiryTimestamp: Date.now() + 5 * 60 * 1000,
         nodeUri: node.id,
         params: { startTime, endTime, maxLogs },
         signMessage,
