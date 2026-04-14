@@ -29,7 +29,7 @@ const Stepper = <T extends string>({ currentStep, steps }: StepperProps<T>) => {
     return (
       <Fragment key={step.key}>
         {index > 0 ? (
-          <div className={classNames(styles.separator, { [styles.active]: isActive || isComplete })}>—</div>
+          <div className={classNames(styles.separator, { [styles.active]: isActive || isComplete })} />
         ) : null}
         <div className={classNames(styles.step, { [styles.active]: isActive, [styles.complete]: isComplete })}>
           {isComplete ? <CheckCircleOutlineIcon /> : null}

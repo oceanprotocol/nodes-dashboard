@@ -4,21 +4,17 @@
   gap: 12px;
   padding: 12px 24px;
 
-  @media (min-width: 768px) {
-    align-items: center;
-    display: grid;
-    grid-template-columns: 1fr auto;
+  h3 {
+    font-size: 16px;
   }
 
   .valueWithChip {
-    align-items: flex-end;
+    align-items: flex-start;
     display: flex;
     flex-direction: column;
   }
 
   .values {
-    text-align: right;
-
     .token {
       color: var(--text-secondary);
       font-size: 14px;
@@ -28,6 +24,38 @@
       font-size: 32px;
       font-weight: 700;
     }
+
+    @media (max-width: 576px) {
+      text-align: left;
+
+      .token {
+        font-size: 12px;
+      }
+
+      .amount {
+        font-size: 24px;
+      }
+    }
+  }
+
+  @media (min-width: 576px) {
+    .valueWithChip {
+      align-items: flex-end;
+    }
+
+    .values {
+      text-align: right;
+    }
+
+    h3 {
+      font-size: 20px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    align-items: center;
+    display: grid;
+    grid-template-columns: 1fr auto;
   }
 
   .sm {

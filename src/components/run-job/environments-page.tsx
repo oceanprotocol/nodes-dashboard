@@ -12,6 +12,7 @@ const EnvironmentsPage = () => {
         title="Run a job"
         subTitle="Choose a compute environment for your workload"
         contentBetween={<Stepper<RunJobStep> currentStep="environment" steps={getRunJobSteps(false)} />}
+        mobileWarning
       />
       <div className="pageContentWrapper">
         <SelectEnvironment />

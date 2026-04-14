@@ -45,37 +45,14 @@ const Navigation = () => {
 
   useEffect(() => {
     const html = document.documentElement;
-    const body = document.body;
-
     if (isMenuOpen) {
       scrollPositionRef.current = window.scrollY;
       html.style.overflow = 'hidden';
-      body.style.overflow = 'hidden';
-      body.style.position = 'fixed';
-      body.style.top = `-${scrollPositionRef.current}px`;
-      body.style.width = '100%';
     } else {
       html.style.overflow = '';
-      body.style.overflow = '';
-      body.style.position = '';
-      body.style.top = '';
-      body.style.width = '';
-      window.scrollTo(0, scrollPositionRef.current);
     }
-
     return () => {
       html.style.overflow = '';
-      body.style.overflow = '';
-      if (body.style.top) {
-        const scrollY = Math.abs(parseInt(body.style.top, 10));
-        body.style.position = '';
-        body.style.top = '';
-        body.style.width = '';
-        window.scrollTo(0, scrollY || scrollPositionRef.current);
-      } else {
-        body.style.position = '';
-        body.style.width = '';
-      }
     };
   }, [isMenuOpen]);
 

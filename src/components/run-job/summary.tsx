@@ -78,8 +78,7 @@ const Summary = ({
       const sufficientEscrow = (escrowBalance ?? 0) >= estimatedTotalCost;
       const suffficientAuthorized =
         Number(authorizations?.maxLockedAmount ?? 0) >= estimatedTotalCost + currentLockedAmount;
-      const enoughLockSeconds =
-        Number(authorizations?.maxLockSeconds ?? 0) >= (minLockSeconds ?? 0);
+      const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= (minLockSeconds ?? 0);
       const hasAvailableLockSlot =
         Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
       if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
@@ -95,7 +94,7 @@ const Summary = ({
     account.address,
     selectedEnv.consumerAddress,
     estimatedTotalCost,
-    selectedResources.maxJobDurationSeconds,
+    minLockSeconds,
     router,
   ]);
 
@@ -249,9 +248,9 @@ const Summary = ({
       <div className={styles.footer}>
         <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
         {authToken ? (
-          <div className={styles.buttons}>
+          <div className="actionsGroupLgBetween">
             {backButton}
-            <div className={styles.buttonsGroup}>
+            <div className="actionsGroupLgEnd">
               <Button
                 color="accent1"
                 id="choose-editor-button"
@@ -313,7 +312,7 @@ const Summary = ({
             </div>
           </div>
         ) : (
-          <div className={styles.buttons}>
+          <div className="actionsGroupLgBetween">
             {backButton}
             <Button autoLoading color="accent1" onClick={generateToken} size="lg">
               Generate token

@@ -67,9 +67,8 @@ const GasFeeModalContent = ({
         type="number"
         value={formik.values.amount}
       />
-      <div className="flexRow gapSm justifyContentEnd">
+      <div className="actionsGroupMdEnd">
         <Button
-          className="alignSelfEnd"
           color="accent1"
           disabled={depositTokens.isDepositing}
           onClick={onClose}
@@ -79,7 +78,7 @@ const GasFeeModalContent = ({
         >
           Cancel
         </Button>
-        <Button className="alignSelfEnd" color="accent1" loading={depositTokens.isDepositing} size="md" type="submit">
+        <Button color="accent1" loading={depositTokens.isDepositing} size="md" type="submit">
           {depositTokens.isDepositing ? 'Sending...' : 'Send'}
         </Button>
       </div>

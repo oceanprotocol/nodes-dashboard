@@ -11,6 +11,7 @@ import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run
 import { NodeEnvironments } from '@/types/environments';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
+import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
@@ -257,7 +258,7 @@ const SelectEnvironment = () => {
               name="free"
               onChange={formik.handleChange}
             />
-            <div className={styles.buttons}>
+            <div className={classNames('actionsGroupMdEnd', styles.buttons)}>
               <Button color="primary" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="transparent">
                 {expanded ? 'Fewer filters' : 'More filters'}
               </Button>
@@ -297,7 +298,7 @@ const SelectEnvironment = () => {
               ))
             )}
             {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-              <Button className="alignSelfCenter" color="accent1" loading={loading} onClick={loadMoreEnvs}>
+              <Button className="alignSelfCenter" color="accent2" loading={loading} onClick={loadMoreEnvs}>
                 Load more
               </Button>
             )}

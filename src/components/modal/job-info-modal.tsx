@@ -7,9 +7,7 @@ import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { ComputeJob } from '@/types/jobs';
 import { Stack } from '@mui/material';
 import axios from 'axios';
-import classNames from 'classnames';
 import { useEffect, useState } from 'react';
-import styles from './modal.module.css';
 
 interface JobInfoModalProps {
   job: ComputeJob | null;
@@ -85,43 +83,31 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
 
   return (
     <Modal isOpen={open} onClose={onClose} title="Job information" width="md">
-      <div
-        className={classNames(styles.root, styles['variant-glass-shaded'], styles['padding-md'], styles['radius-md'])}
-      >
-        <div className={styles.content}>
-          <Stack spacing={2}>
-            <div>
-              <div className={styles.label}>Job ID</div>
-              <div className={styles.value}>{job.jobId}</div>
-            </div>
-
-            <div>
-              <div className={styles.label} style={{ marginBottom: '8px' }}>
-                Environment
-              </div>
-              {loading && <div className={styles.value}>Loading environment data...</div>}
-              {error && (
-                <div className={styles.value} style={{ color: 'var(--error)' }}>
-                  {error}
-                </div>
-              )}
-              {!loading && !error && environment && nodeInfo && (
-                <EnvironmentCard key={environment.id} environment={environment} nodeInfo={nodeInfo} />
-              )}
-              {!loading && !error && !environment && <div className={styles.value}>No environment data available</div>}
-            </div>
-
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}
-            >
-              <DownloadResultButton job={job} />
-              <DownloadLogsButton job={job} />
-            </Stack>
-          </Stack>
+      <Stack spacing={2}>
+        <div>
+          <strong>Job ID</strong>
+          <div className="wordBreakWord">{job.jobId}</div>
         </div>
-      </div>
+
+        <div>
+          <strong style={{ marginBottom: '8px' }}>Environment</strong>
+          {loading && <div>Loading environment data...</div>}
+          {error && <div style={{ color: 'var(--error)' }}>{error}</div>}
+          {!loading && !error && environment && nodeInfo && (
+            <EnvironmentCard key={environment.id} environment={environment} nodeInfo={nodeInfo} />
+          )}
+          {!loading && !error && !environment && <div>No environment data available</div>}
+        </div>
+
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}
+        >
+          <DownloadResultButton job={job} />
+          <DownloadLogsButton job={job} />
+        </Stack>
+      </Stack>
     </Modal>
   );
 };

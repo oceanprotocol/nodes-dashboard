@@ -101,7 +101,7 @@ const DownloadLogsModal = ({ isOpen, onClose, onDownload, loading }: DownloadLog
           </div>
         </div>
 
-        <div className={styles.buttons}>
+        <div className="actionsGroupMdEnd">
           <Button color="accent1" onClick={onClose} type="button" variant="outlined">
             Cancel
           </Button>
