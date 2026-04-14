@@ -1,3 +1,15 @@
+.root {
+  --padding-sm: 14px;
+  --padding-md: 18px;
+  --padding-lg: 24px;
+
+  @media (min-width: 576px) {
+    --padding-sm: 24px;
+    --padding-md: 32px;
+    --padding-lg: 48px;
+  }
+}
+
 /* Directions */
 .direction-column {
   display: flex;
@@ -10,41 +22,41 @@
 
 /* Paddings */
 .padding-sm {
-  padding: 24px;
+  padding: var(--padding-sm);
 }
 .padding-md {
-  padding: 32px;
+  padding: var(--padding-md);
 }
 .padding-lg {
-  padding: 48px;
+  padding: var(--padding-lg);
 }
 
 /* X paddings */
 .paddingX-sm {
-  padding-left: 24px;
-  padding-right: 24px;
+  padding-left: var(--padding-sm);
+  padding-right: var(--padding-sm);
 }
 .paddingX-md {
-  padding-left: 32px;
-  padding-right: 32px;
+  padding-left: var(--padding-md);
+  padding-right: var(--padding-md);
 }
 .paddingX-lg {
-  padding-left: 48px;
-  padding-right: 48px;
+  padding-left: var(--padding-lg);
+  padding-right: var(--padding-lg);
 }
 
 /* Y paddings */
 .paddingY-sm {
-  padding-top: 24px;
-  padding-bottom: 24px;
+  padding-top: var(--padding-sm);
+  padding-bottom: var(--padding-sm);
 }
 .paddingY-md {
-  padding-top: 32px;
-  padding-bottom: 32px;
+  padding-top: var(--padding-md);
+  padding-bottom: var(--padding-md);
 }
 .paddingY-lg {
-  padding-top: 48px;
-  padding-bottom: 48px;
+  padding-top: var(--padding-lg);
+  padding-bottom: var(--padding-lg);
 }
 
 /* Radii */

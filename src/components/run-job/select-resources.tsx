@@ -454,7 +454,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             </Collapse>
           ) : null}
         </TransitionGroup>
-        <div className={styles.buttons}>
+        <div className="actionsGroupLgBetween">
           <Button
             color="accent1"
             onClick={() => router.replace('/run-job/environments')}

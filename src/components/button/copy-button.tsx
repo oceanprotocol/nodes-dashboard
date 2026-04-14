@@ -3,11 +3,17 @@ import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useState } from 'react';
 
-type CopyButtonProps = Pick<ButtonProps, 'color' | 'size' | 'variant'> & {
+type CopyButtonProps = Pick<ButtonProps, 'className' | 'color' | 'size' | 'variant'> & {
   contentToCopy: string;
 };
 
-const CopyButton = ({ color = 'accent2', contentToCopy, size = 'sm', variant = 'filled' }: CopyButtonProps) => {
+const CopyButton = ({
+  className,
+  color = 'accent2',
+  contentToCopy,
+  size = 'sm',
+  variant = 'filled',
+}: CopyButtonProps) => {
   const [copied, setCopied] = useState(false);
 
   const handleClick = () => {
@@ -20,6 +26,7 @@ const CopyButton = ({ color = 'accent2', contentToCopy, size = 'sm', variant = '
 
   return (
     <Button
+      className={className}
       color={color}
       contentBefore={copied ? <CheckIcon /> : <ContentCopyIcon />}
       onClick={handleClick}

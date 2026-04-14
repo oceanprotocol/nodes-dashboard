@@ -13,7 +13,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
-import { formatNumber } from '@/utils/formatters';
+import { formatNumber, formatTokenAmount } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -452,12 +452,15 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     const isDisabled = !isLoggedIn || (isFreeCompute && !freeAccess) || (!isFreeCompute && !paidAccess);
     const button = (
       <Button
+        className={styles.selectEnvButton}
         color="accent1"
         contentBefore={<PlayArrowIcon />}
         disabled={isDisabled}
         onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
       >
-        {isFreeCompute ? 'Run test job' : `From ${startingFee} ${selectedTokenSymbol}/min`}
+        {isFreeCompute
+          ? 'Run test job'
+          : `From ${formatTokenAmount(startingFee, selectedTokenAddress)} ${selectedTokenSymbol}/min`}
       </Button>
     );
     if (isDisabled) {
@@ -471,7 +474,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               : 'You need to login to continue'
           }
         >
-          <div>{button}</div>
+          <div className="flexColumn">{button}</div>
         </Tooltip>
       );
     }
@@ -484,10 +487,19 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         <div className={styles.nodeInfo}>
           <div className={styles.nodeNameWrapper}>
             Node:
-            <Button color="accent1" href={`/nodes/${nodeInfo.id}`} size="link" target="_blank" variant="transparent">
-              {nodeInfo.friendlyName || nodeInfo.id}
-            </Button>
-            {nodeInfo.latestBenchmarkResults ? <VerifiedIcon className={styles.verified} /> : null}
+            <span className={styles.nodeName}>
+              <Button
+                className={styles.nodeLink}
+                color="accent1"
+                href={`/nodes/${nodeInfo.id}`}
+                size="link"
+                target="_blank"
+                variant="transparent"
+              >
+                {nodeInfo.friendlyName || nodeInfo.id}
+              </Button>
+              {nodeInfo.latestBenchmarkResults ? <VerifiedIcon className={styles.verified} /> : null}
+            </span>
           </div>
           {nodeInfo.latestBenchmarkResults ? (
             <BenchmarkSummary

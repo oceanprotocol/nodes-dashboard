@@ -25,3 +25,15 @@
     color: var(--text-primary);
   }
 }
+
+@media (max-width: 576px) {
+  .root {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
+
+    .tab {
+      text-align: center;
+    }
+  }
+}

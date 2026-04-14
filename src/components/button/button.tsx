@@ -1,7 +1,7 @@
 import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
-import { MouseEventHandler, ReactNode, useState } from 'react';
+import { forwardRef, MouseEventHandler, ReactNode, useState } from 'react';
 import styles from './button.module.css';
 
 export type ButtonProps = {
@@ -22,7 +22,7 @@ export type ButtonProps = {
   variant?: 'filled' | 'glass' | 'outlined' | 'transparent';
 };
 
-const Button = ({
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   autoLoading,
   children,
   className,
@@ -38,7 +38,7 @@ const Button = ({
   size = 'md',
   type = 'button',
   variant = 'filled',
-}: ButtonProps) => {
+}, ref) => {
   const [innerLoading, setInnerLoading] = useState(false);
 
   const isLoading = loading || innerLoading;
@@ -84,13 +84,15 @@ const Button = ({
   }
 
   return (
-    <button className={classes} disabled={isDisabled} id={id} onClick={handleClick} type={type}>
+    <button className={classes} disabled={isDisabled} id={id} onClick={handleClick} ref={ref} type={type}>
       {spinner}
       {contentBefore}
       {children}
       {contentAfter}
     </button>
   );
-};
+});
+
+Button.displayName = 'Button';
 
 export default Button;

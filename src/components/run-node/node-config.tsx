@@ -49,8 +49,9 @@ const NodeConfig = () => {
           ) : null}
         </>
       )}
-      <div className={styles.footer}>
+      <div className="actionsGroupLgBetween">
         <Button
+          className={styles.viewButton}
           color="accent1"
           disabled={loadingPushConfig}
           href={`/nodes/${peerId}`}
@@ -60,7 +61,7 @@ const NodeConfig = () => {
         >
           View node details
         </Button>
-        <div className={styles.buttons}>
+        <div className="actionsGroupLgEnd">
           <Button color="accent1" disabled={loadingPushConfig} href="/run-node/setup" size="lg" variant="outlined">
             Back
           </Button>

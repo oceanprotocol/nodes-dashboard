@@ -3,11 +3,3 @@
   flex-direction: column;
   gap: 32px;
 }
-
-.buttons {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: space-between;
-}

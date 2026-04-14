@@ -67,7 +67,7 @@ const PaymentDeposit = ({
         type="number"
         value={formik.values.amount}
       />
-      <div className={styles.buttons}>
+      <div className="actionsGroupLgBetween">
         {renderBackButton?.(loadingPaymentInfo)}
         {hasSufficientFunds ? (
           <Button

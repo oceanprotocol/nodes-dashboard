@@ -46,14 +46,12 @@ const FooterSection = () => {
               <Button color="accent2" href={`mailto:${config.supportEmail}`} size="link" variant="transparent">
                 {config.supportEmail}
               </Button>
-              .
             </p>
             <p className={styles.copy}>
               © {currentYear} All Rights Reserved. Powered by{' '}
               <Button color="accent2" href={links.website} size="link" target="_blank" variant="transparent">
                 Ocean Network
               </Button>
-              .
             </p>
           </div>
           <div className={styles.pagesColumn}>
