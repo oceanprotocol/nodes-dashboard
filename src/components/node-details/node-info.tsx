@@ -97,7 +97,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       await fetchConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        multiaddrsOrPeerId: node.id,
+        nodeUri: node.id,
         signMessage,
       });
     } catch (error) {
@@ -121,7 +121,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       await pushConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        multiaddrsOrPeerId: node.id,
+        nodeUri: node.id,
         signMessage,
         config,
       });
@@ -163,8 +163,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     try {
       const logs = await getNodeLogs({
         consumerAddress: account.address,
-        expiryTimestamp: Date.now() + 5 * 60 * 1000,
-        multiaddrsOrPeerId: node.id,
+        nodeUri: node.id,
         params: { startTime, endTime, maxLogs },
         signMessage,
       });

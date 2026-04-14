@@ -4,7 +4,7 @@ import { ComputeEnvironment } from '@/types/environments';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
-import { ComputeEnvFees, ComputeResourceRequest } from '@oceanprotocol/lib';
+import type { ComputeEnvFees, ComputeResourceRequest } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 

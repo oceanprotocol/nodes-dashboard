@@ -1,7 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['wagmi', '@wagmi/core', '@wagmi/connectors', '@walletconnect/ethereum-provider', '@walletconnect/universal-provider', 'pino', 'pino-pretty', 'thread-stream'],
+  serverExternalPackages: [
+    'wagmi',
+    '@wagmi/core',
+    '@wagmi/connectors',
+    '@walletconnect/ethereum-provider',
+    '@walletconnect/universal-provider',
+    'pino',
+    'pino-pretty',
+    'thread-stream',
+  ],
   turbopack: {
+    resolveAlias: {
+      fs: { browser: './src/empty.js' },
+      net: { browser: './src/empty.js' },
+      tls: { browser: './src/empty.js' },
+      dgram: { browser: './src/empty.js' },
+      dns: { browser: './src/empty.js' },
+      'rdf-canonize-native': { browser: './src/empty.js' },
+    },
     rules: {
       '*.svg': {
         loaders: ['@svgr/webpack'],
@@ -17,8 +34,8 @@ const nextConfig = {
         net: false,
         tls: false,
         dgram: false,
-        dns: false
-      }
+        dns: false,
+      };
     }
     config.module.rules.push({
       test: /\.svg$/,
