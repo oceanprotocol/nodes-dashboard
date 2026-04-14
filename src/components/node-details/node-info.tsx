@@ -288,11 +288,13 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
           {node.allowedAdmins?.length ? (
             <div>
               <strong>Admins:</strong>
-              {node.allowedAdmins.map((admin) => (
-                <div key={admin} className={styles.hash}>
-                  {admin}
-                </div>
-              ))}
+              <ul>
+                {node.allowedAdmins.map((admin) => (
+                  <li key={admin} className={styles.hash}>
+                    {admin}
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
           <div>{node.version && <span>Ocean Node v{node.version}</span>}</div>

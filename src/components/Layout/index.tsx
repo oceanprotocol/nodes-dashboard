@@ -14,7 +14,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <>
       <Head>
         <title>Ocean Network - Decentralized P2P Compute Network</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={styles.main}>

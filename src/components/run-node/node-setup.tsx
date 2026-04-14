@@ -50,7 +50,7 @@ const NodeSetup = () => {
       </div>
       <NodeConnection />
       {peerId ? (
-        <div className={styles.buttons}>
+        <div className="actionsGroupLgEnd">
           <Button color="accent1" href={`/nodes/${peerId}`} size="lg" target="_blank" variant="outlined">
             View node details
           </Button>

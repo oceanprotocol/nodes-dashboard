@@ -22,11 +22,18 @@ const StyledRoot = styled('div')({
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 16,
+  flexWrap: 'wrap',
+  gap: 16,
+  '@media (max-width: 768px)': {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
 });
 
 const StyledButtonsWrapper = styled('div')({
   display: 'flex',
   gap: 16,
+  flexWrap: 'wrap',
 
   '& .MuiButton-root': {
     color: 'var(--text-primary)',
@@ -39,6 +46,13 @@ const StyledButtonsWrapper = styled('div')({
     '& .MuiSvgIcon-root': {
       color: 'var(--accent1)',
     },
+  },
+});
+
+const StyledSearchInput = styled(Input)({
+  '@media (max-width: 768px)': {
+    alignSelf: 'stretch',
+    width: '100%',
   },
 });
 
@@ -209,7 +223,7 @@ const CustomToolbar: React.FC<CustomToolbarProps> = ({
           Export
         </Button>
       </StyledButtonsWrapper>
-      <Input
+      <StyledSearchInput
         endAdornment={
           <>
             <IconButton color="primary" onClick={onSearch} size="small">

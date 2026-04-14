@@ -4,7 +4,6 @@ import { TransitionGroup } from 'react-transition-group';
 const StyledRoot = styled('div')<{ disabled?: boolean }>(({ disabled }) => ({
   display: 'flex',
   flexDirection: 'column',
-  gap: 4,
   opacity: disabled ? 0.5 : 1,
 }));
 
@@ -12,6 +11,7 @@ const StyledLabelWrapper = styled('div')({
   alignItems: 'end',
   display: 'flex',
   justifyContent: 'space-between',
+  marginBottom: 4,
   padding: '0 16px',
 });
 
@@ -27,6 +27,7 @@ const StyledHint = styled('div')({
 });
 
 const StyledFooterHint = styled(StyledHint)({
+  marginTop: 4,
   padding: '0 16px',
 });
 

@@ -103,9 +103,8 @@ const TransferModalContent = ({
         type="number"
         value={formik.values.amount}
       />
-      <div className="flexRow gapSm justifyContentEnd">
+      <div className="actionsGroupMdEnd">
         <Button
-          className="alignSelfEnd"
           color="accent1"
           disabled={transferTokens.isTransferring}
           onClick={onClose}

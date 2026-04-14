@@ -1,7 +1,8 @@
 .root {
-  align-items: center;
+  align-items: flex-start;
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
+  flex-direction: column;
   font-size: 12px;
   gap: 8px;
 
@@ -13,7 +14,17 @@
   }
 
   .divider {
-    height: 12px;
+    display: none;
+  }
+
+  @media (min-width: 576px) {
+    align-items: center;
+    flex-direction: row;
+
+    .divider {
+      display: block;
+      height: 12px;
+    }
   }
 
   .result {

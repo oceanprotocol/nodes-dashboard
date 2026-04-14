@@ -60,10 +60,11 @@ body {
 }
 html {
   background-color: var(--background-primary);
+  overflow-x: clip;
 }
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
+  min-height: 100lvh;
+  overflow-x: clip;
 }
 
 h1,
@@ -139,6 +140,51 @@ a {
   &.chipWarning {
     background: var(--warning);
     color: var(--text-primary);
+  }
+}
+
+.actionsGroupLgBetween,
+.actionsGroupLgEnd,
+.actionsGroupMdBetween,
+.actionsGroupMdEnd {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  &.actionsGroupLgBetween {
+    gap: 16px;
+    @media (min-width: 768px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: space-between;
+    }
+  }
+  &.actionsGroupLgEnd {
+    gap: 16px;
+    @media (min-width: 768px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: flex-end;
+    }
+  }
+  &.actionsGroupMdBetween {
+    gap: 16px;
+    @media (min-width: 576px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: space-between;
+    }
+  }
+  &.actionsGroupMdEnd {
+    gap: 8px;
+    @media (min-width: 576px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: flex-end;
+    }
   }
 }
 
@@ -263,6 +309,13 @@ a {
 
 .textBold {
   font-weight: 700;
+}
+
+.wordBreakWord {
+  word-break: break-word;
+}
+.wordBreakAll {
+  word-break: break-all;
 }
 
 /* Overrides */

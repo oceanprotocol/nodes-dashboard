@@ -12,7 +12,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WalletIcon from '@mui/icons-material/Wallet';
 import { ListItemIcon, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../button/button';
 import styles from './navigation.module.css';
 
@@ -28,6 +28,7 @@ const ProfileButton = () => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
@@ -43,7 +44,7 @@ const ProfileButton = () => {
   }, []);
 
   const handleOpenMenu = () => {
-    setAnchorEl(document.getElementById('profile-button'));
+    setAnchorEl(buttonRef.current);
   };
 
   const handleCloseMenu = () => {
@@ -71,6 +72,7 @@ const ProfileButton = () => {
           account.address ? <Avatar accountId={account.address} size="sm" src={ensProfile?.avatar} /> : <WalletIcon />
         }
         id="profile-button"
+        ref={buttonRef}
         onClick={() => {
           handleOpenMenu();
         }}

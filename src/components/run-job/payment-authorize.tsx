@@ -120,7 +120,7 @@ const PaymentAuthorize = ({
           value={formik.values.maxLockCount}
         />
       </div>
-      <div className={styles.buttons}>
+      <div className="actionsGroupLgBetween">
         {renderBackButton?.(loadingPaymentInfo)}
         <Button color="accent1" loading={loadingPaymentInfo || isAuthorizing} size="lg" type="submit">
           Authorize

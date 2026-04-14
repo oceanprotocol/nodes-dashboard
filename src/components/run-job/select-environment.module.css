@@ -41,12 +41,6 @@
   flex-direction: column;
   gap: 24px;
 
-  .buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
   @media (min-width: 576px) {
     align-items: flex-end;
     display: grid;
@@ -54,9 +48,6 @@
 
     .buttons {
       grid-column: 1 / span 2;
-      flex-direction: row;
-      justify-content: flex-end;
-      gap: 8px;
     }
   }
 

@@ -81,7 +81,9 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
           <div>Enter the 6-digit verification code sent to your email</div>
           <div>
             Code expires in&nbsp;
-            {`${Math.floor(expiryCountdown.remainingCountdown / 60)}:${expiryCountdown.remainingCountdown % 60}`}
+            {`${Math.floor(expiryCountdown.remainingCountdown / 60)
+              .toString()
+              .padStart(2, '0')}:${(expiryCountdown.remainingCountdown % 60).toString().padStart(2, '0')}`}
           </div>
         </div>
         <TwoFactorInput onChange={(code) => formik.setFieldValue('code', code)} value={formik.values.code} />
