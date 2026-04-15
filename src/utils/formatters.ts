@@ -77,12 +77,51 @@ export const formatWalletAddress = (address: string): string => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-export const formatDuration = (totalSeconds: number): string => {
-  const d = dayjs.duration(totalSeconds, 'seconds');
-  const sec = d.asSeconds();
-  if (sec < 60) return `${sec} sec`;
-  if (sec < 3600) return `${Math.round(d.asMinutes())} min (${sec} sec)`;
-  return `${d.asHours().toFixed(1)} hrs (${sec} sec)`;
+/**
+ * Format a duration in seconds to a human-readable format.
+ * If the duration is less than 1 minute, will be displayed in seconds.
+ * If the duration can be divided in hours, will be displayed in hours.
+ * If the duration can be divided in minutes, will be displayed in minutes (and hh:mm:ss if > 1 hour)
+ *
+ * Examples:
+ * 5400s → 90 minutes (01:30:00);
+ * 3661s → 3661 seconds (01:01:01);
+ * 3660s → 61 minutes (01:01:00);
+ * 3600s → 1 hour;
+ * 90s → 90 seconds (00:01:30);
+ * 60s → 1 minute;
+ *
+ * @param totalSeconds duration in seconds; if null or undefined, it will be treated as 0
+ * @param short if true, the units will be shorter (h instead of hours, m instead of minutes, s instead of seconds)
+ * @returns formatted duration string
+ */
+export const formatDuration = (totalSeconds: number | null | undefined, short?: boolean): string => {
+  const sec = Math.round(totalSeconds ?? 0);
+  // if the duration can be divided in hours, show it in hours
+  if (sec % 3600 === 0 && sec >= 3600) {
+    const hours = sec / 3600;
+    const hUnit = short ? 'h' : hours === 1 ? 'hour' : 'hours';
+    return `${hours} ${hUnit}`;
+  }
+  // if the duration can be divided in minutes, show it in minutes (+ hh:mm:ss if > 1 hour)
+  if (sec % 60 === 0 && sec >= 60) {
+    const minutes = sec / 60;
+    const mUnit = short ? 'm' : minutes === 1 ? 'minute' : 'minutes';
+    const formattedMinutes = `${minutes} ${mUnit}`;
+    if (sec < 3600) {
+      // if the duration is less than 1 hour, show it in minutes
+      return formattedMinutes;
+    }
+    // if the duration is less than 1 day, show it in minutes + hh:mm:ss
+    return `${formattedMinutes} (${dayjs.duration(sec, 'seconds').format('HH:mm:ss')})`;
+  }
+  const sUnit = short ? 's' : sec === 1 ? 'second' : 'seconds';
+  // if the duration is less than 1 minute, show it in seconds
+  if (sec < 60) {
+    return `${sec} ${sUnit}`;
+  }
+  // duration cannot be divided in hours or minutes, but is > 1 minute, show it in seconds and hh:mm:ss
+  return `${sec} ${sUnit} (${dayjs.duration(sec, 'seconds').format('HH:mm:ss')})`;
 };
 
 export const formatDateTime = (timestamp: number): string => {

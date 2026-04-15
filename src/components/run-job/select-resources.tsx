@@ -10,7 +10,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
-import { formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
@@ -354,7 +354,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
             step={1}
-            topRight={`${minAllowedCpuCores}-${maxAllowedCpuCores}`}
+            topRight={`${minAllowedCpuCores} - ${maxAllowedCpuCores}`}
             value={formik.values.cpuCores}
             valueLabelFormat={(value) => (value === 1 ? `${value} core` : `${value} cores`)}
           />
@@ -369,7 +369,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
             step={1}
-            topRight={`${minAllowedRam}-${maxAllowedRam}`}
+            topRight={`${minAllowedRam} - ${maxAllowedRam}`}
             value={formik.values.ram}
             valueLabelFormat={(value) => `${value} GB`}
           />
@@ -395,7 +395,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             onBlur={formik.handleBlur}
             onChange={handleDiskSpaceChange}
             startAdornment="GB"
-            topRight={`${minAllowedDiskSpace}-${maxAllowedDiskSpace}`}
+            topRight={`${minAllowedDiskSpace} - ${maxAllowedDiskSpace}`}
             type="number"
             value={formik.values.diskSpace}
           />
@@ -434,7 +434,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             name="maxJobDurationValue"
             onBlur={formik.handleBlur}
             onChange={handleMaxJobDurationChange}
-            topRight={`${Math.ceil(fromSeconds(minAllowedJobDurationSeconds, formik.values.maxJobDurationUnit))}-${Math.ceil(fromSeconds(maxAllowedJobDurationSeconds, formik.values.maxJobDurationUnit))}`}
+            topRight={`${formatDuration(minAllowedJobDurationSeconds, true)} - ${formatDuration(maxAllowedJobDurationSeconds, true)}`}
             type="number"
             value={formik.values.maxJobDurationValue}
           />
