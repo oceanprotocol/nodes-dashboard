@@ -1,6 +1,6 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
-import { multiaddr } from '@multiformats/multiaddr';
+import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import { PROTOCOL_COMMANDS, ProviderInstance, type NodeLogsParams } from '@oceanprotocol/lib';
 
 type NodeUri = string[] | string;
@@ -11,7 +11,19 @@ function toNodeUri(input: NodeUri) {
 }
 
 export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
-  await ProviderInstance.setupP2P({ bootstrapPeers: bootstrapNodes });
+  await ProviderInstance.setupP2P({
+    bootstrapPeers: bootstrapNodes,
+    libp2p: {
+      config: {
+        connectionGater: {
+          denyDialMultiaddr: async (multiaddr: Multiaddr) => {
+            const addr = multiaddr.toString();
+            return !(addr.includes('/tls') || addr.includes('/wss'));
+          },
+        },
+      },
+    },
+  });
 }
 
 export async function getNodeEnvs(nodeUri: NodeUri) {
@@ -70,7 +82,7 @@ export async function createAuthToken({
     consumerAddress,
     signature,
     incrementedNonce.toString(),
-    toNodeUri(nodeUri),
+    toNodeUri(nodeUri)
   );
   return { token };
 }
@@ -124,7 +136,7 @@ export async function getNodeLogs({
     consumerAddress,
     signature,
     incrementedNonce.toString(),
-    params,
+    params
   );
 }
 
