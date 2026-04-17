@@ -14,12 +14,10 @@ export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
   await ProviderInstance.setupP2P({
     bootstrapPeers: bootstrapNodes,
     libp2p: {
-      config: {
-        connectionGater: {
-          denyDialMultiaddr: async (multiaddr: Multiaddr) => {
-            const addr = multiaddr.toString();
-            return !(addr.includes('/tls') || addr.includes('/wss'));
-          },
+      connectionGater: {
+        denyDialMultiaddr: async (multiaddr: Multiaddr) => {
+          const addr = multiaddr.toString();
+          return !(addr.includes('/tls') || addr.includes('/wss'));
         },
       },
     },
