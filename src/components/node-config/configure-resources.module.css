@@ -1,0 +1,94 @@
+.resourceTitle {
+  align-items: center;
+  display: flex;
+  font-size: 16px;
+  font-weight: 600;
+  gap: 8px;
+  margin: 0;
+}
+
+.resourceIcon {
+  align-items: center;
+  color: var(--accent1);
+  display: inline-flex;
+}
+
+.resourceRangeRow {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 768px) {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.resourceSlider {
+  flex: 1;
+  min-width: 0;
+}
+
+.gpuRow {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 768px) {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.gpuPriceInput {
+  grid-column: 1 / -1;
+
+  @media (min-width: 768px) {
+    grid-column: auto;
+  }
+}
+
+.jobDurationRow {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 576px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (min-width: 768px) {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.envEditorContent {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.freeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 8px;
+}
+
+.freeResourceHeader {
+  align-items: center;
+  display: flex;
+}
+
+.envPreview {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.previewChip {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}

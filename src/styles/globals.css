@@ -61,6 +61,9 @@ body {
 html {
   background-color: var(--background-primary);
   overflow-x: clip;
+  &:has(body.MuiModal-open, body[style*="overflow: hidden"]) {
+    overflow-y: hidden;
+  }
 }
 body {
   min-height: 100lvh;

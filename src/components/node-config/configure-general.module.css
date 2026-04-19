@@ -1,0 +1,38 @@
+.adminsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .adminsLabel {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 16px;
+  }
+
+  .adminsList {
+    align-self: flex-start;
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 4px 8px;
+    padding: 0;
+  }
+
+  .addAdminRow {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+  }
+}
+
+.addAdminInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.toggleRow {
+  align-items: center;
+  align-self: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}

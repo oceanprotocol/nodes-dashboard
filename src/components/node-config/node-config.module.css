@@ -1,0 +1,34 @@
+.collapsibleSectionTitle {
+  align-items: center;
+  align-self: start;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+
+  .icon {
+    color: var(--text-secondary);
+    transition: transform 0.25s ease;
+
+    &.iconOpen {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.errorsList {
+  list-style-type: disc;
+  padding-left: 14px;
+}
+
+.sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 24px;
+
+  .subsectionTitle {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 8px 0 0;
+  }
+}

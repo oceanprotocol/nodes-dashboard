@@ -1,9 +1,10 @@
 import { FormControlLabel, Switch as MaterialSwitch, styled } from '@mui/material';
+import React from 'react';
 
 type SwitchProps = {
   checked?: boolean;
   className?: string;
-  label?: string;
+  label?: React.ReactNode;
   name?: string;
   onChange?: (event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => void;
   value?: unknown;
