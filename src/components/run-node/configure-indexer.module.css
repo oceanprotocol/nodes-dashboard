@@ -1,0 +1,38 @@
+.indexerHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.networksGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 992px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .networkHeader {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+
+    & > :first-child {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  .networkFieldsRow {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr;
+
+    @media (min-width: 576px) {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+  }
+}
