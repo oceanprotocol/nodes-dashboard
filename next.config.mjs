@@ -6,19 +6,8 @@ const nextConfig = {
     '@wagmi/connectors',
     '@walletconnect/ethereum-provider',
     '@walletconnect/universal-provider',
-    'pino',
-    'pino-pretty',
-    'thread-stream',
   ],
   turbopack: {
-    resolveAlias: {
-      fs: { browser: './src/empty.js' },
-      net: { browser: './src/empty.js' },
-      tls: { browser: './src/empty.js' },
-      dgram: { browser: './src/empty.js' },
-      dns: { browser: './src/empty.js' },
-      'rdf-canonize-native': { browser: './src/empty.js' },
-    },
     rules: {
       '*.svg': {
         loaders: ['@svgr/webpack'],
@@ -26,28 +15,11 @@ const nextConfig = {
       },
     },
   },
-  webpack(config, { isServer }) {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        dgram: false,
-        dns: false,
-      };
-    }
+  webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     });
-    config.externals.push('pino-pretty', 'lokijs', 'encoding');
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      'rdf-canonize-native': false,
-    };
-
     return config;
   },
   transpilePackages: [
