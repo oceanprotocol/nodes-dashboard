@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './configure-general.module.css';
-import commonStyles from './configure-page.module.css';
+import commonStyles from './node-config.module.css';
 
 type ConfigureGeneralProps = {
   config: NodeConfig;

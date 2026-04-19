@@ -1,9 +1,9 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
-import ConfigureGeneral from '@/components/run-node/configure-general';
-import ConfigureIndexer from '@/components/run-node/configure-indexer';
-import ConfigureResources from '@/components/run-node/configure-resources';
+import ConfigureGeneral from '@/components/node-config/configure-general';
+import ConfigureIndexer from '@/components/node-config/configure-indexer';
+import ConfigureResources from '@/components/node-config/configure-resources';
 import SectionTitle from '@/components/section-title/section-title';
 import { getRunNodeSteps, RunNodeStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
@@ -13,7 +13,7 @@ import { CircularProgress, Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import styles from './configure-page.module.css';
+import styles from '@/components/node-config/node-config.module.css';
 
 const ConfigurePage: React.FC = () => {
   const router = useRouter();

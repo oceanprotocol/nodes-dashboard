@@ -15,7 +15,7 @@ import SdStorageIcon from '@mui/icons-material/SdStorage';
 import { Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
-import commonStyles from './configure-page.module.css';
+import commonStyles from './node-config.module.css';
 import styles from './configure-resources.module.css';
 
 type ConfigureResourcesProps = {
@@ -482,7 +482,7 @@ const EnvPreview: React.FC<{ env: DockerEnv }> = ({ env }) => {
 
 const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConfig }) => {
   const envs = config.dockerComputeEnvironments ?? [];
-  const [openIndexes, setOpenIndexes] = useState<number[]>([] /*envs.map((_, i) => i)*/);
+  const [openIndexes, setOpenIndexes] = useState<number[]>([]);
 
   const toggleOpen = (index: number) => {
     setOpenIndexes((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));

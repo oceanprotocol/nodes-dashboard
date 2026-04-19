@@ -7,7 +7,7 @@ import { NodeConfig } from '@/types/node-config';
 import LinkIcon from '@mui/icons-material/Link';
 import { useState } from 'react';
 import styles from './configure-indexer.module.css';
-import commonStyles from './configure-page.module.css';
+import commonStyles from './node-config.module.css';
 
 type ConfigureIndexerProps = {
   config: NodeConfig;
@@ -70,20 +70,6 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
       [key]: { ...networks[key], [field]: value },
     });
   };
-
-  // const handleChainIdChange = (key: string, value: string) => {
-  //   const newKey = value;
-  //   const network = { ...networks[key], chainId: Number(value) || 0 };
-  //   const next: Record<string, SupportedNetwork> = {};
-  //   for (const k of networkKeys) {
-  //     if (k === key) {
-  //       if (newKey) next[newKey] = network;
-  //     } else {
-  //       next[k] = networks[k];
-  //     }
-  //   }
-  //   updateNetworks(next);
-  // };
 
   return (
     <div className={commonStyles.sectionContent}>
