@@ -5,7 +5,9 @@ import { useRunNodeContext } from '@/context/run-node-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LinkIcon from '@mui/icons-material/Link';
+import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useEffect } from 'react';
@@ -78,6 +80,22 @@ const NodeConnection = () => {
             name="nodeId"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
+            topRight={
+              <Tooltip
+                title={
+                  <>
+                    Query your running node to get its ID:
+                    <br />
+                    <code>curl http://&lt;node-host&gt;:&lt;http-port&gt;</code>
+                  </>
+                }
+              >
+                <span className={styles.helpTrigger}>
+                  <InfoOutlinedIcon fontSize="small" />
+                  How do I find it?
+                </span>
+              </Tooltip>
+            }
             type="text"
             value={formik.values.nodeId}
           />
