@@ -10,3 +10,10 @@
   flex-direction: column;
   gap: 16px;
 }
+
+.helpTrigger {
+  align-items: center;
+  cursor: help;
+  display: inline-flex;
+  gap: 4px;
+}
