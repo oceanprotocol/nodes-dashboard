@@ -40,22 +40,22 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
   const loading = fetchingBuckets[nodeId] ?? false;
 
   const loadBuckets = useCallback(async () => {
-    if (!account.address || !nodeId) {
-      return;
-    }
     try {
       await fetchBuckets({ nodeId, nodeUri });
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to load buckets');
     }
-  }, [account.address, nodeId, nodeUri, fetchBuckets]);
+  }, [nodeId, nodeUri, fetchBuckets]);
 
   useEffect(() => {
+    if (!account.address || !nodeId) {
+      return;
+    }
     if (!(nodeId in buckets) && !alreadyLoaded) {
       setAlreadyLoaded(true);
       loadBuckets();
     }
-  }, [nodeId, buckets, loadBuckets, alreadyLoaded]);
+  }, [nodeId, buckets, loadBuckets, alreadyLoaded, account.address]);
 
   const filteredBuckets = useMemo(() => {
     const myBuckets = buckets[nodeId] ?? [];
