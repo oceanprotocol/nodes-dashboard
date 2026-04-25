@@ -37,7 +37,6 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const loading = fetchingBuckets[nodeId] ?? false;
-  const myBuckets = buckets[nodeId] ?? [];
   const alreadyLoaded = nodeId in buckets;
 
   const loadBuckets = useCallback(async () => {
@@ -58,12 +57,13 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
   }, [alreadyLoaded, loadBuckets]);
 
   const filteredBuckets = useMemo(() => {
+    const myBuckets = buckets[nodeId] ?? [];
     const term = searchTerm.trim();
     if (!term) {
       return myBuckets;
     }
     return myBuckets.filter((b) => b.bucketId.toLowerCase().includes(term.toLowerCase()));
-  }, [myBuckets, searchTerm]);
+  }, [buckets, nodeId, searchTerm]);
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" shadow="black" variant="glass-shaded">
