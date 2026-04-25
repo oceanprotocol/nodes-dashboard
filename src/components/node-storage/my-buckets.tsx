@@ -32,12 +32,12 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
   const nodeId = node.id ?? node.nodeId ?? '';
   const nodeUri = node.currentAddrs?.length ? node.currentAddrs : nodeId;
 
+  const [alreadyLoaded, setAlreadyLoaded] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editBucket, setEditBucket] = useState<PersistentStorageBucket | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const loading = fetchingBuckets[nodeId] ?? false;
-  const alreadyLoaded = nodeId in buckets;
 
   const loadBuckets = useCallback(async () => {
     if (!account.address || !nodeId) {
@@ -51,10 +51,11 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
   }, [account.address, nodeId, nodeUri, fetchBuckets]);
 
   useEffect(() => {
-    if (!alreadyLoaded) {
+    if (!(nodeId in buckets) && !alreadyLoaded) {
+      setAlreadyLoaded(true);
       loadBuckets();
     }
-  }, [alreadyLoaded, loadBuckets]);
+  }, [nodeId, buckets, loadBuckets, alreadyLoaded]);
 
   const filteredBuckets = useMemo(() => {
     const myBuckets = buckets[nodeId] ?? [];

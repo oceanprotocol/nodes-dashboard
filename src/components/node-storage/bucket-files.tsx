@@ -32,6 +32,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
 
   const nodeId = node.id ?? node.nodeId ?? '';
 
+  const [alreadyLoaded, setAlreadyLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
@@ -44,7 +45,6 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
 
   const loading = fetchingFiles[bucketId] ?? false;
   const uploading = uploadingFile[bucketId] ?? false;
-  const alreadyLoaded = bucketId in bucketFiles;
 
   const loadFiles = useCallback(async () => {
     try {
@@ -55,10 +55,11 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
   }, [bucketId, nodeUri, fetchBucketFiles]);
 
   useEffect(() => {
-    if (!alreadyLoaded) {
+    if (!(bucketId in bucketFiles) && !alreadyLoaded) {
+      setAlreadyLoaded(true);
       loadFiles();
     }
-  }, [alreadyLoaded, loadFiles]);
+  }, [alreadyLoaded, bucketFiles, bucketId, loadFiles]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
