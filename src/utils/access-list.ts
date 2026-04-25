@@ -1,5 +1,7 @@
-import AccessListJson from '@oceanprotocol/contracts/artifacts/contracts/accesslists/AccessList.sol/AccessList.json' with { type: 'json' }
-import { ethers } from 'ethers'
+import { ChainAddressPair } from '@/types/node-storage';
+import AccessListJson from '@oceanprotocol/contracts/artifacts/contracts/accesslists/AccessList.sol/AccessList.json' with { type: 'json' };
+import { PersistentStorageAccessList } from '@oceanprotocol/lib';
+import { ethers } from 'ethers';
 
 /**
  * @param accessListContractAddress the access list contract address
@@ -13,22 +15,34 @@ export async function checkAddressOnAccessList(
   runner: ethers.ContractRunner
 ): Promise<boolean> {
   if (!accessListContractAddress) {
-    return true
+    return true;
   }
-  const accessListContract = new ethers.Contract(
-    accessListContractAddress,
-    AccessListJson.abi,
-    runner
-  )
+  const accessListContract = new ethers.Contract(accessListContractAddress, AccessListJson.abi, runner);
   try {
     // if has at least 1 token than is is authorized
-    const balance = await accessListContract.balanceOf(addressToCheck)
+    const balance = await accessListContract.balanceOf(addressToCheck);
     if (Number(balance) > 0) {
-      return true
+      return true;
     } else {
-      return false
+      return false;
     }
   } catch (error) {
-    return false
+    return false;
   }
+}
+
+/**
+ * Converts a list of chain-address pairs into ocean.js access lists format
+ * @param rows array of chain-address pairs
+ * @returns access lists in the format expected by ocean.js
+ */
+export function rowsToAccessLists(rows: ChainAddressPair[]): PersistentStorageAccessList[] {
+  const map: Record<string, string[]> = {};
+  for (const { chainId, address } of rows) {
+    if (!map[chainId]) {
+      map[chainId] = [];
+    }
+    map[chainId].push(address);
+  }
+  return Object.entries(map).map(([chainId, addresses]) => ({ [chainId]: addresses }));
 }

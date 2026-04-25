@@ -1,12 +1,14 @@
 import {
+  actionsColumnProps,
   benchmarkJobsColumns,
   jobsColumns,
   nodesLeaderboardColumns,
   nodesLeaderboardHomeColumns,
   nodesTopByJobCountColumns,
   nodesTopByRevenueColumns,
-  topNodesByJobsColumns,
-  topNodesByRevenueColumns,
+  nodeStorageFilesColumns,
+  nodeStorageMyBucketsColumns,
+  nodeStorageSharedBucketsColumns,
   unbanRequestsColumns,
 } from '@/components/table/columns';
 import { TableContextType } from '@/components/table/context-type';
@@ -14,11 +16,13 @@ import CustomPagination from '@/components/table/custom-pagination';
 import CustomToolbar from '@/components/table/custom-toolbar';
 import { TableTypeEnum } from '@/components/table/table-type';
 import styled from '@emotion/styled';
+import { LinearProgress } from '@mui/material';
 import {
   DataGrid,
   GridColDef,
   GridFilterModel,
   GridInitialState,
+  GridRenderCellParams,
   GridRowIdGetter,
   GridRowParams,
   GridSortModel,
@@ -26,7 +30,7 @@ import {
   useGridApiRef,
 } from '@mui/x-data-grid';
 import { GridSlotsComponentsProps } from '@mui/x-data-grid/internals';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const StyledRoot = styled('div')({
   display: 'flex',
@@ -34,6 +38,14 @@ const StyledRoot = styled('div')({
   gap: 16,
   width: '100%',
   minWidth: 0,
+});
+
+const StyledActionsWrapper = styled('div')({
+  alignItems: 'center',
+  display: 'flex',
+  flexDirection: 'row',
+  gap: 4,
+  height: '100%',
 });
 
 const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHeight }) => ({
@@ -128,6 +140,8 @@ const StyledDataGrid = styled(DataGrid)<{ clickable?: boolean }>(({ clickable })
 
 type TableProps<T extends GridValidRowModel> = {
   autoHeight?: boolean;
+  actionsColumn?: GridColDef<T>['renderCell'];
+  columns?: GridColDef<T>[];
   context?: TableContextType<T>;
   data?: any[];
   loading?: boolean;
@@ -141,6 +155,8 @@ type TableProps<T extends GridValidRowModel> = {
 
 export const Table = <T extends GridValidRowModel>({
   autoHeight,
+  actionsColumn,
+  columns: columnsProp,
   context,
   data: propsData,
   loading: propsLoading,
@@ -175,39 +191,70 @@ export const Table = <T extends GridValidRowModel>({
     };
   }, [paginationType, propsData, context?.crtPage, context?.data, context?.pageSize, context?.totalItems]);
 
+  useEffect(() => {
+    if (!actionsColumn) {
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      if (apiRef.current?.autosizeColumns) {
+        apiRef.current.autosizeColumns({ columns: ['_actions'], includeHeaders: true });
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [actionsColumn, data, apiRef]);
+
   const columns = useMemo(() => {
+    const withActions = <C extends GridColDef>(cols: C[]) =>
+      actionsColumn
+        ? [
+            ...cols,
+            {
+              ...actionsColumnProps,
+              renderCell: (params: GridRenderCellParams<T>) => (
+                <StyledActionsWrapper>{actionsColumn(params)}</StyledActionsWrapper>
+              ),
+            },
+          ]
+        : cols;
+
+    if (columnsProp) {
+      return withActions(columnsProp);
+    }
     switch (tableType) {
       case TableTypeEnum.MY_JOBS: {
-        return jobsColumns;
+        return withActions(jobsColumns);
       }
       case TableTypeEnum.UNBAN_REQUESTS: {
-        return unbanRequestsColumns;
+        return withActions(unbanRequestsColumns);
+      }
+      case TableTypeEnum.NODE_STORAGE_FILES: {
+        return withActions(nodeStorageFilesColumns);
+      }
+      case TableTypeEnum.NODE_STORAGE_MY_BUCKETS: {
+        return withActions(nodeStorageMyBucketsColumns);
+      }
+      case TableTypeEnum.NODE_STORAGE_SHARED_BUCKETS: {
+        return withActions(nodeStorageSharedBucketsColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {
-        return nodesLeaderboardColumns;
+        return withActions(nodesLeaderboardColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD_HOME: {
-        return nodesLeaderboardHomeColumns;
+        return withActions(nodesLeaderboardHomeColumns);
       }
       case TableTypeEnum.NODES_TOP_JOBS: {
-        return nodesTopByJobCountColumns;
+        return withActions(nodesTopByJobCountColumns);
       }
       case TableTypeEnum.NODES_TOP_REVENUE: {
-        return nodesTopByRevenueColumns;
-      }
-      case TableTypeEnum.NODES_TOP_JOBS: {
-        return topNodesByJobsColumns;
-      }
-      case TableTypeEnum.NODES_TOP_REVENUE: {
-        return topNodesByRevenueColumns;
+        return withActions(nodesTopByRevenueColumns);
       }
       case TableTypeEnum.BENCHMARK_JOBS:
       case TableTypeEnum.BENCHMARK_JOBS_HISTORY: {
-        return benchmarkJobsColumns;
+        return withActions(benchmarkJobsColumns);
       }
     }
-  }, [tableType]);
+  }, [tableType, actionsColumn, columnsProp]);
 
   const handlePaginationChange = useCallback(
     (model: { page: number; pageSize: number }) => {
@@ -320,10 +367,10 @@ export const Table = <T extends GridValidRowModel>({
         color: '#000000',
       },
     },
-    loadingOverlay: {
-      variant: 'skeleton',
-      noRowsVariant: 'skeleton',
-    },
+    // loadingOverlay: {
+    //   variant: 'skeleton',
+    //   noRowsVariant: 'skeleton',
+    // },
   };
 
   const defaultGetRowId: GridRowIdGetter<GridValidRowModel> = (row) => row.id;
@@ -365,7 +412,7 @@ export const Table = <T extends GridValidRowModel>({
             processRowUpdate={processRowUpdate}
             rowCount={totalItems}
             rows={data}
-            slots={{}}
+            slots={{ loadingOverlay: () => <LinearProgress /> }}
             slotProps={slotProps}
             sortingMode={paginationType === 'none' ? 'client' : 'server'}
           />

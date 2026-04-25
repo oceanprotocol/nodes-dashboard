@@ -1,7 +1,19 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
-import { PROTOCOL_COMMANDS, ProviderInstance, type NodeLogsParams } from '@oceanprotocol/lib';
+import Address from '@oceanprotocol/contracts/addresses/address.json';
+import {
+  AccessListContract,
+  AccesslistFactory,
+  PROTOCOL_COMMANDS,
+  ProviderInstance,
+  type NodeLogsParams,
+  type PersistentStorageAccessList,
+  type PersistentStorageBucket,
+  type PersistentStorageDeleteFileResponse,
+  type PersistentStorageFileEntry,
+} from '@oceanprotocol/lib';
+import { Signer } from 'ethers';
 
 type NodeUri = string[] | string;
 
@@ -54,10 +66,6 @@ export async function getComputeJobResult(nodeUri: NodeUri, authToken: string, j
 
 export async function streamComputeResult(nodeUri: NodeUri, authToken: string, jobId: string, index: number) {
   return ProviderInstance.getComputeResult(toNodeUri(nodeUri), authToken, jobId, index);
-}
-
-export async function getComputeStreamableLogs(nodeUri: NodeUri, authToken: string, jobId: string) {
-  return ProviderInstance.computeStreamableLogs(toNodeUri(nodeUri), authToken, jobId);
 }
 
 export async function createAuthToken({
@@ -195,4 +203,171 @@ export async function pushNodeConfig({
 
 export async function getPeerMultiaddr(peerId: string): Promise<string> {
   return ProviderInstance.getMultiaddrFromPeerId(peerId);
+}
+
+export async function getNodeBuckets({
+  authToken,
+  nodeUri,
+  ownerAddress,
+}: {
+  authToken: string;
+  nodeUri: NodeUri;
+  ownerAddress: string;
+}): Promise<PersistentStorageBucket[]> {
+  return ProviderInstance.getPersistentStorageBuckets(toNodeUri(nodeUri), authToken, ownerAddress);
+}
+
+export async function deployAccessList({
+  chainId,
+  owner,
+  signer,
+  wallets,
+}: {
+  chainId: number;
+  owner: string;
+  signer: Signer;
+  wallets: string[];
+}): Promise<string> {
+  const config = Object.values(Address).find((c) => c.chainId === chainId);
+  if (!config || !('AccessListFactory' in config)) {
+    throw new Error(`No AccessListFactory deployed on chain ${chainId}`);
+  }
+  const factoryAddress = (config as any).AccessListFactory as string;
+  const factory = new AccesslistFactory(factoryAddress, signer);
+  const address = await factory.deployAccessListContract(
+    'BucketAccessList',
+    'BAL',
+    wallets.map(() => ''),
+    false,
+    owner,
+    wallets
+  );
+  if (!address) {
+    throw new Error('Failed to deploy access list contract');
+  }
+  return address;
+}
+
+export async function createNodeBucket({
+  accessLists,
+  authToken,
+  nodeUri,
+}: {
+  accessLists: PersistentStorageAccessList[];
+  authToken: string;
+  nodeUri: NodeUri;
+}): Promise<{ bucketId: string; owner: string; accessList: PersistentStorageAccessList[] }> {
+  return ProviderInstance.createPersistentStorageBucket(toNodeUri(nodeUri), authToken, { accessLists });
+}
+
+export async function listBucketFiles({
+  authToken,
+  bucketId,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageFileEntry[]> {
+  return ProviderInstance.listPersistentStorageFiles(toNodeUri(nodeUri), authToken, bucketId);
+}
+
+async function* fileToAsyncIterable(file: File): AsyncIterable<Uint8Array> {
+  const reader = file.stream().getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      if (value) yield value;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function uploadBucketFile({
+  authToken,
+  bucketId,
+  file,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  file: File;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageFileEntry> {
+  return ProviderInstance.uploadPersistentStorageFile(
+    toNodeUri(nodeUri),
+    authToken,
+    bucketId,
+    file.name,
+    fileToAsyncIterable(file)
+  );
+}
+
+export async function deleteBucketFile({
+  authToken,
+  bucketId,
+  fileName,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  fileName: string;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageDeleteFileResponse> {
+  return ProviderInstance.deletePersistentStorageFile(toNodeUri(nodeUri), authToken, bucketId, fileName);
+}
+
+export async function getAccessListAddresses({
+  contractAddress,
+  signer,
+}: {
+  contractAddress: string;
+  signer: Signer;
+}): Promise<string[]> {
+  const contract = new AccessListContract(contractAddress, signer);
+  const totalSupply = Number(await contract.contract.totalSupply());
+  const addresses: string[] = [];
+  for (let i = 0; i < totalSupply; i++) {
+    const tokenId = await contract.contract.tokenByIndex(i);
+    const owner: string = await contract.contract.ownerOf(tokenId);
+    addresses.push(owner);
+  }
+  return addresses;
+}
+
+export async function addToAccessList({
+  contractAddress,
+  signer,
+  wallet,
+}: {
+  contractAddress: string;
+  signer: Signer;
+  wallet: string;
+}): Promise<void> {
+  const contract = new AccessListContract(contractAddress, signer);
+  await contract.mint(wallet, '');
+}
+
+export async function removeFromAccessList({
+  contractAddress,
+  signer,
+  wallet,
+}: {
+  contractAddress: string;
+  signer: Signer;
+  wallet: string;
+}): Promise<void> {
+  const contract = new AccessListContract(contractAddress, signer);
+  const totalSupply = Number(await contract.contract.totalSupply());
+  for (let i = 0; i < totalSupply; i++) {
+    const tokenId = await contract.contract.tokenByIndex(i);
+    const owner: string = await contract.contract.ownerOf(tokenId);
+    if (owner.toLowerCase() === wallet.toLowerCase()) {
+      await contract.burn(Number(tokenId));
+      return;
+    }
+  }
+  throw new Error(`Wallet ${wallet} not found in access list`);
 }
