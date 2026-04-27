@@ -1,9 +1,33 @@
 /* Header */
 .header {
   align-items: start;
+  border-bottom: 1px solid var(--border-glass);
+  box-shadow: var(--drop-shadow-black);
   display: flex;
   gap: 24px;
   justify-content: space-between;
+  padding: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+
+  @media (min-width: 576px) {
+    padding: 16px 24px;
+  }
+}
+
+/* Body */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding: 16px;
+
+  @media (min-width: 576px) {
+    gap: 24px;
+    padding: 24px;
+  }
 }
 
 /* Title */

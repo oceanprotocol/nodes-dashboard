@@ -1,0 +1,40 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .sectionTitle {
+    font-size: 14px;
+    font-weight: 600;
+    margin-left: 16px;
+  }
+
+  .option {
+    padding: 8px 16px 16px;
+
+    .optionContent {
+      padding-left: 0;
+
+      @media (min-width: 576px) {
+        padding-left: 36px;
+      }
+    }
+
+    .optionDesc {
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .optionExtra {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-top: 16px;
+
+      &:not(:first-of-type) {
+        margin-top: 8px;
+      }
+    }
+  }
+}

@@ -1,21 +1,22 @@
-import Container from '@/components/container/container';
 import BenchmarkJobs from '@/components/node-details/benchmark-jobs';
 import Environments from '@/components/node-details/environments';
 import JobsRevenueStats from '@/components/node-details/jobs-revenue-stats';
+import NodeDetailsPageLayout from '@/components/node-details/node-details-page-layout';
 import NodeInfo from '@/components/node-details/node-info';
 import UnbanRequests from '@/components/node-details/unban-requests';
-import SectionTitle from '@/components/section-title/section-title';
 import { useNodesContext } from '@/context/nodes-context';
 import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { directNodeCommand } from '@/lib/direct-node-command';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
-import { CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-const NodeDetailsPage = () => {
+const NodeDetailsPage: React.FC = () => {
   const params = useParams<{ nodeId: string }>();
+
+  const { account } = useOceanAccount();
 
   const { getEnvs: getEnvsP2P, isReady: isP2PReady, sendCommand } = useP2P();
 
@@ -79,52 +80,31 @@ const NodeDetailsPage = () => {
     }
   }, [fetchUnbanRequests, node]);
 
-  if (loadingFetchNode) {
-    return (
-      <Container className="pageRoot">
-        <SectionTitle
-          moreReadable
-          title="Node details"
-          subTitle={
-            <div className="flexRow alignItemsCenter gapMd">
-              <CircularProgress size={24} />
-              <span>Retrieving node details...</span>
-            </div>
-          }
-        />
-      </Container>
-    );
-  }
-
-  if (!node) {
-    return (
-      <Container className="pageRoot">
-        <SectionTitle moreReadable title="Node details" subTitle="Node not found" />
-      </Container>
-    );
-  }
-
   return (
-    <Container className="pageRoot">
-      <SectionTitle
-        moreReadable
-        title="Node details"
-        subTitle="Check node status, performance, and available resources before running a job"
-      />
-      <div className="pageContentWrapper">
-        <NodeInfo envs={nodeEnvs} node={node} nodeOnline={connectedP2P || connectedDirectNodeCommand} />
-        <JobsRevenueStats envs={nodeEnvs} />
-        <BenchmarkJobs />
-        <Environments
-          envs={nodeEnvs}
-          nodeInfo={{
-            friendlyName: node.friendlyName,
-            id: node.id ?? node.nodeId,
-          }}
-        />
-        {node.banned === false && unbanRequests?.length === 0 ? null : <UnbanRequests node={node} />}
-      </div>
-    </Container>
+    <NodeDetailsPageLayout
+      activeTab="info"
+      isWalletConnected={account.isConnected}
+      loading={loadingFetchNode}
+      nodeId={node?.id ?? node?.nodeId}
+      notFound={!node}
+      subtitle="Check node status, performance, and available resources before running a job"
+    >
+      {node ? (
+        <>
+          <NodeInfo envs={nodeEnvs} node={node} nodeOnline={connectedP2P || connectedDirectNodeCommand} />
+          <JobsRevenueStats envs={nodeEnvs} />
+          <BenchmarkJobs />
+          <Environments
+            envs={nodeEnvs}
+            nodeInfo={{
+              friendlyName: node.friendlyName,
+              id: node.id ?? node.nodeId,
+            }}
+          />
+          {node.banned === false && unbanRequests?.length === 0 ? null : <UnbanRequests node={node} />}
+        </>
+      ) : null}
+    </NodeDetailsPageLayout>
   );
 };
 

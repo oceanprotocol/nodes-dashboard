@@ -1,3 +1,4 @@
+import { CHAIN_LABELS } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
@@ -70,6 +71,13 @@ export const formatNumber = (num: string | number): string => {
   return new Intl.NumberFormat('en-US').format(num);
 };
 
+export const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+};
+
 export const formatWalletAddress = (address: string): string => {
   if (address.length <= 10) {
     return address;
@@ -133,4 +141,8 @@ export const formatDateTime = (timestamp: number): string => {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+export const formatChainLabel = (chainId: number | string) => {
+  return `${CHAIN_LABELS[Number(chainId)] ?? 'Chain'} (${chainId})`;
 };

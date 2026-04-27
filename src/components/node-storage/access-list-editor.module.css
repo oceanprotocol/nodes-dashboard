@@ -1,0 +1,36 @@
+.walletEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.walletList {
+  align-items: center;
+  align-self: flex-start;
+  display: grid;
+  font-size: 12px;
+  gap: 4px 16px;
+  grid-template-columns: auto auto;
+  justify-items: flex-start;
+
+  .walletAddress {
+    font-family: monospace;
+    word-break: break-all;
+  }
+
+  .walletYou {
+    padding: 0 8px;
+  }
+}
+
+.addRow {
+  align-items: flex-start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 320px) {
+    align-items: center;
+    grid-template-columns: 1fr auto;
+  }
+}
