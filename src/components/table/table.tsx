@@ -2,6 +2,7 @@ import {
   benchmarkJobsColumns,
   jobsColumns,
   nodesLeaderboardColumns,
+  NodesLeaderboardColumnsVisibility,
   nodesLeaderboardHomeColumns,
   nodesTopByJobCountColumns,
   nodesTopByRevenueColumns,
@@ -11,7 +12,7 @@ import {
 } from '@/components/table/columns';
 import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
-import CustomToolbar from '@/components/table/custom-toolbar';
+import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';
 import { TableTypeEnum } from '@/components/table/table-type';
 import styled from '@emotion/styled';
 import {
@@ -25,8 +26,8 @@ import {
   GridValidRowModel,
   useGridApiRef,
 } from '@mui/x-data-grid';
-import { GridSlotsComponentsProps } from '@mui/x-data-grid/internals';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { GridSlotsComponentsProps, GridToolbarProps } from '@mui/x-data-grid/internals';
+import { JSXElementConstructor, useCallback, useMemo, useRef, useState } from 'react';
 
 const StyledRoot = styled('div')({
   display: 'flex',
@@ -44,16 +45,9 @@ const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHei
   },
 }));
 
-const StyledScrollWrapper = styled('div')({
-  overflowX: 'auto',
-  WebkitOverflowScrolling: 'touch',
-  width: '100%',
-});
-
 const StyledDataGrid = styled(DataGrid)<{ clickable?: boolean }>(({ clickable }) => ({
   background: 'none',
   border: 'none',
-  minWidth: 600,
   borderBottom: '1px solid var(--border)',
   borderRadius: 0,
   color: 'var(--text-primary)',
@@ -209,6 +203,17 @@ export const Table = <T extends GridValidRowModel>({
     }
   }, [tableType]);
 
+  const columnVisibilityModel = useMemo(() => {
+    switch (tableType) {
+      case TableTypeEnum.NODES_LEADERBOARD: {
+        return NodesLeaderboardColumnsVisibility;
+      }
+      default: {
+        return undefined;
+      }
+    }
+  }, [tableType]);
+
   const handlePaginationChange = useCallback(
     (model: { page: number; pageSize: number }) => {
       if (paginationType === 'context' && context) {
@@ -292,7 +297,7 @@ export const Table = <T extends GridValidRowModel>({
   }, []);
 
   const initialState = useMemo(() => {
-    const coreState: GridInitialState = { density: 'standard' };
+    const coreState: GridInitialState = { density: 'standard', columns: { columnVisibilityModel } };
     return paginationType === 'none'
       ? coreState
       : {
@@ -304,7 +309,7 @@ export const Table = <T extends GridValidRowModel>({
             },
           },
         };
-  }, [currentPage, pageSize, paginationType]);
+  }, [columnVisibilityModel, currentPage, pageSize, paginationType]);
 
   const paginationModel =
     paginationType === 'none'
@@ -314,7 +319,7 @@ export const Table = <T extends GridValidRowModel>({
           pageSize: pageSize,
         };
 
-  const slotProps: GridSlotsComponentsProps = {
+  const slotProps: GridSlotsComponentsProps & { toolbar: Partial<CustomToolbarProps> } = {
     basePopper: {
       style: {
         color: '#000000',
@@ -324,53 +329,52 @@ export const Table = <T extends GridValidRowModel>({
       variant: 'skeleton',
       noRowsVariant: 'skeleton',
     },
+    toolbar: {
+      searchTerm,
+      onSearchChange: handleSearchChange,
+      onReset: handleResetFilters,
+      tableType: tableType,
+      apiRef: apiRef.current ?? undefined,
+      // totalUptime: totalUptime,
+    },
   };
 
   const defaultGetRowId: GridRowIdGetter<GridValidRowModel> = (row) => row.id;
 
   return (
     <StyledRoot>
-      {showToolbar && (
-        <CustomToolbar
-          searchTerm={searchTerm}
-          onSearchChange={handleSearchChange}
-          onSearch={() => {}}
-          onReset={handleResetFilters}
-          tableType={tableType}
-          apiRef={apiRef.current ?? undefined}
-          totalUptime={null}
+      <StyledDataGridWrapper autoHeight={autoHeight}>
+        <StyledDataGrid
+          apiRef={apiRef}
+          clickable={!!onRowClick}
+          columns={(columns as GridColDef<GridValidRowModel>[]).map((col) => ({
+            minWidth: col.width ?? 120,
+            ...col,
+          }))}
+          disableColumnMenu
+          disableRowSelectionOnClick
+          filterMode={paginationType === 'none' ? 'client' : 'server'}
+          getRowId={getRowId ?? defaultGetRowId}
+          hideFooter
+          initialState={initialState}
+          loading={loading ?? context?.loading}
+          onFilterModelChange={handleFilterModelChange}
+          onPaginationModelChange={handlePaginationChange}
+          onRowClick={onRowClick}
+          onSortModelChange={handleSortModelChange}
+          pageSizeOptions={[10, 25, 50, 100]}
+          // pagination
+          paginationMode={paginationType === 'none' ? undefined : 'server'}
+          paginationModel={paginationModel}
+          processRowUpdate={processRowUpdate}
+          rowCount={totalItems}
+          rows={data}
+          showToolbar={showToolbar}
+          slots={{ toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps> }}
+          slotProps={slotProps}
+          sortingMode={paginationType === 'none' ? 'client' : 'server'}
         />
-      )}
-      <StyledScrollWrapper>
-        <StyledDataGridWrapper autoHeight={autoHeight}>
-          <StyledDataGrid
-            apiRef={apiRef}
-            clickable={!!onRowClick}
-            columns={columns as GridColDef<GridValidRowModel>[]}
-            disableColumnMenu
-            disableRowSelectionOnClick
-            filterMode={paginationType === 'none' ? 'client' : 'server'}
-            getRowId={getRowId ?? defaultGetRowId}
-            hideFooter
-            initialState={initialState}
-            loading={loading ?? context?.loading}
-            onFilterModelChange={handleFilterModelChange}
-            onPaginationModelChange={handlePaginationChange}
-            onRowClick={onRowClick}
-            onSortModelChange={handleSortModelChange}
-            pageSizeOptions={[10, 25, 50, 100]}
-            // pagination
-            paginationMode={paginationType === 'none' ? undefined : 'server'}
-            paginationModel={paginationModel}
-            processRowUpdate={processRowUpdate}
-            rowCount={totalItems}
-            rows={data}
-            slots={{}}
-            slotProps={slotProps}
-            sortingMode={paginationType === 'none' ? 'client' : 'server'}
-          />
-        </StyledDataGridWrapper>
-      </StyledScrollWrapper>
+      </StyledDataGridWrapper>
       {paginationType === 'none' ? null : (
         <CustomPagination
           page={currentPage}
