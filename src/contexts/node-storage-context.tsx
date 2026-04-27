@@ -2,14 +2,9 @@
 
 import { CHAIN_ID } from '@/constants/chains';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
+import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import {
-  addToAccessList,
-  createAuthToken,
-  deployAccessList,
-  getAccessListAddresses,
-  removeFromAccessList,
-} from '@/services/nodeService';
+import { createAuthToken } from '@/services/nodeService';
 import { BucketAccessState } from '@/types/node-storage';
 import { rowsToAccessLists } from '@/utils/access-list';
 import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
@@ -39,7 +34,7 @@ type NodeStorageContextType = {
   /** Create a bucket on a node */
   createBucket: (args: { nodeId: string; nodeUri: NodeUri; access: BucketAccessState }) => Promise<void>;
   /** Get wallet addresses in an access list contract */
-  getAccessList: (contractAddress: string) => Promise<string[]>;
+  getAccessListAddresses: (contractAddress: string) => Promise<string[]>;
   /** Add a wallet to an access list contract */
   addToAccessList: (args: { contractAddress: string; wallet: string }) => Promise<void>;
   /** Remove a wallet from an access list contract */
@@ -49,9 +44,12 @@ type NodeStorageContextType = {
 const NodeStorageContext = createContext<NodeStorageContextType | undefined>(undefined);
 
 export function NodeStorageProvider({ children }: { children: ReactNode }) {
-  const { account, signMessage, provider } = useOceanAccount();
+  const { account, signMessage } = useOceanAccount();
 
   const { createNodeBucket, deleteBucketFile, getNodeBuckets, listBucketFiles, uploadBucketFile } = useP2P();
+
+  const { deployNewAccessList, getAccessListAddresses, addWalletToAccessList, removeWalletFromAccessList } =
+    useAccessList();
 
   const [buckets, setBuckets] = useState<Record<string, PersistentStorageBucket[]>>({});
   const [bucketFiles, setBucketFiles] = useState<Record<string, PersistentStorageFileEntry[]>>({});
@@ -136,68 +134,19 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     [getToken, uploadBucketFile]
   );
 
-  const providerRef = useRef(provider);
-  providerRef.current = provider;
-
   const createBucket = useCallback(
     async ({ nodeId, nodeUri, access }: { nodeId: string; nodeUri: NodeUri; access: BucketAccessState }) => {
-      if (!account.address) {
-        throw new Error('Wallet not connected');
-      }
-      const p = providerRef.current;
-      if (!p) {
-        throw new Error('No provider available');
-      }
-      const signer = await p.getSigner();
-      let accessListAddress: string;
-      if (access.mode === 'existing') {
-        accessListAddress = access.address.trim();
-      } else {
-        accessListAddress = await deployAccessList({
-          chainId: CHAIN_ID,
-          owner: account.address,
-          signer,
-          wallets: access.wallets,
-        });
-      }
+      if (!account.address) throw new Error('Wallet not connected');
+      const accessListAddress =
+        access.mode === 'existing'
+          ? access.address.trim()
+          : await deployNewAccessList({ wallets: access.wallets, owner: account.address });
       const accessLists = rowsToAccessLists([{ chainId: String(CHAIN_ID), address: accessListAddress }]);
       const token = await getToken(nodeUri);
       await createNodeBucket({ accessLists, authToken: token, nodeUri });
       await fetchBuckets({ nodeId, nodeUri });
     },
-    [account.address, createNodeBucket, fetchBuckets, getToken]
-  );
-
-  const getSigner = useCallback(async () => {
-    const p = providerRef.current;
-    if (!p) {
-      throw new Error('No provider available');
-    }
-    return p.getSigner();
-  }, []);
-
-  const getAccessList = useCallback(
-    async (contractAddress: string) => {
-      const signer = await getSigner();
-      return getAccessListAddresses({ contractAddress, signer });
-    },
-    [getSigner]
-  );
-
-  const addToAccessListCtx = useCallback(
-    async ({ contractAddress, wallet }: { contractAddress: string; wallet: string }) => {
-      const signer = await getSigner();
-      return addToAccessList({ contractAddress, signer, wallet });
-    },
-    [getSigner]
-  );
-
-  const removeFromAccessListCtx = useCallback(
-    async ({ contractAddress, wallet }: { contractAddress: string; wallet: string }) => {
-      const signer = await getSigner();
-      return removeFromAccessList({ contractAddress, signer, wallet });
-    },
-    [getSigner]
+    [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, getToken]
   );
 
   const deleteFile = useCallback(
@@ -232,9 +181,9 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         uploadFile,
         deleteFile,
         createBucket,
-        getAccessList,
-        addToAccessList: addToAccessListCtx,
-        removeFromAccessList: removeFromAccessListCtx,
+        getAccessListAddresses: getAccessListAddresses,
+        addToAccessList: ({ contractAddress, wallet }) => addWalletToAccessList({ contractAddress, wallet }),
+        removeFromAccessList: ({ contractAddress, wallet }) => removeWalletFromAccessList({ contractAddress, wallet }),
       }}
     >
       {children}
@@ -244,8 +193,6 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
 
 export function useNodeStorage() {
   const ctx = useContext(NodeStorageContext);
-  if (!ctx) {
-    throw new Error('useNodeStorage must be used within NodeStorageProvider');
-  }
+  if (!ctx) throw new Error('useNodeStorage must be used within NodeStorageProvider');
   return ctx;
 }

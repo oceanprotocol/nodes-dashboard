@@ -22,7 +22,7 @@ type EditAccessListModalProps = {
 };
 
 const EditAccessListModalInner: React.FC<EditAccessListModalProps> = ({ currentAccount, onClose }) => {
-  const { getAccessList, addToAccessList, removeFromAccessList } = useNodeStorage();
+  const { getAccessListAddresses, addToAccessList, removeFromAccessList } = useNodeStorage();
 
   const [contractAddress, setContractAddress] = useState('');
   const [contractAddressError, setContractAddressError] = useState<string | null>(null);
@@ -44,7 +44,7 @@ const EditAccessListModalInner: React.FC<EditAccessListModalProps> = ({ currentA
     setContractAddressError(null);
     setLoading(true);
     try {
-      const result = await getAccessList(trimmed);
+      const result = await getAccessListAddresses(trimmed);
       setWallets(result);
       setEditing(true);
     } catch (e: any) {

@@ -57,7 +57,7 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
   node,
   onClose,
 }) => {
-  const { getAccessList, addToAccessList, removeFromAccessList } = useNodeStorage();
+  const { getAccessListAddresses, addToAccessList, removeFromAccessList } = useNodeStorage();
 
   const nodeId = node.id ?? node.nodeId;
   const friendlyName = node.friendlyName ?? nodeId;
@@ -84,7 +84,7 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
       if (accessListState.wallets.length > 0) {
         updateAccessListState(contractAddress, { loading: false });
       } else {
-        const wallets = await getAccessList(accessListState.contractAddress);
+        const wallets = await getAccessListAddresses(accessListState.contractAddress);
         updateAccessListState(contractAddress, { wallets, loading: false });
       }
     } catch (e: any) {

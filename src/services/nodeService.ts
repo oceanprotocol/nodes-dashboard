@@ -1,10 +1,7 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
-import Address from '@oceanprotocol/contracts/addresses/address.json';
 import {
-  AccessListContract,
-  AccesslistFactory,
   PROTOCOL_COMMANDS,
   ProviderInstance,
   type NodeLogsParams,
@@ -13,7 +10,6 @@ import {
   type PersistentStorageDeleteFileResponse,
   type PersistentStorageFileEntry,
 } from '@oceanprotocol/lib';
-import { Signer } from 'ethers';
 
 type NodeUri = string[] | string;
 
@@ -217,37 +213,6 @@ export async function getNodeBuckets({
   return ProviderInstance.getPersistentStorageBuckets(toNodeUri(nodeUri), authToken, ownerAddress);
 }
 
-export async function deployAccessList({
-  chainId,
-  owner,
-  signer,
-  wallets,
-}: {
-  chainId: number;
-  owner: string;
-  signer: Signer;
-  wallets: string[];
-}): Promise<string> {
-  const config = Object.values(Address).find((c) => c.chainId === chainId);
-  if (!config || !('AccessListFactory' in config)) {
-    throw new Error(`No AccessListFactory deployed on chain ${chainId}`);
-  }
-  const factoryAddress = (config as any).AccessListFactory as string;
-  const factory = new AccesslistFactory(factoryAddress, signer);
-  const address = await factory.deployAccessListContract(
-    'BucketAccessList',
-    'BAL',
-    wallets.map(() => ''),
-    false,
-    owner,
-    wallets
-  );
-  if (!address) {
-    throw new Error('Failed to deploy access list contract');
-  }
-  return address;
-}
-
 export async function createNodeBucket({
   accessLists,
   authToken,
@@ -317,57 +282,4 @@ export async function deleteBucketFile({
   nodeUri: NodeUri;
 }): Promise<PersistentStorageDeleteFileResponse> {
   return ProviderInstance.deletePersistentStorageFile(toNodeUri(nodeUri), authToken, bucketId, fileName);
-}
-
-export async function getAccessListAddresses({
-  contractAddress,
-  signer,
-}: {
-  contractAddress: string;
-  signer: Signer;
-}): Promise<string[]> {
-  const contract = new AccessListContract(contractAddress, signer);
-  const totalSupply = Number(await contract.contract.totalSupply());
-  const addresses: string[] = [];
-  for (let i = 0; i < totalSupply; i++) {
-    const tokenId = await contract.contract.tokenByIndex(i);
-    const owner: string = await contract.contract.ownerOf(tokenId);
-    addresses.push(owner);
-  }
-  return addresses;
-}
-
-export async function addToAccessList({
-  contractAddress,
-  signer,
-  wallet,
-}: {
-  contractAddress: string;
-  signer: Signer;
-  wallet: string;
-}): Promise<void> {
-  const contract = new AccessListContract(contractAddress, signer);
-  await contract.mint(wallet, '');
-}
-
-export async function removeFromAccessList({
-  contractAddress,
-  signer,
-  wallet,
-}: {
-  contractAddress: string;
-  signer: Signer;
-  wallet: string;
-}): Promise<void> {
-  const contract = new AccessListContract(contractAddress, signer);
-  const totalSupply = Number(await contract.contract.totalSupply());
-  for (let i = 0; i < totalSupply; i++) {
-    const tokenId = await contract.contract.tokenByIndex(i);
-    const owner: string = await contract.contract.ownerOf(tokenId);
-    if (owner.toLowerCase() === wallet.toLowerCase()) {
-      await contract.burn(Number(tokenId));
-      return;
-    }
-  }
-  throw new Error(`Wallet ${wallet} not found in access list`);
 }

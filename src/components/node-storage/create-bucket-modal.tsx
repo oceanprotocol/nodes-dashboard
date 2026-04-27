@@ -9,7 +9,7 @@ import { BucketAccessState } from '@/types/node-storage';
 import { Node } from '@/types/nodes';
 import { isAddress } from 'ethers';
 import { useFormik } from 'formik';
-import React, { useRef } from 'react';
+import React from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import styles from './create-bucket-modal.module.css';
@@ -28,9 +28,6 @@ type CreateBucketFormValues = {
 const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, node, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();
   const { createBucket } = useNodeStorage();
-
-  const providerRef = useRef(provider);
-  providerRef.current = provider;
 
   const nodeId = node.id ?? node.nodeId ?? '';
   const friendlyName = node.friendlyName ?? nodeId;
@@ -70,12 +67,11 @@ const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, node, onC
           if (!addr || !isAddress(addr)) {
             return true;
           }
-          const p = providerRef.current;
-          if (!p) {
+          if (!provider) {
             return true;
           }
           try {
-            const code = await p.getCode(addr);
+            const code = await provider.getCode(addr);
             return code !== '0x';
           } catch {
             return true;
