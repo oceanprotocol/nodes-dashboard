@@ -163,6 +163,31 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
     renderCell: (params) => params.value || <span className="textSecondary">Unknown</span>,
   },
+
+  {
+    field: 'ipAndDns.dns',
+    filterable: false,
+    flex: 1,
+    headerName: 'DNS',
+    sortable: false,
+    valueGetter: (_value, row) => row.ipAndDns?.dns,
+  },
+  {
+    field: 'location.ip',
+    filterable: false,
+    flex: 1,
+    headerName: 'IP',
+    sortable: true,
+    valueGetter: (_value, row) => row.location?.ip,
+  },
+  {
+    field: 'ipAndDns.port',
+    filterable: false,
+    flex: 1,
+    headerName: 'Port',
+    sortable: true,
+    valueGetter: (_value, row) => row.ipAndDns?.port,
+  },
   {
     align: 'right',
     field: 'actions',
@@ -175,6 +200,12 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     },
   },
 ];
+
+export const NodesLeaderboardColumnsVisibility = {
+  'ipAndDns.dns': false,
+  'location.ip': false,
+  'ipAndDns.port': false,
+};
 
 export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
   {

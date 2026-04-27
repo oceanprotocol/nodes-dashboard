@@ -2,6 +2,7 @@ import {
   benchmarkJobsColumns,
   jobsColumns,
   nodesLeaderboardColumns,
+  NodesLeaderboardColumnsVisibility,
   nodesLeaderboardHomeColumns,
   nodesTopByJobCountColumns,
   nodesTopByRevenueColumns,
@@ -202,6 +203,17 @@ export const Table = <T extends GridValidRowModel>({
     }
   }, [tableType]);
 
+  const columnVisibilityModel = useMemo(() => {
+    switch (tableType) {
+      case TableTypeEnum.NODES_LEADERBOARD: {
+        return NodesLeaderboardColumnsVisibility;
+      }
+      default: {
+        return undefined;
+      }
+    }
+  }, [tableType]);
+
   const handlePaginationChange = useCallback(
     (model: { page: number; pageSize: number }) => {
       if (paginationType === 'context' && context) {
@@ -285,7 +297,7 @@ export const Table = <T extends GridValidRowModel>({
   }, []);
 
   const initialState = useMemo(() => {
-    const coreState: GridInitialState = { density: 'standard' };
+    const coreState: GridInitialState = { density: 'standard', columns: { columnVisibilityModel } };
     return paginationType === 'none'
       ? coreState
       : {
@@ -297,7 +309,7 @@ export const Table = <T extends GridValidRowModel>({
             },
           },
         };
-  }, [currentPage, pageSize, paginationType]);
+  }, [columnVisibilityModel, currentPage, pageSize, paginationType]);
 
   const paginationModel =
     paginationType === 'none'
