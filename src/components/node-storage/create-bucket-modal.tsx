@@ -25,7 +25,7 @@ type CreateBucketFormValues = {
   access: BucketAccessState;
 };
 
-const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, node, onClose, onSave }) => {
+const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();
   const { createBucket } = useNodeStorage();
 
@@ -104,44 +104,50 @@ const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, node, onC
   const accessError = formik.touched.access && formik.errors.access ? (formik.errors.access as string) : undefined;
 
   return (
+    <form className={styles.form} onSubmit={formik.handleSubmit}>
+      <div className={styles.infoRow}>
+        <div className="textSecondary">Node:</div>
+        {friendlyName ? (
+          <div>
+            <strong>{friendlyName}</strong>
+            <div className="textSecondary">{nodeId}</div>
+          </div>
+        ) : (
+          <div>{nodeId}</div>
+        )}
+      </div>
+      <BucketAccess
+        value={formik.values.access}
+        onChange={(v) => {
+          formik.setFieldValue('access', v);
+          formik.setFieldTouched('access', true, false);
+        }}
+        currentAccount={account?.address}
+        error={accessError}
+      />
+      <div className="actionsGroupMdEnd">
+        <Button
+          color="accent1"
+          disabled={formik.isSubmitting}
+          onClick={onClose}
+          size="md"
+          variant="outlined"
+          type="button"
+        >
+          Cancel
+        </Button>
+        <Button color="accent1" loading={formik.isSubmitting} size="md" variant="filled" type="submit">
+          {formik.isSubmitting ? 'Creating…' : 'Create bucket'}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, node, onClose, onSave }) => {
+  return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create bucket" width="md" fullWidth>
-      <form className={styles.form} onSubmit={formik.handleSubmit}>
-        <div className={styles.infoRow}>
-          <div className="textSecondary">Node:</div>
-          {friendlyName ? (
-            <div>
-              <strong>{friendlyName}</strong>
-              <div className="textSecondary">{nodeId}</div>
-            </div>
-          ) : (
-            <div>{nodeId}</div>
-          )}
-        </div>
-        <BucketAccess
-          value={formik.values.access}
-          onChange={(v) => {
-            formik.setFieldValue('access', v);
-            formik.setFieldTouched('access', true, false);
-          }}
-          currentAccount={account?.address}
-          error={accessError}
-        />
-        <div className="actionsGroupMdEnd">
-          <Button
-            color="accent1"
-            disabled={formik.isSubmitting}
-            onClick={onClose}
-            size="md"
-            variant="outlined"
-            type="button"
-          >
-            Cancel
-          </Button>
-          <Button color="accent1" loading={formik.isSubmitting} size="md" variant="filled" type="submit">
-            {formik.isSubmitting ? 'Creating…' : 'Create bucket'}
-          </Button>
-        </div>
-      </form>
+      <CreateBucketModalInner isOpen={isOpen} node={node} onClose={onClose} onSave={onSave} />
     </Modal>
   );
 };
