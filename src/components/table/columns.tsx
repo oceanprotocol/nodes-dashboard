@@ -173,12 +173,12 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     valueGetter: (_value, row) => row.ipAndDns?.dns,
   },
   {
-    field: 'location.ip',
+    field: 'ipAndDns.ip',
     filterable: false,
     flex: 1,
     headerName: 'IP',
     sortable: true,
-    valueGetter: (_value, row) => row.location?.ip,
+    valueGetter: (_value, row) => row.ipAndDns?.ip,
   },
   {
     field: 'ipAndDns.port',
@@ -203,7 +203,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
 
 export const NodesLeaderboardColumnsVisibility = {
   'ipAndDns.dns': false,
-  'location.ip': false,
+  'ipAndDns.ip': false,
   'ipAndDns.port': false,
 };
 

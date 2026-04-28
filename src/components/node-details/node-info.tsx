@@ -190,8 +190,8 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
 
   const renderNodeIpAndDns = () => {
     const location: string[] = [];
-    if (node.location?.ip) {
-      location.push(node.location.ip);
+    if (node.ipAndDns?.ip) {
+      location.push(node.ipAndDns.ip);
     }
     if (node.ipAndDns?.dns) {
       location.push(node.ipAndDns.dns);
