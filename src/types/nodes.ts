@@ -34,7 +34,9 @@ export type Node = {
   id?: string;
   indexer?: Array<{ network: string }>;
   ipAndDns?: {
+    ip: string;
     dns: string;
+    port: number;
   };
   latestBenchmarkResults: {
     gpuScore: number;
