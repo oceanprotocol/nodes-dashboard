@@ -8,6 +8,7 @@ import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useNodeStorage } from '@/contexts/node-storage-context';
 import { Node } from '@/types/nodes';
+import { formatError } from '@/utils/formatters';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CachedIcon from '@mui/icons-material/Cached';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -50,7 +51,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
     try {
       await fetchBucketFiles({ bucketId, nodeUri });
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to load files');
+      toast.error(formatError({ error: e, fallback: 'The files could not be loaded.' }));
     }
   }, [bucketId, nodeUri, fetchBucketFiles]);
 
@@ -73,7 +74,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
       await uploadFile({ bucketId, nodeUri, file });
       toast.success(`${file.name} uploaded`);
     } catch (err: any) {
-      toast.error(err?.message ?? 'Upload failed');
+      toast.error(formatError({ error: err, fallback: 'Your file could not be uploaded.' }));
     }
   };
 
@@ -87,7 +88,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
       await deleteFile({ bucketId, fileName, nodeUri });
       toast.success(`${fileName} deleted`);
     } catch (err: any) {
-      toast.error(err?.message ?? 'Delete failed');
+      toast.error(formatError({ error: err, fallback: 'Your file could not be deleted.' }));
     }
   };
 

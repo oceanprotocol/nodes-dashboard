@@ -6,7 +6,7 @@ import Modal from '@/components/modal/modal';
 import AccessListEditor from '@/components/node-storage/access-list-editor';
 import { useNodeStorage } from '@/contexts/node-storage-context';
 import { Node } from '@/types/nodes';
-import { formatChainLabel } from '@/utils/formatters';
+import { formatChainLabel, formatError } from '@/utils/formatters';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { CircularProgress, Collapse } from '@mui/material';
 import { PersistentStorageBucket } from '@oceanprotocol/lib';
@@ -89,7 +89,9 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
       }
     } catch (e: any) {
       updateAccessListState(contractAddress, { loading: false });
-      toast.error(e?.message ?? 'Failed to load addresses');
+      toast.error(
+        formatError({ error: e, fallback: 'The wallet addresses for this access list could not be loaded.' })
+      );
     }
   }
 
@@ -101,7 +103,7 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
       updateAccessListState(contractAddress, { wallets: [...accessListState.wallets, wallet], saving: false });
     } catch (e: any) {
       updateAccessListState(contractAddress, { saving: false });
-      toast.error(e?.message ?? 'Failed to add wallet');
+      toast.error(formatError({ error: e, fallback: 'The wallet address could not be added to the access list.' }));
     }
   }
 
@@ -116,7 +118,7 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
       });
     } catch (e: any) {
       updateAccessListState(contractAddress, { saving: false });
-      toast.error(e?.message ?? 'Failed to remove wallet');
+      toast.error(formatError({ error: e, fallback: 'The wallet address could not be removed from the access list.' }));
     }
   }
 

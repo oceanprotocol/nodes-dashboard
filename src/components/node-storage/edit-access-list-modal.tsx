@@ -7,7 +7,7 @@ import Modal from '@/components/modal/modal';
 import AccessListEditor from '@/components/node-storage/access-list-editor';
 import { CHAIN_ID } from '@/constants/chains';
 import { useNodeStorage } from '@/contexts/node-storage-context';
-import { formatChainLabel } from '@/utils/formatters';
+import { formatChainLabel, formatError } from '@/utils/formatters';
 import { Collapse } from '@mui/material';
 import { isAddress } from 'ethers';
 import { useState } from 'react';
@@ -48,7 +48,7 @@ const EditAccessListModalInner: React.FC<EditAccessListModalProps> = ({ currentA
       setWallets(result);
       setEditing(true);
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to load access list');
+      toast.error(formatError({ error: e, fallback: 'The access list could not be loaded.' }));
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ const EditAccessListModalInner: React.FC<EditAccessListModalProps> = ({ currentA
       await addToAccessList({ contractAddress: contractAddress.trim(), wallet });
       setWallets((prev) => [...prev, wallet]);
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to add wallet');
+      toast.error(formatError({ error: e, fallback: 'The wallet address could not be added to the access list.' }));
     } finally {
       setSaving(false);
     }
@@ -72,7 +72,7 @@ const EditAccessListModalInner: React.FC<EditAccessListModalProps> = ({ currentA
       await removeFromAccessList({ contractAddress: contractAddress.trim(), wallet });
       setWallets((prev) => prev.filter((w) => w !== wallet));
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to remove wallet');
+      toast.error(formatError({ error: e, fallback: 'The wallet address could not be removed from the access list.' }));
     } finally {
       setSaving(false);
     }

@@ -7,6 +7,7 @@ import { useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
 import { Node } from '@/types/nodes';
+import { formatError } from '@/utils/formatters';
 import { isAddress } from 'ethers';
 import { useFormik } from 'formik';
 import React from 'react';
@@ -96,7 +97,7 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
         onClose();
         onSave?.();
       } catch (e: any) {
-        toast.error(e?.message ?? 'Failed to create bucket');
+        toast.error(formatError({ error: e, fallback: 'Your bucket could not be created.' }));
       }
     },
   });

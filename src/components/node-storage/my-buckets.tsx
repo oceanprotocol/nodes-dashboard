@@ -8,6 +8,7 @@ import { TableTypeEnum } from '@/components/table/table-type';
 import { useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
+import { formatError } from '@/utils/formatters';
 import CachedIcon from '@mui/icons-material/Cached';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
@@ -42,7 +43,7 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
     try {
       await fetchBuckets({ nodeId, nodeUri });
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to load buckets');
+      toast.error(formatError({ error: e, fallback: 'The buckets could not be loaded.' }));
     }
   }, [nodeId, nodeUri, fetchBuckets]);
 

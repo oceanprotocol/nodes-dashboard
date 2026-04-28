@@ -146,3 +146,46 @@ export const formatDateTime = (timestamp: number): string => {
 export const formatChainLabel = (chainId: number | string) => {
   return `${CHAIN_LABELS[Number(chainId)] ?? 'Chain'} (${chainId})`;
 };
+
+/**
+ * Format Alchemy/Ethers errors
+ * @param error - Error object
+ * @param fallback - Fallback error message
+ * @returns Formatted error message
+ */
+export function formatError({ error, fallback }: { error: unknown; fallback?: string }): string {
+  if (!error || typeof error !== 'object') {
+    return String(error ?? 'Unknown error');
+  }
+  const e = error as Record<string, any>;
+  // ethers ACTION_REJECTED
+  if (e.code === 'ACTION_REJECTED') {
+    return 'The action was rejected by the user.';
+  }
+  // ethers CALL_EXCEPTION with reason
+  if (e.code === 'CALL_EXCEPTION' && e.reason) {
+    return `Contract error: ${e.reason}`;
+  }
+  // ethers SERVER_ERROR / NETWORK_ERROR
+  if (e.code === 'SERVER_ERROR' || e.code === 'NETWORK_ERROR') {
+    return 'A network error occurred. Please try again.';
+  }
+  if (e?.shortMessage) {
+    return e.shortMessage;
+  }
+  if (e?.message) {
+    return e.message;
+  }
+  // Alchemy / JSON-RPC error with nested message
+  if (e?.error?.message) {
+    return e.error.message;
+  }
+  // Standard Error.message — strip ethers version suffix and raw params
+  if (typeof e.message === 'string') {
+    return e.message
+      .split(' (action=')[0]
+      .replace(/^ethers-[^:]+:\s*/i, '')
+      .trim();
+  }
+  return fallback ?? 'Something went wrong. Please try again.';
+}
