@@ -10,7 +10,6 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import CachedIcon from '@mui/icons-material/Cached';
 import EditIcon from '@mui/icons-material/Edit';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import SearchIcon from '@mui/icons-material/Search';
 import { PersistentStorageBucket } from '@oceanprotocol/lib';
 import { useRouter } from 'next/router';
@@ -86,34 +85,21 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
       <Table<PersistentStorageBucket>
         autoHeight
         actionsColumn={(params) => (
-          <>
-            <Button
-              color="accent1"
-              contentBefore={<EditIcon />}
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditBucket(params.row);
-              }}
-              size="sm"
-              variant="transparent"
-            >
-              Access
-            </Button>
-            <Button
-              color="accent1"
-              contentBefore={<FolderOpenIcon />}
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/nodes/${nodeId}/storage/${params.row.bucketId}/files`);
-              }}
-              size="sm"
-              variant="transparent"
-            >
-              Files
-            </Button>
-          </>
+          <Button
+            color="accent1"
+            contentBefore={<EditIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditBucket(params.row);
+            }}
+            size="sm"
+            variant="transparent"
+          >
+            Access
+          </Button>
         )}
         loading={loading}
+        onRowClick={({ row }) => router.push(`/nodes/${nodeId}/storage/${row.bucketId}/files`)}
         paginationType="none"
         tableType={TableTypeEnum.NODE_STORAGE_MY_BUCKETS}
         data={filteredBuckets}
