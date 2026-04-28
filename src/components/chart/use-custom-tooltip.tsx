@@ -1,4 +1,5 @@
 import { ChartTypeEnum } from '@/components/chart/chart-type';
+import config from '@/config';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 
@@ -12,6 +13,23 @@ type TooltipInfo = {
 type UseCustomTooltipProps = {
   chartType?: ChartTypeEnum;
   labelKey: string;
+};
+
+const EpochLabel: React.FC<{
+  children: React.ReactNode;
+  epoch: number;
+}> = ({ children, epoch }) => {
+  const onEpoch = epoch - config.epochDiff;
+  return (
+    <div>
+      <div>
+        {onEpoch < 1 ? <span>ON Testing Phase</span> : <span>ON Epoch {onEpoch.toLocaleString()}</span>}
+        :&nbsp;
+        <span>{children}</span>
+      </div>
+      <div className="text10 textSecondary">Unix epoch {epoch.toLocaleString()}</div>
+    </div>
+  );
 };
 
 const RechartsTooltipContent = ({ active, payload, label, cardIdRef, setTooltipInfo, mousePositionRef }: any) => {
@@ -88,7 +106,7 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
         mousePositionRef={mousePositionRef}
       />
     ),
-    [cardIdRef, setTooltipInfo, mousePositionRef]
+    []
   );
 
   const renderTooltipPortal = useCallback(() => {
@@ -137,9 +155,9 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
           tooltipContent = null;
         } else {
           tooltipContent = (
-            <div>
-              Epoch {label}: {Number(value).toLocaleString()} jobs
-            </div>
+            <EpochLabel epoch={Number(label)}>
+              <strong>{Number(value).toLocaleString()}</strong> jobs
+            </EpochLabel>
           );
         }
         break;
@@ -149,9 +167,9 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
           tooltipContent = null;
         } else {
           tooltipContent = (
-            <div>
-              Epoch {label}: USDC {Number(value).toLocaleString()}
-            </div>
+            <EpochLabel epoch={Number(label)}>
+              USDC <strong>{Number(value).toLocaleString()}</strong>
+            </EpochLabel>
           );
         }
         break;
