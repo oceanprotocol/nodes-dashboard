@@ -2,9 +2,9 @@
 
 import { CHAIN_ID } from '@/constants/chains';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
+import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { createAuthToken } from '@/services/nodeService';
 import { BucketAccessState } from '@/types/node-storage';
 import { rowsToAccessLists } from '@/utils/access-list';
 import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
@@ -26,13 +26,13 @@ type NodeStorageContextType = {
   /** Fetch buckets for a node */
   fetchBuckets: (args: { nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Fetch bucket files for a bucket */
-  fetchBucketFiles: (args: { bucketId: string; nodeUri: NodeUri }) => Promise<void>;
+  fetchBucketFiles: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Upload file to a bucket */
-  uploadFile: (args: { bucketId: string; nodeUri: NodeUri; file: File }) => Promise<void>;
+  uploadFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; file: File }) => Promise<void>;
   /** Delete file from a bucket */
-  deleteFile: (args: { bucketId: string; nodeUri: NodeUri; fileName: string }) => Promise<void>;
+  deleteFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; fileName: string }) => Promise<void>;
   /** Create a bucket on a node */
-  createBucket: (args: { nodeId: string; nodeUri: NodeUri; access: BucketAccessState }) => Promise<void>;
+  createBucket: (args: { access: BucketAccessState; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Get wallet addresses in an access list contract */
   getAccessListAddresses: (contractAddress: string) => Promise<string[]>;
   /** Add a wallet to an access list contract */
@@ -44,7 +44,8 @@ type NodeStorageContextType = {
 const NodeStorageContext = createContext<NodeStorageContextType | undefined>(undefined);
 
 export function NodeStorageProvider({ children }: { children: ReactNode }) {
-  const { account, signMessage } = useOceanAccount();
+  const { account } = useOceanAccount();
+  const { withNodeAuth } = useNodeAuth();
 
   const { createNodeBucket, deleteBucketFile, getNodeBuckets, listBucketFiles, uploadBucketFile } = useP2P();
 
@@ -68,17 +69,6 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     prevAddress.current = account.address;
   }, [account.address]);
 
-  const getToken = useCallback(
-    async (nodeUri: NodeUri) => {
-      if (!account.address) {
-        throw new Error('Wallet not connected');
-      }
-      const { token } = await createAuthToken({ consumerAddress: account.address, nodeUri, signMessage });
-      return token;
-    },
-    [account.address, signMessage]
-  );
-
   const fetchBuckets = useCallback(
     async ({ nodeId, nodeUri }: { nodeId: string; nodeUri: NodeUri }) => {
       if (!account.address) {
@@ -86,9 +76,10 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       }
       setFetchingBuckets((prev) => ({ ...prev, [nodeId]: true }));
       try {
-        const token = await getToken(nodeUri);
-        const all = await getNodeBuckets({ authToken: token, nodeUri, ownerAddress: account.address });
-        const owned = all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
+        const owned = await withNodeAuth(nodeId, nodeUri, async (token) => {
+          const all = await getNodeBuckets({ authToken: token, nodeUri, ownerAddress: account.address! });
+          return all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
+        });
         setBuckets((prev) => ({ ...prev, [nodeId]: owned }));
       } catch (e) {
         setBuckets((prev) => ({ ...prev, [nodeId]: prev[nodeId] ?? [] }));
@@ -97,15 +88,16 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setFetchingBuckets((prev) => ({ ...prev, [nodeId]: false }));
       }
     },
-    [account.address, getNodeBuckets, getToken]
+    [account.address, getNodeBuckets, withNodeAuth]
   );
 
   const fetchBucketFiles = useCallback(
-    async ({ bucketId, nodeUri }: { bucketId: string; nodeUri: NodeUri }) => {
+    async ({ bucketId, nodeId, nodeUri }: { bucketId: string; nodeId: string; nodeUri: NodeUri }) => {
       setFetchingFiles((prev) => ({ ...prev, [bucketId]: true }));
       try {
-        const token = await getToken(nodeUri);
-        const files = await listBucketFiles({ authToken: token, bucketId, nodeUri });
+        const files = await withNodeAuth(nodeId, nodeUri, (token) =>
+          listBucketFiles({ authToken: token, bucketId, nodeUri })
+        );
         setBucketFiles((prev) => ({ ...prev, [bucketId]: files }));
       } catch (e) {
         setBucketFiles((prev) => ({ ...prev, [bucketId]: prev[bucketId] ?? [] }));
@@ -114,15 +106,16 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setFetchingFiles((prev) => ({ ...prev, [bucketId]: false }));
       }
     },
-    [getToken, listBucketFiles]
+    [withNodeAuth, listBucketFiles]
   );
 
   const uploadFile = useCallback(
-    async ({ bucketId, nodeUri, file }: { bucketId: string; nodeUri: NodeUri; file: File }) => {
+    async ({ bucketId, nodeId, nodeUri, file }: { bucketId: string; nodeId: string; nodeUri: NodeUri; file: File }) => {
       setUploadingFile((prev) => ({ ...prev, [bucketId]: true }));
       try {
-        const token = await getToken(nodeUri);
-        const entry = await uploadBucketFile({ authToken: token, bucketId, file, nodeUri });
+        const entry = await withNodeAuth(nodeId, nodeUri, (token) =>
+          uploadBucketFile({ authToken: token, bucketId, file, nodeUri })
+        );
         setBucketFiles((prev) => ({
           ...prev,
           [bucketId]: [...(prev[bucketId] ?? []).filter((f) => f.name !== entry.name), entry],
@@ -131,31 +124,41 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setUploadingFile((prev) => ({ ...prev, [bucketId]: false }));
       }
     },
-    [getToken, uploadBucketFile]
+    [withNodeAuth, uploadBucketFile]
   );
 
   const createBucket = useCallback(
-    async ({ nodeId, nodeUri, access }: { nodeId: string; nodeUri: NodeUri; access: BucketAccessState }) => {
+    async ({ access, nodeId, nodeUri }: { access: BucketAccessState; nodeId: string; nodeUri: NodeUri }) => {
       if (!account.address) throw new Error('Wallet not connected');
       const accessListAddress =
         access.mode === 'existing'
           ? access.address.trim()
           : await deployNewAccessList({ wallets: access.wallets, owner: account.address });
       const accessLists = rowsToAccessLists([{ chainId: String(CHAIN_ID), address: accessListAddress }]);
-      const token = await getToken(nodeUri);
-      await createNodeBucket({ accessLists, authToken: token, nodeUri });
+      await withNodeAuth(nodeId, nodeUri, (token) => createNodeBucket({ accessLists, authToken: token, nodeUri }));
       await fetchBuckets({ nodeId, nodeUri });
     },
-    [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, getToken]
+    [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, withNodeAuth]
   );
 
   const deleteFile = useCallback(
-    async ({ bucketId, nodeUri, fileName }: { bucketId: string; nodeUri: NodeUri; fileName: string }) => {
+    async ({
+      bucketId,
+      nodeId,
+      nodeUri,
+      fileName,
+    }: {
+      bucketId: string;
+      nodeId: string;
+      nodeUri: NodeUri;
+      fileName: string;
+    }) => {
       const key = `${bucketId}:${fileName}`;
       setDeletingFile((prev) => ({ ...prev, [key]: true }));
       try {
-        const token = await getToken(nodeUri);
-        await deleteBucketFile({ authToken: token, bucketId, fileName, nodeUri });
+        await withNodeAuth(nodeId, nodeUri, (token) =>
+          deleteBucketFile({ authToken: token, bucketId, fileName, nodeUri })
+        );
         setBucketFiles((prev) => ({
           ...prev,
           [bucketId]: (prev[bucketId] ?? []).filter((f) => f.name !== fileName),
@@ -164,7 +167,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setDeletingFile((prev) => ({ ...prev, [key]: false }));
       }
     },
-    [deleteBucketFile, getToken]
+    [deleteBucketFile, withNodeAuth]
   );
 
   return (

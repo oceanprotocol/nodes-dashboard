@@ -49,11 +49,11 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
 
   const loadFiles = useCallback(async () => {
     try {
-      await fetchBucketFiles({ bucketId, nodeUri });
+      await fetchBucketFiles({ bucketId, nodeId, nodeUri });
     } catch (e: any) {
       toast.error(formatError({ error: e, fallback: 'The files could not be loaded.' }));
     }
-  }, [bucketId, nodeUri, fetchBucketFiles]);
+  }, [nodeId, bucketId, nodeUri, fetchBucketFiles]);
 
   useEffect(() => {
     if (!(bucketId in bucketFiles) && !alreadyLoaded) {
@@ -71,7 +71,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
       return;
     }
     try {
-      await uploadFile({ bucketId, nodeUri, file });
+      await uploadFile({ bucketId, file, nodeId, nodeUri });
       toast.success(`${file.name} uploaded`);
     } catch (err: any) {
       toast.error(formatError({ error: err, fallback: 'Your file could not be uploaded.' }));
@@ -85,7 +85,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
     const fileName = pendingDelete;
     setPendingDelete(null);
     try {
-      await deleteFile({ bucketId, fileName, nodeUri });
+      await deleteFile({ bucketId, fileName, nodeId, nodeUri });
       toast.success(`${fileName} deleted`);
     } catch (err: any) {
       toast.error(formatError({ error: err, fallback: 'Your file could not be deleted.' }));
