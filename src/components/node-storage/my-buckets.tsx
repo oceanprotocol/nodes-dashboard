@@ -85,20 +85,22 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
       />
       <Table<PersistentStorageBucket>
         autoHeight
-        actionsColumn={(params) => (
-          <Button
-            color="accent1"
-            contentBefore={<EditIcon />}
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditBucket(params.row);
-            }}
-            size="sm"
-            variant="transparent"
-          >
-            Access
-          </Button>
-        )}
+        actionsColumn={(params) =>
+          params.row.accessLists.length > 0 ? (
+            <Button
+              color="accent1"
+              contentBefore={<EditIcon />}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditBucket(params.row);
+              }}
+              size="sm"
+              variant="transparent"
+            >
+              Access
+            </Button>
+          ) : null
+        }
         loading={loading}
         onRowClick={({ row }) => router.push(`/nodes/${nodeId}/storage/${row.bucketId}/files`)}
         paginationType="none"
