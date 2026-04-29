@@ -175,7 +175,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
             </Button>
           </div>
         ) : (
-          <span className="textSecondary">Private (no access list)</span>
+          <span className="textSecondary">Owner-only (no access list)</span>
         )}
       </div>
 

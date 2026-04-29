@@ -107,7 +107,7 @@ const BucketAccess: React.FC<BucketAccessProps> = ({ value, onChange, currentAcc
         <Checkbox
           checked={value.mode === 'none'}
           className="alignSelfStart"
-          label="Private (no access list)"
+          label="Owner-only (no access list)"
           onChange={() => handleModeChange('none')}
           type="single"
         />

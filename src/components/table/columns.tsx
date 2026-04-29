@@ -755,7 +755,7 @@ export const nodeStorageMyBucketsColumns: GridColDef<PersistentStorageBucket>[] 
     sortable: false,
     renderCell: ({ value }) => {
       if (!value?.length) {
-        return <span className="textSecondary">Private (no access list)</span>;
+        return <span className="textSecondary">Owner-only (no access list)</span>;
       }
       return formatAccessLists(value, { shortenAddresses: true }).join(', ');
     },
