@@ -3,11 +3,21 @@ import { UnbanRequest, UnbanRequestsResponse } from '@/types/unban-requests';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
+type UnbanResult = {
+  success: boolean;
+  message?: string;
+};
+
 type UnbanRequestsContextType = {
   unbanRequests: UnbanRequest[];
 
   fetchUnbanRequests: (nodeId: string) => Promise<void>;
-  requestNodeUnban: (nodeId: string, signature: string, expiryTimestamp: number, address: string) => Promise<void>;
+  requestNodeUnban: (
+    nodeId: string,
+    signature: string,
+    expiryTimestamp: number,
+    address: string
+  ) => Promise<UnbanResult>;
 };
 
 const UnbanRequestsContext = createContext<UnbanRequestsContextType | undefined>(undefined);
@@ -31,15 +41,24 @@ export const UnbanRequestsProvider = ({ children }: { children: ReactNode }) => 
   }, []);
 
   const requestNodeUnban = useCallback(
-    async (nodeId: string, signature: string, expiryTimestamp: number, address: string) => {
+    async (nodeId: string, signature: string, expiryTimestamp: number, address: string): Promise<UnbanResult> => {
       try {
-        await axios.post(`${getApiRoute('nodeUnbanRequests')}/${nodeId}/unban`, {
-          signature,
-          expiryTimestamp,
-          address,
-        });
+        const response = await axios.post<UnbanResult>(
+          `${getApiRoute('nodeUnbanRequests')}/${nodeId}/unban`,
+          { signature, expiryTimestamp, address }
+        );
+        return {
+          success: response.data?.success ?? true,
+          message: response.data?.message,
+        };
       } catch (error) {
         console.error('Error requesting node unban: ', error);
+        const message = axios.isAxiosError(error)
+          ? error.response?.data?.message ?? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Unknown error';
+        return { success: false, message };
       }
     },
     []
