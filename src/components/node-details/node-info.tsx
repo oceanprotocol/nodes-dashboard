@@ -190,11 +190,14 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
 
   const renderNodeIpAndDns = () => {
     const location: string[] = [];
-    if (node.location?.ip) {
-      location.push(node.location.ip);
+    if (node.ipAndDns?.ip) {
+      location.push(node.ipAndDns.ip);
     }
     if (node.ipAndDns?.dns) {
       location.push(node.ipAndDns.dns);
+    }
+    if (node.ipAndDns?.port || node.ipAndDns?.port === 0) {
+      location.push(`Port ${node.ipAndDns.port}`);
     }
     if (location.length > 0) {
       return location.join(' / ');
@@ -244,7 +247,6 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
                 {node.platform?.osType ? <div>{node.platform?.osType}</div> : <div>Unknown</div>}
               </>
             }
-
             <LocationPinIcon className={styles.icon} />
             <div>{renderNodeLocation()}</div>
           </div>

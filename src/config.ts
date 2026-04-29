@@ -48,6 +48,13 @@ type Config = {
     [key: string]: string;
   };
   supportEmail: string;
+  /**
+   * Diff between ON Epoch 1 and Unix 0.
+   * ON Epoch is displayed to users in the UI.
+   * Unix epoch is used in data.
+   * 1 epoch = 7 days.
+   */
+  epochDiff: number;
 };
 
 const config: Config = {
@@ -99,6 +106,11 @@ const config: Config = {
   cookies: {
     accessToken: 'access_token',
   },
+  /**
+   * Unix epoch 0 from 1970-01-01.
+   * ON Epoch 1 from 2026-02-26.
+   */
+  epochDiff: 2929,
 };
 
 export default config;

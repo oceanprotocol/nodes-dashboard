@@ -66,13 +66,9 @@ const VBarChart = ({ axisKey, barKey, chartType, data, footer, minBars, title }:
   }, [axisKey, barKey, data, minBars]);
 
   return (
-    <div className={styles.chartWrapper}>
+    <div className={styles.chartWrapper} onMouseLeave={handleMouseLeave}>
       <h3 className={styles.heading}>{title}</h3>
-      <div
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        style={{ width: '100%', height: '100%', position: 'relative' }}
-      >
+      <div onMouseMove={handleMouseMove} style={{ width: '100%', height: '100%', position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
           <RechartsBarChart
             barGap={-8}
