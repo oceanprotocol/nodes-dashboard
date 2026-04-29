@@ -22,10 +22,19 @@ type BucketAccessProps = {
 
 const BucketAccess: React.FC<BucketAccessProps> = ({ value, onChange, currentAccount, error }) => {
   function handleModeChange(mode: BucketAccessStateType) {
-    if (mode === 'existing') {
-      onChange({ mode: 'existing', address: '' });
-    } else {
-      onChange({ mode: 'new', wallets: currentAccount ? [currentAccount] : [] });
+    switch (mode) {
+      case 'existing': {
+        onChange({ mode: 'existing', address: '' });
+        break;
+      }
+      case 'none': {
+        onChange({ mode: 'none' });
+        break;
+      }
+      case 'new': {
+        onChange({ mode: 'new', wallets: currentAccount ? [currentAccount] : [] });
+        break;
+      }
     }
   }
 
@@ -91,6 +100,20 @@ const BucketAccess: React.FC<BucketAccessProps> = ({ value, onChange, currentAcc
             </Collapse>
           ) : null}
         </TransitionGroup>
+      </Card>
+
+      {/* No access list */}
+      <Card className={styles.option} direction="column" padding="sm" radius="sm" variant="glass">
+        <Checkbox
+          checked={value.mode === 'none'}
+          className="alignSelfStart"
+          label="Private (no access list)"
+          onChange={() => handleModeChange('none')}
+          type="single"
+        />
+        <div className={classNames(styles.optionContent, styles.optionDesc)}>
+          Only you can access this bucket. It cannot be shared later.
+        </div>
       </Card>
     </div>
   );

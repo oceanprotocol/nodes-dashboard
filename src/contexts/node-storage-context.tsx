@@ -7,7 +7,7 @@ import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
 import { rowsToAccessLists } from '@/utils/access-list';
-import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
+import { PersistentStorageAccessList, PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 type NodeStorageContextType = {
@@ -129,12 +129,25 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
 
   const createBucket = useCallback(
     async ({ access, nodeId, nodeUri }: { access: BucketAccessState; nodeId: string; nodeUri: NodeUri }) => {
-      if (!account.address) throw new Error('Wallet not connected');
-      const accessListAddress =
-        access.mode === 'existing'
-          ? access.address.trim()
-          : await deployNewAccessList({ wallets: access.wallets, owner: account.address });
-      const accessLists = rowsToAccessLists([{ chainId: String(CHAIN_ID), address: accessListAddress }]);
+      if (!account.address) {
+        throw new Error('Wallet not connected');
+      }
+      let accessLists: PersistentStorageAccessList[];
+      switch (access.mode) {
+        case 'existing': {
+          accessLists = rowsToAccessLists([{ chainId: String(CHAIN_ID), address: access.address.trim() }]);
+          break;
+        }
+        case 'none': {
+          accessLists = [];
+          break;
+        }
+        case 'new': {
+          const accessListAddress = await deployNewAccessList({ wallets: access.wallets, owner: account.address });
+          accessLists = rowsToAccessLists([{ chainId: String(CHAIN_ID), address: accessListAddress }]);
+          break;
+        }
+      }
       await withNodeAuth(nodeId, nodeUri, (token) => createNodeBucket({ accessLists, authToken: token, nodeUri }));
       await fetchBuckets({ nodeId, nodeUri });
     },

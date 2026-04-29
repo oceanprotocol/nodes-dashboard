@@ -754,6 +754,9 @@ export const nodeStorageMyBucketsColumns: GridColDef<PersistentStorageBucket>[] 
     headerName: 'Access list',
     sortable: false,
     renderCell: ({ value }) => {
+      if (!value?.length) {
+        return <span className="textSecondary">Private (no access list)</span>;
+      }
       const accessListLabels: string[] = [];
       for (const accessList of value) {
         const chains = Object.keys(accessList);

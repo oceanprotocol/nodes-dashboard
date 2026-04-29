@@ -51,6 +51,9 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
           if (value.mode === 'new') {
             return value.wallets.length > 0;
           }
+          if (value.mode === 'none') {
+            return true;
+          }
           return false;
         })
         .test('access-existing-format', 'Invalid Ethereum address', (value) => {

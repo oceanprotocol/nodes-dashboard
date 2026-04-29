@@ -1,4 +1,4 @@
-export type BucketAccessStateType = 'new' | 'existing';
+export type BucketAccessStateType = 'new' | 'existing' | 'none';
 
 export type BucketAccessState =
   | {
@@ -8,6 +8,9 @@ export type BucketAccessState =
   | {
       mode: 'existing';
       address: string;
+    }
+  | {
+      mode: 'none';
     };
 
 export type ChainAddressPair = {
