@@ -11,7 +11,7 @@ import {
   GRANT_ROLE_CHOICES,
   SubmitGrantDetailsResponse,
 } from '@/types/grant';
-import { useAuthModal } from '@account-kit/react';
+import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
@@ -34,22 +34,13 @@ type DetailsFormValues = {
 };
 
 const Details: React.FC = () => {
-  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+  const { login } = usePrivy();
   const { account } = useOceanAccount();
   const router = useRouter();
 
   const { clearGrantSelection, grantDetails, setGrantDetails } = useGrantContext();
 
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
-
-  // This is a workaround for the modal not closing after connecting
-  // https://github.com/alchemyplatform/aa-sdk/issues/2327
-  // TODO remove once the issue is fixed
-  useEffect(() => {
-    if (isAuthModalOpen && account.isConnected) {
-      closeAuthModal();
-    }
-  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     clearGrantSelection();
@@ -67,7 +58,7 @@ const Details: React.FC = () => {
     },
     onSubmit: async (values) => {
       if (!account.isConnected || !account.address) {
-        openAuthModal();
+        login();
         return;
       }
       try {

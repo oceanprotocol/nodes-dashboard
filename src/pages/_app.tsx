@@ -52,7 +52,7 @@ const muiTheme = createTheme({
   },
 });
 
-export default function DashboardApp({ Component, pageProps, cookie }: AppProps & { cookie?: string }) {
+export default function DashboardApp({ Component, pageProps }: AppProps) {
   const queryClientRef = useRef<QueryClient>();
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient();
@@ -82,7 +82,7 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
       <ThemeProvider theme={muiTheme}>
         <GitBookProvider siteURL={config.links.docs}>
           <QueryClientProvider client={queryClientRef.current}>
-            <AlchemyProvider cookie={cookie}>
+            <AlchemyProvider>
               <OceanAccountProvider>
                 <GrantProvider>
                   <NodesProvider>
@@ -119,11 +119,5 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
 
 DashboardApp.getInitialProps = async (context: AppContext) => {
   const appProps = await App.getInitialProps(context);
-  const req = context.ctx.req;
-  const cookie = req ? req.headers.cookie : undefined;
-
-  return {
-    ...appProps,
-    cookie,
-  };
+  return appProps;
 };

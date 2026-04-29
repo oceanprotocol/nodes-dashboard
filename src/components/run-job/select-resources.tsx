@@ -11,7 +11,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
-import { useAuthModal } from '@account-kit/react';
+import { usePrivy } from '@privy-io/react-auth';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { useFormik } from 'formik';
@@ -38,7 +38,7 @@ type ResourcesFormValues = {
 };
 
 const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
-  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+  const { login } = usePrivy();
   const router = useRouter();
 
   const { account } = useOceanAccount();
@@ -69,15 +69,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       tokenAddress: token?.address ?? '',
     });
 
-  // This is a workaround for the modal not closing after connecting
-  // https://github.com/alchemyplatform/aa-sdk/issues/2327
-  // TODO remove once the issue is fixed
-  useEffect(() => {
-    if (isAuthModalOpen && account.isConnected) {
-      closeAuthModal();
-    }
-  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
-
   const minAllowedCpuCores = cpu?.min ?? 1;
   const minAllowedDiskSpace = disk?.min ?? 0;
   const minAllowedJobDurationSeconds = minJobDurationSeconds ?? 0;
@@ -106,7 +97,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     },
     onSubmit: (values) => {
       if (!account?.isConnected) {
-        openAuthModal();
+        login();
         return;
       }
       if (!freeCompute && !estimatedTotalCost) {

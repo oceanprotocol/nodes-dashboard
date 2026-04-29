@@ -2,15 +2,8 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
-import {
-  useAccount,
-  useSendUserOperation,
-  useSignerStatus,
-  useSignMessage,
-  useSmartAccountClient,
-  useUser,
-  UseUserResult,
-} from '@account-kit/react';
+import { useAlchemySendTransaction } from '@account-kit/privy-integration';
+import { getEmbeddedConnectedWallet, usePrivy, useWallets } from '@privy-io/react-auth';
 import { CircularProgress } from '@mui/material';
 import { ethers } from 'ethers';
 import posthog from 'posthog-js';
@@ -30,12 +23,14 @@ class MetaMaskBrowserProvider extends ethers.BrowserProvider {
 
 export type SignMessageFn = (message: string) => Promise<string>;
 
+// Minimal user shape kept for backwards-compat with SCA/EOA guards in transaction hooks
+export type OceanUser = { type: 'sca'; address: string } | { type: 'eoa'; address?: string } | null;
+
 type OceanAccountContextType = {
   account: {
     address: string | undefined;
     isConnected: boolean;
   };
-  client?: ReturnType<typeof useSmartAccountClient>['client'];
   isSendingTransaction: boolean;
   ocean: OceanProvider | null;
   provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
@@ -46,18 +41,19 @@ type OceanAccountContextType = {
     onError?: (error: any) => void;
   }) => void;
   signMessage: SignMessageFn;
-  user: UseUserResult;
+  user: OceanUser;
 };
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
 const SCAHandler = ({ children }: { children: ReactNode }) => {
-  const user = useUser();
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({ client });
+  const { user: privyUser, signMessage: privySignMessage } = usePrivy();
+  const { wallets } = useWallets();
+  const { sendTransaction: alchemySendTransaction, isLoading: isSendingUserOperation } = useAlchemySendTransaction();
 
-  const address = client?.account?.address ?? user?.address;
-  const isConnected = !!client;
+  const embeddedWallet = getEmbeddedConnectedWallet(wallets);
+  const address = embeddedWallet?.address ?? (privyUser as any)?.wallet?.address;
+  const isConnected = !!address;
 
   useEffect(() => {
     if (address) {
@@ -78,18 +74,14 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 
   const signMessageWrapper = useCallback(
     async (message: string) => {
-      return await signMessageAsync({ message });
+      const { signature } = await privySignMessage({ message });
+      return signature;
     },
-    [signMessageAsync]
+    [privySignMessage]
   );
 
-  const { sendUserOperation, isSendingUserOperation } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-  });
-
   const sendTransactionWrapper = useCallback(
-    ({
+    async ({
       target,
       data,
       onSuccess,
@@ -100,32 +92,27 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
       onSuccess?: (result: any) => void;
       onError?: (error: any) => void;
     }) => {
-      sendUserOperation(
-        {
-          uo: {
-            target: target as `0x${string}`,
-            data: data as `0x${string}`,
-          },
-        },
-        {
-          onSuccess: (result: any) => {
-            onSuccess?.(result);
-          },
-          onError: (error: any) => {
-            onError?.(error);
-          },
-        }
-      );
+      try {
+        const result = await alchemySendTransaction({
+          to: target as `0x${string}`,
+          data: data as `0x${string}`,
+        });
+        // Normalize txnHash → hash so callers expecting ethers-style receipt work uniformly
+        onSuccess?.({ ...result, hash: result.txnHash });
+      } catch (error) {
+        onError?.(error);
+      }
     },
-    [sendUserOperation]
+    [alchemySendTransaction]
   );
+
+  const user: OceanUser = address ? { type: 'sca', address } : null;
 
   return (
     <OceanAccountContext.Provider
       value={{
         account: { address, isConnected },
         isSendingTransaction: isSendingUserOperation,
-        client,
         ocean,
         provider,
         sendTransaction: sendTransactionWrapper,
@@ -139,11 +126,24 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 };
 
 const EOAHandler = ({ children }: { children: ReactNode }) => {
-  const user = useUser();
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
 
-  const address = user?.address;
-  const isConnected = !!user;
+  // EOA address comes from window.ethereum — derive it from the provider
+  const provider = useMemo(() => {
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      return new MetaMaskBrowserProvider((window as any).ethereum);
+    }
+    return null;
+  }, []);
+
+  const [address, setAddress] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!provider) return;
+    provider.getSigner().then((s) => s.getAddress().then(setAddress)).catch(() => {});
+  }, [provider]);
+
+  const isConnected = !!address;
 
   useEffect(() => {
     if (address) {
@@ -151,13 +151,6 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
       posthog.capture('login', { address, type: 'eoa' });
     }
   }, [address]);
-
-  const provider = useMemo(() => {
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
-      return new MetaMaskBrowserProvider((window as any).ethereum);
-    }
-    return null;
-  }, []);
 
   const ocean = useMemo(() => {
     if (!provider) return null;
@@ -210,6 +203,8 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
     [provider]
   );
 
+  const user: OceanUser = { type: 'eoa', address };
+
   return (
     <OceanAccountContext.Provider
       value={{
@@ -228,27 +223,29 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 };
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
-  const user = useUser();
+  const { ready, authenticated } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
 
-  const { account, isLoadingAccount } = useAccount({ type: 'LightAccount' });
-  const { isInitializing, isAuthenticating, isConnected } = useSignerStatus();
+  const embeddedWallet = getEmbeddedConnectedWallet(wallets);
 
-  if (user?.type === 'sca') {
-    if (isInitializing || isAuthenticating || !isConnected || isLoadingAccount || !account) {
-      return (
-        <div
-          style={{
-            alignItems: 'center',
-            display: 'flex',
-            justifyContent: 'center',
-            height: '100vh',
-            width: '100vw',
-          }}
-        >
-          <CircularProgress />
-        </div>
-      );
-    }
+  // Show spinner while Privy is loading after authentication
+  if (authenticated && (!ready || !walletsReady)) {
+    return (
+      <div
+        style={{
+          alignItems: 'center',
+          display: 'flex',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100vw',
+        }}
+      >
+        <CircularProgress />
+      </div>
+    );
+  }
+
+  if (authenticated && embeddedWallet) {
     return <SCAHandler>{children}</SCAHandler>;
   }
   return <EOAHandler>{children}</EOAHandler>;

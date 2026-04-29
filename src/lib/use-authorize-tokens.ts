@@ -1,15 +1,12 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { getRpc } from '@/lib/constants';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSendUserOperation } from '@account-kit/react';
+import { useAlchemySendTransaction } from '@account-kit/privy-integration';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
-import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
-import { ethers } from 'ethers';
 import posthog from 'posthog-js';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
 
@@ -33,46 +30,20 @@ export interface UseAuthorizeTokensReturn {
 }
 
 export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {}): UseAuthorizeTokensReturn => {
-  const { client, ocean, user } = useOceanAccount();
+  const { ocean, user } = useOceanAccount();
+  const { sendTransaction } = useAlchemySendTransaction();
 
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [error, setError] = useState<string>();
+  const [transactionUrl, setTransactionUrl] = useState<string | undefined>(undefined);
   const chainId = CHAIN_ID;
-
-  const handleSuccess = () => {
-    setIsAuthorizing(false);
-    setError(undefined);
-    toast.success('Authorization successful!');
-    posthog.capture('payment_authorize');
-    onSuccess?.();
-  };
-
-  const handleError = (error: Error) => {
-    console.error('Authorize error:', error);
-    setIsAuthorizing(false);
-    setError(error.message || 'Failed to authorize tokens');
-    toast.error('Authorization failed');
-  };
-
-  const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-    onError: handleError,
-    onSuccess: handleSuccess,
-    onMutate: () => {
-      setIsAuthorizing(true);
-      setError(undefined);
-    },
-  });
 
   const handleAuthorize = useCallback(
     async ({ tokenAddress, spender, maxLockedAmount, maxLockSeconds, maxLockCount }: AuthorizeTokensParams) => {
       if (user?.type === 'eoa') {
         try {
           setIsAuthorizing(true);
-          if (!ocean) {
-            return;
-          }
+          if (!ocean) return;
           const tx = await ocean.authorizeTokensEoa({
             tokenAddress,
             spender,
@@ -81,16 +52,16 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
             maxLockCount,
           });
           await tx.wait();
-          handleSuccess();
-        } catch (error) {
-          handleError(error as Error);
+          toast.success('Authorization successful!');
+          posthog.capture('payment_authorize');
+          onSuccess?.();
+        } catch (err) {
+          console.error('Authorize error:', err);
+          setError(err instanceof Error ? err.message : 'Failed to authorize tokens');
+          toast.error('Authorization failed');
+        } finally {
+          setIsAuthorizing(false);
         }
-        return;
-      }
-
-      if (!client) {
-        setError('Wallet not connected');
-        toast.error('Wallet not connected');
         return;
       }
 
@@ -101,54 +72,47 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
       }
 
       try {
+        setIsAuthorizing(true);
+        setError(undefined);
+
         const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === chainId);
         if (!config || !(config as any).Escrow) {
-          setError('No escrow found for chainId');
-          toast.error('No escrow found for chainId');
-          return;
+          throw new Error('No escrow found for chainId');
         }
 
-        const provider = new ethers.JsonRpcProvider(getRpc());
         const tokenDecimals = await getTokenDecimals(tokenAddress);
-
-        const normalizedMaxLockedAmount = new BigNumber(maxLockedAmount)
-          .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
-          .toFixed(0);
+        const normalizedMaxLockedAmount = BigInt(
+          new BigNumber(maxLockedAmount).multipliedBy(new BigNumber(10).pow(Number(tokenDecimals))).toFixed(0)
+        );
 
         const data = encodeFunctionData({
           abi: Escrow.abi,
           functionName: 'authorize',
-          args: [
-            tokenAddress,
-            spender,
-            BigInt(normalizedMaxLockedAmount),
-            BigInt(maxLockSeconds),
-            BigInt(maxLockCount),
-          ],
+          args: [tokenAddress, spender, normalizedMaxLockedAmount, BigInt(maxLockSeconds), BigInt(maxLockCount)],
         });
 
-        sendUserOperation({
-          uo: {
-            target: (config as any).Escrow as `0x${string}`,
-            data: data as `0x${string}`,
-          },
+        const result = await sendTransaction({
+          to: (config as any).Escrow as `0x${string}`,
+          data: data as `0x${string}`,
         });
+
+        const explorerBase =
+          process.env.NEXT_PUBLIC_APP_ENV === 'production' ? 'https://basescan.org' : 'https://sepolia.etherscan.io';
+        setTransactionUrl(`${explorerBase}/tx/${result.txnHash}`);
+
+        toast.success('Authorization successful!');
+        posthog.capture('payment_authorize');
+        onSuccess?.();
       } catch (err) {
-        console.error('Error preparing authorization:', err);
-        setError(err instanceof Error ? err.message : 'Failed to prepare authorization');
-        toast.error('Failed to prepare authorization');
+        console.error('Authorize error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to authorize tokens');
+        toast.error('Authorization failed');
+      } finally {
         setIsAuthorizing(false);
       }
     },
-    [user?.type, client, ocean, sendUserOperation, chainId]
+    [user?.type, ocean, sendTransaction, onSuccess, chainId]
   );
-
-  const transactionUrl = useMemo(() => {
-    if (!client?.chain?.blockExplorers || !sendUserOperationResult?.hash) {
-      return undefined;
-    }
-    return `${client.chain.blockExplorers.default.url}/tx/${sendUserOperationResult.hash}`;
-  }, [client, sendUserOperationResult?.hash]);
 
   return {
     isAuthorizing,

@@ -6,7 +6,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { Node } from '@/types/nodes';
-import { useAuthModal } from '@account-kit/react';
+import { usePrivy } from '@privy-io/react-auth';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -29,7 +29,7 @@ type NodeInfoProps = {
 };
 
 const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
-  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+  const { login } = usePrivy();
 
   const { account, ocean, signMessage, user } = useOceanAccount();
   const { config, fetchConfig, getNodeLogs, pushConfig } = useP2P();
@@ -69,15 +69,6 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     [node.allowedAdmins, account]
   );
 
-  // This is a workaround for the modal not closing after connecting
-  // https://github.com/alchemyplatform/aa-sdk/issues/2327
-  // TODO remove once the issue is fixed
-  useEffect(() => {
-    if (isAuthModalOpen && account.isConnected) {
-      closeAuthModal();
-    }
-  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
-
   useEffect(() => {
     if (config) {
       setEditedConfig(config);
@@ -86,7 +77,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
 
   async function handleFetchConfig() {
     if (!account.isConnected) {
-      openAuthModal();
+      login();
       return;
     }
     if (!ocean || !node?.id) {
@@ -110,7 +101,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   async function handlePushConfig(config: Record<string, any>) {
     let success = false;
     if (!account.isConnected) {
-      openAuthModal();
+      login();
       return;
     }
     if (!ocean || !node?.id) {
@@ -153,7 +144,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
 
   async function handleDownloadLogs(startTime: string, endTime: string, maxLogs: number) {
     if (!account.isConnected) {
-      openAuthModal();
+      login();
       return;
     }
     if (!ocean || !node?.id) {
