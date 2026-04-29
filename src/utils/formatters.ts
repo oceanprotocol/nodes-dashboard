@@ -147,6 +147,23 @@ export const formatChainLabel = (chainId: number | string) => {
   return `${CHAIN_LABELS[Number(chainId)] ?? 'Chain'} (${chainId})`;
 };
 
+export const formatAccessLists = (
+  accessLists: { [chainId: string]: string[] }[],
+  options?: { shortenAddresses?: boolean }
+): string[] => {
+  const labels: string[] = [];
+  for (const accessList of accessLists) {
+    for (const chainId of Object.keys(accessList)) {
+      const chainLabel = formatChainLabel(chainId);
+      for (const address of accessList[chainId]) {
+        const displayAddress = options?.shortenAddresses ? formatWalletAddress(address) : address;
+        labels.push(`${chainLabel} / ${displayAddress}`);
+      }
+    }
+  }
+  return labels;
+};
+
 /**
  * Format Alchemy/Ethers errors
  * @param error - Error object

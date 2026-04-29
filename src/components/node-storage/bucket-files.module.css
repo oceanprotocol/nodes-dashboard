@@ -5,3 +5,11 @@
   gap: 8px;
   word-break: break-word;
 }
+
+.accessListsContainer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  word-break: break-word;
+}

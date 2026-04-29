@@ -6,7 +6,7 @@ import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatBytes, formatChainLabel, formatDateTime, formatNumber, formatWalletAddress } from '@/utils/formatters';
+import { formatAccessLists, formatBytes, formatDateTime, formatNumber, formatWalletAddress } from '@/utils/formatters';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -757,17 +757,7 @@ export const nodeStorageMyBucketsColumns: GridColDef<PersistentStorageBucket>[] 
       if (!value?.length) {
         return <span className="textSecondary">Private (no access list)</span>;
       }
-      const accessListLabels: string[] = [];
-      for (const accessList of value) {
-        const chains = Object.keys(accessList);
-        for (const chainId of chains) {
-          const chainLabel = formatChainLabel(chainId);
-          for (const address of accessList[chainId]) {
-            accessListLabels.push(`${chainLabel} / ${formatWalletAddress(address)}`);
-          }
-        }
-      }
-      return accessListLabels.join(', ');
+      return formatAccessLists(value, { shortenAddresses: true }).join(', ');
     },
   },
 ];

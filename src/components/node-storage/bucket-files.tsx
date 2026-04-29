@@ -4,14 +4,17 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import ConfirmModal from '@/components/modal/confirm-modal';
+import EditBucketAccessModal from '@/components/node-storage/edit-bucket-access-modal';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useNodeStorage } from '@/contexts/node-storage-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types/nodes';
-import { formatError } from '@/utils/formatters';
+import { formatAccessLists, formatError } from '@/utils/formatters';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CachedIcon from '@mui/icons-material/Cached';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { PersistentStorageFileEntry } from '@oceanprotocol/lib';
@@ -28,14 +31,30 @@ type BucketFilesProps = {
 const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
   const router = useRouter();
 
-  const { bucketFiles, fetchingFiles, uploadingFile, deletingFile, fetchBucketFiles, uploadFile, deleteFile } =
+  const { account } = useOceanAccount();
+
+  const { buckets, bucketFiles, fetchingFiles, uploadingFile, deletingFile, fetchBucketFiles, uploadFile, deleteFile } =
     useNodeStorage();
 
   const nodeId = node.id ?? node.nodeId ?? '';
 
+  const bucket = useMemo(
+    () => (buckets[nodeId] ?? []).find((b) => b.bucketId === bucketId) ?? null,
+    [buckets, nodeId, bucketId]
+  );
+
+  const accessListLabels = useMemo(() => {
+    if (!bucket || bucket.accessLists.length === 0) {
+      return null;
+    }
+    const labels = formatAccessLists(bucket.accessLists, { shortenAddresses: bucket.accessLists.length > 1 });
+    return labels.length > 0 ? labels : null;
+  }, [bucket]);
+
   const [alreadyLoaded, setAlreadyLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [editAccessOpen, setEditAccessOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -140,6 +159,25 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
         <div className="textSecondary">Bucket:</div>
         <strong>{bucketId}</strong>
       </div>
+      <div className={styles.infoRow}>
+        <div className="textSecondary">Access:</div>
+        {accessListLabels ? (
+          <div className={styles.accessListsContainer}>
+            <div>{accessListLabels.join(', ')}</div>
+            <Button
+              color="accent1"
+              contentBefore={<EditIcon />}
+              onClick={() => setEditAccessOpen(true)}
+              size="link"
+              variant="transparent"
+            >
+              Edit
+            </Button>
+          </div>
+        ) : (
+          <span className="textSecondary">Private (no access list)</span>
+        )}
+      </div>
 
       <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleFileSelected} />
 
@@ -196,6 +234,15 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
         onConfirm={handleDelete}
         title="Delete file"
       />
+      {bucket && account?.address && editAccessOpen && (
+        <EditBucketAccessModal
+          bucket={bucket}
+          currentAccount={account.address}
+          isOpen
+          node={node}
+          onClose={() => setEditAccessOpen(false)}
+        />
+      )}
     </Card>
   );
 };
