@@ -61,7 +61,15 @@ function getEligibleCheckbox(eligible = false, banned = false, eligibilityCauseS
   }
 }
 
-function getUnbanAttemptResult(result: string) {
+function getUnbanAttemptResult(result: any) {
+  if (result === null || result === undefined || result === '') {
+    return (
+      <>
+        <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
+        <span>In progress</span>
+      </>
+    );
+  }
   switch (result) {
     case 'Pending':
       return (
