@@ -4,7 +4,7 @@ import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
 import { formatWalletAddress } from '@/utils/formatters';
-import { useAuthModal, useLogout } from '@account-kit/react';
+import { usePrivy } from '@privy-io/react-auth';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
@@ -19,8 +19,7 @@ import styles from './navigation.module.css';
 const ProfileButton = () => {
   const router = useRouter();
 
-  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
-  const { isLoggingOut, logout } = useLogout();
+  const { login, logout } = usePrivy();
 
   const { account } = useOceanAccount();
 
@@ -29,15 +28,6 @@ const ProfileButton = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // This is a workaround for the modal not closing after connecting
-  // https://github.com/alchemyplatform/aa-sdk/issues/2327
-  // TODO remove once the issue is fixed
-  useEffect(() => {
-    if (isAuthModalOpen && account.isConnected) {
-      closeAuthModal();
-    }
-  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
   useEffect(() => {
     setIsClient(true);
@@ -154,7 +144,7 @@ const ProfileButton = () => {
       </Menu>
     </>
   ) : (
-    <Button className={styles.loginButton} color="accent1" loading={isLoggingOut} onClick={openAuthModal}>
+    <Button className={styles.loginButton} color="accent1" onClick={login}>
       Log in
     </Button>
   );

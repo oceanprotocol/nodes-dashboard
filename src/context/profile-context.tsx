@@ -11,9 +11,8 @@ import {
   OwnerStats,
   OwnerStatsPerEpoch,
 } from '@/types/stats';
-import { useSendUserOperation } from '@account-kit/react';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 type ProfileContextType = {
   ensName: string | undefined;
@@ -47,11 +46,7 @@ type ProfileContextType = {
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider = ({ children }: { children: ReactNode }) => {
-  const { account, client } = useOceanAccount();
-  const { sendUserOperationAsync } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-  });
+  const { account } = useOceanAccount();
 
   const [ensAddress, setEnsAddress] = useState<ProfileContextType['ensAddress']>(undefined);
   const [ensName, setEnsName] = useState<ProfileContextType['ensName']>(undefined);
@@ -70,9 +65,6 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [environment, setEnvironment] = useState<any>(null);
   const [nodeInfo, setNodeInfo] = useState<any>();
   const [grantStatus, setGrantStatus] = useState<GrantStatus | null>(null);
-
-  // Ref to track deployment attempts and prevent infinite loop
-  const deploymentAttempted = useRef<string | null>(null);
 
   const fetchEnsName = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '') {
@@ -229,44 +221,6 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsProfile(undefined);
     }
   }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile, fetchGrantStatus]);
-
-  // Auto-deploy account if needed when user connects
-  useEffect(() => {
-    // Skip if we've already attempted deployment for this address
-    if (deploymentAttempted.current === account.address) {
-      return;
-    }
-
-    const handleAutoDeployment = async () => {
-      if (account.isConnected && account.address && client?.account) {
-        const isDeployed = await client.account.isAccountDeployed();
-
-        if (!isDeployed) {
-          // Mark that we're attempting deployment for this address
-          deploymentAttempted.current = account.address;
-
-          try {
-            console.log('Deploying account for:', account.address);
-            await sendUserOperationAsync({
-              uo: {
-                target: account.address as `0x${string}`,
-                data: '0x' as `0x${string}`,
-                value: BigInt(0),
-              },
-            });
-            console.log('Account deployed successfully');
-          } catch (error) {
-            console.error('Error deploying account:', error);
-            // Reset on error so user can retry manually if needed
-            deploymentAttempted.current = null;
-          }
-        }
-      }
-    };
-
-    handleAutoDeployment();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account.isConnected, account.address, client]);
 
   return (
     <ProfileContext.Provider
