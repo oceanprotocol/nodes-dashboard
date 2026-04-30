@@ -8,6 +8,7 @@ import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
 import { useAuthModal } from '@account-kit/react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './unban-requests.module.css';
 
 type UnbanRequestsProps = {
@@ -37,6 +38,18 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
     [node.allowedAdmins, account]
   );
 
+  const { buttonDisabled, disabledReason } = useMemo(() => {
+    const inFlight = unbanRequests.some(
+      (r) => r.status === 'pending' || r.status === 'running'
+    );
+    return {
+      buttonDisabled: loading || inFlight,
+      disabledReason: inFlight
+        ? 'An unban request is already in progress for this node. Please wait for it to finish.'
+        : null,
+    };
+  }, [unbanRequests, loading]);
+
   const handleRequestUnban = async () => {
     if (!account.isConnected) {
       openAuthModal();
@@ -49,10 +62,17 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
     try {
       const timestamp = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
       const signedMessage = await signMessage(timestamp.toString());
-      await requestNodeUnban(node.id, signedMessage as string, timestamp, account.address as string);
-      await fetchUnbanRequests(node.id);
+      const result = await requestNodeUnban(node.id, signedMessage as string, timestamp, account.address as string);
+      if (result.success) {
+        toast.success(result.message ?? 'Unban request submitted');
+        await fetchUnbanRequests(node.id);
+      } else {
+        toast.error(result.message ?? 'Failed to request unban');
+      }
     } catch (error) {
       console.error('Error requesting unban:', error);
+      const message = error instanceof Error ? error.message : 'Failed to request unban';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -63,11 +83,19 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
       <div className={styles.header}>
         <h3>Unban requests</h3>
         {isAdmin && (
-          <Button color="accent1" loading={loading} onClick={handleRequestUnban}>
+          <Button
+            color="accent1"
+            disabled={buttonDisabled}
+            loading={loading}
+            onClick={handleRequestUnban}
+          >
             {loading ? 'Requesting...' : 'Request unban'}
           </Button>
         )}
       </div>
+      {isAdmin && disabledReason && (
+        <p className={styles.disabledReason}>{disabledReason}</p>
+      )}
       {unbanRequests.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', margin: 0 }}>No unban history</p>
       ) : (

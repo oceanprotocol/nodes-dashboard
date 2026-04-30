@@ -16,7 +16,15 @@ import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRender
 import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
 import classNames from 'classnames';
 
-function getUnbanAttemptResult(result: string) {
+function getUnbanAttemptResult(result: any) {
+  if (result === null || result === undefined || result === '') {
+    return (
+      <>
+        <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
+        <span>In progress</span>
+      </>
+    );
+  }
   switch (result) {
     case 'Pending':
       return (
