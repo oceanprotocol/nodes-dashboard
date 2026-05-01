@@ -1,7 +1,15 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
-import { PROTOCOL_COMMANDS, ProviderInstance, type NodeLogsParams } from '@oceanprotocol/lib';
+import {
+  PROTOCOL_COMMANDS,
+  ProviderInstance,
+  type NodeLogsParams,
+  type PersistentStorageAccessList,
+  type PersistentStorageBucket,
+  type PersistentStorageDeleteFileResponse,
+  type PersistentStorageFileEntry,
+} from '@oceanprotocol/lib';
 
 type NodeUri = string[] | string;
 
@@ -54,10 +62,6 @@ export async function getComputeJobResult(nodeUri: NodeUri, authToken: string, j
 
 export async function streamComputeResult(nodeUri: NodeUri, authToken: string, jobId: string, index: number) {
   return ProviderInstance.getComputeResult(toNodeUri(nodeUri), authToken, jobId, index);
-}
-
-export async function getComputeStreamableLogs(nodeUri: NodeUri, authToken: string, jobId: string) {
-  return ProviderInstance.computeStreamableLogs(toNodeUri(nodeUri), authToken, jobId);
 }
 
 export async function createAuthToken({
@@ -195,4 +199,87 @@ export async function pushNodeConfig({
 
 export async function getPeerMultiaddr(peerId: string): Promise<string> {
   return ProviderInstance.getMultiaddrFromPeerId(peerId);
+}
+
+export async function getNodeBuckets({
+  authToken,
+  nodeUri,
+  ownerAddress,
+}: {
+  authToken: string;
+  nodeUri: NodeUri;
+  ownerAddress: string;
+}): Promise<PersistentStorageBucket[]> {
+  return ProviderInstance.getPersistentStorageBuckets(toNodeUri(nodeUri), authToken, ownerAddress);
+}
+
+export async function createNodeBucket({
+  accessLists,
+  authToken,
+  nodeUri,
+}: {
+  accessLists: PersistentStorageAccessList[];
+  authToken: string;
+  nodeUri: NodeUri;
+}): Promise<{ bucketId: string; owner: string; accessList: PersistentStorageAccessList[] }> {
+  return ProviderInstance.createPersistentStorageBucket(toNodeUri(nodeUri), authToken, { accessLists });
+}
+
+export async function listBucketFiles({
+  authToken,
+  bucketId,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageFileEntry[]> {
+  return ProviderInstance.listPersistentStorageFiles(toNodeUri(nodeUri), authToken, bucketId);
+}
+
+async function* fileToAsyncIterable(file: File): AsyncIterable<Uint8Array> {
+  const reader = file.stream().getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      if (value) yield value;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function uploadBucketFile({
+  authToken,
+  bucketId,
+  file,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  file: File;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageFileEntry> {
+  return ProviderInstance.uploadPersistentStorageFile(
+    toNodeUri(nodeUri),
+    authToken,
+    bucketId,
+    file.name,
+    fileToAsyncIterable(file)
+  );
+}
+
+export async function deleteBucketFile({
+  authToken,
+  bucketId,
+  fileName,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  fileName: string;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageDeleteFileResponse> {
+  return ProviderInstance.deletePersistentStorageFile(toNodeUri(nodeUri), authToken, bucketId, fileName);
 }

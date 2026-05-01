@@ -3957,9 +3957,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:8.0.3":
-  version: 8.0.3
-  resolution: "@oceanprotocol/lib@npm:8.0.3"
+"@oceanprotocol/lib@npm:8.0.6":
+  version: 8.0.6
+  resolution: "@oceanprotocol/lib@npm:8.0.6"
   dependencies:
     "@oasisprotocol/sapphire-paratime": "npm:^1.3.2"
     "@oceanprotocol/ddo-js": "npm:^0.3.0"
@@ -3973,7 +3973,7 @@ __metadata:
     jsonwebtoken: "npm:^9.0.2"
   peerDependencies:
     web3: ^1.8.0
-  checksum: 10c0/05904dbb6bf039e05eee5a2178f0324b03d0b98917f759b006f5d47bf7146802f983d61fb0903dd1df13c6e0f52b792b199e33468e91ab16069e489bd20b19c4
+  checksum: 10c0/7fcc35e415990e3d9db7db58ba489504eecdfb5e6048fdbb7a36c30d9b7f4199028c5e3101847f42b498ce6140974a86a0a91f23871f568b515877157d96f05f
   languageName: node
   linkType: hard
 
@@ -15798,7 +15798,7 @@ __metadata:
     "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@oceanprotocol/contracts": "npm:2.6.0"
-    "@oceanprotocol/lib": "npm:8.0.3"
+    "@oceanprotocol/lib": "npm:8.0.6"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
     "@svgr/webpack": "npm:^8.1.0"
     "@tanstack/react-query": "npm:^5.28.4"
