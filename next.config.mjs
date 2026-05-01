@@ -1,3 +1,8 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: [
@@ -20,6 +25,14 @@ const nextConfig = {
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     });
+    // Force all @solana/codecs-core imports to resolve to the root-level v5.5.1,
+    // which is a superset of v2.3.0 exports. Without this, webpack deduplicates
+    // the module to the v2.3.0 copy (nested in @solana/kit), causing build errors
+    // when @privy-io/react-auth's transitive Solana deps import `toArrayBuffer`.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@solana/codecs-core': path.resolve(__dirname, 'node_modules/@solana/codecs-core'),
+    };
     return config;
   },
   transpilePackages: [
