@@ -32,7 +32,16 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@solana/codecs-core': path.resolve(__dirname, 'node_modules/@solana/codecs-core'),
+      // @privy-io/react-auth optionally imports @farcaster/mini-app-solana but we
+      // don't use Farcaster; stub it out so webpack doesn't fail on a missing module.
+      '@farcaster/mini-app-solana': false,
     };
+    // viem's nested ox package uses dynamic require(variable) in its tempo module,
+    // which webpack flags as a critical error. Suppress it — it doesn't affect runtime.
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      /Critical dependency: the request of a dependency is an expression/,
+    ];
     return config;
   },
   transpilePackages: [
