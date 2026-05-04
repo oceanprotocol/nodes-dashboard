@@ -1,7 +1,8 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
 import { useP2P } from '@/contexts/P2PContext';
-import { getTokenSymbol } from '@/lib/token-symbol';
+import { directNodeCommand } from '@/lib/direct-node-command';
+import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
   ComputeEnvironment,
@@ -12,6 +13,7 @@ import {
 } from '@/types/environments';
 import { roundTokenAmount } from '@/utils/formatters';
 import axios from 'axios';
+import BigNumber from 'bignumber.js';
 import { useSearchParams } from 'next/navigation';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -183,23 +185,72 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       if (!provider || !p2pIsReady) {
         return;
       }
+      const validUntil = maxJobDurationSeconds < 1 ? 1 : Math.ceil(maxJobDurationSeconds);
+      let cost: string;
+      let minLockSeconds: number;
+
       try {
-        const { cost, minLockSeconds } = await initializeCompute(
+        const result = await initializeCompute(
           environment,
           tokenAddress,
-          maxJobDurationSeconds < 1 ? 1 : Math.ceil(maxJobDurationSeconds),
+          validUntil,
           multiaddrsOrPeerId,
           environment.consumerAddress,
           resources,
           CHAIN_ID
         );
-        setEstimatedTotalCost(roundTokenAmount(Number(cost), tokenAddress, 'up'));
-        setMinLockSeconds(minLockSeconds);
-        onSuccess?.(Number(cost), minLockSeconds);
-      } catch (error) {
-        onError?.(error);
-        console.error('Failed to fetch estimated cost:', error);
+        cost = result.cost;
+        minLockSeconds = result.minLockSeconds;
+      } catch (p2pError) {
+        console.warn('P2P cost estimation failed, falling back to direct node command:', p2pError);
+        const payload = {
+          datasets: [],
+          algorithm: { meta: { rawcode: 'rawcode' } },
+          environment: environment.id,
+          payment: {
+            chainId: CHAIN_ID,
+            token: tokenAddress,
+            resources,
+          },
+          maxJobDuration: validUntil,
+          consumerAddress: environment.consumerAddress,
+          signature: '',
+        };
+        try {
+          const multiaddrs = Array.isArray(multiaddrsOrPeerId) ? multiaddrsOrPeerId : undefined;
+          const peerId =
+            typeof multiaddrsOrPeerId === 'string'
+              ? multiaddrsOrPeerId
+              : (multiaddrs?.map((a) => a.match(/\/p2p\/(\S+)/)?.[1]).find(Boolean) ?? '');
+          const response = await directNodeCommand({
+            command: 'initializeCompute',
+            body: payload,
+            multiaddrs,
+            peerId,
+          });
+          const data: {
+            payment: { amount: string; minLockSeconds: number };
+            status?: { httpStatus: number; error?: string };
+          } = await response.json();
+          if (data?.status?.httpStatus != null && data.status.httpStatus >= 400) {
+            throw new Error(data.status.error ?? 'Initialize compute failed');
+          }
+          const tokenDecimals = await getTokenDecimals(tokenAddress);
+          const decimalsNumber = Number(tokenDecimals);
+          cost = new BigNumber(data.payment.amount)
+            .div(new BigNumber(10).pow(decimalsNumber))
+            .decimalPlaces(decimalsNumber)
+            .toString();
+          minLockSeconds = data.payment.minLockSeconds;
+        } catch (directError) {
+          onError?.(directError);
+          console.error('Failed to fetch estimated cost:', directError);
+          return;
+        }
       }
+      setEstimatedTotalCost(roundTokenAmount(Number(cost), tokenAddress, 'up'));
+      setMinLockSeconds(minLockSeconds);
+      onSuccess?.(Number(cost), minLockSeconds);
     },
     [initializeCompute, p2pIsReady, provider]
   );
@@ -324,7 +375,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Initiate hydration when initializing the context
-   * If free compute was selected, we don't need to wait for the p2p node to be ready, but otherwise we need it to calculate cost
+   * If free compute was selected, we don't need to wait for the p2p node/ provider, but otherwise we need it to calculate cost
    */
   useEffect(() => {
     if (!hydrateFromUrlStarted) {
@@ -333,7 +384,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         setHydrateFromUrlFinished(true);
       } else {
         const queryFree = searchParams.get('free') === 'true';
-        // For paid compute, also wait for p2p node and provider in order to fetch the cost
+        // For paid compute, wait for p2p node and provider in order to fetch the cost (direct command is the fallback)
         // For free compute, they are not needed
         if (queryFree || (p2pIsReady && provider)) {
           setHydrateFromUrlStarted(true);
