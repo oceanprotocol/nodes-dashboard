@@ -124,8 +124,8 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!provider) return;
     provider
-      .getSigner()
-      .then((s) => s.getAddress())
+      .listAccounts()
+      .then((accounts) => accounts[0]?.address)
       .then((addr) => setAddress(addr))
       .catch(() => {});
   }, [provider]);
