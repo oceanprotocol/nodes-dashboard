@@ -14,53 +14,56 @@ import { formatChainLabel, formatWalletAddress } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
 import { isAddress } from 'ethers';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import styles from './access-lists-page.module.css';
 
 const AccessListsPage: React.FC = () => {
   const { account } = useOceanAccount();
-  const { getOwnedAccessListsFromFactory, searchAccessListsByMember } = useAccessList();
+  const { getAccessListOwner, searchAccessListsByMember } = useAccessList();
 
   const [showCreate, setShowCreate] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
-  const [ownedLists, setOwnedLists] = useState<string[]>([]);
   const [memberLists, setMemberLists] = useState<AccessListDoc[]>([]);
+  const [ownerMap, setOwnerMap] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState(0);
   const [lookup, setLookup] = useState('');
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  const memberOnly = useMemo(() => {
-    const ownedSet = new Set(ownedLists.map((a) => a.toLowerCase()));
-    return memberLists.filter((d) => !ownedSet.has(d.contractAddress.toLowerCase()));
-  }, [memberLists, ownedLists]);
-
   const refreshLists = useCallback(() => setRefreshTick((t) => t + 1), []);
 
   useEffect(() => {
     if (!account.address) {
-      setOwnedLists([]);
       setMemberLists([]);
+      setOwnerMap({});
       return;
     }
     let cancelled = false;
     async function load() {
       setLoadingLists(true);
       try {
-        const [owned, members] = await Promise.all([
-          getOwnedAccessListsFromFactory(account.address!).catch((e) => {
-            console.warn('Failed to load owned access lists', e);
-            return [] as string[];
-          }),
-          searchAccessListsByMember(account.address!).catch((e) => {
-            console.warn('Failed to load member access lists', e);
-            return [] as AccessListDoc[];
-          }),
-        ]);
+        const lists = await searchAccessListsByMember(account.address!).catch((e) => {
+          console.warn('Failed to load access lists', e);
+          return [] as AccessListDoc[];
+        });
         if (cancelled) return;
-        setOwnedLists(owned);
-        setMemberLists(members);
+        setMemberLists(lists);
+        const ownerEntries = await Promise.all(
+          lists.map(async (doc) => {
+            try {
+              const owner = await getAccessListOwner(doc.contractAddress);
+              return [
+                doc.contractAddress.toLowerCase(),
+                owner.toLowerCase() === account.address!.toLowerCase(),
+              ] as const;
+            } catch {
+              return [doc.contractAddress.toLowerCase(), false] as const;
+            }
+          })
+        );
+        if (cancelled) return;
+        setOwnerMap(Object.fromEntries(ownerEntries));
       } finally {
         if (!cancelled) setLoadingLists(false);
       }
@@ -69,7 +72,7 @@ const AccessListsPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [account.address, getOwnedAccessListsFromFactory, searchAccessListsByMember, refreshTick]);
+  }, [account.address, getAccessListOwner, searchAccessListsByMember, refreshTick]);
 
   function handleSelect(address: string) {
     setSelected(address);
@@ -141,52 +144,29 @@ const AccessListsPage: React.FC = () => {
 
             <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
               <div className={styles.listSectionHeader}>
-                <strong>Owned by you</strong>
+                <strong>Your access lists</strong>
                 {loadingLists ? <CircularProgress size={14} /> : null}
               </div>
-              {ownedLists.length === 0 && !loadingLists ? (
-                <span className={styles.empty}>No owned access lists found.</span>
+              {memberLists.length === 0 && !loadingLists ? (
+                <span className={styles.empty}>No access lists found.</span>
               ) : (
                 <div className={styles.listItems}>
-                  {ownedLists.map((address) => (
-                    <button
-                      className={classNames(styles.listItem, {
-                        [styles.listItemActive]: selected?.toLowerCase() === address.toLowerCase(),
-                      })}
-                      key={address}
-                      onClick={() => handleSelect(address)}
-                      type="button"
-                    >
-                      <span className={styles.listItemAddress}>{formatWalletAddress(address)}</span>
-                      <span className={styles.listItemMeta}>manage</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
-              <div className={styles.listSectionHeader}>
-                <strong>You are a member of</strong>
-                {loadingLists ? <CircularProgress size={14} /> : null}
-              </div>
-              {memberOnly.length === 0 && !loadingLists ? (
-                <span className={styles.empty}>No memberships found.</span>
-              ) : (
-                <div className={styles.listItems}>
-                  {memberOnly.map((doc) => (
-                    <button
-                      className={classNames(styles.listItem, {
-                        [styles.listItemActive]: selected?.toLowerCase() === doc.contractAddress.toLowerCase(),
-                      })}
-                      key={doc.contractAddress}
-                      onClick={() => handleSelect(doc.contractAddress)}
-                      type="button"
-                    >
-                      <span className={styles.listItemAddress}>{formatWalletAddress(doc.contractAddress)}</span>
-                      <span className={styles.listItemMeta}>read-only</span>
-                    </button>
-                  ))}
+                  {memberLists.map((doc) => {
+                    const isOwner = ownerMap[doc.contractAddress.toLowerCase()] ?? false;
+                    return (
+                      <button
+                        className={classNames(styles.listItem, {
+                          [styles.listItemActive]: selected?.toLowerCase() === doc.contractAddress.toLowerCase(),
+                        })}
+                        key={doc.contractAddress}
+                        onClick={() => handleSelect(doc.contractAddress)}
+                        type="button"
+                      >
+                        <span className={styles.listItemAddress}>{formatWalletAddress(doc.contractAddress)}</span>
+                        <span className={styles.listItemMeta}>{isOwner ? 'manage' : 'read-only'}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </Card>

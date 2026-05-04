@@ -108,7 +108,7 @@ const AccessListDetail: React.FC<AccessListDetailProps> = ({ contractAddress, cu
               Owner: {isOwner ? 'you' : formatWalletAddress(owner)}
             </span>
           ) : null}
-          {!isOwner && owner ? <span className="chip chipOutlined">Read-only</span> : null}
+          {!isOwner && owner ? <span className="chip chipGlass">Read-only</span> : null}
         </div>
       </div>
       {loading ? (
@@ -130,10 +130,10 @@ const AccessListDetail: React.FC<AccessListDetailProps> = ({ contractAddress, cu
                       {wallet}
                       {isYou ? <span className={classNames('chip chipPrimaryOutlined')} style={{ marginLeft: 8 }}>you</span> : null}
                     </span>
-                    {isOwner && !isYou ? (
+                    {isOwner ? (
                       <Button
                         color="accent1"
-                        disabled={saving}
+                        disabled={saving || !!isYou}
                         onClick={() => handleRemove(wallet)}
                         size="link"
                         variant="transparent"

@@ -67,11 +67,15 @@ const CreateAccessListForm: React.FC<CreateAccessListFormProps> = ({ onCreated }
     if (!valid) return;
     setDeploying(true);
     try {
+      const creator = account.address;
+      const wallets = seedWallets.some((w) => w.toLowerCase() === creator.toLowerCase())
+        ? seedWallets
+        : [creator, ...seedWallets];
       const address = await deployNewAccessList({
         name: name.trim(),
         symbol: symbol.trim(),
-        owner: account.address,
-        wallets: seedWallets,
+        owner: creator,
+        wallets,
       });
       toast.success(`Access list deployed at ${address}`);
       setName('');
@@ -118,7 +122,8 @@ const CreateAccessListForm: React.FC<CreateAccessListFormProps> = ({ onCreated }
           value={symbol}
         />
       </div>
-      <strong>Initial members (optional)</strong>
+      <strong>Initial members</strong>
+      <span className={styles.empty}>Your wallet is added automatically so the list is discoverable.</span>
       {seedWallets.length > 0 ? (
         <div>
           {seedWallets.map((wallet) => (

@@ -196,23 +196,6 @@ export function useAccessList() {
     []
   );
 
-  /**
-   * Discover access lists owned by `account` via factory deploy events.
-   * Single eth_getLogs bounded by the factory's startBlock.
-   */
-  const getOwnedAccessListsFromFactory = useCallback(async (account: string): Promise<string[]> => {
-    const config = getChainConfig(CHAIN_ID);
-    const rpcProvider = new ethers.JsonRpcProvider(getRpc());
-    const ownerTopic = ethers.zeroPadValue(account.toLowerCase(), 32);
-    const logs = await rpcProvider.getLogs({
-      address: config.AccessListFactory,
-      topics: [NEW_ACCESS_LIST_TOPIC, null, ownerTopic],
-      fromBlock: config.startBlock ?? 0,
-      toBlock: 'latest',
-    });
-    return logs.map((l) => ethers.getAddress('0x' + l.topics[1].slice(26)));
-  }, []);
-
   const addWalletToAccessList = useCallback(
     async ({ contractAddress, wallet }: { contractAddress: string; wallet: string }): Promise<void> => {
       if (user?.type === 'eoa') {
@@ -259,7 +242,6 @@ export function useAccessList() {
     getAccessListOwner,
     fetchAccessListFromIndexer,
     searchAccessListsByMember,
-    getOwnedAccessListsFromFactory,
     addWalletToAccessList,
     removeWalletFromAccessList,
   };
