@@ -4,6 +4,7 @@ const ALLOWED_METHODS = new Set([
   'eth_call',
   'eth_getBalance',
   'eth_chainId',
+  'eth_getLogs',
   'eth_blockNumber',
   'eth_estimateGas',
   'eth_gasPrice',
