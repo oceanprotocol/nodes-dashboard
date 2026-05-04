@@ -118,7 +118,7 @@ const Summary = ({
     try {
       const { token: generatedAuthToken } = await createAuthToken({
         consumerAddress: account.address,
-        multiaddrsOrPeerId: multiaddrsOrPeerId!,
+        nodeUri: multiaddrsOrPeerId!,
         signMessage,
       });
       setAuthToken(generatedAuthToken);
@@ -138,7 +138,7 @@ const Summary = ({
     if (!authToken || !account.address || !ocean) {
       return;
     }
-    const peerMultiaddr = await getPeerMultiaddr(multiaddrsOrPeerId!);
+    const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
     const resources = [
       ...gpus.map((availableGpu) => ({
         id: availableGpu.id,

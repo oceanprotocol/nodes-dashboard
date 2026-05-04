@@ -1,32 +1,38 @@
 import {
+  actionsColumnProps,
   benchmarkJobsColumns,
   jobsColumns,
   nodesLeaderboardColumns,
+  NodesLeaderboardColumnsVisibility,
   nodesLeaderboardHomeColumns,
   nodesTopByJobCountColumns,
   nodesTopByRevenueColumns,
-  topNodesByJobsColumns,
-  topNodesByRevenueColumns,
+  nodeStorageFilesColumns,
+  nodeStorageMyBucketsColumns,
+  nodeStorageSharedBucketsColumns,
   unbanRequestsColumns,
 } from '@/components/table/columns';
 import { TableContextType } from '@/components/table/context-type';
 import CustomPagination from '@/components/table/custom-pagination';
-import CustomToolbar from '@/components/table/custom-toolbar';
+import CustomToolbar, { CustomToolbarProps } from '@/components/table/custom-toolbar';
 import { TableTypeEnum } from '@/components/table/table-type';
 import styled from '@emotion/styled';
+import { LinearProgress } from '@mui/material';
 import {
   DataGrid,
   GridColDef,
   GridFilterModel,
   GridInitialState,
+  GridRenderCellParams,
   GridRowIdGetter,
   GridRowParams,
   GridSortModel,
+  GridToolbarProps,
   GridValidRowModel,
   useGridApiRef,
 } from '@mui/x-data-grid';
 import { GridSlotsComponentsProps } from '@mui/x-data-grid/internals';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { JSXElementConstructor, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const StyledRoot = styled('div')({
   display: 'flex',
@@ -34,6 +40,14 @@ const StyledRoot = styled('div')({
   gap: 16,
   width: '100%',
   minWidth: 0,
+});
+
+const StyledActionsWrapper = styled('div')({
+  alignItems: 'center',
+  display: 'flex',
+  flexDirection: 'row',
+  gap: 4,
+  height: '100%',
 });
 
 const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHeight }) => ({
@@ -44,16 +58,9 @@ const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHei
   },
 }));
 
-const StyledScrollWrapper = styled('div')({
-  overflowX: 'auto',
-  WebkitOverflowScrolling: 'touch',
-  width: '100%',
-});
-
 const StyledDataGrid = styled(DataGrid)<{ clickable?: boolean }>(({ clickable }) => ({
   background: 'none',
   border: 'none',
-  minWidth: 600,
   borderBottom: '1px solid var(--border)',
   borderRadius: 0,
   color: 'var(--text-primary)',
@@ -128,6 +135,8 @@ const StyledDataGrid = styled(DataGrid)<{ clickable?: boolean }>(({ clickable })
 
 type TableProps<T extends GridValidRowModel> = {
   autoHeight?: boolean;
+  actionsColumn?: GridColDef<T>['renderCell'];
+  columns?: GridColDef<T>[];
   context?: TableContextType<T>;
   data?: any[];
   loading?: boolean;
@@ -141,6 +150,8 @@ type TableProps<T extends GridValidRowModel> = {
 
 export const Table = <T extends GridValidRowModel>({
   autoHeight,
+  actionsColumn,
+  columns: columnsProp,
   context,
   data: propsData,
   loading: propsLoading,
@@ -175,36 +186,78 @@ export const Table = <T extends GridValidRowModel>({
     };
   }, [paginationType, propsData, context?.crtPage, context?.data, context?.pageSize, context?.totalItems]);
 
+  useEffect(() => {
+    if (!actionsColumn) {
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      if (apiRef.current?.autosizeColumns) {
+        apiRef.current.autosizeColumns({ columns: ['_actions'], includeHeaders: true });
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [actionsColumn, data, apiRef]);
+
   const columns = useMemo(() => {
+    const withActions = <C extends GridColDef>(cols: C[]) =>
+      actionsColumn
+        ? [
+            ...cols,
+            {
+              ...actionsColumnProps,
+              renderCell: (params: GridRenderCellParams<T>) => (
+                <StyledActionsWrapper>{actionsColumn(params)}</StyledActionsWrapper>
+              ),
+            },
+          ]
+        : cols;
+
+    if (columnsProp) {
+      return withActions(columnsProp);
+    }
     switch (tableType) {
       case TableTypeEnum.MY_JOBS: {
-        return jobsColumns;
+        return withActions(jobsColumns);
       }
       case TableTypeEnum.UNBAN_REQUESTS: {
-        return unbanRequestsColumns;
+        return withActions(unbanRequestsColumns);
+      }
+      case TableTypeEnum.NODE_STORAGE_FILES: {
+        return withActions(nodeStorageFilesColumns);
+      }
+      case TableTypeEnum.NODE_STORAGE_MY_BUCKETS: {
+        return withActions(nodeStorageMyBucketsColumns);
+      }
+      case TableTypeEnum.NODE_STORAGE_SHARED_BUCKETS: {
+        return withActions(nodeStorageSharedBucketsColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {
-        return nodesLeaderboardColumns;
+        return withActions(nodesLeaderboardColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD_HOME: {
-        return nodesLeaderboardHomeColumns;
+        return withActions(nodesLeaderboardHomeColumns);
       }
       case TableTypeEnum.NODES_TOP_JOBS: {
-        return nodesTopByJobCountColumns;
+        return withActions(nodesTopByJobCountColumns);
       }
       case TableTypeEnum.NODES_TOP_REVENUE: {
-        return nodesTopByRevenueColumns;
-      }
-      case TableTypeEnum.NODES_TOP_JOBS: {
-        return topNodesByJobsColumns;
-      }
-      case TableTypeEnum.NODES_TOP_REVENUE: {
-        return topNodesByRevenueColumns;
+        return withActions(nodesTopByRevenueColumns);
       }
       case TableTypeEnum.BENCHMARK_JOBS:
       case TableTypeEnum.BENCHMARK_JOBS_HISTORY: {
-        return benchmarkJobsColumns;
+        return withActions(benchmarkJobsColumns);
+      }
+    }
+  }, [tableType, actionsColumn, columnsProp]);
+
+  const columnVisibilityModel = useMemo(() => {
+    switch (tableType) {
+      case TableTypeEnum.NODES_LEADERBOARD: {
+        return NodesLeaderboardColumnsVisibility;
+      }
+      default: {
+        return undefined;
       }
     }
   }, [tableType]);
@@ -292,7 +345,7 @@ export const Table = <T extends GridValidRowModel>({
   }, []);
 
   const initialState = useMemo(() => {
-    const coreState: GridInitialState = { density: 'standard' };
+    const coreState: GridInitialState = { density: 'standard', columns: { columnVisibilityModel } };
     return paginationType === 'none'
       ? coreState
       : {
@@ -304,7 +357,7 @@ export const Table = <T extends GridValidRowModel>({
             },
           },
         };
-  }, [currentPage, pageSize, paginationType]);
+  }, [columnVisibilityModel, currentPage, pageSize, paginationType]);
 
   const paginationModel =
     paginationType === 'none'
@@ -314,15 +367,23 @@ export const Table = <T extends GridValidRowModel>({
           pageSize: pageSize,
         };
 
-  const slotProps: GridSlotsComponentsProps = {
+  const slotProps: GridSlotsComponentsProps & { toolbar: Partial<CustomToolbarProps> } = {
     basePopper: {
       style: {
         color: '#000000',
       },
     },
-    loadingOverlay: {
-      variant: 'skeleton',
-      noRowsVariant: 'skeleton',
+    // loadingOverlay: {
+    //   variant: 'skeleton',
+    //   noRowsVariant: 'skeleton',
+    // },
+    toolbar: {
+      searchTerm,
+      onSearchChange: handleSearchChange,
+      onReset: handleResetFilters,
+      tableType: tableType,
+      apiRef: apiRef.current ?? undefined,
+      // totalUptime: totalUptime,
     },
   };
 
@@ -330,47 +391,41 @@ export const Table = <T extends GridValidRowModel>({
 
   return (
     <StyledRoot>
-      {showToolbar && (
-        <CustomToolbar
-          searchTerm={searchTerm}
-          onSearchChange={handleSearchChange}
-          onSearch={() => {}}
-          onReset={handleResetFilters}
-          tableType={tableType}
-          apiRef={apiRef.current ?? undefined}
-          totalUptime={null}
+      <StyledDataGridWrapper autoHeight={autoHeight}>
+        <StyledDataGrid
+          apiRef={apiRef}
+          clickable={!!onRowClick}
+          columns={(columns as GridColDef<GridValidRowModel>[]).map((col) => ({
+            minWidth: col.width ?? 120,
+            ...col,
+          }))}
+          disableColumnMenu
+          disableRowSelectionOnClick
+          filterMode={paginationType === 'none' ? 'client' : 'server'}
+          getRowId={getRowId ?? defaultGetRowId}
+          hideFooter
+          initialState={initialState}
+          loading={loading ?? context?.loading}
+          onFilterModelChange={handleFilterModelChange}
+          onPaginationModelChange={handlePaginationChange}
+          onRowClick={onRowClick}
+          onSortModelChange={handleSortModelChange}
+          pageSizeOptions={[10, 25, 50, 100]}
+          // pagination
+          paginationMode={paginationType === 'none' ? undefined : 'server'}
+          paginationModel={paginationModel}
+          processRowUpdate={processRowUpdate}
+          rowCount={totalItems}
+          rows={data}
+          showToolbar={showToolbar}
+          slots={{
+            loadingOverlay: () => <LinearProgress />,
+            toolbar: CustomToolbar as JSXElementConstructor<GridToolbarProps>,
+          }}
+          slotProps={slotProps}
+          sortingMode={paginationType === 'none' ? 'client' : 'server'}
         />
-      )}
-      <StyledScrollWrapper>
-        <StyledDataGridWrapper autoHeight={autoHeight}>
-          <StyledDataGrid
-            apiRef={apiRef}
-            clickable={!!onRowClick}
-            columns={columns as GridColDef<GridValidRowModel>[]}
-            disableColumnMenu
-            disableRowSelectionOnClick
-            filterMode={paginationType === 'none' ? 'client' : 'server'}
-            getRowId={getRowId ?? defaultGetRowId}
-            hideFooter
-            initialState={initialState}
-            loading={loading ?? context?.loading}
-            onFilterModelChange={handleFilterModelChange}
-            onPaginationModelChange={handlePaginationChange}
-            onRowClick={onRowClick}
-            onSortModelChange={handleSortModelChange}
-            pageSizeOptions={[10, 25, 50, 100]}
-            // pagination
-            paginationMode={paginationType === 'none' ? undefined : 'server'}
-            paginationModel={paginationModel}
-            processRowUpdate={processRowUpdate}
-            rowCount={totalItems}
-            rows={data}
-            slots={{}}
-            slotProps={slotProps}
-            sortingMode={paginationType === 'none' ? 'client' : 'server'}
-          />
-        </StyledDataGridWrapper>
-      </StyledScrollWrapper>
+      </StyledDataGridWrapper>
       {paginationType === 'none' ? null : (
         <CustomPagination
           page={currentPage}

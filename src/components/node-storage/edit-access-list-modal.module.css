@@ -1,0 +1,10 @@
+.searchRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+
+  @media (min-width: 768px) {
+    align-items: center;
+    grid-template-columns: 1fr auto;
+  }
+}

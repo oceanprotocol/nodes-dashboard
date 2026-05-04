@@ -11,8 +11,8 @@ export async function checkEnvAccess(
   if (!walletAddress) return null;
   if (!access) return true;
 
-  const hasAddressRestriction = access.addresses && access.addresses.length !== 0;
-  const hasListRestriction = access.accessLists && access.accessLists.length !== 0;
+  const hasAddressRestriction = Array.isArray(access.addresses) && access.addresses.length !== 0;
+  const hasListRestriction = Array.isArray(access.accessLists) && access.accessLists.length !== 0;
 
   if (!hasAddressRestriction && !hasListRestriction) return true;
 

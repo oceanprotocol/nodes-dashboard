@@ -13,7 +13,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
-import { formatNumber, formatTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -103,9 +103,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       tokenAddress: selectedTokenAddress,
     });
   const noResourcesAvailable = !cpu && !gpus?.length && !ram && !disk;
-
-  const minJobDurationHours = (minJobDurationSeconds ?? 0) / 60 / 60;
-  const maxJobDurationHours = (maxJobDurationSeconds ?? 0) / 60 / 60;
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
@@ -564,9 +561,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           <div>
             Job duration:&nbsp;
             <strong>
-              {formatNumber(minJobDurationHours)} - {formatNumber(maxJobDurationHours)}
+              {formatDuration(minJobDurationSeconds ?? 0)} - {formatDuration(maxJobDurationSeconds ?? 0)}
             </strong>
-            &nbsp;hours
           </div>
           {getFreeComputeCheckbox()}
         </div>

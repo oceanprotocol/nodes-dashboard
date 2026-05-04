@@ -12,7 +12,6 @@ import {
   NodeEnvironments,
 } from '@/types/environments';
 import { roundTokenAmount } from '@/utils/formatters';
-import { multiaddr } from '@multiformats/multiaddr';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { useSearchParams } from 'next/navigation';
@@ -38,7 +37,7 @@ type RunJobContextType = {
     environment: ComputeEnvironment;
     freeCompute: boolean;
     maxJobDurationSeconds: number;
-    multiaddrsOrPeerId: MultiaddrsOrPeerId;
+    multiaddrsOrPeerId: string[] | string;
     onError?: (error: unknown) => void;
     onSuccess?: (cost: number, minLockSeconds: number) => void;
     resources: { id: string; amount: number }[];
@@ -75,7 +74,7 @@ const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const { provider } = useOceanAccount();
-  const { initializeCompute, node: p2pNode } = useP2P();
+  const { initializeCompute, isReady: p2pIsReady } = useP2P();
 
   const searchParams = useSearchParams();
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
@@ -136,8 +135,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       setSelectedEnv(environment);
       setFreeCompute(freeCompute);
       setNodeInfo(nodeInfo);
-      const multiaddrs = new Set(nodeInfo?.multiaddrs?.filter(Boolean).filter(multiaddr));
-      setMultiaddrsOrPeerId(multiaddrs.size > 0 ? Array.from(multiaddrs) : nodeInfo?.id);
+
+      const addrs = (nodeInfo.multiaddrs ?? []).map((a) => (a.includes('/p2p/') ? a : `${a}/p2p/${nodeInfo.id}`));
+      setMultiaddrsOrPeerId(addrs.length > 0 ? addrs : nodeInfo.id);
+
       if (resources) {
         setSelectedResources(resources);
       }
@@ -171,7 +172,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       environment: ComputeEnvironment;
       freeCompute: boolean;
       maxJobDurationSeconds: number;
-      multiaddrsOrPeerId: MultiaddrsOrPeerId;
+      multiaddrsOrPeerId: string[] | string;
       onError?: (error: unknown) => void;
       onSuccess?: (cost: number, minLockSeconds: number) => void;
       resources: { id: string; amount: number }[];
@@ -181,7 +182,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         setEstimatedTotalCost(0);
         return;
       }
-      if (!provider || !p2pNode) {
+      if (!provider || !p2pIsReady) {
         return;
       }
       const validUntil = maxJobDurationSeconds < 1 ? 1 : Math.ceil(maxJobDurationSeconds);
@@ -196,8 +197,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           multiaddrsOrPeerId,
           environment.consumerAddress,
           resources,
-          CHAIN_ID,
-          provider
+          CHAIN_ID
         );
         cost = result.cost;
         minLockSeconds = result.minLockSeconds;
@@ -252,7 +252,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       setMinLockSeconds(minLockSeconds);
       onSuccess?.(Number(cost), minLockSeconds);
     },
-    [initializeCompute, p2pNode, provider]
+    [initializeCompute, p2pIsReady, provider]
   );
 
   /**
@@ -292,7 +292,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       );
       const foundEnv = foundNode?.computeEnvironments.environments.find((env) => env.id === queryEnv);
       if (foundNode && foundEnv) {
-        const multiaddrs = new Set(foundNode?.multiaddrs?.filter(Boolean).filter(multiaddr));
         const queryFree = searchParams.get('free') === 'true';
         const qJobDuration = searchParams.get('maxJobDuration');
         const queryGpusArray = searchParams.getAll('gpus[]');
@@ -341,6 +340,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           nodeInfo: foundNode,
           resources,
         });
+        const foundAddrs = (foundNode.multiaddrs ?? []).map((a) =>
+          a.includes('/p2p/') ? a : `${a}/p2p/${foundNode.id}`
+        );
+        const resolvedNodeUri = foundAddrs.length > 0 ? foundAddrs : foundNode.id;
         if (!queryFree) {
           const queryToken = searchParams.get('token');
           if (queryToken) {
@@ -349,7 +352,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               environment: foundEnv,
               freeCompute: queryFree,
               maxJobDurationSeconds: resources.maxJobDurationSeconds,
-              multiaddrsOrPeerId: multiaddrs.size > 0 ? Array.from(multiaddrs) : foundNode.id,
+              multiaddrsOrPeerId: resolvedNodeUri,
               resources: [
                 ...(resources.cpuId && resources.cpuCores ? [{ id: resources.cpuId, amount: resources.cpuCores }] : []),
                 ...(resources.ramId && resources.ram ? [{ id: resources.ramId, amount: resources.ram }] : []),
@@ -383,13 +386,13 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const queryFree = searchParams.get('free') === 'true';
         // For paid compute, wait for p2p node and provider in order to fetch the cost (direct command is the fallback)
         // For free compute, they are not needed
-        if (queryFree || (p2pNode && provider)) {
+        if (queryFree || (p2pIsReady && provider)) {
           setHydrateFromUrlStarted(true);
           hydrateContextFromQueryParams();
         }
       }
     }
-  }, [hydrateContextFromQueryParams, hydrateFromUrlStarted, p2pNode, provider, searchParams]);
+  }, [hydrateContextFromQueryParams, hydrateFromUrlStarted, p2pIsReady, provider, searchParams]);
 
   return (
     <RunJobContext.Provider

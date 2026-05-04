@@ -6,62 +6,25 @@ import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatDateTime, formatNumber } from '@/utils/formatters';
-import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import { formatAccessLists, formatBytes, formatDateTime, formatNumber, formatWalletAddress } from '@/utils/formatters';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
 import classNames from 'classnames';
 
-function getEligibleCheckbox(eligible = false, banned = false, eligibilityCauseStr?: string) {
-  if (banned) {
+function getUnbanAttemptResult(result: any) {
+  if (result === null || result === undefined || result === '') {
     return (
       <>
-        <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
-        <span>Banned</span>
+        <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
+        <span>In progress</span>
       </>
     );
   }
-  if (eligible) {
-    return (
-      <>
-        <CheckCircleOutlinedIcon style={{ fill: 'var(--success-darker)' }} />
-        <span>Eligible</span>
-      </>
-    );
-  } else {
-    switch (eligibilityCauseStr) {
-      case 'Invalid status response':
-        return (
-          <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
-            <span>Not eligible</span>
-          </>
-        );
-
-      case 'No peer data':
-        return (
-          <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
-            <span>Not eligible</span>
-          </>
-        );
-
-      default:
-        return (
-          <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
-            <span>Not eligible</span>
-          </>
-        );
-    }
-  }
-}
-
-function getUnbanAttemptResult(result: string) {
   switch (result) {
     case 'Pending':
       return (
@@ -95,6 +58,15 @@ function getUnbanAttemptStatus(status: string) {
     </span>
   );
 }
+
+export const actionsColumnProps: GridColDef = {
+  align: 'right',
+  field: '_actions',
+  filterable: false,
+  headerAlign: 'center',
+  headerName: 'Actions',
+  sortable: false,
+};
 
 export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   {
@@ -163,6 +135,31 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
     renderCell: (params) => params.value || <span className="textSecondary">Unknown</span>,
   },
+
+  {
+    field: 'ipAndDns.dns',
+    filterable: false,
+    flex: 1,
+    headerName: 'DNS',
+    sortable: false,
+    valueGetter: (_value, row) => row.ipAndDns?.dns,
+  },
+  {
+    field: 'ipAndDns.ip',
+    filterable: false,
+    flex: 1,
+    headerName: 'IP',
+    sortable: true,
+    valueGetter: (_value, row) => row.ipAndDns?.ip,
+  },
+  {
+    field: 'ipAndDns.port',
+    filterable: false,
+    flex: 1,
+    headerName: 'Port',
+    sortable: true,
+    valueGetter: (_value, row) => row.ipAndDns?.port,
+  },
   {
     align: 'right',
     field: 'actions',
@@ -175,6 +172,12 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     },
   },
 ];
+
+export const NodesLeaderboardColumnsVisibility = {
+  'ipAndDns.dns': false,
+  'ipAndDns.ip': false,
+  'ipAndDns.port': false,
+};
 
 export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
   {
@@ -733,5 +736,89 @@ export const topNodesByJobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Last benchmark score (GPU)',
     sortable: false,
+  },
+];
+
+export const nodeStorageMyBucketsColumns: GridColDef<PersistentStorageBucket>[] = [
+  {
+    field: 'bucketId',
+    filterable: true,
+    flex: 1,
+    headerName: 'Bucket ID',
+    sortable: false,
+  },
+  {
+    field: 'createdAt',
+    filterable: false,
+    headerName: 'Created',
+    sortable: true,
+    width: 160,
+    renderCell: ({ value }) => formatDateTime(value),
+  },
+  {
+    field: 'accessLists',
+    filterable: false,
+    flex: 1,
+    headerName: 'Access list',
+    sortable: false,
+    renderCell: ({ value }) => {
+      if (!value?.length) {
+        return <span className="textSecondary">Owner-only (no access list)</span>;
+      }
+      return formatAccessLists(value, { shortenAddresses: true }).join(', ');
+    },
+  },
+];
+
+export const nodeStorageSharedBucketsColumns: GridColDef<PersistentStorageBucket>[] = [
+  {
+    field: 'bucketId',
+    filterable: true,
+    flex: 1,
+    headerName: 'Bucket ID',
+    sortable: false,
+  },
+  {
+    field: 'createdAt',
+    filterable: false,
+    headerName: 'Created',
+    sortable: true,
+    width: 160,
+    renderCell: ({ value }) => formatDateTime(value),
+  },
+  {
+    field: 'owner',
+    filterable: false,
+    headerName: 'Owner',
+    sortable: false,
+    width: 160,
+    renderCell: ({ value }) => formatWalletAddress(value),
+  },
+];
+
+export const nodeStorageFilesColumns: GridColDef<PersistentStorageFileEntry>[] = [
+  {
+    field: 'name',
+    filterable: false,
+    flex: 1,
+    headerName: 'File name',
+    sortable: false,
+  },
+  {
+    field: 'size',
+    filterable: false,
+    headerName: 'File size',
+    sortable: false,
+    align: 'right',
+    headerAlign: 'right',
+    renderCell: ({ value }) => formatBytes(value as number),
+  },
+  {
+    field: 'lastModified',
+    filterable: false,
+    headerName: 'Last modified',
+    sortable: true,
+    width: 160,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
 ];

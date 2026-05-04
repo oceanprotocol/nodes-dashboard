@@ -16,14 +16,12 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
     color: 'var(--text-primary)',
     display: 'flex',
     flexDirection: 'column',
-    gap: 24,
-    padding: 24,
+    overflow: 'hidden',
+    padding: 0,
 
     [theme.breakpoints.down('sm')]: {
       borderRadius: 16,
-      gap: 16,
       margin: 16,
-      padding: 16,
       width: 'calc(100% - 32px)',
     },
   },
@@ -49,7 +47,7 @@ const Modal = ({ children, fullWidth, hideCloseButton, isOpen, onClose, title, w
         </button>
       )}
     </div>
-    {children}
+    <div className={styles.body}>{children}</div>
   </StyledDialog>
 );
 

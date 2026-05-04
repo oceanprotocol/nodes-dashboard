@@ -1,5 +1,4 @@
 import { SignMessageFn } from '@/lib/use-ocean-account';
-import { Command } from '@/types/commands';
 import { getBytes, JsonRpcSigner, keccak256, Signer, toUtf8Bytes } from 'ethers';
 
 export async function signMessage(message: string, signer: Signer): Promise<string> {
@@ -24,7 +23,7 @@ export async function signNodeCommandMessage({
   incrementedNonce,
   signMessage,
 }: {
-  command: Command;
+  command: string;
   consumerAddress: string;
   incrementedNonce: number;
   signMessage: SignMessageFn;

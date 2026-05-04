@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['wagmi', '@wagmi/core', '@wagmi/connectors', '@walletconnect/ethereum-provider', '@walletconnect/universal-provider', 'pino', 'pino-pretty', 'thread-stream'],
+  serverExternalPackages: [
+    'wagmi',
+    '@wagmi/core',
+    '@wagmi/connectors',
+    '@walletconnect/ethereum-provider',
+    '@walletconnect/universal-provider',
+  ],
   turbopack: {
     rules: {
       '*.svg': {
@@ -9,28 +15,11 @@ const nextConfig = {
       },
     },
   },
-  webpack(config, { isServer }) {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        dgram: false,
-        dns: false
-      }
-    }
+  webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     });
-    config.externals.push('pino-pretty', 'lokijs', 'encoding');
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      'rdf-canonize-native': false,
-    };
-
     return config;
   },
   transpilePackages: [

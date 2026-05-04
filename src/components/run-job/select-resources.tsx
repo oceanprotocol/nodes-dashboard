@@ -11,7 +11,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
-import { formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
@@ -42,6 +42,8 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
   const router = useRouter();
 
+  const { isReady: p2pReady } = useP2P();
+
   const { account } = useOceanAccount();
 
   const {
@@ -52,8 +54,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     setEstimatedTotalCost,
     setSelectedResources,
   } = useRunJobContext();
-
-  const { node: p2pNode } = useP2P();
 
   const [initComputeError, setInitComputeError] = useState<unknown | null>(null);
   const [isLoadingCost, setIsLoadingCost] = useState(false);
@@ -199,7 +199,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       environment,
       freeCompute,
       maxJobDurationSeconds: maxJobDurationSec < 1 ? 1 : Math.ceil(maxJobDurationSec),
-      multiaddrsOrPeerId,
+      multiaddrsOrPeerId: multiaddrsOrPeerId!,
       onError: (error) => setInitComputeError(error),
       resources,
       tokenAddress: token?.address,
@@ -229,7 +229,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         clearTimeout(costEstimateTimeoutRef.current);
       }
     };
-  }, [estimateCost, fetchEstimatedCost]);
+  }, [estimateCost]);
 
   const selectAllGpus = () => {
     formik.setFieldValue(
@@ -286,7 +286,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           </h3>
         );
       }
-      if (!p2pNode || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
+      if (!p2pReady || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
         return (
           <h3 className={styles.estimationMessage}>
             <CircularProgress size={24} />
@@ -393,7 +393,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
             step={1}
-            topRight={`${minAllowedCpuCores}-${maxAllowedCpuCores}`}
+            topRight={`${minAllowedCpuCores} - ${maxAllowedCpuCores}`}
             value={formik.values.cpuCores}
             valueLabelFormat={(value) => (value === 1 ? `${value} core` : `${value} cores`)}
           />
@@ -408,7 +408,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
             step={1}
-            topRight={`${minAllowedRam}-${maxAllowedRam}`}
+            topRight={`${minAllowedRam} - ${maxAllowedRam}`}
             value={formik.values.ram}
             valueLabelFormat={(value) => `${value} GB`}
           />
@@ -434,7 +434,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             onBlur={formik.handleBlur}
             onChange={handleDiskSpaceChange}
             startAdornment="GB"
-            topRight={`${minAllowedDiskSpace}-${maxAllowedDiskSpace}`}
+            topRight={`${minAllowedDiskSpace} - ${maxAllowedDiskSpace}`}
             type="number"
             value={formik.values.diskSpace}
           />
@@ -473,7 +473,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             name="maxJobDurationValue"
             onBlur={formik.handleBlur}
             onChange={handleMaxJobDurationChange}
-            topRight={`${Math.ceil(fromSeconds(minAllowedJobDurationSeconds, formik.values.maxJobDurationUnit))}-${Math.ceil(fromSeconds(maxAllowedJobDurationSeconds, formik.values.maxJobDurationUnit))}`}
+            topRight={`${formatDuration(minAllowedJobDurationSeconds, true)} - ${formatDuration(maxAllowedJobDurationSeconds, true)}`}
             type="number"
             value={formik.values.maxJobDurationValue}
           />
