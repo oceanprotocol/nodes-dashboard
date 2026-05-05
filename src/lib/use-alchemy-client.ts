@@ -1,4 +1,4 @@
-import { alchemyWalletTransport, createSmartWalletClient } from '@alchemy/wallet-apis';
+import { alchemyWalletTransport, createSmartWalletClient, type SmartWalletClient } from '@alchemy/wallet-apis';
 import { getEmbeddedConnectedWallet, toViemAccount, useWallets } from '@privy-io/react-auth';
 import { useEffect, useMemo, useState } from 'react';
 import type { LocalAccount } from 'viem';
@@ -8,7 +8,7 @@ type Call = { to: `0x${string}`; data?: `0x${string}`; value?: bigint };
 
 const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
 
-function useAlchemyClient() {
+function useAlchemyClient(): SmartWalletClient | null {
   const { wallets } = useWallets();
   const embeddedWallet = getEmbeddedConnectedWallet(wallets);
   const [signer, setSigner] = useState<LocalAccount | undefined>();
@@ -18,10 +18,10 @@ function useAlchemyClient() {
       setSigner(undefined);
       return;
     }
-    toViemAccount({ wallet: embeddedWallet }).then(setSigner);
+    toViemAccount({ wallet: embeddedWallet }).then((s) => setSigner(s as unknown as LocalAccount));
   }, [embeddedWallet]);
 
-  return useMemo(() => {
+  return useMemo((): SmartWalletClient | null => {
     if (!signer) return null;
     return createSmartWalletClient({
       signer,

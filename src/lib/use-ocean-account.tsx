@@ -47,7 +47,8 @@ type OceanAccountContextType = {
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
 const SCAHandler = ({ children, address }: { children: ReactNode; address: string }) => {
-  const { wallets, logout } = usePrivy();
+  const { logout } = usePrivy();
+  const { wallets } = useWallets();
   const { sendTransaction, isLoading: isSendingTransaction } = useAlchemySendTransaction();
 
   useEffect(() => {
@@ -86,7 +87,7 @@ const SCAHandler = ({ children, address }: { children: ReactNode; address: strin
     }) => {
       try {
         const result = await sendTransaction({ to: target as `0x${string}`, data: data as `0x${string}` });
-        onSuccess?.({ ...result, hash: result?.txnHash });
+        onSuccess?.({ ...result, hash: result?.receipts?.[0]?.transactionHash });
       } catch (error) {
         onError?.(error);
       }
