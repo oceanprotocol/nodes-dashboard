@@ -10,7 +10,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WalletIcon from '@mui/icons-material/Wallet';
-import { ListItemIcon, MenuItem } from '@mui/material';
+import { CircularProgress, ListItemIcon, MenuItem } from '@mui/material';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../button/button';
@@ -19,19 +19,31 @@ import styles from './navigation.module.css';
 const ProfileButton = () => {
   const router = useRouter();
 
-  const { login, logout } = usePrivy();
+  const { login, logout: privyLogout, authenticated } = usePrivy();
 
-  const { account } = useOceanAccount();
+  const { account, logout } = useOceanAccount();
 
   const { ensName, ensProfile, grantStatus } = useProfileContext();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
+  const [authSettled, setAuthSettled] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // When authenticated but not yet connected, show a brief spinner.
+  // If the wallet doesn't resolve within 4s (stale session), fall back to the login button.
+  useEffect(() => {
+    if (authenticated && !account.isConnected) {
+      setAuthSettled(false);
+      const timer = setTimeout(() => setAuthSettled(true), 4000);
+      return () => clearTimeout(timer);
+    }
+    setAuthSettled(false);
+  }, [authenticated, account.isConnected]);
 
   const handleOpenMenu = () => {
     setAnchorEl(buttonRef.current);
@@ -143,8 +155,16 @@ const ProfileButton = () => {
         </MenuItem>
       </Menu>
     </>
+  ) : authenticated && !authSettled ? (
+    <Button className={styles.loginButton} color="accent1" disabled>
+      <CircularProgress size={16} color="inherit" />
+    </Button>
   ) : (
-    <Button className={styles.loginButton} color="accent1" onClick={login}>
+    <Button
+      className={styles.loginButton}
+      color="accent1"
+      onClick={() => (authenticated ? privyLogout() : login())}
+    >
       Log in
     </Button>
   );

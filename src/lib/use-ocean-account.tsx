@@ -31,6 +31,7 @@ type OceanAccountContextType = {
     isConnected: boolean;
   };
   isSendingTransaction: boolean;
+  logout: () => Promise<void>;
   ocean: OceanProvider | null;
   provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
   sendTransaction: (params: {
@@ -46,7 +47,7 @@ type OceanAccountContextType = {
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
 const SCAHandler = ({ children, address }: { children: ReactNode; address: string }) => {
-  const { wallets } = useWallets();
+  const { wallets, logout } = usePrivy();
   const { sendTransaction, isLoading: isSendingTransaction } = useAlchemySendTransaction();
 
   useEffect(() => {
@@ -98,6 +99,7 @@ const SCAHandler = ({ children, address }: { children: ReactNode; address: strin
       value={{
         account: { address, isConnected: true },
         isSendingTransaction,
+        logout,
         ocean,
         provider,
         sendTransaction: sendTransactionWrapper,
@@ -123,11 +125,22 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!provider) return;
+    const ethereum = (window as any).ethereum;
+
     provider
       .listAccounts()
       .then((accounts) => accounts[0]?.address)
       .then((addr) => setAddress(addr))
       .catch(() => {});
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      setAddress(accounts[0] ?? undefined);
+    };
+
+    ethereum?.on('accountsChanged', handleAccountsChanged);
+    return () => {
+      ethereum?.removeListener('accountsChanged', handleAccountsChanged);
+    };
   }, [provider]);
 
   useEffect(() => {
@@ -141,6 +154,16 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
     if (!provider) return null;
     return new OceanProvider(CHAIN_ID, provider);
   }, [provider]);
+
+  const logout = useCallback(async () => {
+    try {
+      await (window as any).ethereum?.request({
+        method: 'wallet_revokePermissions',
+        params: [{ eth_accounts: {} }],
+      });
+    } catch {} // not supported by all wallets
+    setAddress(undefined);
+  }, []);
 
   const signMessageWrapper = useCallback(
     async (message: string) => {
@@ -190,6 +213,7 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
       value={{
         account: { address, isConnected: !!address },
         isSendingTransaction,
+        logout,
         ocean,
         provider,
         sendTransaction: sendTransactionWrapper,
