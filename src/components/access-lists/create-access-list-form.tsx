@@ -1,7 +1,6 @@
 'use client';
 
 import Button from '@/components/button/button';
-import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import { CHAIN_ID } from '@/constants/chains';
 import { useAccessList } from '@/lib/use-access-list';
@@ -91,8 +90,7 @@ const CreateAccessListForm: React.FC<CreateAccessListFormProps> = ({ onCreated }
   }
 
   return (
-    <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
-      <strong>Create new access list</strong>
+    <div className="flexColumn gapSm">
       <span className={styles.empty}>Chain: {formatChainLabel(CHAIN_ID)}</span>
       <div className={styles.formRow}>
         <Input
@@ -168,7 +166,7 @@ const CreateAccessListForm: React.FC<CreateAccessListFormProps> = ({ onCreated }
           Deploy access list
         </Button>
       </div>
-    </Card>
+    </div>
   );
 };
 

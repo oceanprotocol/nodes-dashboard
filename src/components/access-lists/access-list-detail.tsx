@@ -1,10 +1,9 @@
 'use client';
 
 import Button from '@/components/button/button';
-import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import { useAccessList } from '@/lib/use-access-list';
-import { formatError, formatWalletAddress } from '@/utils/formatters';
+import { formatError } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
 import { isAddress } from 'ethers';
@@ -15,37 +14,32 @@ import styles from './access-lists-page.module.css';
 type AccessListDetailProps = {
   contractAddress: string;
   currentAccount?: string;
+  isOwner: boolean;
   onMembersChanged?: () => void;
 };
 
-const AccessListDetail: React.FC<AccessListDetailProps> = ({ contractAddress, currentAccount, onMembersChanged }) => {
-  const { addWalletToAccessList, getAccessListAddresses, getAccessListName, getAccessListOwner, removeWalletFromAccessList } =
-    useAccessList();
+const AccessListDetail: React.FC<AccessListDetailProps> = ({
+  contractAddress,
+  currentAccount,
+  isOwner,
+  onMembersChanged,
+}) => {
+  const { addWalletToAccessList, getAccessListAddresses, removeWalletFromAccessList } = useAccessList();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [name, setName] = useState<string | null>(null);
-  const [owner, setOwner] = useState<string | null>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [newWallet, setNewWallet] = useState('');
   const [walletError, setWalletError] = useState<string | null>(null);
-
-  const isOwner = !!currentAccount && !!owner && owner.toLowerCase() === currentAccount.toLowerCase();
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       try {
-        const [memberList, ownerAddress, listName] = await Promise.all([
-          getAccessListAddresses(contractAddress),
-          getAccessListOwner(contractAddress).catch(() => null),
-          getAccessListName(contractAddress).catch(() => null),
-        ]);
+        const memberList = await getAccessListAddresses(contractAddress);
         if (cancelled) return;
         setMembers(memberList);
-        setOwner(ownerAddress);
-        setName(listName);
       } catch (e: any) {
         if (cancelled) return;
         toast.error(formatError({ error: e, fallback: 'Failed to load access list.' }));
@@ -57,7 +51,7 @@ const AccessListDetail: React.FC<AccessListDetailProps> = ({ contractAddress, cu
     return () => {
       cancelled = true;
     };
-  }, [contractAddress, getAccessListAddresses, getAccessListName, getAccessListOwner]);
+  }, [contractAddress, getAccessListAddresses]);
 
   async function handleAdd() {
     const trimmed = newWallet.trim();
@@ -97,79 +91,70 @@ const AccessListDetail: React.FC<AccessListDetailProps> = ({ contractAddress, cu
     }
   }
 
-  return (
-    <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
-      <div className={styles.detailHeader}>
-        <strong>{name ?? 'Access list'}</strong>
-        <span className={styles.detailAddress}>{contractAddress}</span>
-        <div className={styles.detailBadges}>
-          {owner ? (
-            <span className={classNames('chip', isOwner ? 'chipPrimaryOutlined' : 'chipGlass')}>
-              Owner: {isOwner ? 'you' : formatWalletAddress(owner)}
-            </span>
-          ) : null}
-          {!isOwner && owner ? <span className="chip chipGlass">Read-only</span> : null}
-        </div>
-      </div>
-      {loading ? (
+  if (loading) {
+    return (
+      <div className={styles.loadingRow}>
         <CircularProgress size={16} />
+        <span className={styles.empty}>Loading members…</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <strong>Members ({members.length})</strong>
+      {members.length === 0 ? (
+        <span className={styles.empty}>
+          No members yet. The indexer may take a moment to reflect recent on-chain changes.
+        </span>
       ) : (
-        <>
-          <strong>Members ({members.length})</strong>
-          {members.length === 0 ? (
-            <span className={styles.empty}>
-              No members yet. The indexer may take a moment to reflect recent on-chain changes.
-            </span>
-          ) : (
-            <div>
-              {members.map((wallet) => {
-                const isYou = currentAccount && wallet.toLowerCase() === currentAccount.toLowerCase();
-                return (
-                  <div className={styles.memberRow} key={wallet}>
-                    <span className={styles.memberAddress}>
-                      {wallet}
-                      {isYou ? <span className={classNames('chip chipPrimaryOutlined')} style={{ marginLeft: 8 }}>you</span> : null}
-                    </span>
-                    {isOwner ? (
-                      <Button
-                        color="accent1"
-                        disabled={saving || !!isYou}
-                        onClick={() => handleRemove(wallet)}
-                        size="link"
-                        variant="transparent"
-                      >
-                        Remove
-                      </Button>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {isOwner ? (
-            <div className={styles.lookupRow}>
-              <Input
-                disabled={saving}
-                errorText={walletError ?? undefined}
-                label="Wallet to add"
-                onChange={(e) => {
-                  setNewWallet(e.target.value);
-                  setWalletError(null);
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                placeholder="0x..."
-                size="sm"
-                type="text"
-                value={newWallet}
-              />
-              <Button color="accent1" loading={saving} size="md" onClick={handleAdd}>
-                Add
-              </Button>
-            </div>
-          ) : null}
-        </>
+        <div>
+          {members.map((wallet) => {
+            const isYou = currentAccount && wallet.toLowerCase() === currentAccount.toLowerCase();
+            return (
+              <div className={styles.memberRow} key={wallet}>
+                <span className={styles.memberAddress}>
+                  {wallet}
+                  {isYou ? <span className={classNames('chip chipPrimaryOutlined')} style={{ marginLeft: 8 }}>you</span> : null}
+                </span>
+                {isOwner ? (
+                  <Button
+                    color="accent1"
+                    disabled={saving || !!isYou}
+                    onClick={() => handleRemove(wallet)}
+                    size="link"
+                    variant="transparent"
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       )}
-    </Card>
+      {isOwner ? (
+        <div className={styles.lookupRow}>
+          <Input
+            disabled={saving}
+            errorText={walletError ?? undefined}
+            label="Wallet to add"
+            onChange={(e) => {
+              setNewWallet(e.target.value);
+              setWalletError(null);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            placeholder="0x..."
+            size="sm"
+            type="text"
+            value={newWallet}
+          />
+          <Button color="accent1" loading={saving} size="md" onClick={handleAdd}>
+            Add
+          </Button>
+        </div>
+      ) : null}
+    </>
   );
 };
 

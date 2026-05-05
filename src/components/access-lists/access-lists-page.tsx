@@ -5,30 +5,31 @@ import CreateAccessListForm from '@/components/access-lists/create-access-list-f
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
-import Input from '@/components/input/input';
+import Modal from '@/components/modal/modal';
 import SectionTitle from '@/components/section-title/section-title';
+import TabBar from '@/components/tab-bar/tab-bar';
 import { CHAIN_ID } from '@/constants/chains';
 import { AccessListDoc, useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { formatChainLabel, formatWalletAddress } from '@/utils/formatters';
-import { CircularProgress } from '@mui/material';
+import { formatChainLabel } from '@/utils/formatters';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { CircularProgress, Collapse } from '@mui/material';
 import classNames from 'classnames';
-import { isAddress } from 'ethers';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './access-lists-page.module.css';
+
+type TabKey = 'owned' | 'shared';
 
 const AccessListsPage: React.FC = () => {
   const { account } = useOceanAccount();
   const { getAccessListOwner, searchAccessListsByMember } = useAccessList();
 
+  const [activeTab, setActiveTab] = useState<TabKey>('owned');
   const [showCreate, setShowCreate] = useState(false);
   const [loadingLists, setLoadingLists] = useState(false);
   const [memberLists, setMemberLists] = useState<AccessListDoc[]>([]);
   const [ownerMap, setOwnerMap] = useState<Record<string, boolean>>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [selectedVersion, setSelectedVersion] = useState(0);
-  const [lookup, setLookup] = useState('');
-  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [refreshTick, setRefreshTick] = useState(0);
 
   const refreshLists = useCallback(() => setRefreshTick((t) => t + 1), []);
@@ -74,28 +75,32 @@ const AccessListsPage: React.FC = () => {
     };
   }, [account.address, getAccessListOwner, searchAccessListsByMember, refreshTick]);
 
-  function handleSelect(address: string) {
-    setSelected(address);
-    setSelectedVersion((v) => v + 1);
-  }
+  const { ownedLists, sharedLists } = useMemo(() => {
+    const owned: AccessListDoc[] = [];
+    const shared: AccessListDoc[] = [];
+    for (const doc of memberLists) {
+      if (ownerMap[doc.contractAddress.toLowerCase()]) owned.push(doc);
+      else shared.push(doc);
+    }
+    return { ownedLists: owned, sharedLists: shared };
+  }, [memberLists, ownerMap]);
 
-  function handleLookup() {
-    const trimmed = lookup.trim();
-    if (!trimmed) {
-      setLookupError('Address required');
-      return;
-    }
-    if (!isAddress(trimmed)) {
-      setLookupError('Invalid contract address');
-      return;
-    }
-    setLookupError(null);
-    handleSelect(trimmed);
+  const visibleLists = activeTab === 'owned' ? ownedLists : sharedLists;
+
+  function toggleExpanded(address: string) {
+    const key = address.toLowerCase();
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   function handleCreated(address: string) {
     setShowCreate(false);
-    handleSelect(address);
+    setActiveTab('owned');
+    setExpanded((prev) => new Set(prev).add(address.toLowerCase()));
     refreshLists();
   }
 
@@ -115,82 +120,79 @@ const AccessListsPage: React.FC = () => {
         subTitle={`Create and manage AccessList contracts on ${formatChainLabel(CHAIN_ID)}.`}
       />
       <div className="pageContentWrapper">
-        <div className={styles.layout}>
-          <div className={styles.sidebar}>
-            <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
-              <div className={styles.lookupRow}>
-                <Input
-                  errorText={lookupError ?? undefined}
-                  hint="Look up a list by its contract address"
-                  label="Access list contract"
-                  onChange={(e) => {
-                    setLookup(e.target.value);
-                    setLookupError(null);
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                  placeholder="0x..."
-                  size="sm"
-                  type="text"
-                  value={lookup}
-                />
-                <Button color="accent1" size="md" onClick={handleLookup}>
-                  Open
+        <TabBar
+          activeKey={activeTab}
+          className={styles.tabBar}
+          tabs={[
+            { key: 'owned', label: 'Owned', onClick: () => setActiveTab('owned') },
+            { key: 'shared', label: 'Shared with me', onClick: () => setActiveTab('shared') },
+          ]}
+        />
+
+        <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
+          <div className={styles.listSectionHeader}>
+            <strong>
+              {activeTab === 'owned' ? 'Access lists you own' : 'Access lists shared with you'}
+            </strong>
+            <div className={styles.headerActions}>
+              {loadingLists ? <CircularProgress size={14} /> : null}
+              {activeTab === 'owned' ? (
+                <Button color="accent1" size="md" onClick={() => setShowCreate(true)}>
+                  Create new access list
                 </Button>
-              </div>
-              <Button color="accent1" size="md" variant="outlined" onClick={() => setShowCreate((v) => !v)}>
-                {showCreate ? 'Cancel create' : 'Create new access list'}
-              </Button>
-            </Card>
-
-            <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
-              <div className={styles.listSectionHeader}>
-                <strong>Your access lists</strong>
-                {loadingLists ? <CircularProgress size={14} /> : null}
-              </div>
-              {memberLists.length === 0 && !loadingLists ? (
-                <span className={styles.empty}>No access lists found.</span>
-              ) : (
-                <div className={styles.listItems}>
-                  {memberLists.map((doc) => {
-                    const isOwner = ownerMap[doc.contractAddress.toLowerCase()] ?? false;
-                    return (
-                      <button
-                        className={classNames(styles.listItem, {
-                          [styles.listItemActive]: selected?.toLowerCase() === doc.contractAddress.toLowerCase(),
-                        })}
-                        key={doc.contractAddress}
-                        onClick={() => handleSelect(doc.contractAddress)}
-                        type="button"
-                      >
-                        <span className={styles.listItemAddress}>{formatWalletAddress(doc.contractAddress)}</span>
-                        <span className={styles.listItemMeta}>{isOwner ? 'manage' : 'read-only'}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
+              ) : null}
+            </div>
           </div>
 
-          <div className={styles.sidebar}>
-            {showCreate ? <CreateAccessListForm onCreated={handleCreated} /> : null}
-            {selected ? (
-              <AccessListDetail
-                contractAddress={selected}
-                currentAccount={account.address}
-                key={`${selected}:${selectedVersion}`}
-                onMembersChanged={refreshLists}
-              />
-            ) : (
-              <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
-                <span className={styles.empty}>
-                  Select an existing access list, look one up by address, or create a new one.
-                </span>
-              </Card>
-            )}
-          </div>
-        </div>
+          {visibleLists.length === 0 && !loadingLists ? (
+            <span className={styles.empty}>
+              {activeTab === 'owned'
+                ? 'You do not own any access lists yet.'
+                : 'No access lists have been shared with you.'}
+            </span>
+          ) : (
+            <div className={styles.listItems}>
+              {visibleLists.map((doc) => {
+                const isOwner = ownerMap[doc.contractAddress.toLowerCase()] ?? false;
+                const isOpen = expanded.has(doc.contractAddress.toLowerCase());
+                return (
+                  <div className={styles.accessSection} key={doc.contractAddress}>
+                    <button
+                      aria-expanded={isOpen}
+                      className={styles.sectionHeader}
+                      onClick={() => toggleExpanded(doc.contractAddress)}
+                      type="button"
+                    >
+                      <ExpandMoreIcon
+                        className={styles.expandIcon}
+                        style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      />
+                      <span className={styles.sectionHeaderAddress}>{doc.contractAddress}</span>
+                      <span className={classNames('chip', isOwner ? 'chipPrimaryOutlined' : 'chipGlass')}>
+                        {isOwner ? 'Owner' : 'Read-only'}
+                      </span>
+                    </button>
+                    <Collapse in={isOpen} mountOnEnter>
+                      <div className={styles.sectionBody}>
+                        <AccessListDetail
+                          contractAddress={doc.contractAddress}
+                          currentAccount={account.address}
+                          isOwner={isOwner}
+                          onMembersChanged={refreshLists}
+                        />
+                      </div>
+                    </Collapse>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
       </div>
+
+      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create new access list" width="sm" fullWidth>
+        <CreateAccessListForm onCreated={handleCreated} />
+      </Modal>
     </Container>
   );
 };

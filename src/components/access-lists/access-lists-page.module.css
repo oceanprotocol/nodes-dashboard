@@ -1,24 +1,5 @@
-.layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-
-  @media (min-width: 960px) {
-    grid-template-columns: 360px 1fr;
-    align-items: start;
-  }
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.listSection {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.tabBar {
+  align-self: center;
 }
 
 .listSectionHeader {
@@ -26,46 +7,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .listItems {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.listItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  background: var(--background-glass);
-  transition: border-color 0.2s ease, background 0.2s ease;
-  text-align: left;
-}
-
-.listItem:hover {
-  border-color: var(--accent1);
-}
-
-.listItemActive {
-  border-color: var(--accent1);
-  background: var(--background-glass-shaded);
-}
-
-.listItemAddress {
-  font-family: var(--font-monospace, monospace);
-  font-size: 13px;
-  word-break: break-all;
-}
-
-.listItemMeta {
-  font-size: 12px;
-  color: var(--text-secondary);
 }
 
 .lookupRow {
@@ -94,26 +48,6 @@
   }
 }
 
-.detailHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.detailAddress {
-  font-family: var(--font-monospace, monospace);
-  font-size: 13px;
-  word-break: break-all;
-  color: var(--text-secondary);
-}
-
-.detailBadges {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-
 .memberRow {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -131,4 +65,56 @@
   font-family: var(--font-monospace, monospace);
   font-size: 13px;
   word-break: break-all;
+}
+
+.accessSection {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  align-items: center;
+  background: var(--background-glass);
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  text-align: left;
+  width: 100%;
+  word-break: break-word;
+}
+
+.sectionHeader:hover {
+  background: color-mix(in srgb, var(--accent1) 6%, transparent);
+}
+
+.sectionHeaderAddress {
+  font-family: var(--font-monospace, monospace);
+  font-size: 13px;
+  flex: 1;
+  word-break: break-all;
+}
+
+.expandIcon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.sectionBody {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.loadingRow {
+  align-items: center;
+  display: flex;
+  gap: 8px;
 }
