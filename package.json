@@ -15,7 +15,7 @@
   "dependencies": {
     "@account-kit/infra": "4.84.1",
     "@account-kit/privy-integration": "^4.88.1",
-    "@account-kit/react": "4.84.1",
+    "@account-kit/react": "4.88.1",
     "@chainsafe/libp2p-noise": "^17.0.0",
     "@chainsafe/libp2p-yamux": "^8.0.1",
     "@emotion/react": "^11.14.0",
@@ -28,6 +28,7 @@
     "@multiformats/multiaddr": "^13.0.1",
     "@oceanprotocol/contracts": "2.6.0",
     "@oceanprotocol/lib": "8.0.3",
+    "@privy-io/alchemy-migration": "^0.0.5",
     "@privy-io/react-auth": "^3.22.2",
     "@ramp-network/ramp-instant-sdk": "^6.2.0",
     "@tanstack/react-query": "^5.28.4",

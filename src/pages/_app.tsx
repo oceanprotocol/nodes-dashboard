@@ -109,7 +109,7 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
                 </GrantProvider>
               </OceanAccountProvider>
             </AlchemyProvider>
-            <ToastContainer hideProgressBar theme="colored" />
+        <ToastContainer hideProgressBar theme="colored" />
           </QueryClientProvider>
         </GitBookProvider>
       </ThemeProvider>

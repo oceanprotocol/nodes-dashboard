@@ -56,6 +56,13 @@ const nextConfig = {
     '@solana/wallet-adapter-wallets',
     '@solana/wallet-adapter-ledger',
     '@ledgerhq/errors',
+    // CJS module; named imports from it fail Node.js ESM static analysis unless
+    // webpack bundles it (handling CJS interop) rather than leaving it for Node.js.
+    '@ledgerhq/hw-transport',
+    // Must be bundled by webpack (not left as a native Node.js external) because its
+    // nested @account-kit/react@4.88.1 → @ledgerhq/hw-transport chain triggers the
+    // same ESM static analysis failure when loaded natively.
+    '@privy-io/alchemy-migration',
   ],
 };
 
