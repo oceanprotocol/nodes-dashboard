@@ -2,7 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useAlchemySendTransaction } from '@account-kit/privy-integration';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';

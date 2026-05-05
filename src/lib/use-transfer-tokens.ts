@@ -1,6 +1,6 @@
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useAlchemySendTransaction } from '@account-kit/privy-integration';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';

@@ -1,8 +1,8 @@
 'use client';
 
 import { alchemy, base, sepolia } from '@account-kit/infra';
-import { AlchemyProvider as PrivyAlchemyProvider } from '@account-kit/privy-integration';
 import { MigrationProvider, createMigrationConfig } from '@privy-io/alchemy-migration';
+import '@privy-io/alchemy-migration/styles.css';
 import { createWalletCreationOnLoginPlugin, PrivyProvider, type User } from '@privy-io/react-auth';
 
 const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
@@ -18,7 +18,7 @@ const migrationConfig = createMigrationConfig(
     auth: {
       sections: [
         [{ type: 'email' }],
-        [{ type: 'passkey' }, { type: 'social', authProviderId: 'google', mode: 'popup' }],
+        [{ type: 'passkey' }, { type: 'social', authProviderId: 'google', mode: 'redirect', redirectUrl: process.env.NEXT_PUBLIC_APP_URL! }],
         [{ type: 'external_wallets' }],
       ],
       addPasskeyOnSignup: true,
@@ -47,12 +47,7 @@ export function AlchemyProvider({ children }: { children: React.ReactNode }) {
         alchemyConfig={migrationConfig}
         privyAppId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       >
-        <PrivyAlchemyProvider
-          apiKey={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY!}
-          policyId={process.env.NEXT_PUBLIC_ALCHEMY_POLICY_ID}
-        >
-          {children}
-        </PrivyAlchemyProvider>
+        {children}
       </MigrationProvider>
     </PrivyProvider>
   );

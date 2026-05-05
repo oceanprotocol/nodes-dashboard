@@ -1,5 +1,5 @@
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useAlchemySendTransaction } from '@account-kit/privy-integration';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { ethers } from 'ethers';
 import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';

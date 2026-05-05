@@ -2,7 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
-import { useAlchemySendTransaction } from '@account-kit/privy-integration';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { CircularProgress } from '@mui/material';
 import { ethers } from 'ethers';
 import posthog from 'posthog-js';
