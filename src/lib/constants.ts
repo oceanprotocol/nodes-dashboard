@@ -4,9 +4,12 @@ export const NODE_URL = 'https://test1.oncompute.ai';
 export const PEER_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';
 
 export function getRpc(): string {
+  if (process.env.NEXT_PUBLIC_APP_ENV === 'production') {
     if (typeof window !== 'undefined') {
       return `${window.location.origin}/api/rpc`;
     }
     // server-side (e.g. signer.ts): use the key directly
-    return process.env.ALCHEMY_RPC_URL ?? 'https://sepolia.drpc.org';
+    return process.env.ALCHEMY_RPC_URL ?? '';
+  }
+  return 'https://sepolia.drpc.org';
 }
