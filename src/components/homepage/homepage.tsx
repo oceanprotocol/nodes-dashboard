@@ -9,8 +9,8 @@ export default function HomePage() {
   return (
     <div className={styles.root}>
       <HeroSection />
-      <FeaturesSection />
       <HowItWorksSection />
+      <FeaturesSection />
       <LeaderboardSection />
       <DocsCtaSection />
     </div>
