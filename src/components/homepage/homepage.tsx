@@ -1,4 +1,5 @@
 import DocsCtaSection from '@/components/homepage/docs-cta-section';
+import StatsSection from '@/components/homepage/stats-section';
 import FeaturesSection from './features';
 import HeroSection from './hero-section';
 import styles from './homepage.module.css';
@@ -11,6 +12,7 @@ export default function HomePage() {
       <HeroSection />
       <HowItWorksSection />
       <FeaturesSection />
+      <StatsSection />
       <LeaderboardSection />
       <DocsCtaSection />
     </div>
