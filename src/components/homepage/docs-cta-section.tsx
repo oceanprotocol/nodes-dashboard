@@ -11,7 +11,7 @@ const DocsCtaSection = () => {
       <Container className={styles.container}>
         <h1 className={styles.title}>Ready to get started?</h1>
         <p className={styles.description}>
-          Run a quick CPU test, or claim $100 in Grant Tokens to unlock high-performance GPU workloads in the same
+          Run a quick CPU test, or claim $100 in Compy Tokens to unlock high-performance GPU workloads in the same
           environment, all within Ocean Orchestrator
         </p>
         <Button color="primary-inverse" href={routes.runJob.path} size="lg" variant="filled">
