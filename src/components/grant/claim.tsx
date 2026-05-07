@@ -73,7 +73,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
             });
             setClaimed(true);
             fetchGrantStatus(account.address!);
-            toast.success('Grant claimed successfully!');
+            toast.success('Complimentary credits claimed successfully!');
           } catch (error) {
             console.error('Failed to confirm claim', error);
             toast.error('Transaction succeeded but failed to update status. Please contact support.');
@@ -85,7 +85,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
           setIsLoading(false);
           posthog.capture('grant_claim_failed', { error: String(error) });
           console.error('Claim error:', error);
-          toast.error('Failed to claim grant. Please try again.');
+          toast.error('Failed to claim complimentary credits. Please try again.');
         },
       });
     } catch (error) {
@@ -111,7 +111,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
     >
       <div className={styles.group}>
         <h3>Verification successful</h3>
-        <div>You are eligible for grant distribution</div>
+        <div>You are eligible to claim complimentary credits</div>
       </div>
       <Card className={styles.amountCard} radius="md" variant="accent1-outline">
         <h3>{claimed ? 'Claimed amount' : 'Claimable amount'}</h3>

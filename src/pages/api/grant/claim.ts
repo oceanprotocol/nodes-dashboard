@@ -22,7 +22,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     }
 
     if (grant.status === GrantStatus.CLAIMED) {
-      return response.status(400).json({ message: 'Grant already claimed' });
+      return response.status(400).json({ message: 'Complimentary credits already claimed' });
     }
 
     const faucetAddress = process.env.GRANT_FAUCET_ADDRESS;
