@@ -129,11 +129,9 @@ const AccessListsPage: React.FC = () => {
           ]}
         />
 
-        <Card direction="column" padding="md" radius="md" spacing="sm" variant="glass">
+        <Card direction="column" padding="md" radius="md" shadow="black" spacing="sm" variant="glass-shaded">
           <div className={styles.listSectionHeader}>
-            <strong>
-              {activeTab === 'owned' ? 'Access lists you own' : 'Access lists shared with you'}
-            </strong>
+            <strong>{activeTab === 'owned' ? 'Access lists you own' : 'Access lists shared with you'}</strong>
             <div className={styles.headerActions}>
               {loadingLists ? <CircularProgress size={14} /> : null}
               {activeTab === 'owned' ? (
@@ -190,7 +188,13 @@ const AccessListsPage: React.FC = () => {
         </Card>
       </div>
 
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create new access list" width="sm" fullWidth>
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Create new access list"
+        width="sm"
+        fullWidth
+      >
         <CreateAccessListForm onCreated={handleCreated} />
       </Modal>
     </Container>
