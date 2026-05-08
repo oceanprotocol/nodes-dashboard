@@ -31,7 +31,7 @@ export default function LeaderboardSection() {
             eligible: { operator: 'equals', value: true },
           }),
           page: 0,
-          size: 3,
+          size: 5,
           sort: JSON.stringify({
             'latestBenchmarkResults.totalScore': 'desc',
           }),
