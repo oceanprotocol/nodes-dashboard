@@ -30,6 +30,7 @@ export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
       },
     },
   });
+  console.log("P2P node set up")
 }
 
 export async function getNodeEnvs(nodeUri: NodeUri) {
