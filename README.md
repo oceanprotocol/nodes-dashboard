@@ -18,6 +18,7 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 - **Web3 Wallet Support** – Alchemy Account Kit + Wagmi for seamless wallet connection. Supports email magic link, passkey, Google OAuth (popup), and external wallets (MetaMask, WalletConnect, etc.).
 - **ENS Resolution** – Display human-readable ENS names for wallet addresses.
 - **Analytics** – Dedicated analytics layer (summaries, rewards history, GPU stats) from the `analytics` backend.
+- **Node Storage** – Per-node persistent storage for compute consumers to upload files for using in compute jobs. Browse and create buckets on a node, upload/delete files, and control access via reusable on-chain access lists.
 
 ---
 
@@ -181,6 +182,7 @@ src/
 │   ├── leaderboard.tsx     # Leaderboard
 │   ├── profile/            # Per-wallet profile
 │   ├── grant/              # Grant flow
+│   ├── nodes/[nodeId]/storage/ # Node persistent storage (buckets & files)
 │   ├── swap-tokens.tsx     # Token swap
 │   ├── withdraw.tsx        # Token withdrawal
 │   └── api/                # Next.js API routes (server-side)
