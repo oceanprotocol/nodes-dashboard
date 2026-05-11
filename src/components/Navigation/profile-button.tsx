@@ -1,6 +1,5 @@
 import Avatar from '@/components/avatar/avatar';
 import Menu from '@/components/menu/menu';
-import EditAccessListModal from '@/components/node-storage/edit-access-list-modal';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
@@ -30,7 +29,6 @@ const ProfileButton: React.FC = () => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
-  const [isAccessListModalOpen, setIsAccessListModalOpen] = useState(false);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -144,14 +142,14 @@ const ProfileButton: React.FC = () => {
           <MenuItem
             disableRipple
             onClick={() => {
-              setIsAccessListModalOpen(true);
+              router.push('/profile/access-lists');
               handleCloseMenu();
             }}
           >
             <ListItemIcon>
               <ListAltIcon />
             </ListItemIcon>
-            Edit access list
+            Manage access lists
           </MenuItem>
         )}
         <MenuItem
@@ -170,11 +168,6 @@ const ProfileButton: React.FC = () => {
           Log out
         </MenuItem>
       </Menu>
-      <EditAccessListModal
-        currentAccount={account.address}
-        isOpen={isAccessListModalOpen}
-        onClose={() => setIsAccessListModalOpen(false)}
-      />
     </>
   ) : (
     <Button className={styles.loginButton} color="accent1" loading={isLoggingOut} onClick={openAuthModal}>

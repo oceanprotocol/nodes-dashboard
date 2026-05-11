@@ -143,7 +143,12 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
           break;
         }
         case 'new': {
-          const accessListAddress = await deployNewAccessList({ wallets: access.wallets, owner: account.address });
+          const accessListAddress = await deployNewAccessList({
+            name: 'BucketAccessList',
+            symbol: 'BAL',
+            wallets: access.wallets,
+            owner: account.address,
+          });
           accessLists = rowsToAccessLists([{ chainId: String(CHAIN_ID), address: accessListAddress }]);
           break;
         }
