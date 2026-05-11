@@ -62,11 +62,6 @@
 }
 
 .costCard {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 24px;
-
   .costEstimation {
     align-items: center;
     display: flex;

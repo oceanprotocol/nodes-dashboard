@@ -9,6 +9,8 @@ import { RunNodeProvider } from '@/context/run-node-context';
 import { StatsProvider } from '@/context/stats-context';
 import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
+import { NodeAuthProvider } from '@/contexts/node-auth-context';
+import { NodeStorageProvider } from '@/contexts/node-storage-context';
 import { AlchemyProvider } from '@/lib/alchemy-provider';
 import { OceanAccountProvider } from '@/lib/use-ocean-account';
 import { PHProvider } from '@/lib/use-posthog';
@@ -19,10 +21,10 @@ import cx from 'classnames';
 import App, { type AppContext, type AppProps } from 'next/app';
 import dynamic from 'next/dynamic';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
+import Script from 'next/script';
 import { useEffect, useRef } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Script from 'next/script';
 
 const GitBookProvider = dynamic(() => import('@gitbook/embed/react').then((mod) => mod.GitBookProvider), {
   ssr: false,
@@ -65,11 +67,7 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
 
   return (
     <main className={cx(inter.variable, plusJakartaSans.variable)}>
-      <Script
-        async
-        src="https://www.googletagmanager.com/gtag/js?id=AW-17691004915"
-        strategy="afterInteractive"
-      />
+      <Script async src="https://www.googletagmanager.com/gtag/js?id=AW-17691004915" strategy="afterInteractive" />
       <Script id="google-analytics" strategy="afterInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
@@ -90,17 +88,21 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
                       <ProfileProvider>
                         <StatsProvider>
                           <P2PProvider>
-                            <RunJobEnvsProvider>
-                              <RunJobProvider>
-                                <RunNodeProvider>
-                                  <RootLayout>
-                                    <PHProvider>
-                                      <Component {...pageProps} />
-                                    </PHProvider>
-                                  </RootLayout>
-                                </RunNodeProvider>
-                              </RunJobProvider>
-                            </RunJobEnvsProvider>
+                            <NodeAuthProvider>
+                              <NodeStorageProvider>
+                                <RunJobEnvsProvider>
+                                  <RunJobProvider>
+                                    <RunNodeProvider>
+                                      <RootLayout>
+                                        <PHProvider>
+                                          <Component {...pageProps} />
+                                        </PHProvider>
+                                      </RootLayout>
+                                    </RunNodeProvider>
+                                  </RunJobProvider>
+                                </RunJobEnvsProvider>
+                              </NodeStorageProvider>
+                            </NodeAuthProvider>
                           </P2PProvider>
                         </StatsProvider>
                       </ProfileProvider>

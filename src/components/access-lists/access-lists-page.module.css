@@ -1,0 +1,120 @@
+.tabBar {
+  align-self: center;
+}
+
+.listSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.listItems {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lookupRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+
+  @media (min-width: 768px) {
+    align-items: end;
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.memberRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.memberRow:last-child {
+  border-bottom: none;
+}
+
+.memberAddress {
+  font-family: var(--font-monospace, monospace);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.accessSection {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  align-items: center;
+  background: var(--background-glass);
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  text-align: left;
+  width: 100%;
+  word-break: break-word;
+}
+
+.sectionHeader:hover {
+  background: color-mix(in srgb, var(--accent1) 6%, transparent);
+}
+
+.sectionHeaderAddress {
+  font-family: var(--font-monospace, monospace);
+  font-size: 13px;
+  flex: 1;
+  word-break: break-all;
+}
+
+.expandIcon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.sectionBody {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.loadingRow {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}

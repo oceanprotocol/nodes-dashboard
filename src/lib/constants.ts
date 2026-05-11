@@ -1,4 +1,4 @@
-export const NODE_URL = 'https://compute1.oceanprotocol.com';
+export const NODE_URL = 'https://test1.oncompute.ai';
 // TESTING PEER ID
 // export const PEER_ID = "16Uiu2HAkwo74CJTUMHb8j7kv74GsuDB1hwLrCgDDM9pLsbx8BYA9"
 export const PEER_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';

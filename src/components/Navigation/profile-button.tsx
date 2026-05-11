@@ -5,6 +5,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
 import { formatWalletAddress } from '@/utils/formatters';
 import { useAuthModal, useLogout } from '@account-kit/react';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
@@ -16,18 +17,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../button/button';
 import styles from './navigation.module.css';
 
-const ProfileButton = () => {
+const ProfileButton: React.FC = () => {
   const router = useRouter();
 
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
   const { isLoggingOut, logout } = useLogout();
 
-  const { account } = useOceanAccount();
+  const { account, provider } = useOceanAccount();
 
   const { ensName, ensProfile, grantStatus } = useProfileContext();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isClient, setIsClient] = useState(false);
+
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // This is a workaround for the modal not closing after connecting
@@ -136,6 +138,20 @@ const ProfileButton = () => {
           </ListItemIcon>
           Convert to COMPY
         </MenuItem>
+        {provider && (
+          <MenuItem
+            disableRipple
+            onClick={() => {
+              router.push('/profile/access-lists');
+              handleCloseMenu();
+            }}
+          >
+            <ListItemIcon>
+              <ListAltIcon />
+            </ListItemIcon>
+            Manage access lists
+          </MenuItem>
+        )}
         <MenuItem
           sx={{
             color: 'var(--error-darker)',
