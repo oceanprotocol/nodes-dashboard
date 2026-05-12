@@ -26,6 +26,10 @@ const migrationConfig = createMigrationConfig(
   }
 );
 
+// The plugin is the sole controller of embedded-wallet creation (no createOnLogin alongside it).
+// For users being migrated from Alchemy (alchemy_org_id present) it returns false so
+// MigrationProvider can show the key-transfer modal instead of creating a new wallet address.
+// For all other users it returns true (create normally).
 const walletCreationPlugin = createWalletCreationOnLoginPlugin({
   shouldCreateWallet: ({ user }: { user: User }) =>
     user.customMetadata?.['alchemy_org_id'] === undefined,
@@ -38,9 +42,6 @@ export function AlchemyProvider({ children }: { children: React.ReactNode }) {
       config={{
         loginMethods: ['email', 'google', 'passkey', 'wallet'],
         plugins: [walletCreationPlugin],
-        embeddedWallets: {
-          ethereum: { createOnLogin: 'users-without-wallets' },
-        },
       }}
     >
       <MigrationProvider

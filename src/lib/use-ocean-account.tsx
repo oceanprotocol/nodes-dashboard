@@ -4,10 +4,10 @@ import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { CircularProgress } from '@mui/material';
+import { getEmbeddedConnectedWallet, usePrivy, useWallets } from '@privy-io/react-auth';
 import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getEmbeddedConnectedWallet, usePrivy, useWallets } from '@privy-io/react-auth';
 
 // MetaMask returns nonce=null or nonce="undefined" for pending txs in eth_getTransactionByHash,
 // which ethers v6 fails to parse as BigInt. Patch it in send() before ethers processes the response.
@@ -229,7 +229,7 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
   const { ready, authenticated } = usePrivy();
-  const { wallets } = useWallets();
+  const { wallets, ready: walletsReady } = useWallets();
   const embeddedWallet = getEmbeddedConnectedWallet(wallets);
 
   if (!ready) {
@@ -250,6 +250,22 @@ export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
 
   if (authenticated && embeddedWallet) {
     return <SCAHandler address={embeddedWallet.address}>{children}</SCAHandler>;
+  }
+
+  if (authenticated && !walletsReady) {
+    return (
+      <div
+        style={{
+          alignItems: 'center',
+          display: 'flex',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100vw',
+        }}
+      >
+        <CircularProgress />
+      </div>
+    );
   }
 
   return <EOAHandler>{children}</EOAHandler>;
