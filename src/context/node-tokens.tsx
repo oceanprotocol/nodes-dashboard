@@ -57,12 +57,13 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
       // user logged out -> clear node tokens
       setNodeTokens({});
     }
-    if (account.address && prevAddress.current !== account.address) {
-      // user logged in -> hydrate node tokens from local storage
+    if (account.address && (prevAddress.current !== account.address || !isHydrated)) {
+      // user logged into new account -> hydrate node tokens from local storage
+      // app opened, user already logged in -> hydrate node tokens from local storage
       hydrateFromLocalStorage();
     }
     prevAddress.current = account.address;
-  }, [account.address, hydrateFromLocalStorage]);
+  }, [account.address, hydrateFromLocalStorage, isHydrated]);
 
   /**
    * Save node tokens to local storage when they change.
