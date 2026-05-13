@@ -16,6 +16,7 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
   const { account } = useOceanAccount();
   const prevAddress = useRef<string | undefined>(account.address);
 
+  const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [nodeTokens, setNodeTokens] = useState<NodeTokens>({});
 
   const saveToLocalStorage = useCallback(
@@ -44,6 +45,7 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
     if (stored) {
       setNodeTokens(JSON.parse(stored));
     }
+    setIsHydrated(true);
   }, [account.address]);
 
   /**
@@ -66,8 +68,10 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
    * Save node tokens to local storage when they change.
    */
   useEffect(() => {
-    saveToLocalStorage(nodeTokens);
-  }, [nodeTokens, saveToLocalStorage]);
+    if (isHydrated) {
+      saveToLocalStorage(nodeTokens);
+    }
+  }, [isHydrated, nodeTokens, saveToLocalStorage]);
 
   return (
     <NodeTokensContext.Provider
