@@ -1,5 +1,7 @@
+import NodesTokens from '@/components/node-tokens/nodes-tokens';
+
 const NodeTokensPage: React.FC = () => {
-  return <div>Node Tokens</div>;
+  return <NodesTokens />;
 };
 
 export default NodeTokensPage;

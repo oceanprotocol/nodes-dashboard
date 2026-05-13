@@ -5,6 +5,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
 import { formatWalletAddress } from '@/utils/formatters';
 import { useAuthModal, useLogout } from '@account-kit/react';
+import KeyIcon from '@mui/icons-material/Key';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
@@ -152,6 +153,18 @@ const ProfileButton: React.FC = () => {
             Manage access lists
           </MenuItem>
         )}
+        <MenuItem
+          disableRipple
+          onClick={() => {
+            router.push('/nodes/tokens');
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <KeyIcon />
+          </ListItemIcon>
+          Node auth tokens
+        </MenuItem>
         <MenuItem
           sx={{
             color: 'var(--error-darker)',
