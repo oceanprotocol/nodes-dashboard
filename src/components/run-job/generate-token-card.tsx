@@ -40,14 +40,11 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
 
   const formik = useFormik<FormValues>({
     initialValues: {
-      expiryValue: 1,
+      expiryValue: '',
       expiryUnit: 'hours',
     },
     validationSchema: Yup.object({
-      expiryValue: Yup.number()
-        .typeError('Must be a number')
-        .required('Required')
-        .min(0, 'Must be 0 or greater'),
+      expiryValue: Yup.number().typeError('Must be a number').min(0, 'Must be 0 or greater'),
     }),
     onSubmit: async (values) => {
       if (!account.address || !ocean) {
@@ -59,7 +56,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           nodeUri: multiaddrsOrPeerId,
           signMessage,
         });
-        const expirySeconds = toSeconds(Number(values.expiryValue), values.expiryUnit);
+        const expirySeconds = values.expiryValue !== '' ? toSeconds(Number(values.expiryValue), values.expiryUnit) : 0;
         const expiryTimestamp = expirySeconds > 0 ? Date.now() + expirySeconds * 1000 : undefined;
         addNodeToken({
           createdAt: Date.now(),
@@ -81,9 +78,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
     },
   });
 
-  const expiryError = formik.touched.expiryValue && formik.errors.expiryValue
-    ? formik.errors.expiryValue
-    : undefined;
+  const expiryError = formik.touched.expiryValue && formik.errors.expiryValue ? formik.errors.expiryValue : undefined;
 
   return (
     <Card direction="column" innerShadow="black" padding="sm" radius="sm" spacing="sm" variant="glass">
@@ -110,7 +105,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
             </div>
           }
           errorText={expiryError}
-          hint="Set to 0 for no expiry"
+          hint="Leave empty for no expiry"
           label="Token expiry"
           min={0}
           name="expiryValue"
@@ -126,13 +121,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           type="number"
           value={formik.values.expiryValue}
         />
-        <Button
-          autoLoading
-          color="accent1"
-          disabled={!formik.isValid}
-          size="md"
-          type="submit"
-        >
+        <Button autoLoading color="accent1" disabled={!formik.isValid} size="md" type="submit">
           Generate token
         </Button>
       </form>
