@@ -1,22 +1,24 @@
 import Button from '@/components/button/button';
+import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Menu from '@/components/menu/menu';
+import GenerateTokenCard from '@/components/run-job/generate-token-card';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { createAuthToken } from '@/services/nodeService';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
 import { formatDuration } from '@/utils/formatters';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { CircularProgress, ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
 import styles from './summary.module.css';
+
 type SummaryProps = {
   estimatedTotalCost: number;
   freeCompute: boolean;
@@ -36,7 +38,7 @@ const Summary = ({
 }: SummaryProps) => {
   const router = useRouter();
 
-  const { account, ocean, signMessage } = useOceanAccount();
+  const { account, ocean } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
   const { minLockSeconds, multiaddrsOrPeerId } = useRunJobContext();
 
@@ -61,10 +63,6 @@ const Summary = ({
     setSelectedIde(Ide[selectedIdeKey as keyof typeof Ide]);
   }, []);
 
-  /**
-   * Check if payment was made.
-   * If not, return to payment page
-   */
   const checkPaymentStatus = useCallback(async () => {
     if (freeCompute || !token) {
       setPaymentCheckFinished(true);
@@ -98,9 +96,6 @@ const Summary = ({
     router,
   ]);
 
-  /**
-   * Initiate payment check
-   */
   useEffect(() => {
     if (!ocean || !account.address) {
       return;
@@ -110,29 +105,6 @@ const Summary = ({
       checkPaymentStatus();
     }
   }, [account.address, checkPaymentStatus, ocean, paymentCheckStarted]);
-
-  const generateToken = async () => {
-    if (!account.address || !ocean) {
-      return;
-    }
-    try {
-      const { token: generatedAuthToken } = await createAuthToken({
-        consumerAddress: account.address,
-        nodeUri: multiaddrsOrPeerId!,
-        signMessage,
-      });
-      setAuthToken(generatedAuthToken);
-      posthog.capture('authToken_generated', {
-        nodeId: nodeInfo.id,
-        environmentId: selectedEnv.id,
-        freeCompute,
-        tokenAddress: token?.address,
-      });
-    } catch (error) {
-      console.error('Failed to generate auth token:', error);
-      toast.error('Failed to generate auth token');
-    }
-  };
 
   const openIde = async (uriScheme: string) => {
     if (!authToken || !account.address || !ocean) {
@@ -245,8 +217,27 @@ const Summary = ({
         <div className={styles.label}>Total cost:</div>
         <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token?.symbol}`}</div>
       </div>
+      {authToken ? (
+        <>
+          <div className="flexRow alignItemsCenter gapSm">
+            <CheckCircleIcon className="textSuccessDarker" />
+            <span>Auth token generated</span>
+            <CopyButton contentToCopy={authToken} />
+          </div>
+          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+        </>
+      ) : (
+        <GenerateTokenCard
+          environmentId={selectedEnv.id}
+          freeCompute={freeCompute}
+          multiaddrsOrPeerId={multiaddrsOrPeerId!}
+          nodeId={nodeInfo.id}
+          onTokenGenerated={setAuthToken}
+          tokenAddress={token?.address}
+        />
+      )}
+
       <div className={styles.footer}>
-        <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
         {authToken ? (
           <div className="actionsGroupLgBetween">
             {backButton}
@@ -254,9 +245,7 @@ const Summary = ({
               <Button
                 color="accent1"
                 id="choose-editor-button"
-                onClick={() => {
-                  handleOpenIdeMenu();
-                }}
+                onClick={handleOpenIdeMenu}
                 size="lg"
                 variant="outlined"
               >
@@ -264,22 +253,12 @@ const Summary = ({
               </Button>
               <Menu
                 anchorEl={anchorEl}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'center',
-                }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                 disableScrollLock
                 onClose={handleCloseIdeMenu}
                 open={!!anchorEl}
-                slotProps={{
-                  list: {
-                    'aria-labelledby': 'profile-button',
-                  },
-                }}
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'center',
-                }}
+                slotProps={{ list: { 'aria-labelledby': 'profile-button' } }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
               >
                 {Object.entries(Ide).map(([key, ide]) => (
                   <MenuItem
@@ -312,12 +291,7 @@ const Summary = ({
             </div>
           </div>
         ) : (
-          <div className="actionsGroupLgBetween">
-            {backButton}
-            <Button autoLoading color="accent1" onClick={generateToken} size="lg">
-              Generate token
-            </Button>
-          </div>
+          <div className="actionsGroupLgBetween">{backButton}</div>
         )}
       </div>
     </Card>
