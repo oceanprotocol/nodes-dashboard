@@ -18,3 +18,11 @@
 .unitSelect:focus {
   outline: none;
 }
+
+.form {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: space-between;
+}

@@ -86,8 +86,12 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
   return (
     <Card direction="column" innerShadow="black" padding="sm" radius="sm" spacing="sm" variant="glass">
       <h3>Auth token</h3>
-      <div>Generate an auth token to allow Ocean Orchestrator to connect to the node</div>
-      <form className="actionsGroupMdBetween" onSubmit={formik.handleSubmit}>
+      <div>
+        Generate an auth token to allow Ocean Orchestrator to connect to the node
+        <br />
+        You can configure the expiration time or leave it empty for no expiration
+      </div>
+      <form className={styles.form} onSubmit={formik.handleSubmit}>
         <Input
           endAdornment={
             <div className={styles.expiryControls}>
@@ -108,7 +112,6 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
             </div>
           }
           errorText={expiryError}
-          hint="Leave empty for no expiration"
           label="Token expiration"
           min={0}
           name="expiryValue"
@@ -124,8 +127,8 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           type="number"
           value={formik.values.expiryValue}
         />
-        <Button autoLoading color="accent1" disabled={!formik.isValid} size="md" type="submit">
-          Generate token
+        <Button loading={formik.isSubmitting} color="accent1" disabled={!formik.isValid} size="md" type="submit">
+          Generate auth token
         </Button>
       </form>
     </Card>

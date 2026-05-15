@@ -5,9 +5,9 @@ import CopyButton from '@/components/button/copy-button';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { NodeToken } from '@/types/node-tokens';
-import { formatDateTime } from '@/utils/formatters';
+import { formatDateTime, formatWalletAddress } from '@/utils/formatters';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridColDef } from '@mui/x-data-grid';
 import classNames from 'classnames';
 import styles from './node-tokens.module.css';
 
@@ -24,7 +24,7 @@ const columns: GridColDef<NodeToken>[] = [
     flex: 1,
     minWidth: 180,
     sortable: false,
-    renderCell: ({ row }) => <span className={styles.tokenValue}>{row.token.slice(0, 24)}…</span>,
+    renderCell: ({ row }) => formatWalletAddress(row.token),
   },
   {
     field: 'active',
@@ -62,16 +62,16 @@ const NodeTokens: React.FC<NodeTokensProps> = ({ tokens, onRemove }) => {
   }
 
   return (
-    <Table
+    <Table<NodeToken>
       autoHeight
       initialDensity="compact"
-      actionsColumn={(params: GridRenderCellParams<NodeToken>) => (
+      actionsColumn={({ row }) => (
         <>
-          <CopyButton color="accent1" contentToCopy={params.row.token} size="sm" variant="transparent" />
+          <CopyButton color="accent1" contentToCopy={row.token} size="sm" variant="transparent" />
           <Button
             color="accent1"
             contentBefore={<DeleteOutlineIcon />}
-            onClick={() => onRemove(params.row)}
+            onClick={() => onRemove(row)}
             size="sm"
             variant="transparent"
           >
