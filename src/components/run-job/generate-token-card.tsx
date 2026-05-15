@@ -92,7 +92,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           endAdornment={
             <div className={styles.expiryControls}>
               <select
-                aria-label="Expiry unit"
+                aria-label="Expiration unit unit"
                 className={styles.unitSelect}
                 name="expiryUnit"
                 onBlur={formik.handleBlur}
@@ -108,8 +108,8 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
             </div>
           }
           errorText={expiryError}
-          hint="Leave empty for no expiry"
-          label="Token expiry"
+          hint="Leave empty for no expiration"
+          label="Token expiration"
           min={0}
           name="expiryValue"
           onBlur={formik.handleBlur}

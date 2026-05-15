@@ -70,6 +70,7 @@ const NodesTokens: React.FC = () => {
                         style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
                       />
                       <div className={styles.nodeName}>
+                        Node&nbsp;
                         {nodeFriendlyName ? (
                           <>
                             <strong>{nodeFriendlyName}</strong>&nbsp;<span className="textSecondary">{nodeId}</span>
@@ -78,7 +79,7 @@ const NodesTokens: React.FC = () => {
                           <>{nodeId}</>
                         )}
                       </div>
-                      <span className="chip chipGlass">
+                      <span className="chip chipPrimaryOutlined">
                         {tokenCount} token{tokenCount !== 1 ? 's' : ''}
                       </span>
                     </button>
