@@ -132,16 +132,15 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
     renderCell: (params) => (
       <div className="flexRow alignItemsCenter gapSm">
-        {params.value || params.value === 0 ? (
-          <>
-            <VerifiedIcon className="textSuccessDarker" />
-            <span>{params.value.toLocaleString()}</span>
-          </>
+        {params.row.verified ? (
+          <VerifiedIcon className="textSuccessDarker" />
         ) : (
-          <>
-            <HighlightOffOutlinedIcon className="textError" />
-            <span className="textErrorDarker">Not verified</span>
-          </>
+          <HighlightOffOutlinedIcon className="textError" />
+        )}
+        {params.value || params.value === 0 ? (
+          <span>{params.value.toLocaleString()}</span>
+        ) : (
+          <span className="textErrorDarker">Not verified</span>
         )}
       </div>
     ),
@@ -224,22 +223,23 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     field: 'latestBenchmarkResults.totalScore',
     filterable: false,
     flex: 1,
-    headerName: 'Bench score',
+    headerName: 'Total score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore,
     renderCell: (params) => (
       <div className="flexRow alignItemsCenter gapSm">
-        {params.value || params.value === 0 ? (
-          <>
+        <div className="flexRow alignItemsCenter gapSm">
+          {params.row.verified ? (
             <VerifiedIcon className="textSuccessDarker" />
-            <span>{params.value.toLocaleString()}</span>
-          </>
-        ) : (
-          <>
+          ) : (
             <HighlightOffOutlinedIcon className="textError" />
+          )}
+          {params.value || params.value === 0 ? (
+            <span>{params.value.toLocaleString()}</span>
+          ) : (
             <span className="textErrorDarker">Not verified</span>
-          </>
-        )}
+          )}
+        </div>
       </div>
     ),
   },
