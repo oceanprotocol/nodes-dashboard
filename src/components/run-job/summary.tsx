@@ -230,6 +230,7 @@ const Summary = ({
         <GenerateTokenCard
           environmentId={selectedEnv.id}
           freeCompute={freeCompute}
+          friendlyNodeName={nodeInfo.friendlyName}
           multiaddrsOrPeerId={multiaddrsOrPeerId!}
           nodeId={nodeInfo.id}
           onTokenGenerated={setAuthToken}

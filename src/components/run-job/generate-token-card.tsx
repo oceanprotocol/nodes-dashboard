@@ -16,6 +16,7 @@ import styles from './generate-token-card.module.css';
 type GenerateTokenCardProps = {
   environmentId: string;
   freeCompute: boolean;
+  friendlyNodeName?: string;
   nodeId: string;
   multiaddrsOrPeerId: string[] | string;
   onTokenGenerated: (token: string) => void;
@@ -30,6 +31,7 @@ type FormValues = {
 const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
   environmentId,
   freeCompute,
+  friendlyNodeName,
   multiaddrsOrPeerId,
   nodeId,
   onTokenGenerated,
@@ -61,6 +63,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
         addNodeToken({
           createdAt: Date.now(),
           expiryTimestamp,
+          friendlyNodeName,
           nodeId,
           token: generatedToken,
         });
