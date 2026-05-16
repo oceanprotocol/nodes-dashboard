@@ -42,7 +42,7 @@ export function getGrantOtpEmailTemplate({ otp }: { otp: string }) {
       <p style="margin: 0 0 16px; font-size: 16px">Hi,</p>
 
       <p style="margin: 0 0 24px; font-size: 15px; line-height: 24px">
-        Use the verification code below to continue your claim for grant tokens on
+        Use the verification code below to continue your claim for complimentary credits on
         <a href="${config.links.website}" target="_blank" style="color: #d54335; text-decoration: none"
           >Ocean Network.</a
         >
