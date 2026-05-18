@@ -11,6 +11,7 @@ const ALLOWED_METHODS = new Set([
   'eth_maxPriorityFeePerGas',
   'eth_getTransactionCount',
   'eth_getTransactionReceipt',
+  'eth_accounts',
   'net_version',
 ])
 

@@ -6,13 +6,16 @@ import NodeTokens from '@/components/node-tokens/node-tokens';
 import SectionTitle from '@/components/section-title/section-title';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { revokeAuthToken } from '@/services/nodeService';
+import { NodeToken } from '@/types/node-tokens';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
 import { useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './nodes-tokens.module.css';
 
 const NodesTokens: React.FC = () => {
-  const { account } = useOceanAccount();
+  const { account, signMessage } = useOceanAccount();
 
   const { nodeTokens, removeNodeToken } = useNodeTokensContext();
   const nodeIds = useMemo(() => Object.keys(nodeTokens).filter((id) => nodeTokens[id]?.length > 0), [nodeTokens]);
@@ -38,6 +41,24 @@ const NodesTokens: React.FC = () => {
       </Container>
     );
   }
+
+  const handleRemoveToken = async (nodeToken: NodeToken) => {
+    if (account.address) {
+      try {
+        await revokeAuthToken({
+          consumerAddress: account.address,
+          nodeUri: nodeToken.nodeUri,
+          signMessage,
+          token: nodeToken.token,
+        });
+        removeNodeToken(nodeToken);
+        toast.success('Token revoked successfully');
+      } catch (e) {
+        const errorMessage = e instanceof Error && e.message ? e.message : 'Failed to invalidate token';
+        toast.error(errorMessage);
+      }
+    }
+  };
 
   return (
     <Container className="pageRoot">
@@ -85,7 +106,7 @@ const NodesTokens: React.FC = () => {
                     </button>
                     <Collapse in={isOpen} mountOnEnter>
                       <div className={styles.sectionBody}>
-                        <NodeTokens nodeId={nodeId} tokens={tokens} onRemove={(t) => removeNodeToken(t)} />
+                        <NodeTokens nodeId={nodeId} tokens={tokens} onRemove={handleRemoveToken} />
                       </div>
                     </Collapse>
                   </div>

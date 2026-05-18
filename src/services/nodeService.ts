@@ -30,7 +30,7 @@ export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
       },
     },
   });
-  console.log("P2P node set up")
+  console.log('P2P node set up');
 }
 
 export async function getNodeEnvs(nodeUri: NodeUri) {
@@ -88,6 +88,29 @@ export async function createAuthToken({
     toNodeUri(nodeUri)
   );
   return { token };
+}
+
+export async function revokeAuthToken({
+  consumerAddress,
+  nodeUri,
+  signMessage,
+  token,
+}: {
+  consumerAddress: string;
+  nodeUri: NodeUri;
+  signMessage: SignMessageFn;
+  token: string;
+}): Promise<{ success: boolean }> {
+  const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
+  const signature = await signMessage(`${consumerAddress}${incrementedNonce}`);
+  return ProviderInstance.invalidateAuthToken(
+    {
+      getAddress: async () => consumerAddress,
+      signMessage: async () => signature,
+    } as any,
+    token,
+    toNodeUri(nodeUri) as string
+  );
 }
 
 export async function initializeCompute(

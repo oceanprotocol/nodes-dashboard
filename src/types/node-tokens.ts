@@ -3,6 +3,7 @@ export type NodeToken = {
   expiryTimestamp?: number;
   friendlyNodeName?: string;
   nodeId: string;
+  nodeUri: string | string[];
   token: string;
 };
 

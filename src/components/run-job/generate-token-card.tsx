@@ -65,6 +65,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           expiryTimestamp,
           friendlyNodeName,
           nodeId,
+          nodeUri: multiaddrsOrPeerId,
           token: generatedToken,
         });
         onTokenGenerated(generatedToken);

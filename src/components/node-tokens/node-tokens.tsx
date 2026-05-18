@@ -69,6 +69,7 @@ const NodeTokens: React.FC<NodeTokensProps> = ({ tokens, onRemove }) => {
         <>
           <CopyButton color="accent1" contentToCopy={row.token} size="sm" variant="transparent" />
           <Button
+            autoLoading
             color="accent1"
             contentBefore={<DeleteOutlineIcon />}
             onClick={() => onRemove(row)}
