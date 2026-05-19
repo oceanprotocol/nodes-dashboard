@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
+import DurationInput from '@/components/input/duration-input';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
@@ -10,7 +11,7 @@ import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
-import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
+import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { useAuthModal } from '@account-kit/react';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -33,8 +34,7 @@ type ResourcesFormValues = {
   cpuCores: number;
   diskSpace: number | '';
   gpus: string[];
-  maxJobDurationUnit: DurationUnit;
-  maxJobDurationValue: number | '';
+  maxJobDurationSeconds: number;
   ram: number;
 };
 
@@ -101,8 +101,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       cpuCores: selectedCpu ?? minAllowedCpuCores,
       diskSpace: selectedDisk ?? minAllowedDiskSpace,
       gpus: selectedGpus ?? [],
-      maxJobDurationUnit: (selectedMaxJobDurationSeconds ? 'seconds' : 'hours') as DurationUnit,
-      maxJobDurationValue: selectedMaxJobDurationSeconds || fromSeconds(minAllowedJobDurationSeconds, 'hours'),
+      maxJobDurationSeconds: selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds,
       ram: selectedRam ?? minAllowedRam,
     },
     onSubmit: (values) => {
@@ -124,7 +123,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         gpus: gpus
           .filter((gpu) => values.gpus.includes(gpu.id))
           .map((gpu) => ({ id: gpu.id, description: gpu.description })),
-        maxJobDurationSeconds: toSeconds(Number(values.maxJobDurationValue) || 0, values.maxJobDurationUnit),
+        maxJobDurationSeconds: values.maxJobDurationSeconds,
         ram: values.ram,
         ramId: ram?.id ?? 'ram',
       });
@@ -133,7 +132,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         ram: values.ram,
         diskSpace: Number(values.diskSpace) || 0,
         gpus: values.gpus,
-        maxJobDurationSeconds: toSeconds(Number(values.maxJobDurationValue) || 0, values.maxJobDurationUnit),
+        maxJobDurationSeconds: values.maxJobDurationSeconds,
         estimatedTotalCost,
         freeCompute,
       });
@@ -143,7 +142,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         ram: values.ram,
         disk: values.diskSpace,
         ...(values.gpus.length > 0 && { gpus: values.gpus }),
-        maxJobDuration: toSeconds(Number(values.maxJobDurationValue) || 0, values.maxJobDurationUnit),
+        maxJobDuration: values.maxJobDurationSeconds,
       };
 
       if (estimatedTotalCost! > 0 && !freeCompute) {
@@ -164,13 +163,10 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         .min(minAllowedDiskSpace, 'Limits exceeded')
         .max(maxAllowedDiskSpace, 'Limits exceeded'),
       gpus: Yup.array().of(Yup.string()),
-      maxJobDurationValue: Yup.number()
+      maxJobDurationSeconds: Yup.number()
         .required('Required')
-        .test('duration-range', 'Limits exceeded', function (value) {
-          if (value == null || Number.isNaN(value)) return false;
-          const sec = toSeconds(value, this.parent.maxJobDurationUnit);
-          return sec >= minAllowedJobDurationSeconds && sec <= maxAllowedJobDurationSeconds;
-        }),
+        .min(minAllowedJobDurationSeconds, 'Limits exceeded')
+        .max(maxAllowedJobDurationSeconds, 'Limits exceeded'),
       ram: Yup.number()
         .required('Required')
         .min(minAllowedRam, 'Limits exceeded')
@@ -191,10 +187,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const estimateCost = useCallback(async () => {
     setIsLoadingCost(true);
     setInitComputeError(null);
-    const maxJobDurationSec = toSeconds(
-      Number(formik.values.maxJobDurationValue) || 0,
-      formik.values.maxJobDurationUnit
-    );
+    const maxJobDurationSec = formik.values.maxJobDurationSeconds;
     await fetchEstimatedCost({
       environment,
       freeCompute,
@@ -209,8 +202,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     fetchEstimatedCost,
     environment,
     freeCompute,
-    formik.values.maxJobDurationValue,
-    formik.values.maxJobDurationUnit,
+    formik.values.maxJobDurationSeconds,
     multiaddrsOrPeerId,
     resources,
     token,
@@ -243,19 +235,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   };
 
   const setMaxJobDuration = () => {
-    formik.setValues((prev) => ({
-      ...prev,
-      maxJobDurationValue: fromSeconds(maxAllowedJobDurationSeconds, prev.maxJobDurationUnit),
-    }));
-  };
-
-  const handleDurationUnitChange = (newUnit: DurationUnit) => {
-    const currentSec = toSeconds(Number(formik.values.maxJobDurationValue) || 0, formik.values.maxJobDurationUnit);
-    formik.setValues((prev) => ({
-      ...prev,
-      maxJobDurationUnit: newUnit,
-      maxJobDurationValue: fromSeconds(currentSec, newUnit),
-    }));
+    formik.setFieldValue('maxJobDurationSeconds', maxAllowedJobDurationSeconds);
   };
 
   const handleDiskSpaceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -265,15 +245,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     }
     const num = Number(e.target.value);
     formik.setFieldValue('diskSpace', Math.max(0, num));
-  };
-
-  const handleMaxJobDurationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (e.target.value === '') {
-      formik.setFieldValue('maxJobDurationValue', '');
-      return;
-    }
-    const num = Number(e.target.value);
-    formik.setFieldValue('maxJobDurationValue', Math.max(0, num));
   };
 
   const renderCostCard = () => {
@@ -438,44 +409,22 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             type="number"
             value={formik.values.diskSpace}
           />
-          <Input
-            endAdornment={
-              <div className={styles.durationControls}>
-                <select
-                  aria-label="Duration unit"
-                  className={styles.unitSelect}
-                  name="maxJobDurationUnit"
-                  onBlur={formik.handleBlur}
-                  onChange={(e) => {
-                    const newUnit = (e.target.value ?? 'minutes') as DurationUnit;
-                    handleDurationUnitChange(newUnit);
-                  }}
-                  value={formik.values.maxJobDurationUnit}
-                >
-                  {DURATION_UNIT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <Button color="accent2" onClick={setMaxJobDuration} size="sm" type="button" variant="filled">
-                  Set max
-                </Button>
-              </div>
-            }
+          <DurationInput
+            availableUnits={DURATION_UNIT_OPTIONS}
+            defaultUnit={selectedMaxJobDurationSeconds ? 'seconds' : 'hours'}
             errorText={
-              formik.touched.maxJobDurationValue && formik.errors.maxJobDurationValue
-                ? formik.errors.maxJobDurationValue
+              formik.touched.maxJobDurationSeconds && formik.errors.maxJobDurationSeconds
+                ? formik.errors.maxJobDurationSeconds
                 : undefined
             }
             label="Max job duration"
             min={0}
-            name="maxJobDurationValue"
+            name="maxJobDurationSeconds"
             onBlur={formik.handleBlur}
-            onChange={handleMaxJobDurationChange}
+            onChange={(seconds) => formik.setFieldValue('maxJobDurationSeconds', seconds)}
+            onSetMax={setMaxJobDuration}
             topRight={`${formatDuration(minAllowedJobDurationSeconds, true)} - ${formatDuration(maxAllowedJobDurationSeconds, true)}`}
-            type="number"
-            value={formik.values.maxJobDurationValue}
+            value={formik.values.maxJobDurationSeconds}
           />
         </div>
         {freeCompute ? null : (
