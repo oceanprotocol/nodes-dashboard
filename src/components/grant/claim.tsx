@@ -71,6 +71,14 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
               txHash: result.hash,
               amount: tokenAmount,
             });
+            if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
+              (window as any).gtag('event', 'conversion', {
+                send_to: 'AW-17691004915/XkwpCJvEhfMbEPOf3fNB',
+                value: 1.0,
+                currency: 'USD',
+                transaction_id: result.hash,
+              });
+            }
             setClaimed(true);
             fetchGrantStatus(account.address!);
             toast.success('Complimentary credits claimed successfully!');
