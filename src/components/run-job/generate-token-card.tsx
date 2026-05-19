@@ -54,8 +54,8 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
       }
       try {
         const expirySeconds = values.expiryValue !== '' ? toSeconds(Number(values.expiryValue), values.expiryUnit) : 0;
-        const validUntil = expirySeconds > 0 ? Math.floor(Date.now() / 1000) + expirySeconds : undefined;
-        const expiryTimestamp = validUntil ? validUntil * 1000 : undefined;
+        const validUntil = expirySeconds > 0 ? Date.now() + expirySeconds * 1000 : undefined;
+        const expiryTimestamp = validUntil;
         const { token: generatedToken } = await createAuthToken({
           consumerAddress: account.address,
           nodeUri: multiaddrsOrPeerId,
