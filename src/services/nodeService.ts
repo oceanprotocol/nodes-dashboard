@@ -73,10 +73,12 @@ export async function createAuthToken({
   consumerAddress,
   nodeUri,
   signMessage,
+  validUntil,
 }: {
   consumerAddress: string;
   nodeUri: NodeUri;
   signMessage: SignMessageFn;
+  validUntil?: number;
 }): Promise<{ token: string }> {
   const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
@@ -85,11 +87,12 @@ export async function createAuthToken({
     incrementedNonce,
     signMessage,
   });
-  const token = await ProviderInstance.generateSignedAuthToken(
+  const token = await (ProviderInstance.generateSignedAuthToken as any)(
     consumerAddress,
     signature,
     incrementedNonce.toString(),
-    normalizeNodeUri(nodeUri)
+    normalizeNodeUri(nodeUri),
+    validUntil
   );
   return { token };
 }
