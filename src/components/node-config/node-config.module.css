@@ -32,6 +32,46 @@
   padding-left: 14px;
 }
 
+.addressList {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .addressRow {
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 8px 12px;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .addressText {
+      font-family: monospace;
+      font-size: 13px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.addressAddRow {
+  align-items: flex-end;
+  display: flex;
+  gap: 8px;
+
+  > :first-child {
+    flex: 1;
+  }
+}
+
 .sectionContent {
   display: flex;
   flex-direction: column;

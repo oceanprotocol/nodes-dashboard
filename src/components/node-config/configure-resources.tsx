@@ -18,6 +18,8 @@ import SdStorageIcon from '@mui/icons-material/SdStorage';
 import { Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useRef, useState } from 'react';
+import { toast } from 'react-toastify';
+import AccessEditor from './access-editor';
 import styles from './configure-resources.module.css';
 import commonStyles from './node-config.module.css';
 
@@ -35,6 +37,13 @@ const BENCH_ENV_DESCRIPTION = 'Auto-generated benchmark environment';
 const SUPPORTED_TOKENS = getSupportedTokens();
 const TOKEN_SYMBOLS = Object.keys(SUPPORTED_TOKENS) as (keyof typeof SUPPORTED_TOKENS)[];
 const CHAIN_ID_STR = String(CHAIN_ID);
+
+const DEFAULT_NEW_ENV: Environment = {
+  access: { accessLists: [], addresses: [] },
+  fees: {},
+  resources: [],
+  storageExpiry: 0,
+};
 
 const DEFAULT_FREE: FreeCompute = {
   access: { accessLists: [], addresses: [] },
@@ -121,7 +130,20 @@ const setFreeResourceMax = (env: Environment, resourceId: string, max: number): 
   return { ...env, free: { ...free, resources } };
 };
 
-// --- sub-components ---
+// --- access helpers ---
+
+type AccessConfig = NonNullable<Environment['access']>;
+
+const getAccessListContracts = (access: AccessConfig): string[] =>
+  access.accessLists.flatMap((entry) => entry[CHAIN_ID_STR] ?? []);
+
+const setAccessListContracts = (access: AccessConfig, contracts: string[]): AccessConfig => ({
+  ...access,
+  accessLists: [
+    ...access.accessLists.filter((entry) => !entry[CHAIN_ID_STR]),
+    ...contracts.map((addr) => ({ [CHAIN_ID_STR]: [addr] })),
+  ],
+});
 
 type EnvEditorProps = {
   allResources: Record<string, Resource>;
@@ -323,7 +345,24 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
         type="text"
         value={env.description ?? ''}
       />
-
+      {/* Paid access */}
+      <Card innerShadow="black" padding="sm" radius="sm" variant="glass">
+        <AccessEditor
+          accessListAddresses={getAccessListContracts(env.access ?? { accessLists: [], addresses: [] })}
+          disabled={disabled}
+          onAccessListAddressesChange={(contracts) =>
+            onChange({
+              ...env,
+              access: setAccessListContracts(env.access ?? { accessLists: [], addresses: [] }, contracts),
+            })
+          }
+          onWalletAddressesChange={(addresses) =>
+            onChange({ ...env, access: { ...(env.access ?? { accessLists: [], addresses: [] }), addresses } })
+          }
+          title="Paid compute access"
+          walletAddresses={env.access?.addresses ?? []}
+        />
+      </Card>
       {/* Fee tokens */}
       <h4 className={commonStyles.subsectionTitle}>Accepted fee tokens</h4>
       <div className="flexRow gapMd flexWrap">
@@ -338,7 +377,6 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
           />
         ))}
       </div>
-
       {/* Paid resources */}
       {gpus?.length > 0 ? (
         <>
@@ -394,7 +432,6 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
         resource: disk,
         unit: 'GB',
       })}
-
       <h4 className={commonStyles.subsectionTitle}>Job duration</h4>
       <div className={styles.jobDurationRow}>
         <DurationInput
@@ -426,6 +463,32 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
         onChange={handleFreeToggle}
       />
       <Collapse in={freeEnabled}>
+        <Card innerShadow="black" padding="sm" radius="sm" variant="glass">
+          <AccessEditor
+            accessListAddresses={getAccessListContracts(env.free?.access ?? { accessLists: [], addresses: [] })}
+            disabled={disabled}
+            onAccessListAddressesChange={(contracts) =>
+              onChange({
+                ...env,
+                free: {
+                  ...env.free!,
+                  access: setAccessListContracts(env.free?.access ?? { accessLists: [], addresses: [] }, contracts),
+                },
+              })
+            }
+            onWalletAddressesChange={(addresses) =>
+              onChange({
+                ...env,
+                free: {
+                  ...env.free!,
+                  access: { ...(env.free?.access ?? { accessLists: [], addresses: [] }), addresses },
+                },
+              })
+            }
+            title="Test compute access"
+            walletAddresses={env.free?.access?.addresses ?? []}
+          />
+        </Card>
         <div className={styles.freeSection}>
           {gpus?.length > 0 ? (
             <>
@@ -603,6 +666,14 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
   const handleEnvDelete = (index: number) => {
     setConfig({ ...config, dockerComputeEnvironments: envs.filter((_, i) => i !== index) });
     setOpenIndexes((prev) => prev.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)));
+    toast.info(`Deleted environment from position ${index + 1}`);
+  };
+
+  const handleEnvAdd = () => {
+    const newIndex = envs.length;
+    setConfig({ ...config, dockerComputeEnvironments: [...envs, { ...DEFAULT_NEW_ENV }] });
+    setOpenIndexes((prev) => [...prev, newIndex]);
+    toast.info(`Added environment on position ${newIndex + 1}`);
   };
 
   return (
@@ -617,7 +688,7 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
             <Card direction="column" innerShadow="black" key={index} padding="md" radius="sm" variant="glass-shaded">
               <div className={commonStyles.envCardHeader}>
                 <div className={commonStyles.collapsibleSectionTitle} onClick={() => toggleOpen(index)} tabIndex={0}>
-                  <h3>{envs.length > 1 ? `Environment ${index + 1}` : 'Compute environment'}</h3>
+                  <h3>Environment {index + 1}</h3>
                   <ExpandMoreIcon className={classNames(commonStyles.icon, { [commonStyles.iconOpen]: isOpen })} />
                 </div>
                 {isBench ? (
@@ -643,6 +714,16 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
           );
         })
       )}
+      <Button
+        className="alignSelfCenter"
+        color="accent1"
+        onClick={handleEnvAdd}
+        size="md"
+        type="button"
+        variant="filled"
+      >
+        Add new environment
+      </Button>
     </div>
   );
 };

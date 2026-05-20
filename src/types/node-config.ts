@@ -2,6 +2,7 @@ import { ComputeResourceId, ComputeResourceType } from '@/types/environments';
 
 export type NodeConfig = Partial<{
   allowedAdmins: string[];
+  allowedAdminsList: string[];
   claimDurationTimeout: number;
   dockerComputeEnvironments: {
     access: {
