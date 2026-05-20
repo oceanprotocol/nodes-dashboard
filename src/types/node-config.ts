@@ -2,11 +2,13 @@ import { ComputeResourceId, ComputeResourceType } from '@/types/environments';
 
 export type NodeConfig = Partial<{
   allowedAdmins: string[];
+  claimDurationTimeout: number;
   dockerComputeEnvironments: {
     access: {
       accessLists: { [chainId: string]: string[] }[];
       addresses: string[];
     };
+    description?: string;
     fees: {
       [chainId: string]: {
         feeToken: string;
@@ -26,6 +28,7 @@ export type NodeConfig = Partial<{
       total: number;
       type?: ComputeResourceType;
     }[];
+    storageExpiry: number;
     free?: {
       access: {
         accessLists: { [chainId: string]: string[] }[];
