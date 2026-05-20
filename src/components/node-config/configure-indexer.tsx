@@ -6,6 +6,7 @@ import Switch from '@/components/switch/switch';
 import { NodeConfig } from '@/types/node-config';
 import LinkIcon from '@mui/icons-material/Link';
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './configure-indexer.module.css';
 import commonStyles from './node-config.module.css';
 
@@ -65,6 +66,10 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
 
   const handleConfirmAddNetwork = () => {
     const key = pendingChainId.trim() || findUnusedChainKey(networks);
+    if (networks[key]) {
+      toast.error('A network with this chain ID already exists.');
+      return;
+    }
     updateNetworks({
       ...networks,
       [key]: {
