@@ -113,14 +113,16 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
           <Modal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add network" width="xs">
             <div className={styles.presetChips}>
               {KNOWN_NETWORKS.map((preset) => (
-                <button
-                  className={`chip ${selectedPreset?.chainId === preset.chainId ? 'chipAccent1' : 'chipGlass'} ${styles.presetChip}`}
+                <Button
+                  color="accent1"
                   key={preset.chainId}
                   onClick={() => handleSelectPreset(preset)}
+                  size="sm"
                   type="button"
+                  variant={selectedPreset?.chainId === preset.chainId ? 'filled' : 'outlined'}
                 >
                   {preset.label}
-                </button>
+                </Button>
               ))}
             </div>
             <Input
