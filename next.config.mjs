@@ -7,6 +7,7 @@ const nextConfig = {
     '@walletconnect/ethereum-provider',
     '@walletconnect/universal-provider',
   ],
+  output: 'standalone',
   outputFileTracingIncludes: {
     '/**': ['./node_modules/async-function/**/*'],
     '/**': ['./node_modules/generator-function/**/*']
