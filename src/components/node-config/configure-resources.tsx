@@ -572,10 +572,11 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
           const isBench = env.description === BENCH_ENV_DESCRIPTION;
           return (
             <Card direction="column" innerShadow="black" key={index} padding="md" radius="sm" variant="glass-shaded">
-              <h3 className={commonStyles.collapsibleSectionTitle} onClick={() => toggleOpen(index)} tabIndex={0}>
-                {envs.length > 1 ? `Environment ${index + 1}` : 'Compute environment'}
+              <div className={commonStyles.collapsibleSectionTitle} onClick={() => toggleOpen(index)} tabIndex={0}>
+                <h3>{envs.length > 1 ? `Environment ${index + 1}` : 'Compute environment'}</h3>
+                {isBench ? <div className="chip chipPrimaryOutlined">Read-only</div> : null}
                 <ExpandMoreIcon className={classNames(commonStyles.icon, { [commonStyles.iconOpen]: isOpen })} />
-              </h3>
+              </div>
               <Collapse in={isOpen}>
                 <EnvEditor disabled={isBench} env={env} onChange={(next) => handleEnvChange(index, next)} />
               </Collapse>

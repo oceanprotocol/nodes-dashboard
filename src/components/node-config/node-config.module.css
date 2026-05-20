@@ -6,7 +6,6 @@
   gap: 8px;
   margin-bottom: 24px;
 
-
   .icon {
     color: var(--text-secondary);
     transition: transform 0.25s ease;
