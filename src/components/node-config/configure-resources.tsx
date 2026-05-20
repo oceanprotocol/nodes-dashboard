@@ -16,7 +16,7 @@ import MemoryIcon from '@mui/icons-material/Memory';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import { Collapse } from '@mui/material';
 import classNames from 'classnames';
-import { useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import styles from './configure-resources.module.css';
 import commonStyles from './node-config.module.css';
 
@@ -123,22 +123,32 @@ const setFreeResourceMax = (env: Environment, resourceId: string, max: number): 
 // --- sub-components ---
 
 type EnvEditorProps = {
+  allResources: Record<string, Resource>;
   disabled?: boolean;
   env: Environment;
   onChange: (next: Environment) => void;
 };
 
-const EnvEditor: React.FC<EnvEditorProps> = ({ disabled, env, onChange }) => {
-  const resources = env.resources ?? [];
-  const gpus = resources.filter((r) => r.type === 'gpu' || (!r.type && r.id.startsWith('gpu')));
-  const cpu = resources.find((r) => r.type === 'cpu' || r.id === 'cpu');
-  const ram = resources.find((r) => r.type === 'ram' || r.id === 'ram');
-  const disk = resources.find((r) => r.type === 'disk' || r.id === 'disk');
+const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onChange }) => {
+  const allResourcesList = Object.values(allResources);
+  const gpus = allResourcesList.filter((r) => r.type === 'gpu' || (!r.type && r.id.startsWith('gpu')));
+  const cpu = allResourcesList.find((r) => r.type === 'cpu' || r.id === 'cpu');
+  const ram = allResourcesList.find((r) => r.type === 'ram' || r.id === 'ram');
+  const disk = allResourcesList.find((r) => r.type === 'disk' || r.id === 'disk');
 
   const freeEnabled = !!env.free;
 
-  const handleGpuToggle = (gpuId: string, checked: boolean) => {
-    onChange(setEnvResource(env, gpuId, { total: checked ? 1 : 0 }));
+  const handleGpuToggle = (gpu: Resource, checked: boolean) => {
+    const exists = (env.resources ?? []).some((r) => r.id === gpu.id);
+    if (checked) {
+      onChange(
+        exists
+          ? setEnvResource(env, gpu.id, { total: 1 })
+          : { ...env, resources: [...(env.resources ?? []), { ...gpu, total: 1 }] }
+      );
+    } else {
+      onChange({ ...env, resources: (env.resources ?? []).filter((r) => r.id !== gpu.id) });
+    }
   };
 
   const handleTokenToggle = (tokenAddress: string, checked: boolean) => {
@@ -196,22 +206,40 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ disabled, env, onChange }) => {
     if (!resource) {
       return null;
     }
+    const envResource = (env.resources ?? []).find((r) => r.id === resource.id);
+    const included = !!envResource;
     const total = resource.total ?? 0;
-    const min = resource.min ?? 0;
-    const max = resource.max ?? total;
+    const min = envResource?.min ?? 0;
+    const max = envResource?.max ?? total;
     const valueDisplay = unit ? `${min}-${max} ${unit}` : `${min}-${max}`;
     const totalDisplay = unit ? `Max ${total} ${unit}` : `Max ${total}`;
+
+    const handleToggle = (_: unknown, checked: boolean) => {
+      if (checked) {
+        onChange({ ...env, resources: [...(env.resources ?? []), { ...resource }] });
+      } else {
+        onChange({ ...env, resources: (env.resources ?? []).filter((r) => r.id !== resource.id) });
+      }
+    };
+
     return (
       <div className={styles.resourcePaidRow}>
         <Slider
           className={styles.resourceSlider}
-          disabled={disabled}
+          disabled={disabled || !included}
           hint={valueDisplay}
           interval
           label={
-            <div className="flexRow alignItemsCenter gapXs">
-              {icon} {label}: {min} - {max}
-            </div>
+            <Switch
+              checked={included}
+              disabled={disabled}
+              label={
+                <div className="flexRow alignItemsCenter gapXs">
+                  {icon} {label}: {min} - {max}
+                </div>
+              }
+              onChange={handleToggle}
+            />
           }
           max={total}
           min={0}
@@ -220,22 +248,24 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ disabled, env, onChange }) => {
           topRight={totalDisplay}
           value={[min, max]}
         />
-        <div className={styles.resourcePriceInputs}>
-          {enabledTokens.map((sym) => (
-            <Input
-              disabled={disabled}
-              endAdornment={`${sym}/min`}
-              key={sym}
-              label={`Fee per ${feeUnit ?? unit}`}
-              min={0}
-              onChange={(e) => handleTokenPriceChange(SUPPORTED_TOKENS[sym].address, resource.id, e.target.value)}
-              placeholder="0"
-              size="sm"
-              type="number"
-              value={getTokenPrice(env, SUPPORTED_TOKENS[sym].address, resource.id) ?? ''}
-            />
-          ))}
-        </div>
+        {included ? (
+          <div className={styles.resourcePriceInputs}>
+            {enabledTokens.map((sym) => (
+              <Input
+                disabled={disabled}
+                endAdornment={`${sym}/min`}
+                key={sym}
+                label={`Fee per ${feeUnit ?? unit}`}
+                min={0}
+                onChange={(e) => handleTokenPriceChange(SUPPORTED_TOKENS[sym].address, resource.id, e.target.value)}
+                placeholder="0"
+                size="sm"
+                type="number"
+                value={getTokenPrice(env, SUPPORTED_TOKENS[sym].address, resource.id) ?? ''}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -312,32 +342,35 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ disabled, env, onChange }) => {
       {gpus?.length > 0 ? (
         <>
           <h4 className={commonStyles.subsectionTitle}>GPUs</h4>
-          {gpus.map((gpu) => (
-            <div className={styles.resourcePaidRow} key={gpu.id}>
-              <Switch
-                checked={(gpu.total ?? 0) > 0}
-                className="justifySelfStart"
-                disabled={disabled}
-                label={<GpuLabel className="textBold" gpu={gpu.description ?? gpu.id} iconHeight={20} />}
-                onChange={(_, checked) => handleGpuToggle(gpu.id, checked)}
-              />
-              <div className={styles.resourcePriceInputs}>
-                {enabledTokens.map((sym) => (
-                  <Input
-                    disabled={disabled}
-                    endAdornment={`${sym}/min`}
-                    key={sym}
-                    min={0}
-                    onChange={(e) => handleTokenPriceChange(SUPPORTED_TOKENS[sym].address, gpu.id, e.target.value)}
-                    placeholder="0"
-                    size="sm"
-                    type="number"
-                    value={getTokenPrice(env, SUPPORTED_TOKENS[sym].address, gpu.id) ?? ''}
-                  />
-                ))}
+          {gpus.map((gpu) => {
+            const envGpu = (env.resources ?? []).find((r) => r.id === gpu.id);
+            return (
+              <div className={styles.resourcePaidRow} key={gpu.id}>
+                <Switch
+                  checked={(envGpu?.total ?? 0) > 0}
+                  className="justifySelfStart"
+                  disabled={disabled}
+                  label={<GpuLabel className="textBold" gpu={gpu.description ?? gpu.id} iconHeight={20} />}
+                  onChange={(_, checked) => handleGpuToggle(gpu, checked)}
+                />
+                <div className={styles.resourcePriceInputs}>
+                  {enabledTokens.map((sym) => (
+                    <Input
+                      disabled={disabled}
+                      endAdornment={`${sym}/min`}
+                      key={sym}
+                      min={0}
+                      onChange={(e) => handleTokenPriceChange(SUPPORTED_TOKENS[sym].address, gpu.id, e.target.value)}
+                      placeholder="0"
+                      size="sm"
+                      type="number"
+                      value={getTokenPrice(env, SUPPORTED_TOKENS[sym].address, gpu.id) ?? ''}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </>
       ) : null}
       <h4 className={commonStyles.subsectionTitle}>Other resources</h4>
@@ -517,16 +550,21 @@ const EnvPreview: React.FC<{ env: Environment }> = ({ env }) => {
 };
 
 const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConfig }) => {
-  // const envs = config.dockerComputeEnvironments ?? [];
+  const envs = config.dockerComputeEnvironments ?? [];
 
-  const { envs, allResources } = useMemo(() => {
-    const envs = config.dockerComputeEnvironments ?? [];
-    const allResources: Record<string, Resource> = {};
+  /**
+   * Computed mapping of all resources across environments.
+   * Different environments may specify different subsets of resources with different totals.
+   * This is only computed once on initial render.
+   */
+  const allResourcesRef = useRef<Record<string, Resource> | null>(null);
+  if (allResourcesRef.current === null && envs.length > 0) {
+    const computed: Record<string, Resource> = {};
     for (const env of envs) {
       for (const resource of env.resources ?? []) {
-        const existing = allResources[resource.id];
+        const existing = computed[resource.id];
         if (existing) {
-          const updated = {
+          computed[resource.id] = {
             ...existing,
             ...resource,
             total:
@@ -542,14 +580,13 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
                 ? Math.max(existing.max, resource.max)
                 : (existing.max ?? resource.max),
           };
-          allResources[resource.id] = updated;
         } else {
-          allResources[resource.id] = resource;
+          computed[resource.id] = resource;
         }
       }
     }
-    return { envs, allResources };
-  }, [config.dockerComputeEnvironments]);
+    allResourcesRef.current = computed;
+  }
 
   const [openIndexes, setOpenIndexes] = useState<number[]>([]);
 
@@ -578,7 +615,12 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
                 <ExpandMoreIcon className={classNames(commonStyles.icon, { [commonStyles.iconOpen]: isOpen })} />
               </div>
               <Collapse in={isOpen}>
-                <EnvEditor disabled={isBench} env={env} onChange={(next) => handleEnvChange(index, next)} />
+                <EnvEditor
+                  allResources={allResourcesRef.current ?? {}}
+                  disabled={isBench}
+                  env={env}
+                  onChange={(next) => handleEnvChange(index, next)}
+                />
               </Collapse>
               <Collapse in={!isOpen}>
                 <EnvPreview env={env} />
