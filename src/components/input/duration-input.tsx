@@ -12,6 +12,7 @@ type DurationUnitOption = {
 type DurationInputProps = {
   availableUnits: DurationUnitOption[];
   defaultUnit?: DurationUnit;
+  disabled?: boolean;
   errorText?: string;
   hint?: React.ReactNode;
   label?: React.ReactNode;
@@ -29,6 +30,7 @@ type DurationInputProps = {
 const DurationInput: React.FC<DurationInputProps> = ({
   availableUnits,
   defaultUnit = 'seconds',
+  disabled,
   errorText,
   hint,
   label,
@@ -75,11 +77,13 @@ const DurationInput: React.FC<DurationInputProps> = ({
 
   return (
     <Input
+      disabled={disabled}
       endAdornment={
         <div className={styles.controls}>
           <select
             aria-label="Duration unit"
             className={styles.unitSelect}
+            disabled={disabled}
             onChange={(e) => handleUnitChange(e.target.value as DurationUnit)}
             value={unit}
           >

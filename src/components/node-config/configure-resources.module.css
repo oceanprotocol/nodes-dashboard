@@ -13,37 +13,34 @@
   display: inline-flex;
 }
 
-.resourceRangeRow {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: 1fr;
-
-  @media (min-width: 768px) {
-    grid-template-columns: 2fr 1fr;
-  }
-}
-
 .resourceSlider {
   flex: 1;
   min-width: 0;
 }
 
-.gpuRow {
+.resourcePaidRow {
   align-items: center;
+  border-bottom: 1px solid var(--border);
   display: grid;
-  gap: 16px;
+  gap: 24px;
   grid-template-columns: 1fr;
+  padding-bottom: 16px;
 
-  @media (min-width: 768px) {
-    grid-template-columns: 2fr 1fr;
+  @media (min-width: 992px) {
+    grid-template-columns: 1fr 1fr;
   }
-}
 
-.gpuPriceInput {
-  grid-column: 1 / -1;
-
-  @media (min-width: 768px) {
+  .resourcePriceInputs {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
     grid-column: auto;
+
+    > * {
+      flex: 1;
+      min-width: 180px;
+    }
   }
 }
 
@@ -80,11 +77,17 @@
 }
 
 .envPreview {
-  align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+
+  .envPreviewResources {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+  }
 }
 
 .previewChip {

@@ -4,6 +4,8 @@
   cursor: pointer;
   display: flex;
   gap: 8px;
+  margin-bottom: 24px;
+
 
   .icon {
     color: var(--text-secondary);
@@ -24,7 +26,6 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 24px;
 
   .subsectionTitle {
     font-size: 16px;
