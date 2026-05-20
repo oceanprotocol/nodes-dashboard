@@ -452,8 +452,25 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
           size="sm"
           value={env.maxJobDuration ?? 0}
         />
+        <DurationInput
+          availableUnits={DURATION_UNIT_OPTIONS}
+          defaultUnit="hours"
+          disabled={disabled}
+          label="Storage expiry"
+          hint="How long job output is retained"
+          onChange={(seconds) => onChange({ ...env, storageExpiry: seconds })}
+          size="sm"
+          value={env.storageExpiry ?? 604800}
+        />
       </div>
-
+      {/* Enable network */}
+      <Switch
+        className="alignSelfStart"
+        checked={!!env.enableNetwork}
+        disabled={disabled}
+        label="Enable internet access for jobs"
+        onChange={(_, checked) => onChange({ ...env, enableNetwork: checked })}
+      />
       {/* Test compute */}
       <Switch
         className="alignSelfStart"

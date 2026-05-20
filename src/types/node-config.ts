@@ -4,12 +4,17 @@ export type NodeConfig = Partial<{
   allowedAdmins: string[];
   allowedAdminsList: string[];
   claimDurationTimeout: number;
+  paymentClaimInterval: number;
+  persistentStorage: {
+    enabled: boolean;
+  };
   dockerComputeEnvironments: {
     access: {
       accessLists: { [chainId: string]: string[] }[];
       addresses: string[];
     };
     description?: string;
+    enableNetwork?: boolean;
     fees: {
       [chainId: string]: {
         feeToken: string;
@@ -21,6 +26,7 @@ export type NodeConfig = Partial<{
     };
     maxJobDuration?: number;
     minJobDuration?: number;
+    storageExpiry?: number;
     resources: {
       description?: string;
       id: ComputeResourceId;
@@ -29,7 +35,6 @@ export type NodeConfig = Partial<{
       total: number;
       type?: ComputeResourceType;
     }[];
-    storageExpiry: number;
     free?: {
       access: {
         accessLists: { [chainId: string]: string[] }[];
