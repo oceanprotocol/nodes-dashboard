@@ -2,12 +2,15 @@ import Card from '@/components/card/card';
 import DurationInput from '@/components/input/duration-input';
 import Input from '@/components/input/input';
 import Switch from '@/components/switch/switch';
+import { CHAIN_ID } from '@/constants/chains';
 import { NodeConfig } from '@/types/node-config';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import React from 'react';
 import AccessEditor from './access-editor';
 import styles from './configure-general.module.css';
 import commonStyles from './node-config.module.css';
+
+const CHAIN_ID_STR = String(CHAIN_ID);
 
 type ConfigureGeneralProps = {
   config: NodeConfig;
@@ -28,8 +31,14 @@ const ConfigureGeneral: React.FC<ConfigureGeneralProps> = ({ config, setConfig }
     <div className={commonStyles.sectionContent}>
       <Card innerShadow="black" padding="sm" radius="sm" variant="glass">
         <AccessEditor
-          accessListAddresses={config.allowedAdminsList ?? []}
-          onAccessListAddressesChange={(addresses) => setConfig({ ...config, allowedAdminsList: addresses })}
+          accessListAddresses={config.allowedAdminsList?.[CHAIN_ID_STR] ?? []}
+          onAccessListAddressesChange={(addresses) =>
+            setConfig({
+              ...config,
+              allowedAdminsList:
+                addresses.length === 0 ? null : { ...(config.allowedAdminsList ?? {}), [CHAIN_ID_STR]: addresses },
+            })
+          }
           onWalletAddressesChange={(addresses) => setConfig({ ...config, allowedAdmins: addresses })}
           title="Allowed admins"
           walletAddresses={config.allowedAdmins ?? []}

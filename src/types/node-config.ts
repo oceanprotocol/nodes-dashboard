@@ -2,7 +2,7 @@ import { ComputeResourceId, ComputeResourceType } from '@/types/environments';
 
 export type NodeConfig = Partial<{
   allowedAdmins: string[];
-  allowedAdminsList: string[];
+  allowedAdminsList: { [chainId: string]: string[] } | null;
   claimDurationTimeout: number;
   paymentClaimInterval: number;
   persistentStorage: {
@@ -40,13 +40,15 @@ export type NodeConfig = Partial<{
         accessLists: { [chainId: string]: string[] }[];
         addresses: string[];
       };
+      allowImageBuild?: boolean;
       maxJobDuration?: number;
-      maxJobs: number;
+      maxJobs?: number;
       minJobDuration?: number;
-      resources: {
+      resources?: {
         id: string;
         max: number;
       }[];
+      storageExpiry?: number;
     };
   }[];
   hasHttp: boolean;
@@ -55,8 +57,11 @@ export type NodeConfig = Partial<{
   supportedNetworks: {
     [chainId: string]: {
       chainId: number;
-      chunkSize: number;
-      network: string;
+      chunkSize?: number;
+      fallbackRPCs?: string[];
+      fallbackRpcTimeout?: number;
+      network?: string;
+      primaryRpcTimeout?: number;
       rpc: string;
       startBlock?: number;
     };

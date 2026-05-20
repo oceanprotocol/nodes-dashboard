@@ -115,18 +115,19 @@ const toggleFreeResource = (
   defaultMax: number
 ): Environment => {
   const free = env.free!;
+  const resources = free.resources ?? [];
   if (enabled) {
-    if (free.resources.some((r) => r.id === resourceId)) {
+    if (resources.some((r) => r.id === resourceId)) {
       return env;
     }
-    return { ...env, free: { ...free, resources: [...free.resources, { id: resourceId, max: defaultMax }] } };
+    return { ...env, free: { ...free, resources: [...resources, { id: resourceId, max: defaultMax }] } };
   }
-  return { ...env, free: { ...free, resources: free.resources.filter((r) => r.id !== resourceId) } };
+  return { ...env, free: { ...free, resources: resources.filter((r) => r.id !== resourceId) } };
 };
 
 const setFreeResourceMax = (env: Environment, resourceId: string, max: number): Environment => {
   const free = env.free!;
-  const resources = free.resources.map((r) => (r.id === resourceId ? { ...r, max } : r));
+  const resources = (free.resources ?? []).map((r) => (r.id === resourceId ? { ...r, max } : r));
   return { ...env, free: { ...free, resources } };
 };
 
@@ -307,7 +308,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
     if (!resource || !env.free) {
       return null;
     }
-    const freeRes = env.free.resources.find((r) => r.id === resource.id);
+    const freeRes = (env.free.resources ?? []).find((r) => r.id === resource.id);
     const maxAllowed = resource.max ?? resource.total ?? 0;
     return (
       <Slider
@@ -511,7 +512,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
             <>
               <h4 className={commonStyles.subsectionTitle}>Test compute - GPUs</h4>
               {gpus.map((gpu) => {
-                const freeGpu = env.free?.resources.find((r) => r.id === gpu.id);
+                const freeGpu = (env.free?.resources ?? []).find((r) => r.id === gpu.id);
                 const enabled = !!freeGpu;
                 const maxAllowed = gpu.max ?? gpu.total ?? 0;
                 return (
