@@ -7,6 +7,9 @@ const nextConfig = {
     '@walletconnect/ethereum-provider',
     '@walletconnect/universal-provider',
   ],
+  outputFileTracingIncludes: {
+    '/**': ['./node_modules/async-function/**/*'],
+  },
   turbopack: {
     rules: {
       '*.svg': {
