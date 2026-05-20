@@ -1,12 +1,14 @@
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
 import GpuLabel from '@/components/gpu-label/gpu-label';
+import DurationInput from '@/components/input/duration-input';
 import Input from '@/components/input/input';
 import Slider from '@/components/slider/slider';
 import Switch from '@/components/switch/switch';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { NodeConfig } from '@/types/node-config';
+import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import CheckIcon from '@mui/icons-material/Check';
 import DnsIcon from '@mui/icons-material/Dns';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -15,8 +17,8 @@ import SdStorageIcon from '@mui/icons-material/SdStorage';
 import { Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
-import commonStyles from './node-config.module.css';
 import styles from './configure-resources.module.css';
+import commonStyles from './node-config.module.css';
 
 type ConfigureResourcesProps = {
   config: NodeConfig;
@@ -142,8 +144,8 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ env, onChange }) => {
     onChange(setEnvResource(env, resourceId, { min, max }));
   };
 
-  const handleJobDurationChange = (key: 'minJobDuration' | 'maxJobDuration', value: string) => {
-    onChange({ ...env, [key]: value === '' ? 0 : Number(value) });
+  const handleJobDurationChange = (key: 'minJobDuration' | 'maxJobDuration', seconds: number) => {
+    onChange({ ...env, [key]: seconds });
   };
 
   const handleFreeToggle = (_: unknown, checked: boolean) => {
@@ -158,8 +160,8 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ env, onChange }) => {
     onChange(setFreeResourceMax(env, resourceId, value === '' ? 0 : Number(value)));
   };
 
-  const handleFreeDurationChange = (key: 'minJobDuration' | 'maxJobDuration', value: string) => {
-    onChange({ ...env, free: { ...env.free!, [key]: value === '' ? 0 : Number(value) } });
+  const handleFreeDurationChange = (key: 'minJobDuration' | 'maxJobDuration', seconds: number) => {
+    onChange({ ...env, free: { ...env.free!, [key]: seconds } });
   };
 
   const handleFreeMaxJobsChange = (value: string) => {
@@ -335,25 +337,21 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ env, onChange }) => {
 
       <h4 className={commonStyles.subsectionTitle}>Job duration</h4>
       <div className={styles.jobDurationRow}>
-        <Input
-          endAdornment="seconds"
+        <DurationInput
+          availableUnits={DURATION_UNIT_OPTIONS}
+          defaultUnit="seconds"
           label="Min. job duration"
-          min={0}
-          onChange={(e) => handleJobDurationChange('minJobDuration', e.target.value)}
-          placeholder="0"
+          onChange={(seconds) => handleJobDurationChange('minJobDuration', seconds)}
           size="sm"
-          type="number"
-          value={env.minJobDuration ?? ''}
+          value={env.minJobDuration ?? 0}
         />
-        <Input
-          endAdornment="seconds"
+        <DurationInput
+          availableUnits={DURATION_UNIT_OPTIONS}
+          defaultUnit="seconds"
           label="Max. job duration"
-          min={0}
-          onChange={(e) => handleJobDurationChange('maxJobDuration', e.target.value)}
-          placeholder="0"
+          onChange={(seconds) => handleJobDurationChange('maxJobDuration', seconds)}
           size="sm"
-          type="number"
-          value={env.maxJobDuration ?? ''}
+          value={env.maxJobDuration ?? 0}
         />
       </div>
 
@@ -402,25 +400,21 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ env, onChange }) => {
 
           <h4 className={commonStyles.subsectionTitle}>Test compute - job duration</h4>
           <div className={styles.jobDurationRow}>
-            <Input
-              endAdornment="seconds"
+            <DurationInput
+              availableUnits={DURATION_UNIT_OPTIONS}
+              defaultUnit="seconds"
               label="Min. test job duration"
-              min={0}
-              onChange={(e) => handleFreeDurationChange('minJobDuration', e.target.value)}
-              placeholder="0"
+              onChange={(seconds) => handleFreeDurationChange('minJobDuration', seconds)}
               size="sm"
-              type="number"
-              value={env.free?.minJobDuration ?? ''}
+              value={env.free?.minJobDuration ?? 0}
             />
-            <Input
-              endAdornment="seconds"
+            <DurationInput
+              availableUnits={DURATION_UNIT_OPTIONS}
+              defaultUnit="seconds"
               label="Max. test job duration"
-              min={0}
-              onChange={(e) => handleFreeDurationChange('maxJobDuration', e.target.value)}
-              placeholder="0"
+              onChange={(seconds) => handleFreeDurationChange('maxJobDuration', seconds)}
               size="sm"
-              type="number"
-              value={env.free?.maxJobDuration ?? ''}
+              value={env.free?.maxJobDuration ?? 0}
             />
             <Input
               label="Max. test jobs"
