@@ -7,12 +7,20 @@ const nextConfig = {
     '@walletconnect/ethereum-provider',
     '@walletconnect/universal-provider',
   ],
-  // These packages expose a `module-sync` exports condition pointing at a
-  // `require.mjs` that Next's file tracer doesn't follow, so on Vercel (which
-  // ships only traced files) Node 24 resolves to a file that was never
-  // uploaded. Force the whole package dir into the function bundle.
+  // Upstream bug: Next 16 vendors @vercel/nft 0.27.1, which predates support
+  // for the `module-sync` exports condition (added in nft 0.30.0). These
+  // get-intrinsic helpers point `module-sync` at a separate `require.mjs`;
+  // nft traces only `index.js`, but Node >= 22.10 (we run 24) resolves the
+  // CJS require to `require.mjs` at runtime. Vercel ships only traced files,
+  // so the un-traced `require.mjs` is missing -> MODULE_NOT_FOUND.
+  // Remove this once a Next release bundles nft >= 0.30.0.
+  // See https://github.com/vercel/next.js/issues/90567
   outputFileTracingIncludes: {
-    '/**/*': ['./node_modules/async-function/**/*', './node_modules/generator-function/**/*'],
+    '/**/*': [
+      './node_modules/async-function/**/*',
+      './node_modules/async-generator-function/**/*',
+      './node_modules/generator-function/**/*',
+    ],
   },
   turbopack: {
     rules: {
