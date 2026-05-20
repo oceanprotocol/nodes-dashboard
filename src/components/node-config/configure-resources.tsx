@@ -25,9 +25,9 @@ type ConfigureResourcesProps = {
   setConfig: (config: NodeConfig) => void;
 };
 
-type DockerEnv = NonNullable<NodeConfig['dockerComputeEnvironments']>[number];
-type Resource = NonNullable<DockerEnv['resources']>[number];
-type FreeCompute = NonNullable<DockerEnv['free']>;
+type Environment = NonNullable<NodeConfig['dockerComputeEnvironments']>[number];
+type Resource = NonNullable<Environment['resources']>[number];
+type FreeCompute = NonNullable<Environment['free']>;
 
 const SUPPORTED_TOKENS = getSupportedTokens();
 const TOKEN_SYMBOLS = Object.keys(SUPPORTED_TOKENS) as (keyof typeof SUPPORTED_TOKENS)[];
@@ -43,12 +43,12 @@ const DEFAULT_FREE: FreeCompute = {
 
 // --- paid helpers ---
 
-const isTokenEnabled = (env: DockerEnv, tokenAddress: string): boolean => {
+const isTokenEnabled = (env: Environment, tokenAddress: string): boolean => {
   const chainFees = env.fees?.[CHAIN_ID_STR] ?? [];
   return chainFees.some((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase());
 };
 
-const toggleToken = (env: DockerEnv, tokenAddress: string, enabled: boolean): DockerEnv => {
+const toggleToken = (env: Environment, tokenAddress: string, enabled: boolean): Environment => {
   const fees = { ...(env.fees ?? {}) };
   const chainFees = [...(fees[CHAIN_ID_STR] ?? [])];
   if (enabled) {
@@ -63,18 +63,18 @@ const toggleToken = (env: DockerEnv, tokenAddress: string, enabled: boolean): Do
   return { ...env, fees };
 };
 
-const getTokenPrice = (env: DockerEnv, tokenAddress: string, resourceId: string): number | undefined => {
+const getTokenPrice = (env: Environment, tokenAddress: string, resourceId: string): number | undefined => {
   const chainFees = env.fees?.[CHAIN_ID_STR] ?? [];
   const entry = chainFees.find((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase());
   return entry?.prices.find((p) => p.id === resourceId)?.price;
 };
 
 const setTokenPrice = (
-  env: DockerEnv,
+  env: Environment,
   tokenAddress: string,
   resourceId: string,
   price: number | undefined
-): DockerEnv => {
+): Environment => {
   const fees = { ...(env.fees ?? {}) };
   const chainFees = [...(fees[CHAIN_ID_STR] ?? [])];
   const idx = chainFees.findIndex((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase());
@@ -87,14 +87,19 @@ const setTokenPrice = (
   return { ...env, fees };
 };
 
-const setEnvResource = (env: DockerEnv, resourceId: string, patch: Partial<Resource>): DockerEnv => {
+const setEnvResource = (env: Environment, resourceId: string, patch: Partial<Resource>): Environment => {
   const resources = (env.resources ?? []).map((r) => (r.id === resourceId ? { ...r, ...patch } : r));
   return { ...env, resources };
 };
 
 // --- free helpers ---
 
-const toggleFreeResource = (env: DockerEnv, resourceId: string, enabled: boolean, defaultMax: number): DockerEnv => {
+const toggleFreeResource = (
+  env: Environment,
+  resourceId: string,
+  enabled: boolean,
+  defaultMax: number
+): Environment => {
   const free = env.free!;
   if (enabled) {
     if (free.resources.some((r) => r.id === resourceId)) {
@@ -105,7 +110,7 @@ const toggleFreeResource = (env: DockerEnv, resourceId: string, enabled: boolean
   return { ...env, free: { ...free, resources: free.resources.filter((r) => r.id !== resourceId) } };
 };
 
-const setFreeResourceMax = (env: DockerEnv, resourceId: string, max: number): DockerEnv => {
+const setFreeResourceMax = (env: Environment, resourceId: string, max: number): Environment => {
   const free = env.free!;
   const resources = free.resources.map((r) => (r.id === resourceId ? { ...r, max } : r));
   return { ...env, free: { ...free, resources } };
@@ -114,8 +119,8 @@ const setFreeResourceMax = (env: DockerEnv, resourceId: string, max: number): Do
 // --- sub-components ---
 
 type EnvEditorProps = {
-  env: DockerEnv;
-  onChange: (next: DockerEnv) => void;
+  env: Environment;
+  onChange: (next: Environment) => void;
 };
 
 const EnvEditor: React.FC<EnvEditorProps> = ({ env, onChange }) => {
@@ -432,7 +437,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ env, onChange }) => {
   );
 };
 
-const EnvPreview: React.FC<{ env: DockerEnv }> = ({ env }) => {
+const EnvPreview: React.FC<{ env: Environment }> = ({ env }) => {
   const resources = env.resources ?? [];
   const gpus = resources.filter((r) => (r.type === 'gpu' || (!r.type && r.id.startsWith('gpu'))) && (r.total ?? 0) > 0);
   const cpu = resources.find((r) => r.type === 'cpu' || r.id === 'cpu');
@@ -482,7 +487,7 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
     setOpenIndexes((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));
   };
 
-  const handleEnvChange = (index: number, next: DockerEnv) => {
+  const handleEnvChange = (index: number, next: Environment) => {
     const updated = envs.map((e, i) => (i === index ? next : e));
     setConfig({ ...config, dockerComputeEnvironments: updated });
   };
