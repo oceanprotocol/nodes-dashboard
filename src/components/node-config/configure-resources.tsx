@@ -1,3 +1,4 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
 import GpuLabel from '@/components/gpu-label/gpu-label';
@@ -599,6 +600,11 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
     setConfig({ ...config, dockerComputeEnvironments: updated });
   };
 
+  const handleEnvDelete = (index: number) => {
+    setConfig({ ...config, dockerComputeEnvironments: envs.filter((_, i) => i !== index) });
+    setOpenIndexes((prev) => prev.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)));
+  };
+
   return (
     <div className={commonStyles.sectionContent}>
       {envs.length === 0 ? (
@@ -609,10 +615,18 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
           const isBench = env.description === BENCH_ENV_DESCRIPTION;
           return (
             <Card direction="column" innerShadow="black" key={index} padding="md" radius="sm" variant="glass-shaded">
-              <div className={commonStyles.collapsibleSectionTitle} onClick={() => toggleOpen(index)} tabIndex={0}>
-                <h3>{envs.length > 1 ? `Environment ${index + 1}` : 'Compute environment'}</h3>
-                {isBench ? <div className="chip chipPrimaryOutlined">Read-only</div> : null}
-                <ExpandMoreIcon className={classNames(commonStyles.icon, { [commonStyles.iconOpen]: isOpen })} />
+              <div className={commonStyles.envCardHeader}>
+                <div className={commonStyles.collapsibleSectionTitle} onClick={() => toggleOpen(index)} tabIndex={0}>
+                  <h3>{envs.length > 1 ? `Environment ${index + 1}` : 'Compute environment'}</h3>
+                  <ExpandMoreIcon className={classNames(commonStyles.icon, { [commonStyles.iconOpen]: isOpen })} />
+                </div>
+                {isBench ? (
+                  <div className="chip chipPrimaryOutlined">Read-only</div>
+                ) : (
+                  <Button color="error" onClick={() => handleEnvDelete(index)} size="sm" type="button" variant="filled">
+                    Delete
+                  </Button>
+                )}
               </div>
               <Collapse in={isOpen}>
                 <EnvEditor
