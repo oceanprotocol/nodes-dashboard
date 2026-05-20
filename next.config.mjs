@@ -9,6 +9,7 @@ const nextConfig = {
   ],
   outputFileTracingIncludes: {
     '/**': ['./node_modules/async-function/**/*'],
+    '/**': ['./node_modules/generator-function/**/*']
   },
   turbopack: {
     rules: {
