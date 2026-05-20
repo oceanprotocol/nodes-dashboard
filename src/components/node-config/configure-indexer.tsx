@@ -16,6 +16,11 @@ type ConfigureIndexerProps = {
 
 type SupportedNetwork = NonNullable<NodeConfig['supportedNetworks']>[string];
 
+const KNOWN_NETWORKS: { chainId: number; label: string; network: string }[] = [
+  { chainId: 8453, label: 'Base', network: 'base' },
+  { chainId: 11155111, label: 'Sepolia', network: 'sepolia' },
+];
+
 const findUnusedChainKey = (existing: Record<string, unknown>): string => {
   let candidate = 1;
   while (existing[String(candidate)]) {
@@ -29,7 +34,8 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
   const networkKeys = Object.keys(networks);
 
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [pendingChainId, setPendingChainId] = useState('');
+  const [selectedPreset, setSelectedPreset] = useState<(typeof KNOWN_NETWORKS)[number] | null>(null);
+  const [customChainId, setCustomChainId] = useState('');
 
   const handleHasIndexerChange = (_: unknown, checked: boolean) => {
     setConfig({ ...config, hasIndexer: checked });
@@ -40,9 +46,22 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
   };
 
   const handleOpenAddModal = () => {
-    setPendingChainId('');
+    setSelectedPreset(null);
+    setCustomChainId('');
     setAddModalOpen(true);
   };
+
+  const handleSelectPreset = (preset: (typeof KNOWN_NETWORKS)[number]) => {
+    setSelectedPreset(preset);
+    setCustomChainId('');
+  };
+
+  const handleCustomChainIdChange = (value: string) => {
+    setCustomChainId(value);
+    setSelectedPreset(null);
+  };
+
+  const pendingChainId = selectedPreset ? String(selectedPreset.chainId) : customChainId;
 
   const handleConfirmAddNetwork = () => {
     const key = pendingChainId.trim() || findUnusedChainKey(networks);
@@ -51,7 +70,7 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
       [key]: {
         chainId: Number(key) || 0,
         chunkSize: 100,
-        network: '',
+        network: selectedPreset?.network ?? '',
         rpc: '',
       },
     });
@@ -92,16 +111,29 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
           </div>
 
           <Modal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add network" width="xs">
+            <div className={styles.presetChips}>
+              {KNOWN_NETWORKS.map((preset) => (
+                <button
+                  className={`chip ${selectedPreset?.chainId === preset.chainId ? 'chipAccent1' : 'chipGlass'} ${styles.presetChip}`}
+                  key={preset.chainId}
+                  onClick={() => handleSelectPreset(preset)}
+                  type="button"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <Input
               label="Chain ID"
               min={1}
-              name="pendingChainId"
-              onChange={(e) => setPendingChainId(e.target.value)}
+              name="customChainId"
+              onChange={(e) => handleCustomChainIdChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleConfirmAddNetwork();
               }}
+              placeholder="Or enter chain ID manually"
               type="number"
-              value={pendingChainId}
+              value={selectedPreset ? selectedPreset.chainId : customChainId}
             />
             <div className="actionsGroupMdEnd">
               <Button color="accent1" onClick={() => setAddModalOpen(false)} size="md" variant="outlined">

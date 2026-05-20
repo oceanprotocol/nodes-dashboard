@@ -1,3 +1,13 @@
+.presetChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .presetChip {
+    cursor: pointer;
+  }
+}
+
 .indexerHeader {
   align-items: center;
   display: flex;
