@@ -6,12 +6,9 @@ const nextConfig = {
     '@wagmi/connectors',
     '@walletconnect/ethereum-provider',
     '@walletconnect/universal-provider',
+    'async-function',
+    'generator-function'
   ],
-  output: 'standalone',
-  outputFileTracingIncludes: {
-    '/**': ['./node_modules/async-function/**/*'],
-    '/**': ['./node_modules/generator-function/**/*']
-  },
   turbopack: {
     rules: {
       '*.svg': {
