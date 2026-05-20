@@ -6,9 +6,14 @@ const nextConfig = {
     '@wagmi/connectors',
     '@walletconnect/ethereum-provider',
     '@walletconnect/universal-provider',
-    'async-function',
-    'generator-function'
   ],
+  // These packages expose a `module-sync` exports condition pointing at a
+  // `require.mjs` that Next's file tracer doesn't follow, so on Vercel (which
+  // ships only traced files) Node 24 resolves to a file that was never
+  // uploaded. Force the whole package dir into the function bundle.
+  outputFileTracingIncludes: {
+    '/**/*': ['./node_modules/async-function/**/*', './node_modules/generator-function/**/*'],
+  },
   turbopack: {
     rules: {
       '*.svg': {
