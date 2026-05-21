@@ -1,13 +1,16 @@
 'use client';
 
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import GenerateTokenModal from '@/components/node-tokens/generate-token-modal';
 import NodeTokens from '@/components/node-tokens/node-tokens';
 import SectionTitle from '@/components/section-title/section-title';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { revokeAuthToken } from '@/services/nodeService';
 import { NodeToken } from '@/types/node-tokens';
+import AddIcon from '@mui/icons-material/Add';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
 import { useMemo, useState } from 'react';
@@ -21,6 +24,7 @@ const NodesTokens: React.FC = () => {
   const nodeIds = useMemo(() => Object.keys(nodeTokens).filter((id) => nodeTokens[id]?.length > 0), [nodeTokens]);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [modalOpen, setModalOpen] = useState(false);
 
   function toggleExpanded(nodeId: string) {
     setExpanded((prev) => {
@@ -67,8 +71,15 @@ const NodesTokens: React.FC = () => {
         title="Node auth tokens"
         subTitle="Auth tokens generated during this session for the nodes you ran jobs on."
       />
+      <GenerateTokenModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
       <div className="pageContentWrapper">
         <Card direction="column" padding="md" radius="md" shadow="black" spacing="sm" variant="glass-shaded">
+          <div className={styles.cardHeader}>
+            <h3>Auth tokens</h3>
+            <Button color="accent1" contentBefore={<AddIcon />} onClick={() => setModalOpen(true)} size="md">
+              Add
+            </Button>
+          </div>
           {nodeIds.length === 0 ? (
             <span className="textSecondary">No auth tokens generated during this session.</span>
           ) : (
