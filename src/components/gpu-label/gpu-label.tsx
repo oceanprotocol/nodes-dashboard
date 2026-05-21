@@ -2,6 +2,7 @@ import AmdLogo from '@/assets/icons/gpu-manufacturers/amd.svg';
 import IntelLogo from '@/assets/icons/gpu-manufacturers/intel.svg';
 import NvidiaLogo from '@/assets/icons/gpu-manufacturers/nvidia.svg';
 import GpuIcon from '@/assets/icons/gpu.svg';
+import { formatGpuName } from '@/utils/formatters';
 import classNames from 'classnames';
 import { useMemo } from 'react';
 import styles from './gpu-label.module.css';
@@ -21,12 +22,7 @@ const GpuLabel = ({ className, gpu, iconHeight = 14, showBrandName }: GpuLabelPr
     if (showBrandName) {
       return gpu.trim();
     }
-    const branding = ['nvidia', 'corporation', 'amd', 'advanced', 'micro', 'devices', 'inc', 'intel'];
-    const filteredGpu = gpu
-      .split(/[\s,\.]+/)
-      .filter((word) => !branding.includes(word.toLowerCase()))
-      .join(' ');
-    return filteredGpu.trim();
+    return formatGpuName(gpu);
   }, [gpu, showBrandName]);
 
   if (!gpu) {
