@@ -7,9 +7,11 @@ type HBarChartProps = {
   data: any[];
 };
 
+const BAR_HEIGHT = 52;
+
 const HBarChart = ({ axisKey, barKey, data }: HBarChartProps) => (
   <div className={styles.root}>
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={data.length * BAR_HEIGHT}>
       <BarChart data={data} layout="vertical">
         <XAxis
           axisLine={false}
