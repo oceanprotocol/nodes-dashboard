@@ -49,12 +49,15 @@ const NodesTokens: React.FC = () => {
   const handleRemoveToken = async (nodeToken: NodeToken) => {
     if (account.address) {
       try {
-        await revokeAuthToken({
+        const { success } = await revokeAuthToken({
           consumerAddress: account.address,
           nodeUri: nodeToken.nodeUri,
           signMessage,
           token: nodeToken.token,
         });
+        if (!success) {
+          throw new Error('Failed to invalidate token');
+        }
         removeNodeToken(nodeToken);
         toast.success('Token revoked successfully');
       } catch (e) {
