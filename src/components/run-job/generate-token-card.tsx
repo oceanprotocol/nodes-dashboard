@@ -99,7 +99,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           endAdornment={
             <div className={styles.expiryControls}>
               <select
-                aria-label="Expiration unit unit"
+                aria-label="Expiration unit"
                 className={styles.unitSelect}
                 name="expiryUnit"
                 onBlur={formik.handleBlur}
