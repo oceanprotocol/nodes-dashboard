@@ -87,7 +87,7 @@ export async function createAuthToken({
     incrementedNonce,
     signMessage,
   });
-  const token = await (ProviderInstance.generateSignedAuthToken as any)(
+  const token = await ProviderInstance.generateSignedAuthToken(
     consumerAddress,
     signature,
     incrementedNonce.toString(),
