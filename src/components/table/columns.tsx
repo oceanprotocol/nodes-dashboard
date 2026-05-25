@@ -1,5 +1,6 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
+import GpuLabel from '@/components/gpu-label/gpu-label';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
@@ -59,6 +60,28 @@ function getUnbanAttemptStatus(status: string) {
   );
 }
 
+function renderGpuList(gpus: GPUPopularity[]) {
+  if (gpus?.length > 0) {
+    const gpusFreq: Record<string, number> = {};
+    for (const gpu of gpus) {
+      const gpuLabel = `${gpu.vendor} ${gpu.name}`;
+      gpusFreq[gpuLabel] = (gpusFreq[gpuLabel] || 0) + 1;
+    }
+    return (
+      <div className="flexRow gapSm">
+        {Object.entries(gpusFreq).map(([gpuLabel, count], index) => (
+          <span className="flexRow alignItemsCenter gapXs" key={index}>
+            {index > 0 && <span className="textSecondary">, </span>}
+            <strong className="textSecondary">{count > 1 ? `${count}x ` : ''}</strong>
+            <GpuLabel gpu={gpuLabel} />
+          </span>
+        ))}
+      </div>
+    );
+  }
+  return '-';
+}
+
 export const actionsColumnProps: GridColDef = {
   align: 'right',
   field: '_actions',
@@ -95,7 +118,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'GPUs',
     sortable: false,
-    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
+    renderCell: ({ value }) => renderGpuList(value),
   },
   {
     field: 'latestBenchmarkResults.totalScore',
@@ -109,16 +132,15 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
     renderCell: (params) => (
       <div className="flexRow alignItemsCenter gapSm">
-        {params.value || params.value === 0 ? (
-          <>
-            <VerifiedIcon className="textSuccessDarker" />
-            <span>{params.value.toLocaleString()}</span>
-          </>
+        {params.row.verified ? (
+          <VerifiedIcon className="textSuccessDarker" />
         ) : (
-          <>
-            <HighlightOffOutlinedIcon className="textError" />
-            <span className="textErrorDarker">Not verified</span>
-          </>
+          <HighlightOffOutlinedIcon className="textError" />
+        )}
+        {params.value || params.value === 0 ? (
+          <span>{params.value.toLocaleString()}</span>
+        ) : (
+          <span className="textErrorDarker">Not verified</span>
         )}
       </div>
     ),
@@ -195,28 +217,29 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'GPUs',
     sortable: false,
-    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
+    renderCell: ({ value }) => renderGpuList(value),
   },
   {
     field: 'latestBenchmarkResults.totalScore',
     filterable: false,
     flex: 1,
-    headerName: 'Bench score',
+    headerName: 'Total score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore,
     renderCell: (params) => (
       <div className="flexRow alignItemsCenter gapSm">
-        {params.value || params.value === 0 ? (
-          <>
+        <div className="flexRow alignItemsCenter gapSm">
+          {params.row.verified ? (
             <VerifiedIcon className="textSuccessDarker" />
-            <span>{params.value.toLocaleString()}</span>
-          </>
-        ) : (
-          <>
+          ) : (
             <HighlightOffOutlinedIcon className="textError" />
+          )}
+          {params.value || params.value === 0 ? (
+            <span>{params.value.toLocaleString()}</span>
+          ) : (
             <span className="textErrorDarker">Not verified</span>
-          </>
-        )}
+          )}
+        </div>
       </div>
     ),
   },

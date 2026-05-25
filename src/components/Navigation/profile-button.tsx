@@ -124,7 +124,7 @@ const ProfileButton: React.FC = () => {
             <ListItemIcon>
               <RedeemIcon />
             </ListItemIcon>
-            Claim grant tokens
+            Claim complimentary credits
           </MenuItem>
         )}
         <MenuItem

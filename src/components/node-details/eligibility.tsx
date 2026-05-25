@@ -15,10 +15,9 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
   const now = Date.now();
   const isBanned = node.banned || (node.bannedUntil && now < node.bannedUntil);
   const isSuspended = node.suspendedUntil && now < node.suspendedUntil;
-  const isVerified = !!node.latestBenchmarkResults && !isBanned && !isSuspended;
 
-  // [All roles] Verified and NOT Banned / Suspended
-  if (isVerified) {
+  // [All roles] Verified
+  if (node.verified) {
     return (
       <Card direction="column" padding="sm" radius="md" shadow="success" spacing="sm" variant="success">
         <div className={styles.header}>

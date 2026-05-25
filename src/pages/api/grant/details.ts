@@ -55,7 +55,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     existingGrant = await findGrantInSheet({ email: data.email });
     if (existingGrant) {
       if (existingGrant.status === GrantStatus.CLAIMED) {
-        return response.status(403).json({ message: 'Grant already claimed' });
+        return response.status(403).json({ message: 'Complimentary credits already claimed' });
       }
 
       if (

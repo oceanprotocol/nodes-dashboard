@@ -68,6 +68,7 @@ export type Node = {
   suspendedUntil?: number;
   totalJobs: number;
   totalRevenue: number;
+  verified?: boolean;
   version?: string;
 };
 
