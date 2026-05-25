@@ -139,6 +139,7 @@ type TableProps<T extends GridValidRowModel> = {
   columns?: GridColDef<T>[];
   context?: TableContextType<T>;
   data?: any[];
+  initialDensity?: 'compact' | 'standard' | 'comfortable';
   loading?: boolean;
   // TODO internal pagination
   paginationType: 'context' | 'none';
@@ -154,6 +155,7 @@ export const Table = <T extends GridValidRowModel>({
   columns: columnsProp,
   context,
   data: propsData,
+  initialDensity = 'standard',
   loading: propsLoading,
   paginationType,
   showToolbar,
@@ -345,7 +347,7 @@ export const Table = <T extends GridValidRowModel>({
   }, []);
 
   const initialState = useMemo(() => {
-    const coreState: GridInitialState = { density: 'standard', columns: { columnVisibilityModel } };
+    const coreState: GridInitialState = { density: initialDensity, columns: { columnVisibilityModel } };
     return paginationType === 'none'
       ? coreState
       : {
@@ -357,7 +359,7 @@ export const Table = <T extends GridValidRowModel>({
             },
           },
         };
-  }, [columnVisibilityModel, currentPage, pageSize, paginationType]);
+  }, [columnVisibilityModel, currentPage, initialDensity, pageSize, paginationType]);
 
   const paginationModel =
     paginationType === 'none'

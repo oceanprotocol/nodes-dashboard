@@ -1,6 +1,7 @@
 import RootLayout from '@/components/Layout';
 import config from '@/config';
 import { GrantProvider } from '@/context/grant-context';
+import { NodeTokensProvider } from '@/context/node-tokens';
 import { NodesProvider } from '@/context/nodes-context';
 import { ProfileProvider } from '@/context/profile-context';
 import { RunJobProvider } from '@/context/run-job-context';
@@ -84,29 +85,31 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
               <OceanAccountProvider>
                 <GrantProvider>
                   <NodesProvider>
-                    <UnbanRequestsProvider>
-                      <ProfileProvider>
-                        <StatsProvider>
-                          <P2PProvider>
-                            <NodeAuthProvider>
-                              <NodeStorageProvider>
-                                <RunJobEnvsProvider>
-                                  <RunJobProvider>
-                                    <RunNodeProvider>
-                                      <RootLayout>
-                                        <PHProvider>
-                                          <Component {...pageProps} />
-                                        </PHProvider>
-                                      </RootLayout>
-                                    </RunNodeProvider>
-                                  </RunJobProvider>
-                                </RunJobEnvsProvider>
-                              </NodeStorageProvider>
-                            </NodeAuthProvider>
-                          </P2PProvider>
-                        </StatsProvider>
-                      </ProfileProvider>
-                    </UnbanRequestsProvider>
+                    <NodeTokensProvider>
+                      <UnbanRequestsProvider>
+                        <ProfileProvider>
+                          <StatsProvider>
+                            <P2PProvider>
+                              <NodeAuthProvider>
+                                <NodeStorageProvider>
+                                  <RunJobEnvsProvider>
+                                    <RunJobProvider>
+                                      <RunNodeProvider>
+                                        <RootLayout>
+                                          <PHProvider>
+                                            <Component {...pageProps} />
+                                          </PHProvider>
+                                        </RootLayout>
+                                      </RunNodeProvider>
+                                    </RunJobProvider>
+                                  </RunJobEnvsProvider>
+                                </NodeStorageProvider>
+                              </NodeAuthProvider>
+                            </P2PProvider>
+                          </StatsProvider>
+                        </ProfileProvider>
+                      </UnbanRequestsProvider>
+                    </NodeTokensProvider>
                   </NodesProvider>
                 </GrantProvider>
               </OceanAccountProvider>

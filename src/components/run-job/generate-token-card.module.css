@@ -1,0 +1,28 @@
+.expiryControls {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.unitSelect {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 4px 4px 4px 0;
+}
+
+.unitSelect:focus {
+  outline: none;
+}
+
+.form {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: space-between;
+}
