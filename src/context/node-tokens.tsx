@@ -14,17 +14,18 @@ const NodeTokensContext = createContext<NodeTokensContextType | undefined>(undef
 
 export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) => {
   const { account } = useOceanAccount();
-  const prevAddress = useRef<string | undefined>(account.address);
+  const addressRef = useRef<string | undefined>(account.address);
+  addressRef.current = account.address;
 
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [nodeTokens, setNodeTokens] = useState<NodeTokens>({});
 
-  const saveToLocalStorage = useCallback(
-    (nodeTokens: NodeTokens) => {
-      localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}-${account.address}`, JSON.stringify(nodeTokens));
-    },
-    [account.address]
-  );
+  const saveToLocalStorage = useCallback((nodeTokens: NodeTokens) => {
+    if (!addressRef.current) {
+      return;
+    }
+    localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}-${addressRef.current}`, JSON.stringify(nodeTokens));
+  }, []);
 
   const addNodeToken = useCallback((nodeToken: NodeToken) => {
     setNodeTokens((prev) => ({
@@ -53,16 +54,16 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
    * Hydrate node tokens when user logs in with a different account.
    */
   useEffect(() => {
-    if (!account.address && prevAddress.current) {
+    if (!account.address && addressRef.current) {
       // user logged out -> clear node tokens
       setNodeTokens({});
     }
-    if (account.address && (prevAddress.current !== account.address || !isHydrated)) {
+    if (account.address && (addressRef.current !== account.address || !isHydrated)) {
       // user logged into new account -> hydrate node tokens from local storage
       // app opened, user already logged in -> hydrate node tokens from local storage
       hydrateFromLocalStorage();
     }
-    prevAddress.current = account.address;
+    addressRef.current = account.address;
   }, [account.address, hydrateFromLocalStorage, isHydrated]);
 
   /**
