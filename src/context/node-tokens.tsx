@@ -20,12 +20,19 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [nodeTokens, setNodeTokens] = useState<NodeTokens>({});
 
-  const saveToLocalStorage = useCallback((nodeTokens: NodeTokens) => {
-    if (!addressRef.current) {
-      return;
-    }
-    localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}-${addressRef.current}`, JSON.stringify(nodeTokens));
-  }, []);
+  const saveToLocalStorage = useCallback(
+    (nodeTokens: NodeTokens) => {
+      if (!addressRef.current) {
+        return;
+      }
+      try {
+        localStorage.setItem(`${LOCAL_STORAGE_KEY_PREFIX}-${account.address}`, JSON.stringify(nodeTokens));
+      } catch (e) {
+        console.error('Failed to save node tokens to localStorage:', e);
+      }
+    },
+    [account.address]
+  );
 
   const addNodeToken = useCallback((nodeToken: NodeToken) => {
     setNodeTokens((prev) => ({
