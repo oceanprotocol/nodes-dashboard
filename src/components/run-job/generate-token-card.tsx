@@ -46,7 +46,10 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
       expiryUnit: 'hours',
     },
     validationSchema: Yup.object({
-      expiryValue: Yup.number().typeError('Must be a number').min(0, 'Must be 0 or greater'),
+      expiryValue: Yup.number()
+        .transform((_, orig) => (orig === '' ? undefined : Number(orig)))
+        .optional()
+        .min(0, 'Must be 0 or greater'),
     }),
     onSubmit: async (values) => {
       if (!account.address || !ocean) {
