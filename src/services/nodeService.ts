@@ -116,7 +116,7 @@ export async function revokeAuthToken({
       signMessage: async () => signature,
     } as any,
     token,
-    normalizeNodeUri(nodeUri) as string
+    normalizeNodeUri(nodeUri)
   );
 }
 
