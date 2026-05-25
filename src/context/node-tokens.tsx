@@ -44,7 +44,11 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
   const hydrateFromLocalStorage = useCallback(() => {
     const stored = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}-${account.address}`);
     if (stored) {
-      setNodeTokens(JSON.parse(stored));
+      try {
+        setNodeTokens(JSON.parse(stored));
+      } catch {
+        // Stored data is corrupt; start fresh rather than crashing.
+      }
     }
     setIsHydrated(true);
   }, [account.address]);
