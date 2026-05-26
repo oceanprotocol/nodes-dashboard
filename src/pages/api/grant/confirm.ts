@@ -136,6 +136,13 @@ export default async function handler(request: NextApiRequest, response: NextApi
       if (fastReceipt.status !== 1) {
         return response.status(400).json({ message: 'Transaction failed on-chain' });
       }
+      if (grant.nonce === undefined) {
+        return response.status(500).json({ message: 'Grant nonce missing' });
+      }
+      const redeemed = await isGrantRedeemedOnChain(walletAddress, grant.nonce);
+      if (!redeemed) {
+        return response.status(400).json({ message: 'Transaction did not redeem this grant' });
+      }
       await reconcileAndMarkClaimed(walletAddress, txHash);
       return response.status(200).json({ status: GrantStatus.CLAIMED });
     }
