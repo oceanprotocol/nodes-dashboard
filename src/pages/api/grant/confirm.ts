@@ -51,8 +51,10 @@ async function backgroundReconcile(walletAddress: string, txHash: string) {
     if (!latest || latest.status === GrantStatus.CLAIMED) return;
 
     if (receipt) {
-      if (receipt.status === 1) {
-        await markClaimed(latest, txHash);
+      if (receipt.status === 1 && latest.nonce !== undefined) {
+        if (await isGrantRedeemedOnChain(walletAddress, latest.nonce)) {
+          await markClaimed(latest, txHash);
+        }
       }
       return;
     }
