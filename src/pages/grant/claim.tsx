@@ -31,7 +31,7 @@ const ClaimPage: React.FC = () => {
           contentBetween={<Stepper<GrantStep> currentStep="claim" steps={getGrantSteps()} />}
         />
         <div className="pageContentWrapper">
-          <Claim grantDetails={grantDetails} />
+          <Claim />
         </div>
       </Container>
     </AuthRequiredPage>

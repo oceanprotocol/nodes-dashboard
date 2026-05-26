@@ -3,7 +3,7 @@ import Card from '@/components/card/card';
 import FaucetAbi from '@/constants/abis/faucet.json';
 import { useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { ClaimGrantResponse, GrantDetails } from '@/types/grant';
+import { ClaimGrantResponse } from '@/types/grant';
 import { useAuthModal } from '@account-kit/react';
 import axios from 'axios';
 import posthog from 'posthog-js';
@@ -13,11 +13,7 @@ import { encodeFunctionData } from 'viem';
 import { useProfileContext } from '../../context/profile-context';
 import styles from './claim.module.css';
 
-type ClaimProps = {
-  grantDetails: GrantDetails;
-};
-
-const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
+const Claim: React.FC = () => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, sendTransaction, isSendingTransaction } = useOceanAccount();
@@ -51,12 +47,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
       const data = encodeFunctionData({
         abi: FaucetAbi,
         functionName: 'claim',
-        args: [
-          grantDetails.walletAddress as `0x${string}`,
-          BigInt(nonce),
-          BigInt(rawAmount),
-          signature as `0x${string}`,
-        ],
+        args: [account.address as `0x${string}`, BigInt(nonce), BigInt(rawAmount), signature as `0x${string}`],
       });
       sendTransaction({
         target: faucetAddress,
