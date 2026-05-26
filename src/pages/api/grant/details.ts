@@ -1,8 +1,19 @@
 import { sendOTP } from '@/api-services/email';
 import { validateGrantDataWithAI } from '@/api-services/gemini';
 import { findGrantInSheet, insertGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
-import { generateOTP } from '@/api-services/otp';
-import { GrantDetails, GrantStatus, GrantWithStatus, SubmitGrantDetailsResponse } from '@/types/grant';
+import { generateOTP, hashOTP } from '@/api-services/otp';
+import {
+  GRANT_GOAL_CHOICES,
+  GRANT_HARDWARE_CHOICES,
+  GRANT_OS_CHOICES,
+  GRANT_ROLE_CHOICES,
+  GrantDetails,
+  GrantStatus,
+  GrantWithStatus,
+  SubmitGrantDetailsResponse,
+} from '@/types/grant';
+import { normalizeEmail } from '@/utils/email';
+import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
@@ -12,16 +23,26 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   const data: GrantDetails = request.body;
 
-  // Check for missing fields
+  // Check for missing fields + enforce string-type to prevent type-confusion attacks
+  const requiredStringFields: Array<keyof GrantDetails> = [
+    'email',
+    'goal',
+    'handle',
+    'name',
+    'os',
+    'role',
+    'walletAddress',
+  ];
+  for (const field of requiredStringFields) {
+    if (!data[field] || typeof data[field] !== 'string') {
+      return response.status(400).json({ message: 'Missing required fields' });
+    }
+  }
   if (
-    !data.email ||
-    !data.goal ||
-    !data.handle ||
-    !data.hardware ||
-    !data.name ||
-    !data.os ||
-    !data.role ||
-    !data.walletAddress
+    !Array.isArray(data.hardware) ||
+    data.hardware.length === 0 ||
+    data.hardware.length > GRANT_HARDWARE_CHOICES.length ||
+    !data.hardware.every((h) => typeof h === 'string')
   ) {
     return response.status(400).json({ message: 'Missing required fields' });
   }
@@ -31,6 +52,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const handleRegex = /^[a-zA-Z0-9@\._\-]{1,100}$/;
 
+  if (!ethers.isAddress(data.walletAddress)) {
+    return response.status(400).json({ message: 'Invalid wallet address' });
+  }
+
   if (!nameRegex.test(data.name)) {
     return response.status(400).json({ message: 'Invalid name format or length' });
   }
@@ -39,20 +64,74 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(400).json({ message: 'Invalid email format or length' });
   }
 
+  data.email = normalizeEmail(data.email);
+
+  const emailDomain = data.email.split('@')[1];
+  const blacklistedDomains = (process.env.GRANT_BLACKLISTED_EMAIL_DOMAINS ?? '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  // Match exact OR any subdomain — e.g. `mail.tempmail.com` is blocked when `tempmail.com` is blacklisted.
+  const isBlacklisted = blacklistedDomains.some((d) => emailDomain === d || emailDomain.endsWith(`.${d}`));
+  if (isBlacklisted) {
+    return response.status(400).json({ message: 'Email provider not accepted' });
+  }
+
   if (!handleRegex.test(data.handle)) {
     return response.status(400).json({ message: 'Invalid handle format or length' });
   }
 
-  // AI validation
-  const validationResult = await validateGrantDataWithAI(data);
-  if (!validationResult.valid) {
-    return response.status(400).json({ message: `Validation failed: ${validationResult.reason}` });
+  const validRoles = GRANT_ROLE_CHOICES.map((c) => c.value);
+  const validOs = GRANT_OS_CHOICES.map((c) => c.value);
+  const validGoals = GRANT_GOAL_CHOICES.map((c) => c.value);
+  const validHardware = GRANT_HARDWARE_CHOICES.map((c) => c.value);
+
+  if (!validRoles.includes(data.role)) {
+    return response.status(400).json({ message: 'Invalid role' });
+  }
+  if (!validOs.includes(data.os)) {
+    return response.status(400).json({ message: 'Invalid OS' });
+  }
+  if (!validGoals.includes(data.goal)) {
+    return response.status(400).json({ message: 'Invalid goal' });
+  }
+  if (
+    !Array.isArray(data.hardware) ||
+    data.hardware.length === 0 ||
+    !data.hardware.every((h) => validHardware.includes(h))
+  ) {
+    return response.status(400).json({ message: 'Invalid hardware selection' });
   }
 
   let existingGrant: GrantWithStatus | null = null;
-  // Check if grant already exists
+  // Check if grant already exists.
+  // Existence checks run BEFORE the (paid) Gemini call so spammers can't burn AI quota
+  // by re-submitting against already-CLAIMED / already-verified rows.
   try {
-    existingGrant = await findGrantInSheet({ email: data.email });
+    const [byEmail, byWallet] = await Promise.all([
+      findGrantInSheet({ email: data.email }),
+      findGrantInSheet({ walletAddress: data.walletAddress }),
+    ]);
+
+    // Block wallet already registered under a different email — but only after email verification.
+    // PENDING rows are overwritable to prevent wallet squatting denial-of-service.
+    if (
+      byWallet &&
+      byWallet.email.toLowerCase() !== data.email.toLowerCase() &&
+      byWallet.status !== GrantStatus.PENDING
+    ) {
+      return response.status(403).json({ message: 'Wallet address already associated with another account' });
+    }
+
+    // Reject submissions that target a foreign email's row — prevents OTP email bombing of third parties
+    if (byEmail && byEmail.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase()) {
+      return response.status(403).json({ message: 'Email already associated with another account' });
+    }
+
+    // Prefer wallet match over email match when both exist, so we update the row keyed by wallet
+    // (updateGrantInSheet looks up by walletAddress).
+    existingGrant = byWallet ?? byEmail;
+
     if (existingGrant) {
       if (existingGrant.status === GrantStatus.CLAIMED) {
         return response.status(403).json({ message: 'Complimentary credits already claimed' });
@@ -63,8 +142,16 @@ export default async function handler(request: NextApiRequest, response: NextApi
         existingGrant.status === GrantStatus.SIGNED_FAUCET_MESSAGE
       ) {
         // Grant already exists and is verified
-        // => Update details and continue with claiming
-        await updateGrantInSheet({ ...existingGrant, ...data });
+        // => Update details but preserve the verified walletAddress + email — prevents redirecting grant to a new wallet
+        const updated = await updateGrantInSheet({
+          ...existingGrant,
+          ...data,
+          email: existingGrant.email,
+          walletAddress: existingGrant.walletAddress,
+        });
+        if (!updated) {
+          return response.status(500).json({ message: 'Failed to process grant details' });
+        }
         const responseData: SubmitGrantDetailsResponse = {
           shouldValidateEmail: false,
         };
@@ -73,16 +160,38 @@ export default async function handler(request: NextApiRequest, response: NextApi
     }
   } catch (error) {
     console.error('Error checking existing grant:', error);
-    // Continue anyway, maybe it's just a temporary sheet error
+    return response.status(500).json({ message: 'Failed to process grant details' });
+  }
+
+  // AI validation runs only after duplicate/state gates so an attacker can't burn Gemini quota
+  // on already-CLAIMED / verified wallets.
+  const validationResult = await validateGrantDataWithAI(data);
+  if (!validationResult.valid) {
+    return response.status(400).json({ message: `Validation failed: ${validationResult.reason}` });
   }
 
   // Generate OTP and save with grant details
   const { otp, otpExpires } = generateOTP();
+
+  // Reset attempts on every new OTP issuance — a fresh code is a fresh session.
+
+  const otpHash = hashOTP(otp);
   try {
     if (existingGrant) {
-      await updateGrantInSheet({ ...existingGrant, ...data, otp, otpExpires });
+      // Update keyed by the existing walletAddress; data spreads first so other fields update.
+      const updated = await updateGrantInSheet({
+        ...existingGrant,
+        ...data,
+        walletAddress: existingGrant.walletAddress,
+        otp: otpHash,
+        otpAttempts: 0,
+        otpExpires,
+      });
+      if (!updated) {
+        return response.status(500).json({ message: 'Failed to process grant details' });
+      }
     } else {
-      await insertGrantInSheet({ ...data, otp, otpExpires });
+      await insertGrantInSheet({ ...data, otp: otpHash, otpAttempts: 0, otpExpires });
     }
   } catch (error) {
     console.error('Error saving grant details:', error);
