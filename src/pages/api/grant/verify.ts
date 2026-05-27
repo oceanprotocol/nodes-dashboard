@@ -32,7 +32,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       findGrantInSheet({ email: normalizeEmail(email) }),
     ]);
 
-    // Both lookups must resolve to the same row — prevents wallet/email mismatch attacks
+    // Both lookups must resolve to the same row
     if (
       !grantByWallet ||
       !grantByEmail ||
@@ -44,8 +44,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     const grant = grantByWallet;
 
-    // Only PENDING grants are eligible for OTP verification. Reject calls on already-verified /
-    // signed / claimed rows so attackers can't burn sheet writes via the attempt counter.
+    // Only PENDING grants are eligible for OTP verification. Reject calls on already-verified/ signed/ claimed rows
     if (grant.status !== GrantStatus.PENDING) {
       return response.status(400).json({ message: 'No pending grant found' });
     }
