@@ -17,10 +17,10 @@ export function isBlacklistedEmail(email: string) {
   const domainParts = email.split('@')[1].split('.');
   for (let i = 0; i < domainParts.length - 1; i++) {
     if (blacklistedEmailProviders.has(domainParts.slice(i).join('.'))) {
-      return false;
+      return true;
     }
   }
-  return true;
+  return false;
 }
 
 /**

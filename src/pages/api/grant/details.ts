@@ -66,7 +66,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   data.email = normalizeEmail(data.email);
 
-  if (!isBlacklistedEmail(data.email)) {
+  if (isBlacklistedEmail(data.email)) {
     return response.status(400).json({ message: 'Invalid email address' });
   }
 
