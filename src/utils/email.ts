@@ -5,7 +5,7 @@ const blacklistedEmailProviders = new Set<string>(
   readFileSync(join(process.cwd(), 'public', 'disposable-email-blacklist.conf'), 'utf-8')
     .split(/\r?\n/)
     .map((line: string) => line.trim())
-    .slice(0, -1)
+    .filter((line: string) => line.length > 0)
 );
 
 /**
