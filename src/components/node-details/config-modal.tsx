@@ -48,16 +48,12 @@ const ConfigModal = ({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Card direction="column" padding="md" radius="lg" shadow="black" variant="glass-shaded">
-            <h3
-              className={styles.collapsibleSectionTitle}
-              onClick={() => setGeneralOpen(!generalOpen)}
-              tabIndex={0}
-            >
+            <h3 className={styles.collapsibleSectionTitle} onClick={() => setGeneralOpen(!generalOpen)} tabIndex={0}>
               General
               <ExpandMoreIcon className={classNames(styles.icon, { [styles.iconOpen]: generalOpen })} />
             </h3>
             <Collapse in={generalOpen}>
-              <ConfigureGeneral config={editedConfig as NodeConfig} setConfig={setEditedConfig as any} />
+              <ConfigureGeneral config={editedConfig as NodeConfig} setConfig={setEditedConfig} />
             </Collapse>
           </Card>
 
@@ -71,21 +67,17 @@ const ConfigModal = ({
               <ExpandMoreIcon className={classNames(styles.icon, { [styles.iconOpen]: resourcesOpen })} />
             </h3>
             <Collapse in={resourcesOpen}>
-              <ConfigureResources config={editedConfig as NodeConfig} setConfig={setEditedConfig as any} />
+              <ConfigureResources config={editedConfig as NodeConfig} setConfig={setEditedConfig} />
             </Collapse>
           </Card>
 
           <Card direction="column" padding="md" radius="lg" shadow="black" variant="glass-shaded">
-            <h3
-              className={styles.collapsibleSectionTitle}
-              onClick={() => setIndexerOpen(!indexerOpen)}
-              tabIndex={0}
-            >
+            <h3 className={styles.collapsibleSectionTitle} onClick={() => setIndexerOpen(!indexerOpen)} tabIndex={0}>
               Indexer
               <ExpandMoreIcon className={classNames(styles.icon, { [styles.iconOpen]: indexerOpen })} />
             </h3>
             <Collapse in={indexerOpen}>
-              <ConfigureIndexer config={editedConfig as NodeConfig} setConfig={setEditedConfig as any} />
+              <ConfigureIndexer config={editedConfig as NodeConfig} setConfig={setEditedConfig} />
             </Collapse>
           </Card>
 
