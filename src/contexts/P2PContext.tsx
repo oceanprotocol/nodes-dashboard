@@ -24,6 +24,8 @@ import {
   ComputeResourceRequest,
   type NodeLogEntry,
   type NodeLogsParams,
+  type NodeP2P,
+  type OceanNode,
   type PersistentStorageAccessList,
   type PersistentStorageBucket,
   type PersistentStorageDeleteFileResponse,
@@ -33,10 +35,12 @@ import {
 import BigNumber from 'bignumber.js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-export type NodeUri = string[] | string;
+export type NodeUri = OceanNode | string[];
 
-function toNodeUri(input: NodeUri) {
-  if (Array.isArray(input)) return input.map((a) => multiaddr(a));
+function normalizeNodeUri(input: NodeUri): OceanNode {
+  if (Array.isArray(input)) {
+    return { multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
+  }
   return input;
 }
 
@@ -187,7 +191,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       if (!isReady) {
         throw new Error('Node not ready');
       }
-      return ProviderInstance.fetchConfig(toNodeUri(nodeUri), command);
+      return ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), command);
     },
     [isReady]
   );

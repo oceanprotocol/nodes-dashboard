@@ -143,6 +143,23 @@ export const formatDateTime = (timestamp: number): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
 
+const GPU_BRANDING = ['nvidia', 'corporation', 'amd', 'advanced', 'micro', 'devices', 'inc', 'intel', 'intel(r)'];
+const GPU_VENDORS = ['nvidia', 'amd', 'intel'] as const;
+type GpuVendor = (typeof GPU_VENDORS)[number];
+
+export const formatGpuName = (gpu: string, { showVendor = false }: { showVendor?: boolean } = {}): string => {
+  const detectedVendor = GPU_VENDORS.find((v) => gpu.toLowerCase().includes(v)) as GpuVendor | undefined;
+  const filtered = gpu
+    .split(/[\s,\.]+/)
+    .filter((word) => !GPU_BRANDING.includes(word.toLowerCase()))
+    .join(' ')
+    .trim();
+  if (showVendor && detectedVendor) {
+    return `${detectedVendor.charAt(0).toUpperCase()}${detectedVendor.slice(1)} ${filtered}`.trim();
+  }
+  return filtered;
+};
+
 export const formatChainLabel = (chainId: number | string) => {
   return `${CHAIN_LABELS[Number(chainId)] ?? 'Chain'} (${chainId})`;
 };

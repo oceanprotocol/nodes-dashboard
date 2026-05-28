@@ -26,7 +26,7 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
   const { account } = useOceanAccount();
 
   const expiryCountdown = useCountdown(10 * 60); // 10 minutes
-  const resendCountdown = useCountdown(5);
+  const resendCountdown = useCountdown(60); // matches backend RESEND_COOLDOWN_MS
 
   const formik = useFormik<VerifyFormValues>({
     initialValues: {
@@ -36,6 +36,7 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
       try {
         await axios.post('/api/grant/verify', {
           code: values.code,
+          email: grantDetails.email,
           walletAddress: account.address,
         });
         posthog.capture('grant_email_verified');
@@ -53,10 +54,15 @@ const VerifyModal: React.FC<VerifyModalProps> = ({ isOpen, onClose, onSuccess, g
   const handleResend = async () => {
     resendCountdown.initiateCountdown();
     try {
-      await axios.post('/api/grant/resend-otp', {
+      const response = await axios.post<{ sent: boolean; retryAfter?: number }>('/api/grant/resend-otp', {
         walletAddress: account.address,
       });
-      toast.success(`A new code was sent to ${grantDetails.email}`);
+      if (response.data.sent) {
+        toast.success(`A new code was sent to ${grantDetails.email}`);
+      } else if (response.data.retryAfter) {
+        resendCountdown.initiateCountdown(response.data.retryAfter);
+        toast.info(`Please wait ${response.data.retryAfter}s before requesting a new code`);
+      }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         toast.error(error.response.data.message);

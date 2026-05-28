@@ -23,7 +23,6 @@ export async function sendOTP(email: string, code: string) {
   };
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`OTP sent to ${email}`);
   } catch (error) {
     console.error('Error sending email:', error);
     throw new Error('Failed to send OTP email');
