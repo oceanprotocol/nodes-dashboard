@@ -136,7 +136,7 @@ const ConfigureIndexer: React.FC<ConfigureIndexerProps> = ({ config, setConfig }
               name="customChainId"
               onChange={(e) => handleCustomChainIdChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleConfirmAddNetwork();
+                if (e.key === 'Enter' && pendingChainId.trim()) handleConfirmAddNetwork();
               }}
               placeholder="Or enter chain ID manually"
               type="number"
