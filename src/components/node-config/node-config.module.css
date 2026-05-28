@@ -1,0 +1,85 @@
+.envCardHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+
+  & > .collapsibleSectionTitle {
+    margin-bottom: 0;
+  }
+}
+
+.collapsibleSectionTitle {
+  align-items: center;
+  align-self: start;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+
+  .icon {
+    color: var(--text-secondary);
+    transition: transform 0.25s ease;
+
+    &.iconOpen {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.errorsList {
+  list-style-type: disc;
+  padding-left: 14px;
+}
+
+.addressList {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .addressRow {
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 8px 12px;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .addressText {
+      font-family: monospace;
+      font-size: 13px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.addressAddRow {
+  align-items: flex-end;
+  display: flex;
+  gap: 8px;
+
+  > :first-child {
+    flex: 1;
+  }
+}
+
+.sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .subsectionTitle {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 8px 0 0;
+  }
+}
