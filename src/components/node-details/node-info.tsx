@@ -5,6 +5,7 @@ import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
+import { NodeConfig } from '@/types/node-config';
 import { Node } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -32,14 +33,14 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, ocean, signMessage, user } = useOceanAccount();
-  const { config, fetchConfig, getNodeLogs, pushConfig } = useP2P();
+  const { fetchConfig, getNodeLogs, pushConfig } = useP2P();
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
   const [isDownloadLogsDialogOpen, setIsDownloadLogsDialogOpen] = useState<boolean>(false);
   const [downloadingLogs, setDownloadingLogs] = useState<boolean>(false);
-  const [editedConfig, setEditedConfig] = useState<Record<string, any>>({});
+  const [editedConfig, setEditedConfig] = useState<NodeConfig>({});
 
   // TODO: replace this
   // This is temporary, used for local testing because `node` from props was
@@ -78,12 +79,6 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     }
   }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
-  useEffect(() => {
-    if (config) {
-      setEditedConfig(config);
-    }
-  }, [config]);
-
   async function handleFetchConfig() {
     if (!account.isConnected) {
       openAuthModal();
@@ -94,12 +89,13 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     }
     setFetchingConfig(true);
     try {
-      await fetchConfig({
+      const fetchedConfig = await fetchConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
         nodeUri: node.id,
         signMessage,
       });
+      setEditedConfig(fetchedConfig as NodeConfig);
     } catch (error) {
       console.error('Error fetching node config :', error);
     } finally {
@@ -107,7 +103,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     }
   }
 
-  async function handlePushConfig(config: Record<string, any>) {
+  async function handlePushConfig(config: NodeConfig) {
     let success = false;
     if (!account.isConnected) {
       openAuthModal();
@@ -140,10 +136,10 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   }
 
   function handleOpenEditConfigModal() {
-    if (!config || Object.keys(config).length === 0) {
-      handleFetchConfig();
-    }
-
+    // Always refetch so the modal shows the current node's config, not a
+    // config left over from a previously opened node.
+    setEditedConfig({});
+    handleFetchConfig();
     setIsEditConfigDialogOpen(true);
   }
 
@@ -256,7 +252,6 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
                 isOpen={isEditConfigDialogOpen}
                 fetchingConfig={fetchingConfig}
                 pushingConfig={pushingConfig}
-                config={config}
                 editedConfig={editedConfig}
                 setEditedConfig={setEditedConfig}
                 handlePushConfig={handlePushConfig}
