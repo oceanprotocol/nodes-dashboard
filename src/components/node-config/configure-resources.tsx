@@ -28,7 +28,8 @@ type ConfigureResourcesProps = {
   setConfig: (config: NodeConfig) => void;
 };
 
-type Environment = NonNullable<NodeConfig['dockerComputeEnvironments']>[number];
+type EnvGroup = NonNullable<NodeConfig['dockerComputeEnvironments']>[number];
+type Environment = EnvGroup['environments'][number];
 type Resource = NonNullable<Environment['resources']>[number];
 type FreeCompute = NonNullable<Environment['free']>;
 
@@ -632,7 +633,15 @@ const EnvPreview: React.FC<{ env: Environment }> = ({ env }) => {
 };
 
 const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConfig }) => {
-  const envs = config.dockerComputeEnvironments ?? [];
+  const envs = config.dockerComputeEnvironments?.[0]?.environments ?? [];
+
+  const setEnvs = (nextEnvs: Environment[]) => {
+    const [group, ...rest] = config.dockerComputeEnvironments ?? [];
+    setConfig({
+      ...config,
+      dockerComputeEnvironments: [{ ...group, environments: nextEnvs }, ...rest],
+    });
+  };
 
   /**
    * Computed mapping of all resources across environments.
@@ -677,19 +686,18 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
   };
 
   const handleEnvChange = (index: number, next: Environment) => {
-    const updated = envs.map((e, i) => (i === index ? next : e));
-    setConfig({ ...config, dockerComputeEnvironments: updated });
+    setEnvs(envs.map((e, i) => (i === index ? next : e)));
   };
 
   const handleEnvDelete = (index: number) => {
-    setConfig({ ...config, dockerComputeEnvironments: envs.filter((_, i) => i !== index) });
+    setEnvs(envs.filter((_, i) => i !== index));
     setOpenIndexes((prev) => prev.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i)));
     toast.info(`Deleted environment from position ${index + 1}`);
   };
 
   const handleEnvAdd = () => {
     const newIndex = envs.length;
-    setConfig({ ...config, dockerComputeEnvironments: [...envs, { ...DEFAULT_NEW_ENV }] });
+    setEnvs([...envs, { ...DEFAULT_NEW_ENV }]);
     setOpenIndexes((prev) => [...prev, newIndex]);
     toast.info(`Added environment on position ${newIndex + 1}`);
   };

@@ -5,6 +5,7 @@ import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
+import { NodeConfig } from '@/types/node-config';
 import { Node } from '@/types/nodes';
 import { useAuthModal } from '@account-kit/react';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -39,7 +40,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   const [isEditConfigDialogOpen, setIsEditConfigDialogOpen] = useState<boolean>(false);
   const [isDownloadLogsDialogOpen, setIsDownloadLogsDialogOpen] = useState<boolean>(false);
   const [downloadingLogs, setDownloadingLogs] = useState<boolean>(false);
-  const [editedConfig, setEditedConfig] = useState<Record<string, any>>({});
+  const [editedConfig, setEditedConfig] = useState<NodeConfig>({});
 
   // TODO: replace this
   // This is temporary, used for local testing because `node` from props was
@@ -80,7 +81,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
 
   useEffect(() => {
     if (config) {
-      setEditedConfig(config);
+      setEditedConfig(config as NodeConfig);
     }
   }, [config]);
 
@@ -107,7 +108,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     }
   }
 
-  async function handlePushConfig(config: Record<string, any>) {
+  async function handlePushConfig(config: NodeConfig) {
     let success = false;
     if (!account.isConnected) {
       openAuthModal();
@@ -256,7 +257,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
                 isOpen={isEditConfigDialogOpen}
                 fetchingConfig={fetchingConfig}
                 pushingConfig={pushingConfig}
-                config={config}
+                config={config as NodeConfig}
                 editedConfig={editedConfig}
                 setEditedConfig={setEditedConfig}
                 handlePushConfig={handlePushConfig}

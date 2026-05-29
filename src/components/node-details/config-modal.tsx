@@ -15,10 +15,10 @@ type ConfigModalProps = {
   isOpen: boolean;
   fetchingConfig: boolean;
   pushingConfig: boolean;
-  config: Record<string, any>;
-  editedConfig: Record<string, any>;
-  setEditedConfig: Dispatch<SetStateAction<Record<string, any>>>;
-  handlePushConfig: (config: Record<string, any>) => Promise<void>;
+  config: NodeConfig;
+  editedConfig: NodeConfig;
+  setEditedConfig: Dispatch<SetStateAction<NodeConfig>>;
+  handlePushConfig: (config: NodeConfig) => Promise<void>;
   onClose: () => void;
 };
 
@@ -53,7 +53,7 @@ const ConfigModal = ({
               <ExpandMoreIcon className={classNames(styles.icon, { [styles.iconOpen]: generalOpen })} />
             </h3>
             <Collapse in={generalOpen}>
-              <ConfigureGeneral config={editedConfig as NodeConfig} setConfig={setEditedConfig} />
+              <ConfigureGeneral config={editedConfig} setConfig={setEditedConfig} />
             </Collapse>
           </Card>
 
@@ -67,7 +67,7 @@ const ConfigModal = ({
               <ExpandMoreIcon className={classNames(styles.icon, { [styles.iconOpen]: resourcesOpen })} />
             </h3>
             <Collapse in={resourcesOpen}>
-              <ConfigureResources config={editedConfig as NodeConfig} setConfig={setEditedConfig} />
+              <ConfigureResources config={editedConfig} setConfig={setEditedConfig} />
             </Collapse>
           </Card>
 
@@ -77,7 +77,7 @@ const ConfigModal = ({
               <ExpandMoreIcon className={classNames(styles.icon, { [styles.iconOpen]: indexerOpen })} />
             </h3>
             <Collapse in={indexerOpen}>
-              <ConfigureIndexer config={editedConfig as NodeConfig} setConfig={setEditedConfig} />
+              <ConfigureIndexer config={editedConfig} setConfig={setEditedConfig} />
             </Collapse>
           </Card>
 
