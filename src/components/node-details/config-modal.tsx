@@ -15,7 +15,6 @@ type ConfigModalProps = {
   isOpen: boolean;
   fetchingConfig: boolean;
   pushingConfig: boolean;
-  config: NodeConfig;
   editedConfig: NodeConfig;
   setEditedConfig: Dispatch<SetStateAction<NodeConfig>>;
   handlePushConfig: (config: NodeConfig) => Promise<void>;
@@ -26,7 +25,6 @@ const ConfigModal = ({
   isOpen,
   fetchingConfig,
   pushingConfig,
-  config,
   editedConfig,
   setEditedConfig,
   handlePushConfig,
@@ -36,7 +34,7 @@ const ConfigModal = ({
   const [resourcesOpen, setResourcesOpen] = useState(true);
   const [indexerOpen, setIndexerOpen] = useState(true);
 
-  const isFetching = fetchingConfig && (!config || Object.keys(config).length === 0);
+  const isFetching = fetchingConfig && (!editedConfig || Object.keys(editedConfig).length === 0);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit node config" width="lg">

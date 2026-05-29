@@ -33,7 +33,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
 
   const { account, ocean, signMessage, user } = useOceanAccount();
-  const { config, fetchConfig, getNodeLogs, pushConfig } = useP2P();
+  const { fetchConfig, getNodeLogs, pushConfig } = useP2P();
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);
   const [pushingConfig, setPushingConfig] = useState<boolean>(false);
@@ -79,12 +79,6 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     }
   }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
 
-  useEffect(() => {
-    if (config) {
-      setEditedConfig(config as NodeConfig);
-    }
-  }, [config]);
-
   async function handleFetchConfig() {
     if (!account.isConnected) {
       openAuthModal();
@@ -95,12 +89,13 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     }
     setFetchingConfig(true);
     try {
-      await fetchConfig({
+      const fetchedConfig = await fetchConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
         nodeUri: node.id,
         signMessage,
       });
+      setEditedConfig(fetchedConfig as NodeConfig);
     } catch (error) {
       console.error('Error fetching node config :', error);
     } finally {
@@ -141,10 +136,10 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   }
 
   function handleOpenEditConfigModal() {
-    if (!config || Object.keys(config).length === 0) {
-      handleFetchConfig();
-    }
-
+    // Always refetch so the modal shows the current node's config, not a
+    // config left over from a previously opened node.
+    setEditedConfig({});
+    handleFetchConfig();
     setIsEditConfigDialogOpen(true);
   }
 
@@ -257,7 +252,6 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
                 isOpen={isEditConfigDialogOpen}
                 fetchingConfig={fetchingConfig}
                 pushingConfig={pushingConfig}
-                config={config as NodeConfig}
                 editedConfig={editedConfig}
                 setEditedConfig={setEditedConfig}
                 handlePushConfig={handlePushConfig}
