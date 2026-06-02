@@ -24,6 +24,7 @@ const NodeDetailsPage: React.FC = () => {
   const { unbanRequests, fetchUnbanRequests } = useUnbanRequestsContext();
 
   const [connectedP2P, setConnectedP2P] = useState<boolean | null>(null);
+  const [maybeStaleEnvData, setMaybeStaleEnvData] = useState<boolean | undefined>(undefined);
   const [connectedDirectNodeCommand, setConnectedDirectNodeCommand] = useState<boolean | null>(null);
   const [nodeEnvs, setNodeEnvs] = useState<ComputeEnvironment[]>([]);
 
@@ -72,6 +73,11 @@ const NodeDetailsPage: React.FC = () => {
         }
       })
       .catch(() => setConnectedDirectNodeCommand(false));
+
+      if (nodeEnvs.length === 0 && node.computeEnvironments?.environments && node.computeEnvironments.environments.length > 0) {
+        setNodeEnvs(node.computeEnvironments.environments)
+        setMaybeStaleEnvData(true)
+      }
   }, [node, isP2PReady, sendCommand, getEnvsP2P]);
 
   useEffect(() => {
@@ -99,9 +105,9 @@ const NodeDetailsPage: React.FC = () => {
           <JobsRevenueStats envs={nodeEnvs} />
           <BenchmarkJobs />
           <Environments
-            envs={nodeEnvs?.length !== 0 ? nodeEnvs : node.computeEnvironments?.environments}
+            envs={nodeEnvs}
             envsTimestamp={node.computeEnvironments?.timestamp}
-            staleEnvData={(nodeEnvs?.length === 0 || !nodeEnvs) && node.computeEnvironments?.environments?.length > 0}
+            staleEnvData={maybeStaleEnvData}
             nodeInfo={{
               friendlyName: node.friendlyName,
               id: node.id ?? node.nodeId,
