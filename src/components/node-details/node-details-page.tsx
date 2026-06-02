@@ -75,6 +75,10 @@ const NodeDetailsPage: React.FC = () => {
   }, [node, isP2PReady, sendCommand, getEnvsP2P]);
 
   useEffect(() => {
+      console.log({ nodeEnvs, esEnvs: node.computeEnvironments })
+  }, [nodeEnvs])
+
+  useEffect(() => {
     if (node) {
       fetchUnbanRequests(node.id ?? node.nodeId);
     }
