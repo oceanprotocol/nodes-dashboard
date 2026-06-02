@@ -75,7 +75,7 @@ const NodeDetailsPage: React.FC = () => {
   }, [node, isP2PReady, sendCommand, getEnvsP2P]);
 
   useEffect(() => {
-      console.log({ nodeEnvs, esEnvs: node.computeEnvironments })
+      console.log({ nodeEnvs, esEnvs: node?.computeEnvironments })
   }, [nodeEnvs])
 
   useEffect(() => {
