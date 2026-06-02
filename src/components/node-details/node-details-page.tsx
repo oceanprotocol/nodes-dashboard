@@ -75,6 +75,7 @@ const NodeDetailsPage: React.FC = () => {
       .catch(() => setConnectedDirectNodeCommand(false));
 
       if (nodeEnvs.length === 0 && node.computeEnvironments?.environments && node.computeEnvironments.environments.length > 0) {
+        console.log("in here")
         setNodeEnvs(node.computeEnvironments.environments)
         setMaybeStaleEnvData(true)
       }
