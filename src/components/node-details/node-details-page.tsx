@@ -95,7 +95,9 @@ const NodeDetailsPage: React.FC = () => {
           <JobsRevenueStats envs={nodeEnvs} />
           <BenchmarkJobs />
           <Environments
-            envs={nodeEnvs}
+            envs={nodeEnvs ?? node.computeEnvironments?.environments}
+            envsTimestamp={node.computeEnvironments?.timestamp}
+            staleEnvData={!nodeEnvs && !!node.computeEnvironments?.environments}
             nodeInfo={{
               friendlyName: node.friendlyName,
               id: node.id ?? node.nodeId,
