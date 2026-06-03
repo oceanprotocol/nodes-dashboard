@@ -47,6 +47,7 @@ const NodeDetailsPage: React.FC = () => {
   useEffect(() => {
     if (!node) return;
     setMaybeStaleEnvData(undefined);
+    setNodeEnvs([]);
     const peerId = node.id ?? node.nodeId;
 
     const p2pPromise = isP2PReady
