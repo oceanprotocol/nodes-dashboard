@@ -33,9 +33,65 @@ const NodeDetailsPage: React.FC = () => {
       return selectedNode;
     }
     return null;
+  }, [params?.nodeId, selectedNode]);
+
+  useEffect(() => {
+    if (!node) {
+      fetchNode(params?.nodeId);
+    }
+  }, [params?.nodeId, fetchNode, node]);
+
+  /**
+   * Check node connectivity by p2p and direct node command by loading its envs
+   */
+  useEffect(() => {
     if (!node) return;
     setMaybeStaleEnvData(undefined);
-    setNodeEnvs([]);
+    const peerId = node.id ?? node.nodeId;
+
+    const p2pPromise = isP2PReady
+      ? getEnvsP2P(node.currentAddrs?.length ? node.currentAddrs : peerId)
+          .then((envs) => {
+            setNodeEnvs((prev) => (prev.length > 0 ? prev : envs));
+            setConnectedP2P(true);
+            return envs;
+          })
+          .catch(() => {
+            setConnectedP2P(false);
+            return [];
+          })
+      : Promise.resolve([]);
+
+    const directPromise = directNodeCommand({
+      command: 'getComputeEnvironments',
+      body: {},
+      multiaddrs: node.currentAddrs,
+      peerId,
+    })
+      .then(async (response) => {
+        try {
+          const envs = await response.json();
+          setNodeEnvs((prev) => (prev.length > 0 ? prev : envs));
+          setConnectedDirectNodeCommand(true);
+          return envs;
+        } catch {
+          setConnectedDirectNodeCommand(false);
+          return [];
+        }
+      })
+      .catch(() => {
+        setConnectedDirectNodeCommand(false);
+        return [];
+      });
+
+    Promise.all([p2pPromise, directPromise]).then(([p2pEnvs, directEnvs]) => {
+      const gotEnvs = p2pEnvs.length > 0 || directEnvs.length > 0;
+      if (!gotEnvs && node.computeEnvironments?.environments && node.computeEnvironments.environments.length > 0) {
+        setNodeEnvs(node.computeEnvironments.environments);
+        setMaybeStaleEnvData(true);
+      }
+    });
+  }, [node, isP2PReady, sendCommand, getEnvsP2P]);
 
   useEffect(() => {
     if (node) {
