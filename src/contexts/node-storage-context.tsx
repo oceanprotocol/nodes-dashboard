@@ -32,7 +32,9 @@ type NodeStorageContextType = {
   /** Delete file from a bucket */
   deleteFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; fileName: string }) => Promise<void>;
   /** Create a bucket on a node */
-  createBucket: (args: { access: BucketAccessState; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
+  createBucket: (args: { access: BucketAccessState; label?: string; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
+  /** Rename a bucket (set its human-readable name) */
+  renameBucket: (args: { bucketId: string; label: string; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Get wallet addresses in an access list contract */
   getAccessListAddresses: (contractAddress: string) => Promise<string[]>;
   /** Add a wallet to an access list contract */
@@ -47,7 +49,8 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
   const { account } = useOceanAccount();
   const { withNodeAuth } = useNodeAuth();
 
-  const { createNodeBucket, deleteBucketFile, getNodeBuckets, listBucketFiles, uploadBucketFile } = useP2P();
+  const { createNodeBucket, renameBucket: renameBucketP2P, deleteBucketFile, getNodeBuckets, listBucketFiles, uploadBucketFile } =
+    useP2P();
 
   const { deployNewAccessList, getAccessListAddresses, addWalletToAccessList, removeWalletFromAccessList } =
     useAccessList();
@@ -128,7 +131,17 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
   );
 
   const createBucket = useCallback(
-    async ({ access, nodeId, nodeUri }: { access: BucketAccessState; nodeId: string; nodeUri: NodeUri }) => {
+    async ({
+      access,
+      label,
+      nodeId,
+      nodeUri,
+    }: {
+      access: BucketAccessState;
+      label?: string;
+      nodeId: string;
+      nodeUri: NodeUri;
+    }) => {
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
@@ -153,10 +166,37 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      await withNodeAuth(nodeId, nodeUri, (token) => createNodeBucket({ accessLists, authToken: token, nodeUri }));
+      await withNodeAuth(nodeId, nodeUri, (token) =>
+        createNodeBucket({ accessLists, authToken: token, label, nodeUri })
+      );
       await fetchBuckets({ nodeId, nodeUri });
     },
     [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, withNodeAuth]
+  );
+
+  const renameBucket = useCallback(
+    async ({
+      bucketId,
+      label,
+      nodeId,
+      nodeUri,
+    }: {
+      bucketId: string;
+      label: string;
+      nodeId: string;
+      nodeUri: NodeUri;
+    }) => {
+      const result = await withNodeAuth(nodeId, nodeUri, (token) =>
+        renameBucketP2P({ authToken: token, bucketId, label, nodeUri })
+      );
+      setBuckets((prev) => ({
+        ...prev,
+        [nodeId]: (prev[nodeId] ?? []).map((b) =>
+          b.bucketId === bucketId ? { ...b, label: result.label } : b
+        ),
+      }));
+    },
+    [renameBucketP2P, withNodeAuth]
   );
 
   const deleteFile = useCallback(
@@ -202,6 +242,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         uploadFile,
         deleteFile,
         createBucket,
+        renameBucket,
         getAccessListAddresses: getAccessListAddresses,
         addToAccessList: ({ contractAddress, wallet }) => addWalletToAccessList({ contractAddress, wallet }),
         removeFromAccessList: ({ contractAddress, wallet }) => removeWalletFromAccessList({ contractAddress, wallet }),

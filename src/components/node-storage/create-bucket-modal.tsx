@@ -1,6 +1,7 @@
 'use client';
 
 import Button from '@/components/button/button';
+import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import BucketAccess from '@/components/node-storage/bucket-access';
 import { useNodeStorage } from '@/contexts/node-storage-context';
@@ -24,7 +25,10 @@ type CreateBucketModalProps = {
 
 type CreateBucketFormValues = {
   access: BucketAccessState;
+  label: string;
 };
+
+const MAX_BUCKET_NAME_LENGTH = 256;
 
 const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();
@@ -37,8 +41,10 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
   const formik = useFormik<CreateBucketFormValues>({
     initialValues: {
       access: { mode: 'new', wallets: [account.address!] },
+      label: '',
     },
     validationSchema: Yup.object({
+      label: Yup.string().max(MAX_BUCKET_NAME_LENGTH, 'Name is too long'),
       access: Yup.mixed<BucketAccessState>()
         .required()
         .test('access-valid', 'Access list contract address is required', (value) => {
@@ -95,7 +101,7 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
     validateOnChange: false,
     onSubmit: async (values) => {
       try {
-        await createBucket({ nodeId, nodeUri, access: values.access });
+        await createBucket({ nodeId, nodeUri, access: values.access, label: values.label.trim() || undefined });
         toast.success('Bucket created');
         onClose();
         onSave?.();
@@ -120,6 +126,17 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
           <div>{nodeId}</div>
         )}
       </div>
+      <Input
+        type="text"
+        label="Name"
+        name="label"
+        placeholder="Leave blank for an auto-generated name"
+        size="md"
+        value={formik.values.label}
+        onChange={formik.handleChange}
+        onBlur={formik.handleBlur}
+        errorText={formik.touched.label && formik.errors.label ? (formik.errors.label as string) : undefined}
+      />
       <BucketAccess
         value={formik.values.access}
         onChange={(v) => {
