@@ -51,6 +51,7 @@ const EditBucketNameModal: React.FC<EditBucketNameModalProps> = ({ bucket, isOpe
           label="Name"
           placeholder="Leave blank to use the bucket ID"
           size="md"
+          maxLength={MAX_BUCKET_NAME_LENGTH}
           value={name}
           onChange={(e) => setName(e.target.value)}
           hint={bucket.bucketId}

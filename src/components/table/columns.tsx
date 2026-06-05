@@ -769,7 +769,7 @@ export const nodeStorageMyBucketsColumns: GridColDef<PersistentStorageBucket>[] 
     flex: 1,
     headerName: 'Name',
     sortable: true,
-    renderCell: ({ row }) => row.label?.trim() || row.bucketId,
+    valueGetter: (_value, row) => row.label?.trim() || row.bucketId,
   },
   {
     field: 'bucketId',
