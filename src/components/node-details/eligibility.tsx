@@ -20,7 +20,7 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
     <>
       {node.bannedUntil ? (
         <div className={styles.reason}>
-          <strong className="alignSelfStart">Banned until:</strong>{' '}
+          <strong className="alignSelfStart">Ban duration:</strong>{' '}
           <span>{node.permanent ? 'Permanent' : formatDateTime(node.bannedUntil / 1000)}</span>
         </div>
       ) : null}
