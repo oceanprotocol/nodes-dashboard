@@ -18,10 +18,9 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
 
   const suspensionDate = (
     <>
-      {node.bannedUntil ? (
+      {node.bannedUntil && node.permanent ? (
         <div className={styles.reason}>
-          <strong className="alignSelfStart">Ban duration:</strong>{' '}
-          <span>{node.permanent ? 'Permanent' : formatDateTime(node.bannedUntil / 1000)}</span>
+          <strong className="alignSelfStart">Ban duration:</strong> <span>Permanent</span>
         </div>
       ) : null}
       {node.suspendedUntil ? (
@@ -33,20 +32,33 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
     </>
   );
 
-  // [Admins] Banned / Suspended — takes precedence over verified status
-  if (isAdmin && (isBanned || isSuspended)) {
+  // [All roles] Banned / Suspended — takes precedence over verified status
+  if (isBanned || isSuspended) {
+    const isPermanent = isBanned && node.permanent;
+    const availableUntil = node.bannedUntil ?? node.suspendedUntil;
     return (
       <Card direction="column" padding="sm" radius="md" shadow="error" spacing="sm" variant="error">
         <div className={styles.header}>
           <HighlightOffIcon className={styles.icon} />
-          <h3>Banned</h3>
+          <h3>{isPermanent ? 'Permanently banned' : 'Temporarily banned'}</h3>
         </div>
-        <div>This node is excluded from all operations and rewards</div>
+        <div>
+          {isPermanent ? (
+            'This node is permanently excluded from all operations and rewards'
+          ) : (
+            <>
+              This node is excluded from all operations and rewards
+              {availableUntil ? <> until {formatDateTime(availableUntil / 1000)}</> : ''}
+            </>
+          )}
+        </div>
         {suspensionDate}
-        <div className={styles.reason}>
-          <strong className="alignSelfStart">Reason:</strong>{' '}
-          <span>{node.banReason || node.eligibilityCauseStr || 'Unknown'}</span>
-        </div>
+        {isAdmin ? (
+          <div className={styles.reason}>
+            <strong className="alignSelfStart">Reason:</strong>{' '}
+            <span>{node.banReason || node.eligibilityCauseStr || 'Unknown'}</span>
+          </div>
+        ) : null}
       </Card>
     );
   }
