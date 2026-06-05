@@ -16,6 +16,41 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
   const isBanned = node.banned || (node.bannedUntil && now < node.bannedUntil);
   const isSuspended = node.suspendedUntil && now < node.suspendedUntil;
 
+  const suspensionDate = (
+    <>
+      {node.bannedUntil ? (
+        <div className={styles.reason}>
+          <strong className="alignSelfStart">Banned until:</strong>{' '}
+          <span>{node.permanent ? 'Permanent' : formatDateTime(node.bannedUntil / 1000)}</span>
+        </div>
+      ) : null}
+      {node.suspendedUntil ? (
+        <div className={styles.reason}>
+          <strong className="alignSelfStart">Suspended until:</strong>{' '}
+          <span>{formatDateTime(node.suspendedUntil / 1000)}</span>
+        </div>
+      ) : null}
+    </>
+  );
+
+  // [Admins] Banned / Suspended — takes precedence over verified status
+  if (isAdmin && (isBanned || isSuspended)) {
+    return (
+      <Card direction="column" padding="sm" radius="md" shadow="error" spacing="sm" variant="error">
+        <div className={styles.header}>
+          <HighlightOffIcon className={styles.icon} />
+          <h3>Banned</h3>
+        </div>
+        <div>This node is excluded from all operations and rewards</div>
+        {suspensionDate}
+        <div className={styles.reason}>
+          <strong className="alignSelfStart">Reason:</strong>{' '}
+          <span>{node.banReason || node.eligibilityCauseStr || 'Unknown'}</span>
+        </div>
+      </Card>
+    );
+  }
+
   // [All roles] Verified
   if (node.verified) {
     return (
@@ -30,41 +65,6 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
   }
 
   if (isAdmin) {
-    const suspensionDate = (
-      <>
-        {node.bannedUntil ? (
-          <div className={styles.reason}>
-            <strong className="alignSelfStart">Banned until:</strong>{' '}
-            <span>{formatDateTime(node.bannedUntil / 1000)}</span>
-          </div>
-        ) : null}
-        {node.suspendedUntil ? (
-          <div className={styles.reason}>
-            <strong className="alignSelfStart">Suspended until:</strong>{' '}
-            <span>{formatDateTime(node.suspendedUntil / 1000)}</span>
-          </div>
-        ) : null}
-      </>
-    );
-
-    // [Admins] Banned / Suspended
-    if (isBanned || isSuspended) {
-      return (
-        <Card direction="column" padding="sm" radius="md" shadow="error" spacing="sm" variant="error">
-          <div className={styles.header}>
-            <HighlightOffIcon className={styles.icon} />
-            <h3>Banned</h3>
-          </div>
-          <div>This node is excluded from all operations and rewards</div>
-          {suspensionDate}
-          <div className={styles.reason}>
-            <strong className="alignSelfStart">Reason:</strong>{' '}
-            <span>{node.banReason || node.eligibilityCauseStr || 'Unknown'}</span>
-          </div>
-        </Card>
-      );
-    }
-
     // [Admins] NOT Eligible
     if (!node.eligible) {
       return (
