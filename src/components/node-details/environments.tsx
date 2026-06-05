@@ -5,16 +5,20 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
-import { Collapse } from '@mui/material';
+import { Collapse, Tooltip } from '@mui/material';
 import React, { useMemo, useState } from 'react';
 import styles from './environments.module.css';
+import { formatDateTime } from '@/utils/formatters'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 type EnvironmentsProps = {
   envs: ComputeEnvironment[];
   nodeInfo: EnvNodeInfo;
+  envsTimestamp?: number;
+  staleEnvData?: boolean;
 };
 
-const Environments: React.FC<EnvironmentsProps> = ({ envs, nodeInfo }) => {
+const Environments: React.FC<EnvironmentsProps> = ({ envs, nodeInfo, envsTimestamp, staleEnvData }) => {
   const { isReady } = useP2P();
 
   const [showingMore, setShowingMore] = useState(false);
@@ -47,7 +51,10 @@ const Environments: React.FC<EnvironmentsProps> = ({ envs, nodeInfo }) => {
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      <h3>Environments</h3>
+      <div style={{display: 'flex', justifyContent: 'space-between'}}>
+        <h3>Environments </h3>
+        { staleEnvData && envsTimestamp ? <span><Tooltip title={`Data possibly stale, last update: ${formatDateTime(envsTimestamp / 1000)}`}><InfoOutlinedIcon /></Tooltip></span> : null}
+      </div>
       <div className={styles.list}>
         {!isReady ? (
           <div>Fetching data...</div>
