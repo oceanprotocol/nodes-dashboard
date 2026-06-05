@@ -250,13 +250,34 @@ export async function getNodeBuckets({
 export async function createNodeBucket({
   accessLists,
   authToken,
+  label,
   nodeUri,
 }: {
   accessLists: PersistentStorageAccessList[];
   authToken: string;
+  label?: string;
   nodeUri: NodeUri;
-}): Promise<{ bucketId: string; owner: string; accessList: PersistentStorageAccessList[] }> {
-  return ProviderInstance.createPersistentStorageBucket(normalizeNodeUri(nodeUri), authToken, { accessLists });
+}): Promise<{
+  bucketId: string;
+  owner: string;
+  accessList: PersistentStorageAccessList[];
+  label?: string | null;
+}> {
+  return ProviderInstance.createPersistentStorageBucket(normalizeNodeUri(nodeUri), authToken, { accessLists, label });
+}
+
+export async function renameNodeBucket({
+  authToken,
+  bucketId,
+  label,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  label: string | null;
+  nodeUri: NodeUri;
+}): Promise<{ bucketId: string; label: string | null }> {
+  return ProviderInstance.updatePersistentStorageBucket(normalizeNodeUri(nodeUri), authToken, bucketId, label);
 }
 
 export async function listBucketFiles({
