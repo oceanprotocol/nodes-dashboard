@@ -191,7 +191,7 @@ const Payment = ({
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
     <CircularProgress className="alignSelfCenter" />
   ) : (
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+    <Card data-tutorial="payment-section" direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Payment</h3>
       <PaymentSummary
         authorizations={authorizations}

@@ -254,6 +254,7 @@ const SelectEnvironment = () => {
             <Switch
               checked={formik.values.free}
               className="justifySelfStart"
+              data-tutorial="test-compute-filter"
               label="Test compute"
               name="free"
               onChange={formik.handleChange}
@@ -262,7 +263,13 @@ const SelectEnvironment = () => {
               <Button color="primary" contentBefore={<FilterAltIcon />} onClick={toggleFilters} variant="transparent">
                 {expanded ? 'Fewer filters' : 'More filters'}
               </Button>
-              <Button color="accent2" loading={loading} type="submit" variant="filled">
+              <Button
+                color="accent2"
+                data-tutorial="find-environments-button"
+                loading={loading}
+                type="submit"
+                variant="filled"
+              >
                 Find environments
               </Button>
             </div>

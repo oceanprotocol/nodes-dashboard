@@ -3,6 +3,7 @@ import SelectResources from '@/components/run-job/select-resources';
 import SectionTitle from '@/components/section-title/section-title';
 import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
+import TutorialButton from '@/components/tutorial/tutorial-button';
 import { useRunJobContext } from '@/context/run-job-context';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -36,11 +37,16 @@ const ResourcesPage = () => {
             </div>
           )
         }
-        contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}
+        contentBetween={
+          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
+            <Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />
+            <TutorialButton tutorialId="run-job-flow" currentPage="resources" />
+          </div>
+        }
         mobileWarning
       />
       {hydrateFromUrlFinished && selectedEnv && (freeCompute || selectedToken) ? (
-        <div className="pageContentWrapper">
+        <div className="pageContentWrapper" data-tutorial="resources-selector">
           <SelectResources environment={selectedEnv} freeCompute={freeCompute} token={selectedToken ?? null} />
         </div>
       ) : null}

@@ -1,6 +1,7 @@
 import { FormControlLabel, Checkbox as MaterialCheckbox, Radio as MaterialRadio, styled } from '@mui/material';
 
 type CheckboxProps = {
+  'data-tutorial'?: string;
   checked: boolean;
   className?: string;
   disabled?: boolean;
@@ -29,7 +30,6 @@ const StyledCheckbox = styled(MaterialCheckbox)({
   },
 
   '&.Mui-disabled': {
-    // color: 'var(--text-secondary)',
     opacity: 0.5,
   },
 });
@@ -42,15 +42,15 @@ const StyledRadio = styled(MaterialRadio)({
   },
 
   '&.Mui-disabled': {
-    // color: 'var(--text-secondary)',
     opacity: 0.5,
   },
 });
 
-const Checkbox: React.FC<CheckboxProps> = ({ checked, className, disabled, label, name, onChange, type, value }) => {
+const Checkbox: React.FC<CheckboxProps> = ({ 'data-tutorial': dataTutorial, checked, className, disabled, label, name, onChange, type, value }) => {
   return (
     <StyledFormControlLabel
       className={className}
+      data-tutorial={dataTutorial}
       control={
         type === 'multiple' ? (
           <StyledCheckbox checked={checked} disabled={disabled} name={name} onChange={onChange} value={value} />

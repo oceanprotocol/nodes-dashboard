@@ -3,6 +3,7 @@ import Payment from '@/components/run-job/payment';
 import SectionTitle from '@/components/section-title/section-title';
 import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
+import TutorialButton from '@/components/tutorial/tutorial-button';
 import { useRunJobContext } from '@/context/run-job-context';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -46,11 +47,16 @@ const PaymentPage = () => {
             </div>
           )
         }
-        contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
+        contentBetween={
+          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
+            <Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />
+            <TutorialButton tutorialId="run-job-flow" currentPage="payment" />
+          </div>
+        }
         mobileWarning
       />
       {hydrateFromUrlFinished && selectedEnv && selectedResources && selectedToken ? (
-        <div className="pageContentWrapper">
+        <div className="pageContentWrapper" data-tutorial="payment-section">
           <Payment
             minLockSeconds={minLockSeconds ?? 0}
             selectedEnv={selectedEnv}

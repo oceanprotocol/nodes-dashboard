@@ -101,6 +101,7 @@ export type SelectOption<T> = {
 };
 
 type SelectProps<T> = {
+  'data-tutorial'?: string;
   className?: string;
   disabled?: boolean;
   endAdornment?: React.ReactNode;
@@ -131,6 +132,7 @@ type SelectProps<T> = {
 );
 
 const Select = <T extends string | number = string>({
+  'data-tutorial': dataTutorial,
   className,
   disabled,
   endAdornment,
@@ -198,12 +200,19 @@ const Select = <T extends string | number = string>({
     >
       <StyledSelect
         custom_size={size}
+        data-tutorial={dataTutorial}
         disabled={disabled}
         displayEmpty
         endAdornment={endAdornment}
         has_error={!!errorText}
         inputProps={{}}
-        MenuProps={{ slots: { paper: StyledPaper, ...MenuProps?.slots }, ...MenuProps }}
+        MenuProps={{
+          slots: { paper: StyledPaper, ...MenuProps?.slots },
+          ...MenuProps,
+          // Keep the dropdown above the tutorial overlay (z-index 2147483600),
+          // otherwise the open menu is hidden behind the overlay shades and unclickable.
+          sx: { zIndex: 2147483646, ...MenuProps?.sx },
+        }}
         multiple={multiple}
         name={name}
         onBlur={onBlur}

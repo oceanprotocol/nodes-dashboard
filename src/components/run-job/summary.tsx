@@ -181,7 +181,7 @@ const Summary = ({
   );
 
   return (
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+    <Card data-tutorial="summary-review" direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Your selection</h3>
       <div className={styles.grid}>
         {nodeInfo.friendlyName ? (

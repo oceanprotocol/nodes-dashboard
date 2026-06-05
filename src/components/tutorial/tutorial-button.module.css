@@ -1,0 +1,41 @@
+.inlineButton {
+  color: inherit;
+  transition: color 0.2s ease;
+}
+
+.inlineButton:hover {
+  color: #d54335;
+}
+
+.floatingContainer {
+  position: fixed;
+  bottom: 100px;
+  right: 24px;
+  z-index: 1000;
+}
+
+.floatingButton {
+  width: 56px;
+  height: 56px;
+  background: #d54335;
+  color: white;
+  box-shadow: 0 4px 12px rgba(213, 67, 53, 0.4);
+  transition: all 0.2s ease;
+}
+
+.floatingButton:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(213, 67, 53, 0.5);
+}
+
+.floatingButton.hasNotification::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  background: #b7fd79;
+  border-radius: 50%;
+  border: 2px solid white;
+}

@@ -3,6 +3,7 @@ import Summary from '@/components/run-job/summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
+import TutorialButton from '@/components/tutorial/tutorial-button';
 import { useRunJobContext } from '@/context/run-job-context';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -44,11 +45,16 @@ const SummaryPage = () => {
             </div>
           )
         }
-        contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
+        contentBetween={
+          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
+            <Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />
+            <TutorialButton tutorialId="run-job-flow" currentPage="summary" />
+          </div>
+        }
         mobileWarning
       />
       {hydrateFromUrlFinished && nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (
-        <div className="pageContentWrapper">
+        <div className="pageContentWrapper" data-tutorial="summary-review">
           <Summary
             estimatedTotalCost={estimatedTotalCost ?? 0}
             freeCompute={freeCompute}

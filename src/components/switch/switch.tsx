@@ -1,6 +1,7 @@
 import { FormControlLabel, Switch as MaterialSwitch, styled } from '@mui/material';
 
 type SwitchProps = {
+  'data-tutorial'?: string;
   checked?: boolean;
   className?: string;
   label?: string;
@@ -51,10 +52,19 @@ const StyledSwitch = styled(MaterialSwitch)(() => ({
   },
 }));
 
-const Switch: React.FC<SwitchProps> = ({ className, label, name, checked, onChange, value = true }) => {
+const Switch: React.FC<SwitchProps> = ({
+  'data-tutorial': dataTutorial,
+  className,
+  label,
+  name,
+  checked,
+  onChange,
+  value = true,
+}) => {
   return (
     <StyledFormControlLabel
       className={className}
+      data-tutorial={dataTutorial}
       control={<StyledSwitch checked={checked} name={name} onChange={onChange} />}
       label={label}
       value={value}

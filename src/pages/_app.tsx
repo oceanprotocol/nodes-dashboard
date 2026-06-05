@@ -1,4 +1,6 @@
 import RootLayout from '@/components/Layout';
+import { TutorialProvider } from '@/components/tutorial/tutorial-context';
+import TutorialOverlay from '@/components/tutorial/tutorial-overlay';
 import config from '@/config';
 import { GrantProvider } from '@/context/grant-context';
 import { NodeTokensProvider } from '@/context/node-tokens';
@@ -21,6 +23,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
 import App, { type AppContext, type AppProps } from 'next/app';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/router';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import Script from 'next/script';
 import { useEffect, useRef } from 'react';
@@ -55,11 +58,20 @@ const muiTheme = createTheme({
   },
 });
 
+const TUTORIAL_PAGE_MAP: Record<string, 'environments' | 'resources' | 'payment' | 'summary'> = {
+  '/run-job/environments': 'environments',
+  '/run-job/resources': 'resources',
+  '/run-job/payment': 'payment',
+  '/run-job/summary': 'summary',
+};
+
 export default function DashboardApp({ Component, pageProps, cookie }: AppProps & { cookie?: string }) {
   const queryClientRef = useRef<QueryClient>();
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient();
   }
+  const router = useRouter();
+  const tutorialPage = TUTORIAL_PAGE_MAP[router.pathname];
 
   useEffect(() => {
     const html = document.documentElement;
@@ -95,11 +107,14 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
                                   <RunJobEnvsProvider>
                                     <RunJobProvider>
                                       <RunNodeProvider>
-                                        <RootLayout>
-                                          <PHProvider>
-                                            <Component {...pageProps} />
-                                          </PHProvider>
-                                        </RootLayout>
+                                        <TutorialProvider>
+                                          <RootLayout>
+                                            <PHProvider>
+                                              <Component {...pageProps} />
+                                            </PHProvider>
+                                          </RootLayout>
+                                          {tutorialPage ? <TutorialOverlay currentPage={tutorialPage} /> : null}
+                                        </TutorialProvider>
                                       </RunNodeProvider>
                                     </RunJobProvider>
                                   </RunJobEnvsProvider>

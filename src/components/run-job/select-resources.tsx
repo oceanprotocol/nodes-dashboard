@@ -361,6 +361,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       <h3>Select resources</h3>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         <Select
+          data-tutorial="gpu-select"
           endAdornment={
             <Button color="accent2" onClick={selectAllGpus} size="sm" type="button" variant="filled">
               Select all
@@ -439,6 +440,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             value={formik.values.diskSpace}
           />
           <Input
+            data-tutorial="duration-slider"
             endAdornment={
               <div className={styles.durationControls}>
                 <select
@@ -494,7 +496,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           >
             Change environment
           </Button>
-          <Button disabled={!isCostEstimated} color="accent1" size="lg" type="submit">
+          <Button data-tutorial="continue-button" disabled={!isCostEstimated} color="accent1" size="lg" type="submit">
             Continue
           </Button>
         </div>
