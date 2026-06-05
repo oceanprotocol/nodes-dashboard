@@ -4,7 +4,7 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import BucketAccess from '@/components/node-storage/bucket-access';
-import { useNodeStorage } from '@/contexts/node-storage-context';
+import { MAX_BUCKET_NAME_LENGTH, useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
 import { Node } from '@/types/nodes';
@@ -27,8 +27,6 @@ type CreateBucketFormValues = {
   access: BucketAccessState;
   label: string;
 };
-
-const MAX_BUCKET_NAME_LENGTH = 256;
 
 const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();

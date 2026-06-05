@@ -34,7 +34,7 @@ type NodeStorageContextType = {
   /** Create a bucket on a node */
   createBucket: (args: { access: BucketAccessState; label?: string; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Rename a bucket (set its human-readable name) */
-  renameBucket: (args: { bucketId: string; label: string; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
+  renameBucket: (args: { bucketId: string; label: string | null; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Get wallet addresses in an access list contract */
   getAccessListAddresses: (contractAddress: string) => Promise<string[]>;
   /** Add a wallet to an access list contract */
@@ -42,6 +42,9 @@ type NodeStorageContextType = {
   /** Remove a wallet from an access list contract */
   removeFromAccessList: (args: { contractAddress: string; wallet: string }) => Promise<void>;
 };
+
+/** Matches MAX_BUCKET_LABEL_LENGTH enforced by the node. */
+export const MAX_BUCKET_NAME_LENGTH = 256;
 
 const NodeStorageContext = createContext<NodeStorageContextType | undefined>(undefined);
 
@@ -182,7 +185,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       nodeUri,
     }: {
       bucketId: string;
-      label: string;
+      label: string | null;
       nodeId: string;
       nodeUri: NodeUri;
     }) => {

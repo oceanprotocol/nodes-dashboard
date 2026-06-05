@@ -3,7 +3,7 @@
 import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
-import { useNodeStorage } from '@/contexts/node-storage-context';
+import { MAX_BUCKET_NAME_LENGTH, useNodeStorage } from '@/contexts/node-storage-context';
 import { Node } from '@/types/nodes';
 import { formatError } from '@/utils/formatters';
 import { PersistentStorageBucket } from '@oceanprotocol/lib';
@@ -27,9 +27,13 @@ const EditBucketNameModal: React.FC<EditBucketNameModalProps> = ({ bucket, isOpe
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
+    if (name.trim().length > MAX_BUCKET_NAME_LENGTH) {
+      toast.error('Name is too long');
+      return;
+    }
     setSaving(true);
     try {
-      await renameBucket({ bucketId: bucket.bucketId, label: name.trim(), nodeId, nodeUri });
+      await renameBucket({ bucketId: bucket.bucketId, label: name.trim() || null, nodeId, nodeUri });
       toast.success('Bucket name updated');
       onClose();
     } catch (e: any) {
