@@ -1,3 +1,5 @@
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useAuthModal } from '@account-kit/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getTutorialConfig, StepPlacement, TutorialStep } from './run-job-tutorial';
@@ -103,8 +105,26 @@ const useTargetRect = (selector: string | undefined): { rect: Rect | null; eleme
         return;
       }
       const r = el.getBoundingClientRect();
+      let top = r.top;
+      let left = r.left;
+      let right = r.right;
+      let bottom = r.bottom;
+
+      // If the target opens a portaled menu (e.g. MUI Select), extend the
+      // cutout to cover the open menu too — it lives outside the target's box.
+      const expander = el.querySelector('[aria-expanded="true"][aria-controls]');
+      const controls = expander?.getAttribute('aria-controls');
+      const menu = controls ? document.getElementById(controls) : null;
+      const menuRect = (menu?.closest('.MuiPaper-root') ?? menu)?.getBoundingClientRect();
+      if (menuRect && menuRect.width > 0 && menuRect.height > 0) {
+        top = Math.min(top, menuRect.top);
+        left = Math.min(left, menuRect.left);
+        right = Math.max(right, menuRect.right);
+        bottom = Math.max(bottom, menuRect.bottom);
+      }
+
       setElement(el);
-      setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      setRect({ top, left, width: right - left, height: bottom - top });
     };
 
     const tick = () => {
@@ -136,6 +156,9 @@ type Props = {
 
 const TutorialOverlay = ({ currentPage }: Props) => {
   const { active, advance, stop, goToStep } = useTutorialContext();
+  const { account } = useOceanAccount();
+  const { isOpen: isAuthModalOpen } = useAuthModal();
+  const isConnected = account.isConnected;
   const [mounted, setMounted] = useState(false);
   const [popoverHeight, setPopoverHeight] = useState(180);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -195,7 +218,27 @@ const TutorialOverlay = ({ currentPage }: Props) => {
       }, pollMs);
       return () => window.clearInterval(interval);
     }
+
+    if (step.advance.type === 'value') {
+      // Advance as soon as the target holds a non-empty value — including when
+      // it was already set on entry (e.g. GPUs pre-selected from a prior run).
+      const pollMs = step.advance.pollMs ?? 250;
+      const check = () => {
+        if (getHiddenInputValue(element)) advance();
+      };
+      check();
+      const interval = window.setInterval(check, pollMs);
+      return () => window.clearInterval(interval);
+    }
   }, [stepOnThisPage, element, step, advance]);
+
+  useEffect(() => {
+    if (!stepOnThisPage || !step) return;
+    if (step.advance.type !== 'auth') return;
+    // Fires immediately if already connected (auto-skips the step on replay),
+    // or once the user finishes connecting via the auth modal.
+    if (isConnected) advance();
+  }, [stepOnThisPage, step, isConnected, advance]);
 
   useEffect(() => {
     if (!stepOnThisPage || !element) return;
@@ -208,6 +251,17 @@ const TutorialOverlay = ({ currentPage }: Props) => {
   if (!mounted || !active || !config || !step) return null;
 
   if (!stepOnThisPage) {
+    return null;
+  }
+
+  // Yield to the auth modal so the user can connect — otherwise the overlay
+  // shades (z-index 2147483600) bury the account-kit modal and block clicks.
+  if (isAuthModalOpen) {
+    return null;
+  }
+
+  // Auth step + already connected → the effect will advance; don't flash it.
+  if (step.advance.type === 'auth' && isConnected) {
     return null;
   }
 
@@ -262,7 +316,9 @@ const TutorialOverlay = ({ currentPage }: Props) => {
     if (waitingForEnabled) return 'Waiting…';
     if (step.advance.type === 'click') return 'Waiting for click…';
     if (step.advance.type === 'change') return 'Waiting for selection…';
+    if (step.advance.type === 'value') return 'Waiting for selection…';
     if (step.advance.type === 'navigate') return 'Waiting for click…';
+    if (step.advance.type === 'auth') return 'Waiting for connection…';
     return null;
   })();
 

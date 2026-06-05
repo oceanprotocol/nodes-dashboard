@@ -8,7 +8,9 @@ export type AdvanceTrigger =
   | { type: 'next' }
   | { type: 'click' }
   | { type: 'change'; pollMs?: number }
-  | { type: 'navigate' };
+  | { type: 'value'; pollMs?: number }
+  | { type: 'navigate' }
+  | { type: 'auth' };
 
 export type TutorialStep = {
   id: string;
@@ -37,6 +39,16 @@ const runJobFlowConfig: TutorialConfig = {
         "This guided tour walks you through running a compute job on the Ocean Network. You'll perform each step yourself — I'll explain along the way.",
       placement: 'center',
       advance: { type: 'next' },
+    },
+    {
+      id: 'connect-wallet',
+      page: 'environments',
+      target: '[data-tutorial="login-button"]',
+      title: 'Connect your wallet',
+      description:
+        'You need to be logged in to run a job. Click "Log in" and connect your wallet — the tour continues once you are connected.',
+      placement: 'bottom',
+      advance: { type: 'auth' },
     },
     {
       id: 'stepper',
@@ -122,7 +134,7 @@ const runJobFlowConfig: TutorialConfig = {
       description:
         'Open the GPU dropdown and pick at least one GPU. "Select all" picks every available GPU at once.',
       placement: 'top',
-      advance: { type: 'change' },
+      advance: { type: 'value' },
     },
     {
       id: 'duration',
