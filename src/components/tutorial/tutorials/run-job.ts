@@ -129,7 +129,7 @@ export const runJobFlowConfig: TutorialConfig = {
       description:
         'Set an optional expiration, then click "Generate auth token". This token authorizes the Ocean Orchestrator to connect to the node and run your job on your behalf.',
       placement: 'top',
-      advance: { type: 'next' },
+      advance: { type: 'click' },
     },
     {
       id: 'open-ide',
@@ -139,7 +139,7 @@ export const runJobFlowConfig: TutorialConfig = {
       description:
         'Pick your editor with "Choose editor", then click "Open" to launch the job via Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf.',
       placement: 'top',
-      advance: { type: 'next' },
+      advance: { type: 'click' },
     },
     {
       id: 'done',
