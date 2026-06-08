@@ -1,0 +1,10 @@
+.tokenValue {
+  font-family: var(--font-monospace, monospace);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+}

@@ -1,0 +1,99 @@
+.resourceTitle {
+  align-items: center;
+  display: flex;
+  font-size: 16px;
+  font-weight: 600;
+  gap: 8px;
+  margin: 0;
+}
+
+.resourceIcon {
+  align-items: center;
+  color: var(--accent1);
+  display: inline-flex;
+}
+
+.resourceSlider {
+  flex: 1;
+  min-width: 0;
+}
+
+.resourcePaidRow {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+  padding-bottom: 16px;
+
+  @media (min-width: 992px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .resourcePriceInputs {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    grid-column: auto;
+
+    > * {
+      flex: 1;
+      min-width: 180px;
+    }
+  }
+}
+
+.jobDurationRow {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 576px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (min-width: 768px) {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.envEditorContent {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.freeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 8px;
+}
+
+.freeResourceHeader {
+  align-items: center;
+  display: flex;
+}
+
+.envPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .envPreviewResources {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+  }
+}
+
+.previewChip {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+
+

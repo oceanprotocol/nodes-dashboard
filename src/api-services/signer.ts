@@ -5,18 +5,21 @@ import { ethers } from 'ethers';
 export async function signFaucetMessage({
   amount,
   faucetAddress,
-  faucetPrivateKey,
   nonce,
   tokenAddress,
   walletAddress,
 }: {
   amount: string;
   faucetAddress: string;
-  faucetPrivateKey: string;
   nonce: number;
   tokenAddress: string;
   walletAddress: string;
 }) {
+  const faucetPrivateKey = process.env.GRANT_FAUCET_PRIVATE_KEY;
+  if (!faucetPrivateKey) {
+    throw new Error('Faucet not configured');
+  }
+
   const provider = new ethers.JsonRpcProvider(getRpc());
   const wallet = new ethers.Wallet(faucetPrivateKey, provider);
 

@@ -1,12 +1,24 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
-import { PROTOCOL_COMMANDS, ProviderInstance, type NodeLogsParams } from '@oceanprotocol/lib';
+import {
+  PROTOCOL_COMMANDS,
+  ProviderInstance,
+  type NodeLogsParams,
+  type NodeP2P,
+  type OceanNode,
+  type PersistentStorageAccessList,
+  type PersistentStorageBucket,
+  type PersistentStorageDeleteFileResponse,
+  type PersistentStorageFileEntry,
+} from '@oceanprotocol/lib';
 
-type NodeUri = string[] | string;
+type NodeUri = OceanNode | string[];
 
-function toNodeUri(input: NodeUri) {
-  if (Array.isArray(input)) return input.map((a) => multiaddr(a));
+function normalizeNodeUri(input: NodeUri): OceanNode {
+  if (Array.isArray(input)) {
+    return { multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
+  }
   return input;
 }
 
@@ -22,22 +34,23 @@ export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
       },
     },
   });
+  console.log('P2P node set up');
 }
 
 export async function getNodeEnvs(nodeUri: NodeUri) {
-  return ProviderInstance.getComputeEnvironments(toNodeUri(nodeUri));
+  return ProviderInstance.getComputeEnvironments(normalizeNodeUri(nodeUri));
 }
 
 export async function getNonce(nodeUri: NodeUri, consumerAddress: string): Promise<number> {
-  return ProviderInstance.getNonce(toNodeUri(nodeUri), consumerAddress);
+  return ProviderInstance.getNonce(normalizeNodeUri(nodeUri), consumerAddress);
 }
 
 export async function getComputeStatus(nodeUri: NodeUri, authToken: string, jobId: string) {
-  return ProviderInstance.computeStatus(toNodeUri(nodeUri), authToken, jobId);
+  return ProviderInstance.computeStatus(normalizeNodeUri(nodeUri), authToken, jobId);
 }
 
 export async function getComputeJobResult(nodeUri: NodeUri, authToken: string, jobId: string, index: number) {
-  const stream = await ProviderInstance.getComputeResult(toNodeUri(nodeUri), authToken, jobId, index);
+  const stream = await ProviderInstance.getComputeResult(normalizeNodeUri(nodeUri), authToken, jobId, index);
   const chunks: Uint8Array[] = [];
   for await (const chunk of stream) {
     chunks.push(chunk);
@@ -53,21 +66,19 @@ export async function getComputeJobResult(nodeUri: NodeUri, authToken: string, j
 }
 
 export async function streamComputeResult(nodeUri: NodeUri, authToken: string, jobId: string, index: number) {
-  return ProviderInstance.getComputeResult(toNodeUri(nodeUri), authToken, jobId, index);
-}
-
-export async function getComputeStreamableLogs(nodeUri: NodeUri, authToken: string, jobId: string) {
-  return ProviderInstance.computeStreamableLogs(toNodeUri(nodeUri), authToken, jobId);
+  return ProviderInstance.getComputeResult(normalizeNodeUri(nodeUri), authToken, jobId, index);
 }
 
 export async function createAuthToken({
   consumerAddress,
   nodeUri,
   signMessage,
+  validUntil,
 }: {
   consumerAddress: string;
   nodeUri: NodeUri;
   signMessage: SignMessageFn;
+  validUntil?: number;
 }): Promise<{ token: string }> {
   const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
@@ -80,9 +91,33 @@ export async function createAuthToken({
     consumerAddress,
     signature,
     incrementedNonce.toString(),
-    toNodeUri(nodeUri)
+    normalizeNodeUri(nodeUri),
+    validUntil
   );
   return { token };
+}
+
+export async function revokeAuthToken({
+  consumerAddress,
+  nodeUri,
+  signMessage,
+  token,
+}: {
+  consumerAddress: string;
+  nodeUri: NodeUri;
+  signMessage: SignMessageFn;
+  token: string;
+}): Promise<{ success: boolean }> {
+  const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
+  const signature = await signMessage(`${consumerAddress}${incrementedNonce}`);
+  return ProviderInstance.invalidateAuthToken(
+    {
+      getAddress: async () => consumerAddress,
+      signMessage: async () => signature,
+    } as any,
+    token,
+    normalizeNodeUri(nodeUri)
+  );
 }
 
 export async function initializeCompute(
@@ -102,7 +137,7 @@ export async function initializeCompute(
     computeEnv,
     token,
     validUntil,
-    toNodeUri(nodeUri),
+    normalizeNodeUri(nodeUri),
     consumerAddress,
     resources,
     chainId
@@ -129,12 +164,15 @@ export async function getNodeLogs({
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchNodeLogs(
-    toNodeUri(nodeUri),
-    consumerAddress,
-    signature,
-    incrementedNonce.toString(),
-    params
+  return ProviderInstance.downloadNodeLogs(
+    normalizeNodeUri(nodeUri),
+    { consumerAddress, nonce: incrementedNonce.toString(), signature },
+    params.startTime ?? '',
+    params.endTime ?? '',
+    params.maxLogs,
+    params.moduleName,
+    params.level,
+    params.page
   );
 }
 
@@ -156,7 +194,7 @@ export async function fetchNodeConfig({
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchConfig(toNodeUri(nodeUri), {
+  return ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), {
     address: consumerAddress,
     expiryTimestamp,
     nonce: incrementedNonce,
@@ -184,7 +222,7 @@ export async function pushNodeConfig({
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.pushConfig(toNodeUri(nodeUri), {
+  return ProviderInstance.pushConfig(normalizeNodeUri(nodeUri), {
     address: consumerAddress,
     config,
     expiryTimestamp,
@@ -195,4 +233,108 @@ export async function pushNodeConfig({
 
 export async function getPeerMultiaddr(peerId: string): Promise<string> {
   return ProviderInstance.getMultiaddrFromPeerId(peerId);
+}
+
+export async function getNodeBuckets({
+  authToken,
+  nodeUri,
+  ownerAddress,
+}: {
+  authToken: string;
+  nodeUri: NodeUri;
+  ownerAddress: string;
+}): Promise<PersistentStorageBucket[]> {
+  return ProviderInstance.getPersistentStorageBuckets(normalizeNodeUri(nodeUri), authToken, ownerAddress);
+}
+
+export async function createNodeBucket({
+  accessLists,
+  authToken,
+  label,
+  nodeUri,
+}: {
+  accessLists: PersistentStorageAccessList[];
+  authToken: string;
+  label?: string;
+  nodeUri: NodeUri;
+}): Promise<{
+  bucketId: string;
+  owner: string;
+  accessList: PersistentStorageAccessList[];
+  label?: string | null;
+}> {
+  return ProviderInstance.createPersistentStorageBucket(normalizeNodeUri(nodeUri), authToken, { accessLists, label });
+}
+
+export async function renameNodeBucket({
+  authToken,
+  bucketId,
+  label,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  label: string | null;
+  nodeUri: NodeUri;
+}): Promise<{ bucketId: string; label: string | null }> {
+  return ProviderInstance.updatePersistentStorageBucket(normalizeNodeUri(nodeUri), authToken, bucketId, label);
+}
+
+export async function listBucketFiles({
+  authToken,
+  bucketId,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageFileEntry[]> {
+  return ProviderInstance.listPersistentStorageFiles(normalizeNodeUri(nodeUri), authToken, bucketId);
+}
+
+async function* fileToAsyncIterable(file: File): AsyncIterable<Uint8Array> {
+  const reader = file.stream().getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      if (value) yield value;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function uploadBucketFile({
+  authToken,
+  bucketId,
+  file,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  file: File;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageFileEntry> {
+  return ProviderInstance.uploadPersistentStorageFile(
+    normalizeNodeUri(nodeUri),
+    authToken,
+    bucketId,
+    file.name,
+    fileToAsyncIterable(file)
+  );
+}
+
+export async function deleteBucketFile({
+  authToken,
+  bucketId,
+  fileName,
+  nodeUri,
+}: {
+  authToken: string;
+  bucketId: string;
+  fileName: string;
+  nodeUri: NodeUri;
+}): Promise<PersistentStorageDeleteFileResponse> {
+  return ProviderInstance.deletePersistentStorageFile(normalizeNodeUri(nodeUri), authToken, bucketId, fileName);
 }

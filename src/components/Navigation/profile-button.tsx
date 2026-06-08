@@ -4,6 +4,8 @@ import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
 import { formatWalletAddress } from '@/utils/formatters';
+import KeyIcon from '@mui/icons-material/Key';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import { usePrivy } from '@privy-io/react-auth';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
@@ -16,12 +18,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../button/button';
 import styles from './navigation.module.css';
 
-const ProfileButton = () => {
+const ProfileButton: React.FC = () => {
   const router = useRouter();
 
   const { login, logout: privyLogout, authenticated } = usePrivy();
 
-  const { account, logout } = useOceanAccount();
+  const { account, logout, provider } = useOceanAccount();
 
   const { ensName, ensProfile, grantStatus } = useProfileContext();
 
@@ -123,7 +125,7 @@ const ProfileButton = () => {
             <ListItemIcon>
               <RedeemIcon />
             </ListItemIcon>
-            Claim grant tokens
+            Claim complimentary credits
           </MenuItem>
         )}
         <MenuItem
@@ -137,6 +139,32 @@ const ProfileButton = () => {
             <SwapHorizIcon />
           </ListItemIcon>
           Convert to COMPY
+        </MenuItem>
+        {provider && (
+          <MenuItem
+            disableRipple
+            onClick={() => {
+              router.push('/profile/access-lists');
+              handleCloseMenu();
+            }}
+          >
+            <ListItemIcon>
+              <ListAltIcon />
+            </ListItemIcon>
+            Manage access lists
+          </MenuItem>
+        )}
+        <MenuItem
+          disableRipple
+          onClick={() => {
+            router.push('/nodes/tokens');
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <KeyIcon />
+          </ListItemIcon>
+          Node auth tokens
         </MenuItem>
         <MenuItem
           sx={{

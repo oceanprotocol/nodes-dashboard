@@ -1,3 +1,5 @@
+import { ComputeEnvironment } from '@/types/environments'
+
 export type AnyNode = any;
 
 export type BanStatusResponse = {
@@ -44,6 +46,7 @@ export type Node = {
     bandwidth: number;
     totalScore: number;
   };
+  computeEnvironments?: { environments: ComputeEnvironment[]; timestamp: number };
   latestGpuScore: number;
   latestCpuScore: number;
   latestTotalScore: number;
@@ -68,6 +71,7 @@ export type Node = {
   suspendedUntil?: number;
   totalJobs: number;
   totalRevenue: number;
+  verified?: boolean;
   version?: string;
 };
 

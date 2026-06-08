@@ -15,7 +15,9 @@ export type GrantWithStatus = GrantDetails & {
   claimDate?: Date;
   nonce?: number;
   otp?: string;
+  otpAttempts?: number;
   otpExpires?: number;
+  otpLastResent?: number;
   rawAmount?: string;
   signedFaucetMessage?: string;
   status: GrantStatus;

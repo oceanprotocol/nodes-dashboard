@@ -1,3 +1,4 @@
+import { CHAIN_LABELS } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
@@ -70,6 +71,13 @@ export const formatNumber = (num: string | number): string => {
   return new Intl.NumberFormat('en-US').format(num);
 };
 
+export const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+};
+
 export const formatWalletAddress = (address: string): string => {
   if (address.length <= 10) {
     return address;
@@ -134,3 +142,84 @@ export const formatDateTime = (timestamp: number): string => {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
+
+const GPU_BRANDING = ['nvidia', 'corporation', 'amd', 'advanced', 'micro', 'devices', 'inc', 'intel', 'intel(r)'];
+const GPU_VENDORS = ['nvidia', 'amd', 'intel'] as const;
+type GpuVendor = (typeof GPU_VENDORS)[number];
+
+export const formatGpuName = (gpu: string, { showVendor = false }: { showVendor?: boolean } = {}): string => {
+  const detectedVendor = GPU_VENDORS.find((v) => gpu.toLowerCase().includes(v)) as GpuVendor | undefined;
+  const filtered = gpu
+    .split(/[\s,\.]+/)
+    .filter((word) => !GPU_BRANDING.includes(word.toLowerCase()))
+    .join(' ')
+    .trim();
+  if (showVendor && detectedVendor) {
+    return `${detectedVendor.charAt(0).toUpperCase()}${detectedVendor.slice(1)} ${filtered}`.trim();
+  }
+  return filtered;
+};
+
+export const formatChainLabel = (chainId: number | string) => {
+  return `${CHAIN_LABELS[Number(chainId)] ?? 'Chain'} (${chainId})`;
+};
+
+export const formatAccessLists = (
+  accessLists: { [chainId: string]: string[] }[],
+  options?: { shortenAddresses?: boolean }
+): string[] => {
+  const labels: string[] = [];
+  for (const accessList of accessLists) {
+    for (const chainId of Object.keys(accessList)) {
+      const chainLabel = formatChainLabel(chainId);
+      for (const address of accessList[chainId]) {
+        const displayAddress = options?.shortenAddresses ? formatWalletAddress(address) : address;
+        labels.push(`${chainLabel} / ${displayAddress}`);
+      }
+    }
+  }
+  return labels;
+};
+
+/**
+ * Format Alchemy/Ethers errors
+ * @param error - Error object
+ * @param fallback - Fallback error message
+ * @returns Formatted error message
+ */
+export function formatError({ error, fallback }: { error: unknown; fallback?: string }): string {
+  if (!error || typeof error !== 'object') {
+    return String(error ?? 'Unknown error');
+  }
+  const e = error as Record<string, any>;
+  // ethers ACTION_REJECTED
+  if (e.code === 'ACTION_REJECTED') {
+    return 'The action was rejected by the user.';
+  }
+  // ethers CALL_EXCEPTION with reason
+  if (e.code === 'CALL_EXCEPTION' && e.reason) {
+    return `Contract error: ${e.reason}`;
+  }
+  // ethers SERVER_ERROR / NETWORK_ERROR
+  if (e.code === 'SERVER_ERROR' || e.code === 'NETWORK_ERROR') {
+    return 'A network error occurred. Please try again.';
+  }
+  if (e?.shortMessage) {
+    return e.shortMessage;
+  }
+  if (e?.message) {
+    return e.message;
+  }
+  // Alchemy / JSON-RPC error with nested message
+  if (e?.error?.message) {
+    return e.error.message;
+  }
+  // Standard Error.message — strip ethers version suffix and raw params
+  if (typeof e.message === 'string') {
+    return e.message
+      .split(' (action=')[0]
+      .replace(/^ethers-[^:]+:\s*/i, '')
+      .trim();
+  }
+  return fallback ?? 'Something went wrong. Please try again.';
+}

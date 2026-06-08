@@ -3,7 +3,7 @@ import Card from '@/components/card/card';
 import FaucetAbi from '@/constants/abis/faucet.json';
 import { useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { ClaimGrantResponse, GrantDetails } from '@/types/grant';
+import { ClaimGrantResponse } from '@/types/grant';
 import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
 import posthog from 'posthog-js';
@@ -13,11 +13,7 @@ import { encodeFunctionData } from 'viem';
 import { useProfileContext } from '../../context/profile-context';
 import styles from './claim.module.css';
 
-type ClaimProps = {
-  grantDetails: GrantDetails;
-};
-
-const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
+const Claim: React.FC = () => {
   const { login } = usePrivy();
 
   const { account, sendTransaction, isSendingTransaction } = useOceanAccount();
@@ -42,12 +38,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
       const data = encodeFunctionData({
         abi: FaucetAbi,
         functionName: 'claim',
-        args: [
-          grantDetails.walletAddress as `0x${string}`,
-          BigInt(nonce),
-          BigInt(rawAmount),
-          signature as `0x${string}`,
-        ],
+        args: [account.address as `0x${string}`, BigInt(nonce), BigInt(rawAmount), signature as `0x${string}`],
       });
       sendTransaction({
         target: faucetAddress,
@@ -62,9 +53,17 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
               txHash: result.hash,
               amount: tokenAmount,
             });
+            if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
+              (window as any).gtag('event', 'conversion', {
+                send_to: 'AW-17691004915/XkwpCJvEhfMbEPOf3fNB',
+                value: 1.0,
+                currency: 'USD',
+                transaction_id: result.hash,
+              });
+            }
             setClaimed(true);
             fetchGrantStatus(account.address!);
-            toast.success('Grant claimed successfully!');
+            toast.success('Complimentary credits claimed successfully!');
           } catch (error) {
             console.error('Failed to confirm claim', error);
             toast.error('Transaction succeeded but failed to update status. Please contact support.');
@@ -76,7 +75,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
           setIsLoading(false);
           posthog.capture('grant_claim_failed', { error: String(error) });
           console.error('Claim error:', error);
-          toast.error('Failed to claim grant. Please try again.');
+          toast.error('Failed to claim complimentary credits. Please try again.');
         },
       });
     } catch (error) {
@@ -102,7 +101,7 @@ const Claim: React.FC<ClaimProps> = ({ grantDetails }) => {
     >
       <div className={styles.group}>
         <h3>Verification successful</h3>
-        <div>You are eligible for grant distribution</div>
+        <div>You are eligible to claim complimentary credits</div>
       </div>
       <Card className={styles.amountCard} radius="md" variant="accent1-outline">
         <h3>{claimed ? 'Claimed amount' : 'Claimable amount'}</h3>

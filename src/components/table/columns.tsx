@@ -1,65 +1,21 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
+import GpuLabel from '@/components/gpu-label/gpu-label';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatDateTime, formatNumber } from '@/utils/formatters';
-import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import { formatAccessLists, formatBytes, formatDateTime, formatNumber, formatWalletAddress } from '@/utils/formatters';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
 import classNames from 'classnames';
-
-function getEligibleCheckbox(eligible = false, banned = false, eligibilityCauseStr?: string) {
-  if (banned) {
-    return (
-      <>
-        <HighlightOffOutlinedIcon style={{ fill: 'var(--error-darker)' }} />
-        <span>Banned</span>
-      </>
-    );
-  }
-  if (eligible) {
-    return (
-      <>
-        <CheckCircleOutlinedIcon style={{ fill: 'var(--success-darker)' }} />
-        <span>Eligible</span>
-      </>
-    );
-  } else {
-    switch (eligibilityCauseStr) {
-      case 'Invalid status response':
-        return (
-          <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
-            <span>Not eligible</span>
-          </>
-        );
-
-      case 'No peer data':
-        return (
-          <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
-            <span>Not eligible</span>
-          </>
-        );
-
-      default:
-        return (
-          <>
-            <ErrorOutlineOutlinedIcon style={{ fill: 'var(--warning-darker)' }} />
-            <span>Not eligible</span>
-          </>
-        );
-    }
-  }
-}
 
 function getUnbanAttemptResult(result: any) {
   if (result === null || result === undefined || result === '') {
@@ -104,6 +60,37 @@ function getUnbanAttemptStatus(status: string) {
   );
 }
 
+function renderGpuList(gpus: GPUPopularity[]) {
+  if (gpus?.length > 0) {
+    const gpusFreq: Record<string, number> = {};
+    for (const gpu of gpus) {
+      const gpuLabel = `${gpu.vendor} ${gpu.name}`;
+      gpusFreq[gpuLabel] = (gpusFreq[gpuLabel] || 0) + 1;
+    }
+    return (
+      <div className="flexRow gapSm">
+        {Object.entries(gpusFreq).map(([gpuLabel, count], index) => (
+          <span className="flexRow alignItemsCenter gapXs" key={index}>
+            {index > 0 && <span className="textSecondary">, </span>}
+            <strong className="textSecondary">{count > 1 ? `${count}x ` : ''}</strong>
+            <GpuLabel gpu={gpuLabel} />
+          </span>
+        ))}
+      </div>
+    );
+  }
+  return '-';
+}
+
+export const actionsColumnProps: GridColDef = {
+  align: 'right',
+  field: '_actions',
+  filterable: false,
+  headerAlign: 'center',
+  headerName: 'Actions',
+  sortable: false,
+};
+
 export const nodesLeaderboardColumns: GridColDef<Node>[] = [
   {
     align: 'center',
@@ -131,7 +118,7 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'GPUs',
     sortable: false,
-    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
+    renderCell: ({ value }) => renderGpuList(value),
   },
   {
     field: 'latestBenchmarkResults.totalScore',
@@ -145,16 +132,15 @@ export const nodesLeaderboardColumns: GridColDef<Node>[] = [
     ),
     renderCell: (params) => (
       <div className="flexRow alignItemsCenter gapSm">
-        {params.value || params.value === 0 ? (
-          <>
-            <VerifiedIcon className="textSuccessDarker" />
-            <span>{params.value.toLocaleString()}</span>
-          </>
+        {params.row.verified ? (
+          <VerifiedIcon className="textSuccessDarker" />
         ) : (
-          <>
-            <HighlightOffOutlinedIcon className="textError" />
-            <span className="textErrorDarker">Not verified</span>
-          </>
+          <HighlightOffOutlinedIcon className="textError" />
+        )}
+        {params.value || params.value === 0 ? (
+          <span>{params.value.toLocaleString()}</span>
+        ) : (
+          <span className="textErrorDarker">Not verified</span>
         )}
       </div>
     ),
@@ -231,28 +217,29 @@ export const nodesLeaderboardHomeColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'GPUs',
     sortable: false,
-    renderCell: (params) => params.value?.map((gpu: GPUPopularity) => `${gpu.vendor} ${gpu.name}`).join(', ') ?? '-',
+    renderCell: ({ value }) => renderGpuList(value),
   },
   {
     field: 'latestBenchmarkResults.totalScore',
     filterable: false,
     flex: 1,
-    headerName: 'Bench score',
+    headerName: 'Total score',
     sortable: false,
     valueGetter: (_value, row) => row.latestBenchmarkResults?.totalScore,
     renderCell: (params) => (
       <div className="flexRow alignItemsCenter gapSm">
-        {params.value || params.value === 0 ? (
-          <>
+        <div className="flexRow alignItemsCenter gapSm">
+          {params.row.verified ? (
             <VerifiedIcon className="textSuccessDarker" />
-            <span>{params.value.toLocaleString()}</span>
-          </>
-        ) : (
-          <>
+          ) : (
             <HighlightOffOutlinedIcon className="textError" />
+          )}
+          {params.value || params.value === 0 ? (
+            <span>{params.value.toLocaleString()}</span>
+          ) : (
             <span className="textErrorDarker">Not verified</span>
-          </>
-        )}
+          )}
+        </div>
       </div>
     ),
   },
@@ -772,5 +759,97 @@ export const topNodesByJobsColumns: GridColDef<Node>[] = [
     flex: 1,
     headerName: 'Last benchmark score (GPU)',
     sortable: false,
+  },
+];
+
+export const nodeStorageMyBucketsColumns: GridColDef<PersistentStorageBucket>[] = [
+  {
+    field: 'label',
+    filterable: true,
+    flex: 1,
+    headerName: 'Name',
+    sortable: true,
+    valueGetter: (_value, row) => row.label?.trim() || row.bucketId,
+  },
+  {
+    field: 'bucketId',
+    filterable: true,
+    flex: 1,
+    headerName: 'Bucket ID',
+    sortable: false,
+  },
+  {
+    field: 'createdAt',
+    filterable: false,
+    headerName: 'Created',
+    sortable: true,
+    width: 160,
+    renderCell: ({ value }) => formatDateTime(value),
+  },
+  {
+    field: 'accessLists',
+    filterable: false,
+    flex: 1,
+    headerName: 'Access list',
+    sortable: false,
+    renderCell: ({ value }) => {
+      if (!value?.length) {
+        return <span className="textSecondary">Owner-only (no access list)</span>;
+      }
+      return formatAccessLists(value, { shortenAddresses: true }).join(', ');
+    },
+  },
+];
+
+export const nodeStorageSharedBucketsColumns: GridColDef<PersistentStorageBucket>[] = [
+  {
+    field: 'bucketId',
+    filterable: true,
+    flex: 1,
+    headerName: 'Bucket ID',
+    sortable: false,
+  },
+  {
+    field: 'createdAt',
+    filterable: false,
+    headerName: 'Created',
+    sortable: true,
+    width: 160,
+    renderCell: ({ value }) => formatDateTime(value),
+  },
+  {
+    field: 'owner',
+    filterable: false,
+    headerName: 'Owner',
+    sortable: false,
+    width: 160,
+    renderCell: ({ value }) => formatWalletAddress(value),
+  },
+];
+
+export const nodeStorageFilesColumns: GridColDef<PersistentStorageFileEntry>[] = [
+  {
+    field: 'name',
+    filterable: false,
+    flex: 1,
+    headerName: 'File name',
+    sortable: false,
+  },
+  {
+    field: 'size',
+    filterable: false,
+    headerName: 'File size',
+    sortable: false,
+    align: 'right',
+    headerAlign: 'right',
+    renderCell: ({ value }) => formatBytes(value as number),
+  },
+  {
+    field: 'lastModified',
+    filterable: false,
+    headerName: 'Last modified',
+    sortable: true,
+    width: 160,
+    renderCell: ({ value }) => formatDateTime(value / 1000),
   },
 ];

@@ -5,15 +5,19 @@ import { useState } from 'react';
 
 type CopyButtonProps = Pick<ButtonProps, 'className' | 'color' | 'size' | 'variant'> & {
   contentToCopy: string;
+  label?: string;
+  labelCopied?: string;
 };
 
-const CopyButton = ({
+const CopyButton: React.FC<CopyButtonProps> = ({
   className,
   color = 'accent2',
   contentToCopy,
+  label = 'Copy',
+  labelCopied = 'Copied!',
   size = 'sm',
   variant = 'filled',
-}: CopyButtonProps) => {
+}) => {
   const [copied, setCopied] = useState(false);
 
   const handleClick = () => {
@@ -33,7 +37,7 @@ const CopyButton = ({
       size={size}
       variant={variant}
     >
-      {copied ? 'Copied!' : 'Copy'}
+      {copied ? labelCopied : label}
     </Button>
   );
 };

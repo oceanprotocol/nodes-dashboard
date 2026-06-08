@@ -2,14 +2,16 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
+import DurationInput from '@/components/input/duration-input';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
+import config from '@/config';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
-import { DURATION_UNIT_OPTIONS, type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
+import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { usePrivy } from '@privy-io/react-auth';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -32,14 +34,15 @@ type ResourcesFormValues = {
   cpuCores: number;
   diskSpace: number | '';
   gpus: string[];
-  maxJobDurationUnit: DurationUnit;
-  maxJobDurationValue: number | '';
+  maxJobDurationSeconds: number;
   ram: number;
 };
 
 const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
   const { login } = usePrivy();
   const router = useRouter();
+
+  const { isReady: p2pReady } = useP2P();
 
   const { account } = useOceanAccount();
 
@@ -51,8 +54,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     setEstimatedTotalCost,
     setSelectedResources,
   } = useRunJobContext();
-
-  const { isReady: p2pReady } = useP2P();
 
   const [initComputeError, setInitComputeError] = useState<unknown | null>(null);
   const [isLoadingCost, setIsLoadingCost] = useState(false);
@@ -91,8 +92,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       cpuCores: selectedCpu ?? minAllowedCpuCores,
       diskSpace: selectedDisk ?? minAllowedDiskSpace,
       gpus: selectedGpus ?? [],
-      maxJobDurationUnit: (selectedMaxJobDurationSeconds ? 'seconds' : 'hours') as DurationUnit,
-      maxJobDurationValue: selectedMaxJobDurationSeconds || fromSeconds(minAllowedJobDurationSeconds, 'hours'),
+      maxJobDurationSeconds: selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds,
       ram: selectedRam ?? minAllowedRam,
     },
     onSubmit: (values) => {
@@ -114,7 +114,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         gpus: gpus
           .filter((gpu) => values.gpus.includes(gpu.id))
           .map((gpu) => ({ id: gpu.id, description: gpu.description })),
-        maxJobDurationSeconds: toSeconds(Number(values.maxJobDurationValue) || 0, values.maxJobDurationUnit),
+        maxJobDurationSeconds: values.maxJobDurationSeconds,
         ram: values.ram,
         ramId: ram?.id ?? 'ram',
       });
@@ -123,7 +123,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         ram: values.ram,
         diskSpace: Number(values.diskSpace) || 0,
         gpus: values.gpus,
-        maxJobDurationSeconds: toSeconds(Number(values.maxJobDurationValue) || 0, values.maxJobDurationUnit),
+        maxJobDurationSeconds: values.maxJobDurationSeconds,
         estimatedTotalCost,
         freeCompute,
       });
@@ -133,7 +133,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         ram: values.ram,
         disk: values.diskSpace,
         ...(values.gpus.length > 0 && { gpus: values.gpus }),
-        maxJobDuration: toSeconds(Number(values.maxJobDurationValue) || 0, values.maxJobDurationUnit),
+        maxJobDuration: values.maxJobDurationSeconds,
       };
 
       if (estimatedTotalCost! > 0 && !freeCompute) {
@@ -154,13 +154,10 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         .min(minAllowedDiskSpace, 'Limits exceeded')
         .max(maxAllowedDiskSpace, 'Limits exceeded'),
       gpus: Yup.array().of(Yup.string()),
-      maxJobDurationValue: Yup.number()
+      maxJobDurationSeconds: Yup.number()
         .required('Required')
-        .test('duration-range', 'Limits exceeded', function (value) {
-          if (value == null || Number.isNaN(value)) return false;
-          const sec = toSeconds(value, this.parent.maxJobDurationUnit);
-          return sec >= minAllowedJobDurationSeconds && sec <= maxAllowedJobDurationSeconds;
-        }),
+        .min(minAllowedJobDurationSeconds, 'Limits exceeded')
+        .max(maxAllowedJobDurationSeconds, 'Limits exceeded'),
       ram: Yup.number()
         .required('Required')
         .min(minAllowedRam, 'Limits exceeded')
@@ -181,10 +178,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const estimateCost = useCallback(async () => {
     setIsLoadingCost(true);
     setInitComputeError(null);
-    const maxJobDurationSec = toSeconds(
-      Number(formik.values.maxJobDurationValue) || 0,
-      formik.values.maxJobDurationUnit
-    );
+    const maxJobDurationSec = formik.values.maxJobDurationSeconds;
     await fetchEstimatedCost({
       environment,
       freeCompute,
@@ -199,8 +193,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     fetchEstimatedCost,
     environment,
     freeCompute,
-    formik.values.maxJobDurationValue,
-    formik.values.maxJobDurationUnit,
+    formik.values.maxJobDurationSeconds,
     multiaddrsOrPeerId,
     resources,
     token,
@@ -233,19 +226,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   };
 
   const setMaxJobDuration = () => {
-    formik.setValues((prev) => ({
-      ...prev,
-      maxJobDurationValue: fromSeconds(maxAllowedJobDurationSeconds, prev.maxJobDurationUnit),
-    }));
-  };
-
-  const handleDurationUnitChange = (newUnit: DurationUnit) => {
-    const currentSec = toSeconds(Number(formik.values.maxJobDurationValue) || 0, formik.values.maxJobDurationUnit);
-    formik.setValues((prev) => ({
-      ...prev,
-      maxJobDurationUnit: newUnit,
-      maxJobDurationValue: fromSeconds(currentSec, newUnit),
-    }));
+    formik.setFieldValue('maxJobDurationSeconds', maxAllowedJobDurationSeconds);
   };
 
   const handleDiskSpaceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -257,54 +238,83 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     formik.setFieldValue('diskSpace', Math.max(0, num));
   };
 
-  const handleMaxJobDurationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (e.target.value === '') {
-      formik.setFieldValue('maxJobDurationValue', '');
-      return;
-    }
-    const num = Number(e.target.value);
-    formik.setFieldValue('maxJobDurationValue', Math.max(0, num));
-  };
-
-  const renderCostEstimation = () => {
-    if (isLoadingCost) {
-      return (
-        <h3 className={styles.estimationMessage}>
-          <CircularProgress size={24} />
-          Estimating cost...
-        </h3>
-      );
-    }
-    if (!!initComputeError || !token) {
-      let errorText;
-      if (initComputeError instanceof Error) {
-        errorText = initComputeError.message;
+  const renderCostCard = () => {
+    const renderCostEstimation = () => {
+      if (isLoadingCost) {
+        return (
+          <h3 className={styles.estimationMessage}>
+            <CircularProgress size={24} />
+            Estimating cost...
+          </h3>
+        );
+      }
+      if (!p2pReady || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
+        return (
+          <h3 className={styles.estimationMessage}>
+            <CircularProgress size={24} />
+            Connecting to node...
+          </h3>
+        );
       }
       return (
-        <h3 className={styles.estimationMessage}>
-          Cost estimation failed{' '}
-          {errorText ? (
-            <Tooltip className="textAccent1" title={errorText}>
-              <InfoOutlinedIcon className={styles.accessInfoIcon} />
-            </Tooltip>
-          ) : null}
-        </h3>
+        <div>
+          <span className={styles.token}>{token?.symbol}</span>
+          &nbsp;
+          <span className={styles.amount}>{token ? formatTokenAmount(estimatedTotalCost, token.address) : null}</span>
+        </div>
       );
+    };
+
+    return (
+      <Card
+        className={styles.costCard}
+        direction="column"
+        innerShadow="black"
+        paddingX="md"
+        paddingY="sm"
+        radius="md"
+        spacing="sm"
+        variant="glass"
+      >
+        <div className={styles.costEstimation}>
+          <h3>Estimated total cost</h3>
+          {renderCostEstimation()}
+        </div>
+        <div className="alignSelfEnd textSuccessDarker">
+          If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
+        </div>
+      </Card>
+    );
+  };
+
+  const renderConnectionErrorCard = () => {
+    if (!initComputeError) {
+      return null;
     }
-    if (!p2pReady || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
-      return (
-        <h3 className={styles.estimationMessage}>
-          <CircularProgress size={24} />
-          Connecting to node...
-        </h3>
-      );
+    let errorText;
+    if (initComputeError instanceof Error) {
+      errorText = initComputeError.message;
     }
     return (
-      <div>
-        <span className={styles.token}>{token?.symbol}</span>
-        &nbsp;
-        <span className={styles.amount}>{formatTokenAmount(estimatedTotalCost, token.address)}</span>
-      </div>
+      <Card direction="column" paddingX="md" paddingY="sm" radius="md" spacing="sm" variant="error">
+        <h3>Could not reach this node</h3>
+        {errorText ? <p>{errorText}</p> : null}
+        <p>
+          This may be due to missing WSS, TLS, or P2P circuit relay configuration on the node.
+          <br />
+          If you are the node operator, please check your node&apos;s network setup.
+        </p>
+        <Button
+          className="alignSelfStart"
+          color="accent2"
+          href={config.links.docs}
+          size="sm"
+          target="_blank"
+          variant="filled"
+        >
+          Visit docs
+        </Button>
+      </Card>
     );
   };
 
@@ -390,61 +400,30 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             type="number"
             value={formik.values.diskSpace}
           />
-          <Input
-            endAdornment={
-              <div className={styles.durationControls}>
-                <select
-                  aria-label="Duration unit"
-                  className={styles.unitSelect}
-                  name="maxJobDurationUnit"
-                  onBlur={formik.handleBlur}
-                  onChange={(e) => {
-                    const newUnit = (e.target.value ?? 'minutes') as DurationUnit;
-                    handleDurationUnitChange(newUnit);
-                  }}
-                  value={formik.values.maxJobDurationUnit}
-                >
-                  {DURATION_UNIT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <Button color="accent2" onClick={setMaxJobDuration} size="sm" type="button" variant="filled">
-                  Set max
-                </Button>
-              </div>
-            }
+          <DurationInput
+            availableUnits={DURATION_UNIT_OPTIONS}
+            defaultUnit={selectedMaxJobDurationSeconds ? 'seconds' : 'hours'}
             errorText={
-              formik.touched.maxJobDurationValue && formik.errors.maxJobDurationValue
-                ? formik.errors.maxJobDurationValue
+              formik.touched.maxJobDurationSeconds && formik.errors.maxJobDurationSeconds
+                ? formik.errors.maxJobDurationSeconds
                 : undefined
             }
             label="Max job duration"
             min={0}
-            name="maxJobDurationValue"
+            name="maxJobDurationSeconds"
             onBlur={formik.handleBlur}
-            onChange={handleMaxJobDurationChange}
+            onChange={(seconds) => formik.setFieldValue('maxJobDurationSeconds', seconds)}
+            onSetMax={setMaxJobDuration}
             topRight={`${formatDuration(minAllowedJobDurationSeconds, true)} - ${formatDuration(maxAllowedJobDurationSeconds, true)}`}
-            type="number"
-            value={formik.values.maxJobDurationValue}
+            value={formik.values.maxJobDurationSeconds}
           />
         </div>
-        <TransitionGroup>
-          {formik.isValid && !freeCompute ? (
-            <Collapse>
-              <Card className={styles.costCard} innerShadow="black" radius="md" variant="glass">
-                <div className={styles.costEstimation}>
-                  <h3>Estimated total cost</h3>
-                  {renderCostEstimation()}
-                </div>
-                <div className="alignSelfEnd textSuccessDarker">
-                  If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
-                </div>
-              </Card>
-            </Collapse>
-          ) : null}
-        </TransitionGroup>
+        {freeCompute ? null : (
+          <TransitionGroup>
+            {initComputeError ? <Collapse>{renderConnectionErrorCard()}</Collapse> : null}
+            {!initComputeError && formik.isValid ? <Collapse>{renderCostCard()}</Collapse> : null}
+          </TransitionGroup>
+        )}
         <div className="actionsGroupLgBetween">
           <Button
             color="accent1"

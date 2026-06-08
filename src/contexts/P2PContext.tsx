@@ -1,28 +1,47 @@
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import {
+  createNodeBucket as createNodeBucketService,
+  deleteBucketFile as deleteBucketFileService,
   fetchNodeConfig,
   getComputeJobResult,
   getComputeStatus,
+  getNodeBuckets as getNodeBucketsService,
   getNodeEnvs,
   getNodeLogs as getNodeLogsService,
   getPeerMultiaddr as getPeerMultiaddrFromService,
   initializeCompute as initializeComputeFromService,
   initializeP2P,
+  listBucketFiles as listBucketFilesService,
   pushNodeConfig,
+  renameNodeBucket as renameNodeBucketService,
   streamComputeResult as streamComputeResultService,
+  uploadBucketFile as uploadBucketFileService,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
-import { ComputeEnvironment, MultiaddrsOrPeerId } from '@/types/environments';
+import { ComputeEnvironment } from '@/types/environments';
 import { multiaddr } from '@multiformats/multiaddr';
-import { ComputeResourceRequest, type NodeLogEntry, type NodeLogsParams, ProviderInstance } from '@oceanprotocol/lib';
+import {
+  ComputeResourceRequest,
+  type NodeLogEntry,
+  type NodeLogsParams,
+  type NodeP2P,
+  type OceanNode,
+  type PersistentStorageAccessList,
+  type PersistentStorageBucket,
+  type PersistentStorageDeleteFileResponse,
+  type PersistentStorageFileEntry,
+  ProviderInstance,
+} from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-type NodeUri = string[] | string;
+export type NodeUri = OceanNode | string[];
 
-function toNodeUri(input: NodeUri) {
-  if (Array.isArray(input)) return input.map((a) => multiaddr(a));
+function normalizeNodeUri(input: NodeUri): OceanNode {
+  if (Array.isArray(input)) {
+    return { multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
+  }
   return input;
 }
 
@@ -87,9 +106,48 @@ interface P2PContextType {
     nodeUri: NodeUri;
     signMessage: SignMessageFn;
   }) => Promise<void>;
+  createNodeBucket: (args: {
+    accessLists: PersistentStorageAccessList[];
+    authToken: string;
+    label?: string;
+    nodeUri: NodeUri;
+  }) => Promise<{ bucketId: string; owner: string; accessList: PersistentStorageAccessList[]; label?: string | null }>;
+  renameBucket: (args: {
+    authToken: string;
+    bucketId: string;
+    label: string | null;
+    nodeUri: NodeUri;
+  }) => Promise<{ bucketId: string; label: string | null }>;
+  getNodeBuckets: (args: {
+    authToken: string;
+    nodeUri: NodeUri;
+    ownerAddress: string;
+  }) => Promise<PersistentStorageBucket[]>;
+  listBucketFiles: (args: {
+    authToken: string;
+    bucketId: string;
+    nodeUri: NodeUri;
+  }) => Promise<PersistentStorageFileEntry[]>;
+  uploadBucketFile: (args: {
+    authToken: string;
+    bucketId: string;
+    file: File;
+    nodeUri: NodeUri;
+  }) => Promise<PersistentStorageFileEntry>;
+  deleteBucketFile: (args: {
+    authToken: string;
+    bucketId: string;
+    fileName: string;
+    nodeUri: NodeUri;
+  }) => Promise<PersistentStorageDeleteFileResponse>;
   getPeerMultiaddr: (peerId: string) => Promise<string>;
   sendCommand: (nodeUri: NodeUri, command: any) => Promise<any>;
-  streamComputeResult: (nodeUri: NodeUri, authToken: string, jobId: string, index: number) => Promise<AsyncIterable<Uint8Array>>;
+  streamComputeResult: (
+    nodeUri: NodeUri,
+    authToken: string,
+    jobId: string,
+    index: number
+  ) => Promise<AsyncIterable<Uint8Array>>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
@@ -141,7 +199,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       if (!isReady) {
         throw new Error('Node not ready');
       }
-      return ProviderInstance.fetchConfig(toNodeUri(nodeUri), command);
+      return ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), command);
     },
     [isReady]
   );
@@ -324,6 +382,106 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  const createNodeBucket = useCallback(
+    async ({
+      accessLists,
+      authToken,
+      label,
+      nodeUri,
+    }: {
+      accessLists: PersistentStorageAccessList[];
+      authToken: string;
+      label?: string;
+      nodeUri: NodeUri;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return createNodeBucketService({ accessLists, authToken, label, nodeUri });
+    },
+    [isReady]
+  );
+
+  const renameBucket = useCallback(
+    async ({
+      authToken,
+      bucketId,
+      label,
+      nodeUri,
+    }: {
+      authToken: string;
+      bucketId: string;
+      label: string | null;
+      nodeUri: NodeUri;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return renameNodeBucketService({ authToken, bucketId, label, nodeUri });
+    },
+    [isReady]
+  );
+
+  const getNodeBuckets = useCallback(
+    async ({ authToken, nodeUri, ownerAddress }: { authToken: string; nodeUri: NodeUri; ownerAddress: string }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getNodeBucketsService({ authToken, nodeUri, ownerAddress });
+    },
+    [isReady]
+  );
+
+  const listBucketFiles = useCallback(
+    async ({ authToken, bucketId, nodeUri }: { authToken: string; bucketId: string; nodeUri: NodeUri }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return listBucketFilesService({ authToken, bucketId, nodeUri });
+    },
+    [isReady]
+  );
+
+  const uploadBucketFile = useCallback(
+    async ({
+      authToken,
+      bucketId,
+      file,
+      nodeUri,
+    }: {
+      authToken: string;
+      bucketId: string;
+      file: File;
+      nodeUri: NodeUri;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return uploadBucketFileService({ authToken, bucketId, file, nodeUri });
+    },
+    [isReady]
+  );
+
+  const deleteBucketFile = useCallback(
+    async ({
+      nodeUri,
+      authToken,
+      bucketId,
+      fileName,
+    }: {
+      nodeUri: NodeUri;
+      authToken: string;
+      bucketId: string;
+      fileName: string;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return deleteBucketFileService({ authToken, bucketId, fileName, nodeUri });
+    },
+    [isReady]
+  );
+
   return (
     <P2PContext.Provider
       value={{
@@ -331,18 +489,24 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         computeResult,
         computeStatus,
         config,
+        createNodeBucket,
+        renameBucket,
+        deleteBucketFile,
         error,
         fetchConfig: fetchConfigCtx,
         getComputeResult,
         getComputeJobStatus,
         getEnvs,
+        getNodeBuckets,
         getNodeLogs,
         initializeCompute,
         isReady,
+        listBucketFiles,
         pushConfig: pushConfigCtx,
         getPeerMultiaddr,
         sendCommand,
         streamComputeResult,
+        uploadBucketFile,
       }}
     >
       {children}

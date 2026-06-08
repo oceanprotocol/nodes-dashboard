@@ -1,0 +1,38 @@
+.accessHeader {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  user-select: none;
+}
+
+.accessTitle {
+  align-items: center;
+  display: flex;
+  font-size: 16px;
+  font-weight: 700;
+  gap: 6px;
+
+  .icon {
+    color: var(--text-secondary);
+    transition: transform 0.25s ease;
+
+    &.iconOpen {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.accessChips {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.accessEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+}
