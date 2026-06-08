@@ -279,6 +279,7 @@ const Summary = ({
               <Button
                 autoLoading
                 color="accent1"
+                data-tutorial="open-ide-button"
                 contentBefore={
                   <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
                     {selectedIde.icon}
