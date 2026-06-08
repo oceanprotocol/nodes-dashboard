@@ -4026,33 +4026,13 @@
     valtio "2.1.7"
     viem ">=2.37.9"
 
-"@reown/appkit-wallet@1.7.2":
-  version "1.7.2"
-  resolved "https://registry.yarnpkg.com/@reown/appkit-wallet/-/appkit-wallet-1.7.2.tgz#02fce896c78ed83ea575256306396a42c58ec646"
-  integrity sha512-WQ0ykk5TwsjOcUL62ajT1bhZYdFZl0HjwwAH9LYvtKYdyZcF0Ps4+y2H4HHYOc03Q+LKOHEfrFztMBLXPTxwZA==
-  dependencies:
-    "@reown/appkit-common" "1.7.2"
-    "@reown/appkit-polyfills" "1.7.2"
-    "@walletconnect/logger" "2.1.2"
-    zod "3.22.4"
-
-"@reown/appkit-wallet@1.7.8":
+"@reown/appkit-wallet@1.7.2", "@reown/appkit-wallet@1.7.8", "@reown/appkit-wallet@1.8.9":
   version "1.7.8"
   resolved "https://registry.yarnpkg.com/@reown/appkit-wallet/-/appkit-wallet-1.7.8.tgz#291b8c225fd3c2585d1f3e65c689a791d5ce3e5d"
   integrity sha512-kspz32EwHIOT/eg/ZQbFPxgXq0B/olDOj3YMu7gvLEFz4xyOFd/wgzxxAXkp5LbG4Cp++s/elh79rVNmVFdB9A==
   dependencies:
     "@reown/appkit-common" "1.7.8"
     "@reown/appkit-polyfills" "1.7.8"
-    "@walletconnect/logger" "2.1.2"
-    zod "3.22.4"
-
-"@reown/appkit-wallet@1.8.9":
-  version "1.8.9"
-  resolved "https://registry.yarnpkg.com/@reown/appkit-wallet/-/appkit-wallet-1.8.9.tgz#9e0b3473378d0ab659308367ea1245c88db13b92"
-  integrity sha512-rcAXvkzOVG4941eZVCGtr2dSJAMOclzZGSe+8hnOUnhK4zxa5svxiP6K9O5SMBp3MrAS3WNsRj5hqx6+JHb7iA==
-  dependencies:
-    "@reown/appkit-common" "1.8.9"
-    "@reown/appkit-polyfills" "1.8.9"
     "@walletconnect/logger" "2.1.2"
     zod "3.22.4"
 
@@ -4602,23 +4582,7 @@
     "@solana/fixed-points" "6.9.0"
     "@solana/options" "6.9.0"
 
-"@solana/errors@2.3.0":
-  version "2.3.0"
-  resolved "https://registry.yarnpkg.com/@solana/errors/-/errors-2.3.0.tgz#4ac9380343dbeffb9dffbcb77c28d0e457c5fa31"
-  integrity sha512-66RI9MAbwYV0UtP7kGcTBVLxJgUxoZGm8Fbc0ah+lGiAw17Gugco6+9GrJCV83VyF2mDWyYnYM9qdI3yjgpnaQ==
-  dependencies:
-    chalk "^5.4.1"
-    commander "^14.0.0"
-
-"@solana/errors@5.5.1":
-  version "5.5.1"
-  resolved "https://registry.yarnpkg.com/@solana/errors/-/errors-5.5.1.tgz#1c17bc822264fd5a6305d8bfb9d597858e4ce17b"
-  integrity sha512-vFO3p+S7HoyyrcAectnXbdsMfwUzY2zYFUc2DEe5BwpiE9J1IAxPBGjOWO6hL1bbYdBrlmjNx8DXCslqS+Kcmg==
-  dependencies:
-    chalk "5.6.2"
-    commander "14.0.2"
-
-"@solana/errors@6.9.0":
+"@solana/errors@2.3.0", "@solana/errors@5.5.1", "@solana/errors@6.9.0":
   version "6.9.0"
   resolved "https://registry.yarnpkg.com/@solana/errors/-/errors-6.9.0.tgz#9652690e89e9572a0b27bb18950a7a48136cb7e2"
   integrity sha512-7i+b07KMnkbHvFlz7uWade3jvyc22UmVm8o9taxPK8YV3JNM/NkS8oQFvMac2MIaLPAlEs7I8MHyVLUal1yY4g==
@@ -9116,12 +9080,7 @@ combined-stream@^1.0.8:
   dependencies:
     delayed-stream "~1.0.0"
 
-commander@14.0.2:
-  version "14.0.2"
-  resolved "https://registry.yarnpkg.com/commander/-/commander-14.0.2.tgz#b71fd37fe4069e4c3c7c13925252ada4eba14e8e"
-  integrity sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ==
-
-commander@14.0.3, commander@^14.0.0:
+commander@14.0.3:
   version "14.0.3"
   resolved "https://registry.yarnpkg.com/commander/-/commander-14.0.3.tgz#425d79b48f9af82fcd9e4fc1ea8af6c5ec07bbc2"
   integrity sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==

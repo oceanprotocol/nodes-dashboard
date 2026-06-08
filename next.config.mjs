@@ -5,13 +5,6 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: [
-    'wagmi',
-    '@wagmi/core',
-    '@wagmi/connectors',
-    '@walletconnect/ethereum-provider',
-    '@walletconnect/universal-provider',
-  ],
   // Upstream bug: Next 16 vendors @vercel/nft 0.27.1, which predates support
   // for the `module-sync` exports condition (added in nft 0.30.0). These
   // get-intrinsic helpers point `module-sync` at a separate `require.mjs`;
@@ -51,6 +44,14 @@ const nextConfig = {
       // @privy-io/react-auth optionally imports @farcaster/mini-app-solana but we
       // don't use Farcaster; stub it out so webpack doesn't fail on a missing module.
       '@farcaster/mini-app-solana': false,
+      // @walletconnect/universal-provider is not hoisted to root but is bundled inside
+      // @walletconnect/ethereum-provider/node_modules — point webpack there directly.
+      '@walletconnect/universal-provider': path.resolve(
+        __dirname,
+        'node_modules/@walletconnect/ethereum-provider/node_modules/@walletconnect/universal-provider'
+      ),
+      // Privy's Fiat Onramp uses @stripe/crypto dynamically but we don't use onramp.
+      '@stripe/crypto': false,
     };
     // viem's nested ox package uses dynamic require(variable) in its tempo module,
     // which webpack flags as a critical error. Suppress it — it doesn't affect runtime.
@@ -75,9 +76,9 @@ const nextConfig = {
     // CJS module; named imports from it fail Node.js ESM static analysis unless
     // webpack bundles it (handling CJS interop) rather than leaving it for Node.js.
     '@ledgerhq/hw-transport',
-    // Must be bundled by webpack (not left as a native Node.js external) because its
-    // nested @account-kit/react@4.88.1 → @ledgerhq/hw-transport chain triggers the
-    // same ESM static analysis failure when loaded natively.
+    // Bundled by webpack so the @reown/appkit-scaffold-ui nested controllers@1.7.2
+    // (vs root 1.7.8) doesn't cause webpack version-mismatch errors. The nested
+    // @account-kit/react@4.88.4 here does NOT import @ledgerhq.
     '@privy-io/alchemy-migration',
   ],
 };
