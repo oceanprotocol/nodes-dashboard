@@ -1,7 +1,7 @@
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import CloseIcon from '@mui/icons-material/Close';
 import { IconButton, Tooltip } from '@mui/material';
-import { TutorialId, TutorialPage } from '@/components/tutorial/run-job-tutorial';
+import { TutorialId, TutorialPage } from '@/components/tutorial/types';
 import { useTutorial } from '@/hooks/use-tutorial';
 import styles from './tutorial-button.module.css';
 

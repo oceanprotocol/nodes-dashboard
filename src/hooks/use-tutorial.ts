@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useTutorialContext } from '@/components/tutorial/tutorial-context';
-import { getTutorialConfig, TutorialId, TutorialPage } from '@/components/tutorial/run-job-tutorial';
+import { getTutorialConfig } from '@/components/tutorial/registry';
+import { TutorialId, TutorialPage } from '@/components/tutorial/types';
 
 export const useTutorial = (id: TutorialId, currentPage: TutorialPage) => {
   const { active, start, stop, isCompleted } = useTutorialContext();

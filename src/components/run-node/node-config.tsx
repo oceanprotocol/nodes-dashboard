@@ -21,7 +21,7 @@ const NodeConfig = () => {
         'Loading config...'
       ) : (
         <>
-          <div className={styles.editorWrapper}>
+          <div className={styles.editorWrapper} data-tutorial="config-editor">
             <JsonEditor
               data={editedConfig}
               minWidth="100%"
@@ -29,7 +29,11 @@ const NodeConfig = () => {
               theme={githubDarkTheme}
             />
           </div>
-          {editedConfig ? <NodePreview nodeConfig={editedConfig} /> : null}
+          {editedConfig ? (
+            <div data-tutorial="config-preview">
+              <NodePreview nodeConfig={editedConfig} />
+            </div>
+          ) : null}
           {configErrors.length > 0 ? (
             <Card
               className={styles.root}
@@ -67,6 +71,7 @@ const NodeConfig = () => {
           </Button>
           <Button
             color="accent1"
+            data-tutorial="push-config-button"
             loading={loadingPushConfig}
             onClick={() => pushConfig(editedConfig)}
             size="lg"

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getTutorialConfig, TutorialId } from './run-job-tutorial';
+import { getTutorialConfig } from './registry';
+import { TutorialId } from './types';
 
 const ACTIVE_KEY = 'ocean-tutorial-active';
 const COMPLETED_KEY = 'ocean-tutorial-completed';

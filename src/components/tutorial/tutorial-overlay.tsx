@@ -2,7 +2,8 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useAuthModal } from '@account-kit/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getTutorialConfig, StepPlacement, TutorialStep } from './run-job-tutorial';
+import { getTutorialConfig } from './registry';
+import { StepPlacement, TutorialStep } from './types';
 import { useTutorialContext } from './tutorial-context';
 import styles from './tutorial-overlay.module.css';
 

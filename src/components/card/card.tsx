@@ -20,6 +20,7 @@ type Variant =
 type Shadow = 'black' | 'accent1' | 'accent2' | 'success' | 'warning' | 'error';
 
 type CardProps = {
+  'data-tutorial'?: string;
   children: ReactNode;
   className?: string;
   direction?: 'row' | 'column';
@@ -37,6 +38,7 @@ type CardProps = {
 };
 
 const Card: React.FC<CardProps> = ({
+  'data-tutorial': dataTutorial,
   children,
   className,
   direction,
@@ -65,6 +67,7 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <div
+      data-tutorial={dataTutorial}
       className={cx(
         styles.root,
         {

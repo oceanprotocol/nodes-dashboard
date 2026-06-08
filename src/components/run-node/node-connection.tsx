@@ -53,7 +53,15 @@ const NodeConnection = () => {
   });
 
   return (
-    <Card direction="column" innerShadow="black" padding="sm" radius="sm" spacing="sm" variant="glass">
+    <Card
+      data-tutorial="node-connection"
+      direction="column"
+      innerShadow="black"
+      padding="sm"
+      radius="sm"
+      spacing="sm"
+      variant="glass"
+    >
       <div className={styles.header}>
         <h3>Connect to your node</h3>
         <div className={classNames('chip', { chipError: !isConnected, chipSuccess: isConnected })}>
@@ -74,6 +82,7 @@ const NodeConnection = () => {
       ) : (
         <>
           <div>Enter the ID of your node to connect and configure it</div>
+          <div data-tutorial="node-id-input">
           <Input
             errorText={formik.touched.nodeId && formik.errors.nodeId ? formik.errors.nodeId : undefined}
             label="Node ID"
@@ -99,10 +108,12 @@ const NodeConnection = () => {
             type="text"
             value={formik.values.nodeId}
           />
+          </div>
           <div className="actionsGroupMdEnd">
             <Button
               color="accent1"
               contentBefore={isP2PReady ? <LinkIcon /> : null}
+              data-tutorial="connect-node-button"
               loading={!isP2PReady || formik.isSubmitting}
               onClick={formik.submitForm}
             >

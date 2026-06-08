@@ -1,34 +1,6 @@
-export type TutorialId = 'run-job-flow';
+import { TutorialConfig } from '../types';
 
-export type TutorialPage = 'environments' | 'resources' | 'payment' | 'summary';
-
-export type StepPlacement = 'top' | 'bottom' | 'left' | 'right' | 'center';
-
-export type AdvanceTrigger =
-  | { type: 'next' }
-  | { type: 'click' }
-  | { type: 'change'; pollMs?: number }
-  | { type: 'value'; pollMs?: number }
-  | { type: 'navigate' }
-  | { type: 'auth' };
-
-export type TutorialStep = {
-  id: string;
-  page: TutorialPage;
-  target?: string;
-  title: string;
-  description: string;
-  placement?: StepPlacement;
-  advance: AdvanceTrigger;
-  requireEnabled?: boolean;
-};
-
-export type TutorialConfig = {
-  id: TutorialId;
-  steps: TutorialStep[];
-};
-
-const runJobFlowConfig: TutorialConfig = {
+export const runJobFlowConfig: TutorialConfig = {
   id: 'run-job-flow',
   steps: [
     {
@@ -205,13 +177,4 @@ const runJobFlowConfig: TutorialConfig = {
       advance: { type: 'next' },
     },
   ],
-};
-
-export const getTutorialConfig = (id: TutorialId): TutorialConfig => {
-  switch (id) {
-    case 'run-job-flow':
-      return runJobFlowConfig;
-    default:
-      return { id, steps: [] };
-  }
 };

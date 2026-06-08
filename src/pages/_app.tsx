@@ -1,4 +1,5 @@
 import RootLayout from '@/components/Layout';
+import { getRouteTutorial } from '@/components/tutorial/registry';
 import { TutorialProvider } from '@/components/tutorial/tutorial-context';
 import TutorialOverlay from '@/components/tutorial/tutorial-overlay';
 import config from '@/config';
@@ -58,20 +59,13 @@ const muiTheme = createTheme({
   },
 });
 
-const TUTORIAL_PAGE_MAP: Record<string, 'environments' | 'resources' | 'payment' | 'summary'> = {
-  '/run-job/environments': 'environments',
-  '/run-job/resources': 'resources',
-  '/run-job/payment': 'payment',
-  '/run-job/summary': 'summary',
-};
-
 export default function DashboardApp({ Component, pageProps, cookie }: AppProps & { cookie?: string }) {
   const queryClientRef = useRef<QueryClient>();
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient();
   }
   const router = useRouter();
-  const tutorialPage = TUTORIAL_PAGE_MAP[router.pathname];
+  const tutorialPage = getRouteTutorial(router.pathname)?.page;
 
   useEffect(() => {
     const html = document.documentElement;
