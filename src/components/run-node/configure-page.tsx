@@ -4,6 +4,7 @@ import Container from '@/components/container/container';
 import ConfigureGeneral from '@/components/node-config/configure-general';
 import ConfigureIndexer from '@/components/node-config/configure-indexer';
 import ConfigureResources from '@/components/node-config/configure-resources';
+import styles from '@/components/node-config/node-config.module.css';
 import SectionTitle from '@/components/section-title/section-title';
 import { getRunNodeSteps, RunNodeStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
@@ -14,7 +15,6 @@ import { CircularProgress, Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import styles from '@/components/node-config/node-config.module.css';
 
 const ConfigurePage: React.FC = () => {
   const router = useRouter();
@@ -37,7 +37,12 @@ const ConfigurePage: React.FC = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run a node"
+        title={
+          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+            <span>Run a node</span>
+            <TutorialButton tutorialId="run-node-flow" currentPage="configure" />
+          </div>
+        }
         subTitle={
           loadingFetchConfig ? (
             <div className="flexRow alignItemsCenter gapMd">
@@ -48,12 +53,7 @@ const ConfigurePage: React.FC = () => {
             'Configure resources, settings and other preferences for your node'
           )
         }
-        contentBetween={
-          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
-            <Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />
-            <TutorialButton tutorialId="run-node-flow" currentPage="configure" />
-          </div>
-        }
+        contentBetween={<Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />}
         mobileWarning
       />
       {peerId ? (

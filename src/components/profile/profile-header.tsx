@@ -29,7 +29,7 @@ const ProfileHeader = ({ role }: ProfileHeaderProps) => {
 
   return (
     <>
-      <div data-tutorial="profile-tabs">
+      <div className="flexRow justifyContentCenter" data-tutorial="profile-tabs">
         <TabBar
           activeKey={role}
           className={styles.tabBar}

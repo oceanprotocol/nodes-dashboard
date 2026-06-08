@@ -26,7 +26,12 @@ const ResourcesPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run a job"
+        title={
+          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+            <span>Run a job</span>
+            <TutorialButton tutorialId="run-job-flow" currentPage="resources" />
+          </div>
+        }
         subTitle={
           hydrateFromUrlFinished ? (
             'Pick the resources you need for your job'
@@ -37,12 +42,7 @@ const ResourcesPage = () => {
             </div>
           )
         }
-        contentBetween={
-          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
-            <Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />
-            <TutorialButton tutorialId="run-job-flow" currentPage="resources" />
-          </div>
-        }
+        contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}
         mobileWarning
       />
       {hydrateFromUrlFinished && selectedEnv && (freeCompute || selectedToken) ? (

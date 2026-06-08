@@ -11,13 +11,13 @@ const ConsumerProfilePage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="My profile"
-        subTitle="Manage your nodes, jobs, tokens and activity in one place"
-        contentBetween={
-          <div className="flexRow alignItemsCenter gapSm">
+        title={
+          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+            <span>My profile</span>
             <TutorialButton tutorialId="consumer-profile-flow" currentPage="consumer" />
           </div>
         }
+        subTitle="Manage your nodes, jobs, tokens and activity in one place"
       />
       <div className="pageContentWrapper">
         <ProfileHeader role="consumer" />

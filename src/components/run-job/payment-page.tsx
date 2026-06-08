@@ -36,7 +36,12 @@ const PaymentPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run a job"
+        title={
+          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+            <span>Run a job</span>
+            <TutorialButton tutorialId="run-job-flow" currentPage="payment" />
+          </div>
+        }
         subTitle={
           hydrateFromUrlFinished ? (
             subtitle
@@ -47,12 +52,7 @@ const PaymentPage = () => {
             </div>
           )
         }
-        contentBetween={
-          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
-            <Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />
-            <TutorialButton tutorialId="run-job-flow" currentPage="payment" />
-          </div>
-        }
+        contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
         mobileWarning
       />
       {hydrateFromUrlFinished && selectedEnv && selectedResources && selectedToken ? (

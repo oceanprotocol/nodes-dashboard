@@ -34,7 +34,12 @@ const SummaryPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run a job"
+        title={
+          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+            <span>Run a job</span>
+            <TutorialButton tutorialId="run-job-flow" currentPage="summary" />
+          </div>
+        }
         subTitle={
           hydrateFromUrlFinished ? (
             'Everything is set up. Below is a summary of your selection'
@@ -45,12 +50,7 @@ const SummaryPage = () => {
             </div>
           )
         }
-        contentBetween={
-          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
-            <Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />
-            <TutorialButton tutorialId="run-job-flow" currentPage="summary" />
-          </div>
-        }
+        contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
         mobileWarning
       />
       {hydrateFromUrlFinished && nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (

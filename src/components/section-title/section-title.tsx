@@ -8,7 +8,7 @@ import styles from './section-title.module.css';
 const DEFAULT_MOBILE_WARNING = 'This flow requires a desktop environment.\nSome steps may not work on mobile devices.';
 
 type SectionTitleProps = {
-  title: string;
+  title: React.ReactNode;
   subTitle?: React.ReactNode;
   className?: string;
   contentBetween?: React.ReactNode;

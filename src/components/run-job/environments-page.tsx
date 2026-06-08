@@ -10,14 +10,14 @@ const EnvironmentsPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run a job"
-        subTitle="Choose a compute environment for your workload"
-        contentBetween={
-          <div className="flexRow alignItemsCenter gapSm" data-tutorial="stepper">
-            <Stepper<RunJobStep> currentStep="environment" steps={getRunJobSteps(false)} />
+        title={
+          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+            <span>Run a job</span>
             <TutorialButton tutorialId="run-job-flow" currentPage="environments" />
           </div>
         }
+        subTitle="Choose a compute environment for your workload"
+        contentBetween={<Stepper<RunJobStep> currentStep="environment" steps={getRunJobSteps(false)} />}
         mobileWarning
       />
       <div className="pageContentWrapper" data-tutorial="environment-list">
