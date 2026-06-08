@@ -67,11 +67,12 @@ const ConsumerBalance = () => {
   const explorerUrl = getExplorerUrl();
 
   return (
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+    <Card data-tutorial="consumer-balance" direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Account balance</h3>
         {isConnected && (
           <Button
+            data-tutorial="consumer-transfer-button"
             color="accent1"
             contentBefore={<SendIcon />}
             onClick={() => setIsTransferModalOpen(true)}

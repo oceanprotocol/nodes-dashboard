@@ -1,7 +1,7 @@
 // Shared tutorial types. Each feature tour is a TutorialConfig registered in
 // registry.ts. Pages are free-form string keys scoped to a single tutorial.
 
-export type TutorialId = 'run-job-flow' | 'run-node-flow';
+export type TutorialId = 'run-job-flow' | 'run-node-flow' | 'owner-profile-flow' | 'consumer-profile-flow';
 
 // A page key within a tutorial (e.g. 'environments', 'setup'). Kept as a string
 // so each tutorial can define its own page keys without a central enum.

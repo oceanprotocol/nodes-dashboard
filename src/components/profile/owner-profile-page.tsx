@@ -3,6 +3,7 @@ import OwnerNodes from '@/components/profile/owner-nodes';
 import OwnerStats from '@/components/profile/owner-stats';
 import ProfileHeader from '@/components/profile/profile-header';
 import SectionTitle from '@/components/section-title/section-title';
+import TutorialButton from '@/components/tutorial/tutorial-button';
 
 const OwnerProfilePage = () => {
   return (
@@ -11,6 +12,11 @@ const OwnerProfilePage = () => {
         moreReadable
         title="My profile"
         subTitle="Manage your nodes, jobs, tokens and activity in one place"
+        contentBetween={
+          <div className="flexRow alignItemsCenter gapSm">
+            <TutorialButton tutorialId="owner-profile-flow" currentPage="owner" />
+          </div>
+        }
       />
       <div className="pageContentWrapper">
         <ProfileHeader role="owner" />
