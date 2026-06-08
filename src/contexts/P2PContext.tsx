@@ -14,6 +14,7 @@ import {
   initializeP2P,
   listBucketFiles as listBucketFilesService,
   pushNodeConfig,
+  renameNodeBucket as renameNodeBucketService,
   streamComputeResult as streamComputeResultService,
   uploadBucketFile as uploadBucketFileService,
 } from '@/services/nodeService';
@@ -108,8 +109,15 @@ interface P2PContextType {
   createNodeBucket: (args: {
     accessLists: PersistentStorageAccessList[];
     authToken: string;
+    label?: string;
     nodeUri: NodeUri;
-  }) => Promise<{ bucketId: string; owner: string; accessList: PersistentStorageAccessList[] }>;
+  }) => Promise<{ bucketId: string; owner: string; accessList: PersistentStorageAccessList[]; label?: string | null }>;
+  renameBucket: (args: {
+    authToken: string;
+    bucketId: string;
+    label: string | null;
+    nodeUri: NodeUri;
+  }) => Promise<{ bucketId: string; label: string | null }>;
   getNodeBuckets: (args: {
     authToken: string;
     nodeUri: NodeUri;
@@ -378,16 +386,38 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     async ({
       accessLists,
       authToken,
+      label,
       nodeUri,
     }: {
       accessLists: PersistentStorageAccessList[];
       authToken: string;
+      label?: string;
       nodeUri: NodeUri;
     }) => {
       if (!isReady) {
         throw new Error('Node not ready');
       }
-      return createNodeBucketService({ accessLists, authToken, nodeUri });
+      return createNodeBucketService({ accessLists, authToken, label, nodeUri });
+    },
+    [isReady]
+  );
+
+  const renameBucket = useCallback(
+    async ({
+      authToken,
+      bucketId,
+      label,
+      nodeUri,
+    }: {
+      authToken: string;
+      bucketId: string;
+      label: string | null;
+      nodeUri: NodeUri;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return renameNodeBucketService({ authToken, bucketId, label, nodeUri });
     },
     [isReady]
   );
@@ -460,6 +490,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         computeStatus,
         config,
         createNodeBucket,
+        renameBucket,
         deleteBucketFile,
         error,
         fetchConfig: fetchConfigCtx,

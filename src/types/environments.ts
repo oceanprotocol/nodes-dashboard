@@ -1,5 +1,5 @@
-type ComputeResourceType = 'cpu' | 'ram' | 'disk' | 'gpu';
-type ComputeResourceId = 'cpu' | 'ram' | 'disk' | string;
+export type ComputeResourceType = 'cpu' | 'ram' | 'disk' | 'gpu';
+export type ComputeResourceId = 'cpu' | 'ram' | 'disk' | string;
 
 export interface ComputeResourcesPricingInfo {
   id: ComputeResourceId;

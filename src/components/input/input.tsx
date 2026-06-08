@@ -55,6 +55,7 @@ type InputProps = {
   hint?: React.ReactNode;
   label?: React.ReactNode;
   max?: number;
+  maxLength?: number;
   min?: number;
   name?: string;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -78,6 +79,7 @@ const Input: React.FC<InputProps> = ({
   hint,
   label,
   max,
+  maxLength,
   min,
   name,
   onBlur,
@@ -104,7 +106,7 @@ const Input: React.FC<InputProps> = ({
       custom_size={size}
       disabled={disabled}
       has_error={!!errorText}
-      inputProps={{ max, min, step }}
+      inputProps={{ max, maxLength, min, step }}
       name={name}
       onBlur={onBlur}
       onChange={onChange}

@@ -1,10 +1,12 @@
 import { FormControlLabel, Switch as MaterialSwitch, styled } from '@mui/material';
+import React from 'react';
 
 type SwitchProps = {
   'data-tutorial'?: string;
   checked?: boolean;
   className?: string;
-  label?: string;
+  disabled?: boolean;
+  label?: React.ReactNode;
   name?: string;
   onChange?: (event: React.ChangeEvent<HTMLInputElement>, checked: boolean) => void;
   value?: unknown;
@@ -39,6 +41,12 @@ const StyledSwitch = styled(MaterialSwitch)(() => ({
         backgroundColor: 'var(--accent1)',
       },
     },
+    '&.Mui-disabled.Mui-checked, &.Mui-disabled': {
+      '& + .MuiSwitch-track': {
+        background: 'var(--text-secondary)',
+        opacity: 0.5,
+      },
+    },
   },
   '& .MuiSwitch-thumb': {
     boxShadow: 'none',
@@ -55,6 +63,7 @@ const StyledSwitch = styled(MaterialSwitch)(() => ({
 const Switch: React.FC<SwitchProps> = ({
   'data-tutorial': dataTutorial,
   className,
+  disabled,
   label,
   name,
   checked,
@@ -65,7 +74,8 @@ const Switch: React.FC<SwitchProps> = ({
     <StyledFormControlLabel
       className={className}
       data-tutorial={dataTutorial}
-      control={<StyledSwitch checked={checked} name={name} onChange={onChange} />}
+      control={<StyledSwitch checked={checked} disabled={disabled} name={name} onChange={onChange} />}
+      disabled={disabled}
       label={label}
       value={value}
     />

@@ -764,6 +764,14 @@ export const topNodesByJobsColumns: GridColDef<Node>[] = [
 
 export const nodeStorageMyBucketsColumns: GridColDef<PersistentStorageBucket>[] = [
   {
+    field: 'label',
+    filterable: true,
+    flex: 1,
+    headerName: 'Name',
+    sortable: true,
+    valueGetter: (_value, row) => row.label?.trim() || row.bucketId,
+  },
+  {
     field: 'bucketId',
     filterable: true,
     flex: 1,

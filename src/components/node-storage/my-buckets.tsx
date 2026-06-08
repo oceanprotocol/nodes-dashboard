@@ -3,6 +3,7 @@ import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import CreateBucketModal from '@/components/node-storage/create-bucket-modal';
 import EditBucketAccessModal from '@/components/node-storage/edit-bucket-access-modal';
+import EditBucketNameModal from '@/components/node-storage/edit-bucket-name-modal';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useNodeStorage } from '@/contexts/node-storage-context';
@@ -35,6 +36,7 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
   const [alreadyLoaded, setAlreadyLoaded] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editBucket, setEditBucket] = useState<PersistentStorageBucket | null>(null);
+  const [renameBucket, setRenameBucket] = useState<PersistentStorageBucket | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const loading = fetchingBuckets[nodeId] ?? false;
@@ -63,7 +65,11 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
     if (!term) {
       return myBuckets;
     }
-    return myBuckets.filter((b) => b.bucketId.toLowerCase().includes(term.toLowerCase()));
+    const lowerTerm = term.toLowerCase();
+    return myBuckets.filter(
+      (b) =>
+        b.bucketId.toLowerCase().includes(lowerTerm) || (b.label ?? '').toLowerCase().includes(lowerTerm)
+    );
   }, [buckets, nodeId, searchTerm]);
 
   return (
@@ -85,22 +91,36 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
       />
       <Table<PersistentStorageBucket>
         autoHeight
-        actionsColumn={(params) =>
-          params.row.accessLists.length > 0 ? (
+        actionsColumn={(params) => (
+          <>
             <Button
               color="accent1"
               contentBefore={<EditIcon />}
               onClick={(e) => {
                 e.stopPropagation();
-                setEditBucket(params.row);
+                setRenameBucket(params.row);
               }}
               size="sm"
               variant="transparent"
             >
-              Access
+              Name
             </Button>
-          ) : null
-        }
+            {params.row.accessLists.length > 0 ? (
+              <Button
+                color="accent1"
+                contentBefore={<EditIcon />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditBucket(params.row);
+                }}
+                size="sm"
+                variant="transparent"
+              >
+                Access
+              </Button>
+            ) : null}
+          </>
+        )}
         loading={loading}
         onRowClick={({ row }) => router.push(`/nodes/${nodeId}/storage/${row.bucketId}/files`)}
         paginationType="none"
@@ -127,6 +147,9 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
           node={node}
           onClose={() => setEditBucket(null)}
         />
+      )}
+      {renameBucket && (
+        <EditBucketNameModal bucket={renameBucket} isOpen node={node} onClose={() => setRenameBucket(null)} />
       )}
     </Card>
   );

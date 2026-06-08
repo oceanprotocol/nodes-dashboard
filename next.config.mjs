@@ -20,6 +20,7 @@ const nextConfig = {
       './node_modules/async-function/**/*',
       './node_modules/async-generator-function/**/*',
       './node_modules/generator-function/**/*',
+      './public/disposable-email-blacklist.conf',
     ],
   },
   turbopack: {

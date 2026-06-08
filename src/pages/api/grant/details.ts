@@ -12,7 +12,7 @@ import {
   GrantWithStatus,
   SubmitGrantDetailsResponse,
 } from '@/types/grant';
-import { normalizeEmail } from '@/utils/email';
+import { isBlacklistedEmail, normalizeEmail } from '@/utils/email';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -61,20 +61,13 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   if (!emailRegex.test(data.email) || data.email.length > 255) {
-    return response.status(400).json({ message: 'Invalid email format or length' });
+    return response.status(400).json({ message: 'Invalid email address' });
   }
 
   data.email = normalizeEmail(data.email);
 
-  const emailDomain = data.email.split('@')[1];
-  const blacklistedDomains = (process.env.GRANT_BLACKLISTED_EMAIL_DOMAINS ?? '')
-    .split(',')
-    .map((d) => d.trim().toLowerCase())
-    .filter(Boolean);
-  // Match exact OR any subdomain — e.g. `mail.tempmail.com` is blocked when `tempmail.com` is blacklisted.
-  const isBlacklisted = blacklistedDomains.some((d) => emailDomain === d || emailDomain.endsWith(`.${d}`));
-  if (isBlacklisted) {
-    return response.status(400).json({ message: 'Email provider not accepted' });
+  if (isBlacklistedEmail(data.email)) {
+    return response.status(400).json({ message: 'Invalid email address' });
   }
 
   if (!handleRegex.test(data.handle)) {
@@ -163,8 +156,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(500).json({ message: 'Failed to process grant details' });
   }
 
-  // AI validation runs only after duplicate/state gates so an attacker can't burn Gemini quota
-  // on already-CLAIMED / verified wallets.
   const validationResult = await validateGrantDataWithAI(data);
   if (!validationResult.valid) {
     return response.status(400).json({ message: `Validation failed: ${validationResult.reason}` });
