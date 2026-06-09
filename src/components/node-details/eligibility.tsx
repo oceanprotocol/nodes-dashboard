@@ -44,7 +44,7 @@ const Eligibility = ({ isAdmin, node }: EligibilityProps) => {
         </div>
         <div>
           {isPermanent ? (
-            'This node is permanently excluded from all operations and rewards'
+            'This node is permanently excluded from rewards'
           ) : (
             <>
               This node is excluded from all operations and rewards
