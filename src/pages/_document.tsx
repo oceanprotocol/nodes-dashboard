@@ -5,17 +5,14 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
-        {/* Google tag (gtag.js) */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17691004915" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'AW-17691004915');
-            `,
-          }}
+        {/* Cookiebot must load first so auto-blocking can gate downstream tags */}
+        <Script
+          strategy="beforeInteractive"
+          id="Cookiebot"
+          src="https://consent.cookiebot.com/uc.js"
+          data-cbid="6be0fc4f-9e9c-4dee-a06f-e5bb0584cfe6"
+          data-blockingmode="auto"
+          type="text/javascript"
         />
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico" />
@@ -49,14 +46,6 @@ export default function Document() {
       <body>
         <Main />
         <NextScript />
-        <Script
-          strategy="beforeInteractive"
-          id="Cookiebot"
-          src="https://consent.cookiebot.com/uc.js"
-          data-cbid="6be0fc4f-9e9c-4dee-a06f-e5bb0584cfe6"
-          data-blockingmode="auto"
-          type="text/javascript"
-        />
       </body>
     </Html>
   );
