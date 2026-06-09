@@ -57,6 +57,7 @@ export type Node = {
     country: string;
   };
   nodeId: string;
+  permanent?: boolean;
   platform?: {
     osType: string;
     cpus?: string;
