@@ -11,13 +11,17 @@ const SetupPage = () => {
       <SectionTitle
         moreReadable
         title={
-          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+          <div className="flexRow alignItemsStart gapXs">
             <span>Run a node</span>
             <TutorialButton tutorialId="run-node-flow" currentPage="setup" />
           </div>
         }
         subTitle="Setup your node, and earn rewards"
-        contentBetween={<Stepper<RunNodeStep> currentStep="setup" steps={getRunNodeSteps()} />}
+        contentBetween={
+          <div data-tutorial="stepper">
+            <Stepper<RunNodeStep> currentStep="setup" steps={getRunNodeSteps()} />
+          </div>
+        }
         mobileWarning
       />
       <div className="pageContentWrapper">

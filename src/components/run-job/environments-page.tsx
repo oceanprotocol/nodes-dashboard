@@ -11,13 +11,17 @@ const EnvironmentsPage = () => {
       <SectionTitle
         moreReadable
         title={
-          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+          <div className="flexRow alignItemsStart gapXs">
             <span>Run a job</span>
             <TutorialButton tutorialId="run-job-flow" currentPage="environments" />
           </div>
         }
         subTitle="Choose a compute environment for your workload"
-        contentBetween={<Stepper<RunJobStep> currentStep="environment" steps={getRunJobSteps(false)} />}
+        contentBetween={
+          <div data-tutorial="stepper">
+            <Stepper<RunJobStep> currentStep="environment" steps={getRunJobSteps(false)} />
+          </div>
+        }
         mobileWarning
       />
       <div className="pageContentWrapper" data-tutorial="environment-list">
