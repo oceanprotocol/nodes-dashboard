@@ -22,6 +22,17 @@ const isElementEnabled = (el: Element | null): boolean => {
   return true;
 };
 
+// Resolve a target selector to an element. When `preferEnabled` is set (step
+// has requireEnabled), pick the first match that is actually enabled — the
+// selector can match many elements (e.g. one "Run test job" button per
+// environment card) and the first one may be disabled for this wallet.
+const resolveTarget = (selector: string, preferEnabled: boolean): Element | null => {
+  if (!preferEnabled) return document.querySelector(selector);
+  const matches = Array.from(document.querySelectorAll(selector));
+  if (matches.length === 0) return null;
+  return matches.find((el) => isElementEnabled(el)) ?? matches[0];
+};
+
 const getHiddenInputValue = (el: Element | null): string => {
   if (!el) return '';
   const input = el.querySelector('input');
@@ -84,7 +95,10 @@ const computePopoverPosition = (
   return { top, left, arrow: { top: arrowTop, left: arrowLeft } };
 };
 
-const useTargetRect = (selector: string | undefined): { rect: Rect | null; element: Element | null } => {
+const useTargetRect = (
+  selector: string | undefined,
+  preferEnabled: boolean
+): { rect: Rect | null; element: Element | null } => {
   const [rect, setRect] = useState<Rect | null>(null);
   const [element, setElement] = useState<Element | null>(null);
 
@@ -99,7 +113,7 @@ const useTargetRect = (selector: string | undefined): { rect: Rect | null; eleme
     let cancelled = false;
 
     const measure = () => {
-      const el = document.querySelector(selector);
+      const el = resolveTarget(selector, preferEnabled);
       if (!el) {
         setElement(null);
         setRect(null);
@@ -146,7 +160,7 @@ const useTargetRect = (selector: string | undefined): { rect: Rect | null; eleme
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleResize, true);
     };
-  }, [selector]);
+  }, [selector, preferEnabled]);
 
   return { rect, element };
 };
@@ -187,7 +201,7 @@ const TutorialOverlay = ({ currentPage }: Props) => {
   }, [config, active, step, currentPage, goToStep]);
 
   const stepOnThisPage = !!step && step.page === currentPage;
-  const { rect, element } = useTargetRect(stepOnThisPage ? step?.target : undefined);
+  const { rect, element } = useTargetRect(stepOnThisPage ? step?.target : undefined, !!step?.requireEnabled);
 
   useLayoutEffect(() => {
     if (popoverRef.current) {

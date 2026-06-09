@@ -11,7 +11,7 @@ const OwnerProfilePage = () => {
       <SectionTitle
         moreReadable
         title={
-          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+          <div className="flexRow alignItemsStart gapXs">
             <span>My profile</span>
             <TutorialButton tutorialId="owner-profile-flow" currentPage="owner" />
           </div>

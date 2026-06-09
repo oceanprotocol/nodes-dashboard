@@ -35,7 +35,7 @@ const SummaryPage = () => {
       <SectionTitle
         moreReadable
         title={
-          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+          <div className="flexRow alignItemsStart gapXs">
             <span>Run a job</span>
             <TutorialButton tutorialId="run-job-flow" currentPage="summary" />
           </div>
@@ -50,7 +50,11 @@ const SummaryPage = () => {
             </div>
           )
         }
-        contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
+        contentBetween={
+          <div data-tutorial="stepper">
+            <Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />
+          </div>
+        }
         mobileWarning
       />
       {hydrateFromUrlFinished && nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (

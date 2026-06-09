@@ -12,7 +12,7 @@ const ConsumerProfilePage = () => {
       <SectionTitle
         moreReadable
         title={
-          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+          <div className="flexRow alignItemsStart gapXs">
             <span>My profile</span>
             <TutorialButton tutorialId="consumer-profile-flow" currentPage="consumer" />
           </div>

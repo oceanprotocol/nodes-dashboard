@@ -38,7 +38,7 @@ const ConfigurePage: React.FC = () => {
       <SectionTitle
         moreReadable
         title={
-          <div className="flexRow alignItemsStart gapXs" data-tutorial="stepper">
+          <div className="flexRow alignItemsStart gapXs">
             <span>Run a node</span>
             <TutorialButton tutorialId="run-node-flow" currentPage="configure" />
           </div>
@@ -53,7 +53,11 @@ const ConfigurePage: React.FC = () => {
             'Configure resources, settings and other preferences for your node'
           )
         }
-        contentBetween={<Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />}
+        contentBetween={
+          <div data-tutorial="stepper">
+            <Stepper<RunNodeStep> currentStep="configure" steps={getRunNodeSteps()} />
+          </div>
+        }
         mobileWarning
       />
       {peerId ? (
