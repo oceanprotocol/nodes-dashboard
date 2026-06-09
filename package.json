@@ -87,7 +87,6 @@
     "axios": "1.12.2",
     "@solana/codecs-core": "5.5.1",
     "uuid": "^8.3.2",
-    "@reown/appkit-scaffold-ui/@reown/appkit-controllers": "1.7.8",
     "@reown/appkit-wallet": "1.7.8",
     "@solana/errors": "6.9.0"
   }
