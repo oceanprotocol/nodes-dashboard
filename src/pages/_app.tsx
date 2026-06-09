@@ -68,8 +68,14 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
 
   return (
     <main className={cx(inter.variable, plusJakartaSans.variable)}>
-      <Script async src="https://www.googletagmanager.com/gtag/js?id=AW-17691004915" strategy="afterInteractive" />
-      <Script id="google-analytics" strategy="afterInteractive">
+      <Script
+        async
+        src="https://www.googletagmanager.com/gtag/js?id=AW-17691004915"
+        strategy="afterInteractive"
+        data-cookieconsent="marketing"
+        type="text/plain"
+      />
+      <Script id="google-analytics" strategy="afterInteractive" data-cookieconsent="marketing" type="text/plain">
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
