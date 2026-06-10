@@ -1,8 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import FaucetAbi from '@/constants/abis/faucet.json';
-import { useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import FaucetArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsTokenFaucet.sol/GrantsTokenFaucet.json';
 import { ClaimGrantResponse } from '@/types/grant';
 import { useAuthModal } from '@account-kit/react';
 import axios from 'axios';
@@ -23,7 +22,6 @@ const Claim: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const tokenAmount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
-  const tokenSymbol = useTokenSymbol(process.env.NEXT_PUBLIC_GRANT_TOKEN_ADDRESS);
 
   // This is a workaround for the modal not closing after connecting
   // https://github.com/alchemyplatform/aa-sdk/issues/2327
@@ -45,7 +43,7 @@ const Claim: React.FC = () => {
       const response = await axios.post<ClaimGrantResponse>('/api/grant/claim', { walletAddress: account.address });
       const { faucetAddress, nonce, rawAmount, signature } = response.data;
       const data = encodeFunctionData({
-        abi: FaucetAbi,
+        abi: FaucetArtifact.abi,
         functionName: 'claim',
         args: [account.address as `0x${string}`, BigInt(nonce), BigInt(rawAmount), signature as `0x${string}`],
       });
@@ -115,7 +113,7 @@ const Claim: React.FC = () => {
       <Card className={styles.amountCard} radius="md" variant="accent1-outline">
         <h3>{claimed ? 'Claimed amount' : 'Claimable amount'}</h3>
         <div className={styles.values}>
-          <span className={styles.token}>{tokenSymbol}</span>
+          <span className={styles.token}>COMPY</span>
           &nbsp;
           <span className={styles.amount}>{tokenAmount}</span>
         </div>
