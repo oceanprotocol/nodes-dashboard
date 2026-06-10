@@ -26,10 +26,9 @@ const migrationConfig = createMigrationConfig(
   }
 );
 
-// The plugin is the sole controller of embedded-wallet creation (no createOnLogin alongside it).
-// For users being migrated from Alchemy (alchemy_org_id present) it returns false so
-// MigrationProvider can show the key-transfer modal instead of creating a new wallet address.
-// For all other users it returns true (create normally).
+// createOnLogin handles wallet creation for the standard redirect OAuth path (where the plugin
+// callback is not invoked). The plugin runs for flows where privy calls it (email, passkey) and
+// suppresses wallet creation for Alchemy migration users (alchemy_org_id present).
 const walletCreationPlugin = createWalletCreationOnLoginPlugin({
   shouldCreateWallet: ({ user }: { user: User }) => {
     const hasAlchemyOrg = user.customMetadata?.['alchemy_org_id'] !== undefined;
@@ -50,6 +49,7 @@ export function AlchemyProvider({ children }: { children: React.ReactNode }) {
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       config={{
         loginMethods: ['email', 'google', 'passkey', 'wallet'],
+        embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
         plugins: [walletCreationPlugin],
       }}
     >
