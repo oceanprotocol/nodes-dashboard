@@ -1,4 +1,4 @@
-import { getOnChainUserNonce, getRpcProvider, isGrantRedeemedOnChain } from '@/api-services/faucet';
+import { getFaucetAddress, getOnChainUserNonce, getRpcProvider, isGrantRedeemedOnChain } from '@/api-services/faucet';
 import { findGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
 import { signFaucetMessage } from '@/api-services/signer';
 import { CHAIN_ID } from '@/constants/chains';
@@ -33,7 +33,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(400).json({ message: 'Complimentary credits already claimed' });
     }
 
-    const faucetAddress = process.env.GRANT_FAUCET_ADDRESS;
+    const faucetAddress = getFaucetAddress();
 
     if (grant.status === GrantStatus.SIGNED_FAUCET_MESSAGE) {
       if (!faucetAddress || !grant.rawAmount || !grant.nonce || !grant.signedFaucetMessage) {

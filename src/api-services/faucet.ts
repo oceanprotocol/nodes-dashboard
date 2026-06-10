@@ -1,4 +1,6 @@
+import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
+import Address from '@oceanprotocol/contracts/addresses/address.json';
 import FaucetArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsTokenFaucet.sol/GrantsTokenFaucet.json';
 import { ethers } from 'ethers';
 
@@ -12,8 +14,18 @@ export function getRpcProvider(): ethers.JsonRpcProvider {
   return _provider;
 }
 
+/**
+ * Faucet contract address for the active chain, sourced from the
+ * `@oceanprotocol/contracts` deployment manifest (same source as COMPY token).
+ * Returns undefined if the chain has no faucet deployment.
+ */
+export function getFaucetAddress(): string | undefined {
+  const config = Object.values(Address).find((chainConfig) => chainConfig.chainId === CHAIN_ID);
+  return (config as { COMPYFaucet?: string } | undefined)?.COMPYFaucet;
+}
+
 function getFaucetContract(): ethers.Contract {
-  const faucetAddress = process.env.GRANT_FAUCET_ADDRESS;
+  const faucetAddress = getFaucetAddress();
   if (!faucetAddress) {
     throw new Error('Faucet not configured');
   }
