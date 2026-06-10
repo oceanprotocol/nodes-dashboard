@@ -3927,10 +3927,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/contracts@npm:2.6.0":
-  version: 2.6.0
-  resolution: "@oceanprotocol/contracts@npm:2.6.0"
-  checksum: 10c0/cf249f1e5276d3b6807f684c4dc7e925649a7adc1ebbb41d7a262bfcc6ea2dd57d0307b4ac960f04e2c0401dd245f31b7b895335ef02b29fb77fe34e86515739
+"@oceanprotocol/contracts@npm:^2.8.0":
+  version: 2.8.0
+  resolution: "@oceanprotocol/contracts@npm:2.8.0"
+  checksum: 10c0/04c59d07c8c604ac16edfac1f749d957c419ac026eeb03890252fa8d2c2ff8b350a19de1ee34889992ca50efa913ab95d2608841d14165b9489cbcd8d2b91c63
   languageName: node
   linkType: hard
 
@@ -3947,9 +3947,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:^8.4.0":
-  version: 8.4.0
-  resolution: "@oceanprotocol/lib@npm:8.4.0"
+"@oceanprotocol/lib@npm:^8.5.1":
+  version: 8.5.1
+  resolution: "@oceanprotocol/lib@npm:8.5.1"
   dependencies:
     "@oasisprotocol/sapphire-paratime": "npm:^1.3.2"
     "@oceanprotocol/ddo-js": "npm:^0.3.0"
@@ -3963,7 +3963,7 @@ __metadata:
     jsonwebtoken: "npm:^9.0.2"
   peerDependencies:
     web3: ^1.8.0
-  checksum: 10c0/9b0fa1ce5608507806de0b640196114250fff3c6346e43325663044169da7571da7f76f213fa8d3d1ffd4371b179f26704b89b542aadbbbe752f3dbecf70bad7
+  checksum: 10c0/f3c1a766204e1f9783d947ea4810cd595892f273f9d698c248350c06f77a468dbd39a92c65954fd37e1009c0cb9152109d4c8db2861717aaeefe0f072815f05d
   languageName: node
   linkType: hard
 
@@ -15689,8 +15689,8 @@ __metadata:
     "@mui/icons-material": "npm:^7.3.6"
     "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
-    "@oceanprotocol/contracts": "npm:2.6.0"
-    "@oceanprotocol/lib": "npm:^8.4.0"
+    "@oceanprotocol/contracts": "npm:^2.8.0"
+    "@oceanprotocol/lib": "npm:^8.5.1"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
     "@svgr/webpack": "npm:^8.1.0"
     "@tanstack/react-query": "npm:^5.28.4"
