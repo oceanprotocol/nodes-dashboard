@@ -3,6 +3,7 @@ import Summary from '@/components/run-job/summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
+import TutorialButton from '@/components/tutorial/tutorial-button';
 import { useRunJobContext } from '@/context/run-job-context';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -33,7 +34,12 @@ const SummaryPage = () => {
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="Run a job"
+        title={
+          <div className="flexRow alignItemsStart gapXs">
+            <span>Run a job</span>
+            <TutorialButton tutorialId="run-job-flow" currentPage="summary" />
+          </div>
+        }
         subTitle={
           hydrateFromUrlFinished ? (
             'Everything is set up. Below is a summary of your selection'
@@ -44,11 +50,15 @@ const SummaryPage = () => {
             </div>
           )
         }
-        contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
+        contentBetween={
+          <div data-tutorial="stepper">
+            <Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />
+          </div>
+        }
         mobileWarning
       />
       {hydrateFromUrlFinished && nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (
-        <div className="pageContentWrapper">
+        <div className="pageContentWrapper" data-tutorial="summary-review">
           <Summary
             estimatedTotalCost={estimatedTotalCost ?? 0}
             freeCompute={freeCompute}

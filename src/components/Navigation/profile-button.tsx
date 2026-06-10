@@ -183,7 +183,13 @@ const ProfileButton: React.FC = () => {
       </Menu>
     </>
   ) : (
-    <Button className={styles.loginButton} color="accent1" loading={isLoggingOut} onClick={openAuthModal}>
+    <Button
+      className={styles.loginButton}
+      color="accent1"
+      data-tutorial="login-button"
+      loading={isLoggingOut}
+      onClick={openAuthModal}
+    >
       Log in
     </Button>
   );

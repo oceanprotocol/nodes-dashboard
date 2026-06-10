@@ -1,4 +1,7 @@
 import RootLayout from '@/components/Layout';
+import { getRouteTutorial } from '@/components/tutorial/registry';
+import { TutorialProvider } from '@/components/tutorial/tutorial-context';
+import TutorialOverlay from '@/components/tutorial/tutorial-overlay';
 import config from '@/config';
 import { GrantProvider } from '@/context/grant-context';
 import { NodeTokensProvider } from '@/context/node-tokens';
@@ -21,6 +24,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
 import App, { type AppContext, type AppProps } from 'next/app';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/router';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import Script from 'next/script';
 import { useEffect, useRef } from 'react';
@@ -60,6 +64,8 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient();
   }
+  const router = useRouter();
+  const tutorialPage = getRouteTutorial(router.pathname)?.page;
 
   useEffect(() => {
     const html = document.documentElement;
@@ -101,11 +107,14 @@ export default function DashboardApp({ Component, pageProps, cookie }: AppProps 
                                   <RunJobEnvsProvider>
                                     <RunJobProvider>
                                       <RunNodeProvider>
-                                        <RootLayout>
-                                          <PHProvider>
-                                            <Component {...pageProps} />
-                                          </PHProvider>
-                                        </RootLayout>
+                                        <TutorialProvider>
+                                          <RootLayout>
+                                            <PHProvider>
+                                              <Component {...pageProps} />
+                                            </PHProvider>
+                                          </RootLayout>
+                                          {tutorialPage ? <TutorialOverlay currentPage={tutorialPage} /> : null}
+                                        </TutorialProvider>
                                       </RunNodeProvider>
                                     </RunJobProvider>
                                   </RunJobEnvsProvider>

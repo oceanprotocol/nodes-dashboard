@@ -8,10 +8,10 @@ import styles from './owner-nodes.module.css';
 
 const OwnerNodes = () => {
   return (
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+    <Card data-tutorial="owner-nodes" direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>My nodes</h3>
-        <Button color="accent1" href="/run-node/setup">
+        <Button data-tutorial="owner-run-node-button" color="accent1" href="/run-node/setup">
           Run a node
         </Button>
       </div>

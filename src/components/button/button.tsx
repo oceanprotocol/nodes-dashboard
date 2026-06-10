@@ -5,6 +5,7 @@ import { forwardRef, MouseEventHandler, ReactNode, useState } from 'react';
 import styles from './button.module.css';
 
 export type ButtonProps = {
+  'data-tutorial'?: string;
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
@@ -23,6 +24,7 @@ export type ButtonProps = {
 };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
+  'data-tutorial': dataTutorial,
   autoLoading,
   children,
   className,
@@ -74,7 +76,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
 
   if (href) {
     return (
-      <Link className={classes} href={isDisabled ? '' : href} id={id} target={target}>
+      <Link className={classes} data-tutorial={dataTutorial} href={isDisabled ? '' : href} id={id} target={target}>
         {spinner}
         {contentBefore}
         {children}
@@ -84,7 +86,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   }
 
   return (
-    <button className={classes} disabled={isDisabled} id={id} onClick={handleClick} ref={ref} type={type}>
+    <button className={classes} data-tutorial={dataTutorial} disabled={isDisabled} id={id} onClick={handleClick} ref={ref} type={type}>
       {spinner}
       {contentBefore}
       {children}

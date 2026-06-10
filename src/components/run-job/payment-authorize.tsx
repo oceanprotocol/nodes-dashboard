@@ -122,7 +122,7 @@ const PaymentAuthorize = ({
       </div>
       <div className="actionsGroupLgBetween">
         {renderBackButton?.(loadingPaymentInfo)}
-        <Button color="accent1" loading={loadingPaymentInfo || isAuthorizing} size="lg" type="submit">
+        <Button color="accent1" data-tutorial="authorize-button" loading={loadingPaymentInfo || isAuthorizing} size="lg" type="submit">
           Authorize
         </Button>
       </div>

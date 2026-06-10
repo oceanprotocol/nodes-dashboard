@@ -29,7 +29,7 @@ const OwnerStats = () => {
   }, [fetchOwnerStats]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
+    <Card data-tutorial="owner-stats" className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalRevenue"

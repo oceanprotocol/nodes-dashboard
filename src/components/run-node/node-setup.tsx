@@ -36,17 +36,19 @@ const NodeSetup = () => {
           docs
         </Button>
       </div>
-      <div className={styles.section}>
-        <h5>1. Run the quick start script</h5>
-        <CodeBlock code="curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/oceanprotocol/ocean-node/refs/heads/main/scripts/ocean-node-quickstart.sh -o ocean-node-quickstart.sh && sh ocean-node-quickstart.sh" />
-      </div>
-      <div className={styles.section}>
-        <h5>2. Run Ocean Node</h5>
-        <CodeBlock code="$ docker-compose up -d" />
-      </div>
-      <div className={styles.section}>
-        <h5>3. Confirm that Docker containers are running</h5>
-        <CodeBlock code="$ docker ps" />
+      <div data-tutorial="install-commands">
+        <div className={styles.section}>
+          <h5>1. Run the quick start script</h5>
+          <CodeBlock code="curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/oceanprotocol/ocean-node/refs/heads/main/scripts/ocean-node-quickstart.sh -o ocean-node-quickstart.sh && sh ocean-node-quickstart.sh" />
+        </div>
+        <div className={styles.section}>
+          <h5>2. Run Ocean Node</h5>
+          <CodeBlock code="$ docker-compose up -d" />
+        </div>
+        <div className={styles.section}>
+          <h5>3. Confirm that Docker containers are running</h5>
+          <CodeBlock code="$ docker ps" />
+        </div>
       </div>
       <NodeConnection />
       {peerId ? (
@@ -54,7 +56,14 @@ const NodeSetup = () => {
           <Button color="accent1" href={`/nodes/${peerId}`} size="lg" target="_blank" variant="outlined">
             View node details
           </Button>
-          <Button autoLoading color="accent1" onClick={goToConfig} size="lg" variant="filled">
+          <Button
+            autoLoading
+            color="accent1"
+            data-tutorial="edit-config-button"
+            onClick={goToConfig}
+            size="lg"
+            variant="filled"
+          >
             Edit node config
           </Button>
         </div>

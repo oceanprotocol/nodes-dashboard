@@ -133,7 +133,7 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           type="number"
           value={formik.values.expiryValue}
         />
-        <Button loading={formik.isSubmitting} color="accent1" disabled={!formik.isValid} size="md" type="submit">
+        <Button data-tutorial="generate-token-button" loading={formik.isSubmitting} color="accent1" disabled={!formik.isValid} size="md" type="submit">
           Generate auth token
         </Button>
       </form>

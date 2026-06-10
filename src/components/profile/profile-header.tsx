@@ -29,22 +29,24 @@ const ProfileHeader = ({ role }: ProfileHeaderProps) => {
 
   return (
     <>
-      <TabBar
-        activeKey={role}
-        className={styles.tabBar}
-        tabs={[
-          {
-            href: '/profile/owner',
-            key: 'owner',
-            label: 'Node owner',
-          },
-          {
-            href: '/profile/consumer',
-            key: 'consumer',
-            label: 'Compute consumer',
-          },
-        ]}
-      />
+      <div className="flexRow justifyContentCenter" data-tutorial="profile-tabs">
+        <TabBar
+          activeKey={role}
+          className={styles.tabBar}
+          tabs={[
+            {
+              href: '/profile/owner',
+              key: 'owner',
+              label: 'Node owner',
+            },
+            {
+              href: '/profile/consumer',
+              key: 'consumer',
+              label: 'Compute consumer',
+            },
+          ]}
+        />
+      </div>
       <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
         {account.address ? <Avatar accountId={account.address} size="lg" src={ensProfile?.avatar} /> : null}
         <div>
