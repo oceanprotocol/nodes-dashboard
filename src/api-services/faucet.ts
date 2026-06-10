@@ -1,5 +1,5 @@
-import FaucetAbi from '@/constants/abis/faucet.json';
 import { getRpc } from '@/lib/constants';
+import FaucetArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsTokenFaucet.sol/GrantsTokenFaucet.json';
 import { ethers } from 'ethers';
 
 let _provider: ethers.JsonRpcProvider | null = null;
@@ -18,7 +18,7 @@ function getFaucetContract(): ethers.Contract {
     throw new Error('Faucet not configured');
   }
   if (!_faucet) {
-    _faucet = new ethers.Contract(faucetAddress, FaucetAbi, getRpcProvider());
+    _faucet = new ethers.Contract(faucetAddress, FaucetArtifact.abi, getRpcProvider());
   }
   return _faucet;
 }
