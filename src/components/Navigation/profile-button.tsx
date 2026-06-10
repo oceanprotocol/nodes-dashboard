@@ -39,9 +39,13 @@ const ProfileButton: React.FC = () => {
   // When authenticated but not yet connected, show a brief spinner.
   // If the wallet doesn't resolve within 4s (stale session), fall back to the login button.
   useEffect(() => {
+    console.log('[ProfileButton] auth state', { authenticated, isConnected: account.isConnected });
     if (authenticated && !account.isConnected) {
       setAuthSettled(false);
-      const timer = setTimeout(() => setAuthSettled(true), 4000);
+      const timer = setTimeout(() => {
+        console.log('[ProfileButton] 4s timeout fired — falling back to login button. authenticated=true but still not connected.');
+        setAuthSettled(true);
+      }, 4000);
       return () => clearTimeout(timer);
     }
     setAuthSettled(false);

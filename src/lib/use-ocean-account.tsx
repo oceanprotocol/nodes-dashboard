@@ -228,9 +228,22 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 };
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated, user } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const embeddedWallet = getEmbeddedConnectedWallet(wallets);
+
+  useEffect(() => {
+    console.log('[OceanAccount] state changed', {
+      ready,
+      authenticated,
+      walletsReady,
+      walletCount: wallets.length,
+      wallets: wallets.map((w) => ({ address: w.address, type: w.walletClientType, connector: w.connectorType, imported: (w as any).imported })),
+      embeddedWallet: embeddedWallet ? { address: embeddedWallet.address } : null,
+      userLinkedAccounts: user?.linkedAccounts?.map((a) => ({ type: a.type, ...(a.type === 'google_oauth' ? { email: (a as any).email } : {}) })),
+      userCustomMetadata: user?.customMetadata,
+    });
+  }, [ready, authenticated, walletsReady, wallets, embeddedWallet, user]);
 
   if (!ready) {
     return (

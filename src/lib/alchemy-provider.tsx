@@ -31,8 +31,17 @@ const migrationConfig = createMigrationConfig(
 // MigrationProvider can show the key-transfer modal instead of creating a new wallet address.
 // For all other users it returns true (create normally).
 const walletCreationPlugin = createWalletCreationOnLoginPlugin({
-  shouldCreateWallet: ({ user }: { user: User }) =>
-    user.customMetadata?.['alchemy_org_id'] === undefined,
+  shouldCreateWallet: ({ user }: { user: User }) => {
+    const hasAlchemyOrg = user.customMetadata?.['alchemy_org_id'] !== undefined;
+    const shouldCreate = !hasAlchemyOrg;
+    console.log('[walletCreationPlugin] shouldCreateWallet called', {
+      userId: user.id,
+      customMetadata: user.customMetadata,
+      hasAlchemyOrg,
+      shouldCreate,
+    });
+    return shouldCreate;
+  },
 });
 
 export function AlchemyProvider({ children }: { children: React.ReactNode }) {
