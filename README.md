@@ -124,7 +124,6 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 | `GRANT_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                        |
 | `GRANT_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                        |
 | `NEXT_PUBLIC_GRANT_AMOUNT`                  | Token grant amount distributed per grant                         |
-| `NEXT_PUBLIC_GRANT_TOKEN_ADDRESS`           | ERC-20 token contract address for grants                         |
 | `GRANT_FAUCET_ADDRESS`                      | Faucet wallet address funding grants                             |
 | `GRANT_FAUCET_PRIVATE_KEY`                  | Private key of the faucet wallet (server-side only, keep secret) |
 
