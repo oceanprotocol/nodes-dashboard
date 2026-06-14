@@ -1,36 +1,59 @@
 'use client';
 
-import { config, queryClient } from '@/lib/config';
-import { cookieToInitialState } from '@account-kit/core';
-import { AlchemyAccountProvider } from '@account-kit/react';
-import { useMemo } from 'react';
+import { installPrivyAlchemyFetchLogger } from '@/lib/debug-fetch';
+import { alchemy, base, sepolia } from '@account-kit/infra';
+import { createMigrationConfig, MigrationProvider } from '@privy-io/alchemy-migration';
+import '@privy-io/alchemy-migration/styles.css';
+import { createWalletCreationOnLoginPlugin, PrivyProvider, type User } from '@privy-io/react-auth';
 
-export function AlchemyProvider({ children, cookie }: { children: React.ReactNode; cookie?: string }) {
-  const initialState = useMemo(() => {
-    try {
-      const state = cookie ? cookieToInitialState(config, cookie) : undefined;
+// TEMP DIAGNOSTIC: install the Privy/Alchemy network logger as early as possible (module load,
+// client only) so we capture the auth + migration API traffic.
+installPrivyAlchemyFetchLogger();
 
-      // If the user has a corrupt or legacy cookie in their browser
-      // it might parse successfully but lack the expected Map object for connections.
-      // Passing this corrupted state to the AlchemyAccountProvider will crash SSR.
-      // Therefore, if it's invalid, we discard it to force a clean reset.
-      if (state?.alchemy?.connections && !(state.alchemy.connections instanceof Map)) {
-        console.warn(
-          '[AlchemyProvider] Corrupt state detected from cookies (connections is not a Map). Discarding state to prevent crash.'
-        );
-        return undefined; // Discard corrupt state
-      }
+const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
 
-      return state;
-    } catch (e) {
-      console.warn('[AlchemyProvider] Failed to parse cookie state, resetting.', e);
-      return undefined;
-    }
-  }, [cookie]);
+const migrationConfig = createMigrationConfig(
+  {
+    transport: alchemy({ apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY! }),
+    chain,
+    policyId: process.env.NEXT_PUBLIC_ALCHEMY_POLICY_ID,
+  } as any,
+  {
+    illustrationStyle: 'outline',
+    auth: {
+      sections: [
+        [{ type: 'email' }],
+        [
+          { type: 'passkey' },
+          { type: 'social', authProviderId: 'google', mode: 'redirect', redirectUrl: process.env.NEXT_PUBLIC_APP_URL! },
+        ],
+        [{ type: 'external_wallets' }],
+      ],
+      addPasskeyOnSignup: true,
+    },
+  }
+);
 
+// createOnLogin handles wallet creation for the standard redirect OAuth path (where the plugin
+// callback is not invoked). The plugin runs for flows where privy calls it (email, passkey) and
+// suppresses wallet creation for Alchemy migration users (alchemy_org_id present).
+const walletCreationPlugin = createWalletCreationOnLoginPlugin({
+  shouldCreateWallet: ({ user }: { user: User }) => user.customMetadata?.['alchemy_org_id'] === undefined,
+});
+
+export function AlchemyProvider({ children }: { children: React.ReactNode }) {
   return (
-    <AlchemyAccountProvider config={config} queryClient={queryClient} initialState={initialState}>
-      {children}
-    </AlchemyAccountProvider>
+    <PrivyProvider
+      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
+      config={{
+        loginMethods: ['email', 'google', 'passkey', 'wallet'],
+        embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
+        plugins: [walletCreationPlugin],
+      }}
+    >
+      <MigrationProvider alchemyConfig={migrationConfig} privyAppId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}>
+        {children}
+      </MigrationProvider>
+    </PrivyProvider>
   );
 }

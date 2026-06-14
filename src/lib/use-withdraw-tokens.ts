@@ -1,14 +1,11 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { getRpc } from '@/lib/constants';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSendUserOperation } from '@account-kit/react';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
-import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
-import { ethers } from 'ethers';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
 
@@ -29,85 +26,49 @@ export interface UseWithdrawTokensReturn {
 }
 
 export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): UseWithdrawTokensReturn => {
-  const { client, ocean, user } = useOceanAccount();
+  const { ocean, user } = useOceanAccount();
+  const { sendTransaction } = useAlchemySendTransaction();
 
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [error, setError] = useState<string>();
   const chainId = CHAIN_ID;
-
-  const handleSuccess = () => {
-    setIsWithdrawing(false);
-    setError(undefined);
-    toast.success('Withdraw successful!');
-    onSuccess?.();
-  };
-
-  const handleError = (error: any) => {
-    console.error('Withdraw error:', error);
-    setIsWithdrawing(false);
-    let prettyErr = '';
-    if (error.details) {
-      let d = 0,
-        v = 0;
-      const arr = error.details;
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i] === 'D' && arr.slice(i, i + 7) === 'Details') {
-          d = i;
-        }
-        if (arr[i] === 'V' && arr.slice(i, i + 7) === 'Version') {
-          v = i;
-        }
-      }
-
-      prettyErr = arr.slice(d + 8, v);
-    }
-    const errorText = prettyErr ?? error.details ?? 'Withdraw failed';
-    setError(errorText);
-    toast.error(errorText);
-  };
-
-  const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-    onError: handleError,
-    onSuccess: handleSuccess,
-    onMutate: () => {
-      setIsWithdrawing(true);
-      setError(undefined);
-    },
-  });
 
   const handleWithdraw = useCallback(
     async ({ tokenAddresses, amounts }: WithdrawTokensParams) => {
       if (user?.type === 'eoa') {
         try {
           setIsWithdrawing(true);
-          if (!ocean) {
-            return;
-          }
+          if (!ocean) return;
           const tx = await ocean.withdrawTokensEoa({ tokenAddresses, amounts });
           await tx.wait();
-          handleSuccess();
-        } catch (error) {
-          handleError(error as Error);
+          setIsWithdrawing(false);
+          setError(undefined);
+          toast.success('Withdraw successful!');
+          onSuccess?.();
+        } catch (err) {
+          console.error('Withdraw error:', err);
+          setIsWithdrawing(false);
+          const errorText = err instanceof Error ? err.message : 'Withdraw failed';
+          setError(errorText);
+          toast.error(errorText);
         }
         return;
       }
 
-      if (!client) return;
       if (tokenAddresses.length !== amounts.length) return;
 
       try {
+        setIsWithdrawing(true);
+        setError(undefined);
+
         const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === chainId);
         if (!config || !(config as any).Escrow) {
           throw new Error('No escrow found for chainId');
         }
 
-        const provider = new ethers.JsonRpcProvider(getRpc());
         const normalizedAmounts = [];
         for (let i = 0; i < tokenAddresses.length; i++) {
           const tokenDecimals = await getTokenDecimals(tokenAddresses[i]);
-
           normalizedAmounts.push(
             BigInt(new BigNumber(amounts[i]).multipliedBy(new BigNumber(10).pow(Number(tokenDecimals))).toFixed(0))
           );
@@ -119,34 +80,29 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
           args: [tokenAddresses, normalizedAmounts],
         });
 
-        sendUserOperation({
-          uo: {
-            target: (config as any).Escrow as `0x${string}`,
-            data: data as `0x${string}`,
-          },
+        await sendTransaction({
+          to: (config as any).Escrow as `0x${string}`,
+          data: data as `0x${string}`,
         });
+
+        setIsWithdrawing(false);
+        setError(undefined);
+        toast.success('Withdraw successful!');
+        onSuccess?.();
       } catch (err) {
-        const errorText = err instanceof Error ? err.message : 'Failed to prepare withdraw';
-        console.error('Error preparing withdraw:', err);
+        console.error('Withdraw error:', err);
+        setIsWithdrawing(false);
+        const errorText = err instanceof Error ? err.message : 'Withdraw failed';
         setError(errorText);
         toast.error(errorText);
-        setIsWithdrawing(false);
       }
     },
-    [user?.type, client, ocean, sendUserOperation, chainId]
+    [user?.type, ocean, sendTransaction, chainId, onSuccess]
   );
-
-  const transactionUrl = useMemo(() => {
-    if (!client?.chain?.blockExplorers || !sendUserOperationResult?.hash) {
-      return undefined;
-    }
-    return `${client.chain.blockExplorers.default.url}/tx/${sendUserOperationResult.hash}`;
-  }, [client, sendUserOperationResult?.hash]);
 
   return {
     isWithdrawing,
     handleWithdraw,
-    transactionUrl,
     error,
   };
 };

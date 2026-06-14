@@ -3,7 +3,7 @@ import Card from '@/components/card/card';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import FaucetArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsTokenFaucet.sol/GrantsTokenFaucet.json';
 import { ClaimGrantResponse } from '@/types/grant';
-import { useAuthModal } from '@account-kit/react';
+import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
 import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
@@ -13,7 +13,7 @@ import { useProfileContext } from '../../context/profile-context';
 import styles from './claim.module.css';
 
 const Claim: React.FC = () => {
-  const { closeAuthModal, isOpen: isAuthModalOpen, openAuthModal } = useAuthModal();
+  const { login } = usePrivy();
 
   const { account, sendTransaction, isSendingTransaction } = useOceanAccount();
   const { fetchGrantStatus } = useProfileContext();
@@ -23,19 +23,10 @@ const Claim: React.FC = () => {
 
   const tokenAmount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
 
-  // This is a workaround for the modal not closing after connecting
-  // https://github.com/alchemyplatform/aa-sdk/issues/2327
-  // TODO remove once the issue is fixed
-  useEffect(() => {
-    if (isAuthModalOpen && account.isConnected) {
-      closeAuthModal();
-    }
-  }, [account.isConnected, closeAuthModal, isAuthModalOpen]);
-
   const handleClaim = async () => {
     posthog.capture('grant_claim_clicked');
     if (!account.isConnected) {
-      openAuthModal();
+      login();
       return;
     }
     try {

@@ -44,7 +44,7 @@ function getReadContract(contractAddress: string): ethers.Contract {
 const NEW_ACCESS_LIST_TOPIC = ethers.id('NewAccessList(address,address)');
 
 export function useAccessList() {
-  const { client, provider, user } = useOceanAccount();
+  const { sendTransaction, provider, user } = useOceanAccount();
 
   const getSigner = useCallback(async () => {
     if (!provider) {
@@ -55,15 +55,11 @@ export function useAccessList() {
 
   const sendUO = useCallback(
     async (target: string, data: `0x${string}`) => {
-      if (!client) {
-        throw new Error('Wallet not connected');
-      }
-      const { hash } = await client.sendUserOperation({
-        uo: { target: target as `0x${string}`, data },
+      return new Promise<void>((resolve, reject) => {
+        sendTransaction({ target, data, onSuccess: () => resolve(), onError: reject });
       });
-      await client.waitForUserOperationTransaction({ hash });
     },
-    [client]
+    [sendTransaction]
   );
 
   const deployNewAccessList = useCallback(
@@ -99,9 +95,6 @@ export function useAccessList() {
         return address;
       }
 
-      if (!client) {
-        throw new Error('Wallet not connected');
-      }
       const data = encodeFunctionData({
         abi: AccessListFactoryABI.abi,
         functionName: 'deployAccessListContract',
@@ -114,23 +107,36 @@ export function useAccessList() {
           wallets.map(() => ''),
         ],
       });
-      const { hash } = await client.sendUserOperation({
-        uo: { target: factoryAddress as `0x${string}`, data },
+
+      return new Promise<string>((resolve, reject) => {
+        sendTransaction({
+          target: factoryAddress,
+          data,
+          onSuccess: async (result) => {
+            try {
+              const txHash = result.hash;
+              const rpcProvider = new ethers.JsonRpcProvider(getRpc());
+              const receipt = await rpcProvider.getTransactionReceipt(txHash);
+              if (!receipt) {
+                reject(new Error('Could not fetch transaction receipt'));
+                return;
+              }
+              for (const log of receipt.logs) {
+                if (log.topics[0] === NEW_ACCESS_LIST_TOPIC && log.address.toLowerCase() === factoryAddress.toLowerCase()) {
+                  resolve(ethers.getAddress('0x' + log.topics[1].slice(26)));
+                  return;
+                }
+              }
+              reject(new Error('NewAccessList event not found in receipt'));
+            } catch (err) {
+              reject(err);
+            }
+          },
+          onError: reject,
+        });
       });
-      const txHash = await client.waitForUserOperationTransaction({ hash });
-      const rpcProvider = new ethers.JsonRpcProvider(getRpc());
-      const receipt = await rpcProvider.getTransactionReceipt(txHash);
-      if (!receipt) {
-        throw new Error('Could not fetch transaction receipt');
-      }
-      for (const log of receipt.logs) {
-        if (log.topics[0] === NEW_ACCESS_LIST_TOPIC && log.address.toLowerCase() === factoryAddress.toLowerCase()) {
-          return ethers.getAddress('0x' + log.topics[1].slice(26));
-        }
-      }
-      throw new Error('NewAccessList event not found in receipt');
     },
-    [client, getSigner, user?.type]
+    [getSigner, sendTransaction, user?.type]
   );
 
   /**
