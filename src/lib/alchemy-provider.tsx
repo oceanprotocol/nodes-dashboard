@@ -30,17 +30,8 @@ const migrationConfig = createMigrationConfig(
 // callback is not invoked). The plugin runs for flows where privy calls it (email, passkey) and
 // suppresses wallet creation for Alchemy migration users (alchemy_org_id present).
 const walletCreationPlugin = createWalletCreationOnLoginPlugin({
-  shouldCreateWallet: ({ user }: { user: User }) => {
-    const hasAlchemyOrg = user.customMetadata?.['alchemy_org_id'] !== undefined;
-    const shouldCreate = !hasAlchemyOrg;
-    console.log('[walletCreationPlugin] shouldCreateWallet called', {
-      userId: user.id,
-      customMetadata: user.customMetadata,
-      hasAlchemyOrg,
-      shouldCreate,
-    });
-    return shouldCreate;
-  },
+  shouldCreateWallet: ({ user }: { user: User }) =>
+    user.customMetadata?.['alchemy_org_id'] === undefined,
 });
 
 export function AlchemyProvider({ children }: { children: React.ReactNode }) {

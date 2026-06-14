@@ -65,10 +65,11 @@ const SCAHandler = ({ children, address }: { children: ReactNode; address: strin
       const embeddedWallet = getEmbeddedConnectedWallet(wallets);
       if (!embeddedWallet) throw new Error('No embedded wallet available');
       const ethProvider = await embeddedWallet.getEthereumProvider();
-      return await ethProvider.request({
-        method: 'personal_sign',
-        params: [message, embeddedWallet.address],
-      });
+      const browserProvider = new ethers.BrowserProvider(ethProvider);
+      const signer = await browserProvider.getSigner();
+      // Mirror the EOA path: keccak256-hash the message and sign the hash bytes, so the
+      // signature matches what the node verifies (verifyMessage over the hashed digest).
+      return await signMessage(message, signer);
     },
     [wallets]
   );
@@ -228,22 +229,9 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 };
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
-  const { ready, authenticated, user } = usePrivy();
+  const { ready, authenticated } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const embeddedWallet = getEmbeddedConnectedWallet(wallets);
-
-  useEffect(() => {
-    console.log('[OceanAccount] state changed', {
-      ready,
-      authenticated,
-      walletsReady,
-      walletCount: wallets.length,
-      wallets: wallets.map((w) => ({ address: w.address, type: w.walletClientType, connector: w.connectorType, imported: (w as any).imported })),
-      embeddedWallet: embeddedWallet ? { address: embeddedWallet.address } : null,
-      userLinkedAccounts: user?.linkedAccounts?.map((a) => ({ type: a.type, ...(a.type === 'google_oauth' ? { email: (a as any).email } : {}) })),
-      userCustomMetadata: user?.customMetadata,
-    });
-  }, [ready, authenticated, walletsReady, wallets, embeddedWallet, user]);
 
   if (!ready) {
     return (
