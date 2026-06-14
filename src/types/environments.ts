@@ -43,6 +43,7 @@ export type ComputeEnvironment = {
   access?: EnvironmentAccess;
   consumerAddress: string;
   description?: string;
+  enableNetwork?: boolean;
   fees?: ComputeEnvFeesStructure;
   free?: {
     access?: EnvironmentAccess;
