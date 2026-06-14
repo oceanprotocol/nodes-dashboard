@@ -9,10 +9,11 @@ type Call = { to: `0x${string}`; data?: `0x${string}`; value?: bigint };
 
 const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
 
-function useAlchemyClient(): SmartWalletClient | null {
+function useAlchemyClient(): { client: SmartWalletClient | null; accountAddress?: `0x${string}` } {
   const { wallets } = useWallets();
   const embeddedWallet = getEmbeddedWallet(wallets);
   const [signer, setSigner] = useState<LocalAccount | undefined>();
+  const [accountAddress, setAccountAddress] = useState<`0x${string}` | undefined>();
 
   useEffect(() => {
     if (!embeddedWallet) {
@@ -22,7 +23,7 @@ function useAlchemyClient(): SmartWalletClient | null {
     toViemAccount({ wallet: embeddedWallet }).then((s) => setSigner(s as unknown as LocalAccount));
   }, [embeddedWallet]);
 
-  return useMemo((): SmartWalletClient | null => {
+  const client = useMemo((): SmartWalletClient | null => {
     if (!signer) return null;
     return createSmartWalletClient({
       signer,
@@ -33,25 +34,58 @@ function useAlchemyClient(): SmartWalletClient | null {
         : undefined,
     });
   }, [signer]);
+
+  // wallet-apis defaults to EIP-7702 (account == signer EOA), but Alchemy users' funds live in
+  // their existing smart contract account. Resolve that account for the signer and use it as the
+  // identity + the `account` for all calls, so the app shows the same address/balance as before.
+  useEffect(() => {
+    if (!client) {
+      setAccountAddress(undefined);
+      return;
+    }
+    let cancelled = false;
+    (client as any)
+      .requestAccount()
+      .then((acc: { address: `0x${string}` }) => {
+        if (!cancelled) setAccountAddress(acc.address);
+      })
+      .catch((e: unknown) => console.error('[alchemy] requestAccount failed', e));
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+
+  return { client, accountAddress };
 }
 
 export function useAlchemySendTransaction() {
-  const client = useAlchemyClient();
+  const { client, accountAddress } = useAlchemyClient();
   const [isLoading, setIsLoading] = useState(false);
 
   const sendTransaction = useMemo(() => {
     return async (callsInput: Call | Call[]) => {
-      if (!client) throw new Error('Alchemy client not ready');
+      if (!client || !accountAddress) throw new Error('Alchemy client not ready');
       const calls = Array.isArray(callsInput) ? callsInput : [callsInput];
       setIsLoading(true);
       try {
-        const { id } = await client.sendCalls({ calls });
+        // Execute from the smart account, not the default EIP-7702 signer address.
+        const { id } = await (client as any).sendCalls({ calls, account: accountAddress });
         return await client.waitForCallsStatus({ id });
       } finally {
         setIsLoading(false);
       }
     };
-  }, [client]);
+  }, [client, accountAddress]);
 
-  return { sendTransaction, isLoading };
+  // ERC-1271 signature produced by the smart account (EIP-191), which the node verifies via the
+  // account's isValidSignature. Do NOT keccak-pre-hash here (unlike the EOA path) — the node's
+  // ERC-1271 check hashes the raw message itself (hashMessage(message)).
+  const signMessage = useMemo(() => {
+    return async (message: string): Promise<string> => {
+      if (!client || !accountAddress) throw new Error('Alchemy client not ready');
+      return await (client as any).signMessage({ message, account: accountAddress });
+    };
+  }, [client, accountAddress]);
+
+  return { sendTransaction, isLoading, accountAddress, signMessage };
 }

@@ -47,12 +47,19 @@ type OceanAccountContextType = {
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
-const SCAHandler = ({ children, address }: { children: ReactNode; address: string }) => {
+const SCAHandler = ({ children }: { children: ReactNode }) => {
   const { logout } = usePrivy();
-  const { wallets } = useWallets();
-  const { sendTransaction, isLoading: isSendingTransaction } = useAlchemySendTransaction();
+  // address is the Alchemy smart contract account (where the user's funds are), resolved from the
+  // embedded-wallet signer — not the signer's own EOA address.
+  const {
+    sendTransaction,
+    isLoading: isSendingTransaction,
+    accountAddress: address,
+    signMessage: signWithSmartAccount,
+  } = useAlchemySendTransaction();
 
   useEffect(() => {
+    if (!address) return;
     posthog.identify(address);
     posthog.capture('login', { address, type: 'sca' });
   }, [address]);
@@ -61,18 +68,13 @@ const SCAHandler = ({ children, address }: { children: ReactNode; address: strin
 
   const ocean = useMemo(() => new OceanProvider(CHAIN_ID, provider), [provider]);
 
+  // Sign as the smart account (ERC-1271), since the node identifies the user by the smart-account
+  // address. The Alchemy client produces a signature the account's isValidSignature accepts.
   const signMessageWrapper = useCallback(
     async (message: string): Promise<string> => {
-      const embeddedWallet = getEmbeddedWallet(wallets);
-      if (!embeddedWallet) throw new Error('No embedded wallet available');
-      const ethProvider = await embeddedWallet.getEthereumProvider();
-      const browserProvider = new ethers.BrowserProvider(ethProvider);
-      const signer = await browserProvider.getSigner();
-      // Mirror the EOA path: keccak256-hash the message and sign the hash bytes, so the
-      // signature matches what the node verifies (verifyMessage over the hashed digest).
-      return await signMessage(message, signer);
+      return await signWithSmartAccount(message);
     },
-    [wallets]
+    [signWithSmartAccount]
   );
 
   const sendTransactionWrapper = useCallback(
@@ -96,6 +98,24 @@ const SCAHandler = ({ children, address }: { children: ReactNode; address: strin
     },
     [sendTransaction]
   );
+
+  // Wait for the smart account address to resolve before rendering as connected, so we never
+  // briefly expose the wrong address (or an unconnected state that retriggers the login modal).
+  if (!address) {
+    return (
+      <div
+        style={{
+          alignItems: 'center',
+          display: 'flex',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100vw',
+        }}
+      >
+        <CircularProgress />
+      </div>
+    );
+  }
 
   return (
     <OceanAccountContext.Provider
@@ -280,7 +300,7 @@ export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
   }
 
   if (authenticated && embeddedWallet) {
-    return <SCAHandler address={embeddedWallet.address}>{children}</SCAHandler>;
+    return <SCAHandler>{children}</SCAHandler>;
   }
 
   if (authenticated && !walletsReady) {
