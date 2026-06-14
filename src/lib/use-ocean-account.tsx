@@ -254,35 +254,6 @@ export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
   const { wallets, ready: walletsReady } = useWallets();
   const embeddedWallet = getEmbeddedWallet(wallets);
 
-  console.log('authenticated', authenticated, 'embeddedWallet', embeddedWallet, 'user', user, 'wallets', wallets);
-
-  // TEMP DIAGNOSTIC: confirm whether the imported (migrated) wallet registers as an ethereum
-  // linkedAccount. If it does NOT, the migration SDK keeps re-running (needsEthMigration stays
-  // true) and re-import fails with "Wallet already exists".
-  useEffect(() => {
-    if (!ready) return;
-    const linkedAccounts = (user?.linkedAccounts ?? []) as any[];
-    console.log('[migration-debug]', {
-      authenticated,
-      customMetadata: user?.customMetadata,
-      linkedAccounts: linkedAccounts.map((a) => ({
-        type: a.type,
-        chainType: a.chainType,
-        walletClientType: a.walletClientType,
-        address: a.address,
-        imported: a.imported,
-      })),
-      hasEthLinkedWallet: linkedAccounts.some((a) => a.type === 'wallet' && a.chainType === 'ethereum'),
-      wallets: wallets.map((w) => ({
-        address: w.address,
-        walletClientType: w.walletClientType,
-        connectorType: w.connectorType,
-        imported: (w as any).imported,
-      })),
-      resolvedEmbeddedWallet: embeddedWallet?.address ?? null,
-    });
-  }, [ready, authenticated, user, wallets, embeddedWallet]);
-
   if (!ready) {
     return (
       <div
