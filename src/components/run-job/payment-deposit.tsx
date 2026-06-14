@@ -73,6 +73,7 @@ const PaymentDeposit = ({
           <Button
             autoLoading
             color="accent1"
+            data-tutorial="payment-continue-button"
             disabled={loadingPaymentInfo || isDepositing}
             onClick={loadPaymentInfo}
             size="lg"
@@ -83,6 +84,7 @@ const PaymentDeposit = ({
         ) : (
           <Button
             color="accent1"
+            data-tutorial="deposit-button"
             disabled={isDepositing || walletBalance < amountToDeposit}
             loading={isDepositing}
             size="lg"

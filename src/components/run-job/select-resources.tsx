@@ -332,6 +332,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       <h3>Select resources</h3>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         <Select
+          data-tutorial="gpu-select"
           endAdornment={
             <Button color="accent2" onClick={selectAllGpus} size="sm" type="button" variant="filled">
               Select all
@@ -409,23 +410,25 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             type="number"
             value={formik.values.diskSpace}
           />
-          <DurationInput
-            availableUnits={DURATION_UNIT_OPTIONS}
-            defaultUnit={selectedMaxJobDurationSeconds ? 'seconds' : 'hours'}
-            errorText={
-              formik.touched.maxJobDurationSeconds && formik.errors.maxJobDurationSeconds
-                ? formik.errors.maxJobDurationSeconds
-                : undefined
-            }
-            label="Max job duration"
-            min={0}
-            name="maxJobDurationSeconds"
-            onBlur={formik.handleBlur}
-            onChange={(seconds) => formik.setFieldValue('maxJobDurationSeconds', seconds)}
-            onSetMax={setMaxJobDuration}
-            topRight={`${formatDuration(minAllowedJobDurationSeconds, true)} - ${formatDuration(maxAllowedJobDurationSeconds, true)}`}
-            value={formik.values.maxJobDurationSeconds}
-          />
+          <div data-tutorial="duration-slider">
+            <DurationInput
+              availableUnits={DURATION_UNIT_OPTIONS}
+              defaultUnit={selectedMaxJobDurationSeconds ? 'seconds' : 'hours'}
+              errorText={
+                formik.touched.maxJobDurationSeconds && formik.errors.maxJobDurationSeconds
+                  ? formik.errors.maxJobDurationSeconds
+                  : undefined
+              }
+              label="Max job duration"
+              min={0}
+              name="maxJobDurationSeconds"
+              onBlur={formik.handleBlur}
+              onChange={(seconds) => formik.setFieldValue('maxJobDurationSeconds', seconds)}
+              onSetMax={setMaxJobDuration}
+              topRight={`${formatDuration(minAllowedJobDurationSeconds, true)} - ${formatDuration(maxAllowedJobDurationSeconds, true)}`}
+              value={formik.values.maxJobDurationSeconds}
+            />
+          </div>
         </div>
         {freeCompute ? null : (
           <TransitionGroup>
@@ -443,7 +446,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           >
             Change environment
           </Button>
-          <Button disabled={!isCostEstimated} color="accent1" size="lg" type="submit">
+          <Button data-tutorial="continue-button" disabled={!isCostEstimated} color="accent1" size="lg" type="submit">
             Continue
           </Button>
         </div>

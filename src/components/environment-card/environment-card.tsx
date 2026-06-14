@@ -420,6 +420,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     return (
       <Checkbox
         className={styles.freeComputeCheckbox}
+        data-tutorial="test-compute-checkbox"
         disabled={isDisabled}
         label={
           isDisabled ? (
@@ -480,6 +481,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         contentBefore={<PlayArrowIcon />}
         disabled={isDisabled}
         onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
+        data-tutorial={isFreeCompute ? 'run-test-job-button' : 'environment-select-button'}
       >
         {isFreeCompute
           ? 'Run test job'

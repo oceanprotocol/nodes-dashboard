@@ -4,13 +4,19 @@ import ConsumerJobs from '@/components/profile/consumer-jobs';
 import ConsumerStats from '@/components/profile/consumer-stats';
 import ProfileHeader from '@/components/profile/profile-header';
 import SectionTitle from '@/components/section-title/section-title';
+import TutorialButton from '@/components/tutorial/tutorial-button';
 
 const ConsumerProfilePage = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
-        title="My profile"
+        title={
+          <div className="flexRow alignItemsStart gapXs">
+            <span>My profile</span>
+            <TutorialButton tutorialId="consumer-profile-flow" currentPage="consumer" />
+          </div>
+        }
         subTitle="Manage your nodes, jobs, tokens and activity in one place"
       />
       <div className="pageContentWrapper">

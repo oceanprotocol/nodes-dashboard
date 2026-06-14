@@ -26,7 +26,7 @@ const ConsumerStats = () => {
   }, [fetchJobsSuccessRate]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
+    <Card data-tutorial="consumer-stats" className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalPaidAmount"

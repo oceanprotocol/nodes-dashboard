@@ -181,7 +181,7 @@ const Summary = ({
   );
 
   return (
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+    <Card data-tutorial="summary-review" direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Your selection</h3>
       <div className={styles.grid}>
         {nodeInfo.friendlyName ? (
@@ -279,6 +279,7 @@ const Summary = ({
               <Button
                 autoLoading
                 color="accent1"
+                data-tutorial="open-ide-button"
                 contentBefore={
                   <span style={{ height: '18px', width: 'auto', display: 'flex', alignItems: 'center' }}>
                     {selectedIde.icon}
