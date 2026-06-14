@@ -1,17 +1,11 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
+import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { signMessage } from '@/lib/sign-message';
-import {
-  useAccount,
-  useSendUserOperation,
-  useSignerStatus,
-  useSignMessage,
-  useSmartAccountClient,
-  useUser,
-  UseUserResult,
-} from '@account-kit/react';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { CircularProgress } from '@mui/material';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -30,13 +24,15 @@ class MetaMaskBrowserProvider extends ethers.BrowserProvider {
 
 export type SignMessageFn = (message: string) => Promise<string>;
 
+export type OceanUser = { type: 'sca'; address: string } | { type: 'eoa'; address?: string } | null;
+
 type OceanAccountContextType = {
   account: {
     address: string | undefined;
     isConnected: boolean;
   };
-  client?: ReturnType<typeof useSmartAccountClient>['client'];
   isSendingTransaction: boolean;
+  logout: () => Promise<void>;
   ocean: OceanProvider | null;
   provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
   sendTransaction: (params: {
@@ -46,50 +42,41 @@ type OceanAccountContextType = {
     onError?: (error: any) => void;
   }) => void;
   signMessage: SignMessageFn;
-  user: UseUserResult;
+  user: OceanUser;
 };
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
-const SCAHandler = ({ children }: { children: ReactNode }) => {
-  const user = useUser();
-  const { client } = useSmartAccountClient({ type: 'LightAccount' });
-  const { signMessageAsync } = useSignMessage({ client });
-
-  const address = client?.account?.address ?? user?.address;
-  const isConnected = !!client;
+const SCAHandler = ({ children, address }: { children: ReactNode; address: string }) => {
+  const { logout } = usePrivy();
+  const { wallets } = useWallets();
+  const { sendTransaction, isLoading: isSendingTransaction } = useAlchemySendTransaction();
 
   useEffect(() => {
-    if (address) {
-      posthog.identify(address);
-      posthog.capture('login', { address, type: 'sca' });
-    }
+    posthog.identify(address);
+    posthog.capture('login', { address, type: 'sca' });
   }, [address]);
 
-  const provider = useMemo(() => {
-    if (!isConnected) return null;
-    return new ethers.JsonRpcProvider(getRpc());
-  }, [isConnected]);
+  const provider = useMemo(() => new ethers.JsonRpcProvider(getRpc()), []);
 
-  const ocean = useMemo(() => {
-    if (!provider) return null;
-    return new OceanProvider(CHAIN_ID, provider);
-  }, [provider]);
+  const ocean = useMemo(() => new OceanProvider(CHAIN_ID, provider), [provider]);
 
   const signMessageWrapper = useCallback(
-    async (message: string) => {
-      return await signMessageAsync({ message });
+    async (message: string): Promise<string> => {
+      const embeddedWallet = getEmbeddedWallet(wallets);
+      if (!embeddedWallet) throw new Error('No embedded wallet available');
+      const ethProvider = await embeddedWallet.getEthereumProvider();
+      const browserProvider = new ethers.BrowserProvider(ethProvider);
+      const signer = await browserProvider.getSigner();
+      // Mirror the EOA path: keccak256-hash the message and sign the hash bytes, so the
+      // signature matches what the node verifies (verifyMessage over the hashed digest).
+      return await signMessage(message, signer);
     },
-    [signMessageAsync]
+    [wallets]
   );
 
-  const { sendUserOperation, isSendingUserOperation } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-  });
-
   const sendTransactionWrapper = useCallback(
-    ({
+    async ({
       target,
       data,
       onSuccess,
@@ -100,37 +87,27 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
       onSuccess?: (result: any) => void;
       onError?: (error: any) => void;
     }) => {
-      sendUserOperation(
-        {
-          uo: {
-            target: target as `0x${string}`,
-            data: data as `0x${string}`,
-          },
-        },
-        {
-          onSuccess: (result: any) => {
-            onSuccess?.(result);
-          },
-          onError: (error: any) => {
-            onError?.(error);
-          },
-        }
-      );
+      try {
+        const result = await sendTransaction({ to: target as `0x${string}`, data: data as `0x${string}` });
+        onSuccess?.({ ...result, hash: result?.receipts?.[0]?.transactionHash });
+      } catch (error) {
+        onError?.(error);
+      }
     },
-    [sendUserOperation]
+    [sendTransaction]
   );
 
   return (
     <OceanAccountContext.Provider
       value={{
-        account: { address, isConnected },
-        isSendingTransaction: isSendingUserOperation,
-        client,
+        account: { address, isConnected: true },
+        isSendingTransaction,
+        logout,
         ocean,
         provider,
         sendTransaction: sendTransactionWrapper,
         signMessage: signMessageWrapper,
-        user,
+        user: { type: 'sca', address },
       }}
     >
       {children}
@@ -139,18 +116,8 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
 };
 
 const EOAHandler = ({ children }: { children: ReactNode }) => {
-  const user = useUser();
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
-
-  const address = user?.address;
-  const isConnected = !!user;
-
-  useEffect(() => {
-    if (address) {
-      posthog.identify(address);
-      posthog.capture('login', { address, type: 'eoa' });
-    }
-  }, [address]);
+  const [address, setAddress] = useState<string | undefined>();
 
   const provider = useMemo(() => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
@@ -159,10 +126,47 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
     return null;
   }, []);
 
+  useEffect(() => {
+    if (!provider) return;
+    const ethereum = (window as any).ethereum;
+
+    provider
+      .listAccounts()
+      .then((accounts) => accounts[0]?.address)
+      .then((addr) => setAddress(addr))
+      .catch(() => {});
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      setAddress(accounts[0] ?? undefined);
+    };
+
+    ethereum?.on('accountsChanged', handleAccountsChanged);
+    return () => {
+      ethereum?.removeListener('accountsChanged', handleAccountsChanged);
+    };
+  }, [provider]);
+
+  useEffect(() => {
+    if (address) {
+      posthog.identify(address);
+      posthog.capture('login', { address, type: 'eoa' });
+    }
+  }, [address]);
+
   const ocean = useMemo(() => {
     if (!provider) return null;
     return new OceanProvider(CHAIN_ID, provider);
   }, [provider]);
+
+  const logout = useCallback(async () => {
+    try {
+      await (window as any).ethereum?.request({
+        method: 'wallet_revokePermissions',
+        params: [{ eth_accounts: {} }],
+      });
+    } catch {} // not supported by all wallets
+    setAddress(undefined);
+  }, []);
 
   const signMessageWrapper = useCallback(
     async (message: string) => {
@@ -194,12 +198,9 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
       try {
         setIsSendingTransaction(true);
         const signer = await provider.getSigner();
-        const tx = await signer.sendTransaction({
-          to: target,
-          data,
-        });
-        const recipe = await tx.wait();
-        onSuccess?.(recipe);
+        const tx = await signer.sendTransaction({ to: target, data });
+        const receipt = await tx.wait();
+        onSuccess?.(receipt);
       } catch (error) {
         console.error('EOA Transaction error:', error);
         onError?.(error);
@@ -213,13 +214,14 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
   return (
     <OceanAccountContext.Provider
       value={{
-        account: { address, isConnected },
+        account: { address, isConnected: !!address },
         isSendingTransaction,
+        logout,
         ocean,
         provider,
         sendTransaction: sendTransactionWrapper,
         signMessage: signMessageWrapper,
-        user,
+        user: address ? { type: 'eoa', address } : null,
       }}
     >
       {children}
@@ -228,29 +230,46 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 };
 
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
-  const user = useUser();
+  const { ready, authenticated } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
+  const embeddedWallet = getEmbeddedWallet(wallets);
 
-  const { account, isLoadingAccount } = useAccount({ type: 'LightAccount' });
-  const { isInitializing, isAuthenticating, isConnected } = useSignerStatus();
-
-  if (user?.type === 'sca') {
-    if (isInitializing || isAuthenticating || !isConnected || isLoadingAccount || !account) {
-      return (
-        <div
-          style={{
-            alignItems: 'center',
-            display: 'flex',
-            justifyContent: 'center',
-            height: '100vh',
-            width: '100vw',
-          }}
-        >
-          <CircularProgress />
-        </div>
-      );
-    }
-    return <SCAHandler>{children}</SCAHandler>;
+  if (!ready) {
+    return (
+      <div
+        style={{
+          alignItems: 'center',
+          display: 'flex',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100vw',
+        }}
+      >
+        <CircularProgress />
+      </div>
+    );
   }
+
+  if (authenticated && embeddedWallet) {
+    return <SCAHandler address={embeddedWallet.address}>{children}</SCAHandler>;
+  }
+
+  if (authenticated && !walletsReady) {
+    return (
+      <div
+        style={{
+          alignItems: 'center',
+          display: 'flex',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100vw',
+        }}
+      >
+        <CircularProgress />
+      </div>
+    );
+  }
+
   return <EOAHandler>{children}</EOAHandler>;
 };
 

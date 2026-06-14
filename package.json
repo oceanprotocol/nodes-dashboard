@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "@account-kit/infra": "4.84.1",
-    "@account-kit/react": "4.84.1",
+    "@account-kit/privy-integration": "^4.88.1",
+    "@account-kit/react": "4.88.1",
+    "@alchemy/wallet-apis": "^5.0.0-beta.26",
     "@chainsafe/libp2p-noise": "^17.0.0",
     "@chainsafe/libp2p-yamux": "^8.0.1",
     "@emotion/react": "^11.14.0",
@@ -24,8 +26,11 @@
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
     "@mui/x-data-grid": "^8.14.1",
+    "@multiformats/multiaddr": "^13.0.1",
     "@oceanprotocol/contracts": "^2.8.0",
     "@oceanprotocol/lib": "^8.5.1",
+    "@privy-io/alchemy-migration": "^0.0.5",
+    "@privy-io/react-auth": "^3.22.2",
     "@ramp-network/ramp-instant-sdk": "^6.2.0",
     "@tanstack/react-query": "^5.28.4",
     "@vercel/functions": "^3.6.0",
@@ -80,6 +85,10 @@
   "packageManager": "yarn@4.5.1+sha512.341db9396b6e289fecc30cd7ab3af65060e05ebff4b3b47547b278b9e67b08f485ecd8c79006b405446262142c7a38154445ef7f17c1d5d1de7d90bf9ce7054d",
   "resolutions": {
     "axios": "1.12.2",
-    "uuid": "^8.3.2"
+    "@solana/codecs-core": "5.5.1",
+    "uuid": "^8.3.2",
+    "@reown/appkit-wallet": "1.7.8",
+    "@solana/errors": "6.9.0",
+    "@privy-io/react-auth": "3.22.2"
   }
 }

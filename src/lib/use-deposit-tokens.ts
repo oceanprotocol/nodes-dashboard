@@ -2,14 +2,14 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSendUserOperation } from '@account-kit/react';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 import posthog from 'posthog-js';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
 
@@ -30,129 +30,33 @@ export interface UseDepositTokensReturn {
 }
 
 export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): UseDepositTokensReturn => {
-  const { client, ocean, user } = useOceanAccount();
+  const { ocean, user } = useOceanAccount();
+  const { sendTransaction } = useAlchemySendTransaction();
 
   const [isDepositing, setIsDepositing] = useState(false);
   const [error, setError] = useState<string>();
-  const [currentStep, setCurrentStep] = useState<'idle' | 'approving' | 'depositing'>('idle');
-  const [pendingParams, setPendingParams] = useState<DepositTokensParams | null>(null);
   const chainId = CHAIN_ID;
-
-  const handleSuccess = () => {
-    if (currentStep === 'approving' && pendingParams && user?.type !== 'eoa') {
-      setCurrentStep('depositing');
-      performDeposit(pendingParams.tokenAddress, pendingParams.amount);
-    } else {
-      setIsDepositing(false);
-      setCurrentStep('idle');
-      setError(undefined);
-      setPendingParams(null);
-      toast.success('Deposit successful!');
-      posthog.capture('payment_deposit', {
-        tokenAddress: pendingParams?.tokenAddress,
-        amount: pendingParams?.amount,
-      });
-      onSuccess?.();
-    }
-  };
-
-  const handleError = (error: any) => {
-    console.error('Deposit error:', error);
-    setIsDepositing(false);
-    setCurrentStep('idle');
-    let prettyErr = '';
-    if (error.details) {
-      let d = 0,
-        v = 0;
-      const arr = error.details;
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i] === 'D' && arr.slice(i, i + 7) === 'Details') {
-          d = i;
-        }
-        if (arr[i] === 'V' && arr.slice(i, i + 7) === 'Version') {
-          v = i;
-        }
-      }
-      prettyErr = arr.slice(d + 8, v);
-    }
-    const errorText =
-      prettyErr ?? error.details ?? (currentStep === 'approving' ? 'Approval failed' : 'Deposit failed');
-    setError(errorText);
-    toast.error(errorText);
-  };
-
-  const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-    onError: handleError,
-    onSuccess: handleSuccess,
-    onMutate: () => {
-      setIsDepositing(true);
-      setError(undefined);
-    },
-  });
-
-  const performDeposit = useCallback(
-    async (tokenAddress: string, amount: string) => {
-      if (!client) return;
-
-      try {
-        const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === chainId);
-        if (!config || !(config as any).Escrow) {
-          throw new Error('No escrow found for chainId');
-        }
-
-        const provider = new ethers.JsonRpcProvider(getRpc());
-        const tokenDecimals = await getTokenDecimals(tokenAddress);
-
-        const normalizedAmount = new BigNumber(amount)
-          .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
-          .toFixed(0);
-
-        const data = encodeFunctionData({
-          abi: Escrow.abi,
-          functionName: 'deposit',
-          args: [tokenAddress, BigInt(normalizedAmount)],
-        });
-
-        sendUserOperation({
-          uo: {
-            target: (config as any).Escrow as `0x${string}`,
-            data: data as `0x${string}`,
-          },
-        });
-      } catch (err) {
-        console.error('Error preparing deposit:', err);
-        const errorText = err instanceof Error ? err.message : 'Failed to prepare deposit';
-        setError(errorText);
-        toast.error(errorText);
-        setIsDepositing(false);
-        setCurrentStep('idle');
-      }
-    },
-    [client, sendUserOperation, chainId]
-  );
 
   const handleDeposit = useCallback(
     async ({ tokenAddress, amount }: DepositTokensParams) => {
       if (user?.type === 'eoa') {
         try {
           setIsDepositing(true);
-          if (!ocean) {
-            return;
-          }
+          if (!ocean) return;
           const tx = await ocean.depositTokensEoa({ tokenAddress, amount });
           await tx.wait();
-          handleSuccess();
-        } catch (error) {
-          handleError(error as Error);
+          setIsDepositing(false);
+          setError(undefined);
+          toast.success('Deposit successful!');
+          posthog.capture('payment_deposit', { tokenAddress, amount });
+          onSuccess?.();
+        } catch (err) {
+          console.error('Deposit error:', err);
+          setIsDepositing(false);
+          const errorText = err instanceof Error ? err.message : 'Deposit failed';
+          setError(errorText);
+          toast.error(errorText);
         }
-        return;
-      }
-
-      if (!client) {
-        setError('Wallet not connected');
-        toast.error('Wallet not connected');
         return;
       }
 
@@ -163,59 +67,56 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
       }
 
       try {
-        setPendingParams({ tokenAddress, amount });
+        setIsDepositing(true);
+        setError(undefined);
 
         const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === chainId);
         if (!config || !(config as any).Escrow) {
-          setError('No escrow found for chainId');
-          toast.error('No escrow found for chainId');
-          return;
+          throw new Error('No escrow found for chainId');
         }
+        const escrowAddress = (config as any).Escrow as `0x${string}`;
 
-        const provider = new ethers.JsonRpcProvider(getRpc());
         const tokenDecimals = await getTokenDecimals(tokenAddress);
-
         const normalizedAmount = new BigNumber(amount)
           .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
           .toFixed(0);
 
-        setCurrentStep('approving');
         const approveData = encodeFunctionData({
           abi: ERC20Template.abi,
           functionName: 'approve',
-          args: [(config as any).Escrow, BigInt(normalizedAmount)],
+          args: [escrowAddress, BigInt(normalizedAmount)],
         });
 
-        sendUserOperation({
-          uo: {
-            target: tokenAddress as `0x${string}`,
-            data: approveData as `0x${string}`,
-          },
+        const depositData = encodeFunctionData({
+          abi: Escrow.abi,
+          functionName: 'deposit',
+          args: [tokenAddress, BigInt(normalizedAmount)],
         });
+
+        await sendTransaction([
+          { to: tokenAddress as `0x${string}`, data: approveData as `0x${string}` },
+          { to: escrowAddress, data: depositData as `0x${string}` },
+        ]);
+
+        setIsDepositing(false);
+        setError(undefined);
+        toast.success('Deposit successful!');
+        posthog.capture('payment_deposit', { tokenAddress, amount });
+        onSuccess?.();
       } catch (err) {
-        console.error('Error preparing deposit:', err);
-        const errorText = err instanceof Error ? err.message : 'Failed to prepare deposit';
+        console.error('Deposit error:', err);
+        setIsDepositing(false);
+        const errorText = err instanceof Error ? err.message : 'Deposit failed';
         setError(errorText);
         toast.error(errorText);
-        setIsDepositing(false);
-        setCurrentStep('idle');
-        setPendingParams(null);
       }
     },
-    [user?.type, client, ocean, sendUserOperation, chainId]
+    [user?.type, ocean, sendTransaction, chainId, onSuccess]
   );
-
-  const transactionUrl = useMemo(() => {
-    if (!client?.chain?.blockExplorers || !sendUserOperationResult?.hash) {
-      return undefined;
-    }
-    return `${client.chain.blockExplorers.default.url}/tx/${sendUserOperationResult.hash}`;
-  }, [client, sendUserOperationResult?.hash]);
 
   return {
     isDepositing,
     handleDeposit,
-    transactionUrl,
     error,
   };
 };

@@ -1,14 +1,13 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
-import { getRpc } from '@/lib/constants';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSendUserOperation } from '@account-kit/react';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import CompySwapArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsSwap.sol/GrantsSwap.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ethers } from 'ethers';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
 
@@ -29,68 +28,48 @@ export interface UseSwapTokensReturn {
 }
 
 export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}): UseSwapTokensReturn => {
-  const { client, user, account } = useOceanAccount();
+  const { user, account } = useOceanAccount();
+  const { sendTransaction } = useAlchemySendTransaction();
 
   const [isSwapping, setIsSwapping] = useState(false);
   const [error, setError] = useState<string>();
 
-  const handleSuccess = useCallback(() => {
-    setIsSwapping(false);
-    setError(undefined);
-    toast.success('Swap successful!');
-    onSuccess?.();
-  }, [onSuccess]);
-
-  const handleError = useCallback(
-    (error: unknown) => {
-      console.error('Swap error:', error);
-      setIsSwapping(false);
-      const message = error instanceof Error ? error.message : 'Swap failed';
-      setError(message);
-      toast.error('Swap failed');
-      onError?.(error);
-    },
-    [onError]
-  );
-
-  const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-    onError: handleError,
-    onSuccess: handleSuccess,
-    onMutate: () => {
-      setIsSwapping(true);
-      setError(undefined);
-    },
-  });
-
   const handleSwap = useCallback(
     async ({ amount }: SwapTokensParams) => {
       if (!amount || Number(amount) <= 0) {
-        handleError(new Error('Invalid amount'));
+        const message = 'Invalid amount';
+        setError(message);
+        toast.error(message);
+        onError?.(new Error(message));
         return;
       }
 
       const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === CHAIN_ID);
       const compySwapAddress = (config as any)?.COMPYSwap;
       if (!compySwapAddress) {
-        throw new Error('No swap address found for chainId');
+        const message = 'No swap address found for chainId';
+        setError(message);
+        toast.error(message);
+        onError?.(new Error(message));
+        return;
       }
 
       const usdcAddress = getSupportedTokens().USDC.address;
       if (!usdcAddress) {
-        handleError(new Error('USDC token address not found'));
+        const message = 'USDC token address not found';
+        setError(message);
+        toast.error(message);
+        onError?.(new Error(message));
         return;
       }
 
       try {
         setIsSwapping(true);
-        const provider = new ethers.JsonRpcProvider(getRpc());
-        const usdcContract = new ethers.Contract(usdcAddress, ERC20Template.abi, provider);
+        setError(undefined);
+
         const usdcDecimals = await getTokenDecimals(usdcAddress);
         const amountBigInt = ethers.parseUnits(amount, Number(usdcDecimals));
 
-        // EOA Handling
         if (user?.type === 'eoa') {
           if (!(window as any).ethereum) {
             throw new Error('No crypto wallet found');
@@ -110,22 +89,22 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
 
           const swapTx = await compySwapWithSigner.swapToCOMPY(amountBigInt);
           await swapTx.wait();
-          handleSuccess();
+          setIsSwapping(false);
+          setError(undefined);
+          toast.success('Swap successful!');
+          onSuccess?.();
           return;
         }
-
-        // SCA Handling
-        if (!client) {
-          throw new Error('Wallet not connected');
-        }
-
-        const uos = [];
 
         if (!account.address) {
           throw new Error('Account address not found');
         }
 
+        const provider = new ethers.JsonRpcProvider((await import('@/lib/constants')).getRpc());
+        const usdcContract = new ethers.Contract(usdcAddress, ERC20Template.abi, provider);
         const currentAllowance = await usdcContract.allowance(account.address, compySwapAddress);
+
+        const uos: { to: `0x${string}`; data: `0x${string}` }[] = [];
 
         if (currentAllowance < amountBigInt) {
           const approveData = encodeFunctionData({
@@ -133,10 +112,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
             functionName: 'approve',
             args: [compySwapAddress, amountBigInt],
           });
-          uos.push({
-            target: usdcAddress as `0x${string}`,
-            data: approveData as `0x${string}`,
-          });
+          uos.push({ to: usdcAddress as `0x${string}`, data: approveData as `0x${string}` });
         }
 
         const swapData = encodeFunctionData({
@@ -144,34 +120,29 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
           functionName: 'swapToCOMPY',
           args: [amountBigInt],
         });
-        uos.push({
-          target: compySwapAddress as `0x${string}`,
-          data: swapData as `0x${string}`,
-        });
+        uos.push({ to: compySwapAddress as `0x${string}`, data: swapData as `0x${string}` });
 
-        if (uos.length === 1) {
-          sendUserOperation({ uo: uos[0] });
-        } else {
-          sendUserOperation({ uo: uos });
-        }
-      } catch (error) {
-        handleError(error);
+        await sendTransaction(uos.length === 1 ? uos[0] : uos);
+
+        setIsSwapping(false);
+        setError(undefined);
+        toast.success('Swap successful!');
+        onSuccess?.();
+      } catch (err) {
+        console.error('Swap error:', err);
+        setIsSwapping(false);
+        const message = err instanceof Error ? err.message : 'Swap failed';
+        setError(message);
+        toast.error('Swap failed');
+        onError?.(err);
       }
     },
-    [client, user?.type, account.address, sendUserOperation, handleError, handleSuccess]
+    [user?.type, account.address, sendTransaction, onSuccess, onError]
   );
-
-  const transactionUrl = useMemo(() => {
-    if (!client?.chain?.blockExplorers || !sendUserOperationResult?.hash) {
-      return undefined;
-    }
-    return `${client.chain.blockExplorers.default.url}/tx/${sendUserOperationResult.hash}`;
-  }, [client, sendUserOperationResult?.hash]);
 
   return {
     isSwapping,
     handleSwap,
-    transactionUrl,
     error,
   };
 };

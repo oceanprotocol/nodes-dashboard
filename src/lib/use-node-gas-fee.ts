@@ -1,7 +1,7 @@
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSendUserOperation } from '@account-kit/react';
+import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { ethers } from 'ethers';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 
 export interface GasFeeParams {
@@ -21,51 +21,11 @@ export interface UseGasFeeReturn {
 }
 
 export const useGasFee = ({ onSuccess }: UseGasFeeParams = {}): UseGasFeeReturn => {
-  const { client, provider, user } = useOceanAccount();
+  const { provider, user } = useOceanAccount();
+  const { sendTransaction } = useAlchemySendTransaction();
 
   const [isDepositing, setIsDepositing] = useState(false);
   const [error, setError] = useState<string>();
-
-  const handleSuccess = () => {
-    setIsDepositing(true);
-    setError(undefined);
-    toast.success('Deposit successful!');
-    onSuccess?.();
-  };
-
-  const handleError = (error: any) => {
-    console.error('Deposit error:', error);
-    setIsDepositing(false);
-    let prettyErr = '';
-    if (error.details) {
-      let d = 0,
-        v = 0;
-      const arr = error.details;
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i] === 'D' && arr.slice(i, i + 7) === 'Details') {
-          d = i;
-        }
-        if (arr[i] === 'V' && arr.slice(i, i + 7) === 'Version') {
-          v = i;
-        }
-      }
-      prettyErr = arr.slice(d + 8, v);
-    }
-    const errorText = prettyErr ?? error.details ?? 'Transfer failed';
-    setError(errorText);
-    toast.error(errorText);
-  };
-
-  const { sendUserOperationResult, sendUserOperation } = useSendUserOperation({
-    client,
-    waitForTxn: true,
-    onError: handleError,
-    onSuccess: handleSuccess,
-    onMutate: () => {
-      setIsDepositing(true);
-      setError(undefined);
-    },
-  });
 
   const handleDeposit = useCallback(
     async ({ nodeAddress, amount }: GasFeeParams) => {
@@ -94,49 +54,50 @@ export const useGasFee = ({ onSuccess }: UseGasFeeParams = {}): UseGasFeeReturn 
           }
 
           const signer = await provider.getSigner();
-          const tx = await signer.sendTransaction({
-            to: nodeAddress,
-            value: weiAmount,
-          });
-
+          const tx = await signer.sendTransaction({ to: nodeAddress, value: weiAmount });
           await tx.wait();
-          handleSuccess();
+          setIsDepositing(false);
+          setError(undefined);
+          toast.success('Deposit successful!');
+          onSuccess?.();
         } catch (err) {
-          handleError(err as Error);
+          console.error('Deposit error:', err);
+          setIsDepositing(false);
+          const errorText = err instanceof Error ? err.message : 'Deposit failed';
+          setError(errorText);
+          toast.error(errorText);
         }
-
         return;
       }
 
-      if (!client) {
-        setError('Wallet not connected');
-        toast.error('Wallet not connected');
+      try {
+        setIsDepositing(true);
+        setError(undefined);
 
-        return;
-      }
-
-      sendUserOperation({
-        uo: {
-          target: nodeAddress as `0x${string}`,
+        await sendTransaction({
+          to: nodeAddress as `0x${string}`,
           data: '0x' as `0x${string}`,
           value: weiAmount,
-        },
-      });
-    },
-    [user?.type, client, provider, sendUserOperation]
-  );
+        });
 
-  const transactionUrl = useMemo(() => {
-    if (!client?.chain?.blockExplorers || !sendUserOperationResult?.hash) {
-      return undefined;
-    }
-    return `${client.chain.blockExplorers.default.url}/tx/${sendUserOperationResult.hash}`;
-  }, [client, sendUserOperationResult?.hash]);
+        setIsDepositing(false);
+        setError(undefined);
+        toast.success('Deposit successful!');
+        onSuccess?.();
+      } catch (err) {
+        console.error('Deposit error:', err);
+        setIsDepositing(false);
+        const errorText = err instanceof Error ? err.message : 'Deposit failed';
+        setError(errorText);
+        toast.error(errorText);
+      }
+    },
+    [user?.type, provider, sendTransaction, onSuccess]
+  );
 
   return {
     isDepositing,
     handleDeposit,
-    transactionUrl,
     error,
   };
 };
