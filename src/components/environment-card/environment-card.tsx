@@ -18,6 +18,8 @@ import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PublicIcon from '@mui/icons-material/Public';
+import PublicOffIcon from '@mui/icons-material/PublicOff';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Collapse, Tooltip } from '@mui/material';
@@ -430,7 +432,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
                     : 'You need to log in to continue'
                 }
               >
-                <InfoOutlinedIcon className={styles.accessInfoIcon} />
+                <InfoOutlinedIcon className={styles.infoIcon} />
               </Tooltip>
             </div>
           ) : (
@@ -441,6 +443,30 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         onChange={() => setIsFreeCompute(!isFreeCompute)}
         type="multiple"
       />
+    );
+  };
+
+  const getInternetAccessLabel = () => {
+    const hasInternet = !!environment.enableNetwork;
+    return (
+      <div className={styles.internetAccess}>
+        {hasInternet ? (
+          <PublicIcon className={styles.icon} />
+        ) : (
+          <PublicOffIcon className={classNames(styles.icon, styles.noInternet)} />
+        )}
+        <span>Internet:&nbsp;</span>
+        <strong>{hasInternet ? 'Yes' : 'No'}</strong>
+        <Tooltip
+          title={
+            hasInternet
+              ? 'Jobs in this environment can access the internet'
+              : 'Jobs in this environment run without internet access'
+          }
+        >
+          <InfoOutlinedIcon className={styles.infoIcon} />
+        </Tooltip>
+      </div>
     );
   };
 
@@ -558,6 +584,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
 
       <div className={styles.footer}>
         <div>
+          {getInternetAccessLabel()}
           <div>
             Job duration:&nbsp;
             <strong>

@@ -162,9 +162,26 @@
   gap: 6px;
 }
 
-.accessInfoIcon {
+.infoIcon {
   color: var(--error);
   font-size: 18px;
+}
+
+.internetAccess {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  gap: 4px;
+  margin-bottom: 4px;
+
+  .icon {
+    color: var(--accent1);
+    font-size: 18px;
+
+    &.noInternet {
+      color: var(--text-secondary);
+    }
+  }
 }
 
 .footer {
