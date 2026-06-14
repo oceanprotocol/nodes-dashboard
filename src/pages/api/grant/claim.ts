@@ -1,6 +1,8 @@
-import { getOnChainUserNonce, getRpcProvider, isGrantRedeemedOnChain } from '@/api-services/faucet';
+import { getFaucetAddress, getOnChainUserNonce, getRpcProvider, isGrantRedeemedOnChain } from '@/api-services/faucet';
 import { findGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
 import { signFaucetMessage } from '@/api-services/signer';
+import { CHAIN_ID } from '@/constants/chains';
+import { tokenAddressesByChainId } from '@/constants/tokens';
 import { ClaimGrantResponse, GrantStatus } from '@/types/grant';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -31,7 +33,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(400).json({ message: 'Complimentary credits already claimed' });
     }
 
-    const faucetAddress = process.env.GRANT_FAUCET_ADDRESS;
+    const faucetAddress = getFaucetAddress();
 
     if (grant.status === GrantStatus.SIGNED_FAUCET_MESSAGE) {
       if (!faucetAddress || !grant.rawAmount || !grant.nonce || !grant.signedFaucetMessage) {
@@ -83,7 +85,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     if (grant.status === GrantStatus.EMAIL_VERIFIED) {
       const amount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
-      const tokenAddress = process.env.NEXT_PUBLIC_GRANT_TOKEN_ADDRESS;
+      const tokenAddress = tokenAddressesByChainId[CHAIN_ID].COMPY.address;
       // Self-heal: wallet may have claimed on-chain in a prior session whose
       // /confirm never landed, leaving the row stuck at EMAIL_VERIFIED.
       // userNonces returns 0 for wallets that have never claimed, so any

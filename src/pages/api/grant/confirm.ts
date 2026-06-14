@@ -1,4 +1,4 @@
-import { getRpcProvider, isGrantRedeemedOnChain } from '@/api-services/faucet';
+import { getFaucetAddress, getRpcProvider, isGrantRedeemedOnChain } from '@/api-services/faucet';
 import { findGrantByTxHash, findGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
 import { GrantStatus, GrantWithStatus } from '@/types/grant';
 import { waitUntil } from '@vercel/functions';
@@ -94,7 +94,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
   try {
     const provider = getRpcProvider();
 
-    const faucetAddress = process.env.GRANT_FAUCET_ADDRESS?.toLowerCase();
+    const faucetAddress = getFaucetAddress()?.toLowerCase();
     if (!faucetAddress) {
       return response.status(500).json({ message: 'Faucet not configured' });
     }

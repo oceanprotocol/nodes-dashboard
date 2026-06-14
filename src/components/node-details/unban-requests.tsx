@@ -30,16 +30,19 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
   );
 
   const { buttonDisabled, disabledReason } = useMemo(() => {
+    const isPermanentBan = node.banned && node.permanent;
     const inFlight = unbanRequests.some(
       (r) => r.status === 'pending' || r.status === 'running'
     );
     return {
-      buttonDisabled: loading || inFlight,
-      disabledReason: inFlight
-        ? 'An unban request is already in progress for this node. Please wait for it to finish.'
-        : null,
+      buttonDisabled: loading || inFlight || isPermanentBan,
+      disabledReason: isPermanentBan
+        ? 'This node is permanently banned and cannot be unbanned.'
+        : inFlight
+          ? 'An unban request is already in progress for this node. Please wait for it to finish.'
+          : null,
     };
-  }, [unbanRequests, loading]);
+  }, [unbanRequests, loading, node.banned, node.permanent]);
 
   const handleRequestUnban = async () => {
     if (!account.isConnected) {

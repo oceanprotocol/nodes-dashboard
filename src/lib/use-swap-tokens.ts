@@ -1,10 +1,10 @@
-import CompySwap from '@/constants/abis/compy-swap.json';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
+import CompySwapArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsSwap.sol/GrantsSwap.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ethers } from 'ethers';
 import { useCallback, useState } from 'react';
@@ -78,7 +78,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
           const signer = await browserProvider.getSigner();
 
           const usdcWithSigner = new ethers.Contract(usdcAddress, ERC20Template.abi, signer);
-          const compySwapWithSigner = new ethers.Contract(compySwapAddress, CompySwap, signer);
+          const compySwapWithSigner = new ethers.Contract(compySwapAddress, CompySwapArtifact.abi, signer);
 
           const allowance = await usdcWithSigner.allowance(await signer.getAddress(), compySwapAddress);
           if (allowance < amountBigInt) {
@@ -116,7 +116,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
         }
 
         const swapData = encodeFunctionData({
-          abi: CompySwap,
+          abi: CompySwapArtifact.abi,
           functionName: 'swapToCOMPY',
           args: [amountBigInt],
         });
