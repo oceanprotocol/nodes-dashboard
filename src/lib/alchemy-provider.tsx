@@ -1,9 +1,15 @@
 'use client';
 
+import { installPrivyAlchemyFetchLogger } from '@/lib/debug-fetch';
 import { alchemy, base, sepolia } from '@account-kit/infra';
-import { MigrationProvider, createMigrationConfig } from '@privy-io/alchemy-migration';
+import { MigrationProvider, createMigrationConfig, useMigration } from '@privy-io/alchemy-migration';
 import '@privy-io/alchemy-migration/styles.css';
 import { createWalletCreationOnLoginPlugin, PrivyProvider, type User } from '@privy-io/react-auth';
+import { useEffect } from 'react';
+
+// TEMP DIAGNOSTIC: install the Privy/Alchemy network logger as early as possible (module load,
+// client only) so we capture the auth + migration API traffic.
+installPrivyAlchemyFetchLogger();
 
 const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
 
@@ -34,6 +40,38 @@ const walletCreationPlugin = createWalletCreationOnLoginPlugin({
     user.customMetadata?.['alchemy_org_id'] === undefined,
 });
 
+// TEMP DIAGNOSTIC: trace the migration state machine (step / error / needsMigration /
+// alchemyData) so we can see why the flow re-runs the import or hangs.
+function MigrationDebugLogger() {
+  const m = useMigration();
+  useEffect(() => {
+    console.log('[migration-state]', {
+      step: m.step,
+      error: m.error,
+      isLoading: m.isLoading,
+      isOpen: m.isOpen,
+      hasDismissed: m.hasDismissed,
+      hasCompleted: m.hasCompleted,
+      needsMigration: m.needsMigration,
+      isOAuthReturn: m.isOAuthReturn,
+      oauthReturnProvider: m.oauthReturnProvider,
+      alchemyData: m.alchemyData,
+    });
+  }, [
+    m.step,
+    m.error,
+    m.isLoading,
+    m.isOpen,
+    m.hasDismissed,
+    m.hasCompleted,
+    m.needsMigration,
+    m.isOAuthReturn,
+    m.oauthReturnProvider,
+    m.alchemyData,
+  ]);
+  return null;
+}
+
 export function AlchemyProvider({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProvider
@@ -48,6 +86,7 @@ export function AlchemyProvider({ children }: { children: React.ReactNode }) {
         alchemyConfig={migrationConfig}
         privyAppId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       >
+        <MigrationDebugLogger />
         {children}
       </MigrationProvider>
     </PrivyProvider>
