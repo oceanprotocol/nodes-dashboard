@@ -1,10 +1,11 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
 import { OceanProvider } from '@/lib/ocean-provider';
+import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { signMessage } from '@/lib/sign-message';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { CircularProgress } from '@mui/material';
-import { getEmbeddedConnectedWallet, usePrivy, useWallets } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -62,7 +63,7 @@ const SCAHandler = ({ children, address }: { children: ReactNode; address: strin
 
   const signMessageWrapper = useCallback(
     async (message: string): Promise<string> => {
-      const embeddedWallet = getEmbeddedConnectedWallet(wallets);
+      const embeddedWallet = getEmbeddedWallet(wallets);
       if (!embeddedWallet) throw new Error('No embedded wallet available');
       const ethProvider = await embeddedWallet.getEthereumProvider();
       const browserProvider = new ethers.BrowserProvider(ethProvider);
@@ -231,7 +232,7 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
   const { ready, authenticated } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
-  const embeddedWallet = getEmbeddedConnectedWallet(wallets);
+  const embeddedWallet = getEmbeddedWallet(wallets);
 
   if (!ready) {
     return (
