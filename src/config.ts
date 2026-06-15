@@ -20,17 +20,17 @@ export const API_ROOTS: {
 } =
   process.env.NEXT_PUBLIC_APP_ENV === 'production'
     ? {
-        analytics: 'https://analytics.oncompute.ai',
-        ens: 'https://ens-proxy.oceanprotocol.com/api',
-        incentive: 'https://api.oncompute.ai',
-        incentive_old: 'https://api.oncompute.ai',
-      }
+      analytics: 'https://analytics.oncompute.ai',
+      ens: 'https://ens-proxy.oceanprotocol.com/api',
+      incentive: 'https://api.oncompute.ai',
+      incentive_old: 'https://api.oncompute.ai',
+    }
     : {
-        analytics: 'https://analytics.nodes.oceanprotocol.io',
-        ens: 'https://ens-proxy.oceanprotocol.com/api',
-        incentive: 'https://incentive-backend.oceanprotocol.io',
-        incentive_old: 'https://incentive-backend.oceanprotocol.com',
-      };
+      analytics: 'https://analytics.nodes.oceanprotocol.io',
+      ens: 'https://ens-proxy.oceanprotocol.com/api',
+      incentive: 'https://incentive-backend.oceanprotocol.io',
+      incentive_old: 'https://incentive-backend.oceanprotocol.com',
+    };
 
 type Config = {
   backendUrl: string;
@@ -91,7 +91,6 @@ const config: Config = {
     twitter: 'https://x.com/ONcompute',
     discord: 'https://discord.gg/CjdsWngg47',
     youtube: 'https://www.youtube.com/channel/UCH8TXwmWWAE9TZO0yTBHB3A',
-    telegram: 'https://t.me/oceanprotocol',
   },
   links: {
     docs: 'https://docs.oncompute.ai/',

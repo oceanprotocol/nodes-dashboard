@@ -135,7 +135,7 @@ const Details: React.FC = () => {
           />
           <Input
             errorText={formik.touched.handle && formik.errors.handle ? formik.errors.handle : undefined}
-            label="Discord or Telegram handle"
+            label="Discord handle"
             name="handle"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
