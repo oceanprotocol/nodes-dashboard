@@ -1,6 +1,7 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
+import { EscrowLock } from '@/types/payment';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -150,6 +151,40 @@ export class OceanProvider {
     const tokenDecimals = await getTokenDecimals(tokenAddress);
     const balanceString = this.denominateNumber(availableFunds.toString(), tokenDecimals);
     return parseFloat(balanceString);
+  }
+
+  async getUserFundsDetailed(tokenAddress: string, address: string): Promise<{ available: number; locked: number }> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(address)) {
+      console.error('Invalid address passed to getUserFundsDetailed', { tokenAddress, address });
+      return { available: 0, locked: 0 };
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const funds = await escrow.getUserFunds(address, tokenAddress);
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
+    return {
+      available: parseFloat(this.denominateNumber(funds.available.toString(), tokenDecimals)),
+      locked: parseFloat(this.denominateNumber(funds.locked.toString(), tokenDecimals)),
+    };
+  }
+
+  async getLocks(tokenAddress: string, payer: string, payee: string): Promise<EscrowLock[]> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer) || !ethers.isAddress(payee)) {
+      console.error('Invalid address passed to getLocks', { tokenAddress, payer, payee });
+      return [];
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
+    const locks = await escrow.getLocks(tokenAddress, payer, payee);
+    if (!locks || locks.length === 0) {
+      return [];
+    }
+    return locks.map((lock: any) => ({
+      jobId: lock.jobId.toString(),
+      payer: lock.payer,
+      amount: parseFloat(this.denominateNumber(lock.amount.toString(), tokenDecimals)),
+      expiry: Number(lock.expiry),
+      token: lock.token,
+    }));
   }
 
   async authorizeTokensEoa({

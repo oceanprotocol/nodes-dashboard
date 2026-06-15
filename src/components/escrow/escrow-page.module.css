@@ -1,0 +1,10 @@
+.content {
+  display: flex;
+  flex-direction: column;
+}
+
+.panels {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
