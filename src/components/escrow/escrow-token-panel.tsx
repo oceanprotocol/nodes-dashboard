@@ -126,56 +126,61 @@ const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowT
             <span className={styles.overline}>Move funds</span>
             <form className={styles.fundRow} onSubmit={depositForm.handleSubmit}>
               <Input
-                endAdornment={token.symbol}
+                className={styles.fundInput}
+                endAdornment={
+                  <Button
+                    className={styles.fundButton}
+                    color="accent2"
+                    contentBefore={<UploadSvg />}
+                    disabled={!depositForm.isValid || isDepositing}
+                    loading={isDepositing}
+                    size="sm"
+                    type="submit"
+                    variant="filled"
+                  >
+                    Deposit
+                  </Button>
+                }
                 errorText={
                   depositForm.touched.amount && depositForm.errors.amount ? depositForm.errors.amount : undefined
                 }
-                label="Deposit"
                 name="amount"
                 onBlur={depositForm.handleBlur}
                 onChange={depositForm.handleChange}
-                size="sm"
-                step="any"
+                size="md"
+                startAdornment={token.symbol}
                 type="number"
                 value={depositForm.values.amount}
               />
-              <Button
-                color="accent1"
-                contentBefore={<UploadSvg />}
-                disabled={!depositForm.isValid || isDepositing}
-                loading={isDepositing}
-                size="md"
-                type="submit"
-              >
-                Deposit
-              </Button>
             </form>
             <form className={styles.fundRow} onSubmit={withdrawForm.handleSubmit}>
               <Input
-                endAdornment={token.symbol}
+                className={styles.fundInput}
+                endAdornment={
+                  <Button
+                    className={styles.fundButton}
+                    color="accent2"
+                    contentBefore={<DownloadSvg />}
+                    disabled={!withdrawForm.isValid || isWithdrawing}
+                    loading={isWithdrawing}
+                    size="sm"
+                    type="submit"
+                    variant="filled"
+                  >
+                    Withdraw
+                  </Button>
+                }
                 errorText={
                   withdrawForm.touched.amount && withdrawForm.errors.amount ? withdrawForm.errors.amount : undefined
                 }
-                label="Withdraw"
                 name="amount"
                 onBlur={withdrawForm.handleBlur}
                 onChange={withdrawForm.handleChange}
-                size="sm"
-                step="any"
+                size="md"
+                startAdornment={token.symbol}
                 type="number"
                 value={withdrawForm.values.amount}
               />
-              <Button
-                color="accent1"
-                contentBefore={<DownloadSvg />}
-                disabled={!withdrawForm.isValid || isWithdrawing}
-                loading={isWithdrawing}
-                size="md"
-                type="submit"
-                variant="outlined"
-              >
-                Withdraw
-              </Button>
             </form>
           </div>
         </div>
@@ -197,11 +202,11 @@ const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowT
                   ) : null}
                 </div>
                 <Button
-                  color="primary"
+                  color="accent2"
                   contentBefore={<PencilSvg />}
                   onClick={() => setIsEditOpen(true)}
                   size="sm"
-                  variant="outlined"
+                  variant="filled"
                 >
                   Edit
                 </Button>

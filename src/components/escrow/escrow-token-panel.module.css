@@ -1,6 +1,6 @@
 .panel {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 350px minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
 
@@ -109,19 +109,15 @@
 
 .fundRow {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
+}
 
-  & > :first-child {
-    flex: 1;
-    min-width: 0;
-  }
+.fundInput {
+  flex: 1;
+  min-width: 0;
+}
 
-  & button {
-    min-width: 132px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+.fundButton {
+  white-space: nowrap;
 }
 
 /* ── Right column ── */
