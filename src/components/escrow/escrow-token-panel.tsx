@@ -6,6 +6,7 @@ import { useDepositTokens } from '@/lib/use-deposit-tokens';
 import { EscrowSpenderInfo, EscrowTokenInfo } from '@/lib/use-escrow-data';
 import { useWithdrawTokens } from '@/lib/use-withdraw-tokens';
 import { formatDateTime, formatDuration, formatTokenAmount, formatWalletAddress } from '@/utils/formatters';
+import { CircularProgress } from '@mui/material';
 import { useFormik } from 'formik';
 import { useState } from 'react';
 import * as Yup from 'yup';
@@ -14,6 +15,7 @@ import styles from './escrow-token-panel.module.css';
 type EscrowTokenPanelProps = {
   token: EscrowTokenInfo;
   spender: EscrowSpenderInfo | null;
+  loadingSpenders: boolean;
   onChange: () => void;
 };
 
@@ -42,7 +44,7 @@ const DownloadSvg = () => (
   </svg>
 );
 
-const EscrowTokenPanel = ({ token, spender, onChange }: EscrowTokenPanelProps) => {
+const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { handleDeposit, isDepositing } = useDepositTokens({ onSuccess: onChange });
@@ -180,7 +182,11 @@ const EscrowTokenPanel = ({ token, spender, onChange }: EscrowTokenPanelProps) =
 
         {/* ── Right: authorization & locks ── */}
         <div className={styles.right}>
-          {auth ? (
+          {loadingSpenders && !auth ? (
+            <div className={styles.authLoading}>
+              <CircularProgress size={28} />
+            </div>
+          ) : auth ? (
             <>
               {/* Auth header */}
               <div className={styles.authHeader}>

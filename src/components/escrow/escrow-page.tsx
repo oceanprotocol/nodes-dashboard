@@ -24,7 +24,15 @@ const EscrowPage = () => {
             {tokens.map((token) => {
               const spender =
                 spenders.find((s) => s.tokenAddress.toLowerCase() === token.address.toLowerCase()) ?? null;
-              return <EscrowTokenPanel key={token.address} onChange={reload} spender={spender} token={token} />;
+              return (
+                <EscrowTokenPanel
+                  key={token.address}
+                  loadingSpenders={loading}
+                  onChange={reload}
+                  spender={spender}
+                  token={token}
+                />
+              );
             })}
           </div>
         )}
