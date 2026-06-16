@@ -294,8 +294,8 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  min-height: 220px;
   gap: 12px;
+  flex: 1;
 }
 
 .noAuthIcon {

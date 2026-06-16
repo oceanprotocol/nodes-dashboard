@@ -85,7 +85,7 @@ const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowT
   const locksPct = locksMax > 0 ? Math.min(100, (locksUsed / locksMax) * 100) : 0;
 
   return (
-    <Card direction="column" padding="lg" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.panel}>
         {/* ── Left: balance + move funds ── */}
         <div className={styles.left}>
