@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import CreateAuthorizationModal from '@/components/escrow/create-authorization-modal';
 import EditAuthorizationModal from '@/components/escrow/edit-authorization-modal';
 import Input from '@/components/input/input';
 import { useDepositTokens } from '@/lib/use-deposit-tokens';
@@ -84,7 +85,7 @@ const AuthorizationCard = ({
       {/* Auth header */}
       <div className={styles.authHeader}>
         <div className={styles.authSpender} title={spender.spender}>
-          Spender {formatWalletAddress(spender.spender)}
+          Consumer {formatWalletAddress(spender.spender)}
         </div>
         <Button
           color="accent2"
@@ -180,7 +181,16 @@ const AuthorizationCard = ({
   );
 };
 
+// Inline SVG plus icon for the Create authorization button
+const PlusSvg = () => (
+  <svg fill="currentColor" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" />
+  </svg>
+);
+
 const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
   const { handleDeposit, isDepositing } = useDepositTokens({ onSuccess: onChange });
   const { handleWithdraw, isWithdrawing } = useWithdrawTokens({ onSuccess: onChange });
 
@@ -318,12 +328,22 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
         {/* ── Right: authorizations & locks (one card per authorized spender) ── */}
         <div className={styles.right}>
           <div className={styles.authSectionHeader}>
-            <span className={styles.authSectionTitle}>Spending authorizations</span>
+            <span className={styles.authSectionTitle}>Authorizations</span>
             {spenders.length > 0 && (
               <span className="chip chipGlass">
-                {spenders.length} {spenders.length === 1 ? 'spender' : 'spenders'}
+                {spenders.length} {spenders.length === 1 ? 'consumer' : 'consumers'}
               </span>
             )}
+            <Button
+              className={styles.createAuthButton}
+              color="accent2"
+              contentBefore={<PlusSvg />}
+              onClick={() => setIsCreateOpen(true)}
+              size="sm"
+              variant="filled"
+            >
+              Create
+            </Button>
           </div>
           {loadingSpenders && spenders.length === 0 ? (
             <div className={styles.authLoading}>
@@ -342,13 +362,24 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
               </div>
               <span className={styles.noAuthTitle}>No authorization yet</span>
               <span className={styles.noAuthDesc}>
-                A spending authorization is created automatically the first time you pay for a compute job with{' '}
-                {token.symbol}.
+                An authorization is created automatically the first time you pay for a compute job with {token.symbol}.
               </span>
             </div>
           )}
         </div>
       </div>
+
+      <CreateAuthorizationModal
+        existingConsumers={spenders.map((s) => s.spender)}
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => {
+          setIsCreateOpen(false);
+          onChange();
+        }}
+        tokenAddress={token.address}
+        tokenSymbol={token.symbol}
+      />
     </Card>
   );
 };

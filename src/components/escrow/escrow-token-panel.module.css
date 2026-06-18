@@ -153,6 +153,10 @@
   line-height: 1.2;
 }
 
+.createAuthButton {
+  margin-left: auto;
+}
+
 .authHeader {
   display: flex;
   align-items: center;
