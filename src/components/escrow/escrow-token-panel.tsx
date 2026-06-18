@@ -191,36 +191,34 @@ const PlusSvg = () => (
 const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const { handleDeposit, isDepositing } = useDepositTokens({ onSuccess: onChange });
-  const { handleWithdraw, isWithdrawing } = useWithdrawTokens({ onSuccess: onChange });
+  const { handleDeposit, isDepositing } = useDepositTokens({
+    onSuccess: () => {
+      depositForm.resetForm();
+      onChange();
+    },
+  });
+  const { handleWithdraw, isWithdrawing } = useWithdrawTokens({
+    onSuccess: () => {
+      withdrawForm.resetForm();
+      onChange();
+    },
+  });
 
   const depositForm = useFormik<AmountFormValues>({
     initialValues: { amount: '' },
-    onSubmit: async (values, formik) => {
-      await handleDeposit({ tokenAddress: token.address, amount: values.amount.toString() });
-      formik.resetForm();
-    },
+    onSubmit: (values) => handleDeposit({ tokenAddress: token.address, amount: values.amount.toString() }),
     validateOnMount: true,
     validationSchema: Yup.object({
-      amount: Yup.number()
-        // .required('Required')
-        .moreThan(0, 'Invalid amount')
-        .max(token.walletBalance, 'Exceeds wallet balance'),
+      amount: Yup.number().moreThan(0, 'Invalid amount').max(token.walletBalance, 'Exceeds wallet balance'),
     }),
   });
 
   const withdrawForm = useFormik<AmountFormValues>({
     initialValues: { amount: '' },
-    onSubmit: async (values, formik) => {
-      await handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()] });
-      formik.resetForm();
-    },
+    onSubmit: (values) => handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()] }),
     validateOnMount: true,
     validationSchema: Yup.object({
-      amount: Yup.number()
-        // .required('Required')
-        .moreThan(0, 'Invalid amount')
-        .max(token.available, 'Exceeds available funds'),
+      amount: Yup.number().moreThan(0, 'Invalid amount').max(token.available, 'Exceeds available funds'),
     }),
   });
 
