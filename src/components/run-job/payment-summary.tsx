@@ -35,7 +35,9 @@ const PaymentSummary = ({
     <Card className={styles.cost} radius="md" variant="accent1-outline">
       {/* Estimated total cost */}
       <h3>Estimated total cost</h3>
-      <TokenAmount amount={totalCost} tokenAddress={selectedToken.address} tokenSymbol={tokenSymbol} />
+      <div className={styles.valueWithChip}>
+        <TokenAmount amount={totalCost} tokenAddress={selectedToken.address} tokenSymbol={tokenSymbol} />
+      </div>
       {/* User available funds in escrow */}
       <h3>User available funds in escrow</h3>
       <div className={styles.valueWithChip}>
@@ -70,12 +72,7 @@ const PaymentSummary = ({
       {/* User available funds in wallet */}
       <h3 className={styles.sm}>User available funds in wallet</h3>
       <div className={styles.values}>
-        <TokenAmount
-          amount={walletBalance}
-          size="sm"
-          tokenAddress={selectedToken.address}
-          tokenSymbol={tokenSymbol}
-        />
+        <TokenAmount amount={walletBalance} size="sm" tokenAddress={selectedToken.address} tokenSymbol={tokenSymbol} />
         {selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ? (
           <>
             <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
