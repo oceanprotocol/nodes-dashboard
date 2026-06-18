@@ -1,3 +1,4 @@
+import { NODE_URL } from '@/lib/constants';
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { EscrowEvent } from '@/types/payment';
@@ -46,7 +47,6 @@ export async function getNodeEnvs(nodeUri: NodeUri) {
 // own), so this discovers every payee a payer has authorized without iterating compute envs.
 // Not wrapped by ocean.js — hit the node HTTP route directly.
 export async function getEscrowEvents(
-  nodeHttpUrl: string,
   filters: {
     chainId?: number;
     eventType?: string;
@@ -65,7 +65,7 @@ export async function getEscrowEvents(
       params.set(key, String(value));
     }
   }
-  const url = `${nodeHttpUrl.replace(/\/$/, '')}/api/services/escrow/events?${params.toString()}`;
+  const url = `${NODE_URL}/api/services/escrow/events?${params.toString()}`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch escrow events: ${response.status}`);

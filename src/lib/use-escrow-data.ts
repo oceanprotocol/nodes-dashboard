@@ -86,7 +86,7 @@ export const useEscrowData = (): UseEscrowDataReturn => {
       // Note: the node only indexes base — sepolia returns nothing.
       let candidateSpenders: string[] = [];
       try {
-        const authEvents = await getEscrowEvents(NODE_URL, {
+        const authEvents = await getEscrowEvents({
           chainId: CHAIN_ID,
           eventType: 'Auth',
           payer: account.address,
