@@ -290,7 +290,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       </div>
       <div className={styles.statusWrapper}>
         <Eligibility isAdmin={isAdmin} node={node} />
-        {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} envs={envs} /> : null}
+        {isAdmin ? <Balance envs={envs} /> : null}
       </div>
     </Card>
   );
