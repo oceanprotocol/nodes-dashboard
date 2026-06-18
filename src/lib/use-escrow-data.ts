@@ -6,6 +6,7 @@ import { getSupportedTokens } from '@/constants/tokens';
 import { Authorizations, EscrowLock } from '@/types/payment';
 import { ethers } from 'ethers';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 
 export type EscrowTokenInfo = {
   symbol: string;
@@ -99,26 +100,32 @@ export const useEscrowData = (): UseEscrowDataReturn => {
 
       const spenderAddresses = dedupeAddresses(candidateSpenders);
 
-      const spenderInfos = (
-        await Promise.all(
-          tokenList.flatMap((token) =>
-            spenderAddresses.map(async (spender) => {
-              const authorizations = await ocean.getAuthorizations(token.address, account.address!, spender);
-              if (!authorizations) {
-                return null;
-              }
-              const locks = await ocean.getLocks(token.address, account.address!, spender);
-              return {
-                tokenSymbol: token.symbol,
-                tokenAddress: token.address,
-                spender,
-                authorizations,
-                locks,
-              };
-            })
-          )
+      const settled = await Promise.allSettled(
+        tokenList.flatMap((token) =>
+          spenderAddresses.map(async (spender) => {
+            const authorizations = await ocean.getAuthorizations(token.address, account.address!, spender);
+            if (!authorizations) {
+              return null;
+            }
+            const locks = await ocean.getLocks(token.address, account.address!, spender);
+            return {
+              tokenSymbol: token.symbol,
+              tokenAddress: token.address,
+              spender,
+              authorizations,
+              locks,
+            };
+          })
         )
-      ).filter((info): info is EscrowSpenderInfo => info !== null);
+      );
+      const failCount = settled.filter((r) => r.status === 'rejected').length;
+      if (failCount > 0) {
+        toast.warning(`Failed to load authorization data for ${failCount} consumer${failCount > 1 ? 's' : ''}`);
+      }
+      const spenderInfos = settled
+        .filter((r): r is PromiseFulfilledResult<EscrowSpenderInfo | null> => r.status === 'fulfilled')
+        .map((r) => r.value)
+        .filter((info): info is EscrowSpenderInfo => info !== null);
       setSpenders(spenderInfos);
     } catch (err) {
       console.error('Failed to load escrow data:', err);
