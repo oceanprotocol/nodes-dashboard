@@ -55,6 +55,8 @@ export const useEscrowData = (): UseEscrowDataReturn => {
 
   const load = useCallback(async () => {
     if (!ocean || !account?.address) {
+      setTokens([]);
+      setSpenders([]);
       return;
     }
     setLoading(true);
