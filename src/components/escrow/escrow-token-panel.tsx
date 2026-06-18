@@ -7,6 +7,7 @@ import { EscrowSpenderInfo, EscrowTokenInfo } from '@/lib/use-escrow-data';
 import { useWithdrawTokens } from '@/lib/use-withdraw-tokens';
 import { formatDateTime, formatDuration, formatTokenAmount, formatWalletAddress } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
+import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useState } from 'react';
 import * as Yup from 'yup';
@@ -79,16 +80,11 @@ const AuthorizationCard = ({
   const locksPct = locksMax > 0 ? Math.min(100, (locksUsed / locksMax) * 100) : 0;
 
   return (
-    <Card direction="column" innerShadow="black" padding="md" radius="lg" spacing="md">
+    <Card direction="column" innerShadow="black" padding="sm" radius="md" spacing="sm" variant="glass">
       {/* Auth header */}
       <div className={styles.authHeader}>
-        <div className={styles.authIdentity}>
-          <span className={styles.authSpenderIcon}>
-            <svg fill="currentColor" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 14a8 8 0 0 1-6.32-3.1c.03-2.1 4.21-3.25 6.32-3.25s6.29 1.15 6.32 3.25A8 8 0 0 1 12 20z" />
-            </svg>
-          </span>
-          <span className={styles.authSpender}>Spender {formatWalletAddress(spender.spender)}</span>
+        <div className={styles.authSpender} title={spender.spender}>
+          Spender {formatWalletAddress(spender.spender)}
         </div>
         <Button
           color="accent2"
@@ -121,11 +117,13 @@ const AuthorizationCard = ({
         </div>
         <div className={styles.statField}>
           <span className={styles.statLabel}>Locks used</span>
-          <span className={styles.statValue}>
-            {locksUsed} / {locksMax}
-          </span>
-          <div className={styles.locksBar}>
-            <div className={styles.locksBarFill} style={{ width: `${locksPct}%` }} />
+          <div className={styles.locksUsedRow}>
+            <span className={styles.statValue}>
+              {locksUsed} / {locksMax}
+            </span>
+            <div className={styles.locksBar}>
+              <div className={styles.locksBarFill} style={{ width: `${locksPct}%` }} />
+            </div>
           </div>
         </div>
       </div>
@@ -134,37 +132,40 @@ const AuthorizationCard = ({
       <div className={styles.divider} />
 
       {/* Active locks (collapsible) */}
-      <div className={styles.locksSection}>
-        <button
-          aria-expanded={locksOpen}
-          className={styles.locksHeader}
-          disabled={locks.length === 0}
-          onClick={() => setLocksOpen((open) => !open)}
-          type="button"
-        >
-          <ChevronSvg open={locksOpen} />
-          <span className={styles.overline}>Active locks</span>
-          {locks.length > 0 && <span className={styles.locksChip}>{locks.length}</span>}
-        </button>
-        {locksOpen && locks.length > 0 && (
-          <div className={styles.locksTable}>
-            <div className={styles.locksTableHeader}>
-              <span>Job</span>
-              <span className={styles.centerCol}>Amount</span>
-              <span className={styles.rightCol}>Expires</span>
-            </div>
-            {locks.map((lock) => (
-              <div className={styles.lockRow} key={lock.jobId}>
-                <span className={styles.lockJob}>{formatWalletAddress(lock.jobId)}</span>
-                <span className={styles.centerCol}>
-                  {formatTokenAmount(lock.amount, token.address)} {token.symbol}
-                </span>
-                <span className={`${styles.rightCol} ${styles.lockExpiry}`}>{formatDateTime(lock.expiry)}</span>
+      {locks.length ? (
+        <div className={styles.locksSection}>
+          <button
+            aria-expanded={locksOpen}
+            className={styles.locksHeader}
+            disabled={locks.length === 0}
+            onClick={() => setLocksOpen((open) => !open)}
+            type="button"
+          >
+            <ChevronSvg open={locksOpen} />
+            <span className={styles.overline}>Active Locks</span>
+          </button>
+          {locksOpen && locks.length > 0 && (
+            <div className={styles.locksTable}>
+              <div className={styles.locksTableHeader}>
+                <span>Job</span>
+                <span className={styles.centerCol}>Amount</span>
+                <span className={classNames(styles.rightCol, styles.lockExpiry)}>Expires</span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              {locks.map((lock) => (
+                <div className={styles.lockRow} key={lock.jobId}>
+                  <span className={styles.lockJob}>{formatWalletAddress(lock.jobId)}</span>
+                  <span className={styles.centerCol}>
+                    {formatTokenAmount(lock.amount, token.address)} {token.symbol}
+                  </span>
+                  <span className={`${styles.rightCol} ${styles.lockExpiry}`}>{formatDateTime(lock.expiry)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <span className={styles.noLocks}>No active locks</span>
+      )}
 
       <EditAuthorizationModal
         isOpen={isEditOpen}
@@ -319,7 +320,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
           <div className={styles.authSectionHeader}>
             <span className={styles.authSectionTitle}>Spending authorizations</span>
             {spenders.length > 0 && (
-              <span className={styles.spenderCountChip}>
+              <span className="chip chipGlass">
                 {spenders.length} {spenders.length === 1 ? 'spender' : 'spenders'}
               </span>
             )}

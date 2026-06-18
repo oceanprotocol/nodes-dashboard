@@ -62,11 +62,15 @@
 }
 
 .primaryValue {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: -1px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+
+  @media (min-width: 576px) {
+    font-size: 36px;
+  }
 }
 
 .secondaryBalances {
@@ -88,7 +92,7 @@
 }
 
 .secondaryLabel {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -139,6 +143,7 @@
 .authSectionHeader {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -148,45 +153,17 @@
   line-height: 1.2;
 }
 
-.spenderCountChip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 100px;
-  background: color-mix(in srgb, var(--accent1) 15%, transparent);
-  color: var(--accent1);
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .authHeader {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
-}
-
-.authIdentity {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.authSpenderIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  flex-shrink: 0;
 }
 
 .authSpender {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -194,9 +171,14 @@
 }
 
 .statsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px 24px;
+
+  @media (min-width: 576px) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .statField {
@@ -215,8 +197,14 @@
   font-weight: 700;
 }
 
+.locksUsedRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .locksBar {
-  margin-top: 5px;
+  flex: 1;
   height: 5px;
   border-radius: 100px;
   background: var(--border);
@@ -268,20 +256,6 @@
   transform: rotate(90deg);
 }
 
-.locksChip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 100px;
-  background: color-mix(in srgb, var(--accent1) 15%, transparent);
-  color: var(--accent1);
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .locksTable {
   display: flex;
   flex-direction: column;
@@ -289,26 +263,44 @@
 
 .locksTableHeader {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1.3fr;
+  grid-template-columns: 1fr 1fr;
   padding-bottom: 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-secondary);
+
+  @media (min-width: 576px) {
+    grid-template-columns: 1.1fr 1fr 1.3fr;
+  }
 }
 
 .lockRow {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1.3fr;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
-  padding: 11px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--border);
+
+  @media (min-width: 576px) {
+    grid-template-columns: 1.1fr 1fr 1.3fr;
+  }
+}
+
+.lockExpiry {
+  display: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  @media (min-width: 576px) {
+    display: block;
+  }
 }
 
 .lockJob {
   font-family: monospace;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -319,11 +311,6 @@
 
 .rightCol {
   text-align: right;
-}
-
-.lockExpiry {
-  font-size: 13px;
-  color: var(--text-secondary);
 }
 
 .noLocks {
@@ -370,6 +357,6 @@
 .noAuthDesc {
   font-size: 14px;
   color: var(--text-secondary);
-  max-width: 340px;
+  max-width: 400px;
   line-height: 1.5;
 }
