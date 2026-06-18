@@ -20,7 +20,7 @@ type EscrowTokenPanelProps = {
 };
 
 type AmountFormValues = {
-  amount: number;
+  amount: number | '';
 };
 
 // Inline SVG pencil icon for Edit button
@@ -184,28 +184,30 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
   const { handleWithdraw, isWithdrawing } = useWithdrawTokens({ onSuccess: onChange });
 
   const depositForm = useFormik<AmountFormValues>({
-    initialValues: { amount: 0 },
-    onSubmit: (values) => {
-      handleDeposit({ tokenAddress: token.address, amount: values.amount.toString() });
+    initialValues: { amount: '' },
+    onSubmit: async (values, formik) => {
+      await handleDeposit({ tokenAddress: token.address, amount: values.amount.toString() });
+      formik.resetForm();
     },
     validateOnMount: true,
     validationSchema: Yup.object({
       amount: Yup.number()
-        .required('Required')
+        // .required('Required')
         .moreThan(0, 'Invalid amount')
         .max(token.walletBalance, 'Exceeds wallet balance'),
     }),
   });
 
   const withdrawForm = useFormik<AmountFormValues>({
-    initialValues: { amount: 0 },
-    onSubmit: (values) => {
-      handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()] });
+    initialValues: { amount: '' },
+    onSubmit: async (values, formik) => {
+      await handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()] });
+      formik.resetForm();
     },
     validateOnMount: true,
     validationSchema: Yup.object({
       amount: Yup.number()
-        .required('Required')
+        // .required('Required')
         .moreThan(0, 'Invalid amount')
         .max(token.available, 'Exceeds available funds'),
     }),
@@ -259,7 +261,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                     className={styles.fundButton}
                     color="accent2"
                     contentBefore={<UploadSvg />}
-                    disabled={!depositForm.isValid || isDepositing}
+                    disabled={!depositForm.isValid || !depositForm.values.amount}
                     loading={isDepositing}
                     size="sm"
                     type="submit"
@@ -288,7 +290,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                     className={styles.fundButton}
                     color="accent2"
                     contentBefore={<DownloadSvg />}
-                    disabled={!withdrawForm.isValid || isWithdrawing}
+                    disabled={!withdrawForm.isValid || !withdrawForm.values.amount}
                     loading={isWithdrawing}
                     size="sm"
                     type="submit"

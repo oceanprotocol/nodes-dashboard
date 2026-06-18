@@ -24,7 +24,7 @@ export interface UseDepositTokensParams {
 
 export interface UseDepositTokensReturn {
   isDepositing: boolean;
-  handleDeposit: (params: DepositTokensParams) => void;
+  handleDeposit: (params: DepositTokensParams) => Promise<void>;
   transactionUrl?: string;
   error?: string;
 }

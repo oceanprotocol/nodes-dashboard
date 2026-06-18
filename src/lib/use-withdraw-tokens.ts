@@ -20,7 +20,7 @@ export interface UseWithdrawTokensParams {
 
 export interface UseWithdrawTokensReturn {
   isWithdrawing: boolean;
-  handleWithdraw: (params: WithdrawTokensParams) => void;
+  handleWithdraw: (params: WithdrawTokensParams) => Promise<void>;
   transactionUrl?: string;
   error?: string;
 }
