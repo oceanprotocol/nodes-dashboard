@@ -14,7 +14,7 @@ import styles from './escrow-token-panel.module.css';
 
 type EscrowTokenPanelProps = {
   token: EscrowTokenInfo;
-  spender: EscrowSpenderInfo | null;
+  spenders: EscrowSpenderInfo[];
   loadingSpenders: boolean;
   onChange: () => void;
 };
@@ -44,9 +44,142 @@ const DownloadSvg = () => (
   </svg>
 );
 
-const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
-  const [isEditOpen, setIsEditOpen] = useState(false);
+// Inline SVG chevron icon for the collapsible active-locks section
+const ChevronSvg = ({ open }: { open: boolean }) => (
+  <svg
+    className={open ? styles.chevronOpen : styles.chevron}
+    fill="currentColor"
+    height="14"
+    viewBox="0 0 24 24"
+    width="14"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+  </svg>
+);
 
+// One spending-authorization card (right-hand side). A token can have multiple authorized
+// spenders, so each gets its own card with its own edit + locks-expansion state.
+const AuthorizationCard = ({
+  spender,
+  token,
+  onChange,
+}: {
+  spender: EscrowSpenderInfo;
+  token: EscrowTokenInfo;
+  onChange: () => void;
+}) => {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [locksOpen, setLocksOpen] = useState(false);
+
+  const auth = spender.authorizations;
+  const locks = spender.locks ?? [];
+  const locksUsed = Number(auth.currentLocks);
+  const locksMax = Number(auth.maxLockCounts);
+  const locksPct = locksMax > 0 ? Math.min(100, (locksUsed / locksMax) * 100) : 0;
+
+  return (
+    <Card direction="column" innerShadow="black" padding="md" radius="lg" spacing="md">
+      {/* Auth header */}
+      <div className={styles.authHeader}>
+        <div className={styles.authIdentity}>
+          <span className={styles.authSpenderIcon}>
+            <svg fill="currentColor" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 14a8 8 0 0 1-6.32-3.1c.03-2.1 4.21-3.25 6.32-3.25s6.29 1.15 6.32 3.25A8 8 0 0 1 12 20z" />
+            </svg>
+          </span>
+          <span className={styles.authSpender}>Spender {formatWalletAddress(spender.spender)}</span>
+        </div>
+        <Button
+          color="accent2"
+          contentBefore={<PencilSvg />}
+          onClick={() => setIsEditOpen(true)}
+          size="sm"
+          variant="filled"
+        >
+          Edit
+        </Button>
+      </div>
+
+      {/* Stats grid */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statField}>
+          <span className={styles.statLabel}>Max locked</span>
+          <span className={styles.statValue}>
+            {formatTokenAmount(Number(auth.maxLockedAmount), token.address)} {token.symbol}
+          </span>
+        </div>
+        <div className={styles.statField}>
+          <span className={styles.statLabel}>Locked now</span>
+          <span className={styles.statValue}>
+            {formatTokenAmount(Number(auth.currentLockedAmount), token.address)} {token.symbol}
+          </span>
+        </div>
+        <div className={styles.statField}>
+          <span className={styles.statLabel}>Max duration</span>
+          <span className={styles.statValue}>{formatDuration(Number(auth.maxLockSeconds), true)}</span>
+        </div>
+        <div className={styles.statField}>
+          <span className={styles.statLabel}>Locks used</span>
+          <span className={styles.statValue}>
+            {locksUsed} / {locksMax}
+          </span>
+          <div className={styles.locksBar}>
+            <div className={styles.locksBarFill} style={{ width: `${locksPct}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className={styles.divider} />
+
+      {/* Active locks (collapsible) */}
+      <div className={styles.locksSection}>
+        <button
+          aria-expanded={locksOpen}
+          className={styles.locksHeader}
+          disabled={locks.length === 0}
+          onClick={() => setLocksOpen((open) => !open)}
+          type="button"
+        >
+          <ChevronSvg open={locksOpen} />
+          <span className={styles.overline}>Active locks</span>
+          {locks.length > 0 && <span className={styles.locksChip}>{locks.length}</span>}
+        </button>
+        {locksOpen && locks.length > 0 && (
+          <div className={styles.locksTable}>
+            <div className={styles.locksTableHeader}>
+              <span>Job</span>
+              <span className={styles.centerCol}>Amount</span>
+              <span className={styles.rightCol}>Expires</span>
+            </div>
+            {locks.map((lock) => (
+              <div className={styles.lockRow} key={lock.jobId}>
+                <span className={styles.lockJob}>{formatWalletAddress(lock.jobId)}</span>
+                <span className={styles.centerCol}>
+                  {formatTokenAmount(lock.amount, token.address)} {token.symbol}
+                </span>
+                <span className={`${styles.rightCol} ${styles.lockExpiry}`}>{formatDateTime(lock.expiry)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <EditAuthorizationModal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        onSuccess={() => {
+          setIsEditOpen(false);
+          onChange();
+        }}
+        spender={spender}
+      />
+    </Card>
+  );
+};
+
+const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
   const { handleDeposit, isDepositing } = useDepositTokens({ onSuccess: onChange });
   const { handleWithdraw, isWithdrawing } = useWithdrawTokens({ onSuccess: onChange });
 
@@ -77,12 +210,6 @@ const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowT
         .max(token.available, 'Exceeds available funds'),
     }),
   });
-
-  const auth = spender?.authorizations ?? null;
-  const locks = spender?.locks ?? [];
-  const locksUsed = auth ? Number(auth.currentLocks) : 0;
-  const locksMax = auth ? Number(auth.maxLockCounts) : 0;
-  const locksPct = locksMax > 0 ? Math.min(100, (locksUsed / locksMax) * 100) : 0;
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -185,93 +312,24 @@ const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowT
           </div>
         </div>
 
-        {/* ── Right: authorization & locks ── */}
+        {/* ── Right: authorizations & locks (one card per authorized spender) ── */}
         <div className={styles.right}>
-          {loadingSpenders && !auth ? (
+          <div className={styles.authSectionHeader}>
+            <span className={styles.authSectionTitle}>Spending authorizations</span>
+            {spenders.length > 0 && (
+              <span className={styles.spenderCountChip}>
+                {spenders.length} {spenders.length === 1 ? 'spender' : 'spenders'}
+              </span>
+            )}
+          </div>
+          {loadingSpenders && spenders.length === 0 ? (
             <div className={styles.authLoading}>
               <CircularProgress size={28} />
             </div>
-          ) : auth ? (
-            <>
-              {/* Auth header */}
-              <div className={styles.authHeader}>
-                <div>
-                  <span className={styles.authTitle}>Spending authorization</span>
-                  {spender ? (
-                    <span className={styles.authSpender}>Spender {formatWalletAddress(spender.spender)}</span>
-                  ) : null}
-                </div>
-                <Button
-                  color="accent2"
-                  contentBefore={<PencilSvg />}
-                  onClick={() => setIsEditOpen(true)}
-                  size="sm"
-                  variant="filled"
-                >
-                  Edit
-                </Button>
-              </div>
-
-              {/* Stats grid */}
-              <div className={styles.statsGrid}>
-                <div className={styles.statField}>
-                  <span className={styles.statLabel}>Max locked amount</span>
-                  <span className={styles.statValue}>
-                    {formatTokenAmount(Number(auth.maxLockedAmount), token.address)} {token.symbol}
-                  </span>
-                </div>
-                <div className={styles.statField}>
-                  <span className={styles.statLabel}>Currently locked</span>
-                  <span className={styles.statValue}>
-                    {formatTokenAmount(Number(auth.currentLockedAmount), token.address)} {token.symbol}
-                  </span>
-                </div>
-                <div className={styles.statField}>
-                  <span className={styles.statLabel}>Max lock duration</span>
-                  <span className={styles.statValue}>{formatDuration(Number(auth.maxLockSeconds), true)}</span>
-                </div>
-                <div className={styles.statField}>
-                  <span className={styles.statLabel}>Locks used</span>
-                  <span className={styles.statValue}>
-                    {locksUsed} / {locksMax}
-                  </span>
-                  <div className={styles.locksBar}>
-                    <div className={styles.locksBarFill} style={{ width: `${locksPct}%` }} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className={styles.divider} />
-
-              {/* Active locks */}
-              <div className={styles.locksSection}>
-                <div className={styles.locksHeader}>
-                  <span className={styles.overline}>Active locks</span>
-                  {locks.length > 0 && <span className={styles.locksChip}>{locks.length}</span>}
-                </div>
-                {locks.length > 0 ? (
-                  <div className={styles.locksTable}>
-                    <div className={styles.locksTableHeader}>
-                      <span>Job</span>
-                      <span className={styles.centerCol}>Amount</span>
-                      <span className={styles.rightCol}>Expires</span>
-                    </div>
-                    {locks.map((lock) => (
-                      <div className={styles.lockRow} key={lock.jobId}>
-                        <span className={styles.lockJob}>{formatWalletAddress(lock.jobId)}</span>
-                        <span className={styles.centerCol}>
-                          {formatTokenAmount(lock.amount, token.address)} {token.symbol}
-                        </span>
-                        <span className={`${styles.rightCol} ${styles.lockExpiry}`}>{formatDateTime(lock.expiry)}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span className={styles.noLocks}>No active locks</span>
-                )}
-              </div>
-            </>
+          ) : spenders.length > 0 ? (
+            spenders.map((spender) => (
+              <AuthorizationCard key={spender.spender} onChange={onChange} spender={spender} token={token} />
+            ))
           ) : (
             <div className={styles.noAuth}>
               <div className={styles.noAuthIcon}>
@@ -288,18 +346,6 @@ const EscrowTokenPanel = ({ token, spender, loadingSpenders, onChange }: EscrowT
           )}
         </div>
       </div>
-
-      {spender && (
-        <EditAuthorizationModal
-          isOpen={isEditOpen}
-          onClose={() => setIsEditOpen(false)}
-          onSuccess={() => {
-            setIsEditOpen(false);
-            onChange();
-          }}
-          spender={spender}
-        />
-      )}
     </Card>
   );
 };

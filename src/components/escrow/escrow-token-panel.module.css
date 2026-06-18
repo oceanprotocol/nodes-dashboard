@@ -136,26 +136,61 @@
   }
 }
 
-.authHeader {
+.authSectionHeader {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
 }
 
-.authTitle {
-  display: block;
+.authSectionTitle {
   font-size: 18px;
   font-weight: 700;
   line-height: 1.2;
 }
 
+.spenderCountChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 100px;
+  background: color-mix(in srgb, var(--accent1) 15%, transparent);
+  color: var(--accent1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.authHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.authIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.authSpenderIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
 .authSpender {
-  display: block;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
-  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .statsGrid {
@@ -210,6 +245,27 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.locksHeader:disabled {
+  cursor: default;
+}
+
+.chevron,
+.chevronOpen {
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
 }
 
 .locksChip {

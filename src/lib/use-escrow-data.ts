@@ -1,8 +1,8 @@
+import { CHAIN_ID } from '@/constants/chains';
 import { NODE_URL } from '@/lib/constants';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { getNodeEnvs } from '@/services/nodeService';
+import { getEscrowEvents } from '@/services/nodeService';
 import { getSupportedTokens } from '@/constants/tokens';
-import { ComputeEnvironment } from '@/types/environments';
 import { Authorizations, EscrowLock } from '@/types/payment';
 import { ethers } from 'ethers';
 import { useCallback, useEffect, useState } from 'react';
@@ -77,13 +77,25 @@ export const useEscrowData = (): UseEscrowDataReturn => {
       );
       setTokens(tokenInfos);
 
-      let envs: ComputeEnvironment[] = [];
+      // Discover spenders (payees) from the node's indexed `Auth` events. Nodes index every
+      // on-chain escrow event, so this returns all payees the user has authorized without
+      // iterating compute envs. `getAuthorizations` below is the live-truth gate.
+      // Note: the node only indexes base — sepolia returns nothing.
+      let candidateSpenders: string[] = [];
       try {
-        envs = (await getNodeEnvs(NODE_URL)) as ComputeEnvironment[];
+        const authEvents = await getEscrowEvents(NODE_URL, {
+          chainId: CHAIN_ID,
+          eventType: 'Auth',
+          payer: account.address,
+        });
+        candidateSpenders = authEvents
+          .map((event) => event.payee)
+          .filter((payee): payee is string => Boolean(payee));
       } catch (err) {
-        console.warn('Failed to load compute environments for escrow spenders:', err);
+        console.warn('Escrow event query failed for spender discovery:', err);
       }
-      const spenderAddresses = dedupeAddresses(envs.map((env) => env.consumerAddress));
+
+      const spenderAddresses = dedupeAddresses(candidateSpenders);
 
       const spenderInfos = (
         await Promise.all(

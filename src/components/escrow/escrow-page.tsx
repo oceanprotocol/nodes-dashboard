@@ -22,14 +22,15 @@ const EscrowPage = () => {
         ) : (
           <div className={styles.panels}>
             {tokens.map((token) => {
-              const spender =
-                spenders.find((s) => s.tokenAddress.toLowerCase() === token.address.toLowerCase()) ?? null;
+              const tokenSpenders = spenders.filter(
+                (s) => s.tokenAddress.toLowerCase() === token.address.toLowerCase()
+              );
               return (
                 <EscrowTokenPanel
                   key={token.address}
                   loadingSpenders={loading}
                   onChange={reload}
-                  spender={spender}
+                  spenders={tokenSpenders}
                   token={token}
                 />
               );

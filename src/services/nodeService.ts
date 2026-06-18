@@ -1,5 +1,6 @@
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
+import { EscrowEvent } from '@/types/payment';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import {
   PROTOCOL_COMMANDS,
@@ -39,6 +40,37 @@ export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
 
 export async function getNodeEnvs(nodeUri: NodeUri) {
   return ProviderInstance.getComputeEnvironments(normalizeNodeUri(nodeUri));
+}
+
+// Query a node's indexed escrow events. Nodes index ALL on-chain escrow events (not just their
+// own), so this discovers every payee a payer has authorized without iterating compute envs.
+// Not wrapped by ocean.js — hit the node HTTP route directly.
+export async function getEscrowEvents(
+  nodeHttpUrl: string,
+  filters: {
+    chainId?: number;
+    eventType?: string;
+    payer?: string;
+    payee?: string;
+    token?: string;
+    jobId?: string;
+    txId?: string;
+    offset?: number;
+    size?: number;
+  }
+): Promise<EscrowEvent[]> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== null) {
+      params.set(key, String(value));
+    }
+  }
+  const url = `${nodeHttpUrl.replace(/\/$/, '')}/api/services/escrow/events?${params.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch escrow events: ${response.status}`);
+  }
+  return (await response.json()) as EscrowEvent[];
 }
 
 export async function getNonce(nodeUri: NodeUri, consumerAddress: string): Promise<number> {

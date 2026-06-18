@@ -50,6 +50,16 @@ export class OceanProvider {
     return escrow;
   }
 
+  // Current Escrow deployment address for the active chain. Used to scope indexed events to the
+  // live contract — events from an old/redeployed Escrow carry a different `contract` address.
+  async getEscrowAddress(): Promise<string> {
+    const config = await this.getConfigByChainId(this.chainId);
+    if (!config.Escrow) {
+      throw new Error('No escrow found for chainId');
+    }
+    return config.Escrow;
+  }
+
   async getNodeBalance(environments: ComputeEnvironment[]) {
     const result = [];
     try {
