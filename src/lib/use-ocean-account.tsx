@@ -173,10 +173,10 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
     }
   }, [address]);
 
-  const ocean = useMemo(() => {
-    if (!provider) return null;
-    return new OceanProvider(CHAIN_ID, provider);
-  }, [provider]);
+  // Reads go through our pinned RPC, not the wallet's. MetaMask follows the wallet's selected
+  // network/RPC, so a user on a broken or out-of-sync custom RPC gets empty `0x` results that
+  // ethers can't decode (BAD_DATA). The wallet `provider` above is still used for signing/tx.
+  const ocean = useMemo(() => new OceanProvider(CHAIN_ID, new ethers.JsonRpcProvider(getRpc())), []);
 
   const logout = useCallback(async () => {
     try {
