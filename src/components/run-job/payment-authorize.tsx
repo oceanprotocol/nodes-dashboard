@@ -42,6 +42,7 @@ const PaymentAuthorize = ({
       onSubmit={(values) =>
         handleAuthorize({
           tokenAddress: selectedToken.address,
+          peerId: selectedEnv.nodeId,
           spender: selectedEnv.consumerAddress,
           maxLockedAmount: values.maxLockedAmount.toString(),
           maxLockSeconds: values.maxLockSeconds.toString(),
