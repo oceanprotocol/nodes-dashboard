@@ -64,7 +64,7 @@ const CreateAuthorizationModal = ({
         setFieldError('nodeId', 'This node already has an authorization');
         return;
       }
-      handleAuthorize({
+      await handleAuthorize({
         tokenAddress,
         peerId: values.nodeId.trim(),
         spender: consumer,
