@@ -81,7 +81,9 @@ const CreateAuthorizationModal = ({
     setFieldError: (field: string, message: string | undefined) => void
   ): Promise<string | null> => {
     try {
-      const response = await axios.get(`${getApiRoute('nodes')}?page=0&size=1&nodeId=${nodeId}`);
+      const response = await axios.get(getApiRoute('nodes'), {
+        params: { page: 0, size: 1, nodeId },
+      });
       const node: Node | undefined = response.data?.nodes?.[0]?._source;
       if (!node) {
         setFieldError('nodeId', 'Node not found');
