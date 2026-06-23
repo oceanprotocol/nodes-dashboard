@@ -4,6 +4,7 @@ import CreateAuthorizationModal from '@/components/escrow/create-authorization-m
 import EditAuthorizationModal from '@/components/escrow/edit-authorization-modal';
 import RevokeAuthorizationModal from '@/components/escrow/revoke-authorization-modal';
 import Input from '@/components/input/input';
+import Menu from '@/components/menu/menu';
 import { useDepositTokens } from '@/lib/use-deposit-tokens';
 import { EscrowSpenderInfo, EscrowTokenInfo } from '@/lib/use-escrow-data';
 import { useWithdrawTokens } from '@/lib/use-withdraw-tokens';
@@ -15,10 +16,11 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { CircularProgress } from '@mui/material';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import { CircularProgress, IconButton, ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import * as Yup from 'yup';
 import styles from './escrow-token-panel.module.css';
 
@@ -47,6 +49,10 @@ const AuthorizationCard = ({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRevokeOpen, setIsRevokeOpen] = useState(false);
   const [locksOpen, setLocksOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const closeMenu = () => setMenuAnchor(null);
 
   const auth = spender.authorizations;
   const locks = spender.locks ?? [];
@@ -61,26 +67,48 @@ const AuthorizationCard = ({
         <div className={styles.authSpender} title={spender.spender}>
           Consumer {formatWalletAddress(spender.spender)}
         </div>
-        <div className={styles.authActions}>
-          <Button
-            color="accent1"
-            contentBefore={<EditOutlinedIcon fontSize="small" />}
-            onClick={() => setIsEditOpen(true)}
-            size="sm"
-            variant="outlined"
+        <IconButton
+          aria-label="Authorization actions"
+          onClick={() => setMenuAnchor(menuButtonRef.current)}
+          ref={menuButtonRef}
+          size="small"
+          sx={{ color: 'var(--text-secondary)' }}
+        >
+          <MoreHorizIcon fontSize="small" />
+        </IconButton>
+        <Menu
+          anchorEl={menuAnchor}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          onClose={closeMenu}
+          open={!!menuAnchor}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <MenuItem
+            disableRipple
+            onClick={() => {
+              setIsEditOpen(true);
+              closeMenu();
+            }}
           >
+            <ListItemIcon>
+              <EditOutlinedIcon fontSize="small" />
+            </ListItemIcon>
             Edit
-          </Button>
-          <Button
-            color="accent1"
-            contentBefore={<DeleteOutlineIcon fontSize="small" />}
-            onClick={() => setIsRevokeOpen(true)}
-            size="sm"
-            variant="filled"
+          </MenuItem>
+          <MenuItem
+            disableRipple
+            onClick={() => {
+              setIsRevokeOpen(true);
+              closeMenu();
+            }}
+            sx={{ color: 'var(--error-darker)' }}
           >
+            <ListItemIcon>
+              <DeleteOutlineIcon fontSize="small" sx={{ color: 'var(--error-darker)' }} />
+            </ListItemIcon>
             Revoke
-          </Button>
-        </div>
+          </MenuItem>
+        </Menu>
       </div>
 
       {/* Stats grid */}

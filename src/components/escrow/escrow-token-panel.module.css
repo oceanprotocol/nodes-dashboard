@@ -165,12 +165,6 @@
   gap: 12px;
 }
 
-.authActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .authSpender {
   font-size: 14px;
   font-weight: 600;
