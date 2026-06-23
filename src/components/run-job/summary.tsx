@@ -7,6 +7,7 @@ import Menu from '@/components/menu/menu';
 import GenerateTokenCard from '@/components/run-job/generate-token-card';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
+import { IdeResourceRequest } from '@/lib/ocean-provider';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
@@ -111,10 +112,11 @@ const Summary = ({
       return;
     }
     const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
-    const resources = [
+    const resources: IdeResourceRequest[] = [
       ...gpus.map((availableGpu) => ({
         id: availableGpu.id,
         amount: selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id) ? 1 : 0,
+        description: availableGpu.description,
       })),
     ];
     if (selectedResources.cpuId && selectedResources.cpuCores) {
