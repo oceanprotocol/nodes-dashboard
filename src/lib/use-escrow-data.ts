@@ -93,7 +93,7 @@ export const useEscrowData = (): UseEscrowDataReturn => {
         .filter((r): r is PromiseFulfilledResult<EscrowSpenderInfo[]> => r.status === 'fulfilled')
         .flatMap((r) => r.value)
         // Drop revoked authorizations — limits all zeroed, no longer usable.
-        .filter((info) => !isRevokedAuthorization(info.authorizations));
+        .filter((info) => !isRevokedAuthorization(info.authorizations) || info.locks.length > 0);
       setSpenders(spenderInfos);
     } catch (err) {
       console.error('Failed to load escrow data:', err);
