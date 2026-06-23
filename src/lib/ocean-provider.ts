@@ -1,7 +1,7 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
-import { EscrowLock } from '@/types/payment';
+import { Authorizations, EscrowLock } from '@/types/payment';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -152,6 +152,29 @@ export class OceanProvider {
       maxLockCounts: splitValues[4],
       currentLocks: splitValues[5],
     };
+  }
+
+  // Returns every authorization the payer has granted for a token, across all payees.
+  // The Escrow contract treats a zero payee address as a wildcard.
+  async getAllAuthorizations(tokenAddress: string, payer: string): Promise<Authorizations[]> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer)) {
+      console.error('Invalid address passed to getAllAuthorizations', { tokenAddress, payer });
+      return [];
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
+    const authorizations = await escrow.getAuthorizations(tokenAddress, payer, ethers.ZeroAddress);
+    if (!authorizations || authorizations.length === 0) {
+      return [];
+    }
+    return authorizations.map((auth: any) => ({
+      payee: auth.payee,
+      maxLockedAmount: this.denominateNumber(auth.maxLockedAmount.toString(), tokenDecimals),
+      currentLockedAmount: this.denominateNumber(auth.currentLockedAmount.toString(), tokenDecimals),
+      maxLockSeconds: auth.maxLockSeconds.toString(),
+      maxLockCounts: auth.maxLockCounts.toString(),
+      currentLocks: auth.currentLocks.toString(),
+    }));
   }
 
   async getUserFunds(tokenAddress: string, address: string): Promise<number> {

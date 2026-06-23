@@ -17,7 +17,7 @@ import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
-import { CircularProgress, IconButton, ListItemIcon, MenuItem } from '@mui/material';
+import { CircularProgress, Collapse, IconButton, ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useRef, useState } from 'react';
@@ -158,7 +158,7 @@ const AuthorizationCard = ({
             <ChevronRightIcon className={locksOpen ? styles.chevronOpen : styles.chevron} fontSize="small" />
             <span className={styles.overline}>Active Locks</span>
           </button>
-          {locksOpen && locks.length > 0 && (
+          <Collapse in={locksOpen} timeout="auto" unmountOnExit>
             <div className={styles.locksTable}>
               <div className={styles.locksTableHeader}>
                 <span>Job</span>
@@ -175,7 +175,7 @@ const AuthorizationCard = ({
                 </div>
               ))}
             </div>
-          )}
+          </Collapse>
         </div>
       ) : (
         <span className={styles.noLocks}>No active locks</span>
