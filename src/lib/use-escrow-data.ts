@@ -16,6 +16,10 @@ export type EscrowTokenInfo = {
   walletBalance: number;
 };
 
+// A revoked authorization is one re-authorized with all limits set to zero.
+const isRevokedAuthorization = (auth: Authorizations): boolean =>
+  Number(auth.maxLockedAmount) === 0 && Number(auth.maxLockSeconds) === 0 && Number(auth.maxLockCounts) === 0;
+
 export type EscrowSpenderInfo = {
   tokenSymbol: string;
   tokenAddress: string;
@@ -125,7 +129,9 @@ export const useEscrowData = (): UseEscrowDataReturn => {
       const spenderInfos = settled
         .filter((r): r is PromiseFulfilledResult<EscrowSpenderInfo | null> => r.status === 'fulfilled')
         .map((r) => r.value)
-        .filter((info): info is EscrowSpenderInfo => info !== null);
+        .filter((info): info is EscrowSpenderInfo => info !== null)
+        // Drop revoked authorizations — limits all zeroed, no longer usable.
+        .filter((info) => !isRevokedAuthorization(info.authorizations));
       setSpenders(spenderInfos);
     } catch (err) {
       console.error('Failed to load escrow data:', err);

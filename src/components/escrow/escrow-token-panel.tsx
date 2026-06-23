@@ -2,11 +2,19 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import CreateAuthorizationModal from '@/components/escrow/create-authorization-modal';
 import EditAuthorizationModal from '@/components/escrow/edit-authorization-modal';
+import RevokeAuthorizationModal from '@/components/escrow/revoke-authorization-modal';
 import Input from '@/components/input/input';
 import { useDepositTokens } from '@/lib/use-deposit-tokens';
 import { EscrowSpenderInfo, EscrowTokenInfo } from '@/lib/use-escrow-data';
 import { useWithdrawTokens } from '@/lib/use-withdraw-tokens';
 import { formatDateTime, formatDuration, formatTokenAmount, formatWalletAddress } from '@/utils/formatters';
+import AddIcon from '@mui/icons-material/Add';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
@@ -25,41 +33,6 @@ type AmountFormValues = {
   amount: number | '';
 };
 
-// Inline SVG pencil icon for Edit button
-const PencilSvg = () => (
-  <svg fill="currentColor" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-  </svg>
-);
-
-// Inline SVG upload icon for Deposit
-const UploadSvg = () => (
-  <svg fill="currentColor" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg">
-    <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z" />
-  </svg>
-);
-
-// Inline SVG download icon for Withdraw
-const DownloadSvg = () => (
-  <svg fill="currentColor" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg">
-    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-  </svg>
-);
-
-// Inline SVG chevron icon for the collapsible active-locks section
-const ChevronSvg = ({ open }: { open: boolean }) => (
-  <svg
-    className={open ? styles.chevronOpen : styles.chevron}
-    fill="currentColor"
-    height="14"
-    viewBox="0 0 24 24"
-    width="14"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z" />
-  </svg>
-);
-
 // One spending-authorization card (right-hand side). A token can have multiple authorized
 // spenders, so each gets its own card with its own edit + locks-expansion state.
 const AuthorizationCard = ({
@@ -72,6 +45,7 @@ const AuthorizationCard = ({
   onChange: () => void;
 }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isRevokeOpen, setIsRevokeOpen] = useState(false);
   const [locksOpen, setLocksOpen] = useState(false);
 
   const auth = spender.authorizations;
@@ -87,15 +61,26 @@ const AuthorizationCard = ({
         <div className={styles.authSpender} title={spender.spender}>
           Consumer {formatWalletAddress(spender.spender)}
         </div>
-        <Button
-          color="accent2"
-          contentBefore={<PencilSvg />}
-          onClick={() => setIsEditOpen(true)}
-          size="sm"
-          variant="filled"
-        >
-          Edit
-        </Button>
+        <div className={styles.authActions}>
+          <Button
+            color="accent1"
+            contentBefore={<EditOutlinedIcon fontSize="small" />}
+            onClick={() => setIsEditOpen(true)}
+            size="sm"
+            variant="outlined"
+          >
+            Edit
+          </Button>
+          <Button
+            color="accent1"
+            contentBefore={<DeleteOutlineIcon fontSize="small" />}
+            onClick={() => setIsRevokeOpen(true)}
+            size="sm"
+            variant="filled"
+          >
+            Revoke
+          </Button>
+        </div>
       </div>
 
       {/* Stats grid */}
@@ -142,7 +127,7 @@ const AuthorizationCard = ({
             onClick={() => setLocksOpen((open) => !open)}
             type="button"
           >
-            <ChevronSvg open={locksOpen} />
+            <ChevronRightIcon className={locksOpen ? styles.chevronOpen : styles.chevron} fontSize="small" />
             <span className={styles.overline}>Active Locks</span>
           </button>
           {locksOpen && locks.length > 0 && (
@@ -177,16 +162,19 @@ const AuthorizationCard = ({
         }}
         spender={spender}
       />
+
+      <RevokeAuthorizationModal
+        isOpen={isRevokeOpen}
+        onClose={() => setIsRevokeOpen(false)}
+        onSuccess={() => {
+          setIsRevokeOpen(false);
+          onChange();
+        }}
+        spender={spender}
+      />
     </Card>
   );
 };
-
-// Inline SVG plus icon for the Create authorization button
-const PlusSvg = () => (
-  <svg fill="currentColor" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
-    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z" />
-  </svg>
-);
 
 const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -268,8 +256,8 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                 endAdornment={
                   <Button
                     className={styles.fundButton}
-                    color="accent2"
-                    contentBefore={<UploadSvg />}
+                    color="accent1"
+                    contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
                     disabled={!depositForm.isValid || !depositForm.values.amount}
                     loading={isDepositing}
                     size="sm"
@@ -297,13 +285,13 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                 endAdornment={
                   <Button
                     className={styles.fundButton}
-                    color="accent2"
-                    contentBefore={<DownloadSvg />}
+                    color="accent1"
+                    contentBefore={<FileDownloadOutlinedIcon fontSize="small" />}
                     disabled={!withdrawForm.isValid || !withdrawForm.values.amount}
                     loading={isWithdrawing}
                     size="sm"
                     type="submit"
-                    variant="filled"
+                    variant="outlined"
                   >
                     Withdraw
                   </Button>
@@ -335,7 +323,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
             <Button
               className={styles.createAuthButton}
               color="accent2"
-              contentBefore={<PlusSvg />}
+              contentBefore={<AddIcon fontSize="small" />}
               onClick={() => setIsCreateOpen(true)}
               size="sm"
               variant="filled"
@@ -354,9 +342,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
           ) : (
             <div className={styles.noAuth}>
               <div className={styles.noAuthIcon}>
-                <svg fill="currentColor" height="28" viewBox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
-                </svg>
+                <LockOutlinedIcon sx={{ fontSize: 28 }} />
               </div>
               <span className={styles.noAuthTitle}>No authorization yet</span>
               <span className={styles.noAuthDesc}>
