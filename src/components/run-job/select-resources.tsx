@@ -63,6 +63,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   useEffect(() => {
     let cancelled = false;
+    setLiveEnv(null);
     if (!p2pReady || !multiaddrsOrPeerId) {
       return;
     }
