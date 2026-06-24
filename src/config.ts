@@ -68,6 +68,10 @@ const config: Config = {
       path: '/run-job/environments',
       name: 'Run a job',
     },
+    inference: {
+      path: '/inference',
+      name: 'Inference',
+    },
     stats: {
       path: '/stats',
       name: 'Stats',
