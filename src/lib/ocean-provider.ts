@@ -9,6 +9,8 @@ import type { ComputeEnvFees, ComputeResourceRequest } from '@oceanprotocol/lib'
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 
+export type IdeResourceRequest = ComputeResourceRequest & { description?: string };
+
 export class OceanProvider {
   private chainId: number;
   private provider: ethers.BrowserProvider | ethers.JsonRpcProvider;
@@ -318,7 +320,7 @@ export class OceanProvider {
     environmentId: string,
     feeToken: string,
     jobDuration: number,
-    resources: ComputeResourceRequest[],
+    resources: IdeResourceRequest[],
     ide: string
   ) {
     const extensionUrl = `${ide}://oceanprotocol.ocean-protocol-vscode-extension/updateConfiguration`;
