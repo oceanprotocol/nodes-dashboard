@@ -1,17 +1,23 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
+import { getAvailableAmount } from '@/utils/resources';
 import { useMemo } from 'react';
 
 type UseEnvResources = {
   cpu?: ComputeResource;
+  cpuAvailable: number;
   cpuFee?: number;
   disk?: ComputeResource;
+  diskAvailable: number;
   diskFee?: number;
   gpus: ComputeResource[];
+  // Available units per GPU resource id (max - inUse, clamped >= 0)
+  gpusAvailable: Record<string, number>;
   gpuFees: Record<string, number>;
   maxJobDurationSeconds?: number;
   minJobDurationSeconds?: number;
   ram?: ComputeResource;
+  ramAvailable: number;
   ramFee?: number;
   supportedTokens: string[];
 };
@@ -138,16 +144,33 @@ const useEnvResources = ({
     freeCompute,
   ]);
 
+  const { cpuAvailable, diskAvailable, gpusAvailable, ramAvailable } = useMemo(() => {
+    const gpusAvailable: Record<string, number> = {};
+    gpus.forEach((gpu) => {
+      gpusAvailable[gpu.id] = getAvailableAmount(gpu);
+    });
+    return {
+      cpuAvailable: getAvailableAmount(cpu),
+      diskAvailable: getAvailableAmount(disk),
+      gpusAvailable,
+      ramAvailable: getAvailableAmount(ram),
+    };
+  }, [cpu, disk, gpus, ram]);
+
   return {
     cpu,
+    cpuAvailable,
     cpuFee,
     disk,
+    diskAvailable,
     diskFee,
     gpus,
+    gpusAvailable,
     gpuFees,
     maxJobDurationSeconds,
     minJobDurationSeconds,
     ram,
+    ramAvailable,
     ramFee,
     supportedTokens,
   };
