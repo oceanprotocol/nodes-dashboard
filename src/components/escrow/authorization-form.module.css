@@ -19,3 +19,14 @@
     }
   }
 }
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: var(--text-primary);
+}
+
+.warning {
+  color: var(--text-error, #e5484d);
+}

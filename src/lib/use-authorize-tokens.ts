@@ -2,6 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
+import { formatWalletAddress } from '@/utils/formatters';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import BigNumber from 'bignumber.js';
@@ -10,8 +11,16 @@ import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
 
+const authorizationSuccessMessage = (consumerAddress: string, peerId?: string) => {
+  const target = peerId
+    ? `node ${formatWalletAddress(peerId)} (consumer ${formatWalletAddress(consumerAddress)})`
+    : `consumer ${formatWalletAddress(consumerAddress)}`;
+  return `Authorization successful for ${target}. It will appear in the authorizations list in a short while.`;
+};
+
 export interface AuthorizeTokensParams {
   tokenAddress: string;
+  peerId?: string;
   spender: string;
   maxLockedAmount: string;
   maxLockSeconds: string;
@@ -38,7 +47,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
   const chainId = CHAIN_ID;
 
   const handleAuthorize = useCallback(
-    async ({ tokenAddress, spender, maxLockedAmount, maxLockSeconds, maxLockCount }: AuthorizeTokensParams) => {
+    async ({ tokenAddress, peerId, spender, maxLockedAmount, maxLockSeconds, maxLockCount }: AuthorizeTokensParams) => {
       if (user?.type === 'eoa') {
         try {
           setIsAuthorizing(true);
@@ -53,7 +62,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
           await tx.wait();
           setIsAuthorizing(false);
           setError(undefined);
-          toast.success('Authorization successful!');
+          toast.success(authorizationSuccessMessage(spender, peerId));
           posthog.capture('payment_authorize');
           onSuccess?.();
         } catch (err) {
@@ -105,7 +114,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
 
         setIsAuthorizing(false);
         setError(undefined);
-        toast.success('Authorization successful!');
+        toast.success(authorizationSuccessMessage(spender, peerId));
         posthog.capture('payment_authorize');
         onSuccess?.();
       } catch (err) {

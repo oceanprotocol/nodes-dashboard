@@ -1,0 +1,41 @@
+.values {
+  .token {
+    color: var(--text-secondary);
+  }
+
+  .amount {
+    font-weight: 700;
+  }
+}
+
+.lg {
+  .token {
+    font-size: 14px;
+  }
+
+  .amount {
+    font-size: 32px;
+  }
+}
+
+.md {
+  .token {
+    font-size: 12px;
+  }
+
+  .amount {
+    font-size: 24px;
+  }
+}
+
+.sm {
+  color: var(--text-secondary);
+
+  .token {
+    font-size: 12px;
+  }
+
+  .amount {
+    font-size: 20px;
+  }
+}

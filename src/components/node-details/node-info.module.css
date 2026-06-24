@@ -24,6 +24,7 @@
         font-size: 24px;
         text-overflow: ellipsis;
         overflow: hidden;
+        margin-bottom: 8px;
 
         @media (min-width: 768px) {
           font-size: 32px;
@@ -85,6 +86,18 @@
   color: var(--text-secondary);
   font-size: 14px;
   word-break: break-word;
+}
+
+.copyRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+
+  .hash {
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
 }
 
 .icon {

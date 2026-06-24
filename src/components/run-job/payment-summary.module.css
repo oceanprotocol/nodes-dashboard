@@ -5,6 +5,7 @@
   padding: 12px 24px;
 
   h3 {
+    justify-self: flex-start;
     font-size: 16px;
   }
 
@@ -39,6 +40,8 @@
   }
 
   @media (min-width: 576px) {
+    justify-content: flex-end;
+
     .valueWithChip {
       align-items: flex-end;
     }

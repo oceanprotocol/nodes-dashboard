@@ -4,6 +4,7 @@ import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { GrantStatus } from '@/types/grant';
 import { formatWalletAddress } from '@/utils/formatters';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import KeyIcon from '@mui/icons-material/Key';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { usePrivy } from '@privy-io/react-auth';
@@ -154,6 +155,18 @@ const ProfileButton: React.FC = () => {
             Manage access lists
           </MenuItem>
         )}
+        <MenuItem
+          disableRipple
+          onClick={() => {
+            router.push('/profile/escrow');
+            handleCloseMenu();
+          }}
+        >
+          <ListItemIcon>
+            <AccountBalanceWalletIcon />
+          </ListItemIcon>
+          Manage escrow
+        </MenuItem>
         <MenuItem
           disableRipple
           onClick={() => {

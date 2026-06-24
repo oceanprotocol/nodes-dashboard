@@ -1,0 +1,366 @@
+.panel {
+  display: grid;
+  grid-template-columns: 350px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Left column ── */
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-right: 28px;
+
+  @media (max-width: 900px) {
+    padding-right: 0;
+    padding-bottom: 24px;
+  }
+}
+
+.tokenHeader {
+  display: flex;
+  align-items: center;
+}
+
+.tokenSymbol {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.overline {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.primaryBalance {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.primaryAmount {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.primarySymbol {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.primaryValue {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+
+  @media (min-width: 576px) {
+    font-size: 36px;
+  }
+}
+
+.secondaryBalances {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.secondaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+.secondaryLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.secondaryAmount {
+  font-size: 14px;
+}
+
+.secondarySymbol {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.moveFunds {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fundRow {
+  display: flex;
+}
+
+.fundInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.fundButton {
+  white-space: nowrap;
+}
+
+/* ── Right column ── */
+.right {
+  border-left: 1px solid var(--border);
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (max-width: 900px) {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 24px;
+  }
+}
+
+.authSectionHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.authSectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.createAuthButton {
+  margin-left: auto;
+}
+
+.authHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.authSpender {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px 24px;
+
+  @media (min-width: 576px) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.statField {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.statValue {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.locksUsedRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.locksBar {
+  flex: 1;
+  height: 5px;
+  border-radius: 100px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.locksBarFill {
+  height: 100%;
+  border-radius: 100px;
+  background: var(--accent1);
+  transition: width 0.3s ease;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.locksSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.locksHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.locksHeader:disabled {
+  cursor: default;
+}
+
+.chevron,
+.chevronOpen {
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+.locksTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.locksTableHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+
+  @media (min-width: 576px) {
+    grid-template-columns: 1.1fr 1fr 1.3fr;
+  }
+}
+
+.lockRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+
+  @media (min-width: 576px) {
+    grid-template-columns: 1.1fr 1fr 1.3fr;
+  }
+}
+
+.lockExpiry {
+  display: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+
+  @media (min-width: 576px) {
+    display: block;
+  }
+}
+
+.lockJob {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.centerCol {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.rightCol {
+  text-align: right;
+}
+
+.noLocks {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.authLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  flex: 1;
+}
+
+/* ── No auth empty state ── */
+.noAuth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.noAuthIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--background-glass);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.noAuthTitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.noAuthDesc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.5;
+}

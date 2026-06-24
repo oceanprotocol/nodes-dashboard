@@ -1,4 +1,5 @@
 import Button from '@/components/button/button';
+import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
 import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
@@ -7,7 +8,6 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { NodeConfig } from '@/types/node-config';
 import { Node } from '@/types/nodes';
-import { usePrivy } from '@privy-io/react-auth';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -16,8 +16,9 @@ import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { CircularProgress } from '@mui/material';
+import { usePrivy } from '@privy-io/react-auth';
 import classNames from 'classnames';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
 import DownloadLogsModal from './download-logs-modal';
@@ -65,6 +66,9 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   //   }
   // }, [isReady, node?.id, getNodeStatus]);
 
+  const nodeId = node.id ?? node.nodeId;
+  const ethAddress = envs.find((env) => env.consumerAddress)?.consumerAddress;
+
   const isAdmin = useMemo(
     () => !!(account.address && node.allowedAdmins?.includes(account.address)),
     [node.allowedAdmins, account]
@@ -83,7 +87,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       const fetchedConfig = await fetchConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        nodeUri: node.id,
+        nodeUri: nodeId,
         signMessage,
       });
       setEditedConfig(fetchedConfig as NodeConfig);
@@ -108,7 +112,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       await pushConfig({
         consumerAddress: account.address,
         expiryTimestamp: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-        nodeUri: node.id,
+        nodeUri: nodeId,
         signMessage,
         config,
       });
@@ -150,14 +154,14 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
     try {
       const logs = await getNodeLogs({
         consumerAddress: account.address,
-        nodeUri: node.id,
+        nodeUri: nodeId,
         params: { startTime, endTime, maxLogs },
         signMessage,
       });
       const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      const shortId = node.id.slice(0, 8);
+      const shortId = nodeId.slice(0, 8);
       const date = new Date().toISOString().split('T')[0];
       a.href = url;
       a.download = `node-logs-${shortId}-${date}.json`;
@@ -209,8 +213,19 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       <div className={styles.infoWrapper}>
         <div className={styles.infoContent}>
           <div>
-            <h2 className={styles.title}>{node.friendlyName ?? node.id}</h2>
-            <div className={styles.hash}>{node.id}</div>
+            <h2 className={styles.title}>{node.friendlyName ?? nodeId}</h2>
+            <div className={styles.copyRow}>
+              <strong>Peer ID:</strong>
+              <span className={styles.hash}>{nodeId}</span>
+              <CopyButton color="accent1" contentToCopy={nodeId} size="sm" variant="transparent" />
+            </div>
+            {ethAddress ? (
+              <div className={styles.copyRow}>
+                <strong>ETH Address:</strong>
+                <span className={styles.hash}>{ethAddress}</span>
+                <CopyButton color="accent1" contentToCopy={ethAddress} size="sm" variant="transparent" />
+              </div>
+            ) : null}
           </div>
           {nodeOnline === null ? (
             <div className={classNames('chip chipGlass', styles.statusChip)}>
@@ -290,7 +305,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       </div>
       <div className={styles.statusWrapper}>
         <Eligibility isAdmin={isAdmin} node={node} />
-        {account.isConnected ? <Balance admins={node.allowedAdmins ?? []} envs={envs} /> : null}
+        {isAdmin ? <Balance envs={envs} /> : null}
       </div>
     </Card>
   );

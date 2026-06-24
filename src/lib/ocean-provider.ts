@@ -1,6 +1,7 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
+import { Authorizations, EscrowLock } from '@/types/payment';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -49,6 +50,16 @@ export class OceanProvider {
 
     const escrow = new ethers.Contract(config.Escrow, Escrow.abi, this.provider);
     return escrow;
+  }
+
+  // Current Escrow deployment address for the active chain. Used to scope indexed events to the
+  // live contract — events from an old/redeployed Escrow carry a different `contract` address.
+  async getEscrowAddress(): Promise<string> {
+    const config = await this.getConfigByChainId(this.chainId);
+    if (!config.Escrow) {
+      throw new Error('No escrow found for chainId');
+    }
+    return config.Escrow;
   }
 
   async getNodeBalance(environments: ComputeEnvironment[]) {
@@ -145,6 +156,29 @@ export class OceanProvider {
     };
   }
 
+  // Returns every authorization the payer has granted for a token, across all payees.
+  // The Escrow contract treats a zero payee address as a wildcard.
+  async getAllAuthorizations(tokenAddress: string, payer: string): Promise<Authorizations[]> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer)) {
+      console.error('Invalid address passed to getAllAuthorizations', { tokenAddress, payer });
+      return [];
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
+    const authorizations = await escrow.getAuthorizations(tokenAddress, payer, ethers.ZeroAddress);
+    if (!authorizations || authorizations.length === 0) {
+      return [];
+    }
+    return authorizations.map((auth: any) => ({
+      payee: auth.payee,
+      maxLockedAmount: this.denominateNumber(auth.maxLockedAmount.toString(), tokenDecimals),
+      currentLockedAmount: this.denominateNumber(auth.currentLockedAmount.toString(), tokenDecimals),
+      maxLockSeconds: auth.maxLockSeconds.toString(),
+      maxLockCounts: auth.maxLockCounts.toString(),
+      currentLocks: auth.currentLocks.toString(),
+    }));
+  }
+
   async getUserFunds(tokenAddress: string, address: string): Promise<number> {
     const escrow = await this.getEscrowContract(this.chainId);
     const funds = await escrow.getUserFunds(address, tokenAddress);
@@ -152,6 +186,40 @@ export class OceanProvider {
     const tokenDecimals = await getTokenDecimals(tokenAddress);
     const balanceString = this.denominateNumber(availableFunds.toString(), tokenDecimals);
     return parseFloat(balanceString);
+  }
+
+  async getUserFundsDetailed(tokenAddress: string, address: string): Promise<{ available: number; locked: number }> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(address)) {
+      console.error('Invalid address passed to getUserFundsDetailed', { tokenAddress, address });
+      return { available: 0, locked: 0 };
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const funds = await escrow.getUserFunds(address, tokenAddress);
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
+    return {
+      available: parseFloat(this.denominateNumber(funds.available.toString(), tokenDecimals)),
+      locked: parseFloat(this.denominateNumber(funds.locked.toString(), tokenDecimals)),
+    };
+  }
+
+  async getLocks(tokenAddress: string, payer: string, payee: string): Promise<EscrowLock[]> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer) || !ethers.isAddress(payee)) {
+      console.error('Invalid address passed to getLocks', { tokenAddress, payer, payee });
+      return [];
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
+    const locks = await escrow.getLocks(tokenAddress, payer, payee);
+    if (!locks || locks.length === 0) {
+      return [];
+    }
+    return locks.map((lock: any) => ({
+      jobId: lock.jobId.toString(),
+      payer: lock.payer,
+      amount: parseFloat(this.denominateNumber(lock.amount.toString(), tokenDecimals)),
+      expiry: Number(lock.expiry),
+      token: lock.token,
+    }));
   }
 
   async authorizeTokensEoa({
