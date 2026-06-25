@@ -6,6 +6,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import classNames from 'classnames';
 import styles from './inference-index-page.module.css';
 
 const InferenceIndexPage: React.FC = () => {
@@ -14,7 +15,7 @@ const InferenceIndexPage: React.FC = () => {
       <SectionTitle moreReadable title="Inference" subTitle="Launch a model on an Ocean Node" />
       <div className={styles.cards}>
         <Card
-          className={styles.card}
+          className={classNames(styles.card, styles.cardHighlighted)}
           direction="column"
           padding="md"
           radius="lg"
