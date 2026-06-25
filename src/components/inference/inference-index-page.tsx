@@ -13,7 +13,7 @@ const InferenceIndexPage: React.FC = () => {
   return (
     <Container className="pageRoot">
       <SectionTitle moreReadable title="Inference" subTitle="Launch a model on an Ocean Node" />
-      <div className={styles.cards}>
+      <div className={classNames('pageContentWrapper', styles.cards)}>
         <Card
           className={classNames(styles.card, styles.cardHighlighted)}
           direction="column"
