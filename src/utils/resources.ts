@@ -12,10 +12,6 @@ export const getAvailableAmount = (resource?: Pick<ComputeResource, 'max' | 'inU
   return Math.max(0, (resource.max ?? 0) - (resource.inUse ?? 0));
 };
 
-/**
- * Full env capacity for a resource. Prefer `total` (whole-env capacity); fall back to `max`.
- * A node may report total:0 and rely on max, so this never returns 0 when max is set.
- */
 export const capacityOf = (resource?: Pick<ComputeResource, 'total' | 'max'>): number => {
   const total = resource?.total ?? 0;
   return total > 0 ? total : (resource?.max ?? 0);
