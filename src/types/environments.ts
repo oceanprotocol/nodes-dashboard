@@ -80,6 +80,8 @@ export type EnvResourcesSelection = {
   diskSpace?: number;
   diskId?: string;
   gpus: { id: string; description?: string }[];
+  // Number of GPU units selected. Drives the proportional CPU/RAM/disk split.
+  gpuCount?: number;
   maxJobDurationSeconds: number;
   ram?: number;
   ramId?: string;

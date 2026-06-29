@@ -22,6 +22,16 @@ export type SelectedToken = {
   address: string;
 };
 
+// gpuCount comes from a user-controllable query string, so guard against NaN/negative values
+// (e.g. ?gpuCount=abc) before they propagate into sliders and cost estimates.
+const parseGpuCount = (raw: string | null, gpuTypeCount: number): number => {
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.floor(parsed);
+  }
+  return gpuTypeCount > 0 ? 1 : 0;
+};
+
 type RunJobContextType = {
   estimatedTotalCost: number | null;
   fetchEstimatedCost: ({
@@ -296,11 +306,13 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const qJobDuration = searchParams.get('maxJobDuration');
         const queryGpusArray = searchParams.getAll('gpus[]');
         const queryGpus = queryGpusArray.length > 0 ? queryGpusArray : searchParams.getAll('gpus');
+        const qGpuCount = searchParams.get('gpuCount');
         let resources: EnvResourcesSelection = {
           gpus: queryGpus.map((gpuId) => {
             const gpuRes = foundEnv.resources?.find((res) => res.type === 'gpu' && res.id === gpuId);
             return { id: gpuId, description: gpuRes?.description };
           }),
+          gpuCount: parseGpuCount(qGpuCount, queryGpus.length),
           maxJobDurationSeconds: qJobDuration
             ? Number(qJobDuration)
             : queryFree
@@ -359,7 +371,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
                 ...(resources.diskId && resources.diskSpace
                   ? [{ id: resources.diskId, amount: resources.diskSpace }]
                   : []),
-                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: 1 })),
+                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: resources.gpuCount ?? 1 })),
               ],
               tokenAddress: queryToken,
             });

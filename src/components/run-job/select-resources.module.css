@@ -40,6 +40,57 @@
   }
 }
 
+.gpuHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.gpuHeaderEnd {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.gpuHint {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.wholeEnvNote {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.derivedGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.derivedCard {
+  .derivedLabel {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .derivedValue {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .derivedHint {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+}
+
 .costCard {
   .costEstimation {
     align-items: center;

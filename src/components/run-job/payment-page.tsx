@@ -54,7 +54,6 @@ const PaymentPage = () => {
           <Payment
             minLockSeconds={minLockSeconds ?? 0}
             selectedEnv={selectedEnv}
-            selectedResources={selectedResources}
             selectedToken={selectedToken}
             setPageSubtitle={setSubtitle}
             totalCost={estimatedTotalCost ?? 0}
