@@ -3,7 +3,7 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import DurationInput from '@/components/input/duration-input';
-import Slider from '@/components/slider/slider';
+import Select from '@/components/input/select';
 import config from '@/config';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
@@ -11,7 +11,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
-import { capacityOf, distributeGpus } from '@/utils/resources';
+import { capacityOf } from '@/utils/resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { usePrivy } from '@privy-io/react-auth';
@@ -30,7 +30,7 @@ type SelectResourcesProps = {
 };
 
 type ResourcesFormValues = {
-  gpuCount: number;
+  gpus: string[];
   maxJobDurationSeconds: number;
 };
 
@@ -107,19 +107,16 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     tokenAddress: token?.address ?? '',
   });
 
-  // The environment is split into equal GPU-sized parts: picking N GPUs grants N proportional
-  // shares of CPU/RAM/disk. Nodes with multiple physical GPUs of the same model expose one
-  // resource entry per GPU (each total: 1), so we sum capacity across all GPU entries.
+  // The environment is split into equal GPU-sized parts: each selected GPU grants one proportional
+  // share of CPU/RAM/disk. Nodes expose one resource entry per physical GPU (each total: 1), so the
+  // number of GPU units equals the number of selected GPU entries.
   const hasGpu = gpus.length > 0;
 
   // Total physical GPU slots across all GPU resource entries the node advertises.
   // No-GPU environments behave as a single, whole-environment unit.
   const totalUnits = hasGpu ? Math.max(1, gpus.reduce((sum, g) => sum + capacityOf(g), 0)) : 1;
-  const availableGpuUnits = hasGpu
-    ? gpus.reduce((sum, g) => sum + (gpusAvailable[g.id] ?? 0), 0)
-    : 1;
-  const maxSelectableUnits = Math.min(totalUnits, Math.max(0, availableGpuUnits));
-  const gpuExhausted = hasGpu && maxSelectableUnits < 1;
+  // Every advertised GPU is currently in use elsewhere — nothing left to pick.
+  const gpuExhausted = hasGpu && gpus.every((g) => (gpusAvailable[g.id] ?? 0) <= 0);
 
   // Per-unit (per-GPU) share of each resource, derived from full env capacity / total units.
   const perUnitCpu = capacityOf(cpu) / totalUnits;
@@ -129,15 +126,14 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const minAllowedJobDurationSeconds = minJobDurationSeconds ?? 0;
   const maxAllowedJobDurationSeconds = maxJobDurationSeconds ?? 0;
 
-  const selectedGpuCount = selectedResources?.gpuCount;
+  const selectedGpuIds = selectedResources?.gpus?.map((g) => g.id);
   const selectedMaxJobDurationSeconds = selectedResources?.maxJobDurationSeconds;
-
-  const initialGpuCount = hasGpu ? clamp(selectedGpuCount || 1, 1, Math.max(1, maxSelectableUnits)) : 1;
 
   const formik = useFormik<ResourcesFormValues>({
     enableReinitialize: true,
     initialValues: {
-      gpuCount: initialGpuCount,
+      // Keep only still-available GPUs so a stale link can't pre-select an unavailable one.
+      gpus: (selectedGpuIds ?? []).filter((id) => (gpusAvailable[id] ?? 0) > 0),
       maxJobDurationSeconds: selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds,
     },
     onSubmit: (values) => {
@@ -157,7 +153,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         diskSpace: derivedDisk,
         diskId: disk?.id ?? 'disk',
         gpus: selectedGpuEntries,
-        gpuCount: hasGpu ? values.gpuCount : 0,
+        gpuCount: selectedGpuEntries.length,
         maxJobDurationSeconds: values.maxJobDurationSeconds,
         ram: derivedRam,
         ramId: ram?.id ?? 'ram',
@@ -166,7 +162,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         cpuCores: derivedCpu,
         ram: derivedRam,
         diskSpace: derivedDisk,
-        gpuCount: hasGpu ? values.gpuCount : 0,
+        gpuCount: selectedGpuEntries.length,
         maxJobDurationSeconds: values.maxJobDurationSeconds,
         estimatedTotalCost,
         freeCompute,
@@ -176,11 +172,11 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         cpu: derivedCpu,
         ram: derivedRam,
         disk: derivedDisk,
-        // Encode the per-entry amount alongside the id (`id:amount`) so the exact GPU split the
-        // user picked round-trips losslessly through the URL instead of being re-guessed.
-        ...(hasGpu && {
-          gpus: selectedGpuEntries.map((g) => `${g.id}:${g.amount}`),
-          gpuCount: values.gpuCount,
+        // Each selected GPU is one unit; encode `id:1` so the selection round-trips losslessly and
+        // the hydration clamps it to current availability.
+        ...(values.gpus.length > 0 && {
+          gpus: values.gpus.map((id) => `${id}:1`),
+          gpuCount: values.gpus.length,
         }),
         maxJobDuration: values.maxJobDurationSeconds,
       };
@@ -193,11 +189,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     },
     validateOnMount: true,
     validationSchema: Yup.object({
-      gpuCount: Yup.number()
-        .required('Required')
-        .min(1, 'Select at least one unit')
-        .max(Math.max(1, maxSelectableUnits), gpuExhausted ? 'Not enough available' : 'Limits exceeded')
-        .integer('Invalid format'),
+      gpus: Yup.array()
+        .of(Yup.string())
+        // GPUs are optional — a job with none gets the minimum CPU/RAM/disk slice.
+        .test('gpus-available', 'One or more selected GPUs are no longer available', (value) =>
+          (value ?? []).every((id) => (id ? (gpusAvailable[id] ?? 0) > 0 : true))
+        ),
       maxJobDurationSeconds: Yup.number()
         .required('Required')
         .min(minAllowedJobDurationSeconds, 'Limits exceeded')
@@ -205,23 +202,17 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     }),
   });
 
-  const unitCount = hasGpu ? formik.values.gpuCount : 1;
+  // Each selected GPU is one unit; no-GPU envs run as a single whole-environment unit.
+  const unitCount = hasGpu ? formik.values.gpus.length : 1;
 
-  // GPU resource entries allocated to the current unit-count selection, distributed across
-  // the available physical GPUs in declared order.
+  // The GPU resource entries the user picked, one unit each.
   const selectedGpuEntries = useMemo(
-    () => (hasGpu ? distributeGpus(unitCount, gpus, gpusAvailable) : []),
-    [hasGpu, unitCount, gpus, gpusAvailable]
+    () =>
+      gpus
+        .filter((g) => formik.values.gpus.includes(g.id))
+        .map((g) => ({ id: g.id, description: g.description, amount: 1 })),
+    [gpus, formik.values.gpus]
   );
-
-  // A live availability refetch can drop maxSelectableUnits below the current selection (other
-  // jobs grabbed GPUs). Clamp the slider down so the user can never request more than is free.
-  useEffect(() => {
-    if (hasGpu && formik.values.gpuCount > maxSelectableUnits) {
-      formik.setFieldValue('gpuCount', Math.max(1, maxSelectableUnits));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasGpu, maxSelectableUnits]);
 
   // Derived resource amounts for the chosen number of units, clamped to what's actually available.
   const derivedCpu = clamp(Math.round(perUnitCpu * unitCount), cpu?.min ?? 0, Math.max(0, cpuAvailable));
@@ -277,12 +268,15 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     };
   }, [estimateCost]);
 
-  const setMaxGpus = () => {
-    formik.setFieldValue('gpuCount', Math.max(1, maxSelectableUnits));
-  };
-
   const setMaxJobDuration = () => {
     formik.setFieldValue('maxJobDurationSeconds', maxAllowedJobDurationSeconds);
+  };
+
+  const selectAllGpus = () => {
+    formik.setFieldValue(
+      'gpus',
+      gpus.filter((g) => (gpusAvailable[g.id] ?? 0) > 0).map((g) => g.id)
+    );
   };
 
   const renderDerivedResource = (label: React.ReactNode, value: string, fee: React.ReactNode) => (
@@ -382,63 +376,40 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     );
   };
 
-  // Show a single rate when every GPU costs the same, otherwise a range, so heterogeneous
-  // environments don't advertise just the first GPU's price.
-  const gpuFeeHint = (() => {
-    if (!hasGpu) return '';
-    if (freeCompute) return 'Free';
-    const fees = gpus.map((g) => gpuFees[g.id] ?? 0);
-    const min = Math.min(...fees);
-    const max = Math.max(...fees);
-    const range = min === max ? `${min}` : `${min}–${max}`;
-    return `${range} ${token?.symbol}/unit`;
-  })();
-
-  const gpuDisplayLabel = hasGpu
-    ? gpus.every((g) => g.description === gpus[0].description)
-      ? gpus[0].description
-      : gpus.map((g) => g.description ?? g.id).join(' / ')
-    : '';
-
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Select resources</h3>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         {hasGpu ? (
-          <>
-            <div className={styles.gpuHeader}>
-              <GpuLabel gpu={gpuDisplayLabel} />
-              <div className={styles.gpuHeaderEnd}>
-                <span className={styles.gpuHint}>{gpuFeeHint}</span>
-                <Button
-                  color="accent2"
-                  disabled={gpuExhausted}
-                  onClick={setMaxGpus}
-                  size="sm"
-                  type="button"
-                  variant="filled"
-                >
-                  Set max
-                </Button>
-              </div>
-            </div>
-            <Slider
-              disabled={gpuExhausted}
-              errorText={formik.touched.gpuCount && formik.errors.gpuCount ? formik.errors.gpuCount : undefined}
-              hint={gpuFeeHint}
-              label={`GPUs - ${unitCount} ${unitCount === 1 ? 'unit' : 'units'}`}
-              marks
-              max={Math.max(1, maxSelectableUnits)}
-              min={1}
-              name="gpuCount"
-              onBlur={formik.handleBlur}
-              onChange={formik.handleChange}
-              step={1}
-              topRight={gpuExhausted ? '0 available' : `1 - ${maxSelectableUnits} available`}
-              value={formik.values.gpuCount}
-              valueLabelFormat={(value) => (value === 1 ? `${value} unit` : `${value} units`)}
-            />
-          </>
+          <Select
+            endAdornment={
+              <Button color="accent2" disabled={gpuExhausted} onClick={selectAllGpus} size="sm" type="button" variant="filled">
+                Select all
+              </Button>
+            }
+            errorText={formik.touched.gpus && formik.errors.gpus ? (formik.errors.gpus as string) : undefined}
+            label="GPUs"
+            multiple
+            name="gpus"
+            onBlur={formik.handleBlur}
+            onChange={formik.handleChange}
+            options={gpus.map((gpu) => ({
+              disabled: (gpusAvailable[gpu.id] ?? 0) <= 0,
+              label: gpu.description ?? gpu.id,
+              value: gpu.id,
+            }))}
+            placeholder="No GPU selected"
+            renderOption={(option) => {
+              const available = gpusAvailable[option.value] ?? 0;
+              if (available <= 0) {
+                return <GpuLabel gpu={`${option.label} (unavailable)`} />;
+              }
+              const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token?.symbol}/unit`;
+              return <GpuLabel gpu={`${option.label} (${available} available, ${pricing})`} />;
+            }}
+            renderSelectedValue={(option) => <GpuLabel gpu={option} />}
+            value={formik.values.gpus}
+          />
         ) : (
           <p className={styles.wholeEnvNote}>
             This environment runs as a single unit. The full CPU, RAM, and disk capacity below is allocated to your job.
