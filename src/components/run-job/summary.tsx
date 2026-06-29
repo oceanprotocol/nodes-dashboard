@@ -182,6 +182,7 @@ const Summary = ({
       wallet_type: user?.type,
       chainId: CHAIN_ID,
     });
+    router.push('/profile/consumer');
   };
 
   const handleOpenIdeMenu = () => {
@@ -239,9 +240,7 @@ const Summary = ({
                   acc[key] = (acc[key] ?? 0) + (gpu.amount ?? 1);
                   return acc;
                 }, {})
-              ).map(([desc, count]) => (
-                <GpuLabel key={desc} gpu={`${count} × ${desc}`} />
-              ))
+              ).map(([desc, count]) => <GpuLabel key={desc} gpu={`${count} × ${desc}`} />)
             : '-'}
         </div>
         <div className={styles.label}>CPU cores:</div>
