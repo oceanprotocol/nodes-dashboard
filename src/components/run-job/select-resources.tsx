@@ -8,9 +8,10 @@ import config from '@/config';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { ComputeEnvironment, ComputeResource } from '@/types/environments';
+import { ComputeEnvironment } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
+import { capacityOf, distributeGpus } from '@/utils/resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { usePrivy } from '@privy-io/react-auth';
@@ -34,12 +35,6 @@ type ResourcesFormValues = {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
-// Full env capacity for a resource. Prefer `total` (whole-env capacity); fall back to `max`.
-const capacityOf = (resource?: ComputeResource) => {
-  const total = resource?.total ?? 0;
-  return total > 0 ? total : (resource?.max ?? 0);
-};
 
 const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
   const { login } = usePrivy();
@@ -112,20 +107,17 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     tokenAddress: token?.address ?? '',
   });
 
-  // Environments expose a single GPU type. The environment is split into equal parts,
-  // one part per GPU unit: picking N GPUs grants N proportional shares of CPU/RAM/disk.
-  const gpuRes = gpus[0];
-  const hasGpu = !!gpuRes;
-  if (gpus.length > 1) {
-    // The UI only models one GPU type; surface a warning if a node ever advertises several so the
-    // dropped types (and the resulting wrong cost) don't go unnoticed.
-    console.warn(`Environment exposes ${gpus.length} GPU types; only "${gpuRes.id}" is selectable.`);
-  }
+  // The environment is split into equal GPU-sized parts: picking N GPUs grants N proportional
+  // shares of CPU/RAM/disk. Nodes with multiple physical GPUs of the same model expose one
+  // resource entry per GPU (each total: 1), so we sum capacity across all GPU entries.
+  const hasGpu = gpus.length > 0;
 
-  // Number of equal parts the environment is divided into (its full GPU capacity).
+  // Total physical GPU slots across all GPU resource entries the node advertises.
   // No-GPU environments behave as a single, whole-environment unit.
-  const totalUnits = hasGpu ? Math.max(1, capacityOf(gpuRes)) : 1;
-  const availableGpuUnits = hasGpu ? (gpusAvailable[gpuRes.id] ?? 0) : 1;
+  const totalUnits = hasGpu ? Math.max(1, gpus.reduce((sum, g) => sum + capacityOf(g), 0)) : 1;
+  const availableGpuUnits = hasGpu
+    ? gpus.reduce((sum, g) => sum + (gpusAvailable[g.id] ?? 0), 0)
+    : 1;
   const maxSelectableUnits = Math.min(totalUnits, Math.max(0, availableGpuUnits));
   const gpuExhausted = hasGpu && maxSelectableUnits < 1;
 
@@ -164,7 +156,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         cpuId: cpu?.id ?? 'cpu',
         diskSpace: derivedDisk,
         diskId: disk?.id ?? 'disk',
-        gpus: hasGpu ? [{ id: gpuRes.id, description: gpuRes.description }] : [],
+        gpus: selectedGpuEntries,
         gpuCount: hasGpu ? values.gpuCount : 0,
         maxJobDurationSeconds: values.maxJobDurationSeconds,
         ram: derivedRam,
@@ -184,7 +176,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         cpu: derivedCpu,
         ram: derivedRam,
         disk: derivedDisk,
-        ...(hasGpu && { gpus: gpuRes.id, gpuCount: values.gpuCount }),
+        // Encode the per-entry amount alongside the id (`id:amount`) so the exact GPU split the
+        // user picked round-trips losslessly through the URL instead of being re-guessed.
+        ...(hasGpu && {
+          gpus: selectedGpuEntries.map((g) => `${g.id}:${g.amount}`),
+          gpuCount: values.gpuCount,
+        }),
         maxJobDuration: values.maxJobDurationSeconds,
       };
 
@@ -210,6 +207,22 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   const unitCount = hasGpu ? formik.values.gpuCount : 1;
 
+  // GPU resource entries allocated to the current unit-count selection, distributed across
+  // the available physical GPUs in declared order.
+  const selectedGpuEntries = useMemo(
+    () => (hasGpu ? distributeGpus(unitCount, gpus, gpusAvailable) : []),
+    [hasGpu, unitCount, gpus, gpusAvailable]
+  );
+
+  // A live availability refetch can drop maxSelectableUnits below the current selection (other
+  // jobs grabbed GPUs). Clamp the slider down so the user can never request more than is free.
+  useEffect(() => {
+    if (hasGpu && formik.values.gpuCount > maxSelectableUnits) {
+      formik.setFieldValue('gpuCount', Math.max(1, maxSelectableUnits));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGpu, maxSelectableUnits]);
+
   // Derived resource amounts for the chosen number of units, clamped to what's actually available.
   const derivedCpu = clamp(Math.round(perUnitCpu * unitCount), cpu?.min ?? 0, Math.max(0, cpuAvailable));
   const derivedRam = clamp(Math.round(perUnitRam * unitCount), ram?.min ?? 0, Math.max(0, ramAvailable));
@@ -227,11 +240,11 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       { id: disk?.id ?? 'disk', amount: derivedDisk },
       { id: ram?.id ?? 'ram', amount: derivedRam },
     ];
-    if (hasGpu) {
-      list.push({ id: gpuRes.id, amount: unitCount });
+    for (const gpu of selectedGpuEntries) {
+      list.push({ id: gpu.id, amount: gpu.amount });
     }
     return list;
-  }, [cpu?.id, disk?.id, ram?.id, gpuRes?.id, hasGpu, derivedCpu, derivedRam, derivedDisk, unitCount]);
+  }, [cpu?.id, disk?.id, ram?.id, selectedGpuEntries, derivedCpu, derivedRam, derivedDisk]);
 
   const estimateCost = useCallback(async () => {
     setIsLoadingCost(true);
@@ -369,10 +382,22 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     );
   };
 
-  const gpuFeeHint = hasGpu
-    ? freeCompute
-      ? 'Free'
-      : `${gpuFees[gpuRes.id] ?? 0} ${token?.symbol}/unit`
+  // Show a single rate when every GPU costs the same, otherwise a range, so heterogeneous
+  // environments don't advertise just the first GPU's price.
+  const gpuFeeHint = (() => {
+    if (!hasGpu) return '';
+    if (freeCompute) return 'Free';
+    const fees = gpus.map((g) => gpuFees[g.id] ?? 0);
+    const min = Math.min(...fees);
+    const max = Math.max(...fees);
+    const range = min === max ? `${min}` : `${min}–${max}`;
+    return `${range} ${token?.symbol}/unit`;
+  })();
+
+  const gpuDisplayLabel = hasGpu
+    ? gpus.every((g) => g.description === gpus[0].description)
+      ? gpus[0].description
+      : gpus.map((g) => g.description ?? g.id).join(' / ')
     : '';
 
   return (
@@ -382,7 +407,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         {hasGpu ? (
           <>
             <div className={styles.gpuHeader}>
-              <GpuLabel gpu={gpuRes.description} />
+              <GpuLabel gpu={gpuDisplayLabel} />
               <div className={styles.gpuHeaderEnd}>
                 <span className={styles.gpuHint}>{gpuFeeHint}</span>
                 <Button
