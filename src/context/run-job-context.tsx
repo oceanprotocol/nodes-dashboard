@@ -341,7 +341,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           const orderedGpus = queryGpus.map(findGpuRes).filter((res): res is ComputeResource => !!res);
           hydratedGpus = distributeGpus(parsedGpuCount, orderedGpus);
         }
-        const gpuCount = hydratedGpus.reduce((sum, gpu) => sum + (gpu.amount ?? 0), 0);
+        const gpuCount = hydratedGpus.reduce((sum, gpu) => sum + gpu.amount, 0);
         let resources: EnvResourcesSelection = {
           gpus: hydratedGpus,
           gpuCount,
@@ -403,7 +403,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
                 ...(resources.diskId && resources.diskSpace
                   ? [{ id: resources.diskId, amount: resources.diskSpace }]
                   : []),
-                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: gpu.amount ?? 1 })),
+                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: gpu.amount })),
               ],
               tokenAddress: queryToken,
             });

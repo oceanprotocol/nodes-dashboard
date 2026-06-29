@@ -214,7 +214,7 @@ const Summary = ({
             ? Object.entries(
                 selectedResources.gpus.reduce<Record<string, number>>((acc, gpu) => {
                   const key = gpu.description ?? gpu.id;
-                  acc[key] = (acc[key] ?? 0) + (gpu.amount ?? 1);
+                  acc[key] = (acc[key] ?? 0) + gpu.amount;
                   return acc;
                 }, {})
               ).map(([desc, count]) => <GpuLabel key={desc} gpu={`${count} × ${desc}`} />)

@@ -77,8 +77,7 @@ export type ComputeEnvironment = {
 export type SelectedGpu = {
   id: string;
   description?: string;
-  // Number of units of this specific GPU resource entry allocated to the job.
-  amount?: number;
+  amount: number;
 };
 
 export type EnvResourcesSelection = {
