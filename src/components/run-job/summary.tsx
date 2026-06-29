@@ -115,7 +115,9 @@ const Summary = ({
     const resources: IdeResourceRequest[] = [
       ...gpus.map((availableGpu) => ({
         id: availableGpu.id,
-        amount: selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id) ? 1 : 0,
+        amount: selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id)
+          ? (selectedResources.gpuCount ?? 1)
+          : 0,
         description: availableGpu.description,
       })),
     ];
@@ -207,7 +209,9 @@ const Summary = ({
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>
           {selectedResources.gpus.length
-            ? selectedResources.gpus.map((gpu) => <GpuLabel key={gpu.id} gpu={gpu.description} />)
+            ? selectedResources.gpus.map((gpu) => (
+                <GpuLabel key={gpu.id} gpu={`${selectedResources.gpuCount ?? 1} × ${gpu.description}`} />
+              ))
             : '-'}
         </div>
         <div className={styles.label}>CPU cores:</div>

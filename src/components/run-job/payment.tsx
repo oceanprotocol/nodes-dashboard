@@ -1,31 +1,30 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import PaymentAuthorize from '@/components/run-job/payment-authorize';
-import PaymentDeposit from '@/components/run-job/payment-deposit';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { SelectedToken } from '@/context/run-job-context';
+import { usePaySession } from '@/lib/use-pay-session';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { ComputeEnvironment, EnvResourcesSelection } from '@/types/environments';
+import { ComputeEnvironment } from '@/types/environments';
 import { Authorizations } from '@/types/payment';
 import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 type PaymentProps = {
   minLockSeconds: number;
   selectedEnv: ComputeEnvironment;
-  selectedResources: EnvResourcesSelection;
   selectedToken: SelectedToken;
   setPageSubtitle: (subtitle: string) => void;
   totalCost: number;
 };
 
+const MAX_LOCK_COUNT = 10;
+
 const Payment = ({
   minLockSeconds,
   selectedEnv,
-  selectedResources,
   selectedToken,
   setPageSubtitle,
   totalCost,
@@ -41,38 +40,9 @@ const Payment = ({
 
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
-  const step: 'topup' | 'deposit' | 'authorize' = useMemo(() => {
-    // TODO re-enable topup page
-    // if (
-    // (walletBalance ?? 0) + (escrowBalance ?? 0) < totalCost &&
-    // selectedToken.address === getSupportedTokens().USDC
-    // ) {
-    // Only USDC can be topped up with fiat
-    // return 'topup';
-    // }
-    if ((escrowBalance ?? 0) < totalCost) {
-      return 'deposit';
-    }
-    return 'authorize';
-  }, [escrowBalance, totalCost]);
-
   useEffect(() => {
-    switch (step) {
-      // TODO re-enable topup page
-      // case 'topup': {
-      //   setPageSubtitle('You need to top up in order to start your job');
-      //   break;
-      // }
-      case 'deposit': {
-        setPageSubtitle('You need to deposit funds in escrow in order to strart your job');
-        break;
-      }
-      case 'authorize': {
-        setPageSubtitle('Confirm and authorize your payment in order to start your job');
-        break;
-      }
-    }
-  }, [setPageSubtitle, step]);
+    setPageSubtitle('Confirm and authorize your payment in order to start your job');
+  }, [setPageSubtitle]);
 
   const loadPaymentInfo = useCallback(async () => {
     if (ocean && account?.address) {
@@ -95,6 +65,7 @@ const Payment = ({
     loadPaymentInfo();
   }, [loadPaymentInfo]);
 
+  // Once escrow + authorization satisfy the session requirements, move on to the summary.
   useEffect(() => {
     const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
     const suffficientAuthorized =
@@ -119,74 +90,48 @@ const Payment = ({
     escrowBalance,
     minLockSeconds,
     router,
-    selectedResources.maxJobDurationSeconds,
     selectedToken.address,
     selectedToken.symbol,
     totalCost,
   ]);
 
-  const renderBackButton = (disabled: boolean) => (
-    <Button
-      color="accent1"
-      disabled={disabled}
-      onClick={() => router.replace({ pathname: '/run-job/resources', query: router.query })}
-      size="lg"
-      type="button"
-      variant="transparent"
-    >
-      Edit resources
-    </Button>
-  );
+  const { handlePay, isPaying } = usePaySession({ onSuccess: loadPaymentInfo });
 
-  const renderStep = () => {
-    switch (step) {
-      // TODO re-enable topup page
-      // case 'topup': {
-      //   return (
-      //     <PaymentFiatTopup
-      //       // currentLockedAmount={currentLockedAmount}
-      //       escrowBalance={escrowBalance ?? 0}
-      //       loadingPaymentInfo={loadingPaymentInfo}
-      //       loadPaymentInfo={loadPaymentInfo}
-      //       renderBackButton={renderBackButton}
-      //       selectedToken={selectedToken}
-      //       totalCost={totalCost}
-      //       walletBalance={walletBalance ?? 0}
-      //     />
-      //   );
-      // }
-      case 'deposit': {
-        return (
-          <PaymentDeposit
-            // currentLockedAmount={currentLockedAmount}
-            escrowBalance={escrowBalance ?? 0}
-            loadingPaymentInfo={loadingPaymentInfo}
-            loadPaymentInfo={loadPaymentInfo}
-            renderBackButton={renderBackButton}
-            selectedToken={selectedToken}
-            totalCost={totalCost}
-            walletBalance={walletBalance ?? 0}
-          />
-        );
-      }
-      case 'authorize': {
-        return (
-          <PaymentAuthorize
-            currentLockedAmount={currentLockedAmount}
-            loadingPaymentInfo={loadingPaymentInfo}
-            loadPaymentInfo={loadPaymentInfo}
-            minLockSeconds={minLockSeconds}
-            renderBackButton={renderBackButton}
-            selectedEnv={selectedEnv}
-            selectedToken={selectedToken}
-            totalCost={totalCost}
-          />
-        );
-      }
-      default:
-        return null;
-    }
-  };
+  const depositAmount = roundTokenAmount(
+    Math.max(0, totalCost - (escrowBalance ?? 0)),
+    selectedToken.address,
+    'up'
+  );
+  const maxLockedAmount = roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address, 'up');
+  const maxLockSeconds = minLockSeconds < 1 ? 1 : Math.ceil(minLockSeconds);
+  // Escrow's authorize SETS (not increments) the lock cap. Derive above the current locks so a user
+  // who has already used all their slots can still raise the limit and start a new session.
+  const maxLockCount = Math.max(MAX_LOCK_COUNT, Number(authorizations?.currentLocks ?? 0) + 1);
+
+  const insufficientWalletFunds = (walletBalance ?? 0) < depositAmount;
+
+  const handleSubmit = useCallback(
+    () =>
+      handlePay({
+        tokenAddress: selectedToken.address,
+        peerId: selectedEnv.nodeId,
+        spender: selectedEnv.consumerAddress,
+        depositAmount: depositAmount.toString(),
+        maxLockedAmount: maxLockedAmount.toString(),
+        maxLockSeconds: maxLockSeconds.toString(),
+        maxLockCount: maxLockCount.toString(),
+      }),
+    [
+      handlePay,
+      selectedToken.address,
+      selectedEnv.nodeId,
+      selectedEnv.consumerAddress,
+      depositAmount,
+      maxLockedAmount,
+      maxLockSeconds,
+      maxLockCount,
+    ]
+  );
 
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
     <CircularProgress className="alignSelfCenter" />
@@ -201,7 +146,28 @@ const Payment = ({
         totalCost={totalCost}
         walletBalance={walletBalance ?? 0}
       />
-      {renderStep()}
+      <div className="actionsGroupLgBetween">
+        <Button
+          color="accent1"
+          disabled={loadingPaymentInfo}
+          onClick={() => router.replace({ pathname: '/run-job/resources', query: router.query })}
+          size="lg"
+          type="button"
+          variant="transparent"
+        >
+          Edit resources
+        </Button>
+        <Button
+          color="accent1"
+          disabled={loadingPaymentInfo || isPaying || insufficientWalletFunds}
+          loading={isPaying}
+          onClick={handleSubmit}
+          size="lg"
+          type="button"
+        >
+          Authorize &amp; start session
+        </Button>
+      </div>
     </Card>
   );
 };
