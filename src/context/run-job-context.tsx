@@ -6,12 +6,15 @@ import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
   ComputeEnvironment,
+  ComputeResource,
   EnvNodeInfo,
   EnvResourcesSelection,
   MultiaddrsOrPeerId,
   NodeEnvironments,
+  SelectedGpu,
 } from '@/types/environments';
 import { roundTokenAmount } from '@/utils/formatters';
+import { distributeGpus, getAvailableAmount } from '@/utils/resources';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { useSearchParams } from 'next/navigation';
@@ -30,6 +33,13 @@ const parseGpuCount = (raw: string | null, gpuTypeCount: number): number => {
     return Math.floor(parsed);
   }
   return gpuTypeCount > 0 ? 1 : 0;
+};
+
+// Clamp a requested GPU amount to [0, available], so a stale or hand-crafted URL can never
+// allocate more units of a GPU than the node currently has free.
+const clampToAvailable = (requested: number, gpuRes?: ComputeResource): number => {
+  const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
+  return Math.min(sane, getAvailableAmount(gpuRes));
 };
 
 type RunJobContextType = {
@@ -307,12 +317,34 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const queryGpusArray = searchParams.getAll('gpus[]');
         const queryGpus = queryGpusArray.length > 0 ? queryGpusArray : searchParams.getAll('gpus');
         const qGpuCount = searchParams.get('gpuCount');
+        const parsedGpuCount = parseGpuCount(qGpuCount, queryGpus.length);
+        // Each gpu query entry is `id` (legacy) or `id:amount` (lossless). Parse the explicit
+        // amount when present, then clamp every amount to what's actually available so a stale or
+        // hand-crafted URL can never request more GPUs than the node currently has free.
+        const gpuResources = (foundEnv.resources ?? []).filter((res) => res.type === 'gpu' || res.id === 'gpu');
+        const findGpuRes = (id: string) => gpuResources.find((res) => res.id === id);
+        const hasExplicitAmounts = queryGpus.some((raw) => raw.includes(':'));
+        let hydratedGpus: SelectedGpu[];
+        if (hasExplicitAmounts) {
+          hydratedGpus = queryGpus
+            .map((raw) => {
+              const [id, amountStr] = raw.split(':');
+              const gpuRes = findGpuRes(id);
+              const requested = Number(amountStr);
+              const amount = clampToAvailable(requested, gpuRes);
+              return { id, description: gpuRes?.description, amount };
+            })
+            .filter((gpu) => gpu.amount > 0);
+        } else {
+          // Legacy URL with bare ids: distribute the total count by availability, same basis the
+          // selection page uses, so both sides agree on the per-entry split.
+          const orderedGpus = queryGpus.map(findGpuRes).filter((res): res is ComputeResource => !!res);
+          hydratedGpus = distributeGpus(parsedGpuCount, orderedGpus);
+        }
+        const gpuCount = hydratedGpus.reduce((sum, gpu) => sum + (gpu.amount ?? 0), 0);
         let resources: EnvResourcesSelection = {
-          gpus: queryGpus.map((gpuId) => {
-            const gpuRes = foundEnv.resources?.find((res) => res.type === 'gpu' && res.id === gpuId);
-            return { id: gpuId, description: gpuRes?.description };
-          }),
-          gpuCount: parseGpuCount(qGpuCount, queryGpus.length),
+          gpus: hydratedGpus,
+          gpuCount,
           maxJobDurationSeconds: qJobDuration
             ? Number(qJobDuration)
             : queryFree
@@ -371,7 +403,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
                 ...(resources.diskId && resources.diskSpace
                   ? [{ id: resources.diskId, amount: resources.diskSpace }]
                   : []),
-                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: resources.gpuCount ?? 1 })),
+                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: gpu.amount ?? 1 })),
               ],
               tokenAddress: queryToken,
             });

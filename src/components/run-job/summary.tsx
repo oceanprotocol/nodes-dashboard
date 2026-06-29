@@ -113,13 +113,14 @@ const Summary = ({
     }
     const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
     const resources: IdeResourceRequest[] = [
-      ...gpus.map((availableGpu) => ({
-        id: availableGpu.id,
-        amount: selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id)
-          ? (selectedResources.gpuCount ?? 1)
-          : 0,
-        description: availableGpu.description,
-      })),
+      ...gpus.map((availableGpu) => {
+        const selected = selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id);
+        return {
+          id: availableGpu.id,
+          amount: selected?.amount ?? 0,
+          description: availableGpu.description,
+        };
+      }),
     ];
     if (selectedResources.cpuId && selectedResources.cpuCores) {
       resources.push({
@@ -209,8 +210,14 @@ const Summary = ({
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>
           {selectedResources.gpus.length
-            ? selectedResources.gpus.map((gpu) => (
-                <GpuLabel key={gpu.id} gpu={`${selectedResources.gpuCount ?? 1} × ${gpu.description}`} />
+            ? Object.entries(
+                selectedResources.gpus.reduce<Record<string, number>>((acc, gpu) => {
+                  const key = gpu.description ?? gpu.id;
+                  acc[key] = (acc[key] ?? 0) + (gpu.amount ?? 1);
+                  return acc;
+                }, {})
+              ).map(([desc, count]) => (
+                <GpuLabel key={desc} gpu={`${count} × ${desc}`} />
               ))
             : '-'}
         </div>
