@@ -114,9 +114,14 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   // Total physical GPU slots across all GPU resource entries the node advertises.
   // No-GPU environments behave as a single, whole-environment unit.
-  const totalUnits = hasGpu ? Math.max(1, gpus.reduce((sum, g) => sum + capacityOf(g), 0)) : 1;
+  const totalUnits = hasGpu
+    ? Math.max(
+        1,
+        gpus.reduce((total, gpu) => total + capacityOf(gpu), 0)
+      )
+    : 1;
   // Every advertised GPU is currently in use elsewhere — nothing left to pick.
-  const gpuExhausted = hasGpu && gpus.every((g) => (gpusAvailable[g.id] ?? 0) <= 0);
+  const gpuExhausted = hasGpu && gpus.every((gpu) => (gpusAvailable[gpu.id] ?? 0) <= 0);
 
   // Per-unit (per-GPU) share of each resource, derived from full env capacity / total units.
   const perUnitCpu = capacityOf(cpu) / totalUnits;
@@ -132,7 +137,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const formik = useFormik<ResourcesFormValues>({
     enableReinitialize: true,
     initialValues: {
-      // Keep only still-available GPUs so a stale link can't pre-select an unavailable one.
       gpus: (selectedGpuIds ?? []).filter((id) => (gpusAvailable[id] ?? 0) > 0),
       maxJobDurationSeconds: selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds,
     },
@@ -172,8 +176,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         cpu: derivedCpu,
         ram: derivedRam,
         disk: derivedDisk,
-        // Each selected GPU is one unit; encode `id:1` so the selection round-trips losslessly and
-        // the hydration clamps it to current availability.
         ...(values.gpus.length > 0 && {
           gpus: values.gpus.map((id) => `${id}:1`),
           gpuCount: values.gpus.length,
@@ -209,8 +211,8 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const selectedGpuEntries = useMemo(
     () =>
       gpus
-        .filter((g) => formik.values.gpus.includes(g.id))
-        .map((g) => ({ id: g.id, description: g.description, amount: 1 })),
+        .filter((gpu) => formik.values.gpus.includes(gpu.id))
+        .map((gpu) => ({ id: gpu.id, description: gpu.description, amount: 1 })),
     [gpus, formik.values.gpus]
   );
 
@@ -275,7 +277,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const selectAllGpus = () => {
     formik.setFieldValue(
       'gpus',
-      gpus.filter((g) => (gpusAvailable[g.id] ?? 0) > 0).map((g) => g.id)
+      gpus.filter((gpu) => (gpusAvailable[gpu.id] ?? 0) > 0).map((gpu) => gpu.id)
     );
   };
 
@@ -383,7 +385,14 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         {hasGpu ? (
           <Select
             endAdornment={
-              <Button color="accent2" disabled={gpuExhausted} onClick={selectAllGpus} size="sm" type="button" variant="filled">
+              <Button
+                color="accent2"
+                disabled={gpuExhausted}
+                onClick={selectAllGpus}
+                size="sm"
+                type="button"
+                variant="filled"
+              >
                 Select all
               </Button>
             }
@@ -422,7 +431,11 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             `${derivedCpu} ${derivedCpu === 1 ? 'core' : 'cores'}`,
             freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`
           )}
-          {renderDerivedResource('RAM', `${derivedRam} GB`, freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`)}
+          {renderDerivedResource(
+            'RAM',
+            `${derivedRam} GB`,
+            freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`
+          )}
           {renderDerivedResource(
             <div>
               Disk space{' '}
@@ -456,7 +469,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         {freeCompute ? null : (
           <TransitionGroup>
             {initComputeError ? <Collapse>{renderConnectionErrorCard()}</Collapse> : null}
-            {!initComputeError && formik.isValid && !resourcesExhausted ? <Collapse>{renderCostCard()}</Collapse> : null}
+            {!initComputeError && formik.isValid && !resourcesExhausted ? (
+              <Collapse>{renderCostCard()}</Collapse>
+            ) : null}
           </TransitionGroup>
         )}
         <div className="actionsGroupLgBetween">
