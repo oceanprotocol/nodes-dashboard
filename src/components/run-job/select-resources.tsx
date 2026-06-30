@@ -1,9 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import DurationInput from '@/components/input/duration-input';
-import Select from '@/components/input/select';
 import config from '@/config';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
@@ -122,6 +120,26 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     : 1;
   // Every advertised GPU is currently in use elsewhere — nothing left to pick.
   const gpuExhausted = hasGpu && gpus.every((gpu) => (gpusAvailable[gpu.id] ?? 0) <= 0);
+
+  // Physical GPUs that share a description are the same model. Group them so the user picks a count
+  // per model instead of ticking individual cards. availableIds keeps declared order, so a chosen
+  // count maps deterministically to concrete resource ids.
+  const gpuGroups = useMemo(() => {
+    const byDescription = new Map<string, { description: string; fee?: number; availableIds: string[]; total: number }>();
+    for (const gpu of gpus) {
+      const description = gpu.description ?? gpu.id;
+      let group = byDescription.get(description);
+      if (!group) {
+        group = { description, fee: gpuFees[gpu.id], availableIds: [], total: 0 };
+        byDescription.set(description, group);
+      }
+      group.total += 1;
+      if ((gpusAvailable[gpu.id] ?? 0) > 0) {
+        group.availableIds.push(gpu.id);
+      }
+    }
+    return [...byDescription.values()];
+  }, [gpus, gpusAvailable, gpuFees]);
 
   // Per-unit (per-GPU) share of each resource, derived from full env capacity / total units.
   const perUnitCpu = capacityOf(cpu) / totalUnits;
@@ -281,6 +299,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     );
   };
 
+  // Replace one model group's selection with its first `count` available cards, leaving the
+  // selections of other groups untouched.
+  const setGroupCount = (availableIds: string[], count: number) => {
+    const others = formik.values.gpus.filter((id) => !availableIds.includes(id));
+    formik.setFieldValue('gpus', [...others, ...availableIds.slice(0, count)]);
+  };
+
   const renderDerivedResource = (label: React.ReactNode, value: string, fee: React.ReactNode) => (
     <Card
       className={styles.derivedCard}
@@ -383,8 +408,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       <h3>Select resources</h3>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         {hasGpu ? (
-          <Select
-            endAdornment={
+          <div className={styles.gpuGroups}>
+            <div className={styles.gpuHeader}>
+              <label className={styles.gpuGroupsLabel}>GPUs</label>
               <Button
                 color="accent2"
                 disabled={gpuExhausted}
@@ -395,30 +421,46 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
               >
                 Select all
               </Button>
-            }
-            errorText={formik.touched.gpus && formik.errors.gpus ? (formik.errors.gpus as string) : undefined}
-            label="GPUs"
-            multiple
-            name="gpus"
-            onBlur={formik.handleBlur}
-            onChange={formik.handleChange}
-            options={gpus.map((gpu) => ({
-              disabled: (gpusAvailable[gpu.id] ?? 0) <= 0,
-              label: gpu.description ?? gpu.id,
-              value: gpu.id,
-            }))}
-            placeholder="No GPU selected"
-            renderOption={(option) => {
-              const available = gpusAvailable[option.value] ?? 0;
-              if (available <= 0) {
-                return <GpuLabel gpu={`${option.label} (unavailable)`} />;
-              }
-              const pricing = freeCompute ? 'Free' : `${gpuFees[option.value] ?? ''} ${token?.symbol}/unit`;
-              return <GpuLabel gpu={`${option.label} (${available} available, ${pricing})`} />;
-            }}
-            renderSelectedValue={(option) => <GpuLabel gpu={option} />}
-            value={formik.values.gpus}
-          />
+            </div>
+            {gpuGroups.map((group) => {
+              const available = group.availableIds.length;
+              const count = group.availableIds.filter((id) => formik.values.gpus.includes(id)).length;
+              const pricing = freeCompute ? 'Free' : `${group.fee ?? ''} ${token?.symbol}/unit`;
+              return (
+                <div className={styles.gpuGroup} key={group.description}>
+                  <div className={styles.gpuGroupTop}>
+                    <span className={styles.gpuGroupName}>{group.description}</span>
+                    <span className={styles.gpuGroupFee}>{pricing}</span>
+                  </div>
+                  {available > 0 ? (
+                    <>
+                      <div className={styles.pills} role="group" aria-label={group.description}>
+                        {Array.from({ length: available + 1 }, (_, n) => (
+                          <button
+                            aria-pressed={n === count}
+                            className={`${styles.pill} ${n === count ? styles.pillSelected : ''}`}
+                            key={n}
+                            onClick={() => setGroupCount(group.availableIds, n)}
+                            type="button"
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <div className={styles.gpuGroupMeta}>
+                        {available} of {group.total} available
+                      </div>
+                    </>
+                  ) : (
+                    <div className={styles.gpuGroupMeta}>None available</div>
+                  )}
+                </div>
+              );
+            })}
+            {formik.touched.gpus && formik.errors.gpus ? (
+              <div className={styles.gpuError}>{formik.errors.gpus as string}</div>
+            ) : null}
+          </div>
         ) : (
           <p className={styles.wholeEnvNote}>
             This environment runs as a single unit. The full CPU, RAM, and disk capacity below is allocated to your job.
