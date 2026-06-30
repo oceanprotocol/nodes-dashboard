@@ -1,42 +1,43 @@
 import Container from '@/components/container/container';
-import EscrowTokenPanel from '@/components/escrow/escrow-token-panel';
+import EscrowHistory from '@/components/escrow/escrow-history';
+import EscrowManage from '@/components/escrow/escrow-manage';
 import SectionTitle from '@/components/section-title/section-title';
-import { useEscrowData } from '@/lib/use-escrow-data';
-import { CircularProgress } from '@mui/material';
+import TabBar from '@/components/tab-bar/tab-bar';
 import classNames from 'classnames';
+import { useState } from 'react';
 import styles from './escrow-page.module.css';
 
+type EscrowTab = 'manage' | 'history';
+
 const EscrowPage = () => {
-  const { tokens, spenders, loading, reload } = useEscrowData();
+  const [activeTab, setActiveTab] = useState<EscrowTab>('manage');
 
   return (
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
         title="Escrow management"
-        subTitle="Deposit and withdraw escrow funds, and manage the spending authorizations used to pay for compute jobs."
+        subTitle="Manage escrow funds, authorizations, and review your escrow transaction history."
       />
       <div className={classNames('pageContentWrapper', styles.content)}>
-        {loading && tokens.length === 0 ? (
-          <CircularProgress className="alignSelfCenter" />
-        ) : (
-          <div className={styles.panels}>
-            {tokens.map((token) => {
-              const tokenSpenders = spenders.filter(
-                (s) => s.tokenAddress.toLowerCase() === token.address.toLowerCase()
-              );
-              return (
-                <EscrowTokenPanel
-                  key={token.address}
-                  loadingSpenders={loading}
-                  onChange={reload}
-                  spenders={tokenSpenders}
-                  token={token}
-                />
-              );
-            })}
-          </div>
-        )}
+        <TabBar
+          activeKey={activeTab}
+          className="alignSelfCenter"
+          tabs={[
+            {
+              key: 'manage',
+              label: 'Manage escrow',
+              onClick: () => setActiveTab('manage'),
+            },
+            {
+              key: 'history',
+              label: 'Escrow history',
+              onClick: () => setActiveTab('history'),
+            },
+          ]}
+        />
+
+        {activeTab === 'manage' ? <EscrowManage /> : <EscrowHistory />}
       </div>
     </Container>
   );
