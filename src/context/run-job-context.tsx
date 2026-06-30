@@ -25,8 +25,7 @@ export type SelectedToken = {
   address: string;
 };
 
-// Clamp a requested GPU amount to [0, available], so a stale or hand-crafted URL can never
-// allocate more units of a GPU than the node currently has free.
+// Clamp a requested GPU amount to [0, available] so a hand-crafted URL can't over-allocate.
 const clampToAvailable = (requested: number, gpuRes?: ComputeResource): number => {
   const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
   return Math.min(sane, getAvailableAmount(gpuRes));
@@ -308,12 +307,17 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const queryGpus = queryGpusArray.length > 0 ? queryGpusArray : searchParams.getAll('gpus');
         const gpuResources = (foundEnv.resources ?? []).filter((res) => res.type === 'gpu' || res.id === 'gpu');
         const findGpuRes = (id: string) => gpuResources.find((res) => res.id === id);
-        const resolvedGpus: SelectedGpu[] = queryGpus
-          .map((raw) => {
-            const [id, amountStr] = raw.split(':');
+        const requestedById = new Map<string, number>();
+        for (const raw of queryGpus) {
+          const [id, amountStr] = raw.split(':');
+          const requested = Number(amountStr);
+          const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
+          requestedById.set(id, (requestedById.get(id) ?? 0) + sane);
+        }
+        const resolvedGpus: SelectedGpu[] = [...requestedById.entries()]
+          .map(([id, requested]) => {
             const gpuRes = findGpuRes(id);
-            const amount = clampToAvailable(Number(amountStr), gpuRes);
-            return { id, description: gpuRes?.description, amount };
+            return { id, description: gpuRes?.description, amount: clampToAvailable(requested, gpuRes) };
           })
           .filter((gpu) => gpu.amount > 0);
         const gpuCount = resolvedGpus.reduce((sum, gpu) => sum + gpu.amount, 0);
