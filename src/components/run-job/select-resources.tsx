@@ -2,6 +2,8 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import DurationInput from '@/components/input/duration-input';
+import Input from '@/components/input/input';
+import Slider from '@/components/slider/slider';
 import config from '@/config';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
@@ -27,12 +29,25 @@ type SelectResourcesProps = {
   token: SelectedToken | null;
 };
 
+// 'package': pick a GPU count, CPU/RAM/disk are auto-derived as a proportional slice (read-only).
+// 'custom': GPU count still applies, but CPU/RAM/disk are set by hand within what's available.
+type ResourceMode = 'package' | 'custom';
+
 type ResourcesFormValues = {
+  cpuCores: number;
+  diskSpace: number | '';
   gpus: string[];
   maxJobDurationSeconds: number;
+  mode: ResourceMode;
+  ram: number;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+// How many whole GPU-sized units fit into the currently available amount of a resource.
+// per <= 0 (resource not advertised) imposes no limit.
+const unitsThatFit = (available: number, per: number) =>
+  per > 0 ? Math.floor(Math.max(0, available) / per) : Number.POSITIVE_INFINITY;
 
 const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
   const { login } = usePrivy();
@@ -121,6 +136,35 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   // Every advertised GPU is currently in use elsewhere — nothing left to pick.
   const gpuExhausted = hasGpu && gpus.every((gpu) => (gpusAvailable[gpu.id] ?? 0) <= 0);
 
+  // Per-unit (per-GPU) share of each resource, derived from full env capacity / total units.
+  const perUnitCpu = capacityOf(cpu) / totalUnits;
+  const perUnitRam = capacityOf(ram) / totalUnits;
+  const perUnitDisk = capacityOf(disk) / totalUnits;
+
+  const minAllowedCpuCores = cpu?.min ?? (cpu ? 1 : 0);
+  const minAllowedRam = ram?.min ?? 0;
+  const minAllowedDiskSpace = disk?.min ?? 0;
+  const minAllowedJobDurationSeconds = minJobDurationSeconds ?? 0;
+
+  const maxAllowedCpuCores = Math.max(minAllowedCpuCores, cpuAvailable);
+  const maxAllowedRam = Math.max(minAllowedRam, ramAvailable);
+  const maxAllowedDiskSpace = Math.max(minAllowedDiskSpace, diskAvailable);
+  const maxAllowedJobDurationSeconds = maxJobDurationSeconds ?? 0;
+
+  // A resource is exhausted when even its per-job minimum no longer fits in what's free.
+  const cpuExhausted = !!cpu && cpuAvailable < minAllowedCpuCores;
+  const ramExhausted = !!ram && ramAvailable < minAllowedRam;
+  const diskExhausted = !!disk && diskAvailable < minAllowedDiskSpace;
+
+  // Another tenant's custom job can leave plenty of GPUs free but too little CPU/RAM/disk to back
+  // them. A package's slice is proportional, so cap the selectable GPU count to however many whole
+  // units still fit in every shared resource.
+  const maxUnitsByResources = Math.min(
+    unitsThatFit(cpuAvailable, perUnitCpu),
+    unitsThatFit(ramAvailable, perUnitRam),
+    unitsThatFit(diskAvailable, perUnitDisk)
+  );
+
   // Physical GPUs that share a description are the same model. Group them so the user picks a count
   // per model instead of ticking individual cards. availableIds keeps declared order, so a chosen
   // count maps deterministically to concrete resource ids.
@@ -141,22 +185,35 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     return [...byDescription.values()];
   }, [gpus, gpusAvailable, gpuFees]);
 
-  // Per-unit (per-GPU) share of each resource, derived from full env capacity / total units.
-  const perUnitCpu = capacityOf(cpu) / totalUnits;
-  const perUnitRam = capacityOf(ram) / totalUnits;
-  const perUnitDisk = capacityOf(disk) / totalUnits;
-
-  const minAllowedJobDurationSeconds = minJobDurationSeconds ?? 0;
-  const maxAllowedJobDurationSeconds = maxJobDurationSeconds ?? 0;
+  const totalAvailableGpus = gpuGroups.reduce((sum, group) => sum + group.availableIds.length, 0);
 
   const selectedGpuIds = selectedResources?.gpus?.map((g) => g.id);
+  const selectedCpu = selectedResources?.cpuCores;
+  const selectedDisk = selectedResources?.diskSpace;
+  const selectedRam = selectedResources?.ram;
   const selectedMaxJobDurationSeconds = selectedResources?.maxJobDurationSeconds;
+
+  // Reconstruct what the package slice would be for the hydrated GPU count; if the stored CPU/RAM/disk
+  // differ, the previous selection was custom, so reopen in custom mode (e.g. back-nav from payment).
+  const initialGpus = (selectedGpuIds ?? []).filter((id) => (gpusAvailable[id] ?? 0) > 0);
+  const initialUnitCount = hasGpu ? initialGpus.length : 1;
+  const packageCpu = clamp(Math.round(perUnitCpu * initialUnitCount), minAllowedCpuCores, maxAllowedCpuCores);
+  const packageRam = clamp(Math.round(perUnitRam * initialUnitCount), minAllowedRam, maxAllowedRam);
+  const packageDisk = clamp(Math.round(perUnitDisk * initialUnitCount), minAllowedDiskSpace, maxAllowedDiskSpace);
+  const hydratedCustom =
+    (selectedCpu != null && selectedCpu !== packageCpu) ||
+    (selectedRam != null && selectedRam !== packageRam) ||
+    (selectedDisk != null && selectedDisk !== packageDisk);
 
   const formik = useFormik<ResourcesFormValues>({
     enableReinitialize: true,
     initialValues: {
-      gpus: (selectedGpuIds ?? []).filter((id) => (gpusAvailable[id] ?? 0) > 0),
+      cpuCores: clamp(selectedCpu ?? packageCpu, minAllowedCpuCores, maxAllowedCpuCores),
+      diskSpace: clamp(selectedDisk ?? packageDisk, minAllowedDiskSpace, maxAllowedDiskSpace),
+      gpus: initialGpus,
       maxJobDurationSeconds: selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds,
+      mode: hydratedCustom ? 'custom' : 'package',
+      ram: clamp(selectedRam ?? packageRam, minAllowedRam, maxAllowedRam),
     },
     onSubmit: (values) => {
       if (!account?.isConnected) {
@@ -170,30 +227,31 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         estimatedTotalCost && token?.address ? roundTokenAmount(estimatedTotalCost, token.address, 'up') : 0
       );
       setSelectedResources({
-        cpuCores: derivedCpu,
+        cpuCores: effectiveCpu,
         cpuId: cpu?.id ?? 'cpu',
-        diskSpace: derivedDisk,
+        diskSpace: effectiveDisk,
         diskId: disk?.id ?? 'disk',
         gpus: selectedGpuEntries,
         gpuCount: selectedGpuEntries.length,
         maxJobDurationSeconds: values.maxJobDurationSeconds,
-        ram: derivedRam,
+        ram: effectiveRam,
         ramId: ram?.id ?? 'ram',
       });
       posthog.capture('environment_configured', {
-        cpuCores: derivedCpu,
-        ram: derivedRam,
-        diskSpace: derivedDisk,
+        cpuCores: effectiveCpu,
+        ram: effectiveRam,
+        diskSpace: effectiveDisk,
         gpuCount: selectedGpuEntries.length,
         maxJobDurationSeconds: values.maxJobDurationSeconds,
+        mode: values.mode,
         estimatedTotalCost,
         freeCompute,
       });
       const query = {
         ...router.query,
-        cpu: derivedCpu,
-        ram: derivedRam,
-        disk: derivedDisk,
+        cpu: effectiveCpu,
+        ram: effectiveRam,
+        disk: effectiveDisk,
         ...(values.gpus.length > 0 && {
           gpus: values.gpus.map((id) => `${id}:1`),
           gpuCount: values.gpus.length,
@@ -209,6 +267,25 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     },
     validateOnMount: true,
     validationSchema: Yup.object({
+      cpuCores: Yup.number().when('mode', {
+        is: 'custom',
+        then: (schema) =>
+          schema
+            .required('Required')
+            .min(minAllowedCpuCores, 'Limits exceeded')
+            .max(maxAllowedCpuCores, cpuExhausted ? 'Not enough available' : 'Limits exceeded')
+            .integer('Invalid format'),
+        otherwise: (schema) => schema.notRequired(),
+      }),
+      diskSpace: Yup.number().when('mode', {
+        is: 'custom',
+        then: (schema) =>
+          schema
+            .required('Required')
+            .min(minAllowedDiskSpace, 'Limits exceeded')
+            .max(maxAllowedDiskSpace, diskExhausted ? 'Not enough available' : 'Limits exceeded'),
+        otherwise: (schema) => schema.notRequired(),
+      }),
       gpus: Yup.array()
         .of(Yup.string())
         // GPUs are optional — a job with none gets the minimum CPU/RAM/disk slice.
@@ -219,8 +296,19 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         .required('Required')
         .min(minAllowedJobDurationSeconds, 'Limits exceeded')
         .max(maxAllowedJobDurationSeconds, 'Limits exceeded'),
+      ram: Yup.number().when('mode', {
+        is: 'custom',
+        then: (schema) =>
+          schema
+            .required('Required')
+            .min(minAllowedRam, 'Limits exceeded')
+            .max(maxAllowedRam, ramExhausted ? 'Not enough available' : 'Limits exceeded'),
+        otherwise: (schema) => schema.notRequired(),
+      }),
     }),
   });
+
+  const isCustom = formik.values.mode === 'custom';
 
   // Each selected GPU is one unit; no-GPU envs run as a single whole-environment unit.
   const unitCount = hasGpu ? formik.values.gpus.length : 1;
@@ -234,28 +322,33 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     [gpus, formik.values.gpus]
   );
 
-  // Derived resource amounts for the chosen number of units, clamped to what's actually available.
-  const derivedCpu = clamp(Math.round(perUnitCpu * unitCount), cpu?.min ?? 0, Math.max(0, cpuAvailable));
-  const derivedRam = clamp(Math.round(perUnitRam * unitCount), ram?.min ?? 0, Math.max(0, ramAvailable));
-  const derivedDisk = clamp(Math.round(perUnitDisk * unitCount), disk?.min ?? 0, Math.max(0, diskAvailable));
+  // Package-mode CPU/RAM/disk: the proportional slice for the chosen unit count, clamped to available.
+  const derivedCpu = clamp(Math.round(perUnitCpu * unitCount), minAllowedCpuCores, maxAllowedCpuCores);
+  const derivedRam = clamp(Math.round(perUnitRam * unitCount), minAllowedRam, maxAllowedRam);
+  const derivedDisk = clamp(Math.round(perUnitDisk * unitCount), minAllowedDiskSpace, maxAllowedDiskSpace);
 
-  const resourcesExhausted =
-    gpuExhausted ||
-    (!!cpu && cpuAvailable < (cpu.min ?? 0)) ||
-    (!!ram && ramAvailable < (ram.min ?? 0)) ||
-    (!!disk && diskAvailable < (disk.min ?? 0));
+  // What the job actually requests: hand-set values in custom mode, the derived slice otherwise.
+  const effectiveCpu = isCustom ? formik.values.cpuCores : derivedCpu;
+  const effectiveRam = isCustom ? formik.values.ram : derivedRam;
+  const effectiveDisk = isCustom ? Number(formik.values.diskSpace) || 0 : derivedDisk;
+
+  // Cap on total GPU units the pills allow. Package mode additionally caps by the shared resources
+  // left behind by other jobs; custom mode caps only by physically free GPUs.
+  const maxSelectableUnits = isCustom ? totalAvailableGpus : Math.min(totalAvailableGpus, maxUnitsByResources);
+
+  const resourcesExhausted = gpuExhausted || cpuExhausted || ramExhausted || diskExhausted;
 
   const resources = useMemo(() => {
     const list = [
-      { id: cpu?.id ?? 'cpu', amount: derivedCpu },
-      { id: disk?.id ?? 'disk', amount: derivedDisk },
-      { id: ram?.id ?? 'ram', amount: derivedRam },
+      { id: cpu?.id ?? 'cpu', amount: effectiveCpu },
+      { id: disk?.id ?? 'disk', amount: effectiveDisk },
+      { id: ram?.id ?? 'ram', amount: effectiveRam },
     ];
     for (const gpu of selectedGpuEntries) {
       list.push({ id: gpu.id, amount: gpu.amount });
     }
     return list;
-  }, [cpu?.id, disk?.id, ram?.id, selectedGpuEntries, derivedCpu, derivedRam, derivedDisk]);
+  }, [cpu?.id, disk?.id, ram?.id, selectedGpuEntries, effectiveCpu, effectiveRam, effectiveDisk]);
 
   const estimateCost = useCallback(async () => {
     setIsLoadingCost(true);
@@ -292,11 +385,32 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     formik.setFieldValue('maxJobDurationSeconds', maxAllowedJobDurationSeconds);
   };
 
+  const setMaxDiskSpace = () => {
+    formik.setFieldValue('diskSpace', maxAllowedDiskSpace);
+  };
+
+  const handleDiskSpaceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.target.value === '') {
+      formik.setFieldValue('diskSpace', '');
+      return;
+    }
+    formik.setFieldValue('diskSpace', Math.max(0, Number(e.target.value)));
+  };
+
+  // Switching to custom seeds the sliders with the current derived slice so the values stay
+  // continuous; switching back to package lets the derived slice take over again.
+  const setMode = (mode: ResourceMode) => {
+    if (mode === 'custom') {
+      formik.setValues((prev) => ({ ...prev, mode, cpuCores: derivedCpu, ram: derivedRam, diskSpace: derivedDisk }));
+    } else {
+      formik.setFieldValue('mode', 'package');
+    }
+  };
+
   const selectAllGpus = () => {
-    formik.setFieldValue(
-      'gpus',
-      gpus.filter((gpu) => (gpusAvailable[gpu.id] ?? 0) > 0).map((gpu) => gpu.id)
-    );
+    const available = gpus.filter((gpu) => (gpusAvailable[gpu.id] ?? 0) > 0).map((gpu) => gpu.id);
+    const cap = Number.isFinite(maxSelectableUnits) ? Math.min(available.length, maxSelectableUnits) : available.length;
+    formik.setFieldValue('gpus', available.slice(0, cap));
   };
 
   // Replace one model group's selection with its first `count` available cards, leaving the
@@ -405,7 +519,27 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      <h3>Select resources</h3>
+      <div className={styles.titleRow}>
+        <h3>Select resources</h3>
+        <div className={styles.modeToggle} role="group" aria-label="Resource selection mode">
+          <button
+            aria-pressed={!isCustom}
+            className={`${styles.modeButton} ${!isCustom ? styles.modeButtonActive : ''}`}
+            onClick={() => setMode('package')}
+            type="button"
+          >
+            Package
+          </button>
+          <button
+            aria-pressed={isCustom}
+            className={`${styles.modeButton} ${isCustom ? styles.modeButtonActive : ''}`}
+            onClick={() => setMode('custom')}
+            type="button"
+          >
+            Custom
+          </button>
+        </div>
+      </div>
       <form className={styles.form} onSubmit={formik.handleSubmit}>
         {hasGpu ? (
           <div className={styles.gpuGroups}>
@@ -425,6 +559,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             {gpuGroups.map((group) => {
               const available = group.availableIds.length;
               const count = group.availableIds.filter((id) => formik.values.gpus.includes(id)).length;
+              const selectedElsewhere = formik.values.gpus.length - count;
               const pricing = freeCompute ? 'Free' : `${group.fee ?? ''} ${token?.symbol}/unit`;
               return (
                 <div className={styles.gpuGroup} key={group.description}>
@@ -435,17 +570,23 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                   {available > 0 ? (
                     <>
                       <div className={styles.pills} role="group" aria-label={group.description}>
-                        {Array.from({ length: available + 1 }, (_, n) => (
-                          <button
-                            aria-pressed={n === count}
-                            className={`${styles.pill} ${n === count ? styles.pillSelected : ''}`}
-                            key={n}
-                            onClick={() => setGroupCount(group.availableIds, n)}
-                            type="button"
-                          >
-                            {n}
-                          </button>
-                        ))}
+                        {Array.from({ length: available + 1 }, (_, n) => {
+                          // Disabled when it would exceed this model's free cards, or when the running
+                          // total would outstrip the units the shared resources can still back.
+                          const disabled = n > available || selectedElsewhere + n > maxSelectableUnits;
+                          return (
+                            <button
+                              aria-pressed={n === count}
+                              className={`${styles.pill} ${n === count ? styles.pillSelected : ''}`}
+                              disabled={disabled && n !== count}
+                              key={n}
+                              onClick={() => setGroupCount(group.availableIds, n)}
+                              type="button"
+                            >
+                              {n}
+                            </button>
+                          );
+                        })}
                       </div>
                       <div className={styles.gpuGroupMeta}>
                         {available} of {group.total} available
@@ -461,34 +602,93 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
               <div className={styles.gpuError}>{formik.errors.gpus as string}</div>
             ) : null}
           </div>
-        ) : (
+        ) : !isCustom ? (
           <p className={styles.wholeEnvNote}>
             This environment runs as a single unit. The full CPU, RAM, and disk capacity below is allocated to your job.
           </p>
-        )}
+        ) : null}
 
-        <div className={styles.derivedGrid}>
-          {renderDerivedResource(
-            'CPU',
-            `${derivedCpu} ${derivedCpu === 1 ? 'core' : 'cores'}`,
-            freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`
-          )}
-          {renderDerivedResource(
-            'RAM',
-            `${derivedRam} GB`,
-            freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`
-          )}
-          {renderDerivedResource(
-            <div>
-              Disk space{' '}
-              <Tooltip title="The disk space should accommodate the container images, required datasets, temporary results, and final algorithm outputs">
-                <InfoOutlinedIcon className="textAccent1" />
-              </Tooltip>
-            </div>,
-            `${derivedDisk} GB`,
-            freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`
-          )}
-        </div>
+        {isCustom ? (
+          <div className={styles.inputsGrid}>
+            <Slider
+              disabled={cpuExhausted}
+              errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
+              hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}
+              label={`CPU - ${formik.values.cpuCores} ${formik.values.cpuCores === 1 ? 'core' : 'cores'}`}
+              marks
+              max={maxAllowedCpuCores}
+              min={minAllowedCpuCores}
+              name="cpuCores"
+              onBlur={formik.handleBlur}
+              onChange={formik.handleChange}
+              step={1}
+              topRight={cpuExhausted ? '0 available' : `${minAllowedCpuCores} - ${maxAllowedCpuCores} available`}
+              value={formik.values.cpuCores}
+              valueLabelFormat={(value) => (value === 1 ? `${value} core` : `${value} cores`)}
+            />
+            <Slider
+              disabled={ramExhausted}
+              errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
+              hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}
+              label={`RAM - ${formik.values.ram} GB`}
+              marks
+              max={maxAllowedRam}
+              min={minAllowedRam}
+              name="ram"
+              onBlur={formik.handleBlur}
+              onChange={formik.handleChange}
+              step={1}
+              topRight={ramExhausted ? '0 GB available' : `${minAllowedRam} - ${maxAllowedRam} GB available`}
+              value={formik.values.ram}
+              valueLabelFormat={(value) => `${value} GB`}
+            />
+            <Input
+              endAdornment={
+                <Button color="accent2" onClick={setMaxDiskSpace} size="sm" type="button" variant="filled">
+                  Set max
+                </Button>
+              }
+              errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
+              hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`}
+              label={
+                <div>
+                  Disk space{' '}
+                  <Tooltip title="The disk space should accommodate the container images, required datasets, temporary results, and final algorithm outputs">
+                    <InfoOutlinedIcon className="textAccent1" />
+                  </Tooltip>
+                </div>
+              }
+              max={maxAllowedDiskSpace}
+              min={0}
+              name="diskSpace"
+              onBlur={formik.handleBlur}
+              onChange={handleDiskSpaceChange}
+              startAdornment="GB"
+              topRight={`${minAllowedDiskSpace} - ${maxAllowedDiskSpace} available`}
+              type="number"
+              value={formik.values.diskSpace}
+            />
+          </div>
+        ) : (
+          <div className={styles.derivedGrid}>
+            {renderDerivedResource(
+              'CPU',
+              `${derivedCpu} ${derivedCpu === 1 ? 'core' : 'cores'}`,
+              freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`
+            )}
+            {renderDerivedResource('RAM', `${derivedRam} GB`, freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`)}
+            {renderDerivedResource(
+              <div>
+                Disk space{' '}
+                <Tooltip title="The disk space should accommodate the container images, required datasets, temporary results, and final algorithm outputs">
+                  <InfoOutlinedIcon className="textAccent1" />
+                </Tooltip>
+              </div>,
+              `${derivedDisk} GB`,
+              freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`
+            )}
+          </div>
+        )}
 
         <DurationInput
           availableUnits={DURATION_UNIT_OPTIONS}
