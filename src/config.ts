@@ -40,6 +40,8 @@ type Config = {
     docs: string;
     website: string;
     github: string;
+    mcpDocs: string;
+    mcpConnector: string;
   };
   queryParams: {
     [key: string]: string;
@@ -100,6 +102,8 @@ const config: Config = {
     docs: 'https://docs.oncompute.ai/',
     website: 'https://www.oncompute.ai/',
     github: 'https://github.com/oceanprotocol/ocean-node',
+    mcpDocs: 'https://docs.oncompute.ai/on-mcp/quickstart',
+    mcpConnector: 'https://mcp.oncompute.ai/mcp',
   },
   queryParams: {
     accessToken: 'access_token',

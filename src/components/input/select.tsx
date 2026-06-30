@@ -96,6 +96,7 @@ const StyledPlaceholder = styled('span')({
 });
 
 export type SelectOption<T> = {
+  disabled?: boolean;
   label: string;
   value: T;
 };
@@ -212,7 +213,7 @@ const Select = <T extends string | number = string>({
         value={multiple ? (value ?? []) : value}
       >
         {options?.map((option) => (
-          <MenuItem disableRipple key={String(option.value)} value={option.value}>
+          <MenuItem disabled={option.disabled} disableRipple key={String(option.value)} value={option.value}>
             {multiple ? (
               <Checkbox checked={Array.isArray(value) ? (value as any).includes(option.value) : false} />
             ) : null}
