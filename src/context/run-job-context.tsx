@@ -14,7 +14,7 @@ import {
   SelectedGpu,
 } from '@/types/environments';
 import { roundTokenAmount } from '@/utils/formatters';
-import { distributeGpus, getAvailableAmount } from '@/utils/resources';
+import { getAvailableAmount } from '@/utils/resources';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { useSearchParams } from 'next/navigation';
@@ -23,16 +23,6 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useState 
 export type SelectedToken = {
   symbol: string;
   address: string;
-};
-
-// gpuCount comes from a user-controllable query string, so guard against NaN/negative values
-// (e.g. ?gpuCount=abc) before they propagate into sliders and cost estimates.
-const parseGpuCount = (raw: string | null, gpuTypeCount: number): number => {
-  const parsed = raw ? Number(raw) : NaN;
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return Math.floor(parsed);
-  }
-  return gpuTypeCount > 0 ? 1 : 0;
 };
 
 // Clamp a requested GPU amount to [0, available], so a stale or hand-crafted URL can never
@@ -316,34 +306,19 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const qJobDuration = searchParams.get('maxJobDuration');
         const queryGpusArray = searchParams.getAll('gpus[]');
         const queryGpus = queryGpusArray.length > 0 ? queryGpusArray : searchParams.getAll('gpus');
-        const qGpuCount = searchParams.get('gpuCount');
-        const parsedGpuCount = parseGpuCount(qGpuCount, queryGpus.length);
-        // Each gpu query entry is `id` (legacy) or `id:amount` (lossless). Parse the explicit
-        // amount when present, then clamp every amount to what's actually available so a stale or
-        // hand-crafted URL can never request more GPUs than the node currently has free.
         const gpuResources = (foundEnv.resources ?? []).filter((res) => res.type === 'gpu' || res.id === 'gpu');
         const findGpuRes = (id: string) => gpuResources.find((res) => res.id === id);
-        const hasExplicitAmounts = queryGpus.some((raw) => raw.includes(':'));
-        let hydratedGpus: SelectedGpu[];
-        if (hasExplicitAmounts) {
-          hydratedGpus = queryGpus
-            .map((raw) => {
-              const [id, amountStr] = raw.split(':');
-              const gpuRes = findGpuRes(id);
-              const requested = Number(amountStr);
-              const amount = clampToAvailable(requested, gpuRes);
-              return { id, description: gpuRes?.description, amount };
-            })
-            .filter((gpu) => gpu.amount > 0);
-        } else {
-          // Legacy URL with bare ids: distribute the total count by availability, same basis the
-          // selection page uses, so both sides agree on the per-entry split.
-          const orderedGpus = queryGpus.map(findGpuRes).filter((res): res is ComputeResource => !!res);
-          hydratedGpus = distributeGpus(parsedGpuCount, orderedGpus);
-        }
-        const gpuCount = hydratedGpus.reduce((sum, gpu) => sum + gpu.amount, 0);
+        const resolvedGpus: SelectedGpu[] = queryGpus
+          .map((raw) => {
+            const [id, amountStr] = raw.split(':');
+            const gpuRes = findGpuRes(id);
+            const amount = clampToAvailable(Number(amountStr), gpuRes);
+            return { id, description: gpuRes?.description, amount };
+          })
+          .filter((gpu) => gpu.amount > 0);
+        const gpuCount = resolvedGpus.reduce((sum, gpu) => sum + gpu.amount, 0);
         let resources: EnvResourcesSelection = {
-          gpus: hydratedGpus,
+          gpus: resolvedGpus,
           gpuCount,
           maxJobDurationSeconds: qJobDuration
             ? Number(qJobDuration)
