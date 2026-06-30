@@ -1,0 +1,44 @@
+.iconBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--background-glass-secondary);
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 768px) {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 992px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .card {
+    transition: transform 0.3s ease;
+
+    &:hover {
+      transform: scale(1.03);
+    }
+
+    &.cardHighlighted {
+      border: 2px solid var(--accent1-lightest);
+    }
+
+    .cardContent {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 8px;
+    }
+  }
+}
