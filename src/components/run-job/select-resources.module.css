@@ -40,6 +40,41 @@
   }
 }
 
+.titleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.modeToggle {
+  background: var(--background-glass);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.modeButton {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 16px;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.modeButtonActive {
+  background: var(--accent1);
+  color: var(--text-primary-inverse);
+}
+
 .gpuHeader {
   align-items: center;
   display: flex;
@@ -115,8 +150,13 @@
     color 0.2s ease;
 }
 
-.pill:hover {
+.pill:hover:not(:disabled) {
   border-color: var(--accent1);
+}
+
+.pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .pillSelected {
