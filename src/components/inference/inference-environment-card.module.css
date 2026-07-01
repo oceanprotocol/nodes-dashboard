@@ -1,0 +1,102 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 2px solid transparent;
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease;
+  overflow: hidden;
+
+  &.selectable {
+    &:hover {
+      transform: scale(1.01);
+    }
+  }
+
+  &.selected {
+    border-color: var(--accent1-lightest);
+  }
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent1);
+  color: var(--text-primary-inverse);
+  z-index: 1;
+
+  svg {
+    font-size: 16px;
+  }
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+
+  .nodeName {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .nodeValue {
+      font-weight: 600;
+      color: var(--accent1);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .specs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+
+    .gpuChip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 14px;
+
+      .gpuLabel {
+        display: inline-flex;
+        align-items: center;
+      }
+    }
+
+    .compute {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+  }
+}
+
+.price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent1);
+  white-space: nowrap;
+}
+
+.continueButton {
+  white-space: nowrap;
+}

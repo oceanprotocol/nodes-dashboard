@@ -1,0 +1,191 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--background-glass-secondary);
+}
+
+.name {
+  margin: 0;
+}
+
+.meta {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.statusGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.timeLabel {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.timeValue {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--success);
+  color: var(--success-darker);
+  font-weight: 600;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success-darker);
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.actionHint {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.howToHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.fieldLabel {
+  flex-shrink: 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.fieldValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.05em;
+}
+
+.endpoint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.method {
+  flex-shrink: 0;
+  width: 52px;
+  padding: 2px 0;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.methodPost {
+  background: color-mix(in srgb, var(--accent1) 12%, transparent);
+  color: var(--accent1);
+}
+
+.methodGet {
+  background: color-mix(in srgb, var(--success-darker) 16%, transparent);
+  color: var(--success-darker);
+}
+
+.endpointPath {
+  flex-shrink: 0;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
+.endpointDescription {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.codeBlock {
+  margin: 0;
+  padding: 20px;
+  border-radius: 12px;
+  background: #1b1b1b;
+  color: #e6e6e6;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+}

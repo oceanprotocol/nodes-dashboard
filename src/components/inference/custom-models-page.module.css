@@ -1,0 +1,90 @@
+.searchIcon {
+  color: var(--text-secondary);
+  font-size: 20px;
+  margin-right: 4px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filterChip {
+  background: var(--background-glass-secondary);
+  color: var(--text-primary);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--accent1-lightest);
+  }
+
+  &.filterActive {
+    background: var(--accent1);
+    color: var(--text-primary-inverse);
+  }
+}
+
+.moreChevron {
+  &.moreChevronOpen {
+    transform: rotate(180deg);
+  }
+}
+
+.selectedChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding-right: 8px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  .selectedChipName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .selectedChipClose {
+    display: inline-flex;
+    flex-shrink: 0;
+    border-radius: 50%;
+
+    svg {
+      font-size: 16px;
+    }
+  }
+
+  &:hover {
+    background: var(--accent1);
+    color: var(--text-primary-inverse);
+    border-color: var(--accent1);
+  }
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  @media (min-width: 768px) {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.stateBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+}
