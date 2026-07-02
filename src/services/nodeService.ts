@@ -6,6 +6,10 @@ import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import {
   PROTOCOL_COMMANDS,
   ProviderInstance,
+  type ComputeAlgorithm,
+  type ComputeAsset,
+  type ComputeJob,
+  type ComputeResourceRequest,
   type NodeLogsParams,
   type NodeP2P,
   type OceanNode,
@@ -173,6 +177,73 @@ export async function initializeCompute(
     consumerAddress,
     resources,
     chainId
+  );
+}
+
+// Resolve a published dataset DDO by DID (P2P GET_DDO). Used to turn a dataset DID into the
+// { documentId, serviceId } pair that computeStart expects.
+export async function resolveDdo(nodeUri: NodeUri, did: string) {
+  return ProviderInstance.resolveDdo(normalizeNodeUri(nodeUri), did);
+}
+
+// Start a paid compute job. signerOrAuthToken accepts the consumer's auth token string.
+export async function startCompute({
+  algorithm,
+  authToken,
+  chainId,
+  computeEnv,
+  datasets,
+  maxJobDuration,
+  nodeUri,
+  resources,
+  token,
+}: {
+  algorithm: ComputeAlgorithm;
+  authToken: string;
+  chainId: number;
+  computeEnv: string;
+  datasets: ComputeAsset[];
+  maxJobDuration: number;
+  nodeUri: NodeUri;
+  resources: ComputeResourceRequest[];
+  token: string;
+}): Promise<ComputeJob | ComputeJob[]> {
+  return ProviderInstance.computeStart(
+    normalizeNodeUri(nodeUri),
+    authToken,
+    computeEnv,
+    datasets,
+    algorithm,
+    maxJobDuration,
+    token,
+    resources,
+    chainId
+  );
+}
+
+// Start a free compute job.
+export async function startFreeCompute({
+  algorithm,
+  authToken,
+  computeEnv,
+  datasets,
+  nodeUri,
+  resources,
+}: {
+  algorithm: ComputeAlgorithm;
+  authToken: string;
+  computeEnv: string;
+  datasets: ComputeAsset[];
+  nodeUri: NodeUri;
+  resources: ComputeResourceRequest[];
+}): Promise<ComputeJob | ComputeJob[]> {
+  return ProviderInstance.freeComputeStart(
+    normalizeNodeUri(nodeUri),
+    authToken,
+    computeEnv,
+    datasets,
+    algorithm,
+    resources
   );
 }
 
