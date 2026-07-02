@@ -1,5 +1,6 @@
 import useEnvResources from '@/components/hooks/use-env-resources';
 import { ComputeEnvironment } from '@/types/environments';
+import { ComputeResource } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
 
 export type MergedGpu = {
@@ -12,10 +13,30 @@ export type MergedGpu = {
 /** How many units of each GPU type (keyed by MergedGpu.key) the user wants to use. */
 export type GpuSelection = Record<string, number>;
 
+/** 
+ * Scale a resource by a fraction, clamping to min/max. 
+ * If the resource is undefined or has no total/max, return 0. 
+ * */
+function fractionResoruceClamped(resource: ComputeResource | undefined, fraction: number, round?: boolean): number {
+  if (!resource) {
+    return 0;
+  }
+  const fractionedResource = (resource.total ?? resource.max ?? 0) * fraction;
+  const roundedResource = round ? Math.round(fractionedResource) : fractionedResource;
+  if (roundedResource > resource.max) {
+    return resource.max;
+  }
+  if ((resource.min || resource.min === 0) && roundedResource < resource.min) {
+    return resource.min;
+  }
+  return roundedResource;
+}
+
 /**
  * Inference always books a whole environment, but the user may choose to use only some of the GPU
  * units — per type. Every other resource (CPU / RAM / disk) and the price scale by the overall
  * fraction of units selected: pick 5 of 6 units → get 5/6 of everything. CPU cores stay whole.
+ * Allocation is kept between min/max for each resource type, and the price is calculated based on the actual units selected.
  *
  * When an environment has no GPUs, the fraction is 1 (the whole environment is used).
  */
@@ -83,21 +104,21 @@ const useInferenceAllocation = ({
   const fraction = totalGpus > 0 ? selectedTotal / totalGpus : 1;
 
   const allocation = useMemo(() => {
-    // CPU cores must stay whole.
-    const allocatedCpu = cpu ? Math.max(1, Math.round((cpu.max ?? 0) * fraction)) : 0;
-    const allocatedRam = ram ? (ram.max ?? 0) * fraction : 0;
-    const allocatedDisk = disk ? (disk.max ?? 0) * fraction : 0;
-    return { cpu: allocatedCpu, ram: allocatedRam, disk: allocatedDisk };
+    return {
+      cpu: fractionResoruceClamped(cpu, fraction, true),
+      ram: fractionResoruceClamped(ram, fraction),
+      disk: fractionResoruceClamped(disk, fraction)
+    };
   }, [cpu, ram, disk, fraction]);
 
   const price = useMemo(() => {
-    const cpuTotal = (cpuFee ?? 0) * (cpu?.max ?? 0) * fraction;
-    const ramTotal = (ramFee ?? 0) * (ram?.max ?? 0) * fraction;
-    const diskTotal = (diskFee ?? 0) * (disk?.max ?? 0) * fraction;
+    const cpuTotal = (cpuFee ?? 0) * allocation.cpu;
+    const ramTotal = (ramFee ?? 0) * allocation.ram;
+    const diskTotal = (diskFee ?? 0) * allocation.disk;
     // GPUs are priced by the exact units selected, not the blended fraction.
     const gpuTotal = mergedGpus.reduce((sum, g) => sum + (gpuFeeByKey[g.key] ?? 0) * (selectedByKey[g.key] ?? 0), 0);
     return (cpuTotal + ramTotal + diskTotal + gpuTotal) * (durationSeconds / 60);
-  }, [cpu?.max, cpuFee, disk?.max, diskFee, ram?.max, ramFee, fraction, mergedGpus, gpuFeeByKey, selectedByKey, durationSeconds]);
+  }, [cpuFee, allocation.cpu, allocation.ram, allocation.disk, ramFee, diskFee, mergedGpus, durationSeconds, gpuFeeByKey, selectedByKey]);
 
   return {
     mergedGpus,
