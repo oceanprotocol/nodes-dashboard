@@ -98,9 +98,10 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 
 ### App
 
-| Variable              | Description                                                                                                                  |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_APP_ENV` | `"development"` or `"production"`. Controls which backend URLs are used and which chain tokens are on (ETH Sepolia or BASE). |
+| Variable                             | Description                                                                                                                                                          |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_APP_ENV`                | `"development"` or `"production"`. Controls which backend URLs are used and which chain tokens are on (ETH Sepolia or BASE).                                         |
+| `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS`  | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia. |
 
 ### Alchemy
 

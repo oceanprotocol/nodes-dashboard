@@ -124,6 +124,12 @@
   white-space: nowrap;
 }
 
+.legacyHint {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 /* ── Right column ── */
 .right {
   border-left: 1px solid var(--border);

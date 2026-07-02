@@ -3,6 +3,23 @@
   flex-direction: column;
 }
 
+.contractSelector {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.contractSelect {
+  width: 340px;
+  max-width: 100%;
+}
+
+/* Line the chip up with the select control, below its label. */
+.legacyChip {
+  margin-top: 38px;
+}
+
 .panels {
   display: flex;
   flex-direction: column;
