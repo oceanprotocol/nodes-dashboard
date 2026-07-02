@@ -4,6 +4,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import { useNodeTokensContext } from '@/context/node-tokens';
+import { captureError } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { createAuthToken } from '@/services/nodeService';
 import { DURATION_UNIT_OPTIONS, type DurationUnit, toSeconds } from '@/utils/duration';
@@ -82,6 +83,12 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
         });
       } catch (error) {
         console.error('Failed to generate auth token:', error);
+        captureError('authToken_generate_failed', error, {
+          stage: 'auth_token_generate',
+          node_id: nodeId,
+          environment_id: environmentId,
+          free_compute: freeCompute,
+        });
         toast.error('Failed to generate auth token');
       }
     },

@@ -337,7 +337,15 @@ export class OceanProvider {
     url.searchParams.set('chainId', this.chainId.toString());
 
     if (typeof window !== 'undefined') {
-      window.open(url.toString(), '_self');
+      // Let the caller observe a failed handoff (e.g. blocked navigation). Note:
+      // a missing protocol handler does NOT throw here — that gap is measured via
+      // the extension-side `ide_config_received` funnel, not from this call.
+      try {
+        window.open(url.toString(), '_self');
+      } catch (err) {
+        console.error('Failed to open IDE deep link:', err);
+        throw err;
+      }
     }
   }
 }
