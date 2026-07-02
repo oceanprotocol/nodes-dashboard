@@ -31,23 +31,32 @@ export type EscrowSpenderInfo = {
   nodeFriendlyName?: string;
 };
 
-// Look up the node whose payment wallet equals `wallet`, using the same filtered nodes
-// endpoint as the leaderboard. Returns id + friendly name, or null if none matches.
-const fetchNodeByWallet = async (wallet: string): Promise<{ id: string; friendlyName?: string } | null> => {
-  try {
-    const filters = { address: { operator: 'equals', value: wallet } };
-    const res = await axios.get(
-      `${getApiRoute('nodes')}?page=0&size=1&filters=${encodeURIComponent(JSON.stringify(filters))}`
-    );
-    const node: Node | undefined = res.data?.nodes?.[0]?._source;
-    if (!node?.id) {
-      return null;
-    }
-    return { id: node.id, friendlyName: node.friendlyName };
-  } catch (err) {
-    console.error(`Failed to resolve node for wallet ${wallet}:`, err);
-    return null;
+// Resolve node ids for a list of payment wallets in a single request. The nodes endpoint
+// matches `address` against any value in a comma-separated list (backend splits it into an
+// OR of case-insensitive matches). Returns a map keyed by lowercased wallet address;
+// wallets with no matching node are simply absent.
+const fetchNodesByWallets = async (
+  wallets: string[]
+): Promise<Map<string, { id: string; friendlyName?: string }>> => {
+  const byWallet = new Map<string, { id: string; friendlyName?: string }>();
+  if (wallets.length === 0) {
+    return byWallet;
   }
+  try {
+    const filters = { address: { value: wallets.join(',') } };
+    const res = await axios.get(
+      `${getApiRoute('nodes')}?page=0&size=${wallets.length}&filters=${encodeURIComponent(JSON.stringify(filters))}`
+    );
+    const nodes: { _source: Node }[] = res.data?.nodes ?? [];
+    for (const { _source: node } of nodes) {
+      if (node?.id && node.address) {
+        byWallet.set(node.address.toLowerCase(), { id: node.id, friendlyName: node.friendlyName });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to resolve nodes for wallets:', err);
+  }
+  return byWallet;
 };
 
 export type UseEscrowDataReturn = {
@@ -129,18 +138,14 @@ export const useEscrowData = (): UseEscrowDataReturn => {
         .filter((info) => !isRevokedAuthorization(info.authorizations) || info.locks.length > 0);
       setSpenders(spenderInfos);
 
-      // Enrich each spender with its node id. One lookup per unique wallet (a wallet can
-      // appear across multiple tokens), then map results back onto every matching spender.
+      // Enrich each spender with its node id. Collect the unique wallets (a wallet can
+      // appear across multiple tokens) and resolve them all in a single request, then map
+      // results back onto every matching spender.
       const uniqueWallets = [...new Set(spenderInfos.map((info) => info.spender))];
-      const nodeByWallet = new Map<string, { id: string; friendlyName?: string } | null>();
-      await Promise.all(
-        uniqueWallets.map(async (wallet) => {
-          nodeByWallet.set(wallet, await fetchNodeByWallet(wallet));
-        })
-      );
+      const nodeByWallet = await fetchNodesByWallets(uniqueWallets);
       setSpenders((current) =>
         current.map((info) => {
-          const node = nodeByWallet.get(info.spender);
+          const node = nodeByWallet.get(info.spender.toLowerCase());
           return node ? { ...info, nodeId: node.id, nodeFriendlyName: node.friendlyName } : info;
         })
       );
