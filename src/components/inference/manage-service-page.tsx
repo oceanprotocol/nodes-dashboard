@@ -7,7 +7,8 @@ import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
-import { getModelAvatarUrl } from '@/services/huggingface-service';
+import { useInferenceContext } from '@/context/inference-context';
+import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
 import { formatDuration } from '@/utils/formatters';
@@ -19,8 +20,26 @@ import StopIcon from '@mui/icons-material/Stop';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './manage-service-page.module.css';
+
+/** Params fall back to these when a model in the selection has none committed yet. */
+function fallbackParams(modelId: string): ModelParameters {
+  return {
+    servedModelName: getModelShortName(modelId),
+    maxContext: 32768,
+    gpuMemoryUtilization: 0.9,
+    quantization: 'none',
+    dtype: 'auto',
+    kvCacheDtype: 'auto',
+    trustRemoteCode: false,
+    enforceEager: false,
+    revision: '',
+    toolCalling: false,
+    toolCallParser: null,
+  };
+}
 
 type Endpoint = {
   method: 'GET' | 'POST';
@@ -265,13 +284,47 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
 
 const ManageServicePage: React.FC = () => {
   const params = useParams<{ serviceId?: string }>();
+  const router = useRouter();
   const id = params.serviceId ? decodeURIComponent(params.serviceId) : '';
   const [revealed, setRevealed] = useState(false);
 
-  const service = getMockService(id);
+  const { selectedModels, modelParamsByModel, selectedEnv, selectedToken, jobDurationSeconds, hydrateFromUrlFinished, buildSelectionQuery } =
+    useInferenceContext();
 
+  const mock = getMockService(id);
+
+  // Prefer the live selection (hydrated from the URL query) once it's in; otherwise show the mock.
+  const hasSelection = hydrateFromUrlFinished && selectedModels.length > 0;
+
+  const models: ServiceModel[] = useMemo(() => {
+    if (!hasSelection) {
+      return mock.models;
+    }
+    return selectedModels.map((model) => ({
+      model,
+      params: modelParamsByModel[model.id] ?? fallbackParams(model.id),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSelection, selectedModels, modelParamsByModel]);
+
+  const environment = hasSelection && selectedEnv ? selectedEnv.environment : mock.environment;
+  const nodeInfo = hasSelection && selectedEnv ? selectedEnv.nodeInfo : mock.nodeInfo;
+  const gpuSelection = hasSelection && selectedEnv ? selectedEnv.gpuSelection : mock.gpuSelection;
+  const durationTotalSeconds = hasSelection ? jobDurationSeconds : mock.duration.totalSeconds;
+  const durationElapsedSeconds = hasSelection ? Math.min(12 * 60, durationTotalSeconds) : mock.duration.elapsedSeconds;
+  const defaultToken = hasSelection ? selectedToken?.address : mock.tokenAddress;
+  const serviceName = hasSelection
+    ? models.map((m) => getModelShortName(m.model.id)).join(' + ') || 'Custom selection'
+    : mock.name;
+
+  // Edit → back to the model-selection step with the whole selection preselected on the query.
+  const onEdit = () => {
+    router.push({ pathname: '/inference/custom-models', query: buildSelectionQuery() });
+  };
+
+  const service = { baseUrl: mock.baseUrl, bearer: mock.bearer, status: mock.status };
   const maskedBearer = `${service.bearer.slice(0, 3)}${'•'.repeat(20)}`;
-  const primaryModelName = service.models[0]?.params.servedModelName ?? 'model';
+  const primaryModelName = models[0]?.params.servedModelName ?? 'model';
 
   const curlSnippet = `# quick test
 curl $BASE/api/chat \\
@@ -287,7 +340,7 @@ curl $BASE/api/chat \\
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="lg" variant="glass-shaded">
           <div className={styles.header}>
             <div>
-              <h3>{service.name}</h3>
+              <h3>{serviceName}</h3>
               <div className={styles.meta}>Custom selection</div>
             </div>
             <span className={cx('chip', styles.statusChip)}>
@@ -296,10 +349,7 @@ curl $BASE/api/chat \\
             </span>
           </div>
 
-          <DurationProgress
-            elapsedSeconds={service.duration.elapsedSeconds}
-            totalSeconds={service.duration.totalSeconds}
-          />
+          <DurationProgress elapsedSeconds={durationElapsedSeconds} totalSeconds={durationTotalSeconds} />
 
           <div className="actionsGroupMdBetween">
             <div className="actionsGroupMdEnd">
@@ -311,7 +361,7 @@ curl $BASE/api/chat \\
               </Button>
             </div>
             <div className="actionsGroupMdEnd">
-              <Button color="accent1" contentBefore={<EditOutlinedIcon />} size="md" variant="outlined">
+              <Button color="accent1" contentBefore={<EditOutlinedIcon />} onClick={onEdit} size="md" variant="outlined">
                 Edit
               </Button>
               <Button color="accent1" contentBefore={<BoltOutlinedIcon />} size="md" variant="filled">
@@ -325,10 +375,10 @@ curl $BASE/api/chat \\
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
           <div className={styles.howToHead}>
             <h3>Models</h3>
-            <span className="textSecondary">{service.models.length} loaded · expand for launch parameters</span>
+            <span className="textSecondary">{models.length} loaded · expand for launch parameters</span>
           </div>
           <div className={styles.modelList}>
-            {service.models.map((entry) => (
+            {models.map((entry) => (
               <ModelRow entry={entry} key={entry.model.id} />
             ))}
           </div>
@@ -338,13 +388,14 @@ curl $BASE/api/chat \\
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
           <div className={styles.howToHead}>
             <h3>Environment</h3>
-            <span className="textSecondary">Running for {formatDuration(service.duration.totalSeconds)}</span>
+            <span className="textSecondary">Running for {formatDuration(durationTotalSeconds)}</span>
           </div>
           <InferenceEnvironmentCard
-            durationSeconds={service.duration.totalSeconds}
-            environment={service.environment}
-            gpuSelection={service.gpuSelection}
-            nodeInfo={service.nodeInfo}
+            defaultToken={defaultToken}
+            durationSeconds={durationTotalSeconds}
+            environment={environment}
+            gpuSelection={gpuSelection}
+            nodeInfo={nodeInfo}
           />
         </Card>
 

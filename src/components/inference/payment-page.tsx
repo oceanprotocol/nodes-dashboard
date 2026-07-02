@@ -13,7 +13,7 @@ import { useRouter } from 'next/router';
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
-  const { selectedEnv, selectedToken, jobDurationSeconds, selectedModels, hydrateFromUrlFinished } =
+  const { selectedEnv, selectedToken, jobDurationSeconds, selectedModels, hydrateFromUrlFinished, buildSelectionQuery } =
     useInferenceContext();
 
   const goToPrevStep = () => {
@@ -37,7 +37,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     // Mock service id from the first selected model until launch returns a real id.
     const firstModel = selectedModels[0]?.id ?? '';
     const serviceId = getModelShortName(firstModel) || 'service';
-    router.push(`/inference/services/${encodeURIComponent(serviceId)}`);
+    // Carry the whole selection on the query so the (mock) manage page can display it.
+    router.push({
+      pathname: `/inference/services/${encodeURIComponent(serviceId)}`,
+      query: buildSelectionQuery(),
+    });
   };
 
   return (
