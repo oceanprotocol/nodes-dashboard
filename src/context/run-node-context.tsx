@@ -1,4 +1,5 @@
 import { useP2P } from '@/contexts/P2PContext';
+import { captureError } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
@@ -72,6 +73,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
       });
     } catch (error) {
       console.error('Error fetching node config:', error);
+      captureError('runNode_fetchConfig_failed', error, { peerId });
       toast.error('Failed to fetch node config');
     } finally {
       setLoadingFetchConfig(false);
@@ -100,8 +102,10 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
           peerId,
         });
       } catch (error) {
+        let isValidationError = false;
         if (error instanceof Error) {
           if (error.message.startsWith('Config validation failed:')) {
+            isValidationError = true;
             // erase the prefix
             const validationErrors = error.message.replace('Config validation failed: ', '').trim();
             // split the errors, shaped like "field1: field1 error, with comma in the erorr message, field2: field2 error, field3: field3 error, ..."
@@ -109,6 +113,10 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         console.error('Error pushing node config:', error);
+        captureError('runNode_pushConfig_failed', error, {
+          peerId,
+          ...(isValidationError ? { error_type: 'validation' } : {}),
+        });
       } finally {
         setLoadingPushConfig(false);
         if (success) {

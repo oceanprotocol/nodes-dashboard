@@ -11,7 +11,7 @@ import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type PaymentProps = {
   minLockSeconds: number;
@@ -38,6 +38,10 @@ const Payment = ({
   const [escrowBalance, setEscrowBalance] = useState<number | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
+  // The payment-status effect below re-runs on every balance/auth refetch; without
+  // this guard `payment_authorized` fires many times per session, inflating the
+  // funnel above `payment_authorize`. Capture once per mount instead.
+  const authorizedTracked = useRef(false);
 
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
@@ -103,11 +107,14 @@ const Payment = ({
     const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
     const hasAvailableLockSlot = Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
-      posthog.capture('payment_authorized', {
-        totalCost,
-        tokenSymbol: selectedToken.symbol,
-        tokenAddress: selectedToken.address,
-      });
+      if (!authorizedTracked.current) {
+        authorizedTracked.current = true;
+        posthog.capture('payment_authorized', {
+          totalCost,
+          tokenSymbol: selectedToken.symbol,
+          tokenAddress: selectedToken.address,
+        });
+      }
       router.push({ pathname: '/run-job/summary', query: router.query });
     }
   }, [
