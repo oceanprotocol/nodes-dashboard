@@ -29,6 +29,9 @@ type EscrowTokenPanelProps = {
   spenders: EscrowSpenderInfo[];
   loadingSpenders: boolean;
   onChange: () => void;
+  // Set when the panel shows the legacy escrow deployment: reads and withdrawals target this
+  // address, and deposits/authorization changes are disabled.
+  escrowAddress?: string;
 };
 
 type AmountFormValues = {
@@ -41,10 +44,12 @@ const AuthorizationCard = ({
   spender,
   token,
   onChange,
+  readOnly,
 }: {
   spender: EscrowSpenderInfo;
   token: EscrowTokenInfo;
   onChange: () => void;
+  readOnly?: boolean;
 }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRevokeOpen, setIsRevokeOpen] = useState(false);
@@ -67,48 +72,52 @@ const AuthorizationCard = ({
         <div className={styles.authSpender} title={spender.spender}>
           Consumer {formatWalletAddress(spender.spender)}
         </div>
-        <IconButton
-          aria-label="Authorization actions"
-          onClick={() => setMenuAnchor(menuButtonRef.current)}
-          ref={menuButtonRef}
-          size="small"
-          sx={{ color: 'var(--text-secondary)' }}
-        >
-          <MoreHorizIcon fontSize="small" />
-        </IconButton>
-        <Menu
-          anchorEl={menuAnchor}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          onClose={closeMenu}
-          open={!!menuAnchor}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <MenuItem
-            disableRipple
-            onClick={() => {
-              setIsEditOpen(true);
-              closeMenu();
-            }}
-          >
-            <ListItemIcon>
-              <EditOutlinedIcon fontSize="small" />
-            </ListItemIcon>
-            Edit
-          </MenuItem>
-          <MenuItem
-            disableRipple
-            onClick={() => {
-              setIsRevokeOpen(true);
-              closeMenu();
-            }}
-            sx={{ color: 'var(--error-darker)' }}
-          >
-            <ListItemIcon>
-              <DeleteOutlineIcon fontSize="small" sx={{ color: 'var(--error-darker)' }} />
-            </ListItemIcon>
-            Revoke
-          </MenuItem>
-        </Menu>
+        {!readOnly && (
+          <>
+            <IconButton
+              aria-label="Authorization actions"
+              onClick={() => setMenuAnchor(menuButtonRef.current)}
+              ref={menuButtonRef}
+              size="small"
+              sx={{ color: 'var(--text-secondary)' }}
+            >
+              <MoreHorizIcon fontSize="small" />
+            </IconButton>
+            <Menu
+              anchorEl={menuAnchor}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              onClose={closeMenu}
+              open={!!menuAnchor}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem
+                disableRipple
+                onClick={() => {
+                  setIsEditOpen(true);
+                  closeMenu();
+                }}
+              >
+                <ListItemIcon>
+                  <EditOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                Edit
+              </MenuItem>
+              <MenuItem
+                disableRipple
+                onClick={() => {
+                  setIsRevokeOpen(true);
+                  closeMenu();
+                }}
+                sx={{ color: 'var(--error-darker)' }}
+              >
+                <ListItemIcon>
+                  <DeleteOutlineIcon fontSize="small" sx={{ color: 'var(--error-darker)' }} />
+                </ListItemIcon>
+                Revoke
+              </MenuItem>
+            </Menu>
+          </>
+        )}
       </div>
 
       {/* Stats grid */}
@@ -181,31 +190,36 @@ const AuthorizationCard = ({
         <span className={styles.noLocks}>No active locks</span>
       )}
 
-      <EditAuthorizationModal
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        onSuccess={() => {
-          setIsEditOpen(false);
-          onChange();
-        }}
-        spender={spender}
-      />
+      {!readOnly && (
+        <>
+          <EditAuthorizationModal
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            onSuccess={() => {
+              setIsEditOpen(false);
+              onChange();
+            }}
+            spender={spender}
+          />
 
-      <RevokeAuthorizationModal
-        isOpen={isRevokeOpen}
-        onClose={() => setIsRevokeOpen(false)}
-        onSuccess={() => {
-          setIsRevokeOpen(false);
-          onChange();
-        }}
-        spender={spender}
-      />
+          <RevokeAuthorizationModal
+            isOpen={isRevokeOpen}
+            onClose={() => setIsRevokeOpen(false)}
+            onSuccess={() => {
+              setIsRevokeOpen(false);
+              onChange();
+            }}
+            spender={spender}
+          />
+        </>
+      )}
     </Card>
   );
 };
 
-const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
+const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAddress }: EscrowTokenPanelProps) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const isLegacy = !!escrowAddress;
 
   const { handleDeposit, isDepositing } = useDepositTokens({
     onSuccess: () => {
@@ -231,7 +245,8 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
 
   const withdrawForm = useFormik<AmountFormValues>({
     initialValues: { amount: '' },
-    onSubmit: (values) => handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()] }),
+    onSubmit: (values) =>
+      handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()], escrowAddress }),
     validateOnMount: true,
     validationSchema: Yup.object({
       amount: Yup.number().moreThan(0, 'Invalid amount').max(token.available, 'Exceeds available funds'),
@@ -278,35 +293,42 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
           {/* Move funds */}
           <div className={styles.moveFunds}>
             <span className={styles.overline}>Move funds</span>
-            <form className={styles.fundRow} onSubmit={depositForm.handleSubmit}>
-              <Input
-                className={styles.fundInput}
-                endAdornment={
-                  <Button
-                    className={styles.fundButton}
-                    color="accent1"
-                    contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
-                    disabled={!depositForm.isValid || !depositForm.values.amount}
-                    loading={isDepositing}
-                    size="sm"
-                    type="submit"
-                    variant="filled"
-                  >
-                    Deposit
-                  </Button>
-                }
-                errorText={
-                  depositForm.touched.amount && depositForm.errors.amount ? depositForm.errors.amount : undefined
-                }
-                name="amount"
-                onBlur={depositForm.handleBlur}
-                onChange={depositForm.handleChange}
-                size="md"
-                startAdornment={token.symbol}
-                type="number"
-                value={depositForm.values.amount}
-              />
-            </form>
+            {isLegacy ? (
+              <span className={styles.legacyHint}>
+                This is the previous escrow contract — you can only withdraw from it. Deposits go to the current
+                contract.
+              </span>
+            ) : (
+              <form className={styles.fundRow} onSubmit={depositForm.handleSubmit}>
+                <Input
+                  className={styles.fundInput}
+                  endAdornment={
+                    <Button
+                      className={styles.fundButton}
+                      color="accent1"
+                      contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
+                      disabled={!depositForm.isValid || !depositForm.values.amount}
+                      loading={isDepositing}
+                      size="sm"
+                      type="submit"
+                      variant="filled"
+                    >
+                      Deposit
+                    </Button>
+                  }
+                  errorText={
+                    depositForm.touched.amount && depositForm.errors.amount ? depositForm.errors.amount : undefined
+                  }
+                  name="amount"
+                  onBlur={depositForm.handleBlur}
+                  onChange={depositForm.handleChange}
+                  size="md"
+                  startAdornment={token.symbol}
+                  type="number"
+                  value={depositForm.values.amount}
+                />
+              </form>
+            )}
             <form className={styles.fundRow} onSubmit={withdrawForm.handleSubmit}>
               <Input
                 className={styles.fundInput}
@@ -348,16 +370,18 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                 {spenders.length} {spenders.length === 1 ? 'consumer' : 'consumers'}
               </span>
             )}
-            <Button
-              className={styles.createAuthButton}
-              color="accent2"
-              contentBefore={<AddIcon fontSize="small" />}
-              onClick={() => setIsCreateOpen(true)}
-              size="sm"
-              variant="filled"
-            >
-              Create
-            </Button>
+            {!isLegacy && (
+              <Button
+                className={styles.createAuthButton}
+                color="accent2"
+                contentBefore={<AddIcon fontSize="small" />}
+                onClick={() => setIsCreateOpen(true)}
+                size="sm"
+                variant="filled"
+              >
+                Create
+              </Button>
+            )}
           </div>
           {loadingSpenders && spenders.length === 0 ? (
             <div className={styles.authLoading}>
@@ -365,33 +389,43 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
             </div>
           ) : spenders.length > 0 ? (
             spenders.map((spender) => (
-              <AuthorizationCard key={spender.spender} onChange={onChange} spender={spender} token={token} />
+              <AuthorizationCard
+                key={spender.spender}
+                onChange={onChange}
+                readOnly={isLegacy}
+                spender={spender}
+                token={token}
+              />
             ))
           ) : (
             <div className={styles.noAuth}>
               <div className={styles.noAuthIcon}>
                 <LockOutlinedIcon sx={{ fontSize: 28 }} />
               </div>
-              <span className={styles.noAuthTitle}>No authorization yet</span>
+              <span className={styles.noAuthTitle}>{isLegacy ? 'No authorizations' : 'No authorization yet'}</span>
               <span className={styles.noAuthDesc}>
-                An authorization is created automatically the first time you pay for a compute job with {token.symbol}.
+                {isLegacy
+                  ? `No ${token.symbol} authorizations were found on the legacy contract.`
+                  : `An authorization is created automatically the first time you pay for a compute job with ${token.symbol}.`}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      <CreateAuthorizationModal
-        existingConsumers={spenders.map((s) => s.spender)}
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={() => {
-          setIsCreateOpen(false);
-          onChange();
-        }}
-        tokenAddress={token.address}
-        tokenSymbol={token.symbol}
-      />
+      {!isLegacy && (
+        <CreateAuthorizationModal
+          existingConsumers={spenders.map((s) => s.spender)}
+          isOpen={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          onSuccess={() => {
+            setIsCreateOpen(false);
+            onChange();
+          }}
+          tokenAddress={token.address}
+          tokenSymbol={token.symbol}
+        />
+      )}
     </Card>
   );
 };
