@@ -1,17 +1,29 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
 import { useP2P } from '@/contexts/P2PContext';
+import {
+  type AlgorithmLanguage,
+  buildComputeAlgorithm,
+  type EnvVarEntry,
+  type NodeUri,
+  resolveDatasetAssets,
+} from '@/lib/compute-inputs';
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { startCompute, startFreeCompute } from '@/services/nodeService';
 import {
   ComputeEnvironment,
+  ComputeResource,
   EnvNodeInfo,
   EnvResourcesSelection,
   MultiaddrsOrPeerId,
   NodeEnvironments,
+  SelectedGpu,
 } from '@/types/environments';
+import { ComputeJob } from '@/types/jobs';
 import { roundTokenAmount } from '@/utils/formatters';
+import { getAvailableAmount } from '@/utils/resources';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { useSearchParams } from 'next/navigation';
@@ -22,7 +34,45 @@ export type SelectedToken = {
   address: string;
 };
 
+// Clamp a requested GPU amount to [0, available] so a hand-crafted URL can't over-allocate.
+const clampToAvailable = (requested: number, gpuRes?: ComputeResource): number => {
+  const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
+  return Math.min(sane, getAvailableAmount(gpuRes));
+};
+
+// Flatten the selected resources into the { id, amount } list computeStart expects.
+const buildResourceRequests = (selection: EnvResourcesSelection): { id: string; amount: number }[] => {
+  const resources: { id: string; amount: number }[] = selection.gpus.map((gpu) => ({
+    id: gpu.id,
+    amount: gpu.amount,
+  }));
+  if (selection.cpuId && selection.cpuCores) {
+    resources.push({ id: selection.cpuId, amount: selection.cpuCores });
+  }
+  if (selection.ramId && selection.ram) {
+    resources.push({ id: selection.ramId, amount: selection.ram });
+  }
+  if (selection.diskId && selection.diskSpace) {
+    resources.push({ id: selection.diskId, amount: selection.diskSpace });
+  }
+  return resources;
+};
+
 type RunJobContextType = {
+  // --- In-dashboard job authoring (BYO algorithm / dataset / Dockerfile / env) ---
+  algorithmCode: string;
+  setAlgorithmCode: (code: string) => void;
+  algorithmLanguage: AlgorithmLanguage;
+  setAlgorithmLanguage: (language: AlgorithmLanguage) => void;
+  dataset: string;
+  setDataset: (dataset: string) => void;
+  dockerfile: string;
+  setDockerfile: (dockerfile: string) => void;
+  envVars: EnvVarEntry[];
+  setEnvVars: (envVars: EnvVarEntry[]) => void;
+  // Build the payload from the current selection + authoring inputs and start the job on the node.
+  // Returns the started ComputeJob (jobId etc). Throws on missing config / node error.
+  submitJob: (args: { authToken: string; consumerAddress: string }) => Promise<ComputeJob>;
   estimatedTotalCost: number | null;
   fetchEstimatedCost: ({
     environment,
@@ -88,6 +138,11 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
+  const [algorithmCode, setAlgorithmCode] = useState<string>('');
+  const [algorithmLanguage, setAlgorithmLanguage] = useState<AlgorithmLanguage>('py');
+  const [dataset, setDataset] = useState<string>('');
+  const [dockerfile, setDockerfile] = useState<string>('');
+  const [envVars, setEnvVars] = useState<EnvVarEntry[]>([]);
 
   const clearRunJobSelection = useCallback(() => {
     setEstimatedTotalCost(null);
@@ -98,7 +153,75 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setSelectedEnv(null);
     setSelectedResources(null);
     setSelectedToken(null);
+    setAlgorithmCode('');
+    setAlgorithmLanguage('py');
+    setDataset('');
+    setDockerfile('');
+    setEnvVars([]);
   }, []);
+
+  // Build the compute payload from the current selection + authoring inputs and start the job.
+  // Free vs paid branch mirrors the Ocean Orchestrator (vscode-extension compute.ts).
+  const submitJob = useCallback(
+    async ({ authToken }: { authToken: string; consumerAddress: string }): Promise<ComputeJob> => {
+      if (!selectedEnv || !selectedResources || !multiaddrsOrPeerId) {
+        throw new Error('Missing job configuration. Select an environment and resources first.');
+      }
+      if (!algorithmCode.trim()) {
+        throw new Error('Algorithm code is required.');
+      }
+
+      const nodeUri = multiaddrsOrPeerId as unknown as NodeUri;
+      const resources = buildResourceRequests(selectedResources);
+      const algorithm = buildComputeAlgorithm({
+        code: algorithmCode,
+        dockerfile,
+        envVars,
+        language: algorithmLanguage,
+      });
+      const datasets = await resolveDatasetAssets(nodeUri, dataset);
+
+      const job = freeCompute
+        ? await startFreeCompute({
+            algorithm,
+            authToken,
+            computeEnv: selectedEnv.id,
+            datasets,
+            nodeUri,
+            resources,
+          })
+        : await (async () => {
+            if (!selectedToken) {
+              throw new Error('No fee token selected.');
+            }
+            return startCompute({
+              algorithm,
+              authToken,
+              chainId: CHAIN_ID,
+              computeEnv: selectedEnv.id,
+              datasets,
+              maxJobDuration: selectedResources.maxJobDurationSeconds,
+              nodeUri,
+              resources,
+              token: selectedToken.address,
+            });
+          })();
+
+      return (Array.isArray(job) ? job[0] : job) as unknown as ComputeJob;
+    },
+    [
+      algorithmCode,
+      algorithmLanguage,
+      dataset,
+      dockerfile,
+      envVars,
+      freeCompute,
+      multiaddrsOrPeerId,
+      selectedEnv,
+      selectedResources,
+      selectedToken,
+    ]
+  );
 
   // TODO fetch all GPUs not only top 5
   // const fetchGpus = useCallback(async () => {
@@ -296,11 +419,25 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const qJobDuration = searchParams.get('maxJobDuration');
         const queryGpusArray = searchParams.getAll('gpus[]');
         const queryGpus = queryGpusArray.length > 0 ? queryGpusArray : searchParams.getAll('gpus');
+        const gpuResources = (foundEnv.resources ?? []).filter((res) => res.type === 'gpu' || res.id === 'gpu');
+        const findGpuRes = (id: string) => gpuResources.find((res) => res.id === id);
+        const requestedById = new Map<string, number>();
+        for (const raw of queryGpus) {
+          const [id, amountStr] = raw.split(':');
+          const requested = Number(amountStr);
+          const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
+          requestedById.set(id, (requestedById.get(id) ?? 0) + sane);
+        }
+        const resolvedGpus: SelectedGpu[] = [...requestedById.entries()]
+          .map(([id, requested]) => {
+            const gpuRes = findGpuRes(id);
+            return { id, description: gpuRes?.description, amount: clampToAvailable(requested, gpuRes) };
+          })
+          .filter((gpu) => gpu.amount > 0);
+        const gpuCount = resolvedGpus.reduce((sum, gpu) => sum + gpu.amount, 0);
         let resources: EnvResourcesSelection = {
-          gpus: queryGpus.map((gpuId) => {
-            const gpuRes = foundEnv.resources?.find((res) => res.type === 'gpu' && res.id === gpuId);
-            return { id: gpuId, description: gpuRes?.description };
-          }),
+          gpus: resolvedGpus,
+          gpuCount,
           maxJobDurationSeconds: qJobDuration
             ? Number(qJobDuration)
             : queryFree
@@ -359,7 +496,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
                 ...(resources.diskId && resources.diskSpace
                   ? [{ id: resources.diskId, amount: resources.diskSpace }]
                   : []),
-                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: 1 })),
+                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: gpu.amount })),
               ],
               tokenAddress: queryToken,
             });
@@ -397,6 +534,17 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   return (
     <RunJobContext.Provider
       value={{
+        algorithmCode,
+        setAlgorithmCode,
+        algorithmLanguage,
+        setAlgorithmLanguage,
+        dataset,
+        setDataset,
+        dockerfile,
+        setDockerfile,
+        envVars,
+        setEnvVars,
+        submitJob,
         estimatedTotalCost,
         fetchEstimatedCost,
         // fetchGpus,

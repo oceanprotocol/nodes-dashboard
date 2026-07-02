@@ -4,6 +4,7 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Menu from '@/components/menu/menu';
+import AuthoringPanel from '@/components/run-job/authoring-panel';
 import GenerateTokenCard from '@/components/run-job/generate-token-card';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
@@ -13,6 +14,8 @@ import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/
 import { Ide } from '@/types/ide';
 import { formatDuration } from '@/utils/formatters';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CodeIcon from '@mui/icons-material/Code';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { CircularProgress, ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
@@ -51,6 +54,7 @@ const Summary = ({
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const [runMode, setRunMode] = useState<'ide' | 'dashboard'>('ide');
   const [selectedIde, setSelectedIde] = useState(Ide.vscode);
   const [paymentCheckStarted, setPaymentCheckStarted] = useState(false);
   const [paymentCheckFinished, setPaymentCheckFinished] = useState(false);
@@ -113,11 +117,14 @@ const Summary = ({
     }
     const peerMultiaddr = await getPeerMultiaddr(nodeInfo.id);
     const resources: IdeResourceRequest[] = [
-      ...gpus.map((availableGpu) => ({
-        id: availableGpu.id,
-        amount: selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id) ? 1 : 0,
-        description: availableGpu.description,
-      })),
+      ...gpus.map((availableGpu) => {
+        const selected = selectedResources.gpus.find((selectedGpu) => selectedGpu.id === availableGpu.id);
+        return {
+          id: availableGpu.id,
+          amount: selected?.amount ?? 0,
+          description: availableGpu.description,
+        };
+      }),
     ];
     if (selectedResources.cpuId && selectedResources.cpuCores) {
       resources.push({
@@ -156,6 +163,7 @@ const Summary = ({
       environmentId: selectedEnv.id,
       freeCompute: isFreeCompute,
     });
+    router.push('/profile/consumer');
   };
 
   const handleOpenIdeMenu = () => {
@@ -207,7 +215,13 @@ const Summary = ({
         <div className={styles.label}>GPU:</div>
         <div className={classNames(styles.value, styles.gpus)}>
           {selectedResources.gpus.length
-            ? selectedResources.gpus.map((gpu) => <GpuLabel key={gpu.id} gpu={gpu.description} />)
+            ? Object.entries(
+                selectedResources.gpus.reduce<Record<string, number>>((acc, gpu) => {
+                  const key = gpu.description ?? gpu.id;
+                  acc[key] = (acc[key] ?? 0) + gpu.amount;
+                  return acc;
+                }, {})
+              ).map(([desc, count]) => <GpuLabel key={desc} gpu={`${count} × ${desc}`} />)
             : '-'}
         </div>
         <div className={styles.label}>CPU cores:</div>
@@ -226,7 +240,48 @@ const Summary = ({
             <span>Auth token generated</span>
             <CopyButton contentToCopy={authToken} />
           </div>
-          <div>Continue your job with Ocean Orchestrator directly in VS Code, Cursor, Antigravity, or Windsurf</div>
+          <div className={styles.modeSelector} role="radiogroup" aria-label="How do you want to run your job?">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={runMode === 'ide'}
+              className={classNames(styles.modeCard, { [styles.modeCardSelected]: runMode === 'ide' })}
+              onClick={() => setRunMode('ide')}
+            >
+              <span className={styles.modeIcon}>
+                <OpenInNewIcon fontSize="small" />
+              </span>
+              <span className={styles.modeBody}>
+                <span className={styles.modeTitle}>
+                  Continue in an editor
+                  {runMode === 'ide' && <CheckCircleIcon className={styles.modeCheck} fontSize="small" />}
+                </span>
+                <span className={styles.modeDescription}>
+                  Open Ocean Orchestrator in VS Code, Cursor, Antigravity, or Windsurf to author and run your job.
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={runMode === 'dashboard'}
+              className={classNames(styles.modeCard, { [styles.modeCardSelected]: runMode === 'dashboard' })}
+              onClick={() => setRunMode('dashboard')}
+            >
+              <span className={styles.modeIcon}>
+                <CodeIcon fontSize="small" />
+              </span>
+              <span className={styles.modeBody}>
+                <span className={styles.modeTitle}>
+                  Run in dashboard
+                  {runMode === 'dashboard' && <CheckCircleIcon className={styles.modeCheck} fontSize="small" />}
+                </span>
+                <span className={styles.modeDescription}>
+                  Provide your algorithm, dataset, Dockerfile, and env vars right here, then submit.
+                </span>
+              </span>
+            </button>
+          </div>
         </>
       ) : (
         <GenerateTokenCard
@@ -240,8 +295,12 @@ const Summary = ({
         />
       )}
 
+      {authToken && runMode === 'dashboard' && account.address && (
+        <AuthoringPanel authToken={authToken} consumerAddress={account.address} />
+      )}
+
       <div className={styles.footer}>
-        {authToken ? (
+        {authToken && runMode === 'ide' ? (
           <div className="actionsGroupLgBetween">
             {backButton}
             <div className="actionsGroupLgEnd">

@@ -1,0 +1,117 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  border-radius: 16px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 14px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tabActive {
+  background: var(--background-glass);
+  color: var(--text-primary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.fieldLabel {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.languageGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 16px;
+}
+
+.radio {
+  align-items: center;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.codeEditor {
+  background: var(--background-glass);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-family: var(--font-mono, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 280px;
+  padding: 12px 16px;
+  resize: vertical;
+  tab-size: 2;
+  white-space: pre;
+  width: 100%;
+}
+
+.codeEditor:focus-within,
+.codeEditor:focus {
+  border-color: var(--border);
+  box-shadow: var(--input-shadow-focus);
+  outline: none;
+}
+
+.envRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.muted {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+}

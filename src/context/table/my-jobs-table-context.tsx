@@ -1,11 +1,22 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
+import {
+  buildOptimisticRow,
+  clearOptimisticJob,
+  type OptimisticJobSeed,
+  readOptimisticJob,
+} from '@/lib/optimistic-job';
 import { FilterOperator, JobsFilters } from '@/types/filters';
 import { ComputeJob } from '@/types/jobs';
 import { formatDateTime } from '@/utils/formatters';
 import { GridFilterModel } from '@mui/x-data-grid';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
+// How long to keep polling the indexer for the just-submitted job before giving up on the
+// optimistic row (the indexer normally catches up within a few seconds).
+const OPTIMISTIC_POLL_INTERVAL_MS = 5000;
+const OPTIMISTIC_MAX_POLLS = 12;
 
 type CtxType = TableContextType<ComputeJob>;
 
@@ -22,6 +33,8 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
   const [searchTerm, setSearchTerm] = useState<CtxType['searchTerm']>('');
   const [sortModel, setSortModel] = useState<Record<string, 'asc' | 'desc'>>({ dateCreated: 'desc' });
   const [totalItems, setTotalItems] = useState<CtxType['totalItems']>(0);
+  // A just-submitted job we show optimistically until the indexer reports it (see lib/optimistic-job).
+  const [optimisticJob, setOptimisticJob] = useState<OptimisticJobSeed | null>(null);
 
   const buildFilterParams = (filters: JobsFilters): string => {
     const filtersObject: Record<string, { operator: string; value: any }> = {};
@@ -140,11 +153,55 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
     setCrtPage(1);
   };
 
+  // Adopt a just-submitted job stashed by the run-job flow, but only if it belongs to this consumer.
+  useEffect(() => {
+    const seed = readOptimisticJob();
+    if (!seed) return;
+    if (consumer && seed.consumer.toLowerCase() === consumer.toLowerCase()) {
+      setOptimisticJob(seed);
+    } else {
+      clearOptimisticJob();
+    }
+  }, [consumer]);
+
+  // Once the indexer reports the job, drop the optimistic row.
+  useEffect(() => {
+    if (optimisticJob && data.some((job) => job.jobId === optimisticJob.jobId)) {
+      setOptimisticJob(null);
+      clearOptimisticJob();
+    }
+  }, [data, optimisticJob]);
+
+  // Poll the indexer until the optimistic job shows up (or we hit the cap).
+  const pollCountRef = useRef(0);
+  useEffect(() => {
+    if (!optimisticJob) return;
+    pollCountRef.current = 0;
+    const interval = setInterval(() => {
+      pollCountRef.current += 1;
+      fetchData();
+      if (pollCountRef.current >= OPTIMISTIC_MAX_POLLS) {
+        clearInterval(interval);
+        setOptimisticJob(null);
+        clearOptimisticJob();
+      }
+    }, OPTIMISTIC_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [optimisticJob, fetchData]);
+
+  // Show the optimistic row at the top until the fetched data includes it.
+  const mergedData = useMemo(() => {
+    if (!optimisticJob || data.some((job) => job.jobId === optimisticJob.jobId)) {
+      return data;
+    }
+    return [buildOptimisticRow(optimisticJob), ...data];
+  }, [data, optimisticJob]);
+
   return (
     <MyJobsTableContext.Provider
       value={{
         crtPage,
-        data,
+        data: mergedData,
         fetchData,
         error,
         filterModel,

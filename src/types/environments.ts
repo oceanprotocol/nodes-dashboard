@@ -74,12 +74,20 @@ export type ComputeEnvironment = {
   storageExpiry?: number;
 };
 
+export type SelectedGpu = {
+  id: string;
+  description?: string;
+  amount: number;
+};
+
 export type EnvResourcesSelection = {
   cpuCores?: number;
   cpuId?: string;
   diskSpace?: number;
   diskId?: string;
-  gpus: { id: string; description?: string }[];
+  gpus: SelectedGpu[];
+  // Total GPU units selected across all GPU entries. Drives the proportional CPU/RAM/disk split.
+  gpuCount?: number;
   maxJobDurationSeconds: number;
   ram?: number;
   ramId?: string;

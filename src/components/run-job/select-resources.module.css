@@ -40,6 +40,168 @@
   }
 }
 
+.titleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.modeToggle {
+  background: var(--background-glass);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.modeButton {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 16px;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.modeButtonActive {
+  background: var(--accent1);
+  color: var(--text-primary-inverse);
+}
+
+.gpuHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.gpuHeaderEnd {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.gpuHint {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.gpuGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gpuGroupsLabel {
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.gpuGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gpuGroupTop {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.gpuGroupName {
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.gpuGroupFee,
+.gpuGroupMeta {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  background: var(--background-glass);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 40px;
+  padding: 6px 14px;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.pill:hover:not(:disabled) {
+  border-color: var(--accent1);
+}
+
+.pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.pillSelected {
+  background: var(--accent1);
+  border-color: var(--accent1);
+  color: var(--text-primary-inverse);
+}
+
+.gpuError {
+  color: var(--error);
+  font-size: 14px;
+}
+
+.wholeEnvNote {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.derivedGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.derivedCard {
+  .derivedLabel {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .derivedValue {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .derivedHint {
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+}
+
 .costCard {
   .costEstimation {
     align-items: center;
