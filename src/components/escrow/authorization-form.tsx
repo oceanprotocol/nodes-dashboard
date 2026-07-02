@@ -60,6 +60,7 @@ const AuthorizationForm = ({
           name="maxLockedAmount"
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
+          size="sm"
           step="any"
           type="number"
           value={formik.values.maxLockedAmount}
@@ -73,16 +74,19 @@ const AuthorizationForm = ({
           name="maxLockSeconds"
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
+          size="sm"
           type="number"
           value={formik.values.maxLockSeconds}
         />
         <Input
           endAdornment="locks"
           errorText={formik.touched.maxLockCount && formik.errors.maxLockCount ? formik.errors.maxLockCount : undefined}
-          label="Max lock count"
+          hint="Max lock count"
+          label="Max concurrent jobs"
           name="maxLockCount"
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
+          size="sm"
           type="number"
           value={formik.values.maxLockCount}
         />

@@ -1,4 +1,5 @@
 import Button from '@/components/button/button';
+import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
 import CreateAuthorizationModal from '@/components/escrow/create-authorization-modal';
 import EditAuthorizationModal from '@/components/escrow/edit-authorization-modal';
@@ -64,8 +65,34 @@ const AuthorizationCard = ({
     <Card direction="column" innerShadow="black" padding="sm" radius="md" spacing="sm" variant="glass">
       {/* Auth header */}
       <div className={styles.authHeader}>
-        <div className={styles.authSpender} title={spender.spender}>
-          Consumer {formatWalletAddress(spender.spender)}
+        <div>
+          <h4>{spender.nodeFriendlyName ?? (spender.nodeId ? 'Unnamed node' : 'Unknown node')}</h4>
+          {spender.nodeId && (
+            <div className={styles.copyRow}>
+              <strong>Peer ID:</strong>
+              <span className={styles.hash}>{formatWalletAddress(spender.nodeId)}</span>
+              <CopyButton
+                color="accent1"
+                contentToCopy={spender.nodeId}
+                label=""
+                labelCopied=""
+                size="sm"
+                variant="transparent"
+              />
+            </div>
+          )}
+          <div className={styles.copyRow}>
+            <strong>ETH Address:</strong>
+            <span className={styles.hash}>{formatWalletAddress(spender.spender)}</span>
+            <CopyButton
+              color="accent1"
+              contentToCopy={spender.spender}
+              label=""
+              labelCopied=""
+              size="sm"
+              variant="transparent"
+            />
+          </div>
         </div>
         <IconButton
           aria-label="Authorization actions"
@@ -130,7 +157,7 @@ const AuthorizationCard = ({
           <span className={styles.statValue}>{formatDuration(Number(auth.maxLockSeconds), true)}</span>
         </div>
         <div className={styles.statField}>
-          <span className={styles.statLabel}>Locks used</span>
+          <span className={styles.statLabel}>Locks used (Active jobs)</span>
           <div className={styles.locksUsedRow}>
             <span className={styles.statValue}>
               {locksUsed} / {locksMax}
@@ -156,7 +183,7 @@ const AuthorizationCard = ({
             type="button"
           >
             <ChevronRightIcon className={locksOpen ? styles.chevronOpen : styles.chevron} fontSize="small" />
-            <span className={styles.overline}>Active Locks</span>
+            <span className={styles.overline}>Active jobs</span>
           </button>
           <Collapse in={locksOpen} timeout="auto" unmountOnExit>
             <div className={styles.locksTable}>
@@ -243,10 +270,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
       <div className={styles.panel}>
         {/* ── Left: balance + move funds ── */}
         <div className={styles.left}>
-          {/* Token header */}
-          <div className={styles.tokenHeader}>
-            <span className={styles.tokenSymbol}>{token.symbol}</span>
-          </div>
+          <h3>{token.symbol}</h3>
 
           {/* Primary balance */}
           <div className={styles.primaryBalance}>
@@ -260,7 +284,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
           {/* Secondary balances */}
           <div className={styles.secondaryBalances}>
             <div className={styles.secondaryRow}>
-              <span className={styles.secondaryLabel}>Locked in escrow</span>
+              <span className={styles.secondaryLabel}>Locked for running jobs</span>
               <span className={styles.secondaryAmount}>
                 <strong>{formatTokenAmount(token.locked, token.address)}</strong>{' '}
                 <span className={styles.secondarySymbol}>{token.symbol}</span>
@@ -342,10 +366,10 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
         {/* ── Right: authorizations & locks (one card per authorized spender) ── */}
         <div className={styles.right}>
           <div className={styles.authSectionHeader}>
-            <span className={styles.authSectionTitle}>Authorizations</span>
+            <h3>Authorizations</h3>
             {spenders.length > 0 && (
               <span className="chip chipGlass">
-                {spenders.length} {spenders.length === 1 ? 'consumer' : 'consumers'}
+                {spenders.length} {spenders.length === 1 ? 'node' : 'nodes'}
               </span>
             )}
             <Button
@@ -373,9 +397,6 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                 <LockOutlinedIcon sx={{ fontSize: 28 }} />
               </div>
               <span className={styles.noAuthTitle}>No authorization yet</span>
-              <span className={styles.noAuthDesc}>
-                An authorization is created automatically the first time you pay for a compute job with {token.symbol}.
-              </span>
             </div>
           )}
         </div>
