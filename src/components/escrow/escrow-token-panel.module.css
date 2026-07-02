@@ -99,16 +99,23 @@
   gap: 10px;
 }
 
-.fundRow {
-  display: flex;
-}
-
 .fundInput {
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 
+.fundButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  @media (min-width: 576px) {
+    flex-direction: row;
+  }
+}
+
 .fundButton {
+  flex: 1;
   white-space: nowrap;
 }
 

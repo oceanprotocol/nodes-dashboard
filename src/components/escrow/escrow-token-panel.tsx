@@ -20,9 +20,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { CircularProgress, Collapse, IconButton, ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
-import { useFormik } from 'formik';
 import { useRef, useState } from 'react';
-import * as Yup from 'yup';
 import styles from './escrow-token-panel.module.css';
 
 type EscrowTokenPanelProps = {
@@ -30,10 +28,6 @@ type EscrowTokenPanelProps = {
   spenders: EscrowSpenderInfo[];
   loadingSpenders: boolean;
   onChange: () => void;
-};
-
-type AmountFormValues = {
-  amount: number | '';
 };
 
 // One spending-authorization card (right-hand side). A token can have multiple authorized
@@ -234,36 +228,52 @@ const AuthorizationCard = ({
 const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
+  // Single amount input drives both actions. amount > 0 is the base check; the per-action
+  // balance ceiling (wallet for deposit, escrow for withdraw) is validated at click time
+  // since it depends on which button was pressed.
+  const [amount, setAmount] = useState('');
+  const [error, setError] = useState<string | undefined>();
+
   const { handleDeposit, isDepositing } = useDepositTokens({
     onSuccess: () => {
-      depositForm.resetForm();
+      setAmount('');
       onChange();
     },
   });
   const { handleWithdraw, isWithdrawing } = useWithdrawTokens({
     onSuccess: () => {
-      withdrawForm.resetForm();
+      setAmount('');
       onChange();
     },
   });
 
-  const depositForm = useFormik<AmountFormValues>({
-    initialValues: { amount: '' },
-    onSubmit: (values) => handleDeposit({ tokenAddress: token.address, amount: values.amount.toString() }),
-    validateOnMount: true,
-    validationSchema: Yup.object({
-      amount: Yup.number().moreThan(0, 'Invalid amount').max(token.walletBalance, 'Exceeds wallet balance'),
-    }),
-  });
+  const onDeposit = () => {
+    const value = Number(amount);
+    if (!(value > 0)) {
+      setError('Invalid amount');
+      return;
+    }
+    if (value > token.walletBalance) {
+      setError('Exceeds wallet balance');
+      return;
+    }
+    setError(undefined);
+    handleDeposit({ tokenAddress: token.address, amount: value.toString() });
+  };
 
-  const withdrawForm = useFormik<AmountFormValues>({
-    initialValues: { amount: '' },
-    onSubmit: (values) => handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()] }),
-    validateOnMount: true,
-    validationSchema: Yup.object({
-      amount: Yup.number().moreThan(0, 'Invalid amount').max(token.available, 'Exceeds available funds'),
-    }),
-  });
+  const onWithdraw = () => {
+    const value = Number(amount);
+    if (!(value > 0)) {
+      setError('Invalid amount');
+      return;
+    }
+    if (value > token.available) {
+      setError('Exceeds available funds');
+      return;
+    }
+    setError(undefined);
+    handleWithdraw({ tokenAddresses: [token.address], amounts: [value.toString()] });
+  };
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -301,65 +311,48 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
 
           {/* Move funds */}
           <div className={styles.moveFunds}>
-            <span className={styles.overline}>Move funds</span>
-            <form className={styles.fundRow} onSubmit={depositForm.handleSubmit}>
-              <Input
-                className={styles.fundInput}
-                endAdornment={
-                  <Button
-                    className={styles.fundButton}
-                    color="accent1"
-                    contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
-                    disabled={!depositForm.isValid || !depositForm.values.amount}
-                    loading={isDepositing}
-                    size="sm"
-                    type="submit"
-                    variant="filled"
-                  >
-                    Deposit
-                  </Button>
-                }
-                errorText={
-                  depositForm.touched.amount && depositForm.errors.amount ? depositForm.errors.amount : undefined
-                }
-                name="amount"
-                onBlur={depositForm.handleBlur}
-                onChange={depositForm.handleChange}
+            <Input
+              className={styles.fundInput}
+              errorText={error}
+              label="Move funds"
+              name="amount"
+              onChange={(e) => {
+                setAmount(e.target.value);
+                setError(undefined);
+              }}
+              size="md"
+              startAdornment={token.symbol}
+              type="number"
+              value={amount}
+            />
+            <div className={styles.fundButtons}>
+              <Button
+                className={styles.fundButton}
+                color="accent1"
+                contentBefore={<FileDownloadOutlinedIcon fontSize="small" />}
+                disabled={!amount || isDepositing || Number(amount) > token.available}
+                loading={isWithdrawing}
+                onClick={onWithdraw}
                 size="md"
-                startAdornment={token.symbol}
-                type="number"
-                value={depositForm.values.amount}
-              />
-            </form>
-            <form className={styles.fundRow} onSubmit={withdrawForm.handleSubmit}>
-              <Input
-                className={styles.fundInput}
-                endAdornment={
-                  <Button
-                    className={styles.fundButton}
-                    color="accent1"
-                    contentBefore={<FileDownloadOutlinedIcon fontSize="small" />}
-                    disabled={!withdrawForm.isValid || !withdrawForm.values.amount}
-                    loading={isWithdrawing}
-                    size="sm"
-                    type="submit"
-                    variant="outlined"
-                  >
-                    Withdraw
-                  </Button>
-                }
-                errorText={
-                  withdrawForm.touched.amount && withdrawForm.errors.amount ? withdrawForm.errors.amount : undefined
-                }
-                name="amount"
-                onBlur={withdrawForm.handleBlur}
-                onChange={withdrawForm.handleChange}
+                type="button"
+                variant="outlined"
+              >
+                Withdraw
+              </Button>
+              <Button
+                className={styles.fundButton}
+                color="accent1"
+                contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
+                disabled={!amount || isWithdrawing || Number(amount) > token.walletBalance}
+                loading={isDepositing}
+                onClick={onDeposit}
                 size="md"
-                startAdornment={token.symbol}
-                type="number"
-                value={withdrawForm.values.amount}
-              />
-            </form>
+                type="button"
+                variant="filled"
+              >
+                Deposit
+              </Button>
+            </div>
           </div>
         </div>
 
