@@ -65,28 +65,40 @@
     }
   }
 
-  .specs {
+  .gpuTypes {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 12px;
+    flex-direction: column;
+    gap: 8px;
 
-    .gpuChip {
-      display: inline-flex;
+    .gpuType {
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 4px;
-      font-size: 14px;
+      gap: 6px 10px;
 
       .gpuLabel {
         display: inline-flex;
         align-items: center;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .counts {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .countStatic {
+        font-size: 12px;
       }
     }
+  }
 
-    .compute {
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
+  .compute {
+    color: var(--text-secondary);
+    font-size: 14px;
   }
 }
 

@@ -80,6 +80,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                     defaultToken={selectedToken?.address}
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
+                    gpuSelection={selectedEnv.gpuSelection}
                     nodeInfo={selectedEnv.nodeInfo}
                     selected={false}
                   />

@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
+import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
@@ -101,13 +102,20 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     }
   }, [filteredNodeEnvs.length, loading, loadMoreEnvs, paginationResponse]);
 
-  const handleSelect = (node: NodeEnvironments, envId: string, tokenAddress: string, tokenSymbol: string) => {
+  const handleSelect = (
+    node: NodeEnvironments,
+    envId: string,
+    tokenAddress: string,
+    tokenSymbol: string,
+    gpuSelection: GpuSelection
+  ) => {
     const environment = node.computeEnvironments.environments.find((env) => env.id === envId);
     if (!environment) {
       return;
     }
     setSelectedEnv({
       environment,
+      gpuSelection,
       nodeInfo: {
         currentAddrs: node.currentAddrs,
         friendlyName: node.friendlyName,
@@ -191,23 +199,30 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           {filteredNodeEnvs.length > 0 ? (
             <>
               {filteredNodeEnvs.map((node) =>
-                node.computeEnvironments.environments.map((env) => (
-                  <InferenceEnvironmentCard
-                    defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
-                    durationSeconds={jobDurationSeconds}
-                    environment={env}
-                    key={`${node.id}-${env.id}`}
-                    selected={selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id}
-                    nodeInfo={{
-                      currentAddrs: node.currentAddrs,
-                      friendlyName: node.friendlyName,
-                      id: node.id,
-                      latestBenchmarkResults: node.latestBenchmarkResults,
-                      multiaddrs: node.multiaddrs,
-                    }}
-                    onSelect={(tokenAddress, tokenSymbol) => handleSelect(node, env.id, tokenAddress, tokenSymbol)}
-                  />
-                ))
+                node.computeEnvironments.environments.map((env) => {
+                  const isPriorSelection =
+                    selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
+                  return (
+                    <InferenceEnvironmentCard
+                      defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
+                      durationSeconds={jobDurationSeconds}
+                      environment={env}
+                      initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
+                      key={`${node.id}-${env.id}`}
+                      selected={isPriorSelection}
+                      nodeInfo={{
+                        currentAddrs: node.currentAddrs,
+                        friendlyName: node.friendlyName,
+                        id: node.id,
+                        latestBenchmarkResults: node.latestBenchmarkResults,
+                        multiaddrs: node.multiaddrs,
+                      }}
+                      onSelect={(tokenAddress, tokenSymbol, gpuSelection) =>
+                        handleSelect(node, env.id, tokenAddress, tokenSymbol, gpuSelection)
+                      }
+                    />
+                  );
+                })
               )}
               {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
                 <Button className="alignSelfCenter" color="accent2" loading={loading} onClick={loadMoreEnvs}>

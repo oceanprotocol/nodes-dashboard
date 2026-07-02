@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
-import useEnvResources from '@/components/hooks/use-env-resources';
+import useInferenceAllocation, { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
@@ -21,14 +21,22 @@ type InferenceEnvironmentCardProps = {
   /** Token address selected in the filters — when supported, it's forced and the token select is hidden. */
   defaultToken?: string;
   selected?: boolean;
-  onSelect?: (tokenAddress: string, tokenSymbol: string) => void;
+  onSelect?: (tokenAddress: string, tokenSymbol: string, gpuSelection: GpuSelection) => void;
+  /**
+   * Units per GPU type to use. Uncontrolled when omitted (card owns its selection via the chips);
+   * pass a value to render a fixed selection read-only (e.g. the selection summary).
+   */
+  gpuSelection?: GpuSelection;
+  /** Seeds the chips when the card is uncontrolled (e.g. restoring a prior pick for this env). Defaults to all units. */
+  initialSelection?: GpuSelection;
 };
 
 function formatGb(value: number): string {
-  if (value >= 1000 && value % 1000 === 0) {
-    return `${value / 1000} TB`;
+  const rounded = Math.round(value);
+  if (rounded >= 1000 && rounded % 1000 === 0) {
+    return `${rounded / 1000} TB`;
   }
-  return `${value} GB`;
+  return `${rounded} GB`;
 }
 
 const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
@@ -38,6 +46,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   defaultToken,
   selected = false,
   onSelect,
+  gpuSelection: controlledSelection,
+  initialSelection,
 }) => {
   const supportedTokens = useMemo(() => getEnvSupportedTokens(environment, true), [environment]);
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
@@ -62,38 +72,77 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     setTokenAddress(getDefaultToken());
   }, [getDefaultToken]);
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
+  const isControlled = controlledSelection !== undefined;
+  // Local per-type selection when the card owns it; null until we learn the GPU types.
+  const [ownSelection, setOwnSelection] = useState<GpuSelection | null>(null);
+
+  const activeSelection = isControlled ? controlledSelection : (ownSelection ?? undefined);
+
+  const { mergedGpus, selectedByKey, allocation, price, hasGpus } = useInferenceAllocation({
     environment,
-    freeCompute: false,
     tokenAddress,
+    gpuSelection: activeSelection,
+    durationSeconds,
   });
 
-  const totalPrice = useMemo(() => {
-    const cpuTotal = (cpuFee ?? 0) * (cpu?.max ?? 0);
-    const ramTotal = (ramFee ?? 0) * (ram?.max ?? 0);
-    const diskTotal = (diskFee ?? 0) * (disk?.max ?? 0);
-    const gpuTotal = gpus.reduce((sum, gpu) => sum + (gpuFees[gpu.id] ?? 0) * (gpu.max ?? 0), 0);
-    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * (durationSeconds / 60);
-  }, [cpu?.max, cpuFee, disk?.max, diskFee, gpuFees, gpus, ram?.max, ramFee, durationSeconds]);
+  // Seed the local chips once the types are known: restore a prior pick for this env, or default to all units.
+  useEffect(() => {
+    if (!isControlled && ownSelection === null && mergedGpus.length > 0) {
+      const seeded: GpuSelection = {};
+      mergedGpus.forEach((g) => {
+        const prior = initialSelection?.[g.key];
+        seeded[g.key] = prior === undefined ? g.max : Math.min(Math.max(prior, 0), g.max);
+      });
+      setOwnSelection(seeded);
+    }
+  }, [isControlled, ownSelection, mergedGpus, initialSelection]);
 
-  const mergedGpus = useMemo(() => {
-    return gpus.reduce(
-      (merged, gpu) => {
-        const existing = merged.find((g) => g.description === gpu.description);
-        if (existing) {
-          existing.max += gpu.max ?? 0;
-        } else {
-          merged.push({ description: gpu.description, max: gpu.max ?? 0 });
-        }
-        return merged;
-      },
-      [] as { description?: string; max: number }[]
-    );
-  }, [gpus]);
+  const editable = !isControlled && !!onSelect;
 
-  const computeText = [cpu && `${cpu.max} vCPU`, ram && formatGb(ram.max), disk && formatGb(disk.max)]
+  const setTypeCount = (key: string, count: number) => {
+    setOwnSelection((prev) => ({ ...(prev ?? {}), [key]: count }));
+  };
+
+  const computeText = [
+    allocation.cpu > 0 && `${allocation.cpu} vCPU`,
+    allocation.ram > 0 && formatGb(allocation.ram),
+    allocation.disk > 0 && formatGb(allocation.disk),
+  ]
     .filter(Boolean)
     .join(' · ');
+
+  const renderGpuTypes = () => {
+    if (!hasGpus) {
+      return null;
+    }
+    return mergedGpus.map((gpu) => {
+      const chosen = selectedByKey[gpu.key] ?? 0;
+      return (
+        <div className={styles.gpuType} key={gpu.key}>
+          <GpuLabel className={styles.gpuLabel} gpu={gpu.description || 'GPU'} />
+          {editable ? (
+            <div className={styles.counts}>
+              {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => (
+                <Button
+                  color="accent1"
+                  key={n}
+                  onClick={() => setTypeCount(gpu.key, n)}
+                  size="xs"
+                  variant={chosen === n ? 'filled' : 'outlined'}
+                >
+                  {n}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
+              {chosen} / {gpu.max}
+            </span>
+          )}
+        </div>
+      );
+    });
+  };
 
   return (
     <Card
@@ -113,14 +162,10 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
           <span className="textSecondary">Node:</span>{' '}
           <span className={styles.nodeValue}>{nodeInfo.friendlyName || nodeInfo.id}</span>
         </div>
-        <div className={styles.specs}>
-          {mergedGpus.map((gpu, index) => (
-            <span className={classNames('chip', 'chipAccent2', styles.gpuChip)} key={`gpu-${index}`}>
-              {gpu.max}× <GpuLabel className={styles.gpuLabel} gpu={gpu.description || 'GPU'} />
-            </span>
-          ))}
-          {computeText && <span className={styles.compute}>{computeText}</span>}
-        </div>
+
+        {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
+
+        {computeText && <div className={styles.compute}>{computeText}</div>}
       </div>
 
       <div className="actionsGroupMdEnd">
@@ -140,15 +185,15 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             className={styles.continueButton}
             color="accent1"
             contentBefore={<PlayArrowIcon />}
-            onClick={() => onSelect(tokenAddress, tokenSymbol ?? '')}
+            onClick={() => onSelect(tokenAddress, tokenSymbol ?? '', selectedByKey)}
             type="button"
             variant="filled"
           >
-            {formatTokenAmount(totalPrice, tokenAddress)} {tokenSymbol}
+            {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
           </Button>
         ) : (
           <span className={styles.price}>
-            {formatTokenAmount(totalPrice, tokenAddress)} {tokenSymbol}
+            {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
           </span>
         )}
       </div>

@@ -1,4 +1,4 @@
-import useEnvResources from '@/components/hooks/use-env-resources';
+import useInferenceAllocation from '@/components/hooks/use-inference-allocation';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
@@ -6,7 +6,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Authorizations } from '@/types/payment';
 import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 type InferencePaymentProps = {
   selectedEnv: SelectedInferenceEnv;
@@ -24,19 +24,12 @@ const InferencePayment = ({ selectedEnv, selectedToken, durationSeconds }: Infer
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
+  const { price: totalCost } = useInferenceAllocation({
     environment,
-    freeCompute: false,
     tokenAddress,
+    gpuSelection: selectedEnv.gpuSelection,
+    durationSeconds,
   });
-
-  const totalCost = useMemo(() => {
-    const cpuTotal = (cpuFee ?? 0) * (cpu?.max ?? 0);
-    const ramTotal = (ramFee ?? 0) * (ram?.max ?? 0);
-    const diskTotal = (diskFee ?? 0) * (disk?.max ?? 0);
-    const gpuTotal = gpus.reduce((sum, gpu) => sum + (gpuFees[gpu.id] ?? 0) * (gpu.max ?? 0), 0);
-    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * (durationSeconds / 60);
-  }, [cpu?.max, cpuFee, disk?.max, diskFee, gpuFees, gpus, ram?.max, ramFee, durationSeconds]);
 
   const loadPaymentInfo = useCallback(async () => {
     if (!ocean || !account?.address) {

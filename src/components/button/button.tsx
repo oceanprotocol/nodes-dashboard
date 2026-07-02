@@ -17,7 +17,7 @@ export type ButtonProps = {
   loading?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';
-  size?: 'link' | 'sm' | 'sm-const' | 'md' | 'md-const' | 'lg' | 'lg-const';
+  size?: 'link' | 'xs' | 'sm' | 'sm-const' | 'md' | 'md-const' | 'lg' | 'lg-const';
   type?: 'button' | 'submit' | 'reset';
   variant?: 'filled' | 'glass' | 'outlined' | 'transparent';
 };
@@ -56,7 +56,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   const spinner = isLoading ? (
     <CircularProgress
       color="inherit"
-      size={{ link: 12, sm: 14, 'sm-const': 14, md: 16, 'md-const': 16, lg: 20, 'lg-const': 20 }[size]}
+      size={{ link: 12, xs: 12, sm: 14, 'sm-const': 14, md: 16, 'md-const': 16, lg: 20, 'lg-const': 20 }[size]}
     />
   ) : null;
 

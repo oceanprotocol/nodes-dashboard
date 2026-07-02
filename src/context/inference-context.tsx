@@ -1,3 +1,4 @@
+import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { SelectedToken } from '@/context/run-job-context';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
@@ -6,6 +7,8 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 export type SelectedInferenceEnv = {
   environment: ComputeEnvironment;
   nodeInfo: EnvNodeInfo;
+  /** Units to use per GPU type, keyed by type (defaults to all units of every type). */
+  gpuSelection: GpuSelection;
 };
 
 type InferenceContextType = {

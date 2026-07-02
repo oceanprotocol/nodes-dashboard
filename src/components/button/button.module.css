@@ -36,6 +36,13 @@
   line-height: inherit;
   padding: 0;
 }
+.size-xs {
+  font-size: 13px;
+  gap: 2px;
+  line-height: 16px;
+  min-width: 30px;
+  padding: 3px 10px;
+}
 .size-sm {
   font-size: 14px;
   gap: 2px;
