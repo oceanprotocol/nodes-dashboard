@@ -7,7 +7,7 @@ import ModelParameters, { ModelParametersHandle } from '@/components/inference/m
 import Input from '@/components/input/input';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
-import { decodeModelIds, encodeModelIds } from '@/services/huggingface-service';
+import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
@@ -19,15 +19,17 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
-  const modelIds = useMemo(() => decodeModelIds(router.query.models), [router.query.models]);
-  const modelsQuery = encodeModelIds(modelIds);
-  const { hfToken, setHfToken, setParamsForModel } = useInferenceContext();
+  const { hfToken, setHfToken, setParamsForModel, selectedModels, hydrateFromUrlFinished, buildSelectionQuery } =
+    useInferenceContext();
+  // Selected models come from context (hydrated centrally from the query params on reload).
+  const modelIds = useMemo(() => selectedModels.map((m) => m.id), [selectedModels]);
   const paramRefs = useRef<Record<string, ModelParametersHandle | null>>({});
+  const resolvingModels = !hydrateFromUrlFinished;
 
   const goToPrevStep = () => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
-        router.replace(`/inference/custom-models/resources?models=${modelsQuery}`);
+        router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
         break;
       }
       case InferenceFlowType.Template: {
@@ -37,10 +39,14 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     }
   };
 
-  const goToNextStep = () => {
+  // Commit validated params (passed as override so the fresh values are in the URL immediately) and advance.
+  const goToNextStep = (modelParamsByModel?: Record<string, ModelParametersType>) => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
-        router.push(`/inference/custom-models/payment?models=${modelsQuery}`);
+        router.push({
+          pathname: '/inference/custom-models/payment',
+          query: { ...router.query, ...buildSelectionQuery({ modelParamsByModel }) },
+        });
         break;
       }
       case InferenceFlowType.Template: {
@@ -63,7 +69,13 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       if (results.some((params) => !params)) {
         return;
       }
-      modelIds.forEach((id, index) => setParamsForModel(id, results[index]!));
+      const paramsByModel: Record<string, ModelParametersType> = {};
+      modelIds.forEach((id, index) => {
+        setParamsForModel(id, results[index]!);
+        paramsByModel[id] = results[index]!;
+      });
+      goToNextStep(paramsByModel);
+      return;
     }
     goToNextStep();
   };
@@ -78,45 +90,51 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       />
       <form className="pageContentWrapper" onSubmit={handleSubmit}>
         {isCustomModelFlow ? (
-          <>
+          resolvingModels ? (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-              <div>
-                <h3>General</h3>
-                <div className="textSecondary">Shared across all models</div>
-              </div>
-              <Input
-                endAdornment={
-                  <Button color="accent1" onClick={reloadDefaults} size="sm" type="button" variant="outlined">
-                    Reload defaults
-                  </Button>
-                }
-                name="hfToken"
-                label={
-                  <div>
-                    Hugging Face token{' '}
-                    <Tooltip title="Your Hugging Face access token. Used to download gated or private model repos. Shared across all selected models. Only needed if a model is access-restricted.">
-                      <InfoOutlinedIcon className="textAccent1" fontSize="small" />
-                    </Tooltip>
-                  </div>
-                }
-                onChange={(e) => setHfToken(e.target.value)}
-                placeholder="hf_…"
-                size="md"
-                type="password"
-                value={hfToken}
-              />
+              <div className="textSecondary">Loading selected models…</div>
             </Card>
-            {modelIds.map((id, index) => (
-              <ModelParameters
-                defaultOpen={true}
-                key={id}
-                modelId={id}
-                ref={(handle) => {
-                  paramRefs.current[id] = handle;
-                }}
-              />
-            ))}
-          </>
+          ) : (
+            <>
+              <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+                <div>
+                  <h3>General</h3>
+                  <div className="textSecondary">Shared across all models</div>
+                </div>
+                <Input
+                  endAdornment={
+                    <Button color="accent1" onClick={reloadDefaults} size="sm" type="button" variant="outlined">
+                      Reload defaults
+                    </Button>
+                  }
+                  name="hfToken"
+                  label={
+                    <div>
+                      Hugging Face token{' '}
+                      <Tooltip title="Your Hugging Face access token. Used to download gated or private model repos. Shared across all selected models. Only needed if a model is access-restricted.">
+                        <InfoOutlinedIcon className="textAccent1" fontSize="small" />
+                      </Tooltip>
+                    </div>
+                  }
+                  onChange={(e) => setHfToken(e.target.value)}
+                  placeholder="hf_…"
+                  size="md"
+                  type="password"
+                  value={hfToken}
+                />
+              </Card>
+              {modelIds.map((id) => (
+                <ModelParameters
+                  defaultOpen={true}
+                  key={id}
+                  modelId={id}
+                  ref={(handle) => {
+                    paramRefs.current[id] = handle;
+                  }}
+                />
+              ))}
+            </>
+          )
         ) : (
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <h3>{flowType} - Config</h3>

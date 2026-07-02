@@ -1,5 +1,5 @@
 import cx from 'classnames';
-import { CSSProperties, KeyboardEvent, MouseEventHandler, ReactNode } from 'react';
+import { CSSProperties, KeyboardEvent, MouseEvent, MouseEventHandler, ReactNode } from 'react';
 import styles from './card.module.css';
 
 type Size = 'xs' | 'sm' | 'md' | 'lg';
@@ -63,7 +63,7 @@ const Card: React.FC<CardProps> = ({
     }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onClick(event as unknown as Parameters<MouseEventHandler<HTMLDivElement>>[0]);
+      onClick(event as unknown as MouseEvent<HTMLDivElement>);
     }
   };
 
@@ -95,7 +95,7 @@ const Card: React.FC<CardProps> = ({
         className
       )}
       id={id}
-      role={role}
+      role={role ?? (onClick ? 'button' : undefined)}
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? handleKeyDown : undefined}

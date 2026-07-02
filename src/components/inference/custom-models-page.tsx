@@ -8,7 +8,6 @@ import Input from '@/components/input/input';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import {
-  encodeModelIds,
   FALLBACK_PIPELINE_TAGS,
   fetchHuggingFaceModels,
   fetchPipelineTags,
@@ -29,13 +28,14 @@ const VISIBLE_TAG_COUNT = 9;
 const CustomModelsPage: React.FC = () => {
   const router = useRouter();
 
-  const { selectedModels, toggleModel, isModelSelected } = useInferenceContext();
+  const { selectedModels, toggleModel, isModelSelected, buildSelectionQuery } = useInferenceContext();
 
   const [models, setModels] = useState<HuggingFaceModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
@@ -66,6 +66,7 @@ const CustomModelsPage: React.FC = () => {
     async function load() {
       setLoading(true);
       setError(null);
+      setLoadMoreError(null);
       try {
         const { models: data, nextCursor: cursor } = await fetchHuggingFaceModels(query, {
           pipelineTag: activeTag ?? undefined,
@@ -97,16 +98,25 @@ const CustomModelsPage: React.FC = () => {
     if (!nextCursor || loadingMore) {
       return;
     }
+    const requestQuery = query;
+    const requestTag = activeTag;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
-      const { models: data, nextCursor: cursor } = await fetchHuggingFaceModels(query, {
+      const { models: data, nextCursor: cursor } = await fetchHuggingFaceModels(requestQuery, {
         cursor: nextCursor,
-        pipelineTag: activeTag ?? undefined,
+        pipelineTag: requestTag ?? undefined,
       });
+      if (requestQuery !== query || requestTag !== activeTag) {
+        return;
+      }
       setModels((prev) => [...prev, ...data]);
       setNextCursor(cursor);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load more models');
+      if (requestQuery !== query || requestTag !== activeTag) {
+        return;
+      }
+      setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more models');
     } finally {
       setLoadingMore(false);
     }
@@ -191,6 +201,7 @@ const CustomModelsPage: React.FC = () => {
                   <ModelCard key={model.id} model={model} onToggle={toggleModel} selected={isModelSelected(model.id)} />
                 ))}
               </div>
+              {loadMoreError && <div className={cx(styles.stateBox, 'textErrorDarker')}>{loadMoreError}</div>}
               {nextCursor && (
                 <Button
                   className="alignSelfCenter"
@@ -215,7 +226,7 @@ const CustomModelsPage: React.FC = () => {
           nextDisabled={selectedModels.length === 0}
           nextLabel={selectedModels.length ? `Continue (${selectedModels.length})` : 'Continue'}
           onNext={() =>
-            router.push(`/inference/custom-models/resources?models=${encodeModelIds(selectedModels.map((m) => m.id))}`)
+            router.push({ pathname: '/inference/custom-models/resources', query: buildSelectionQuery() })
           }
           onPrev={() => router.replace('/inference')}
           onRemoveModel={toggleModel}

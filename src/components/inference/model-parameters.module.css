@@ -49,6 +49,17 @@
     border-color: var(--error);
     color: var(--error-darker);
   }
+
+  &.noticeSuccess {
+    border-color: var(--success-darker);
+    color: var(--success-darker);
+  }
+}
+
+.noticeRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .section {

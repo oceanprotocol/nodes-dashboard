@@ -5,7 +5,7 @@ import InferencePayment from '@/components/inference/inference-payment';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
-import { decodeModelIds, encodeModelIds, getModelShortName } from '@/services/huggingface-service';
+import { getModelShortName } from '@/services/huggingface-service';
 import { InferenceFlowType } from '@/types/inference';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -13,12 +13,13 @@ import { useRouter } from 'next/router';
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
-  const { selectedEnv, selectedToken, jobDurationSeconds, selectedModels } = useInferenceContext();
+  const { selectedEnv, selectedToken, jobDurationSeconds, selectedModels, hydrateFromUrlFinished } =
+    useInferenceContext();
 
   const goToPrevStep = () => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
-        router.replace(`/inference/custom-models/config?models=${encodeModelIds(decodeModelIds(router.query.models))}`);
+        router.replace({ pathname: '/inference/custom-models/config', query: router.query });
         break;
       }
       case InferenceFlowType.DefaultModel: {
@@ -50,7 +51,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       <div className="pageContentWrapper">
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
           <h3>Payment</h3>
-          {selectedEnv && selectedToken ? (
+          {!hydrateFromUrlFinished ? (
+            <div className="textSecondary">Loading selection…</div>
+          ) : selectedEnv && selectedToken ? (
             <InferencePayment
               durationSeconds={jobDurationSeconds}
               selectedEnv={selectedEnv}

@@ -167,22 +167,35 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const { hfToken, selectedModels, modelParamsByModel } = useInferenceContext();
   const [config, setConfig] = useState<HuggingFaceModelConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needsToken, setNeedsToken] = useState(false);
+  // 'none' = no token needed / loaded ok; 'missing' = gated, no token supplied; 'rejected' = token invalid.
+  const [authState, setAuthState] = useState<'none' | 'missing' | 'rejected'>('none');
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Feedback for the explicit "Reload defaults" action (initial load stays silent beyond the spinner).
+  const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
   const [open, setOpen] = useState(defaultOpen);
 
   const loadConfig = useCallback(
-    (token?: string, revision?: string, onLoaded?: (config: HuggingFaceModelConfig | null) => void) => {
+    (
+      token?: string,
+      revision?: string,
+      onLoaded?: (config: HuggingFaceModelConfig | null) => void,
+      isReload = false
+    ) => {
       let cancelled = false;
       setLoading(true);
       setLoadError(null);
+      if (isReload) {
+        setReloadStatus('loading');
+      }
       fetchHuggingFaceModelConfig(modelId, token || undefined, revision || undefined)
         .then((result) => {
           if (cancelled) {
             return;
           }
           setConfig(result);
-          setNeedsToken(false);
+          setAuthState('none');
+          setReloadStatus(isReload ? 'success' : 'idle');
           onLoaded?.(result);
         })
         .catch((error: unknown) => {
@@ -190,10 +203,14 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             return;
           }
           if (error instanceof HuggingFaceAuthError) {
-            // Gated/private model — fall back to generic defaults and let the user supply the shared token.
-            setNeedsToken(true);
+            // Gated/private model — distinguish "no token yet" from "token supplied but rejected".
+            setAuthState(error.tokenProvided ? 'rejected' : 'missing');
+            setReloadStatus(isReload ? 'error' : 'idle');
           } else {
+            setConfig(null);
             setLoadError('Could not load model defaults from Hugging Face. Using generic defaults.');
+            setReloadStatus(isReload ? 'error' : 'idle');
+            onLoaded?.(null);
           }
         })
         .finally(() => {
@@ -212,6 +229,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => loadConfig(hfToken), [loadConfig]);
 
+  // Editing the shared token invalidates the last reload result — clear the transient feedback so a
+  // stale "reloaded"/"rejected" notice doesn't linger until the user clicks Reload again.
+  useEffect(() => {
+    setReloadStatus('idle');
+  }, [hfToken]);
+
   // HF model facts that lock fields the user cannot freely change.
   const contextCeiling = useMemo(
     () => Math.min(config?.maxContext ?? CONTEXT_CEILING, CONTEXT_CEILING),
@@ -227,11 +250,13 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const isGenerative = !pipelineTag || GENERATIVE_PIPELINE_TAGS.includes(pipelineTag);
   const showTools = isGenerative && !!config?.supportsTools;
 
-  // Prefill from previously committed context params (returning to the step); else HF-derived defaults.
+  // Prefill from previously committed/restored context params (returning to the step or after a
+  // refresh rehydrates them); else HF-derived defaults. Keyed on this model's params specifically so
+  // an unrelated model's commit doesn't reinitialize this card.
+  const committedParams = modelParamsByModel[modelId];
   const initialValues = useMemo(
-    () => modelParamsByModel[modelId] ?? buildDefaults(config, modelId),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [config, modelId]
+    () => committedParams ?? buildDefaults(config, modelId),
+    [committedParams, config, modelId]
   );
 
   const formik = useFormik<ModelParametersType>({
@@ -249,9 +274,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // The entered revision is preserved — buildDefaults blanks it, but it's what we just fetched against.
   const reloadDefaults = () => {
     const revision = formik.values.revision;
-    loadConfig(hfToken, revision, (result) => {
-      formik.resetForm({ values: { ...buildDefaults(result, modelId), revision } });
-    });
+    loadConfig(
+      hfToken,
+      revision,
+      (result) => {
+        // Only reset the form when defaults actually loaded; on failure keep the user's values.
+        if (result) {
+          formik.resetForm({ values: { ...buildDefaults(result, modelId), revision } });
+        }
+      },
+      true
+    );
   };
 
   // Pinning a new revision refreshes the model facts (locked ceiling/quant) without touching the user's edits.
@@ -289,7 +322,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   }, [showTools, formik]);
 
   // Full-card spinner only on the first load; later reloads (e.g. after a token) keep the form visible.
-  if (loading && !config && !needsToken && !loadError) {
+  if (loading && !config && authState === 'none' && !loadError) {
     return (
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         <h3 className={styles.loading}>
@@ -302,15 +335,30 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="lg" variant="glass-shaded">
-      <button aria-expanded={open} className={styles.head} onClick={() => setOpen(!open)} type="button">
-        <span className={styles.headName}>{getModelShortName(modelId)}</span>
-        <ExpandMoreIcon className={cx(styles.chevron, { [styles.chevronOpen]: open })} />
-      </button>
-      {(needsToken || loadError) && (
-        <div className={cx(styles.notice, { [styles.noticeWarning]: needsToken })}>
-          {needsToken ? 'This model is gated or private. Add your Hugging Face token to load defaults.' : loadError}
-        </div>
-      )}
+      <div>
+        <button aria-expanded={open} className={styles.head} onClick={() => setOpen(!open)} type="button">
+          <span className={styles.headName}>{getModelShortName(modelId)}</span>
+          <ExpandMoreIcon className={cx(styles.chevron, { [styles.chevronOpen]: open })} />
+        </button>
+        {reloadStatus === 'loading' ? (
+          <div className={cx(styles.notice, styles.noticeRow)}>
+            <CircularProgress size={16} />
+            Reloading defaults from Hugging Face…
+          </div>
+        ) : authState === 'missing' ? (
+          <div className={cx(styles.notice, styles.noticeWarning)}>
+            This model is gated or private. Add your Hugging Face token above and click “Reload defaults”.
+          </div>
+        ) : authState === 'rejected' ? (
+          <div className={cx(styles.notice, styles.noticeWarning)}>
+            The Hugging Face token was rejected for this model — invalid or lacks access. Check the token and reload.
+          </div>
+        ) : loadError ? (
+          <div className={cx(styles.notice, styles.noticeWarning)}>{loadError}</div>
+        ) : reloadStatus === 'success' ? (
+          <div className={cx(styles.notice, styles.noticeSuccess)}>Defaults reloaded from Hugging Face.</div>
+        ) : null}
+      </div>
       <Collapse in={open} unmountOnExit>
         <section className={styles.section}>
           <div className={styles.grid}>

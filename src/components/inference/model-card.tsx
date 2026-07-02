@@ -21,7 +21,11 @@ function formatUpdated(lastModified?: string): string {
   if (!lastModified) {
     return 'Unknown';
   }
-  return formatDistanceToNowStrict(new Date(lastModified), { addSuffix: true });
+  const date = new Date(lastModified);
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown';
+  }
+  return formatDistanceToNowStrict(date, { addSuffix: true });
 }
 
 function prettyPipeline(tag?: string): string {
@@ -55,7 +59,6 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle
       onClick={onToggle ? () => onToggle(model) : undefined}
       padding="sm"
       radius="md"
-      role={onToggle ? 'button' : undefined}
       spacing="sm"
       variant="glass-shaded"
     >

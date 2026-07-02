@@ -28,7 +28,9 @@ type FilterFormValues = {
 };
 
 type SelectInferenceEnvironmentProps = {
-  onEnvSelected: () => void;
+  /** Fired after an environment/token/gpu pick is committed to context. Receives the freshly-picked
+   *  values so the caller can navigate with them without waiting for context state to settle. */
+  onEnvSelected: (picked: { peerId: string; envId: string; tokenAddress: string; gpuSelection: GpuSelection }) => void;
 };
 
 const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({ onEnvSelected }) => {
@@ -125,7 +127,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       },
     });
     setSelectedToken({ address: tokenAddress, symbol: tokenSymbol });
-    onEnvSelected();
+    onEnvSelected({ peerId: node.id, envId, tokenAddress, gpuSelection });
   };
 
   return (

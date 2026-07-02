@@ -4,12 +4,11 @@ import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
+import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { useInferenceContext } from '@/context/inference-context';
-import { decodeModelIds, encodeModelIds, fetchHuggingFaceModel } from '@/services/huggingface-service';
 import { InferenceFlowType } from '@/types/inference';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useState } from 'react';
 
 const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const router = useRouter();
@@ -17,56 +16,13 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
 
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
 
-  const { selectedModels, setSelectedModels, selectedEnv } = useInferenceContext();
-
-  const [resolving, setResolving] = useState(false);
-  const [resolveError, setResolveError] = useState<string | null>(null);
-
-  // Custom flow carries the selected model ids in the `models` query param.
-  const routeModelIds = useMemo(() => decodeModelIds(router.query.models), [router.query.models]);
-
-  // On hard reload context is empty — re-resolve the selected models from the query.
-  useEffect(() => {
-    if (!isCustomModelFlow || routeModelIds.length === 0) {
-      return;
-    }
-    const selectedIds = selectedModels.map((m) => m.id);
-    const sameSelection =
-      selectedIds.length === routeModelIds.length && routeModelIds.every((id) => selectedIds.includes(id));
-    if (sameSelection) {
-      return;
-    }
-
-    let cancelled = false;
-    setResolving(true);
-    setResolveError(null);
-
-    Promise.all(routeModelIds.map((id) => fetchHuggingFaceModel(id)))
-      .then((models) => {
-        if (!cancelled) {
-          setSelectedModels(models);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setResolveError(err instanceof Error ? err.message : 'Failed to load the selected models.');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setResolving(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isCustomModelFlow, routeModelIds, selectedModels, setSelectedModels]);
+  const { selectedModels, selectedEnv, hydrateFromUrlFinished, buildSelectionQuery } = useInferenceContext();
 
   const goToPrevStep = () => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
-        router.replace('/inference/custom-models');
+        // Keep the selection in the URL so a refresh on the model-picker restores it.
+        router.replace({ pathname: '/inference/custom-models', query: router.query });
         break;
       }
       case InferenceFlowType.DefaultModel: {
@@ -80,10 +36,20 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     }
   };
 
-  const goToNextStep = () => {
+  // `picked` carries the just-selected env/token/gpu when coming from an env card, because context
+  // state hasn't settled yet in the same tick; the bottom-nav "Skip" path calls without it.
+  const goToNextStep = (picked?: {
+    peerId: string;
+    envId: string;
+    tokenAddress: string;
+    gpuSelection: GpuSelection;
+  }) => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
-        router.push(`/inference/custom-models/config?models=${encodeModelIds(routeModelIds)}`);
+        router.push({
+          pathname: '/inference/custom-models/config',
+          query: { ...router.query, ...buildSelectionQuery(picked) },
+        });
         break;
       }
       case InferenceFlowType.DefaultModel: {
@@ -97,6 +63,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     }
   };
 
+  const resolving = !hydrateFromUrlFinished;
   const hasModels = selectedModels.length > 0;
 
   return (
@@ -115,12 +82,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
                 <div className="textSecondary">Loading selected models…</div>
               </Card>
             )}
-            {resolveError && (
-              <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-                <div className="textAccent1">{resolveError}</div>
-              </Card>
-            )}
-            {!resolving && !resolveError && hasModels && <SelectInferenceEnvironment onEnvSelected={goToNextStep} />}
+            {!resolving && hasModels && <SelectInferenceEnvironment onEnvSelected={goToNextStep} />}
           </>
         ) : (
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -128,7 +90,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
           </Card>
         )}
 
-        <InferenceNavigation nextLabel="Skip" onNext={selectedEnv ? goToNextStep : undefined} onPrev={goToPrevStep} />
+        <InferenceNavigation nextLabel="Skip" onNext={selectedEnv ? () => goToNextStep() : undefined} onPrev={goToPrevStep} />
       </div>
     </Container>
   );

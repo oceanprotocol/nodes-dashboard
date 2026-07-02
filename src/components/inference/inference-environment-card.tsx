@@ -66,7 +66,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   }, [defaultToken, supportedTokens]);
 
   const [tokenAddress, setTokenAddress] = useState<string>(getDefaultToken());
-  const tokenSymbol = useTokenSymbol(tokenAddress);
+  const fetchedTokenSymbol = useTokenSymbol(tokenAddress);
+  const tokenSymbol = fetchedTokenSymbol ?? supportedTokensSymbols[tokenAddress] ?? null;
 
   useEffect(() => {
     setTokenAddress(getDefaultToken());
@@ -185,7 +186,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             className={styles.continueButton}
             color="accent1"
             contentBefore={<PlayArrowIcon />}
-            onClick={() => onSelect(tokenAddress, tokenSymbol ?? '', selectedByKey)}
+            disabled={!tokenSymbol}
+            onClick={() => tokenSymbol && onSelect(tokenAddress, tokenSymbol, selectedByKey)}
             type="button"
             variant="filled"
           >

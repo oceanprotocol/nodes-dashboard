@@ -50,9 +50,16 @@ function chatTemplateSupportsTools(chatTemplate: RawHfTokenizerConfig['chat_temp
 
 /** Thrown when a repo file needs auth (gated/private model) — caller can prompt for an HF token. */
 export class HuggingFaceAuthError extends Error {
-  constructor(modelId: string) {
-    super(`"${modelId}" is gated or private — an access token is required.`);
+  /** True when a token WAS sent and still rejected (invalid/insufficient), vs no token supplied yet. */
+  readonly tokenProvided: boolean;
+  constructor(modelId: string, tokenProvided: boolean) {
+    super(
+      tokenProvided
+        ? `Access to "${modelId}" was denied — the Hugging Face token is invalid or lacks permission.`
+        : `"${modelId}" is gated or private — an access token is required.`
+    );
     this.name = 'HuggingFaceAuthError';
+    this.tokenProvided = tokenProvided;
   }
 }
 
@@ -73,7 +80,7 @@ async function fetchModelFile<T>(modelId: string, file: string, token?: string, 
     return null;
   }
   if (response.status === 401 || response.status === 403) {
-    throw new HuggingFaceAuthError(modelId);
+    throw new HuggingFaceAuthError(modelId, !!token);
   }
   if (response.status < 200 || response.status >= 300) {
     return null;
@@ -100,7 +107,7 @@ async function fetchModelTextFile(
     return null;
   }
   if (response.status === 401 || response.status === 403) {
-    throw new HuggingFaceAuthError(modelId);
+    throw new HuggingFaceAuthError(modelId, !!token);
   }
   if (response.status < 200 || response.status >= 300) {
     return null;
