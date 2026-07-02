@@ -1,0 +1,33 @@
+.durationRow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.filters {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 768px) {
+    grid-template-columns: 2fr 1fr 1fr;
+    align-items: end;
+  }
+
+  .gpuSelect {
+    min-width: 0;
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

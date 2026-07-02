@@ -124,6 +124,11 @@ a {
     background: var(--accent1);
     color: var(--text-primary-inverse);
   }
+  &.chipAccent1Outlined {
+    background: var(--background-primary);
+    border: 1px solid var(--accent1);
+    color: var(--accent1);
+  }
   &.chipAccent2 {
     background: var(--accent2);
     color: var(--text-primary);
@@ -172,7 +177,7 @@ a {
     }
   }
   &.actionsGroupMdBetween {
-    gap: 16px;
+    gap: 8px;
     @media (min-width: 576px) {
       align-items: center;
       flex-wrap: wrap;
