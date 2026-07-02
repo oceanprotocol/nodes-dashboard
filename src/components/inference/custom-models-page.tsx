@@ -198,7 +198,13 @@ const CustomModelsPage: React.FC = () => {
             <>
               <div className={styles.grid}>
                 {models.map((model) => (
-                  <ModelCard key={model.id} model={model} onToggle={toggleModel} selected={isModelSelected(model.id)} />
+                  <ModelCard
+                    key={model.id}
+                    model={model}
+                    onToggle={toggleModel}
+                    selected={isModelSelected(model.id)}
+                    showStats
+                  />
                 ))}
               </div>
               {loadMoreError && <div className={cx(styles.stateBox, 'textErrorDarker')}>{loadMoreError}</div>}
@@ -225,9 +231,7 @@ const CustomModelsPage: React.FC = () => {
         <InferenceNavigation
           nextDisabled={selectedModels.length === 0}
           nextLabel={selectedModels.length ? `Continue (${selectedModels.length})` : 'Continue'}
-          onNext={() =>
-            router.push({ pathname: '/inference/custom-models/resources', query: buildSelectionQuery() })
-          }
+          onNext={() => router.push({ pathname: '/inference/custom-models/resources', query: buildSelectionQuery() })}
           onPrev={() => router.replace('/inference')}
           onRemoveModel={toggleModel}
         />

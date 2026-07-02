@@ -42,9 +42,10 @@ type ModelCardProps = {
   model: HuggingFaceModel;
   selected?: boolean;
   onToggle?: (model: HuggingFaceModel) => void;
+  showStats?: boolean;
 };
 
-const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle }) => {
+const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle, showStats }) => {
   const [avatarFailed, setAvatarFailed] = useState(false);
   const avatarUrl = getModelAvatarUrl(model);
   const modelName = getModelShortName(model.id);
@@ -87,20 +88,22 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{prettyPipeline(model.pipelineTag)}</span>
         {model.gated && <span className={classNames('chip', 'chipWarning', styles.chip)}>Gated</span>}
       </div>
-      <div className={styles.stats}>
-        <span className={styles.statItem} title={`Updated ${formatUpdated(model.lastModified)}`}>
-          <AccessTimeIcon fontSize="small" />
-          {formatUpdated(model.lastModified)}
-        </span>
-        <span className={styles.statItem} title="Downloads">
-          <FileDownloadOutlinedIcon fontSize="small" />
-          {formatCompact(model.downloads)}
-        </span>
-        <span className={styles.statItem} title="Likes">
-          <FavoriteBorderIcon fontSize="small" />
-          {formatCompact(model.likes)}
-        </span>
-      </div>
+      {showStats ? (
+        <div className={styles.stats}>
+          <span className={styles.statItem} title={`Updated ${formatUpdated(model.lastModified)}`}>
+            <AccessTimeIcon fontSize="small" />
+            {formatUpdated(model.lastModified)}
+          </span>
+          <span className={styles.statItem} title="Downloads">
+            <FileDownloadOutlinedIcon fontSize="small" />
+            {formatCompact(model.downloads)}
+          </span>
+          <span className={styles.statItem} title="Likes">
+            <FavoriteBorderIcon fontSize="small" />
+            {formatCompact(model.likes)}
+          </span>
+        </div>
+      ) : null}
     </Card>
   );
 };
