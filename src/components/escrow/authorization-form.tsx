@@ -79,7 +79,7 @@ const AuthorizationForm = ({
           value={formik.values.maxLockSeconds}
         />
         <Input
-          endAdornment="locks"
+          endAdornment="jobs"
           errorText={formik.touched.maxLockCount && formik.errors.maxLockCount ? formik.errors.maxLockCount : undefined}
           hint="Max lock count"
           label="Max concurrent jobs"
