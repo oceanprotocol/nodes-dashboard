@@ -3,43 +3,24 @@ import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
+import InferenceModelList, { fallbackParams, ServiceModel } from '@/components/inference/inference-model-list';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useInferenceContext } from '@/context/inference-context';
-import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
+import { getModelShortName } from '@/services/huggingface-service';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
-import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import StopIcon from '@mui/icons-material/Stop';
-import { Collapse } from '@mui/material';
 import cx from 'classnames';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './manage-service-page.module.css';
-
-/** Params fall back to these when a model in the selection has none committed yet. */
-function fallbackParams(modelId: string): ModelParameters {
-  return {
-    servedModelName: getModelShortName(modelId),
-    maxContext: 32768,
-    gpuMemoryUtilization: 0.9,
-    quantization: 'none',
-    dtype: 'auto',
-    kvCacheDtype: 'auto',
-    trustRemoteCode: false,
-    enforceEager: false,
-    revision: '',
-    toolCalling: false,
-    toolCallParser: null,
-  };
-}
 
 type Endpoint = {
   method: 'GET' | 'POST';
@@ -54,11 +35,6 @@ const ENDPOINTS: Endpoint[] = [
   { method: 'POST', path: '/v1/completions', description: 'Legacy text completions' },
   { method: 'POST', path: '/v1/embeddings', description: 'Embeddings (if supported)' },
 ];
-
-type ServiceModel = {
-  model: HuggingFaceModel;
-  params: ModelParameters;
-};
 
 // TODO replace with real service lookup by id.
 function getMockService(id: string) {
@@ -196,100 +172,21 @@ const DurationProgress: React.FC<{ totalSeconds: number; elapsedSeconds: number 
   );
 };
 
-type ParamRow = {
-  label: string;
-  value: React.ReactNode;
-  flag: string;
-};
-
-function prettyPipeline(tag?: string): string {
-  if (!tag) {
-    return 'Model';
-  }
-  return tag
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-/** Compact model row — served name + key specs inline, full launch params in a collapsible panel. */
-const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
-  const [open, setOpen] = useState(false);
-  const [avatarFailed, setAvatarFailed] = useState(false);
-  const { model, params } = entry;
-  const avatarUrl = getModelAvatarUrl(model);
-  const initial = (model.author ?? model.id).charAt(0).toUpperCase();
-
-  // Headline specs shown inline; the rest live behind the toggle.
-  const specs = [
-    `${params.maxContext.toLocaleString()} ctx`,
-    params.dtype,
-    params.quantization !== 'none' && params.quantization,
-    params.toolCalling && 'tools',
-  ].filter(Boolean) as string[];
-
-  const rows: ParamRow[] = [
-    { label: 'GPU memory', value: params.gpuMemoryUtilization.toFixed(2), flag: '--gpu-memory-utilization' },
-    { label: 'KV cache', value: params.kvCacheDtype, flag: '--kv-cache-dtype' },
-    { label: 'Revision', value: params.revision || 'main', flag: '--revision' },
-    { label: 'Trust remote code', value: params.trustRemoteCode ? 'On' : 'Off', flag: '--trust-remote-code' },
-    { label: 'Enforce eager', value: params.enforceEager ? 'On' : 'Off', flag: '--enforce-eager' },
-    {
-      label: 'Tool parser',
-      value: params.toolCalling ? (params.toolCallParser ?? '—') : 'Off',
-      flag: '--tool-call-parser',
-    },
-  ];
-
-  return (
-    <Card direction="column" innerShadow="black" radius="sm" variant="glass">
-      <button aria-expanded={open} className={styles.modelRow} onClick={() => setOpen((prev) => !prev)} type="button">
-        <span className={styles.modelAvatar}>
-          {avatarUrl && !avatarFailed ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img alt={model.author ?? model.id} onError={() => setAvatarFailed(true)} src={avatarUrl} />
-          ) : (
-            initial
-          )}
-        </span>
-        <span className={styles.modelIdentity}>
-          <span className={styles.modelName}>{params.servedModelName}</span>
-          <span className={styles.modelSub}>
-            {prettyPipeline(model.pipelineTag)} · {model.id}
-          </span>
-        </span>
-        <span className={styles.modelSpecs}>
-          {specs.map((spec) => (
-            <span className={cx('chip', 'chipGlass', styles.specChip)} key={spec}>
-              {spec}
-            </span>
-          ))}
-        </span>
-        <ExpandMoreIcon className={cx(styles.chevron, { [styles.chevronOpen]: open })} fontSize="small" />
-      </button>
-      <Collapse in={open} unmountOnExit>
-        <dl className={styles.paramsGrid}>
-          {rows.map((row) => (
-            <div className={styles.paramItem} key={row.flag}>
-              <dt className={styles.paramLabel}>{row.label}</dt>
-              <dd className={styles.paramValue}>{row.value}</dd>
-              <code className={styles.paramFlag}>{row.flag}</code>
-            </div>
-          ))}
-        </dl>
-      </Collapse>
-    </Card>
-  );
-};
-
 const ManageServicePage: React.FC = () => {
   const params = useParams<{ serviceId?: string }>();
   const router = useRouter();
   const id = params.serviceId ? decodeURIComponent(params.serviceId) : '';
   const [revealed, setRevealed] = useState(false);
 
-  const { selectedModels, modelParamsByModel, selectedEnv, selectedToken, jobDurationSeconds, hydrateFromUrlFinished, buildSelectionQuery } =
-    useInferenceContext();
+  const {
+    selectedModels,
+    modelParamsByModel,
+    selectedEnv,
+    selectedToken,
+    jobDurationSeconds,
+    hydrateFromUrlFinished,
+    buildSelectionQuery,
+  } = useInferenceContext();
 
   const mock = getMockService(id);
 
@@ -353,7 +250,7 @@ curl $BASE/api/chat \\
 
           <div className="actionsGroupMdBetween">
             <div className="actionsGroupMdEnd">
-              <Button color="accent1" contentBefore={<StopIcon />} size="md" variant="outlined">
+              <Button color="accent1" contentBefore={<StopIcon />} disabled size="md" variant="outlined">
                 Stop
               </Button>
               <Button color="accent1" contentBefore={<RestartAltIcon />} size="md" variant="outlined">
@@ -361,7 +258,13 @@ curl $BASE/api/chat \\
               </Button>
             </div>
             <div className="actionsGroupMdEnd">
-              <Button color="accent1" contentBefore={<EditOutlinedIcon />} onClick={onEdit} size="md" variant="outlined">
+              <Button
+                color="accent1"
+                contentBefore={<EditOutlinedIcon />}
+                onClick={onEdit}
+                size="md"
+                variant="outlined"
+              >
                 Edit
               </Button>
               <Button color="accent1" contentBefore={<BoltOutlinedIcon />} size="md" variant="filled">
@@ -377,11 +280,7 @@ curl $BASE/api/chat \\
             <h3>Models</h3>
             <span className="textSecondary">{models.length} loaded · expand for launch parameters</span>
           </div>
-          <div className={styles.modelList}>
-            {models.map((entry) => (
-              <ModelRow entry={entry} key={entry.model.id} />
-            ))}
-          </div>
+          <InferenceModelList models={models} />
         </Card>
 
         {/* Environment */}

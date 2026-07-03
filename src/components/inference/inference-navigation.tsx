@@ -17,6 +17,7 @@ type InferenceNavigationProps = {
   prevLabel?: string;
   /** Next (continue) action — omit for a plain submit button that lets the wrapping form handle it. */
   onNext?: () => void;
+  hideSelection?: boolean;
   /** Force-show the next button even without onNext (e.g. a form submit button). */
   showNext?: boolean;
   nextButtonHtmlType?: 'button' | 'submit' | 'reset';
@@ -30,6 +31,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   onPrev,
   prevLabel = 'Go back',
   onNext,
+  hideSelection = false,
   showNext = false,
   nextButtonHtmlType = 'button',
   nextLabel = 'Continue',
@@ -44,7 +46,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   return (
     <div className={styles.root}>
       <Card className={styles.card} radius="lg" shadow="black" variant="glass-shaded">
-        {hasSelection && (
+        {!hideSelection && hasSelection && (
           <Collapse in={selectionOpen} unmountOnExit>
             <Card
               className={styles.panel}
@@ -98,17 +100,21 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
             )}
           </div>
           <div className="actionsGroupMdEnd">
-            <Button
-              color="accent1"
-              contentAfter={<ExpandLessIcon className={cx(styles.chevron, { [styles.chevronOpen]: selectionOpen })} />}
-              disabled={!hasSelection}
-              onClick={() => setSelectionOpen((prev) => !prev)}
-              size="lg"
-              type="button"
-              variant="transparent"
-            >
-              Selection
-            </Button>
+            {hideSelection ? null : (
+              <Button
+                color="accent1"
+                contentAfter={
+                  <ExpandLessIcon className={cx(styles.chevron, { [styles.chevronOpen]: selectionOpen })} />
+                }
+                disabled={!hasSelection}
+                onClick={() => setSelectionOpen((prev) => !prev)}
+                size="lg"
+                type="button"
+                variant="transparent"
+              >
+                Selection
+              </Button>
+            )}
             {(onNext || showNext) && (
               <Button color="accent1" disabled={nextDisabled} onClick={onNext} size="lg" type={nextButtonHtmlType}>
                 {nextLabel}
