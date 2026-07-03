@@ -19,6 +19,8 @@ export type InferenceSelectionQuery = Partial<{
   token: string;
   duration: string;
   params: string;
+  /** '1' when re-entering the flow to edit a running service — skips env selection & payment. */
+  edit: string;
 }>;
 
 export type SelectedInferenceEnv = {
@@ -181,9 +183,14 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (encodedParams) {
         query.params = encodedParams;
       }
+      // Carry the edit flag forward so every step keeps its edit-mode behavior across navigations.
+      const editFlag = Array.isArray(router.query.edit) ? router.query.edit[0] : router.query.edit;
+      if (editFlag) {
+        query.edit = editFlag;
+      }
       return query;
     },
-    [selectedModels, selectedEnv, selectedToken, jobDurationSeconds, modelParamsByModel]
+    [selectedModels, selectedEnv, selectedToken, jobDurationSeconds, modelParamsByModel, router.query.edit]
   );
 
   /**

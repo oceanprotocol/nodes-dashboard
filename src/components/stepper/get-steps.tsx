@@ -2,10 +2,11 @@ import { Step } from '@/components/stepper/stepper';
 import { InferenceFlowType } from '@/types/inference';
 
 export type InferenceStep = 'model' | 'template' | 'resources' | 'config' | 'payment';
-export const getInferenceSteps = (flowType: InferenceFlowType): Step<InferenceStep>[] => [
+// `edit` re-entry keeps the same environment, so the resources step is skipped entirely.
+export const getInferenceSteps = (flowType: InferenceFlowType, edit = false): Step<InferenceStep>[] => [
   { key: 'model', label: 'Model', hidden: flowType === InferenceFlowType.Template },
   { key: 'template', label: 'Template', hidden: flowType !== InferenceFlowType.Template },
-  { key: 'resources', label: 'Resources' },
+  { key: 'resources', label: 'Resources', hidden: edit },
   { key: 'config', label: 'Config', hidden: flowType === InferenceFlowType.DefaultModel },
   { key: 'payment', label: 'Payment' },
 ];

@@ -20,6 +20,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
+  // Editing a running service: same env, no re-pay — hide the payment summary and relaunch instead.
+  const isEditMode = router.query.edit === '1';
   const {
     selectedEnv,
     selectedToken,
@@ -47,7 +49,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     if (selectedModels.length === 0) {
       router.replace({ pathname: '/inference/custom-models', query: router.query });
-    } else if (!selectedEnv) {
+    } else if (!selectedEnv && !isEditMode) {
+      // In edit mode the env is inherited from the running service and the resources step is skipped.
       router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
     } else if (selectedModels.some((model) => !modelParamsByModel[model.id])) {
       router.replace({ pathname: '/inference/custom-models/config', query: router.query });
@@ -59,6 +62,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedModels,
     selectedEnv,
     modelParamsByModel,
+    isEditMode,
     router,
   ]);
 
@@ -96,7 +100,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         moreReadable
         title="Inference"
         subTitle="Launch a model on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="payment" flowType={flowType} />}
+        contentBetween={<InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} />}
       />
       <div className="pageContentWrapper">
         {!hydrateFromUrlFinished ? (
@@ -108,16 +112,17 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         ) : (
           <>
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-              {/* Payment summary */}
-              {selectedEnv && selectedToken ? (
-                <InferencePayment
-                  durationSeconds={jobDurationSeconds}
-                  selectedEnv={selectedEnv}
-                  selectedToken={selectedToken}
-                />
-              ) : (
-                <div className="textSecondary">Select an environment first.</div>
-              )}
+              {/* Payment summary — hidden in edit mode (same env, no re-pay). */}
+              {!isEditMode &&
+                (selectedEnv && selectedToken ? (
+                  <InferencePayment
+                    durationSeconds={jobDurationSeconds}
+                    selectedEnv={selectedEnv}
+                    selectedToken={selectedToken}
+                  />
+                ) : (
+                  <div className="textSecondary">Select an environment first.</div>
+                ))}
 
               {/* Models */}
               {models.length > 0 && (
@@ -146,7 +151,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                 </>
               )}
             </Card>
-            <InferenceNavigation hideSelection nextLabel="Pay & launch" onNext={goToNextStep} onPrev={goToPrevStep} />
+            <InferenceNavigation
+              hideSelection
+              nextLabel={isEditMode ? 'Relaunch' : 'Pay & launch'}
+              onNext={goToNextStep}
+              onPrev={goToPrevStep}
+            />
           </>
         )}
       </div>

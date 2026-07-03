@@ -20,6 +20,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
+  // Editing a running service: env step was skipped, so prev goes back to the model picker.
+  const isEditMode = router.query.edit === '1';
   const {
     hfToken,
     setHfToken,
@@ -46,15 +48,18 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     }
     if (selectedModels.length === 0) {
       router.replace({ pathname: '/inference/custom-models', query: router.query });
-    } else if (!selectedEnv) {
+    } else if (!selectedEnv && !isEditMode) {
+      // In edit mode the env is inherited from the running service and the resources step is skipped.
       router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
     }
-  }, [isCustomModelFlow, hydrateFromUrlFinished, hydrationFailed, selectedModels.length, selectedEnv, router]);
+  }, [isCustomModelFlow, hydrateFromUrlFinished, hydrationFailed, selectedModels.length, selectedEnv, isEditMode, router]);
 
   const goToPrevStep = () => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
-        router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
+        // Edit re-entry skipped the resources step, so step back to the model picker instead.
+        const pathname = isEditMode ? '/inference/custom-models' : '/inference/custom-models/resources';
+        router.replace({ pathname, query: router.query });
         break;
       }
       case InferenceFlowType.Template: {
@@ -120,7 +125,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         moreReadable
         title="Inference"
         subTitle="Launch a model on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="config" flowType={flowType} />}
+        contentBetween={<InferenceStepper currentStep="config" edit={isEditMode} flowType={flowType} />}
       />
       {resolvingModels || hydrationFailed ? (
         <div className="pageContentWrapper">

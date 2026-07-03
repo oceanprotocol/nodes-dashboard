@@ -30,6 +30,8 @@ const CustomModelsPage: React.FC = () => {
 
   const { selectedModels, toggleModel, isModelSelected, buildSelectionQuery, clearSelection, hydrateFromUrlFinished } =
     useInferenceContext();
+  // Editing a running service: skip the env step (same env) and go straight to config on Continue.
+  const isEditMode = router.query.edit === '1';
   // Clear any leftover selection from a prior run when entering the picker fresh (no selection in the
   // URL). A Back-navigation into the picker carries `models` in the query, so that case is preserved.
   const freshEntryHandledRef = useRef(false);
@@ -141,7 +143,9 @@ const CustomModelsPage: React.FC = () => {
         moreReadable
         title="Inference"
         subTitle="Select a custom model to run on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="model" flowType={InferenceFlowType.CustomModel} />}
+        contentBetween={
+          <InferenceStepper currentStep="model" edit={isEditMode} flowType={InferenceFlowType.CustomModel} />
+        }
       />
       <div className="pageContentWrapper">
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -244,7 +248,12 @@ const CustomModelsPage: React.FC = () => {
         <InferenceNavigation
           nextDisabled={selectedModels.length === 0}
           nextLabel={selectedModels.length ? `Continue (${selectedModels.length})` : 'Continue'}
-          onNext={() => router.push({ pathname: '/inference/custom-models/resources', query: buildSelectionQuery() })}
+          onNext={() =>
+            router.push({
+              pathname: isEditMode ? '/inference/custom-models/config' : '/inference/custom-models/resources',
+              query: buildSelectionQuery(),
+            })
+          }
           onPrev={() => router.replace('/inference')}
           onRemoveModel={toggleModel}
         />

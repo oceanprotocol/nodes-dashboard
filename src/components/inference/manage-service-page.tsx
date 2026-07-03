@@ -217,9 +217,10 @@ const ManageServicePage: React.FC = () => {
     ? models.map((m) => getModelShortName(m.model.id)).join(' + ') || 'Custom selection'
     : mock.name;
 
-  // Edit → back to the model-selection step with the whole selection preselected on the query.
+  // Edit → back to the model-selection step with the whole selection preselected on the query. The
+  // `edit` flag makes the flow skip env selection & payment (same env, no re-pay) — see payment-page.
   const onEdit = () => {
-    router.push({ pathname: '/inference/custom-models', query: buildSelectionQuery() });
+    router.push({ pathname: '/inference/custom-models', query: { ...buildSelectionQuery(), edit: '1' } });
   };
 
   const service = { baseUrl: mock.baseUrl, bearer: mock.bearer, status: mock.status };
