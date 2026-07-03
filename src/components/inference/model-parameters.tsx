@@ -1,3 +1,4 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
@@ -21,6 +22,9 @@ import {
   ModelQuantization,
   ToolCallParser,
 } from '@/types/huggingface';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
@@ -73,8 +77,12 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
   );
 }
 
-function validateParams(v: ModelParametersType): Record<string, string> {
-  const errors: Record<string, string> = {};
+// Formik error shape: flat fields carry a string; customParams carries a per-row array (Formik
+// renders `errors.customParams[i].key`). Typed loosely so both can coexist on one errors object.
+type ParamErrors = Record<string, unknown>;
+
+function validateParams(v: ModelParametersType): ParamErrors {
+  const errors: ParamErrors = {};
   if (!v.servedModelName.trim()) {
     errors.servedModelName = 'Required.';
   }
@@ -86,20 +94,24 @@ function validateParams(v: ModelParametersType): Record<string, string> {
   if (v.gpuMemoryUtilization <= 0 || v.gpuMemoryUtilization > b.gpuMemoryUtilization.max) {
     errors.gpuMemoryUtilization = `Must be above 0 and at most ${b.gpuMemoryUtilization.max}.`;
   }
-  if (v.temperature < b.temperature.min || v.temperature > b.temperature.max) {
-    errors.temperature = `Must be between ${b.temperature.min} and ${b.temperature.max}.`;
-  }
-  if (v.topP < b.topP.min || v.topP > b.topP.max) {
-    errors.topP = `Must be between ${b.topP.min} and ${b.topP.max}.`;
-  }
-  if (v.topK !== -1 && (v.topK < b.topK.min || v.topK > b.topK.max)) {
-    errors.topK = `Must be -1 (off) or between ${b.topK.min} and ${b.topK.max}.`;
-  }
-  if (v.repetitionPenalty < b.repetitionPenalty.min || v.repetitionPenalty > b.repetitionPenalty.max) {
-    errors.repetitionPenalty = `Must be between ${b.repetitionPenalty.min} and ${b.repetitionPenalty.max}.`;
-  }
   if (v.toolCalling && !v.toolCallParser) {
     errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
+  }
+  // Custom params (env-var style): the only rule is non-empty, unique keys. Values are free-form.
+  const seen = new Map<string, number>();
+  const paramErrors: { key?: string }[] = [];
+  v.customParams.forEach((param, index) => {
+    const trimmed = param.key.trim();
+    if (!trimmed) {
+      paramErrors[index] = { key: 'Key is required.' };
+    } else if (seen.has(trimmed)) {
+      paramErrors[index] = { key: 'Duplicate key.' };
+    } else {
+      seen.set(trimmed, index);
+    }
+  });
+  if (paramErrors.some(Boolean)) {
+    errors.customParams = paramErrors;
   }
   return errors;
 }
@@ -236,6 +248,24 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const errorFor = (field: keyof ModelParametersType) =>
     formik.touched[field] ? (formik.errors[field] as string | undefined) : undefined;
 
+  // Per-row custom-param key error (Formik nests these as errors.customParams[i].key).
+  const customParamKeyError = (index: number): string | undefined => {
+    const rowErrors = formik.errors.customParams as { key?: string }[] | undefined;
+    const rowTouched = (formik.touched.customParams as { key?: boolean }[] | undefined)?.[index];
+    return rowTouched?.key ? rowErrors?.[index]?.key : undefined;
+  };
+
+  const addCustomParam = () => {
+    formik.setFieldValue('customParams', [...formik.values.customParams, { key: '', value: '' }]);
+  };
+
+  const removeCustomParam = (index: number) => {
+    formik.setFieldValue(
+      'customParams',
+      formik.values.customParams.filter((_, i) => i !== index)
+    );
+  };
+
   // Re-fetch HF defaults for the current token + pinned revision, then reset the form to them.
   // The entered revision is preserved — buildDefaults blanks it, but it's what we just fetched against.
   const reloadDefaults = () => {
@@ -265,10 +295,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       validateAndGet: async () => {
         const errors = await formik.validateForm();
         if (Object.keys(errors).length > 0) {
-          formik.setTouched(
-            Object.keys(errors).reduce((acc, key) => ({ ...acc, [key]: true }), {}),
-            false
-          );
+          // Mark every errored field touched so its message shows. customParams errors are a
+          // per-row array — mirror that shape so Formik surfaces each row's key error.
+          const touched = Object.keys(errors).reduce<Record<string, unknown>>((acc, key) => {
+            if (key === 'customParams' && Array.isArray(errors.customParams)) {
+              acc.customParams = (errors.customParams as unknown[]).map((rowError) => (rowError ? { key: true } : {}));
+            } else {
+              acc[key] = true;
+            }
+            return acc;
+          }, {});
+          formik.setTouched(touched, false);
           setOpen(true);
           return null;
         }
@@ -303,8 +340,16 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="lg" variant="glass-shaded">
       <div>
         <button aria-expanded={open} className={styles.head} onClick={() => setOpen(!open)} type="button">
-          <span className={styles.headName}>{getModelShortName(modelId)}</span>
-          <ExpandMoreIcon className={cx(styles.chevron, { [styles.chevronOpen]: open })} />
+          <h3 className={styles.headName}>{getModelShortName(modelId)}</h3>
+          <Button
+            color="accent1"
+            contentBefore={open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            size="sm"
+            type="button"
+            variant="transparent"
+          >
+            {open ? 'Hide' : 'Parameters'}
+          </Button>
         </button>
         {reloadStatus === 'loading' ? (
           <div className={cx(styles.notice, styles.noticeRow)}>
@@ -327,101 +372,71 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       </div>
       <Collapse in={open} unmountOnExit>
         <section className={styles.section}>
-          {/* Generation defaults only apply to text-sampling models; hidden (and left at neutral
-              defaults) for embeddings/etc. so we don't commit params the summary would then drop. */}
-          {isGenerative && (
-            <>
-              {/* Model — generation defaults the model recommends; applied when a request omits them. */}
-              <div className={styles.subsection}>
-                <div className={styles.subsectionHead}>
-                  <h4 className={styles.subsectionTitle}>Generation defaults</h4>
-                  <span className={styles.subsectionHint}>
-                    Used when a request doesn’t set its own — clients can still override per call.
-                  </span>
-                </div>
-                <div className={styles.grid}>
-                  <div className={styles.column}>
-                    <Slider
-                      hint="temperature"
-                      label={labelWithInfo(
-                        `Temperature - ${formik.values.temperature.toFixed(2)}`,
-                        'How random the output is. 0 = deterministic (always the most likely token); higher = more varied and creative. Around 0.7 suits chat; near 0 suits extraction/code. Seeded from the model’s own recommendation when it ships one.'
-                      )}
-                      max={MODEL_PARAM_BOUNDS.temperature.max}
-                      min={MODEL_PARAM_BOUNDS.temperature.min}
-                      name="temperature"
-                      onChange={(_, value) => formik.setFieldValue('temperature', value)}
-                      step={0.05}
-                      topRight={`${MODEL_PARAM_BOUNDS.temperature.min} - ${MODEL_PARAM_BOUNDS.temperature.max}`}
-                      value={formik.values.temperature}
-                      valueLabelFormat={(value) => Number(value).toFixed(2)}
-                    />
-                    <Slider
-                      hint="top_p"
-                      label={labelWithInfo(
-                        `Top P - ${formik.values.topP.toFixed(2)}`,
-                        'Nucleus sampling: consider only the most likely tokens whose probabilities add up to this fraction. 1.0 = consider all; lower trims the unlikely tail for tighter output. Usually leave at 1.0 and steer with temperature instead.'
-                      )}
-                      max={MODEL_PARAM_BOUNDS.topP.max}
-                      min={MODEL_PARAM_BOUNDS.topP.min}
-                      name="topP"
-                      onChange={(_, value) => formik.setFieldValue('topP', value)}
-                      step={0.01}
-                      topRight={`${MODEL_PARAM_BOUNDS.topP.min} - ${MODEL_PARAM_BOUNDS.topP.max}`}
-                      value={formik.values.topP}
-                      valueLabelFormat={(value) => Number(value).toFixed(2)}
-                    />
-                  </div>
-                  <div className={styles.column}>
+          {/* Custom parameters — arbitrary key/value pairs (env-var style). No fixed schema; any
+              param can be set on any model. Only rule: non-empty, unique keys. */}
+          <div className={styles.subsection}>
+            <div className={styles.subsectionHead}>
+              <div>
+                <h4>Model parameters</h4>
+                <div className="textSecondary">Custom key/value pairs passed to the model at launch</div>
+              </div>
+              <Button
+                color="accent2"
+                contentBefore={<AddIcon />}
+                onClick={addCustomParam}
+                size="md"
+                type="button"
+                variant="filled"
+              >
+                Add parameter
+              </Button>
+            </div>
+            {formik.values.customParams.length > 0 && (
+              <div className={styles.paramRows}>
+                {formik.values.customParams.map((param, index) => (
+                  <div className={styles.paramRow} key={index}>
                     <Input
                       size="sm"
-                      errorText={errorFor('topK')}
-                      hint="top_k"
-                      label={labelWithInfo(
-                        'Top K',
-                        'Consider only the K most likely tokens at each step. -1 disables it (no cap). A hard cousin of Top P — a fixed count rather than a probability mass. -1 is the common default.'
-                      )}
-                      name="topK"
+                      errorText={customParamKeyError(index)}
+                      name={`customParams.${index}.key`}
                       onBlur={formik.handleBlur}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        // Keep the field numeric; empty input falls back to -1 (off).
-                        formik.setFieldValue('topK', next === '' ? -1 : Number(next));
-                      }}
-                      placeholder="-1"
-                      type="number"
-                      value={formik.values.topK}
+                      onChange={formik.handleChange}
+                      startAdornment="Key"
+                      type="text"
+                      value={param.key}
                     />
-                    <Slider
-                      hint="repetition_penalty"
-                      label={labelWithInfo(
-                        `Repetition penalty - ${formik.values.repetitionPenalty.toFixed(2)}`,
-                        'Discourages repeating tokens already generated. 1.0 = no penalty; above 1.0 pushes the model to vary its wording. Nudge up slightly if a model loops or repeats itself.'
-                      )}
-                      max={MODEL_PARAM_BOUNDS.repetitionPenalty.max}
-                      min={MODEL_PARAM_BOUNDS.repetitionPenalty.min}
-                      name="repetitionPenalty"
-                      onChange={(_, value) => formik.setFieldValue('repetitionPenalty', value)}
-                      step={0.01}
-                      topRight={`${MODEL_PARAM_BOUNDS.repetitionPenalty.min} - ${MODEL_PARAM_BOUNDS.repetitionPenalty.max}`}
-                      value={formik.values.repetitionPenalty}
-                      valueLabelFormat={(value) => Number(value).toFixed(2)}
+                    <Input
+                      className={styles.paramValueInput}
+                      size="sm"
+                      name={`customParams.${index}.value`}
+                      onBlur={formik.handleBlur}
+                      onChange={formik.handleChange}
+                      startAdornment="Val"
+                      type="text"
+                      value={param.value}
                     />
+                    <Button
+                      color="accent1"
+                      onClick={() => removeCustomParam(index)}
+                      size="md-const"
+                      type="button"
+                      variant="outlined"
+                    >
+                      <DeleteOutlineIcon />
+                    </Button>
                   </div>
-                </div>
+                ))}
               </div>
+            )}
+          </div>
 
-              <div className={styles.divider} />
-            </>
-          )}
+          <div className={styles.divider} />
 
           {/* vLLM engine — cold launch flags: how the server loads and runs the model. */}
           <div className={styles.subsection}>
-            <div className={styles.subsectionHead}>
-              <h4 className={styles.subsectionTitle}>vLLM Launch flags</h4>
-              <span className={styles.subsectionHint}>
-                Fixed when the model starts — changing them requires a restart.
-              </span>
+            <div>
+              <h4>vLLM Launch flags</h4>
+              <div className="textSecondary">Fixed when the model starts — changing them requires a restart</div>
             </div>
             <div className={styles.grid}>
               <div className={styles.column}>

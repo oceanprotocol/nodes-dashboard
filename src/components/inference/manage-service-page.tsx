@@ -43,10 +43,10 @@ function getMockService(id: string) {
       model: { id: 'Qwen/Qwen3-8B', author: 'Qwen', pipelineTag: 'text-generation' },
       params: {
         servedModelName: 'qwen3-8b',
-        temperature: 0.7,
-        topP: 0.8,
-        topK: 20,
-        repetitionPenalty: 1.05,
+        customParams: [
+          { key: 'temperature', value: '0.7' },
+          { key: 'top_p', value: '0.8' },
+        ],
         maxContext: 32768,
         gpuMemoryUtilization: 0.9,
         quantization: 'none',
@@ -63,10 +63,7 @@ function getMockService(id: string) {
       model: { id: 'BAAI/bge-large-en-v1.5', author: 'BAAI', pipelineTag: 'feature-extraction' },
       params: {
         servedModelName: 'bge-large',
-        temperature: 1,
-        topP: 1,
-        topK: -1,
-        repetitionPenalty: 1,
+        customParams: [],
         maxContext: 8192,
         gpuMemoryUtilization: 0.4,
         quantization: 'none',

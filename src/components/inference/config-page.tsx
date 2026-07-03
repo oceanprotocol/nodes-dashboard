@@ -165,7 +165,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
               </Card>
               {modelIds.map((id) => (
                 <ModelParameters
-                  defaultOpen={true}
+                  defaultOpen={false}
                   key={id}
                   modelId={id}
                   ref={(handle) => {

@@ -7,16 +7,6 @@ export type HuggingFaceModelConfig = {
   quantizationMethod: string | null;
   /** True when the model's chat template references tools — a prerequisite for vLLM tool calling. */
   supportsTools: boolean;
-  /** Recommended generation defaults shipped by the model in generation_config.json (null when absent). */
-  generation: ModelGenerationDefaults;
-};
-
-/** Sampling defaults a model ships in generation_config.json. Any field is null when the model omits it. */
-export type ModelGenerationDefaults = {
-  temperature: number | null;
-  topP: number | null;
-  topK: number | null;
-  repetitionPenalty: number | null;
 };
 
 export type ModelQuantization = 'none' | 'fp8' | 'awq' | 'gptq';
@@ -36,25 +26,25 @@ export type ToolCallParser =
   | 'deepseek_v3'
   | 'pythonic';
 
+/** A user-defined launch parameter — an arbitrary key/value pair, like a Vercel env var. */
+export type CustomParam = {
+  key: string;
+  value: string;
+};
+
 /**
  * Launch-time configuration for a custom model, in two groups:
  *
- * 1. Generation defaults — sampling behaviour the model is served with. The endpoint is
- *    OpenAI-compatible, so clients may send temperature/top_p/etc. per request and those win; these
- *    values are the server defaults applied whenever a request omits them (vLLM
- *    `--override-generation-config`). Seeded from the model's own generation_config.json.
+ * 1. Custom parameters — arbitrary key/value pairs the user adds (like env vars). No fixed schema or
+ *    validation beyond non-empty, unique keys; any param can be set on any model.
  * 2. vLLM engine (cold) flags — how the server loads and runs the model. Fixed at launch.
  */
 export type ModelParameters = {
   // Identity / integration.
   servedModelName: string;
 
-  // Generation defaults (model-specific sampling — used when a request doesn't override them).
-  temperature: number;
-  topP: number;
-  /** -1 disables top-k (consider all tokens). */
-  topK: number;
-  repetitionPenalty: number;
+  // Arbitrary user-defined key/value params (like env vars).
+  customParams: CustomParam[];
 
   // Cold engine flags (vLLM-specific).
   maxContext: number;

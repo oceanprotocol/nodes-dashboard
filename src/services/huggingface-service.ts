@@ -49,19 +49,6 @@ type RawHfTokenizerConfig = {
   chat_template?: string | { name?: string; template?: string }[];
 };
 
-/** Recommended sampling defaults some models ship alongside their weights. */
-type RawHfGenerationConfig = {
-  temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  repetition_penalty?: number;
-};
-
-/** Coerce a raw JSON value to a finite number, else null (guards against strings/NaN in HF configs). */
-function finiteOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 /** A chat template references tools when it mentions the `tools`/`tool_calls` variables vLLM feeds it. */
 function chatTemplateSupportsTools(chatTemplate: RawHfTokenizerConfig['chat_template']): boolean {
   const templates = Array.isArray(chatTemplate) ? chatTemplate.map((t) => t.template ?? '') : [chatTemplate ?? ''];
@@ -328,13 +315,11 @@ export async function fetchHuggingFaceModelConfig(
   token?: string,
   revision?: string
 ): Promise<HuggingFaceModelConfig> {
-  const [config, tokenizerConfig, chatTemplateFile, generationConfig] = await Promise.all([
+  const [config, tokenizerConfig, chatTemplateFile] = await Promise.all([
     fetchModelFile<RawHfConfig>(modelId, 'config.json', token, revision),
     fetchModelFile<RawHfTokenizerConfig>(modelId, 'tokenizer_config.json', token, revision),
     // Some models ship the chat template as a standalone file instead of inside tokenizer_config.json.
     fetchModelTextFile(modelId, 'chat_template.jinja', token, revision),
-    // Optional — many models omit it; missing/failed fetch just leaves generation defaults null.
-    fetchModelFile<RawHfGenerationConfig>(modelId, 'generation_config.json', token, revision),
   ]);
 
   const supportsTools =
@@ -348,12 +333,6 @@ export async function fetchHuggingFaceModelConfig(
     torchDtype: config?.torch_dtype ?? null,
     quantizationMethod: config?.quantization_config?.quant_method ?? null,
     supportsTools,
-    generation: {
-      temperature: finiteOrNull(generationConfig?.temperature),
-      topP: finiteOrNull(generationConfig?.top_p),
-      topK: finiteOrNull(generationConfig?.top_k),
-      repetitionPenalty: finiteOrNull(generationConfig?.repetition_penalty),
-    },
   };
 }
 
@@ -413,23 +392,14 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
 // vLLM launch-param defaults, used when the model config doesn't pin a value.
 const DEFAULT_MAX_CONTEXT = 32768;
 const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
-// Neutral sampling defaults (vLLM's own) used when the model ships no generation_config.json.
-const DEFAULT_TEMPERATURE = 1;
-const DEFAULT_TOP_P = 1;
-const DEFAULT_TOP_K = -1; // -1 = disabled (consider all tokens)
-const DEFAULT_REPETITION_PENALTY = 1;
 
 /**
  * Allowed [min, max] range for each numeric launch param — the single source for both the form's
- * sliders/validation and the config clamp. `topK` also accepts -1 (off) outside this range.
+ * sliders/validation and the config clamp.
  */
 export const MODEL_PARAM_BOUNDS = {
   maxContext: { min: 1024, max: 131072 },
   gpuMemoryUtilization: { min: 0, max: 1 },
-  temperature: { min: 0, max: 2 },
-  topP: { min: 0.01, max: 1 },
-  topK: { min: 1, max: 200 },
-  repetitionPenalty: { min: 1, max: 2 },
 } as const;
 
 function mapTorchDtype(torchDtype: string | null): ModelDtype {
@@ -474,15 +444,10 @@ export function mapQuantization(method: string | null): ModelQuantization | null
  */
 export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelId: string): ModelParameters {
   const lockedQuant = mapQuantization(config?.quantizationMethod ?? null);
-  const gen = config?.generation;
   return {
     servedModelName: getModelShortName(modelId),
-    // Generation defaults — the model's own recommendation when present, else vLLM's neutral defaults.
-    temperature: gen?.temperature ?? DEFAULT_TEMPERATURE,
-    topP: gen?.topP ?? DEFAULT_TOP_P,
-    // HF uses top_k: 0 to mean "disabled"; our form/validation represent that as -1.
-    topK: gen?.topK === 0 || gen?.topK == null ? DEFAULT_TOP_K : gen.topK,
-    repetitionPenalty: gen?.repetitionPenalty ?? DEFAULT_REPETITION_PENALTY,
+    // User-defined key/value params — none by default; the user adds them like env vars.
+    customParams: [],
     maxContext: Math.max(
       MODEL_PARAM_BOUNDS.maxContext.min,
       Math.min(config?.maxContext ?? DEFAULT_MAX_CONTEXT, MODEL_PARAM_BOUNDS.maxContext.max)

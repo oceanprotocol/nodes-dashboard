@@ -1,5 +1,5 @@
 import Card from '@/components/card/card';
-import { getModelAvatarUrl, getModelShortName, isGenerativePipeline } from '@/services/huggingface-service';
+import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
@@ -26,7 +26,7 @@ function prettyPipeline(tag?: string): string {
 type ParamRow = {
   label: string;
   value: React.ReactNode;
-  flag: string;
+  flag?: string;
 };
 
 type ParamGroup = {
@@ -60,19 +60,11 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
       ].filter(Boolean) as string[])
     : [];
 
-  // Sampling defaults only apply to generative pipelines; embeddings etc. don't sample.
-  const isGenerative = isGenerativePipeline(model.pipelineTag);
-
-  const generationRows: ParamRow[] = [
-    { label: 'Temperature', value: show(params?.temperature, (v) => v.toFixed(2)), flag: 'temperature' },
-    { label: 'Top P', value: show(params?.topP, (v) => v.toFixed(2)), flag: 'top_p' },
-    { label: 'Top K', value: show(params?.topK, (v) => (v === -1 ? 'Off' : v)), flag: 'top_k' },
-    {
-      label: 'Repetition penalty',
-      value: show(params?.repetitionPenalty, (v) => v.toFixed(2)),
-      flag: 'repetition_penalty',
-    },
-  ];
+  // User-defined key/value params (env-var style). Each becomes a row; the flag is its key.
+  const customRows: ParamRow[] = (params?.customParams ?? []).map((param) => ({
+    label: param.key,
+    value: param.value || 'N/A',
+  }));
 
   const engineRows: ParamRow[] = [
     { label: 'Max context', value: show(params?.maxContext, (v) => v.toLocaleString()), flag: '--max-model-len' },
@@ -103,7 +95,7 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
   ];
 
   const groups: ParamGroup[] = [
-    ...(isGenerative ? [{ eyebrow: 'Model · generation', rows: generationRows }] : []),
+    ...(customRows.length > 0 ? [{ eyebrow: 'Model parameters', rows: customRows }] : []),
     { eyebrow: 'vLLM engine', rows: engineRows },
   ];
 

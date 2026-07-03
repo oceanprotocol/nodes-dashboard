@@ -27,16 +27,6 @@
   white-space: nowrap;
 }
 
-.chevron {
-  flex-shrink: 0;
-  color: var(--text-secondary);
-  transition: transform 0.2s ease;
-
-  &.chevronOpen {
-    transform: rotate(180deg);
-  }
-}
-
 .notice {
   margin: 12px 0;
   padding: 10px 14px;
@@ -76,23 +66,14 @@
 .subsection {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
+  gap: 24px;
 
-.subsectionHead {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-
-  .subsectionTitle {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-  }
-
-  .subsectionHint {
-    font-size: 13px;
-    color: var(--text-secondary);
+  .subsectionHead {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
   }
 }
 
@@ -111,7 +92,7 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .labelWithInfo {
@@ -119,4 +100,33 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+/* Custom key/value param rows (env-var style editor). */
+.paramRows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .paramRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+
+    .paramValueInput {
+      grid-row: 2;
+      grid-column: 1 / span 2;
+    }
+
+    @media (min-width: 576px) {
+      align-items: start;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+
+      .paramValueInput {
+        grid-row: 1;
+        grid-column: 2;
+      }
+    }
+  }
 }
