@@ -2,7 +2,6 @@ import Card from '@/components/card/card';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { HuggingFaceModel } from '@/types/huggingface';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import CheckIcon from '@mui/icons-material/Check';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import classNames from 'classnames';
@@ -61,13 +60,8 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle
       padding="sm"
       radius="md"
       spacing="sm"
-      variant="glass-shaded"
+      variant={selected ? 'accent2' : 'glass-shaded'}
     >
-      {selected && (
-        <span className={styles.check}>
-          <CheckIcon fontSize="small" />
-        </span>
-      )}
       <div className={styles.header}>
         <div className={styles.avatar}>
           {avatarUrl && !avatarFailed ? (

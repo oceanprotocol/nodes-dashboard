@@ -66,7 +66,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                   </div>
                   <div className={styles.grid}>
                     {selectedModels.map((model) => (
-                      <ModelCard key={model.id} model={model} onToggle={onRemoveModel} selected={!!onRemoveModel} />
+                      <ModelCard key={model.id} model={model} onToggle={onRemoveModel} />
                     ))}
                   </div>
                 </div>
