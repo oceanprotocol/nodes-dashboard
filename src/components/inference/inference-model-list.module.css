@@ -82,12 +82,34 @@
   }
 }
 
+/* Expanded launch params, split into labelled groups: model generation vs. vLLM engine. */
+.paramsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 12px 24px 24px;
+}
+
+.paramGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.paramGroupEyebrow {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent1);
+}
+
 .paramsGrid {
   display: grid;
   gap: 12px 32px;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   margin: 0;
-  padding: 12px 24px 24px;
+  padding: 0;
 
   .paramItem {
     display: grid;

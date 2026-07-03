@@ -1,7 +1,8 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
-import InferenceModelList, { fallbackParams, ServiceModel } from '@/components/inference/inference-model-list';
+import InferenceHydrationError from '@/components/inference/inference-hydration-error';
+import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferencePayment from '@/components/inference/inference-payment';
 import InferenceStepper from '@/components/inference/inference-stepper';
@@ -12,12 +13,13 @@ import { InferenceFlowType } from '@/types/inference';
 import { formatDuration } from '@/utils/formatters';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import styles from './payment-page.module.css';
 
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
+  const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
   const {
     selectedEnv,
     selectedToken,
@@ -25,18 +27,40 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedModels,
     modelParamsByModel,
     hydrateFromUrlFinished,
+    hydrationFailed,
     buildSelectionQuery,
   } = useInferenceContext();
 
-  // Selected models paired with their committed launch params (falling back where none are set).
+  // Pair each selected model with the launch params committed in the config step. Params come
+  // straight from context (no fallback) — a model without them renders its values as N/A.
   const models: ServiceModel[] = useMemo(
-    () =>
-      selectedModels.map((model) => ({
-        model,
-        params: modelParamsByModel[model.id] ?? fallbackParams(model.id),
-      })),
+    () => selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] })),
     [selectedModels, modelParamsByModel]
   );
+
+  // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
+  // without a complete selection: no models → picker, no env → resources, unconfigured model → config.
+  // Skipped when hydration failed — we show a retry instead of discarding the URL selection.
+  useEffect(() => {
+    if (!isCustomModelFlow || !hydrateFromUrlFinished || hydrationFailed) {
+      return;
+    }
+    if (selectedModels.length === 0) {
+      router.replace({ pathname: '/inference/custom-models', query: router.query });
+    } else if (!selectedEnv) {
+      router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
+    } else if (selectedModels.some((model) => !modelParamsByModel[model.id])) {
+      router.replace({ pathname: '/inference/custom-models/config', query: router.query });
+    }
+  }, [
+    isCustomModelFlow,
+    hydrateFromUrlFinished,
+    hydrationFailed,
+    selectedModels,
+    selectedEnv,
+    modelParamsByModel,
+    router,
+  ]);
 
   const goToPrevStep = () => {
     switch (flowType) {
@@ -79,49 +103,52 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <div className="textSecondary">Loading selection…</div>
           </Card>
+        ) : hydrationFailed ? (
+          <InferenceHydrationError />
         ) : (
-          <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-            {/* Payment summary */}
-            {selectedEnv && selectedToken ? (
-              <InferencePayment
-                durationSeconds={jobDurationSeconds}
-                selectedEnv={selectedEnv}
-                selectedToken={selectedToken}
-              />
-            ) : (
-              <div className="textSecondary">Select an environment first.</div>
-            )}
-
-            {/* Models */}
-            {models.length > 0 && (
-              <>
-                <div className={styles.sectionHead}>
-                  <h3>Models</h3>
-                  <span className="textSecondary">{models.length} selected · expand for launch parameters</span>
-                </div>
-                <InferenceModelList models={models} />
-              </>
-            )}
-            {/* Environment */}
-            {selectedEnv && (
-              <>
-                <div className={styles.sectionHead}>
-                  <h3>Environment</h3>
-                  <span className="textSecondary">Running for {formatDuration(jobDurationSeconds)}</span>
-                </div>
-                <InferenceEnvironmentCard
-                  defaultToken={selectedToken?.address}
+          <>
+            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+              {/* Payment summary */}
+              {selectedEnv && selectedToken ? (
+                <InferencePayment
                   durationSeconds={jobDurationSeconds}
-                  environment={selectedEnv.environment}
-                  gpuSelection={selectedEnv.gpuSelection}
-                  nodeInfo={selectedEnv.nodeInfo}
+                  selectedEnv={selectedEnv}
+                  selectedToken={selectedToken}
                 />
-              </>
-            )}
-          </Card>
-        )}
+              ) : (
+                <div className="textSecondary">Select an environment first.</div>
+              )}
 
-        <InferenceNavigation hideSelection nextLabel="Pay & launch" onNext={goToNextStep} onPrev={goToPrevStep} />
+              {/* Models */}
+              {models.length > 0 && (
+                <>
+                  <div className={styles.sectionHead}>
+                    <h3>Models</h3>
+                    <span className="textSecondary">{models.length} selected · expand for launch parameters</span>
+                  </div>
+                  <InferenceModelList models={models} />
+                </>
+              )}
+              {/* Environment */}
+              {selectedEnv && (
+                <>
+                  <div className={styles.sectionHead}>
+                    <h3>Environment</h3>
+                    <span className="textSecondary">Running for {formatDuration(jobDurationSeconds)}</span>
+                  </div>
+                  <InferenceEnvironmentCard
+                    defaultToken={selectedToken?.address}
+                    durationSeconds={jobDurationSeconds}
+                    environment={selectedEnv.environment}
+                    gpuSelection={selectedEnv.gpuSelection}
+                    nodeInfo={selectedEnv.nodeInfo}
+                  />
+                </>
+              )}
+            </Card>
+            <InferenceNavigation hideSelection nextLabel="Pay & launch" onNext={goToNextStep} onPrev={goToPrevStep} />
+          </>
+        )}
       </div>
     </Container>
   );

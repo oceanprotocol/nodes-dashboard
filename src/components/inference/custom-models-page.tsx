@@ -20,7 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './custom-models-page.module.css';
 
 const VISIBLE_TAG_COUNT = 9;
@@ -28,7 +28,20 @@ const VISIBLE_TAG_COUNT = 9;
 const CustomModelsPage: React.FC = () => {
   const router = useRouter();
 
-  const { selectedModels, toggleModel, isModelSelected, buildSelectionQuery } = useInferenceContext();
+  const { selectedModels, toggleModel, isModelSelected, buildSelectionQuery, clearSelection, hydrateFromUrlFinished } =
+    useInferenceContext();
+  // Clear any leftover selection from a prior run when entering the picker fresh (no selection in the
+  // URL). A Back-navigation into the picker carries `models` in the query, so that case is preserved.
+  const freshEntryHandledRef = useRef(false);
+  useEffect(() => {
+    if (freshEntryHandledRef.current || !router.isReady || !hydrateFromUrlFinished) {
+      return;
+    }
+    freshEntryHandledRef.current = true;
+    if (!router.query.models) {
+      clearSelection();
+    }
+  }, [router.isReady, router.query.models, hydrateFromUrlFinished, clearSelection]);
 
   const [models, setModels] = useState<HuggingFaceModel[]>([]);
   const [loading, setLoading] = useState(true);

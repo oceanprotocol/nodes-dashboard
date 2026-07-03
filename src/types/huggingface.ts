@@ -7,6 +7,16 @@ export type HuggingFaceModelConfig = {
   quantizationMethod: string | null;
   /** True when the model's chat template references tools — a prerequisite for vLLM tool calling. */
   supportsTools: boolean;
+  /** Recommended generation defaults shipped by the model in generation_config.json (null when absent). */
+  generation: ModelGenerationDefaults;
+};
+
+/** Sampling defaults a model ships in generation_config.json. Any field is null when the model omits it. */
+export type ModelGenerationDefaults = {
+  temperature: number | null;
+  topP: number | null;
+  topK: number | null;
+  repetitionPenalty: number | null;
 };
 
 export type ModelQuantization = 'none' | 'fp8' | 'awq' | 'gptq';
@@ -27,13 +37,26 @@ export type ToolCallParser =
   | 'pythonic';
 
 /**
- * vLLM engine (cold) launch flags for a custom model.
- * Sampling params absent: the exposed endpoint is OpenAI-compatible, so clients send temperature/top_p/etc. on every request and override any launch defaults
+ * Launch-time configuration for a custom model, in two groups:
+ *
+ * 1. Generation defaults — sampling behaviour the model is served with. The endpoint is
+ *    OpenAI-compatible, so clients may send temperature/top_p/etc. per request and those win; these
+ *    values are the server defaults applied whenever a request omits them (vLLM
+ *    `--override-generation-config`). Seeded from the model's own generation_config.json.
+ * 2. vLLM engine (cold) flags — how the server loads and runs the model. Fixed at launch.
  */
 export type ModelParameters = {
   // Identity / integration.
   servedModelName: string;
-  // Cold engine flags.
+
+  // Generation defaults (model-specific sampling — used when a request doesn't override them).
+  temperature: number;
+  topP: number;
+  /** -1 disables top-k (consider all tokens). */
+  topK: number;
+  repetitionPenalty: number;
+
+  // Cold engine flags (vLLM-specific).
   maxContext: number;
   gpuMemoryUtilization: number;
   quantization: ModelQuantization;

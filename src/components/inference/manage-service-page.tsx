@@ -3,7 +3,7 @@ import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
-import InferenceModelList, { fallbackParams, ServiceModel } from '@/components/inference/inference-model-list';
+import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
@@ -43,6 +43,10 @@ function getMockService(id: string) {
       model: { id: 'Qwen/Qwen3-8B', author: 'Qwen', pipelineTag: 'text-generation' },
       params: {
         servedModelName: 'qwen3-8b',
+        temperature: 0.7,
+        topP: 0.8,
+        topK: 20,
+        repetitionPenalty: 1.05,
         maxContext: 32768,
         gpuMemoryUtilization: 0.9,
         quantization: 'none',
@@ -59,6 +63,10 @@ function getMockService(id: string) {
       model: { id: 'BAAI/bge-large-en-v1.5', author: 'BAAI', pipelineTag: 'feature-extraction' },
       params: {
         servedModelName: 'bge-large',
+        temperature: 1,
+        topP: 1,
+        topK: -1,
+        repetitionPenalty: 1,
         maxContext: 8192,
         gpuMemoryUtilization: 0.4,
         quantization: 'none',
@@ -197,10 +205,8 @@ const ManageServicePage: React.FC = () => {
     if (!hasSelection) {
       return mock.models;
     }
-    return selectedModels.map((model) => ({
-      model,
-      params: modelParamsByModel[model.id] ?? fallbackParams(model.id),
-    }));
+    // Params come from context (committed in the config step); a model missing them renders as N/A.
+    return selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSelection, selectedModels, modelParamsByModel]);
 
@@ -221,7 +227,7 @@ const ManageServicePage: React.FC = () => {
 
   const service = { baseUrl: mock.baseUrl, bearer: mock.bearer, status: mock.status };
   const maskedBearer = `${service.bearer.slice(0, 3)}${'•'.repeat(20)}`;
-  const primaryModelName = models[0]?.params.servedModelName ?? 'model';
+  const primaryModelName = models[0]?.params?.servedModelName ?? 'model';
 
   const curlSnippet = `# quick test
 curl $BASE/api/chat \\

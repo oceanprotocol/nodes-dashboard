@@ -1,5 +1,5 @@
 import Card from '@/components/card/card';
-import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
+import { getModelAvatarUrl, getModelShortName, isGenerativePipeline } from '@/services/huggingface-service';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
@@ -9,25 +9,9 @@ import styles from './inference-model-list.module.css';
 
 export type ServiceModel = {
   model: HuggingFaceModel;
-  params: ModelParameters;
+  /** Committed launch params. Undefined when a model was never configured — rendered as N/A. */
+  params?: ModelParameters;
 };
-
-/** Params fall back to these when a model in the selection has none committed yet. */
-export function fallbackParams(modelId: string): ModelParameters {
-  return {
-    servedModelName: getModelShortName(modelId),
-    maxContext: 32768,
-    gpuMemoryUtilization: 0.9,
-    quantization: 'none',
-    dtype: 'auto',
-    kvCacheDtype: 'auto',
-    trustRemoteCode: false,
-    enforceEager: false,
-    revision: '',
-    toolCalling: false,
-    toolCallParser: null,
-  };
-}
 
 function prettyPipeline(tag?: string): string {
   if (!tag) {
@@ -45,6 +29,12 @@ type ParamRow = {
   flag: string;
 };
 
+type ParamGroup = {
+  /** Whose setting this is — the model's own generation defaults vs. the vLLM engine flags. */
+  eyebrow: string;
+  rows: ParamRow[];
+};
+
 /** Compact model row — served name + key specs inline, full launch params in a collapsible panel. */
 const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
   const [open, setOpen] = useState(false);
@@ -53,25 +43,68 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
   const avatarUrl = getModelAvatarUrl(model);
   const initial = (model.author ?? model.id).charAt(0).toUpperCase();
 
-  // Headline specs shown inline; the rest live behind the toggle.
-  const specs = [
-    `${params.maxContext.toLocaleString()} ctx`,
-    params.dtype,
-    params.quantization !== 'none' && params.quantization,
-    params.toolCalling && 'tools',
-  ].filter(Boolean) as string[];
+  // Render a single param value, or N/A when the model has no params or that field is missing
+  // (e.g. a params object hydrated from an older URL that predates a field). Guards per-field, not
+  // just per-object, so a partial object degrades to N/A instead of throwing.
+  const show = <T,>(value: T | null | undefined, format: (v: T) => React.ReactNode): React.ReactNode =>
+    value === null || value === undefined ? 'N/A' : format(value);
 
-  const rows: ParamRow[] = [
-    { label: 'GPU memory', value: params.gpuMemoryUtilization.toFixed(2), flag: '--gpu-memory-utilization' },
-    { label: 'KV cache', value: params.kvCacheDtype, flag: '--kv-cache-dtype' },
-    { label: 'Revision', value: params.revision || 'main', flag: '--revision' },
-    { label: 'Trust remote code', value: params.trustRemoteCode ? 'On' : 'Off', flag: '--trust-remote-code' },
-    { label: 'Enforce eager', value: params.enforceEager ? 'On' : 'Off', flag: '--enforce-eager' },
+  // Headline specs shown inline; the rest live behind the toggle. Each guarded independently so a
+  // partial params object (e.g. from an older URL) just omits the missing chips rather than throwing.
+  const specs = params
+    ? ([
+        params.maxContext != null && `${params.maxContext.toLocaleString()} ctx`,
+        params.dtype,
+        params.quantization && params.quantization !== 'none' && params.quantization,
+        params.toolCalling && 'tools',
+      ].filter(Boolean) as string[])
+    : [];
+
+  // Sampling defaults only apply to generative pipelines; embeddings etc. don't sample.
+  const isGenerative = isGenerativePipeline(model.pipelineTag);
+
+  const generationRows: ParamRow[] = [
+    { label: 'Temperature', value: show(params?.temperature, (v) => v.toFixed(2)), flag: 'temperature' },
+    { label: 'Top P', value: show(params?.topP, (v) => v.toFixed(2)), flag: 'top_p' },
+    { label: 'Top K', value: show(params?.topK, (v) => (v === -1 ? 'Off' : v)), flag: 'top_k' },
+    {
+      label: 'Repetition penalty',
+      value: show(params?.repetitionPenalty, (v) => v.toFixed(2)),
+      flag: 'repetition_penalty',
+    },
+  ];
+
+  const engineRows: ParamRow[] = [
+    { label: 'Max context', value: show(params?.maxContext, (v) => v.toLocaleString()), flag: '--max-model-len' },
+    {
+      label: 'GPU memory',
+      value: show(params?.gpuMemoryUtilization, (v) => v.toFixed(2)),
+      flag: '--gpu-memory-utilization',
+    },
+    { label: 'dtype', value: show(params?.dtype, (v) => v), flag: '--dtype' },
+    {
+      label: 'Quantization',
+      value: show(params?.quantization, (v) => (v === 'none' ? 'None' : v)),
+      flag: '--quantization',
+    },
+    { label: 'KV cache', value: show(params?.kvCacheDtype, (v) => v), flag: '--kv-cache-dtype' },
+    { label: 'Revision', value: show(params?.revision, (v) => v || 'main'), flag: '--revision' },
+    {
+      label: 'Trust remote code',
+      value: show(params?.trustRemoteCode, (v) => (v ? 'On' : 'Off')),
+      flag: '--trust-remote-code',
+    },
+    { label: 'Enforce eager', value: show(params?.enforceEager, (v) => (v ? 'On' : 'Off')), flag: '--enforce-eager' },
     {
       label: 'Tool parser',
-      value: params.toolCalling ? (params.toolCallParser ?? '—') : 'Off',
+      value: show(params?.toolCalling, (v) => (v ? (params?.toolCallParser ?? '—') : 'Off')),
       flag: '--tool-call-parser',
     },
+  ];
+
+  const groups: ParamGroup[] = [
+    ...(isGenerative ? [{ eyebrow: 'Model · generation', rows: generationRows }] : []),
+    { eyebrow: 'vLLM engine', rows: engineRows },
   ];
 
   return (
@@ -86,7 +119,7 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
           )}
         </span>
         <span className={styles.modelIdentity}>
-          <span className={styles.modelName}>{params.servedModelName}</span>
+          <span className={styles.modelName}>{params?.servedModelName ?? getModelShortName(model.id)}</span>
           <span className={styles.modelSub}>
             {prettyPipeline(model.pipelineTag)} · {model.id}
           </span>
@@ -101,15 +134,22 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
         <ExpandMoreIcon className={cx(styles.chevron, { [styles.chevronOpen]: open })} fontSize="small" />
       </button>
       <Collapse in={open} unmountOnExit>
-        <dl className={styles.paramsGrid}>
-          {rows.map((row) => (
-            <div className={styles.paramItem} key={row.flag}>
-              <dt className={styles.paramLabel}>{row.label}</dt>
-              <dd className={styles.paramValue}>{row.value}</dd>
-              <code className={styles.paramFlag}>{row.flag}</code>
+        <div className={styles.paramsPanel}>
+          {groups.map((group) => (
+            <div className={styles.paramGroup} key={group.eyebrow}>
+              <span className={styles.paramGroupEyebrow}>{group.eyebrow}</span>
+              <dl className={styles.paramsGrid}>
+                {group.rows.map((row) => (
+                  <div className={styles.paramItem} key={row.flag}>
+                    <dt className={styles.paramLabel}>{row.label}</dt>
+                    <dd className={styles.paramValue}>{row.value}</dd>
+                    <code className={styles.paramFlag}>{row.flag}</code>
+                  </div>
+                ))}
+              </dl>
             </div>
           ))}
-        </dl>
+        </div>
       </Collapse>
     </Card>
   );

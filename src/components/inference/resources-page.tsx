@@ -1,14 +1,16 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { useInferenceContext } from '@/context/inference-context';
 import { InferenceFlowType } from '@/types/inference';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const router = useRouter();
@@ -16,7 +18,16 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
 
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
 
-  const { selectedModels, selectedEnv, hydrateFromUrlFinished, buildSelectionQuery } = useInferenceContext();
+  const { selectedModels, selectedEnv, hydrateFromUrlFinished, hydrationFailed, buildSelectionQuery } =
+    useInferenceContext();
+
+  // Bounce back to the model picker if we landed here (deep link / refresh) with no models selected —
+  // but not when hydration outright failed, where we show a retry instead of discarding the URL.
+  useEffect(() => {
+    if (isCustomModelFlow && hydrateFromUrlFinished && !hydrationFailed && selectedModels.length === 0) {
+      router.replace({ pathname: '/inference/custom-models', query: router.query });
+    }
+  }, [isCustomModelFlow, hydrateFromUrlFinished, hydrationFailed, selectedModels.length, router]);
 
   const goToPrevStep = () => {
     switch (flowType) {
@@ -77,20 +88,32 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
       <div className="pageContentWrapper">
         {isCustomModelFlow ? (
           <>
-            {resolving && (
+            {resolving ? (
               <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
                 <div className="textSecondary">Loading selected models…</div>
               </Card>
+            ) : hydrationFailed ? (
+              <InferenceHydrationError />
+            ) : (
+              hasModels && (
+                <>
+                  <SelectInferenceEnvironment onEnvSelected={goToNextStep} />
+                  <InferenceNavigation
+                    nextLabel="Skip"
+                    onNext={selectedEnv ? () => goToNextStep() : undefined}
+                    onPrev={goToPrevStep}
+                  />
+                </>
+              )
             )}
-            {!resolving && hasModels && <SelectInferenceEnvironment onEnvSelected={goToNextStep} />}
           </>
         ) : (
-          <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-            <h3>{flowType} - Resources</h3>
-          </Card>
+          <>
+            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+              <h3>{flowType} - Resources</h3>
+            </Card>
+          </>
         )}
-
-        <InferenceNavigation nextLabel="Skip" onNext={selectedEnv ? () => goToNextStep() : undefined} onPrev={goToPrevStep} />
       </div>
     </Container>
   );

@@ -1,4 +1,11 @@
-import { HuggingFaceModel, HuggingFaceModelConfig, ToolCallParser } from '@/types/huggingface';
+import {
+  HuggingFaceModel,
+  HuggingFaceModelConfig,
+  ModelDtype,
+  ModelParameters,
+  ModelQuantization,
+  ToolCallParser,
+} from '@/types/huggingface';
 import axios from 'axios';
 
 // Hugging Face Hub API reference: https://huggingface.co/spaces/huggingface/openapi
@@ -41,6 +48,19 @@ type RawHfTokenizerConfig = {
   // Either a single template string or a list of named templates.
   chat_template?: string | { name?: string; template?: string }[];
 };
+
+/** Recommended sampling defaults some models ship alongside their weights. */
+type RawHfGenerationConfig = {
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  repetition_penalty?: number;
+};
+
+/** Coerce a raw JSON value to a finite number, else null (guards against strings/NaN in HF configs). */
+function finiteOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
 
 /** A chat template references tools when it mentions the `tools`/`tool_calls` variables vLLM feeds it. */
 function chatTemplateSupportsTools(chatTemplate: RawHfTokenizerConfig['chat_template']): boolean {
@@ -308,15 +328,18 @@ export async function fetchHuggingFaceModelConfig(
   token?: string,
   revision?: string
 ): Promise<HuggingFaceModelConfig> {
-  const [config, tokenizerConfig, chatTemplateFile] = await Promise.all([
+  const [config, tokenizerConfig, chatTemplateFile, generationConfig] = await Promise.all([
     fetchModelFile<RawHfConfig>(modelId, 'config.json', token, revision),
     fetchModelFile<RawHfTokenizerConfig>(modelId, 'tokenizer_config.json', token, revision),
     // Some models ship the chat template as a standalone file instead of inside tokenizer_config.json.
     fetchModelTextFile(modelId, 'chat_template.jinja', token, revision),
+    // Optional — many models omit it; missing/failed fetch just leaves generation defaults null.
+    fetchModelFile<RawHfGenerationConfig>(modelId, 'generation_config.json', token, revision),
   ]);
 
   const supportsTools =
-    chatTemplateSupportsTools(tokenizerConfig?.chat_template) || chatTemplateSupportsTools(chatTemplateFile ?? undefined);
+    chatTemplateSupportsTools(tokenizerConfig?.chat_template) ||
+    chatTemplateSupportsTools(chatTemplateFile ?? undefined);
 
   return {
     architecture: config?.architectures?.[0] ?? null,
@@ -325,7 +348,32 @@ export async function fetchHuggingFaceModelConfig(
     torchDtype: config?.torch_dtype ?? null,
     quantizationMethod: config?.quantization_config?.quant_method ?? null,
     supportsTools,
+    generation: {
+      temperature: finiteOrNull(generationConfig?.temperature),
+      topP: finiteOrNull(generationConfig?.top_p),
+      topK: finiteOrNull(generationConfig?.top_k),
+      repetitionPenalty: finiteOrNull(generationConfig?.repetition_penalty),
+    },
   };
+}
+
+/**
+ * HF pipeline tags for models that autoregressively sample text on vLLM — the ones where the
+ * generation params (temperature/top_p/top_k/repetition_penalty) and tool calling are meaningful.
+ * `text2text-generation` is legacy (HF folded it into text-generation) but older repos still carry it.
+ */
+export const GENERATIVE_PIPELINE_TAGS = [
+  'text-generation',
+  'text2text-generation',
+  'image-text-to-text',
+  'audio-text-to-text',
+  'video-text-to-text',
+  'any-to-any',
+];
+
+/** Whether a model's pipeline tag is a text-sampling generative one. Unknown/absent tag → treat as generative. */
+export function isGenerativePipeline(pipelineTag?: string): boolean {
+  return !pipelineTag || GENERATIVE_PIPELINE_TAGS.includes(pipelineTag);
 }
 
 /**
@@ -360,6 +408,96 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
     return 'hermes';
   }
   return null;
+}
+
+// vLLM launch-param defaults, used when the model config doesn't pin a value.
+const DEFAULT_MAX_CONTEXT = 32768;
+const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
+// Neutral sampling defaults (vLLM's own) used when the model ships no generation_config.json.
+const DEFAULT_TEMPERATURE = 1;
+const DEFAULT_TOP_P = 1;
+const DEFAULT_TOP_K = -1; // -1 = disabled (consider all tokens)
+const DEFAULT_REPETITION_PENALTY = 1;
+
+/**
+ * Allowed [min, max] range for each numeric launch param — the single source for both the form's
+ * sliders/validation and the config clamp. `topK` also accepts -1 (off) outside this range.
+ */
+export const MODEL_PARAM_BOUNDS = {
+  maxContext: { min: 1024, max: 131072 },
+  gpuMemoryUtilization: { min: 0, max: 1 },
+  temperature: { min: 0, max: 2 },
+  topP: { min: 0.01, max: 1 },
+  topK: { min: 1, max: 200 },
+  repetitionPenalty: { min: 1, max: 2 },
+} as const;
+
+function mapTorchDtype(torchDtype: string | null): ModelDtype {
+  switch (torchDtype) {
+    case 'bfloat16': {
+      return 'bfloat16';
+    }
+    case 'float16': {
+      return 'float16';
+    }
+    case 'float32': {
+      return 'float32';
+    }
+    default: {
+      return 'auto';
+    }
+  }
+}
+
+/** Map an HF quantization method to our enum; null when none/unrecognized (field then stays user-editable). */
+export function mapQuantization(method: string | null): ModelQuantization | null {
+  switch (method?.toLowerCase()) {
+    case 'fp8': {
+      return 'fp8';
+    }
+    case 'awq': {
+      return 'awq';
+    }
+    case 'gptq': {
+      return 'gptq';
+    }
+    default: {
+      return null;
+    }
+  }
+}
+
+/**
+ * Build the launch parameters for a model from its HF config, falling back to neutral defaults for
+ * anything the config doesn't pin. Passing `config: null` yields the pure defaults — the fallback
+ * used for a selection whose params haven't been committed yet.
+ */
+export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelId: string): ModelParameters {
+  const lockedQuant = mapQuantization(config?.quantizationMethod ?? null);
+  const gen = config?.generation;
+  return {
+    servedModelName: getModelShortName(modelId),
+    // Generation defaults — the model's own recommendation when present, else vLLM's neutral defaults.
+    temperature: gen?.temperature ?? DEFAULT_TEMPERATURE,
+    topP: gen?.topP ?? DEFAULT_TOP_P,
+    // HF uses top_k: 0 to mean "disabled"; our form/validation represent that as -1.
+    topK: gen?.topK === 0 || gen?.topK == null ? DEFAULT_TOP_K : gen.topK,
+    repetitionPenalty: gen?.repetitionPenalty ?? DEFAULT_REPETITION_PENALTY,
+    maxContext: Math.max(
+      MODEL_PARAM_BOUNDS.maxContext.min,
+      Math.min(config?.maxContext ?? DEFAULT_MAX_CONTEXT, MODEL_PARAM_BOUNDS.maxContext.max)
+    ),
+    gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
+    quantization: lockedQuant ?? 'none',
+    dtype: mapTorchDtype(config?.torchDtype ?? null),
+    kvCacheDtype: 'auto',
+    trustRemoteCode: false,
+    enforceEager: false,
+    revision: '',
+    toolCalling: false,
+    // Pre-fill the best-guess parser (still user-overridable); null when the family is unknown.
+    toolCallParser: inferToolCallParser(config),
+  };
 }
 
 /** Short display name for a model id — the repo part after the `author/` prefix. */
