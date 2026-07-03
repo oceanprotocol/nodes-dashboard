@@ -77,8 +77,8 @@ const InferenceIndexPage: React.FC = () => {
             <h3>Templates</h3>
             <div className="textSecondary">Start your workflow with our ready-made ComfyUI templates</div>
           </div>
-          <Button contentAfter={<ArrowForwardIcon />} color="accent1" href="/inference/templates" variant="outlined">
-            Browse templates
+          <Button color="accent1" disabled href="/inference/templates" variant="outlined">
+            Coming soon
           </Button>
         </Card>
       </div>
