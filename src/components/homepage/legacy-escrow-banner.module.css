@@ -1,0 +1,43 @@
+.banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--background-glass);
+  backdrop-filter: var(--backdrop-filter-glass);
+  /* The hero pads its top for the nav overlap (see hero-section.module.css); pull the banner up
+     through most of that padding so it sits just below the header. Breakpoints mirror the hero's. */
+  margin-top: -120px;
+  margin-bottom: 48px;
+}
+
+@media (max-width: 992px) {
+  .banner {
+    margin-top: -90px;
+  }
+}
+
+@media (max-width: 768px) {
+  .banner {
+    margin-top: -80px;
+  }
+}
+
+.icon {
+  color: var(--warning-darker);
+  flex-shrink: 0;
+}
+
+.message {
+  flex: 1;
+  min-width: 240px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}

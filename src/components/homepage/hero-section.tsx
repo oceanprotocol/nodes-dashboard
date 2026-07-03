@@ -5,6 +5,7 @@ import { TransitionGroup } from 'react-transition-group';
 import Button from '../button/button';
 import Container from '../container/container';
 import styles from './hero-section.module.css';
+import LegacyEscrowBanner from './legacy-escrow-banner';
 
 const videoSrc = '/hero.mp4';
 // const posterSrc = '/hero.jpg';
@@ -34,6 +35,7 @@ export default function HeroSection() {
         src={videoSrc}
       />
       <Container className={styles.relative}>
+        <LegacyEscrowBanner />
         <div className={styles.titleWrapper}>
           <h1 className={styles.title}>
             Global <br />
