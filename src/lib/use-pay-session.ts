@@ -1,7 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getTokenDecimals } from '@/lib/token-symbol';
-import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
@@ -35,9 +35,9 @@ export interface UsePaySessionReturn {
 
 /**
  * Single-step payment: deposits funds into escrow (if needed) and authorizes the spender in one
- * action. For smart accounts the approve + deposit + authorize calls are batched into a single
- * user confirmation. For EOAs they run sequentially (no batching available until the contract
- * exposes a bundle method).
+ * action via Escrow.bundle (contracts >= 2.9.0), which folds deposit + authorize into one contract
+ * call. For smart accounts the approve + bundle calls are batched into a single user confirmation.
+ * For EOAs the approve runs first (no batching), then the single bundle tx does deposit + authorize.
  */
 export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySessionReturn => {
   const { ocean, user } = useOceanAccount();
@@ -69,24 +69,23 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
       setError(undefined);
       try {
         if (user?.type === 'eoa') {
-          // EOA path: no batching, run the deposit (approve + deposit) then the authorize sequentially.
+          // EOA path: single bundle tx does deposit + authorize. It approves the escrow first when a
+          // deposit is needed (EOAs can't batch), then folds deposit + authorize into one tx.
           if (!ocean) throw new Error('Wallet not ready');
-          if (needsDeposit) {
-            const depositTx = await ocean.depositTokensEoa({ tokenAddress, amount: depositAmount! });
-            await depositTx.wait();
-            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount });
-          }
-          const authorizeTx = await ocean.authorizeTokensEoa({
+          const bundleTx = await ocean.bundleDepositAuthorizeEoa({
             tokenAddress,
+            depositAmount: needsDeposit ? depositAmount : undefined,
             spender,
             maxLockedAmount,
             maxLockSeconds,
             maxLockCount,
           });
-          await authorizeTx.wait();
+          await bundleTx.wait();
+          if (needsDeposit) {
+            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount });
+          }
           posthog.capture('payment_authorize');
         } else {
-          // Smart account path: batch approve + deposit + authorize into a single confirmation.
           const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === chainId);
           if (!config || !(config as any).Escrow) {
             throw new Error('No escrow found for chainId');
@@ -97,13 +96,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           const toUnits = (amount: string) =>
             new BigNumber(amount).multipliedBy(new BigNumber(10).pow(Number(tokenDecimals))).toFixed(0);
 
-          // Calls run in order within a single atomic user-operation: approve must precede deposit so
-          // deposit observes the new allowance. The approve grants exactly the deposit amount (no
-          // approveMax), so USDT-style "reset to 0 first" tokens with a stale allowance would revert;
-          // the supported tokens (USDC/COMPY) don't enforce that. Until the Escrow exposes a bundle
-          // method, this batch is the single-confirmation equivalent of the old two-step flow.
           const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
 
+          const deposits: { token: `0x${string}`; amount: bigint }[] = [];
           if (needsDeposit) {
             const normalizedDeposit = toUnits(depositAmount!);
             calls.push({
@@ -114,27 +109,26 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
                 args: [escrowAddress, BigInt(normalizedDeposit)],
               }) as `0x${string}`,
             });
-            calls.push({
-              to: escrowAddress,
-              data: encodeFunctionData({
-                abi: Escrow.abi,
-                functionName: 'deposit',
-                args: [tokenAddress, BigInt(normalizedDeposit)],
-              }) as `0x${string}`,
-            });
+            deposits.push({ token: tokenAddress as `0x${string}`, amount: BigInt(normalizedDeposit) });
           }
 
           calls.push({
             to: escrowAddress,
             data: encodeFunctionData({
               abi: Escrow.abi,
-              functionName: 'authorize',
+              functionName: 'bundle',
               args: [
-                tokenAddress,
-                spender,
-                BigInt(toUnits(maxLockedAmount)),
-                BigInt(maxLockSeconds),
-                BigInt(maxLockCount),
+                deposits,
+                [],
+                [
+                  {
+                    token: tokenAddress as `0x${string}`,
+                    payee: spender as `0x${string}`,
+                    maxLockedAmount: BigInt(toUnits(maxLockedAmount)),
+                    maxLockSeconds: BigInt(maxLockSeconds),
+                    maxLockCounts: BigInt(maxLockCount),
+                  },
+                ],
               ],
             }) as `0x${string}`,
           });
