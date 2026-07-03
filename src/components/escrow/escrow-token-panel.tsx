@@ -249,7 +249,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
 
   const onDeposit = () => {
     const value = Number(amount);
-    if (!(value > 0)) {
+    if (value <= 0) {
       setError('Invalid amount');
       return;
     }
@@ -263,7 +263,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
 
   const onWithdraw = () => {
     const value = Number(amount);
-    if (!(value > 0)) {
+    if (value <= 0) {
       setError('Invalid amount');
       return;
     }
