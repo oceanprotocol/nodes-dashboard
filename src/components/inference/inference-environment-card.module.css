@@ -1,9 +1,5 @@
 .card {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border: 2px solid transparent;
   transition:
     transform 0.3s ease,
     border-color 0.3s ease;
@@ -15,100 +11,128 @@
     }
   }
 
-  &.selected {
-    border-color: var(--accent1-lightest);
-  }
-
-  @media (min-width: 768px) {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-.check {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--accent1);
-  color: var(--text-primary-inverse);
-  z-index: 1;
-
-  svg {
-    font-size: 16px;
-  }
-}
-
-.info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-
-  .nodeName {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-
-    .nodeValue {
-      font-weight: 600;
-      color: var(--accent1);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-
-  .gpuTypes {
+  .nodeInfo {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
 
-    .gpuType {
-      display: flex;
-      flex-wrap: wrap;
+    @media (min-width: 768px) {
       align-items: center;
-      gap: 6px 10px;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-between;
+    }
 
-      .gpuLabel {
-        display: inline-flex;
-        align-items: center;
-        font-size: 14px;
-        font-weight: 600;
+    .nodeNameWrapper {
+      align-items: center;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      min-width: 0;
+
+      .verified {
+        color: var(--success-darker);
+        flex-shrink: 0;
+        font-size: 16px;
       }
+    }
 
-      .counts {
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-      }
+    .nodeName {
+      align-items: center;
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+      min-width: 0;
+      overflow: hidden;
 
-      .countStatic {
-        font-size: 12px;
+      .nodeLink {
+        text-align: left;
+        white-space: normal;
+        word-break: break-word;
       }
     }
   }
 
-  .compute {
-    color: var(--text-secondary);
-    font-size: 14px;
+  .envInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    @media (min-width: 768px) {
+      align-items: flex-end;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+
+    .price {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent1);
+      white-space: nowrap;
+    }
+
+    .continueButton {
+      white-space: nowrap;
+    }
+
+    .envResources {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+
+      .nodeName {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        .nodeValue {
+          font-weight: 600;
+          color: var(--accent1);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+
+      .gpuTypes {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .gpuType {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px 10px;
+
+          .gpuLabel {
+            display: inline-flex;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+          }
+
+          .counts {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+          }
+
+          .countStatic {
+            font-size: 12px;
+          }
+        }
+      }
+
+      .compute {
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+    }
   }
-}
-
-.price {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--accent1);
-  white-space: nowrap;
-}
-
-.continueButton {
-  white-space: nowrap;
 }

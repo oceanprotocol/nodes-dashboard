@@ -1,3 +1,4 @@
+import BenchmarkSummary from '@/components/benchmarks/benchmark-summary';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
@@ -8,8 +9,8 @@ import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatTokenAmount } from '@/utils/formatters';
-import CheckIcon from '@mui/icons-material/Check';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import classNames from 'classnames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './inference-environment-card.module.css';
@@ -105,7 +106,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   };
 
   const computeText = [
-    allocation.cpu > 0 && `${allocation.cpu} vCPU`,
+    allocation.cpu > 0 && `${allocation.cpu} CPU`,
     allocation.ram > 0 && formatGb(allocation.ram),
     allocation.disk > 0 && formatGb(allocation.disk),
   ]
@@ -119,28 +120,30 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     return mergedGpus.map((gpu) => {
       const chosen = selectedByKey[gpu.key] ?? 0;
       return (
-        <div className={styles.gpuType} key={gpu.key}>
-          <GpuLabel className={styles.gpuLabel} gpu={gpu.description || 'GPU'} />
-          {editable ? (
-            <div className={styles.counts}>
-              {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => (
-                <Button
-                  color="accent1"
-                  key={n}
-                  onClick={() => setTypeCount(gpu.key, n)}
-                  size="xs"
-                  variant={chosen === n ? 'filled' : 'outlined'}
-                >
-                  {n}
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
-              {chosen} / {gpu.max}
-            </span>
-          )}
-        </div>
+        <>
+          <div className={styles.gpuType} key={gpu.key}>
+            <GpuLabel className={styles.gpuLabel} gpu={gpu.description || 'GPU'} />-
+            {editable ? (
+              <div className={styles.counts}>
+                {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => (
+                  <Button
+                    color="accent1"
+                    key={n}
+                    onClick={() => setTypeCount(gpu.key, n)}
+                    size="xs"
+                    variant={chosen === n ? 'filled' : 'outlined'}
+                  >
+                    {n}x
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
+                {chosen} / {gpu.max} selected
+              </span>
+            )}
+          </div>
+        </>
       );
     });
   };
@@ -148,56 +151,76 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   return (
     <Card
       className={classNames(styles.card, { [styles.selectable]: !!onSelect, [styles.selected]: selected })}
+      direction="column"
       innerShadow="black"
       padding="sm"
       radius="md"
-      variant="glass-shaded"
+      spacing="sm"
+      variant={selected ? 'accent2' : 'glass-shaded'}
     >
-      {selected && (
-        <span className={styles.check}>
-          <CheckIcon fontSize="small" />
-        </span>
-      )}
-      <div className={styles.info}>
-        <div className={styles.nodeName}>
-          <span className="textSecondary">Node:</span>{' '}
-          <span className={styles.nodeValue}>{nodeInfo.friendlyName || nodeInfo.id}</span>
+      <div className={styles.nodeInfo}>
+        <div className={styles.nodeNameWrapper}>
+          Node:
+          <span className={styles.nodeName}>
+            <Button
+              className={styles.nodeLink}
+              color="accent1"
+              href={`/nodes/${nodeInfo.id}`}
+              size="link"
+              target="_blank"
+              variant="transparent"
+            >
+              {nodeInfo.friendlyName || nodeInfo.id}
+            </Button>
+            {nodeInfo.latestBenchmarkResults ? <VerifiedIcon className={styles.verified} /> : null}
+          </span>
         </div>
-
-        {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
-
-        {computeText && <div className={styles.compute}>{computeText}</div>}
-      </div>
-
-      <div className="actionsGroupMdEnd">
-        {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
-          <Select
-            onChange={(e) => setTokenAddress(e.target.value)}
-            options={Object.entries(supportedTokensSymbols).map(([address, symbol]) => ({
-              value: address,
-              label: symbol ?? address,
-            }))}
-            size="sm"
-            value={tokenAddress}
+        {nodeInfo.latestBenchmarkResults ? (
+          <BenchmarkSummary
+            cpuScore={nodeInfo.latestBenchmarkResults.cpuScore}
+            gpuScore={nodeInfo.latestBenchmarkResults.gpuScore}
+            bandwidthScore={nodeInfo.latestBenchmarkResults.bandwidthScore}
+            totalScore={nodeInfo.latestBenchmarkResults.totalScore}
           />
         ) : null}
-        {onSelect ? (
-          <Button
-            className={styles.continueButton}
-            color="accent1"
-            contentBefore={<PlayArrowIcon />}
-            disabled={!tokenSymbol}
-            onClick={() => tokenSymbol && onSelect(tokenAddress, tokenSymbol, selectedByKey)}
-            type="button"
-            variant="filled"
-          >
-            {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
-          </Button>
-        ) : (
-          <span className={styles.price}>
-            {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
-          </span>
-        )}
+      </div>
+
+      <div className={styles.envInfo}>
+        <div className={styles.envResources}>
+          {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
+          {computeText && <div className={styles.compute}>{computeText}</div>}
+        </div>
+
+        <div className="actionsGroupMdEnd">
+          {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
+            <Select
+              onChange={(e) => setTokenAddress(e.target.value)}
+              options={Object.entries(supportedTokensSymbols).map(([address, symbol]) => ({
+                value: address,
+                label: symbol ?? address,
+              }))}
+              size="sm"
+              value={tokenAddress}
+            />
+          ) : null}
+          {onSelect ? (
+            <Button
+              className={styles.continueButton}
+              color="accent1"
+              contentBefore={<PlayArrowIcon />}
+              disabled={!tokenSymbol}
+              onClick={() => tokenSymbol && onSelect(tokenAddress, tokenSymbol, selectedByKey)}
+              type="button"
+              variant="filled"
+            >
+              {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
+            </Button>
+          ) : (
+            <span className={styles.price}>
+              {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
+            </span>
+          )}
+        </div>
       </div>
     </Card>
   );
