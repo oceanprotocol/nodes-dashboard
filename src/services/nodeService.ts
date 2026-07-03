@@ -50,19 +50,17 @@ export async function getNodeEnvs(nodeUri: NodeUri) {
 // Query a node's indexed escrow events. Nodes index ALL on-chain escrow events (not just their
 // own), so this discovers every payee a payer has authorized without iterating compute envs.
 // Not wrapped by ocean.js — hit the node HTTP route directly.
-export async function getEscrowEvents(
-  filters: {
-    chainId?: number;
-    eventType?: string;
-    payer?: string;
-    payee?: string;
-    token?: string;
-    jobId?: string;
-    txId?: string;
-    offset?: number;
-    size?: number;
-  }
-): Promise<EscrowEvent[]> {
+export async function getEscrowEvents(filters: {
+  chainId?: number;
+  eventType?: string;
+  payer?: string;
+  payee?: string;
+  token?: string;
+  jobId?: string;
+  txId?: string;
+  offset?: number;
+  size?: number;
+}): Promise<EscrowEvent[]> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== null) {
@@ -103,6 +101,15 @@ export async function getComputeJobResult(nodeUri: NodeUri, authToken: string, j
 
 export async function streamComputeResult(nodeUri: NodeUri, authToken: string, jobId: string, index: number) {
   return ProviderInstance.getComputeResult(normalizeNodeUri(nodeUri), authToken, jobId, index);
+}
+
+export async function streamComputeLogs(
+  nodeUri: NodeUri,
+  authToken: string,
+  jobId: string,
+  signal?: AbortSignal
+): Promise<AsyncIterable<Uint8Array>> {
+  return ProviderInstance.computeStreamableLogs(normalizeNodeUri(nodeUri), authToken, jobId, signal);
 }
 
 export async function createAuthToken({

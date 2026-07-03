@@ -1,5 +1,6 @@
 import { DownloadLogsButton } from '@/components/button/download-logs-button';
 import { DownloadResultButton } from '@/components/button/download-result-button';
+import { JobLogsPanel } from '@/components/modal/job-logs-panel';
 import EnvironmentCard from '@/components/environment-card/environment-card';
 import Modal from '@/components/modal/modal';
 import { getApiRoute } from '@/config';
@@ -99,11 +100,11 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
           {!loading && !error && !environment && <div>No environment data available</div>}
         </div>
 
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}
-        >
+        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}>
+          <JobLogsPanel job={job} open={open} />
+        </div>
+
+        <Stack direction="row" spacing={1} sx={{ marginTop: '16px' }}>
           <DownloadResultButton job={job} />
           <DownloadLogsButton job={job} />
         </Stack>
