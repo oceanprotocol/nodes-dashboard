@@ -43,7 +43,7 @@ const fetchNodesByWallets = async (
     return byWallet;
   }
   try {
-    const filters = { address: { value: wallets.join(',') } };
+    const filters = { address: { value: wallets.join(','), operator: 'terms' } };
     const res = await axios.get(
       `${getApiRoute('nodes')}?page=0&size=${wallets.length}&filters=${encodeURIComponent(JSON.stringify(filters))}`
     );
