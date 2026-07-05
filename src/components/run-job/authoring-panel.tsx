@@ -1,22 +1,26 @@
 import Button from '@/components/button/button';
+import Checkbox from '@/components/checkbox/checkbox';
 import Input from '@/components/input/input';
 import { useRunJobContext } from '@/context/run-job-context';
+import { type NodeUri } from '@/contexts/P2PContext';
+import { useNodeStorage } from '@/contexts/node-storage-context';
 import { type AlgorithmLanguage, detectLanguageFromFilename, looksLikeDataset } from '@/lib/compute-inputs';
 import { stashOptimisticJob } from '@/lib/optimistic-job';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './authoring-panel.module.css';
 
-type AuthoringTab = 'algorithm' | 'dataset' | 'dockerfile' | 'env';
+type AuthoringTab = 'algorithm' | 'dataset' | 'dockerfile' | 'env' | 'storage';
 
 const TABS: { key: AuthoringTab; label: string }[] = [
   { key: 'algorithm', label: 'Algorithm' },
   { key: 'dataset', label: 'Dataset' },
   { key: 'dockerfile', label: 'Dockerfile' },
   { key: 'env', label: 'Env vars' },
+  { key: 'storage', label: 'Storage' },
 ];
 
 const LANGUAGES: { value: AlgorithmLanguage; label: string }[] = [
@@ -33,11 +37,14 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dockerfileInputRef = useRef<HTMLInputElement>(null);
+  const buildFilesInputRef = useRef<HTMLInputElement>(null);
   const {
     algorithmCode,
     setAlgorithmCode,
     algorithmLanguage,
     setAlgorithmLanguage,
+    additionalDockerFiles,
+    setAdditionalDockerFiles,
     dataset,
     setDataset,
     dockerfile,
@@ -45,13 +52,55 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     envVars,
     setEnvVars,
     freeCompute,
+    jobName,
+    setJobName,
+    mountedFiles,
+    setMountedFiles,
+    multiaddrsOrPeerId,
+    outputBucketId,
+    setOutputBucketId,
     selectedEnv,
     selectedResources,
     submitJob,
   } = useRunJobContext();
+  const { bucketFiles, buckets, fetchBucketFiles, fetchBuckets, fetchingBuckets, fetchingFiles } = useNodeStorage();
 
   const [activeTab, setActiveTab] = useState<AuthoringTab>('algorithm');
   const [submitting, setSubmitting] = useState(false);
+  const [expandedBucketId, setExpandedBucketId] = useState<string | null>(null);
+
+  const nodeId = selectedEnv?.nodeId;
+  const nodeBuckets = (nodeId && buckets[nodeId]) || [];
+
+  // Load the node's buckets when the storage tab is first opened (auth prompts the wallet once).
+  useEffect(() => {
+    if (activeTab !== 'storage' || !nodeId || !multiaddrsOrPeerId || buckets[nodeId]) return;
+    fetchBuckets({ nodeId, nodeUri: multiaddrsOrPeerId as NodeUri }).catch(() =>
+      toast.error('Failed to load storage buckets for this node.')
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, nodeId, multiaddrsOrPeerId]);
+
+  const toggleBucket = (bucketId: string) => {
+    const next = expandedBucketId === bucketId ? null : bucketId;
+    setExpandedBucketId(next);
+    if (next && nodeId && multiaddrsOrPeerId && !bucketFiles[next]) {
+      fetchBucketFiles({ bucketId: next, nodeId, nodeUri: multiaddrsOrPeerId as NodeUri }).catch(() =>
+        toast.error('Failed to load bucket files.')
+      );
+    }
+  };
+
+  const isMounted = (bucketId: string, fileName: string) =>
+    mountedFiles.some((mount) => mount.bucketId === bucketId && mount.fileName === fileName);
+
+  const toggleMount = (bucketId: string, fileName: string) => {
+    setMountedFiles(
+      isMounted(bucketId, fileName)
+        ? mountedFiles.filter((mount) => !(mount.bucketId === bucketId && mount.fileName === fileName))
+        : [...mountedFiles, { bucketId, fileName }]
+    );
+  };
 
   const datasetWarning = dataset.trim() && !looksLikeDataset(dataset) ? 'Expected a DID, URL, IPFS hash, or Arweave id.' : '';
 
@@ -75,6 +124,24 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     event.target.value = '';
   };
 
+  // Extra Dockerfile build-context files (e.g. requirements.txt), sent alongside the Dockerfile.
+  const handleBuildFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    const added: Record<string, string> = {};
+    for (const file of files) {
+      added[file.name] = await file.text();
+    }
+    setAdditionalDockerFiles({ ...additionalDockerFiles, ...added });
+    event.target.value = '';
+  };
+
+  const removeBuildFile = (name: string) => {
+    const next = { ...additionalDockerFiles };
+    delete next[name];
+    setAdditionalDockerFiles(next);
+  };
+
   const updateEnvVar = (index: number, patch: Partial<{ key: string; value: string }>) => {
     setEnvVars(envVars.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)));
   };
@@ -96,6 +163,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
           jobId: job.jobId,
           consumer: consumerAddress,
           environmentId: selectedEnv.id,
+          peerId: selectedEnv.nodeId,
           isFree: freeCompute,
           dateCreated: Math.floor(Date.now() / 1000),
           maxJobDuration: selectedResources.maxJobDurationSeconds,
@@ -120,6 +188,13 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
 
   return (
     <div className={styles.root}>
+      <Input
+        type="text"
+        label="Job name (optional)"
+        placeholder="My experiment #1"
+        value={jobName}
+        onChange={(event) => setJobName(event.target.value)}
+      />
       <div className={styles.tabs} role="tablist">
         {TABS.map((tab) => (
           <button
@@ -205,6 +280,92 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             value={dockerfile}
             onChange={(event) => setDockerfile(event.target.value)}
           />
+          <div className={styles.row}>
+            <span className={styles.fieldLabel}>Build files</span>
+            <Button
+              color="accent1"
+              onClick={() => buildFilesInputRef.current?.click()}
+              size="sm"
+              type="button"
+              variant="outlined"
+            >
+              + Add build files
+            </Button>
+            <input
+              ref={buildFilesInputRef}
+              type="file"
+              multiple
+              className={styles.hiddenInput}
+              onChange={handleBuildFilesUpload}
+            />
+          </div>
+          {Object.keys(additionalDockerFiles).length === 0 ? (
+            <p className={styles.muted}>
+              Extra files for the Docker build context (e.g. requirements.txt). Sent only when a Dockerfile is
+              provided.
+            </p>
+          ) : (
+            Object.keys(additionalDockerFiles).map((name) => (
+              <div key={name} className={styles.row}>
+                <span>{name}</span>
+                <Button color="accent1" onClick={() => removeBuildFile(name)} size="sm" type="button" variant="transparent">
+                  Remove
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {activeTab === 'storage' && (
+        <div className={styles.section}>
+          <span className={styles.fieldLabel}>Output bucket (optional)</span>
+          <p className={styles.muted}>Write the job&apos;s results into one of your persistent-storage buckets on this node.</p>
+          <select
+            className={styles.select}
+            value={outputBucketId ?? ''}
+            onChange={(event) => setOutputBucketId(event.target.value || null)}
+          >
+            <option value="">None — download results manually</option>
+            {nodeBuckets.map((bucket) => (
+              <option key={bucket.bucketId} value={bucket.bucketId}>
+                {bucket.label || bucket.bucketId}
+              </option>
+            ))}
+          </select>
+
+          <span className={styles.fieldLabel}>Mount dataset files</span>
+          <p className={styles.muted}>
+            Mounted files are passed to the job as datasets, alongside the dataset from the Dataset tab.
+          </p>
+          {nodeId && fetchingBuckets[nodeId] && <p className={styles.muted}>Loading buckets…</p>}
+          {nodeId && !fetchingBuckets[nodeId] && nodeBuckets.length === 0 && (
+            <p className={styles.muted}>No persistent-storage buckets on this node yet.</p>
+          )}
+          {nodeBuckets.map((bucket) => (
+            <div key={bucket.bucketId}>
+              <button type="button" className={styles.bucketToggle} onClick={() => toggleBucket(bucket.bucketId)}>
+                {expandedBucketId === bucket.bucketId ? '▾' : '▸'} {bucket.label || bucket.bucketId}
+              </button>
+              {expandedBucketId === bucket.bucketId && (
+                <div className={styles.bucketFiles}>
+                  {fetchingFiles[bucket.bucketId] && <p className={styles.muted}>Loading files…</p>}
+                  {!fetchingFiles[bucket.bucketId] && (bucketFiles[bucket.bucketId] ?? []).length === 0 && (
+                    <p className={styles.muted}>Empty bucket.</p>
+                  )}
+                  {(bucketFiles[bucket.bucketId] ?? []).map((file) => (
+                    <Checkbox
+                      key={file.name}
+                      type="multiple"
+                      checked={isMounted(bucket.bucketId, file.name)}
+                      label={file.name}
+                      onChange={() => toggleMount(bucket.bucketId, file.name)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
+import { buildEscrowBundleArgs, type EscrowDepositPermit, toBaseUnits } from '@/lib/escrow-bundle';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
 import { Authorizations, EscrowLock } from '@/types/payment';
@@ -287,7 +288,7 @@ export class OceanProvider {
     normalizedAmount: string,
     deadline: number,
     signer: ethers.Signer
-  ): Promise<{ token: string; amount: string; deadline: number; v: number; r: string; s: string } | null> {
+  ): Promise<EscrowDepositPermit | null> {
     try {
       const token = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
       const [name, nonce, onchainSeparator] = await Promise.all([
@@ -321,7 +322,7 @@ export class OceanProvider {
 
       const signature = await signer.signTypedData(domain, types, value);
       const { v, r, s } = ethers.Signature.from(signature);
-      return { token: tokenAddress, amount: normalizedAmount, deadline, v, r, s };
+      return { token: tokenAddress, amount: BigInt(normalizedAmount), deadline: BigInt(deadline), v, r, s };
     } catch (err) {
       console.warn('Failed to build deposit permit; falling back to approve path', err);
       return null;
@@ -354,42 +355,39 @@ export class OceanProvider {
     const owner = await signer.getAddress();
     const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
 
-    const deposits: { token: string; amount: string }[] = [];
-    const permits: { token: string; amount: string; deadline: number; v: number; r: string; s: string }[] = [];
-    const normalizedDeposit = depositAmount ? this.normalizeNumber(depositAmount, tokenDecimals) : '0';
-    if (new BigNumber(normalizedDeposit).gt(0)) {
+    let permit: EscrowDepositPermit | null = null;
+    const normalizedDeposit = depositAmount ? toBaseUnits(depositAmount, tokenDecimals) : BigInt(0);
+    if (normalizedDeposit > BigInt(0)) {
       const deadline = Math.floor(Date.now() / 1000) + 3600;
-      const permit = await this.buildDepositPermit(
+      // Permit path: signature funds the deposit, so bundle runs in a single tx.
+      permit = await this.buildDepositPermit(
         tokenAddress,
         owner,
         escrowAddress,
-        normalizedDeposit,
+        normalizedDeposit.toString(),
         deadline,
         signer
       );
-      if (permit) {
-        // Permit path: signature funds the deposit, so bundle runs in a single tx.
-        permits.push(permit);
-      } else {
+      if (!permit) {
         // Fallback: approve then plain deposit inside the bundle.
         const token = new ethers.Contract(tokenAddress, ERC20Template.abi, signer);
         const approve = await token.approve(escrowAddress, normalizedDeposit);
         await approve.wait();
-        deposits.push({ token: tokenAddress, amount: normalizedDeposit });
       }
     }
 
-    const auths = [
-      {
-        token: tokenAddress,
-        payee: spender,
-        maxLockedAmount: this.normalizeNumber(maxLockedAmount, tokenDecimals),
-        maxLockSeconds,
-        maxLockCounts: maxLockCount,
-      },
-    ];
+    const args = buildEscrowBundleArgs({
+      depositAmount,
+      maxLockCount,
+      maxLockedAmount,
+      maxLockSeconds,
+      permit,
+      spender,
+      tokenAddress,
+      tokenDecimals,
+    });
 
-    const bundle = await escrowWithSigner.bundle(deposits, permits, auths);
+    const bundle = await escrowWithSigner.bundle(args.deposits, args.permits, args.auths);
     return bundle;
   }
 

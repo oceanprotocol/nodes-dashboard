@@ -39,16 +39,25 @@ export function detectLanguageFromFilename(filename: string): AlgorithmLanguage 
   return ext ? (LANGUAGE_BY_EXTENSION[ext] ?? null) : null;
 }
 
-// Build the container config. A non-empty Dockerfile is built by the node (empty image/tag);
+// Build the container config. A non-empty Dockerfile is built by the node (empty image/tag),
+// optionally with extra build-context files ({ name: content }, e.g. requirements.txt);
 // otherwise we fall back to the default c2d_examples image for the language.
 export function buildContainerConfig(
   language: AlgorithmLanguage,
-  dockerfile?: string
+  dockerfile?: string,
+  additionalDockerFiles?: Record<string, string>
 ): ExtendedMetadataAlgorithm['container'] {
   const entrypoint = ENTRYPOINT[language];
   const trimmedDockerfile = dockerfile?.trim();
   if (trimmedDockerfile) {
-    return { image: '', tag: '', entrypoint, dockerfile: trimmedDockerfile, checksum: '' };
+    return {
+      image: '',
+      tag: '',
+      entrypoint,
+      dockerfile: trimmedDockerfile,
+      checksum: '',
+      ...(additionalDockerFiles && Object.keys(additionalDockerFiles).length > 0 ? { additionalDockerFiles } : {}),
+    };
   }
   return { image: DEFAULT_IMAGE, tag: DEFAULT_TAG[language], entrypoint, checksum: '' };
 }
@@ -66,11 +75,13 @@ export function serializeEnvVars(entries: EnvVarEntry[]): Record<string, string>
 }
 
 export function buildComputeAlgorithm({
+  additionalDockerFiles,
   code,
   dockerfile,
   envVars,
   language,
 }: {
+  additionalDockerFiles?: Record<string, string>;
   code: string;
   dockerfile?: string;
   envVars: EnvVarEntry[];
@@ -80,15 +91,21 @@ export function buildComputeAlgorithm({
   return {
     meta: {
       rawcode: code,
-      container: buildContainerConfig(language, dockerfile),
+      container: buildContainerConfig(language, dockerfile, additionalDockerFiles),
     } as ExtendedMetadataAlgorithm,
     ...(Object.keys(envs).length > 0 ? { envs } : {}),
   };
 }
 
-// Format-only check (browser-safe). A live reachability fetch the way the VS Code extension does it
-// is unreliable cross-origin in the browser (CORS), so we only sanity-check the shape here and let
-// the node verify real reachability at job start.
+function isIpfsCid(value: string): boolean {
+  return value.startsWith('Qm') || /^b[a-z2-7]{50,}$/.test(value);
+}
+
+// Arweave tx ids are 43-char base64url strings.
+function isArweaveTxId(value: string): boolean {
+  return /^[A-Za-z0-9_-]{43}$/.test(value);
+}
+
 export function looksLikeDataset(input: string): boolean {
   const value = input.trim();
   if (!value) return false;
@@ -96,9 +113,8 @@ export function looksLikeDataset(input: string): boolean {
     value.startsWith('did:') ||
     value.startsWith('http://') ||
     value.startsWith('https://') ||
-    value.startsWith('Qm') ||
-    // Arweave tx ids are 43-char base64url strings.
-    /^[A-Za-z0-9_-]{43}$/.test(value)
+    isIpfsCid(value) ||
+    isArweaveTxId(value)
   );
 }
 
@@ -123,14 +139,18 @@ export async function resolveDatasetAssets(nodeUri: NodeUri, dataset?: string): 
     return [{ fileObject: { type: FileObjectType.URL, url: value, method: 'GET' } } as unknown as ComputeAsset];
   }
 
-  if (value.startsWith('Qm')) {
+  if (isIpfsCid(value)) {
     return [{ fileObject: { type: FileObjectType.IPFS, hash: value } } as unknown as ComputeAsset];
   }
 
-  // Fall back to treating it as an Arweave transaction id.
-  return [
-    {
-      fileObject: { type: FileObjectType.URL, url: `https://arweave.net/${value}`, method: 'GET' },
-    } as unknown as ComputeAsset,
-  ];
+  if (isArweaveTxId(value)) {
+    return [
+      {
+        fileObject: { type: FileObjectType.URL, url: `https://arweave.net/${value}`, method: 'GET' },
+      } as unknown as ComputeAsset,
+    ];
+  }
+
+  // Refuse rather than guess: a mis-routed dataset only fails after the job is paid and started.
+  throw new Error('Unrecognized dataset format. Expected a DID, URL, IPFS CID, or Arweave transaction id.');
 }

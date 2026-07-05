@@ -155,9 +155,11 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
 
   // Adopt a just-submitted job stashed by the run-job flow, but only if it belongs to this consumer.
   useEffect(() => {
+    // The wallet address resolves asynchronously; don't clear the stash before we know who we are.
+    if (!consumer) return;
     const seed = readOptimisticJob();
     if (!seed) return;
-    if (consumer && seed.consumer.toLowerCase() === consumer.toLowerCase()) {
+    if (seed.consumer.toLowerCase() === consumer.toLowerCase()) {
       setOptimisticJob(seed);
     } else {
       clearOptimisticJob();

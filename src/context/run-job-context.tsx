@@ -11,7 +11,7 @@ import {
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { startCompute, startFreeCompute } from '@/services/nodeService';
+import { getNodeEnvs, startCompute, startFreeCompute } from '@/services/nodeService';
 import {
   ComputeEnvironment,
   ComputeResource,
@@ -24,6 +24,7 @@ import {
 import { ComputeJob } from '@/types/jobs';
 import { roundTokenAmount } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
+import type { ComputeAsset } from '@oceanprotocol/lib';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { useSearchParams } from 'next/navigation';
@@ -38,6 +39,60 @@ export type SelectedToken = {
 const clampToAvailable = (requested: number, gpuRes?: ComputeResource): number => {
   const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
   return Math.min(sane, getAvailableAmount(gpuRes));
+};
+
+const isGpuResource = (res: ComputeResource): boolean =>
+  (res.type ?? '').toLowerCase() === 'gpu' || res.id.toLowerCase().includes('gpu');
+
+// Same grouping the resource picker uses: GPUs sharing a description are the same model.
+const gpuGroupKey = (res: { description?: string; id: string }): string => res.description || res.id;
+
+const resolveAvailableGpus = async (
+  nodeUri: NodeUri,
+  environmentId: string,
+  selected: SelectedGpu[]
+): Promise<SelectedGpu[]> => {
+  if (selected.length === 0) return selected;
+
+  let live: ComputeResource[] | undefined;
+  try {
+    const envs = (await getNodeEnvs(nodeUri)) as unknown as ComputeEnvironment[];
+    live = envs.find((env) => env.id === environmentId)?.resources;
+  } catch {
+    return selected; // fetch failed — submit with the saved ids
+  }
+  if (!live) return selected;
+
+  const freeByModel = new Map<string, { available: number; description?: string; id: string }[]>();
+  for (const res of live) {
+    if (!isGpuResource(res)) continue;
+    const available = getAvailableAmount(res);
+    if (available <= 0) continue;
+    const key = gpuGroupKey(res);
+    const pool = freeByModel.get(key) ?? [];
+    pool.push({ available, description: res.description, id: res.id });
+    freeByModel.set(key, pool);
+  }
+
+  const resolved: SelectedGpu[] = [];
+  for (const gpu of selected) {
+    const pool = freeByModel.get(gpuGroupKey(gpu)) ?? [];
+    // Keep the user's original pick when it is still free.
+    pool.sort((a, b) => (a.id === gpu.id ? -1 : b.id === gpu.id ? 1 : 0));
+    let remaining = gpu.amount;
+    while (remaining > 0 && pool.length > 0) {
+      const entry = pool[0];
+      const take = Math.min(entry.available, remaining);
+      resolved.push({ amount: take, description: entry.description ?? gpu.description, id: entry.id });
+      remaining -= take;
+      entry.available -= take;
+      if (entry.available <= 0) pool.shift();
+    }
+    if (remaining > 0) {
+      throw new Error(`No free "${gpuGroupKey(gpu)}" GPU right now — lower the GPU count and try again.`);
+    }
+  }
+  return resolved;
 };
 
 // Flatten the selected resources into the { id, amount } list computeStart expects.
@@ -58,20 +113,31 @@ const buildResourceRequests = (selection: EnvResourcesSelection): { id: string; 
   return resources;
 };
 
+export type MountedStorageFile = { bucketId: string; fileName: string };
+
 type RunJobContextType = {
   // --- In-dashboard job authoring (BYO algorithm / dataset / Dockerfile / env) ---
   algorithmCode: string;
   setAlgorithmCode: (code: string) => void;
   algorithmLanguage: AlgorithmLanguage;
   setAlgorithmLanguage: (language: AlgorithmLanguage) => void;
+  // Extra Dockerfile build-context files ({ name: content }), sent with a custom Dockerfile.
+  additionalDockerFiles: Record<string, string>;
+  setAdditionalDockerFiles: (files: Record<string, string>) => void;
   dataset: string;
   setDataset: (dataset: string) => void;
   dockerfile: string;
   setDockerfile: (dockerfile: string) => void;
   envVars: EnvVarEntry[];
   setEnvVars: (envVars: EnvVarEntry[]) => void;
-  // Build the payload from the current selection + authoring inputs and start the job on the node.
-  // Returns the started ComputeJob (jobId etc). Throws on missing config / node error.
+  jobName: string;
+  setJobName: (name: string) => void;
+  // Persistent-storage files mounted into the job as datasets.
+  mountedFiles: MountedStorageFile[];
+  setMountedFiles: (files: MountedStorageFile[]) => void;
+  // Persistent-storage bucket the job's output is written to (optional).
+  outputBucketId: string | null;
+  setOutputBucketId: (bucketId: string | null) => void;
   submitJob: (args: { authToken: string; consumerAddress: string }) => Promise<ComputeJob>;
   estimatedTotalCost: number | null;
   fetchEstimatedCost: ({
@@ -140,9 +206,13 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [algorithmCode, setAlgorithmCode] = useState<string>('');
   const [algorithmLanguage, setAlgorithmLanguage] = useState<AlgorithmLanguage>('py');
+  const [additionalDockerFiles, setAdditionalDockerFiles] = useState<Record<string, string>>({});
   const [dataset, setDataset] = useState<string>('');
   const [dockerfile, setDockerfile] = useState<string>('');
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>([]);
+  const [jobName, setJobName] = useState<string>('');
+  const [mountedFiles, setMountedFiles] = useState<MountedStorageFile[]>([]);
+  const [outputBucketId, setOutputBucketId] = useState<string | null>(null);
 
   const clearRunJobSelection = useCallback(() => {
     setEstimatedTotalCost(null);
@@ -155,9 +225,13 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setSelectedToken(null);
     setAlgorithmCode('');
     setAlgorithmLanguage('py');
+    setAdditionalDockerFiles({});
     setDataset('');
     setDockerfile('');
     setEnvVars([]);
+    setJobName('');
+    setMountedFiles([]);
+    setOutputBucketId(null);
   }, []);
 
   // Build the compute payload from the current selection + authoring inputs and start the job.
@@ -172,14 +246,25 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const nodeUri = multiaddrsOrPeerId as unknown as NodeUri;
-      const resources = buildResourceRequests(selectedResources);
+      // Re-resolve GPU ids against live node data so back-to-back jobs don't reuse a GPU the
+      // previous job just locked.
+      const gpus = await resolveAvailableGpus(nodeUri, selectedEnv.id, selectedResources.gpus);
+      const resources = buildResourceRequests({ ...selectedResources, gpus });
       const algorithm = buildComputeAlgorithm({
+        additionalDockerFiles,
         code: algorithmCode,
         dockerfile,
         envVars,
         language: algorithmLanguage,
       });
-      const datasets = await resolveDatasetAssets(nodeUri, dataset);
+      const mountAssets = mountedFiles.map(
+        (mount) =>
+          ({
+            fileObject: { type: 'nodePersistentStorage', bucketId: mount.bucketId, fileName: mount.fileName },
+          }) as unknown as ComputeAsset
+      );
+      const datasets = [...(await resolveDatasetAssets(nodeUri, dataset)), ...mountAssets];
+      const metadata = jobName.trim() ? { name: jobName.trim() } : undefined;
 
       const job = freeCompute
         ? await startFreeCompute({
@@ -187,7 +272,9 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
             authToken,
             computeEnv: selectedEnv.id,
             datasets,
+            metadata,
             nodeUri,
+            outputBucketId: outputBucketId ?? undefined,
             resources,
           })
         : await (async () => {
@@ -201,7 +288,9 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               computeEnv: selectedEnv.id,
               datasets,
               maxJobDuration: selectedResources.maxJobDurationSeconds,
+              metadata,
               nodeUri,
+              outputBucketId: outputBucketId ?? undefined,
               resources,
               token: selectedToken.address,
             });
@@ -210,13 +299,17 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       return (Array.isArray(job) ? job[0] : job) as unknown as ComputeJob;
     },
     [
+      additionalDockerFiles,
       algorithmCode,
       algorithmLanguage,
       dataset,
       dockerfile,
       envVars,
       freeCompute,
+      jobName,
+      mountedFiles,
       multiaddrsOrPeerId,
+      outputBucketId,
       selectedEnv,
       selectedResources,
       selectedToken,
@@ -423,9 +516,14 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         const findGpuRes = (id: string) => gpuResources.find((res) => res.id === id);
         const requestedById = new Map<string, number>();
         for (const raw of queryGpus) {
-          const [id, amountStr] = raw.split(':');
+          // 'id:amount' format; legacy links carry a bare id (and ids may themselves contain ':'),
+          // so split on the last ':' and default a missing/non-numeric amount to 1.
+          const sep = raw.lastIndexOf(':');
+          const amountStr = sep >= 0 ? raw.slice(sep + 1) : '';
           const requested = Number(amountStr);
-          const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
+          const hasAmount = sep >= 0 && amountStr !== '' && Number.isFinite(requested);
+          const id = hasAmount ? raw.slice(0, sep) : raw;
+          const sane = hasAmount ? Math.max(0, Math.floor(requested)) : 1;
           requestedById.set(id, (requestedById.get(id) ?? 0) + sane);
         }
         const resolvedGpus: SelectedGpu[] = [...requestedById.entries()]
@@ -538,12 +636,20 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         setAlgorithmCode,
         algorithmLanguage,
         setAlgorithmLanguage,
+        additionalDockerFiles,
+        setAdditionalDockerFiles,
         dataset,
         setDataset,
         dockerfile,
         setDockerfile,
         envVars,
         setEnvVars,
+        jobName,
+        setJobName,
+        mountedFiles,
+        setMountedFiles,
+        outputBucketId,
+        setOutputBucketId,
         submitJob,
         estimatedTotalCost,
         fetchEstimatedCost,
