@@ -1,9 +1,9 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { buildEscrowBundleArgs, getEscrowAddressForChain } from '@/lib/escrow-bundle';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
-import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
@@ -86,52 +86,39 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           }
           posthog.capture('payment_authorize');
         } else {
-          const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === chainId);
-          if (!config || !(config as any).Escrow) {
-            throw new Error('No escrow found for chainId');
-          }
-          const escrowAddress = (config as any).Escrow as `0x${string}`;
-
+          const escrowAddress = getEscrowAddressForChain(chainId) as `0x${string}`;
           const tokenDecimals = await getTokenDecimals(tokenAddress);
-          const toUnits = (amount: string) =>
-            new BigNumber(amount).multipliedBy(new BigNumber(10).pow(Number(tokenDecimals))).toFixed(0);
 
-          const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
+          const args = buildEscrowBundleArgs({
+            depositAmount: needsDeposit ? depositAmount : undefined,
+            maxLockCount,
+            maxLockedAmount,
+            maxLockSeconds,
+            spender,
+            tokenAddress,
+            tokenDecimals,
+          });
 
-          const deposits: { token: `0x${string}`; amount: bigint }[] = [];
-          if (needsDeposit) {
-            const normalizedDeposit = toUnits(depositAmount!);
-            calls.push({
-              to: tokenAddress as `0x${string}`,
+          const calls: { to: `0x${string}`; data: `0x${string}` }[] = [
+            // Smart accounts can't produce an EIP-2612 permit (ecrecover-based), so a deposit is
+            // funded by an approve batched atomically with the bundle in one user-op.
+            ...args.deposits.map((deposit) => ({
+              to: deposit.token as `0x${string}`,
               data: encodeFunctionData({
                 abi: ERC20Template.abi,
                 functionName: 'approve',
-                args: [escrowAddress, BigInt(normalizedDeposit)],
+                args: [escrowAddress, deposit.amount],
               }) as `0x${string}`,
-            });
-            deposits.push({ token: tokenAddress as `0x${string}`, amount: BigInt(normalizedDeposit) });
-          }
-
-          calls.push({
-            to: escrowAddress,
-            data: encodeFunctionData({
-              abi: Escrow.abi,
-              functionName: 'bundle',
-              args: [
-                deposits,
-                [],
-                [
-                  {
-                    token: tokenAddress as `0x${string}`,
-                    payee: spender as `0x${string}`,
-                    maxLockedAmount: BigInt(toUnits(maxLockedAmount)),
-                    maxLockSeconds: BigInt(maxLockSeconds),
-                    maxLockCounts: BigInt(maxLockCount),
-                  },
-                ],
-              ],
-            }) as `0x${string}`,
-          });
+            })),
+            {
+              to: escrowAddress,
+              data: encodeFunctionData({
+                abi: Escrow.abi,
+                functionName: 'bundle',
+                args: [args.deposits, args.permits, args.auths],
+              }) as `0x${string}`,
+            },
+          ];
 
           await sendTransaction(calls);
 
@@ -145,8 +132,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
         onSuccess?.();
       } catch (err) {
         console.error('Pay session error:', err);
-        setError(err instanceof Error ? err.message : 'Payment failed');
-        toast.error('Payment failed. See console for details.');
+        const message = err instanceof Error && err.message ? err.message : 'Payment failed';
+        setError(message);
+        toast.error(`Payment failed: ${message}`);
       } finally {
         setIsPaying(false);
       }

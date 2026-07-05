@@ -70,7 +70,16 @@ export function useAlchemySendTransaction() {
       try {
         // Execute from the smart account, not the default EIP-7702 signer address.
         const { id } = await (client as any).sendCalls({ calls, account: accountAddress });
-        return await client.waitForCallsStatus({ id });
+        const result = await client.waitForCallsStatus({ id });
+        // waitForCallsStatus resolves (does not throw) on a reverted batch; surface it like tx.wait().
+        if (result.status !== 'success') {
+          throw new Error(
+            result.status === 'failure'
+              ? 'Transaction reverted on-chain'
+              : `Transaction did not confirm (status: ${result.status})`
+          );
+        }
+        return result;
       } finally {
         setIsLoading(false);
       }

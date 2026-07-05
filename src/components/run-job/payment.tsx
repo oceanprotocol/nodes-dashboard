@@ -149,7 +149,7 @@ const Payment = ({
       <div className="actionsGroupLgBetween">
         <Button
           color="accent1"
-          disabled={loadingPaymentInfo}
+          disabled={loadingPaymentInfo || isPaying}
           onClick={() => router.replace({ pathname: '/run-job/resources', query: router.query })}
           size="lg"
           type="button"

@@ -115,3 +115,37 @@
   display: flex;
   justify-content: flex-end;
 }
+
+.select {
+  background: var(--background-glass);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+  max-width: 420px;
+  padding: 10px 16px;
+  width: 100%;
+}
+
+.select:focus {
+  border-color: var(--border);
+  box-shadow: var(--input-shadow-focus);
+  outline: none;
+}
+
+.bucketToggle {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.bucketFiles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 20px;
+}

@@ -56,9 +56,11 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
   const [error, setError] = useState<string | null>(null);
 
   const cancelledRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const stop = useCallback(() => {
     cancelledRef.current = true;
+    abortRef.current?.abort();
     setStatus((prev) => (prev === 'ended' || prev === 'error' ? prev : 'ended'));
   }, []);
 
@@ -156,7 +158,9 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
         let buffer = '';
 
         try {
-          const generator = await streamComputeLogs(nodeUri, token, jobId);
+          const controller = new AbortController();
+          abortRef.current = controller;
+          const generator = await streamComputeLogs(nodeUri, token, jobId, controller.signal);
           if (cancelledRef.current) return;
           setStatus('live');
           for await (const chunk of generator) {
@@ -176,8 +180,14 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
             clearNodeToken(nodeUri);
             try {
               token = await getNodeToken(nodeUri, nodeUri);
-            } catch {
-              /* handled below via failure count */
+            } catch (refreshErr) {
+              // Without a valid token every follow-up call fails too — surface it instead of
+              // letting the status check "assume terminal" and silently show 'ended'.
+              if (!cancelledRef.current) {
+                setStatus('error');
+                setError(refreshErr instanceof Error ? refreshErr.message : 'Failed to re-authenticate with node');
+              }
+              return;
             }
           }
         }
@@ -188,8 +198,11 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
         if (!(await isStillRunning(token))) {
           try {
             await loadStoredLogs(token);
-          } catch {
-            if (!cancelledRef.current) setStatus('ended');
+          } catch (e) {
+            if (!cancelledRef.current) {
+              setStatus('error');
+              setError(e instanceof Error ? e.message : 'Failed to load stored logs');
+            }
           }
           return;
         }
@@ -212,6 +225,7 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
 
     return () => {
       cancelledRef.current = true;
+      abortRef.current?.abort();
     };
     // Re-run when the opened job changes (peerId+jobId identify it uniquely).
     // eslint-disable-next-line react-hooks/exhaustive-deps

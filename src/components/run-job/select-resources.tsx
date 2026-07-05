@@ -136,10 +136,19 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   // Every advertised GPU is currently in use elsewhere — nothing left to pick.
   const gpuExhausted = hasGpu && gpus.every((gpu) => (gpusAvailable[gpu.id] ?? 0) <= 0);
 
-  // Per-unit (per-GPU) share of each resource, derived from full env capacity / total units.
-  const perUnitCpu = capacityOf(cpu) / totalUnits;
-  const perUnitRam = capacityOf(ram) / totalUnits;
-  const perUnitDisk = capacityOf(disk) / totalUnits;
+  // Capacity a single job can actually reach: node-wide total bounded by the per-job ceiling `max`.
+  // Free-compute overlays shrink `max` but keep the paid tier's `total`, so an unbounded total would
+  // make per-unit shares larger than what's available and floor unitsThatFit to 0.
+  const jobCapacityOf = (resource?: (typeof cpu) | null): number => {
+    const capacity = capacityOf(resource ?? undefined);
+    const max = resource?.max ?? 0;
+    return max > 0 ? Math.min(capacity, max) : capacity;
+  };
+
+  // Per-unit (per-GPU) share of each resource, derived from job-reachable capacity / total units.
+  const perUnitCpu = jobCapacityOf(cpu) / totalUnits;
+  const perUnitRam = jobCapacityOf(ram) / totalUnits;
+  const perUnitDisk = jobCapacityOf(disk) / totalUnits;
 
   const minAllowedCpuCores = cpu?.min ?? (cpu ? 1 : 0);
   const minAllowedRam = ram?.min ?? 0;

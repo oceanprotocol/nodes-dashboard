@@ -9,6 +9,7 @@ import {
   type ComputeAlgorithm,
   type ComputeAsset,
   type ComputeJob,
+  type ComputeJobMetadata,
   type ComputeResourceRequest,
   type NodeLogsParams,
   type NodeP2P,
@@ -201,7 +202,9 @@ export async function startCompute({
   computeEnv,
   datasets,
   maxJobDuration,
+  metadata,
   nodeUri,
+  outputBucketId,
   resources,
   token,
 }: {
@@ -211,7 +214,9 @@ export async function startCompute({
   computeEnv: string;
   datasets: ComputeAsset[];
   maxJobDuration: number;
+  metadata?: ComputeJobMetadata;
   nodeUri: NodeUri;
+  outputBucketId?: string;
   resources: ComputeResourceRequest[];
   token: string;
 }): Promise<ComputeJob | ComputeJob[]> {
@@ -224,7 +229,15 @@ export async function startCompute({
     maxJobDuration,
     token,
     resources,
-    chainId
+    chainId,
+    metadata,
+    undefined, // additionalViewers
+    undefined, // output
+    undefined, // policyServer
+    undefined, // signal
+    undefined, // queueMaxWaitTime
+    undefined, // dockerRegistryAuth
+    outputBucketId
   );
 }
 
@@ -234,14 +247,18 @@ export async function startFreeCompute({
   authToken,
   computeEnv,
   datasets,
+  metadata,
   nodeUri,
+  outputBucketId,
   resources,
 }: {
   algorithm: ComputeAlgorithm;
   authToken: string;
   computeEnv: string;
   datasets: ComputeAsset[];
+  metadata?: ComputeJobMetadata;
   nodeUri: NodeUri;
+  outputBucketId?: string;
   resources: ComputeResourceRequest[];
 }): Promise<ComputeJob | ComputeJob[]> {
   return ProviderInstance.freeComputeStart(
@@ -250,7 +267,15 @@ export async function startFreeCompute({
     computeEnv,
     datasets,
     algorithm,
-    resources
+    resources,
+    metadata,
+    undefined, // additionalViewers
+    undefined, // output
+    undefined, // policyServer
+    undefined, // signal
+    undefined, // queueMaxWaitTime
+    undefined, // dockerRegistryAuth
+    outputBucketId
   );
 }
 
