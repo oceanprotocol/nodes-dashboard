@@ -73,7 +73,14 @@ export const useEscrowData = (): UseEscrowDataReturn => {
           return Promise.all(
             allAuthorizations.map(async (authorizations) => {
               const spender = authorizations.payee;
-              const locks = await ocean.getLocks(token.address, account.address!, spender);
+              // Contract getLocks filters payer/token with OR, so it leaks other payers' locks and
+              // other tokens. Narrow to this user's locks for this token client-side.
+              const allLocks = await ocean.getLocks(token.address, account.address!, spender);
+              const locks = allLocks.filter(
+                (lock) =>
+                  lock.payer.toLowerCase() === account.address!.toLowerCase() &&
+                  lock.token.toLowerCase() === token.address.toLowerCase()
+              );
               return {
                 tokenSymbol: token.symbol,
                 tokenAddress: token.address,
