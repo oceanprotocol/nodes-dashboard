@@ -51,26 +51,6 @@
   font-size: 14px;
 }
 
-.languageGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.radioGroup {
-  display: flex;
-  gap: 16px;
-}
-
-.radio {
-  align-items: center;
-  color: var(--text-primary);
-  cursor: pointer;
-  display: flex;
-  gap: 6px;
-  font-size: 14px;
-}
-
 .hiddenInput {
   display: none;
 }
