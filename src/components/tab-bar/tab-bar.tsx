@@ -1,3 +1,4 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
@@ -13,10 +14,11 @@ type Tab = {
 type TabBarProps = {
   activeKey: string;
   className?: string;
+  size?: 'sm' | 'md';
   tabs: Tab[];
 };
 
-const TabBar = ({ activeKey, className, tabs }: TabBarProps) => {
+const TabBar = ({ activeKey, className, size = 'md', tabs }: TabBarProps) => {
   const router = useRouter();
 
   const handleTabClick = (tab: Tab) => {
@@ -29,16 +31,27 @@ const TabBar = ({ activeKey, className, tabs }: TabBarProps) => {
   };
 
   return (
-    <Card className={classNames(styles.root, className)} radius="lg" shadow="black" variant="glass-shaded">
-      {tabs.map((tab) => (
-        <div
-          className={classNames(styles.tab, { [styles.tabActive]: tab.key === activeKey })}
-          key={tab.key}
-          onClick={() => handleTabClick(tab)}
-        >
-          {tab.label}
-        </div>
-      ))}
+    <Card
+      className={classNames(styles.root, { [styles.rootSm]: size === 'sm' }, className)}
+      radius="lg"
+      shadow="black"
+      variant="glass-shaded"
+    >
+      {tabs.map((tab) => {
+        const isActive = tab.key === activeKey;
+        return (
+          <Button
+            className={classNames(styles.tab, { [styles.tabSm]: size === 'sm' })}
+            color={isActive ? 'accent2' : 'primary'}
+            key={tab.key}
+            onClick={() => handleTabClick(tab)}
+            size={size}
+            variant={isActive ? 'filled' : 'transparent'}
+          >
+            {tab.label}
+          </Button>
+        );
+      })}
     </Card>
   );
 };
