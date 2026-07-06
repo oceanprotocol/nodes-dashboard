@@ -320,6 +320,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                 setAmount(e.target.value);
                 setError(undefined);
               }}
+              placeholder="Amount"
               size="md"
               startAdornment={token.symbol}
               type="number"
