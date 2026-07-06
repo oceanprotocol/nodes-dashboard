@@ -4,7 +4,7 @@ import Input from '@/components/input/input';
 import { useRunJobContext } from '@/context/run-job-context';
 import { type NodeUri } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
-import { type AlgorithmLanguage, detectLanguageFromFilename, looksLikeDataset } from '@/lib/compute-inputs';
+import { detectLanguageFromFilename, looksLikeDataset } from '@/lib/compute-inputs';
 import { stashOptimisticJob } from '@/lib/optimistic-job';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
@@ -21,11 +21,6 @@ const TABS: { key: AuthoringTab; label: string }[] = [
   { key: 'dockerfile', label: 'Dockerfile' },
   { key: 'env', label: 'Env vars' },
   { key: 'storage', label: 'Storage' },
-];
-
-const LANGUAGES: { value: AlgorithmLanguage; label: string }[] = [
-  { value: 'py', label: 'Python' },
-  { value: 'js', label: 'JavaScript' },
 ];
 
 type AuthoringPanelProps = {
@@ -213,22 +208,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
       {activeTab === 'algorithm' && (
         <div className={styles.section}>
           <div className={styles.row}>
-            <div className={styles.languageGroup}>
-              <span className={styles.fieldLabel}>Language</span>
-              <div className={styles.radioGroup}>
-                {LANGUAGES.map((language) => (
-                  <label key={language.value} className={styles.radio}>
-                    <input
-                      type="radio"
-                      name="algorithm-language"
-                      checked={algorithmLanguage === language.value}
-                      onChange={() => setAlgorithmLanguage(language.value)}
-                    />
-                    {language.label}
-                  </label>
-                ))}
-              </div>
-            </div>
+            <span className={styles.fieldLabel}>Algorithm</span>
             <Button color="accent1" onClick={() => fileInputRef.current?.click()} size="sm" type="button" variant="outlined">
               Upload .py / .js
             </Button>

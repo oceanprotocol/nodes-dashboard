@@ -105,8 +105,13 @@ const Payment = ({
   const maxLockedAmount = roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address, 'up');
   const maxLockSeconds = minLockSeconds < 1 ? 1 : Math.ceil(minLockSeconds);
   // Escrow's authorize SETS (not increments) the lock cap. Derive above the current locks so a user
-  // who has already used all their slots can still raise the limit and start a new session.
-  const maxLockCount = Math.max(MAX_LOCK_COUNT, Number(authorizations?.currentLocks ?? 0) + 1);
+  // who has already used all their slots can still raise the limit and start a new session. Include
+  // the existing cap so a higher limit set on the escrow page isn't silently shrunk on re-auth.
+  const maxLockCount = Math.max(
+    MAX_LOCK_COUNT,
+    Number(authorizations?.currentLocks ?? 0) + 1,
+    Number(authorizations?.maxLockCounts ?? 0)
+  );
 
   const insufficientWalletFunds = (walletBalance ?? 0) < depositAmount;
 
