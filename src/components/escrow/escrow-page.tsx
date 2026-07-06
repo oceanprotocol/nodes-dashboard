@@ -1,5 +1,6 @@
 import Container from '@/components/container/container';
 import EscrowTokenPanel from '@/components/escrow/escrow-token-panel';
+import LegacyEscrowBanner from '@/components/homepage/legacy-escrow-banner';
 import Select from '@/components/input/select';
 import SectionTitle from '@/components/section-title/section-title';
 import { EscrowContractVersion, LEGACY_ESCROW_ADDRESS } from '@/constants/escrow';
@@ -24,6 +25,7 @@ const EscrowPage = () => {
         subTitle="Deposit and withdraw escrow funds, and manage the spending authorizations used to pay for compute jobs."
       />
       <div className={classNames('pageContentWrapper', styles.content)}>
+        <LegacyEscrowBanner />
         {LEGACY_ESCROW_ADDRESS && (
           <div className={styles.contractSelector}>
             <Select<EscrowContractVersion>

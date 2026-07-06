@@ -35,7 +35,7 @@ export default function HeroSection() {
         src={videoSrc}
       />
       <Container className={styles.relative}>
-        <LegacyEscrowBanner />
+        <LegacyEscrowBanner className={styles.legacyEscrowBanner} escrowPageLink />
         <div className={styles.titleWrapper}>
           <h1 className={styles.title}>
             Global <br />
