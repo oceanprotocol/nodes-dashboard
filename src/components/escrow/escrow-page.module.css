@@ -11,8 +11,13 @@
 }
 
 .contractSelect {
-  width: 340px;
+  width: 350px;
   max-width: 100%;
+}
+
+.hint {
+  color: var(--text-secondary);
+  padding: 0 16px;
 }
 
 /* Line the chip up with the select control, below its label. */
