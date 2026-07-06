@@ -4,6 +4,7 @@ import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
+import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
@@ -182,6 +183,7 @@ const ManageServicePage: React.FC = () => {
   const router = useRouter();
   const id = params.serviceId ? decodeURIComponent(params.serviceId) : '';
   const [revealed, setRevealed] = useState(false);
+  const [prolongOpen, setProlongOpen] = useState(false);
 
   const {
     selectedModels,
@@ -189,6 +191,7 @@ const ManageServicePage: React.FC = () => {
     selectedEnv,
     selectedToken,
     jobDurationSeconds,
+    setJobDurationSeconds,
     hydrateFromUrlFinished,
     buildSelectionQuery,
   } = useInferenceContext();
@@ -221,6 +224,20 @@ const ManageServicePage: React.FC = () => {
   // `edit` flag makes the flow skip env selection & payment (same env, no re-pay) — see payment-page.
   const onEdit = () => {
     router.push({ pathname: '/inference/custom-models', query: { ...buildSelectionQuery(), edit: '1' } });
+  };
+
+  // Prolong → straight to payment for the extra runtime only. Same selection (env/token/gpu/models),
+  // duration overridden to the chosen extra time; the `prolong` flag skips the earlier steps and
+  // reuses the same price formula. See payment-page.
+  const onProlong = (extraSeconds: number) => {
+    setProlongOpen(false);
+    // Provider persists across client-side nav, so URL hydration won't re-run on the payment page —
+    // push the chosen duration straight into context (the query keeps it for a hard reload).
+    setJobDurationSeconds(extraSeconds);
+    router.push({
+      pathname: '/inference/custom-models/payment',
+      query: { ...buildSelectionQuery(), duration: String(extraSeconds), prolong: '1' },
+    });
   };
 
   const service = { baseUrl: mock.baseUrl, bearer: mock.bearer, status: mock.status };
@@ -271,7 +288,13 @@ curl $BASE/api/chat \\
               >
                 Edit
               </Button>
-              <Button color="accent1" contentBefore={<BoltOutlinedIcon />} size="md" variant="filled">
+              <Button
+                color="accent1"
+                contentBefore={<BoltOutlinedIcon />}
+                onClick={() => setProlongOpen(true)}
+                size="md"
+                variant="filled"
+              >
                 Prolong session
               </Button>
             </div>
@@ -338,6 +361,8 @@ curl $BASE/api/chat \\
           <pre className={styles.codeBlock}>{curlSnippet}</pre>
         </Card>
       </div>
+
+      <ProlongSessionModal isOpen={prolongOpen} onClose={() => setProlongOpen(false)} onConfirm={onProlong} />
     </Container>
   );
 };

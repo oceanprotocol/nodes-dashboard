@@ -22,6 +22,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
   // Editing a running service: same env, no re-pay — hide the payment summary and relaunch instead.
   const isEditMode = router.query.edit === '1';
+  // Prolonging a running service: same selection, pay only for the extra runtime. Skips the earlier
+  // steps (arrived straight from the manage page) — jobDurationSeconds holds the extra time to add.
+  const isProlongMode = router.query.prolong === '1';
   const {
     selectedEnv,
     selectedToken,
@@ -49,10 +52,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     if (selectedModels.length === 0) {
       router.replace({ pathname: '/inference/custom-models', query: router.query });
-    } else if (!selectedEnv && !isEditMode) {
-      // In edit mode the env is inherited from the running service and the resources step is skipped.
+    } else if (!selectedEnv && !isEditMode && !isProlongMode) {
+      // In edit/prolong mode the env is inherited from the running service and the resources step is skipped.
       router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
-    } else if (selectedModels.some((model) => !modelParamsByModel[model.id])) {
+    } else if (!isProlongMode && selectedModels.some((model) => !modelParamsByModel[model.id])) {
+      // Prolong reuses the running service's committed params — no config step to bounce back to.
       router.replace({ pathname: '/inference/custom-models/config', query: router.query });
     }
   }, [
@@ -63,10 +67,16 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedEnv,
     modelParamsByModel,
     isEditMode,
+    isProlongMode,
     router,
   ]);
 
   const goToPrevStep = () => {
+    // Prolong arrived straight from the manage page — go back there instead of into the flow steps.
+    if (isProlongMode) {
+      router.back();
+      return;
+    }
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
         router.replace({ pathname: '/inference/custom-models/config', query: router.query });
@@ -99,8 +109,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       <SectionTitle
         moreReadable
         title="Inference"
-        subTitle="Launch a model on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} />}
+        subTitle={isProlongMode ? 'Prolong your running service' : 'Launch a model on an Ocean Node'}
+        contentBetween={
+          isProlongMode ? undefined : <InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} />
+        }
       />
       <div className="pageContentWrapper">
         {!hydrateFromUrlFinished ? (
@@ -139,7 +151,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                 <>
                   <div className={styles.sectionHead}>
                     <h3>Environment</h3>
-                    <span className="textSecondary">Running for {formatDuration(jobDurationSeconds)}</span>
+                    <span className="textSecondary">
+                      {isProlongMode ? 'Adding ' : 'Running for '}
+                      {formatDuration(jobDurationSeconds)}
+                    </span>
                   </div>
                   <InferenceEnvironmentCard
                     defaultToken={selectedToken?.address}
@@ -153,7 +168,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             </Card>
             <InferenceNavigation
               hideSelection
-              nextLabel={isEditMode ? 'Relaunch' : 'Pay & launch'}
+              nextLabel={isEditMode ? 'Relaunch' : isProlongMode ? 'Pay & prolong' : 'Pay & launch'}
               onNext={goToNextStep}
               onPrev={goToPrevStep}
             />
