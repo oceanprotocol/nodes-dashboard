@@ -28,6 +28,9 @@ type EscrowTokenPanelProps = {
   spenders: EscrowSpenderInfo[];
   loadingSpenders: boolean;
   onChange: () => void;
+  // Set when the panel shows the legacy escrow deployment: reads and withdrawals target this
+  // address, and deposits/authorization changes are disabled.
+  escrowAddress?: string;
 };
 
 // One spending-authorization card (right-hand side). A token can have multiple authorized
@@ -36,10 +39,12 @@ const AuthorizationCard = ({
   spender,
   token,
   onChange,
+  readOnly,
 }: {
   spender: EscrowSpenderInfo;
   token: EscrowTokenInfo;
   onChange: () => void;
+  readOnly?: boolean;
 }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRevokeOpen, setIsRevokeOpen] = useState(false);
@@ -88,48 +93,52 @@ const AuthorizationCard = ({
             />
           </div>
         </div>
-        <IconButton
-          aria-label="Authorization actions"
-          onClick={() => setMenuAnchor(menuButtonRef.current)}
-          ref={menuButtonRef}
-          size="small"
-          sx={{ color: 'var(--text-secondary)' }}
-        >
-          <MoreHorizIcon fontSize="small" />
-        </IconButton>
-        <Menu
-          anchorEl={menuAnchor}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          onClose={closeMenu}
-          open={!!menuAnchor}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <MenuItem
-            disableRipple
-            onClick={() => {
-              setIsEditOpen(true);
-              closeMenu();
-            }}
-          >
-            <ListItemIcon>
-              <EditOutlinedIcon fontSize="small" />
-            </ListItemIcon>
-            Edit
-          </MenuItem>
-          <MenuItem
-            disableRipple
-            onClick={() => {
-              setIsRevokeOpen(true);
-              closeMenu();
-            }}
-            sx={{ color: 'var(--error-darker)' }}
-          >
-            <ListItemIcon>
-              <DeleteOutlineIcon fontSize="small" sx={{ color: 'var(--error-darker)' }} />
-            </ListItemIcon>
-            Revoke
-          </MenuItem>
-        </Menu>
+        {!readOnly && (
+          <>
+            <IconButton
+              aria-label="Authorization actions"
+              onClick={() => setMenuAnchor(menuButtonRef.current)}
+              ref={menuButtonRef}
+              size="small"
+              sx={{ color: 'var(--text-secondary)' }}
+            >
+              <MoreHorizIcon fontSize="small" />
+            </IconButton>
+            <Menu
+              anchorEl={menuAnchor}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              onClose={closeMenu}
+              open={!!menuAnchor}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem
+                disableRipple
+                onClick={() => {
+                  setIsEditOpen(true);
+                  closeMenu();
+                }}
+              >
+                <ListItemIcon>
+                  <EditOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                Edit
+              </MenuItem>
+              <MenuItem
+                disableRipple
+                onClick={() => {
+                  setIsRevokeOpen(true);
+                  closeMenu();
+                }}
+                sx={{ color: 'var(--error-darker)' }}
+              >
+                <ListItemIcon>
+                  <DeleteOutlineIcon fontSize="small" sx={{ color: 'var(--error-darker)' }} />
+                </ListItemIcon>
+                Revoke
+              </MenuItem>
+            </Menu>
+          </>
+        )}
       </div>
 
       {/* Stats grid */}
@@ -202,31 +211,36 @@ const AuthorizationCard = ({
         <span className={styles.noLocks}>No active locks</span>
       )}
 
-      <EditAuthorizationModal
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        onSuccess={() => {
-          setIsEditOpen(false);
-          onChange();
-        }}
-        spender={spender}
-      />
+      {!readOnly && (
+        <>
+          <EditAuthorizationModal
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            onSuccess={() => {
+              setIsEditOpen(false);
+              onChange();
+            }}
+            spender={spender}
+          />
 
-      <RevokeAuthorizationModal
-        isOpen={isRevokeOpen}
-        onClose={() => setIsRevokeOpen(false)}
-        onSuccess={() => {
-          setIsRevokeOpen(false);
-          onChange();
-        }}
-        spender={spender}
-      />
+          <RevokeAuthorizationModal
+            isOpen={isRevokeOpen}
+            onClose={() => setIsRevokeOpen(false)}
+            onSuccess={() => {
+              setIsRevokeOpen(false);
+              onChange();
+            }}
+            spender={spender}
+          />
+        </>
+      )}
     </Card>
   );
 };
 
-const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
+const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAddress }: EscrowTokenPanelProps) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const isLegacy = !!escrowAddress;
 
   // Single amount input drives both actions. amount > 0 is the base check; the per-action
   // balance ceiling (wallet for deposit, escrow for withdraw) is validated at click time
@@ -272,7 +286,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
       return;
     }
     setError(undefined);
-    handleWithdraw({ tokenAddresses: [token.address], amounts: [value.toString()] });
+    handleWithdraw({ tokenAddresses: [token.address], amounts: [value.toString()], escrowAddress });
   };
 
   return (
@@ -311,6 +325,12 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
 
           {/* Move funds */}
           <div className={styles.moveFunds}>
+            {isLegacy && (
+              <span className={styles.legacyHint}>
+                This is the previous escrow contract — you can only withdraw from it. Deposits go to the current
+                contract.
+              </span>
+            )}
             <Input
               className={styles.fundInput}
               errorText={error}
@@ -320,9 +340,9 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                 setAmount(e.target.value);
                 setError(undefined);
               }}
-              placeholder="Amount"
+              placeholder="Enter amount"
               size="md"
-              startAdornment={token.symbol}
+              startAdornment={<span className={styles.fundInputSymbol}>{token.symbol}</span>}
               type="number"
               value={amount}
             />
@@ -340,19 +360,21 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
               >
                 Withdraw
               </Button>
-              <Button
-                className={styles.fundButton}
-                color="accent1"
-                contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
-                disabled={!amount || isWithdrawing || Number(amount) > token.walletBalance}
-                loading={isDepositing}
-                onClick={onDeposit}
-                size="md"
-                type="button"
-                variant="filled"
-              >
-                Deposit
-              </Button>
+              {!isLegacy && (
+                <Button
+                  className={styles.fundButton}
+                  color="accent1"
+                  contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
+                  disabled={!amount || isWithdrawing || Number(amount) > token.walletBalance}
+                  loading={isDepositing}
+                  onClick={onDeposit}
+                  size="md"
+                  type="button"
+                  variant="filled"
+                >
+                  Deposit
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -366,16 +388,18 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
                 {spenders.length} {spenders.length === 1 ? 'node' : 'nodes'}
               </span>
             )}
-            <Button
-              className={styles.createAuthButton}
-              color="accent2"
-              contentBefore={<AddIcon fontSize="small" />}
-              onClick={() => setIsCreateOpen(true)}
-              size="sm"
-              variant="filled"
-            >
-              Create
-            </Button>
+            {!isLegacy && (
+              <Button
+                className={styles.createAuthButton}
+                color="accent2"
+                contentBefore={<AddIcon fontSize="small" />}
+                onClick={() => setIsCreateOpen(true)}
+                size="sm"
+                variant="filled"
+              >
+                Create
+              </Button>
+            )}
           </div>
           {loadingSpenders && spenders.length === 0 ? (
             <div className={styles.authLoading}>
@@ -383,30 +407,38 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
             </div>
           ) : spenders.length > 0 ? (
             spenders.map((spender) => (
-              <AuthorizationCard key={spender.spender} onChange={onChange} spender={spender} token={token} />
+              <AuthorizationCard
+                key={spender.spender}
+                onChange={onChange}
+                readOnly={isLegacy}
+                spender={spender}
+                token={token}
+              />
             ))
           ) : (
             <div className={styles.noAuth}>
               <div className={styles.noAuthIcon}>
                 <LockOutlinedIcon sx={{ fontSize: 28 }} />
               </div>
-              <span className={styles.noAuthTitle}>No authorization yet</span>
+              <span className={styles.noAuthTitle}>{isLegacy ? 'No authorizations' : 'No authorization yet'}</span>
             </div>
           )}
         </div>
       </div>
 
-      <CreateAuthorizationModal
-        existingConsumers={spenders.map((s) => s.spender)}
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={() => {
-          setIsCreateOpen(false);
-          onChange();
-        }}
-        tokenAddress={token.address}
-        tokenSymbol={token.symbol}
-      />
+      {!isLegacy && (
+        <CreateAuthorizationModal
+          existingConsumers={spenders.map((s) => s.spender)}
+          isOpen={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          onSuccess={() => {
+            setIsCreateOpen(false);
+            onChange();
+          }}
+          tokenAddress={token.address}
+          tokenSymbol={token.symbol}
+        />
+      )}
     </Card>
   );
 };
