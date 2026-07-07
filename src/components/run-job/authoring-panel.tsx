@@ -18,7 +18,7 @@ type AuthoringTab = 'algorithm' | 'dataset' | 'dockerfile' | 'env' | 'storage';
 const TABS: { key: AuthoringTab; label: string }[] = [
   { key: 'algorithm', label: 'Algorithm' },
   { key: 'dataset', label: 'Dataset' },
-  { key: 'dockerfile', label: 'Dockerfile' },
+  { key: 'dockerfile', label: 'Docker' },
   { key: 'env', label: 'Env vars' },
   { key: 'storage', label: 'Storage' },
 ];
@@ -44,6 +44,10 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     setDataset,
     dockerfile,
     setDockerfile,
+    dockerImage,
+    setDockerImage,
+    dockerTag,
+    setDockerTag,
     envVars,
     setEnvVars,
     freeCompute,
@@ -169,6 +173,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
         freeCompute,
         hasDataset: !!dataset.trim(),
         hasCustomDockerfile: !!dockerfile.trim(),
+        hasCustomImage: !dockerfile.trim() && !!dockerImage.trim(),
         language: algorithmLanguage,
       });
       toast.success('Job submitted');
@@ -240,6 +245,28 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
 
       {activeTab === 'dockerfile' && (
         <div className={styles.section}>
+          <Input
+            type="text"
+            label="Docker image (optional)"
+            placeholder="e.g. oceanprotocol/c2d_examples"
+            hint={
+              dockerfile.trim()
+                ? 'Ignored while a Dockerfile is set — the node builds the image below.'
+                : `Custom image to run your algorithm in. Leave empty to use the default ${algorithmLanguage === 'py' ? 'Python' : 'JavaScript'} image.`
+            }
+            disabled={!!dockerfile.trim()}
+            value={dockerImage}
+            onChange={(event) => setDockerImage(event.target.value)}
+          />
+          <Input
+            type="text"
+            label="Tag (optional)"
+            placeholder="e.g. py-general or latest"
+            hint="Defaults to 'latest' when an image is set without a tag."
+            disabled={!!dockerfile.trim() || !dockerImage.trim()}
+            value={dockerTag}
+            onChange={(event) => setDockerTag(event.target.value)}
+          />
           <div className={styles.row}>
             <span className={styles.fieldLabel}>Dockerfile (optional)</span>
             <Button

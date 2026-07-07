@@ -38,14 +38,12 @@ export function detectLanguageFromFilename(filename: string): AlgorithmLanguage 
   const ext = filename.split('.').pop()?.toLowerCase();
   return ext ? (LANGUAGE_BY_EXTENSION[ext] ?? null) : null;
 }
-
-// Build the container config. A non-empty Dockerfile is built by the node (empty image/tag),
-// optionally with extra build-context files ({ name: content }, e.g. requirements.txt);
-// otherwise we fall back to the default c2d_examples image for the language.
 export function buildContainerConfig(
   language: AlgorithmLanguage,
   dockerfile?: string,
-  additionalDockerFiles?: Record<string, string>
+  additionalDockerFiles?: Record<string, string>,
+  dockerImage?: string,
+  dockerTag?: string
 ): ExtendedMetadataAlgorithm['container'] {
   const entrypoint = ENTRYPOINT[language];
   const trimmedDockerfile = dockerfile?.trim();
@@ -58,6 +56,10 @@ export function buildContainerConfig(
       checksum: '',
       ...(additionalDockerFiles && Object.keys(additionalDockerFiles).length > 0 ? { additionalDockerFiles } : {}),
     };
+  }
+  const trimmedImage = dockerImage?.trim();
+  if (trimmedImage) {
+    return { image: trimmedImage, tag: dockerTag?.trim() || 'latest', entrypoint, checksum: '' };
   }
   return { image: DEFAULT_IMAGE, tag: DEFAULT_TAG[language], entrypoint, checksum: '' };
 }
@@ -78,12 +80,16 @@ export function buildComputeAlgorithm({
   additionalDockerFiles,
   code,
   dockerfile,
+  dockerImage,
+  dockerTag,
   envVars,
   language,
 }: {
   additionalDockerFiles?: Record<string, string>;
   code: string;
   dockerfile?: string;
+  dockerImage?: string;
+  dockerTag?: string;
   envVars: EnvVarEntry[];
   language: AlgorithmLanguage;
 }): ComputeAlgorithm {
@@ -91,7 +97,7 @@ export function buildComputeAlgorithm({
   return {
     meta: {
       rawcode: code,
-      container: buildContainerConfig(language, dockerfile, additionalDockerFiles),
+      container: buildContainerConfig(language, dockerfile, additionalDockerFiles, dockerImage, dockerTag),
     } as ExtendedMetadataAlgorithm,
     ...(Object.keys(envs).length > 0 ? { envs } : {}),
   };
