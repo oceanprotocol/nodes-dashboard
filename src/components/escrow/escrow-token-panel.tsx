@@ -340,9 +340,9 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
                 setAmount(e.target.value);
                 setError(undefined);
               }}
-              placeholder="Amount"
+              placeholder="Enter amount"
               size="md"
-              startAdornment={token.symbol}
+              startAdornment={<span className={styles.fundInputSymbol}>{token.symbol}</span>}
               type="number"
               value={amount}
             />

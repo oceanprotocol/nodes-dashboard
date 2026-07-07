@@ -102,6 +102,25 @@
 .fundInput {
   width: 100%;
   min-width: 0;
+
+  /* Solid background instead of the translucent glass default, so the field reads as editable
+     rather than disabled. */
+  :global(.MuiTextField-root) {
+    background: var(--background-primary);
+  }
+}
+
+/* Token-symbol prefix, separated from the value area so it doesn't read as a pre-filled value. */
+.fundInputSymbol {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .fundButtons {

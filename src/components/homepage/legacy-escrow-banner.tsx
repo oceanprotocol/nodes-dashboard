@@ -23,7 +23,12 @@ const LegacyEscrowBanner: React.FC<{
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    setVisible(localStorage.getItem(DISMISSED_KEY) !== 'true');
+    // localStorage can throw (Safari private mode, restricted iframes) — fall back to showing it.
+    try {
+      setVisible(localStorage.getItem(DISMISSED_KEY) !== 'true');
+    } catch {
+      setVisible(true);
+    }
   }, []);
 
   if (!LEGACY_ESCROW_ADDRESS || !visible) {
@@ -31,7 +36,11 @@ const LegacyEscrowBanner: React.FC<{
   }
 
   const dismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, 'true');
+    try {
+      localStorage.setItem(DISMISSED_KEY, 'true');
+    } catch {
+      // Persistence is best-effort; still hide the banner for this session.
+    }
     setVisible(false);
   };
 
