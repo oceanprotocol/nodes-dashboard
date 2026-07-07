@@ -1,5 +1,5 @@
 import Card from '@/components/card/card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import { getSupportedTokens } from '@/constants/tokens';
 import { ComputeEnvironment } from '@/types/environments';
@@ -95,7 +95,7 @@ const NodeEnvPreview = ({
       const fee = gpuFees[gpu.id] ?? 0;
       return (
         <div key={gpu.id}>
-          <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description} />
+          <HardwareLabel className={classNames(styles.heading, styles.label)} type="gpu" value={gpu.description} />
           <div className={styles.label}>
             <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
           </div>
