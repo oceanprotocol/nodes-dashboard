@@ -32,7 +32,7 @@ const CopyButton: React.FC<CopyButtonProps> = ({
     <Button
       className={className}
       color={color}
-      contentBefore={copied ? <CheckIcon /> : <ContentCopyIcon />}
+      contentBefore={copied ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
       onClick={handleClick}
       size={size}
       variant={variant}

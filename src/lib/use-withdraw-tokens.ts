@@ -12,6 +12,8 @@ import { encodeFunctionData } from 'viem';
 export interface WithdrawTokensParams {
   tokenAddresses: string[];
   amounts: string[];
+  // Withdraw from this escrow deployment instead of the one in address.json (legacy contract).
+  escrowAddress?: string;
 }
 
 export interface UseWithdrawTokensParams {
@@ -34,12 +36,12 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
   const chainId = CHAIN_ID;
 
   const handleWithdraw = useCallback(
-    async ({ tokenAddresses, amounts }: WithdrawTokensParams) => {
+    async ({ tokenAddresses, amounts, escrowAddress }: WithdrawTokensParams) => {
       if (user?.type === 'eoa') {
         try {
           setIsWithdrawing(true);
           if (!ocean) return;
-          const tx = await ocean.withdrawTokensEoa({ tokenAddresses, amounts });
+          const tx = await ocean.withdrawTokensEoa({ tokenAddresses, amounts, escrowAddress });
           await tx.wait();
           setIsWithdrawing(false);
           setError(undefined);
@@ -62,7 +64,8 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
         setError(undefined);
 
         const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === chainId);
-        if (!config || !(config as any).Escrow) {
+        const escrowTarget = escrowAddress ?? (config as any)?.Escrow;
+        if (!escrowTarget) {
           throw new Error('No escrow found for chainId');
         }
 
@@ -81,7 +84,7 @@ export const useWithdrawTokens = ({ onSuccess }: UseWithdrawTokensParams = {}): 
         });
 
         await sendTransaction({
-          to: (config as any).Escrow as `0x${string}`,
+          to: escrowTarget as `0x${string}`,
           data: data as `0x${string}`,
         });
 
