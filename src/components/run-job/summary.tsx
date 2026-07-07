@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Menu from '@/components/menu/menu';
 import GenerateTokenCard from '@/components/run-job/generate-token-card';
@@ -242,7 +242,7 @@ const Summary = ({
                   acc[key] = (acc[key] ?? 0) + gpu.amount;
                   return acc;
                 }, {})
-              ).map(([desc, count]) => <GpuLabel key={desc} gpu={`${count} × ${desc}`} />)
+              ).map(([desc, count]) => <HardwareLabel key={desc} type="gpu" value={`${count} × ${desc}`} />)
             : '-'}
         </div>
         <div className={styles.label}>CPU cores:</div>

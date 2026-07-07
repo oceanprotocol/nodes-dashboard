@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Switch from '@/components/switch/switch';
@@ -181,8 +181,8 @@ const SelectEnvironment = () => {
               onChange={formik.handleChange}
               options={gpuOptions}
               placeholder="Any GPU"
-              renderOption={(option) => <GpuLabel gpu={option.label} />}
-              renderSelectedValue={(option) => <GpuLabel gpu={option} />}
+              renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
+              renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
               size="sm"
               value={formik.values.gpuName}
             />

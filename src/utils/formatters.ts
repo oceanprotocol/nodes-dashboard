@@ -150,15 +150,38 @@ export const formatDateTime = (timestamp: number): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
 
-const GPU_BRANDING = ['nvidia', 'corporation', 'amd', 'advanced', 'micro', 'devices', 'inc', 'intel', 'intel(r)'];
+export type HardwareType = 'cpu' | 'gpu';
+
+// Manufacturer/noise words dropped from a CPU/GPU model string; the brand is shown as a logo
+// instead. Keeps the useful model bits (e.g. "H200", "Xeon Platinum 8480+", "Ryzen 9 5950X").
+const HW_BRANDING = [
+  'nvidia',
+  'amd',
+  'intel',
+  'advanced',
+  'micro',
+  'devices',
+  'inc',
+  'corporation',
+  'processor',
+  'cpu',
+];
 const GPU_VENDORS = ['nvidia', 'amd', 'intel'] as const;
 type GpuVendor = (typeof GPU_VENDORS)[number];
 
-export const formatGpuName = (gpu: string, { showVendor = false }: { showVendor?: boolean } = {}): string => {
-  const detectedVendor = GPU_VENDORS.find((v) => gpu.toLowerCase().includes(v)) as GpuVendor | undefined;
-  const filtered = gpu
-    .split(/[\s,\.]+/)
-    .filter((word) => !GPU_BRANDING.includes(word.toLowerCase()))
+export const formatHardwareName = (
+  name: string,
+  type: HardwareType,
+  { showVendor = false }: { showVendor?: boolean } = {}
+): string => {
+  const detectedVendor = GPU_VENDORS.find((v) => name.toLowerCase().includes(v)) as GpuVendor | undefined;
+  // CPU model strings carry meaningful dots (clock speed, e.g. "2.60GHz"); GPU names don't.
+  const splitter = type === 'cpu' ? /[\s,]+/ : /[\s,.]+/;
+  const filtered = name
+    // Strip trademark marks glued to words, e.g. "Intel(R)" / "Core(TM)".
+    .replace(/\((?:r|tm)\)/gi, ' ')
+    .split(splitter)
+    .filter((word) => word && !HW_BRANDING.includes(word.toLowerCase()))
     .join(' ')
     .trim();
   if (showVendor && detectedVendor) {
