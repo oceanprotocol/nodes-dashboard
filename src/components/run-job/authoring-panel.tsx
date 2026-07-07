@@ -381,9 +381,20 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
       )}
 
       <div className={styles.footer}>
-        <Button autoLoading color="accent1" disabled={submitting} onClick={handleSubmit} size="lg" type="button">
-          Submit job
-        </Button>
+        <div className="actionsGroupLgBetween">
+          <Button
+            color="accent1"
+            onClick={() => router.replace({ pathname: '/run-job/summary', query: router.query })}
+            size="lg"
+            type="button"
+            variant="transparent"
+          >
+            Back
+          </Button>
+          <Button autoLoading color="accent1" disabled={submitting} onClick={handleSubmit} size="lg" type="button">
+            Submit job
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -138,6 +138,9 @@ type RunJobContextType = {
   // Persistent-storage bucket the job's output is written to (optional).
   outputBucketId: string | null;
   setOutputBucketId: (bucketId: string | null) => void;
+  // Auth token generated on the summary step; persisted so the dashboard authoring page can reuse it.
+  authToken: string | null;
+  setAuthToken: (token: string | null) => void;
   submitJob: (args: { authToken: string; consumerAddress: string }) => Promise<ComputeJob>;
   estimatedTotalCost: number | null;
   fetchEstimatedCost: ({
@@ -213,6 +216,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [jobName, setJobName] = useState<string>('');
   const [mountedFiles, setMountedFiles] = useState<MountedStorageFile[]>([]);
   const [outputBucketId, setOutputBucketId] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   const clearRunJobSelection = useCallback(() => {
     setEstimatedTotalCost(null);
@@ -232,6 +236,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setJobName('');
     setMountedFiles([]);
     setOutputBucketId(null);
+    setAuthToken(null);
   }, []);
 
   // Build the compute payload from the current selection + authoring inputs and start the job.
@@ -650,6 +655,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         setMountedFiles,
         outputBucketId,
         setOutputBucketId,
+        authToken,
+        setAuthToken,
         submitJob,
         estimatedTotalCost,
         fetchEstimatedCost,

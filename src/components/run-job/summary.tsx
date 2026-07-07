@@ -4,7 +4,6 @@ import Card from '@/components/card/card';
 import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Menu from '@/components/menu/menu';
-import AuthoringPanel from '@/components/run-job/authoring-panel';
 import GenerateTokenCard from '@/components/run-job/generate-token-card';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
@@ -44,7 +43,7 @@ const Summary = ({
 
   const { account, ocean } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
-  const { minLockSeconds, multiaddrsOrPeerId } = useRunJobContext();
+  const { authToken, setAuthToken, minLockSeconds, multiaddrsOrPeerId } = useRunJobContext();
 
   const { gpus } = useEnvResources({
     environment: selectedEnv,
@@ -53,8 +52,7 @@ const Summary = ({
   });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
-  const [runMode, setRunMode] = useState<'ide' | 'dashboard'>('ide');
+  const [runMode, setRunMode] = useState<'ide' | 'dashboard'>('dashboard');
   const [selectedIde, setSelectedIde] = useState(Ide.vscode);
   const [paymentCheckStarted, setPaymentCheckStarted] = useState(false);
   const [paymentCheckFinished, setPaymentCheckFinished] = useState(false);
@@ -244,26 +242,6 @@ const Summary = ({
             <button
               type="button"
               role="radio"
-              aria-checked={runMode === 'ide'}
-              className={classNames(styles.modeCard, { [styles.modeCardSelected]: runMode === 'ide' })}
-              onClick={() => setRunMode('ide')}
-            >
-              <span className={styles.modeIcon}>
-                <OpenInNewIcon fontSize="small" />
-              </span>
-              <span className={styles.modeBody}>
-                <span className={styles.modeTitle}>
-                  Continue in an editor
-                  {runMode === 'ide' && <CheckCircleIcon className={styles.modeCheck} fontSize="small" />}
-                </span>
-                <span className={styles.modeDescription}>
-                  Open Ocean Orchestrator in VS Code, Cursor, Antigravity, or Windsurf to author and run your job.
-                </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              role="radio"
               aria-checked={runMode === 'dashboard'}
               className={classNames(styles.modeCard, { [styles.modeCardSelected]: runMode === 'dashboard' })}
               onClick={() => setRunMode('dashboard')}
@@ -281,6 +259,26 @@ const Summary = ({
                 </span>
               </span>
             </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={runMode === 'ide'}
+              className={classNames(styles.modeCard, { [styles.modeCardSelected]: runMode === 'ide' })}
+              onClick={() => setRunMode('ide')}
+            >
+              <span className={styles.modeIcon}>
+                <OpenInNewIcon fontSize="small" />
+              </span>
+              <span className={styles.modeBody}>
+                <span className={styles.modeTitle}>
+                  Continue in an editor
+                  {runMode === 'ide' && <CheckCircleIcon className={styles.modeCheck} fontSize="small" />}
+                </span>
+                <span className={styles.modeDescription}>
+                  Open Ocean Orchestrator in VS Code, Cursor, Antigravity, or Windsurf to author and run your job.
+                </span>
+              </span>
+            </button>
           </div>
         </>
       ) : (
@@ -295,12 +293,19 @@ const Summary = ({
         />
       )}
 
-      {authToken && runMode === 'dashboard' && account.address && (
-        <AuthoringPanel authToken={authToken} consumerAddress={account.address} />
-      )}
-
       <div className={styles.footer}>
-        {authToken && runMode === 'ide' ? (
+        {authToken && runMode === 'dashboard' ? (
+          <div className="actionsGroupLgBetween">
+            {backButton}
+            <Button
+              color="accent1"
+              onClick={() => router.push({ pathname: '/run-job/authoring', query: router.query })}
+              size="lg"
+            >
+              Next
+            </Button>
+          </div>
+        ) : authToken && runMode === 'ide' ? (
           <div className="actionsGroupLgBetween">
             {backButton}
             <div className="actionsGroupLgEnd">
