@@ -128,6 +128,12 @@ type RunJobContextType = {
   setDataset: (dataset: string) => void;
   dockerfile: string;
   setDockerfile: (dockerfile: string) => void;
+  // Custom Docker image + tag (image:tag), used when no Dockerfile is provided. Mirrors the
+  // Ocean Orchestrator's dockerImage/dockerTag inputs.
+  dockerImage: string;
+  setDockerImage: (image: string) => void;
+  dockerTag: string;
+  setDockerTag: (tag: string) => void;
   envVars: EnvVarEntry[];
   setEnvVars: (envVars: EnvVarEntry[]) => void;
   jobName: string;
@@ -212,6 +218,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [additionalDockerFiles, setAdditionalDockerFiles] = useState<Record<string, string>>({});
   const [dataset, setDataset] = useState<string>('');
   const [dockerfile, setDockerfile] = useState<string>('');
+  const [dockerImage, setDockerImage] = useState<string>('');
+  const [dockerTag, setDockerTag] = useState<string>('');
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>([]);
   const [jobName, setJobName] = useState<string>('');
   const [mountedFiles, setMountedFiles] = useState<MountedStorageFile[]>([]);
@@ -232,6 +240,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setAdditionalDockerFiles({});
     setDataset('');
     setDockerfile('');
+    setDockerImage('');
+    setDockerTag('');
     setEnvVars([]);
     setJobName('');
     setMountedFiles([]);
@@ -259,6 +269,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         additionalDockerFiles,
         code: algorithmCode,
         dockerfile,
+        dockerImage,
+        dockerTag,
         envVars,
         language: algorithmLanguage,
       });
@@ -309,6 +321,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       algorithmLanguage,
       dataset,
       dockerfile,
+      dockerImage,
+      dockerTag,
       envVars,
       freeCompute,
       jobName,
@@ -647,6 +661,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         setDataset,
         dockerfile,
         setDockerfile,
+        dockerImage,
+        setDockerImage,
+        dockerTag,
+        setDockerTag,
         envVars,
         setEnvVars,
         jobName,
