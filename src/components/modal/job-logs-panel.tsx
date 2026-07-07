@@ -93,10 +93,10 @@ export const JobLogsPanel = ({ job, open }: JobLogsPanelProps) => {
         onScroll={onScroll}
         ref={scrollRef}
         style={{
-          background: 'var(--surface-2, #0d0d0d)',
-          border: '1px solid var(--border-glass, #333)',
+          background: '#2b2b2b',
+          border: '1px solid var(--border-glass, #444)',
           borderRadius: '8px',
-          color: 'var(--text-primary, #e0e0e0)',
+          color: '#d4d4d4',
           fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
           fontSize: '0.78rem',
           height: '320px',
@@ -108,7 +108,7 @@ export const JobLogsPanel = ({ job, open }: JobLogsPanelProps) => {
         }}
       >
         {lines.length === 0 && status !== 'error' ? (
-          <span style={{ color: 'var(--text-secondary, #888)' }}>
+          <span style={{ color: '#9e9e9e' }}>
             {status === 'connecting' ? 'Connecting to log stream…' : 'Waiting for logs…'}
           </span>
         ) : (
