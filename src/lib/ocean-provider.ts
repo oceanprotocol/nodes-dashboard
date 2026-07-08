@@ -42,7 +42,12 @@ export class OceanProvider {
     return new BigNumber(number).multipliedBy(new BigNumber(10).pow(decimals)).toFixed(0);
   }
 
-  private async getEscrowContract(chainId: number) {
+  // `escrowAddress` overrides the deployment from address.json — used by the escrow page to read
+  // from and withdraw out of the legacy (pre-redeploy) contract.
+  private async getEscrowContract(chainId: number, escrowAddress?: string) {
+    if (escrowAddress) {
+      return new ethers.Contract(escrowAddress, Escrow.abi, this.provider);
+    }
     const config = await this.getConfigByChainId(chainId);
     if (!config.Escrow) {
       throw new Error('No escrow found for chainId');
@@ -158,12 +163,12 @@ export class OceanProvider {
 
   // Returns every authorization the payer has granted for a token, across all payees.
   // The Escrow contract treats a zero payee address as a wildcard.
-  async getAllAuthorizations(tokenAddress: string, payer: string): Promise<Authorizations[]> {
+  async getAllAuthorizations(tokenAddress: string, payer: string, escrowAddress?: string): Promise<Authorizations[]> {
     if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer)) {
       console.error('Invalid address passed to getAllAuthorizations', { tokenAddress, payer });
       return [];
     }
-    const escrow = await this.getEscrowContract(this.chainId);
+    const escrow = await this.getEscrowContract(this.chainId, escrowAddress);
     const tokenDecimals = await getTokenDecimals(tokenAddress);
     const authorizations = await escrow.getAuthorizations(tokenAddress, payer, ethers.ZeroAddress);
     if (!authorizations || authorizations.length === 0) {
@@ -188,12 +193,16 @@ export class OceanProvider {
     return parseFloat(balanceString);
   }
 
-  async getUserFundsDetailed(tokenAddress: string, address: string): Promise<{ available: number; locked: number }> {
+  async getUserFundsDetailed(
+    tokenAddress: string,
+    address: string,
+    escrowAddress?: string
+  ): Promise<{ available: number; locked: number }> {
     if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(address)) {
       console.error('Invalid address passed to getUserFundsDetailed', { tokenAddress, address });
       return { available: 0, locked: 0 };
     }
-    const escrow = await this.getEscrowContract(this.chainId);
+    const escrow = await this.getEscrowContract(this.chainId, escrowAddress);
     const funds = await escrow.getUserFunds(address, tokenAddress);
     const tokenDecimals = await getTokenDecimals(tokenAddress);
     return {
@@ -202,12 +211,12 @@ export class OceanProvider {
     };
   }
 
-  async getLocks(tokenAddress: string, payer: string, payee: string): Promise<EscrowLock[]> {
+  async getLocks(tokenAddress: string, payer: string, payee: string, escrowAddress?: string): Promise<EscrowLock[]> {
     if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(payer) || !ethers.isAddress(payee)) {
       console.error('Invalid address passed to getLocks', { tokenAddress, payer, payee });
       return [];
     }
-    const escrow = await this.getEscrowContract(this.chainId);
+    const escrow = await this.getEscrowContract(this.chainId, escrowAddress);
     const tokenDecimals = await getTokenDecimals(tokenAddress);
     const locks = await escrow.getLocks(tokenAddress, payer, payee);
     if (!locks || locks.length === 0) {
@@ -271,12 +280,20 @@ export class OceanProvider {
     return deposit;
   }
 
-  async withdrawTokensEoa({ tokenAddresses, amounts }: { tokenAddresses: string[]; amounts: string[] }): Promise<any> {
+  async withdrawTokensEoa({
+    tokenAddresses,
+    amounts,
+    escrowAddress,
+  }: {
+    tokenAddresses: string[];
+    amounts: string[];
+    escrowAddress?: string;
+  }): Promise<any> {
     if (!tokenAddresses.every((addr) => ethers.isAddress(addr))) {
       console.error('Invalid address passed to withdrawTokensEoa', { tokenAddresses });
       throw new Error('Invalid address');
     }
-    const escrow = await this.getEscrowContract(this.chainId);
+    const escrow = await this.getEscrowContract(this.chainId, escrowAddress);
     const signer = await this.provider.getSigner();
     const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
     const normalizedAmounts = await Promise.all(

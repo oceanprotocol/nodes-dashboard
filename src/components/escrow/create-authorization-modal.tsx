@@ -89,14 +89,15 @@ const CreateAuthorizationModal = ({
         setFieldError('nodeId', 'Node not found');
         return null;
       }
-      const consumer = node.computeEnvironments?.environments?.find((env) => env.consumerAddress)?.consumerAddress;
+      const consumer =
+        node.address ?? node.computeEnvironments?.environments?.find((env) => env.consumerAddress)?.consumerAddress;
       if (!consumer) {
-        setFieldError('nodeId', 'Node has no compute environment with a consumer address');
+        setFieldError('nodeId', 'Could not resolve ETH address for this node');
         return null;
       }
       return consumer;
     } catch (error) {
-      console.error('Error resolving node consumer address: ', error);
+      console.error('Could not resolve ETH address for this node: ', error);
       setFieldError('nodeId', 'Failed to fetch node');
       return null;
     }
@@ -114,11 +115,12 @@ const CreateAuthorizationModal = ({
       <form className={styles.root} onSubmit={formik.handleSubmit}>
         <Input
           errorText={formik.touched.nodeId && formik.errors.nodeId ? formik.errors.nodeId : undefined}
-          label="Node ID"
+          label="Node peer ID"
           name="nodeId"
           onBlur={formik.handleBlur}
           onChange={formik.handleChange}
           placeholder="Node peer ID"
+          size="sm"
           type="text"
           value={formik.values.nodeId}
         />
@@ -134,6 +136,7 @@ const CreateAuthorizationModal = ({
             name="maxLockedAmount"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
+            size="sm"
             step="any"
             type="number"
             value={formik.values.maxLockedAmount}
@@ -147,18 +150,21 @@ const CreateAuthorizationModal = ({
             name="maxLockSeconds"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
+            size="sm"
             type="number"
             value={formik.values.maxLockSeconds}
           />
           <Input
-            endAdornment="locks"
+            endAdornment="jobs"
             errorText={
               formik.touched.maxLockCount && formik.errors.maxLockCount ? formik.errors.maxLockCount : undefined
             }
-            label="Max lock count"
+            hint="Max lock count"
+            label="Max concurrent jobs"
             name="maxLockCount"
             onBlur={formik.handleBlur}
             onChange={formik.handleChange}
+            size="sm"
             type="number"
             value={formik.values.maxLockCount}
           />

@@ -22,18 +22,6 @@
   }
 }
 
-.tokenHeader {
-  display: flex;
-  align-items: center;
-}
-
-.tokenSymbol {
-  display: block;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
 .overline {
   display: block;
   font-size: 12px;
@@ -111,17 +99,49 @@
   gap: 10px;
 }
 
-.fundRow {
-  display: flex;
+.fundInput {
+  width: 100%;
+  min-width: 0;
+
+  /* Solid background instead of the translucent glass default, so the field reads as editable
+     rather than disabled. */
+  :global(.MuiTextField-root) {
+    background: var(--background-primary);
+  }
 }
 
-.fundInput {
-  flex: 1;
-  min-width: 0;
+/* Token-symbol prefix, separated from the value area so it doesn't read as a pre-filled value. */
+.fundInputSymbol {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fundButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  @media (min-width: 576px) {
+    flex-direction: row;
+  }
 }
 
 .fundButton {
+  flex: 1;
   white-space: nowrap;
+}
+
+.legacyHint {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 /* ── Right column ── */
@@ -147,31 +167,32 @@
   gap: 10px;
 }
 
-.authSectionTitle {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
 .createAuthButton {
   margin-left: auto;
 }
 
 .authHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
 }
 
-.authSpender {
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.copyRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0px 8px;
   white-space: nowrap;
+  font-size: 13px;
+
+  .hash {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .statsGrid {
@@ -356,11 +377,4 @@
 .noAuthTitle {
   font-size: 17px;
   font-weight: 700;
-}
-
-.noAuthDesc {
-  font-size: 14px;
-  color: var(--text-secondary);
-  max-width: 400px;
-  line-height: 1.5;
 }

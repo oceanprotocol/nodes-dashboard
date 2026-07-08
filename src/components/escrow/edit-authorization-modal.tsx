@@ -1,8 +1,11 @@
 import Button from '@/components/button/button';
+import CopyButton from '@/components/button/copy-button';
 import AuthorizationForm from '@/components/escrow/authorization-form';
+import styles from '@/components/escrow/escrow-token-panel.module.css';
 import Modal from '@/components/modal/modal';
 import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
 import { EscrowSpenderInfo } from '@/lib/use-escrow-data';
+import { formatWalletAddress } from '@/utils/formatters';
 
 type EditAuthorizationModalProps = {
   isOpen: boolean;
@@ -17,7 +20,36 @@ const EditAuthorizationModal = ({ isOpen, onClose, onSuccess, spender }: EditAut
   const { authorizations, tokenAddress, tokenSymbol } = spender;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit authorization" width="sm">
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit authorization per node" width="sm">
+      <div>
+        <h4>{spender.nodeFriendlyName ?? (spender.nodeId ? 'Unnamed node' : 'Unknown node')}</h4>
+        {spender.nodeId && (
+          <div className={styles.copyRow}>
+            <strong>Peer ID:</strong>
+            <span className={styles.hash}>{formatWalletAddress(spender.nodeId)}</span>
+            <CopyButton
+              color="accent1"
+              contentToCopy={spender.nodeId}
+              label=""
+              labelCopied=""
+              size="sm"
+              variant="transparent"
+            />
+          </div>
+        )}
+        <div className={styles.copyRow}>
+          <strong>ETH Address:</strong>
+          <span className={styles.hash}>{formatWalletAddress(spender.spender)}</span>
+          <CopyButton
+            color="accent1"
+            contentToCopy={spender.spender}
+            label=""
+            labelCopied=""
+            size="sm"
+            variant="transparent"
+          />
+        </div>
+      </div>
       <AuthorizationForm
         initialValues={{
           maxLockedAmount: Number(authorizations.maxLockedAmount),

@@ -1,0 +1,27 @@
+.root {
+  padding: 16px;
+  text-align: left;
+
+  .row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+
+    .icon {
+      flex-shrink: 0;
+    }
+
+    .message {
+      flex: 1;
+      min-width: 240px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .close {
+      position: relative;
+      top: -4px;
+      right: -4px;
+    }
+  }
+}
