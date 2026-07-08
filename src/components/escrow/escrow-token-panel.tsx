@@ -1,4 +1,5 @@
 import Button from '@/components/button/button';
+import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
 import CreateAuthorizationModal from '@/components/escrow/create-authorization-modal';
 import EditAuthorizationModal from '@/components/escrow/edit-authorization-modal';
@@ -19,9 +20,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { CircularProgress, Collapse, IconButton, ListItemIcon, MenuItem } from '@mui/material';
 import classNames from 'classnames';
-import { useFormik } from 'formik';
 import { useRef, useState } from 'react';
-import * as Yup from 'yup';
 import styles from './escrow-token-panel.module.css';
 
 type EscrowTokenPanelProps = {
@@ -29,10 +28,9 @@ type EscrowTokenPanelProps = {
   spenders: EscrowSpenderInfo[];
   loadingSpenders: boolean;
   onChange: () => void;
-};
-
-type AmountFormValues = {
-  amount: number | '';
+  // Set when the panel shows the legacy escrow deployment: reads and withdrawals target this
+  // address, and deposits/authorization changes are disabled.
+  escrowAddress?: string;
 };
 
 // One spending-authorization card (right-hand side). A token can have multiple authorized
@@ -41,10 +39,12 @@ const AuthorizationCard = ({
   spender,
   token,
   onChange,
+  readOnly,
 }: {
   spender: EscrowSpenderInfo;
   token: EscrowTokenInfo;
   onChange: () => void;
+  readOnly?: boolean;
 }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRevokeOpen, setIsRevokeOpen] = useState(false);
@@ -64,51 +64,81 @@ const AuthorizationCard = ({
     <Card direction="column" innerShadow="black" padding="sm" radius="md" spacing="sm" variant="glass">
       {/* Auth header */}
       <div className={styles.authHeader}>
-        <div className={styles.authSpender} title={spender.spender}>
-          Consumer {formatWalletAddress(spender.spender)}
+        <div>
+          <h4>{spender.nodeFriendlyName ?? (spender.nodeId ? 'Unnamed node' : 'Unknown node')}</h4>
+          {spender.nodeId && (
+            <div className={styles.copyRow}>
+              <strong>Peer ID:</strong>
+              <span className={styles.hash}>{formatWalletAddress(spender.nodeId)}</span>
+              <CopyButton
+                color="accent1"
+                contentToCopy={spender.nodeId}
+                label=""
+                labelCopied=""
+                size="sm"
+                variant="transparent"
+              />
+            </div>
+          )}
+          <div className={styles.copyRow}>
+            <strong>ETH Address:</strong>
+            <span className={styles.hash}>{formatWalletAddress(spender.spender)}</span>
+            <CopyButton
+              color="accent1"
+              contentToCopy={spender.spender}
+              label=""
+              labelCopied=""
+              size="sm"
+              variant="transparent"
+            />
+          </div>
         </div>
-        <IconButton
-          aria-label="Authorization actions"
-          onClick={() => setMenuAnchor(menuButtonRef.current)}
-          ref={menuButtonRef}
-          size="small"
-          sx={{ color: 'var(--text-secondary)' }}
-        >
-          <MoreHorizIcon fontSize="small" />
-        </IconButton>
-        <Menu
-          anchorEl={menuAnchor}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          onClose={closeMenu}
-          open={!!menuAnchor}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <MenuItem
-            disableRipple
-            onClick={() => {
-              setIsEditOpen(true);
-              closeMenu();
-            }}
-          >
-            <ListItemIcon>
-              <EditOutlinedIcon fontSize="small" />
-            </ListItemIcon>
-            Edit
-          </MenuItem>
-          <MenuItem
-            disableRipple
-            onClick={() => {
-              setIsRevokeOpen(true);
-              closeMenu();
-            }}
-            sx={{ color: 'var(--error-darker)' }}
-          >
-            <ListItemIcon>
-              <DeleteOutlineIcon fontSize="small" sx={{ color: 'var(--error-darker)' }} />
-            </ListItemIcon>
-            Revoke
-          </MenuItem>
-        </Menu>
+        {!readOnly && (
+          <>
+            <IconButton
+              aria-label="Authorization actions"
+              onClick={() => setMenuAnchor(menuButtonRef.current)}
+              ref={menuButtonRef}
+              size="small"
+              sx={{ color: 'var(--text-secondary)' }}
+            >
+              <MoreHorizIcon fontSize="small" />
+            </IconButton>
+            <Menu
+              anchorEl={menuAnchor}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              onClose={closeMenu}
+              open={!!menuAnchor}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem
+                disableRipple
+                onClick={() => {
+                  setIsEditOpen(true);
+                  closeMenu();
+                }}
+              >
+                <ListItemIcon>
+                  <EditOutlinedIcon fontSize="small" />
+                </ListItemIcon>
+                Edit
+              </MenuItem>
+              <MenuItem
+                disableRipple
+                onClick={() => {
+                  setIsRevokeOpen(true);
+                  closeMenu();
+                }}
+                sx={{ color: 'var(--error-darker)' }}
+              >
+                <ListItemIcon>
+                  <DeleteOutlineIcon fontSize="small" sx={{ color: 'var(--error-darker)' }} />
+                </ListItemIcon>
+                Revoke
+              </MenuItem>
+            </Menu>
+          </>
+        )}
       </div>
 
       {/* Stats grid */}
@@ -130,7 +160,7 @@ const AuthorizationCard = ({
           <span className={styles.statValue}>{formatDuration(Number(auth.maxLockSeconds), true)}</span>
         </div>
         <div className={styles.statField}>
-          <span className={styles.statLabel}>Locks used</span>
+          <span className={styles.statLabel}>Locks used (Active jobs)</span>
           <div className={styles.locksUsedRow}>
             <span className={styles.statValue}>
               {locksUsed} / {locksMax}
@@ -156,7 +186,7 @@ const AuthorizationCard = ({
             type="button"
           >
             <ChevronRightIcon className={locksOpen ? styles.chevronOpen : styles.chevron} fontSize="small" />
-            <span className={styles.overline}>Active Locks</span>
+            <span className={styles.overline}>Active jobs</span>
           </button>
           <Collapse in={locksOpen} timeout="auto" unmountOnExit>
             <div className={styles.locksTable}>
@@ -181,72 +211,90 @@ const AuthorizationCard = ({
         <span className={styles.noLocks}>No active locks</span>
       )}
 
-      <EditAuthorizationModal
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        onSuccess={() => {
-          setIsEditOpen(false);
-          onChange();
-        }}
-        spender={spender}
-      />
+      {!readOnly && (
+        <>
+          <EditAuthorizationModal
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            onSuccess={() => {
+              setIsEditOpen(false);
+              onChange();
+            }}
+            spender={spender}
+          />
 
-      <RevokeAuthorizationModal
-        isOpen={isRevokeOpen}
-        onClose={() => setIsRevokeOpen(false)}
-        onSuccess={() => {
-          setIsRevokeOpen(false);
-          onChange();
-        }}
-        spender={spender}
-      />
+          <RevokeAuthorizationModal
+            isOpen={isRevokeOpen}
+            onClose={() => setIsRevokeOpen(false)}
+            onSuccess={() => {
+              setIsRevokeOpen(false);
+              onChange();
+            }}
+            spender={spender}
+          />
+        </>
+      )}
     </Card>
   );
 };
 
-const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: EscrowTokenPanelProps) => {
+const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAddress }: EscrowTokenPanelProps) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const isLegacy = !!escrowAddress;
+
+  // Single amount input drives both actions. amount > 0 is the base check; the per-action
+  // balance ceiling (wallet for deposit, escrow for withdraw) is validated at click time
+  // since it depends on which button was pressed.
+  const [amount, setAmount] = useState('');
+  const [error, setError] = useState<string | undefined>();
 
   const { handleDeposit, isDepositing } = useDepositTokens({
     onSuccess: () => {
-      depositForm.resetForm();
+      setAmount('');
       onChange();
     },
   });
   const { handleWithdraw, isWithdrawing } = useWithdrawTokens({
     onSuccess: () => {
-      withdrawForm.resetForm();
+      setAmount('');
       onChange();
     },
   });
 
-  const depositForm = useFormik<AmountFormValues>({
-    initialValues: { amount: '' },
-    onSubmit: (values) => handleDeposit({ tokenAddress: token.address, amount: values.amount.toString() }),
-    validateOnMount: true,
-    validationSchema: Yup.object({
-      amount: Yup.number().moreThan(0, 'Invalid amount').max(token.walletBalance, 'Exceeds wallet balance'),
-    }),
-  });
+  const onDeposit = () => {
+    const value = Number(amount);
+    if (value <= 0) {
+      setError('Invalid amount');
+      return;
+    }
+    if (value > token.walletBalance) {
+      setError('Exceeds wallet balance');
+      return;
+    }
+    setError(undefined);
+    handleDeposit({ tokenAddress: token.address, amount: value.toString() });
+  };
 
-  const withdrawForm = useFormik<AmountFormValues>({
-    initialValues: { amount: '' },
-    onSubmit: (values) => handleWithdraw({ tokenAddresses: [token.address], amounts: [values.amount.toString()] }),
-    validateOnMount: true,
-    validationSchema: Yup.object({
-      amount: Yup.number().moreThan(0, 'Invalid amount').max(token.available, 'Exceeds available funds'),
-    }),
-  });
+  const onWithdraw = () => {
+    const value = Number(amount);
+    if (value <= 0) {
+      setError('Invalid amount');
+      return;
+    }
+    if (value > token.available) {
+      setError('Exceeds available funds');
+      return;
+    }
+    setError(undefined);
+    handleWithdraw({ tokenAddresses: [token.address], amounts: [value.toString()], escrowAddress });
+  };
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.panel}>
         {/* ── Left: balance + move funds ── */}
         <div className={styles.left}>
-          {/* Token header */}
-          <div className={styles.tokenHeader}>
-            <span className={styles.tokenSymbol}>{token.symbol}</span>
-          </div>
+          <h3>{token.symbol}</h3>
 
           {/* Primary balance */}
           <div className={styles.primaryBalance}>
@@ -260,7 +308,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
           {/* Secondary balances */}
           <div className={styles.secondaryBalances}>
             <div className={styles.secondaryRow}>
-              <span className={styles.secondaryLabel}>Locked in escrow</span>
+              <span className={styles.secondaryLabel}>Locked for running jobs</span>
               <span className={styles.secondaryAmount}>
                 <strong>{formatTokenAmount(token.locked, token.address)}</strong>{' '}
                 <span className={styles.secondarySymbol}>{token.symbol}</span>
@@ -277,87 +325,81 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
 
           {/* Move funds */}
           <div className={styles.moveFunds}>
-            <span className={styles.overline}>Move funds</span>
-            <form className={styles.fundRow} onSubmit={depositForm.handleSubmit}>
-              <Input
-                className={styles.fundInput}
-                endAdornment={
-                  <Button
-                    className={styles.fundButton}
-                    color="accent1"
-                    contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
-                    disabled={!depositForm.isValid || !depositForm.values.amount}
-                    loading={isDepositing}
-                    size="sm"
-                    type="submit"
-                    variant="filled"
-                  >
-                    Deposit
-                  </Button>
-                }
-                errorText={
-                  depositForm.touched.amount && depositForm.errors.amount ? depositForm.errors.amount : undefined
-                }
-                name="amount"
-                onBlur={depositForm.handleBlur}
-                onChange={depositForm.handleChange}
+            {isLegacy && (
+              <span className={styles.legacyHint}>
+                This is the previous escrow contract — you can only withdraw from it. Deposits go to the current
+                contract.
+              </span>
+            )}
+            <Input
+              className={styles.fundInput}
+              errorText={error}
+              label="Move funds"
+              name="amount"
+              onChange={(e) => {
+                setAmount(e.target.value);
+                setError(undefined);
+              }}
+              placeholder="Enter amount"
+              size="md"
+              startAdornment={<span className={styles.fundInputSymbol}>{token.symbol}</span>}
+              type="number"
+              value={amount}
+            />
+            <div className={styles.fundButtons}>
+              <Button
+                className={styles.fundButton}
+                color="accent1"
+                contentBefore={<FileDownloadOutlinedIcon fontSize="small" />}
+                disabled={!amount || isDepositing || Number(amount) > token.available}
+                loading={isWithdrawing}
+                onClick={onWithdraw}
                 size="md"
-                startAdornment={token.symbol}
-                type="number"
-                value={depositForm.values.amount}
-              />
-            </form>
-            <form className={styles.fundRow} onSubmit={withdrawForm.handleSubmit}>
-              <Input
-                className={styles.fundInput}
-                endAdornment={
-                  <Button
-                    className={styles.fundButton}
-                    color="accent1"
-                    contentBefore={<FileDownloadOutlinedIcon fontSize="small" />}
-                    disabled={!withdrawForm.isValid || !withdrawForm.values.amount}
-                    loading={isWithdrawing}
-                    size="sm"
-                    type="submit"
-                    variant="outlined"
-                  >
-                    Withdraw
-                  </Button>
-                }
-                errorText={
-                  withdrawForm.touched.amount && withdrawForm.errors.amount ? withdrawForm.errors.amount : undefined
-                }
-                name="amount"
-                onBlur={withdrawForm.handleBlur}
-                onChange={withdrawForm.handleChange}
-                size="md"
-                startAdornment={token.symbol}
-                type="number"
-                value={withdrawForm.values.amount}
-              />
-            </form>
+                type="button"
+                variant="outlined"
+              >
+                Withdraw
+              </Button>
+              {!isLegacy && (
+                <Button
+                  className={styles.fundButton}
+                  color="accent1"
+                  contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
+                  disabled={!amount || isWithdrawing || Number(amount) > token.walletBalance}
+                  loading={isDepositing}
+                  onClick={onDeposit}
+                  size="md"
+                  type="button"
+                  variant="filled"
+                >
+                  Deposit
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* ── Right: authorizations & locks (one card per authorized spender) ── */}
         <div className={styles.right}>
           <div className={styles.authSectionHeader}>
-            <span className={styles.authSectionTitle}>Authorizations</span>
+            <h3>Authorizations</h3>
             {spenders.length > 0 && (
               <span className="chip chipGlass">
-                {spenders.length} {spenders.length === 1 ? 'consumer' : 'consumers'}
+                {spenders.length} {spenders.length === 1 ? 'node' : 'nodes'}
               </span>
             )}
-            <Button
-              className={styles.createAuthButton}
-              color="accent2"
-              contentBefore={<AddIcon fontSize="small" />}
-              onClick={() => setIsCreateOpen(true)}
-              size="sm"
-              variant="filled"
-            >
-              Create
-            </Button>
+            {!isLegacy && (
+              <Button
+                className={styles.createAuthButton}
+                color="accent2"
+                contentBefore={<AddIcon fontSize="small" />}
+                onClick={() => setIsCreateOpen(true)}
+                size="sm"
+                variant="filled"
+              >
+                Create
+              </Button>
+            )}
           </div>
           {loadingSpenders && spenders.length === 0 ? (
             <div className={styles.authLoading}>
@@ -365,33 +407,38 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange }: Escrow
             </div>
           ) : spenders.length > 0 ? (
             spenders.map((spender) => (
-              <AuthorizationCard key={spender.spender} onChange={onChange} spender={spender} token={token} />
+              <AuthorizationCard
+                key={spender.spender}
+                onChange={onChange}
+                readOnly={isLegacy}
+                spender={spender}
+                token={token}
+              />
             ))
           ) : (
             <div className={styles.noAuth}>
               <div className={styles.noAuthIcon}>
                 <LockOutlinedIcon sx={{ fontSize: 28 }} />
               </div>
-              <span className={styles.noAuthTitle}>No authorization yet</span>
-              <span className={styles.noAuthDesc}>
-                An authorization is created automatically the first time you pay for a compute job with {token.symbol}.
-              </span>
+              <span className={styles.noAuthTitle}>{isLegacy ? 'No authorizations' : 'No authorization yet'}</span>
             </div>
           )}
         </div>
       </div>
 
-      <CreateAuthorizationModal
-        existingConsumers={spenders.map((s) => s.spender)}
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={() => {
-          setIsCreateOpen(false);
-          onChange();
-        }}
-        tokenAddress={token.address}
-        tokenSymbol={token.symbol}
-      />
+      {!isLegacy && (
+        <CreateAuthorizationModal
+          existingConsumers={spenders.map((s) => s.spender)}
+          isOpen={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          onSuccess={() => {
+            setIsCreateOpen(false);
+            onChange();
+          }}
+          tokenAddress={token.address}
+          tokenSymbol={token.symbol}
+        />
+      )}
     </Card>
   );
 };

@@ -22,6 +22,7 @@ export type NodeBanInfo = {
 };
 
 export type Node = {
+  address?: string;
   allowedAdmins?: string[];
   banned: boolean;
   bannedAt?: number;
