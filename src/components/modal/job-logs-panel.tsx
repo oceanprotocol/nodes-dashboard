@@ -1,3 +1,4 @@
+import type { NodeUri } from '@/contexts/P2PContext';
 import { LogViewStatus, useJobLogs } from '@/hooks/use-job-logs';
 import { ComputeJob } from '@/types/jobs';
 import StopIcon from '@mui/icons-material/Stop';
@@ -6,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 interface JobLogsPanelProps {
   job: ComputeJob;
   open: boolean;
+  nodeUri: NodeUri;
 }
 
 const STATUS_LABEL: Record<LogViewStatus, string> = {
@@ -28,8 +30,8 @@ const STATUS_COLOR: Record<LogViewStatus, string> = {
   error: 'var(--error, #ef4444)',
 };
 
-export const JobLogsPanel = ({ job, open }: JobLogsPanelProps) => {
-  const { lines, status, error, stop } = useJobLogs(job, open);
+export const JobLogsPanel = ({ job, open, nodeUri }: JobLogsPanelProps) => {
+  const { lines, status, error, stop } = useJobLogs(job, open, nodeUri);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [stickToBottom, setStickToBottom] = useState(true);
 

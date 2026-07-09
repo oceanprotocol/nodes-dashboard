@@ -1,6 +1,6 @@
 import Button from '@/components/button/button';
 import ProgressBar from '@/components/progress-bar/progress-bar';
-import { useP2P } from '@/contexts/P2PContext';
+import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { createAuthToken } from '@/services/nodeService';
 import { ComputeJob } from '@/types/jobs';
@@ -10,9 +10,10 @@ import { toast } from 'react-toastify';
 
 interface DownloadResultButtonProps {
   job: ComputeJob;
+  nodeUri: NodeUri;
 }
 
-export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
+export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps) => {
   const { account, signMessage } = useOceanAccount();
   const { getComputeJobStatus, isReady, streamComputeResult } = useP2P();
 
@@ -29,11 +30,11 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
 
       const { token } = await createAuthToken({
         consumerAddress: account.address,
-        nodeUri: job.peerId,
+        nodeUri,
         signMessage,
       });
 
-      const jobStatus = await getComputeJobStatus(job.peerId, jobId, token);
+      const jobStatus = await getComputeJobStatus(nodeUri, jobId, token);
       const archive = jobStatus?.[0]?.results?.find((result: any) => result.filename.includes('.tar'));
       const filesize: number = archive?.filesize ?? 0;
 
@@ -42,7 +43,7 @@ export const DownloadResultButton = ({ job }: DownloadResultButtonProps) => {
 
       setDownloadProgress({ bytes: 0, total: filesize });
 
-      const generator = await streamComputeResult(job.peerId, token, jobId, archive?.index);
+      const generator = await streamComputeResult(nodeUri, token, jobId, archive?.index);
 
       const showSaveFilePicker = (window as any).showSaveFilePicker as
         | ((options?: any) => Promise<FileSystemFileHandle>)
