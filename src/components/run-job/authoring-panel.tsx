@@ -56,6 +56,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     mountedFiles,
     setMountedFiles,
     multiaddrsOrPeerId,
+    nodeInfo,
     outputBucketId,
     setOutputBucketId,
     selectedEnv,
@@ -101,7 +102,8 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     );
   };
 
-  const datasetWarning = dataset.trim() && !looksLikeDataset(dataset) ? 'Expected a DID, URL, IPFS hash, or Arweave id.' : '';
+  const datasetWarning =
+    dataset.trim() && !looksLikeDataset(dataset) ? 'Expected a DID, URL, IPFS hash, or Arweave id.' : '';
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -162,7 +164,8 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
           jobId: job.jobId,
           consumer: consumerAddress,
           environmentId: selectedEnv.id,
-          peerId: selectedEnv.nodeId,
+          peerId: nodeInfo?.id ?? selectedEnv.nodeId,
+          multiaddrs: Array.isArray(multiaddrsOrPeerId) ? multiaddrsOrPeerId : undefined,
           isFree: freeCompute,
           dateCreated: Math.floor(Date.now() / 1000),
           maxJobDuration: selectedResources.maxJobDurationSeconds,
@@ -214,10 +217,22 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
         <div className={styles.section}>
           <div className={styles.row}>
             <span className={styles.fieldLabel}>Algorithm</span>
-            <Button color="accent1" onClick={() => fileInputRef.current?.click()} size="sm" type="button" variant="outlined">
+            <Button
+              color="accent1"
+              onClick={() => fileInputRef.current?.click()}
+              size="sm"
+              type="button"
+              variant="outlined"
+            >
               Upload .py / .js
             </Button>
-            <input ref={fileInputRef} type="file" accept=".py,.js" className={styles.hiddenInput} onChange={handleUpload} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".py,.js"
+              className={styles.hiddenInput}
+              onChange={handleUpload}
+            />
           </div>
           <textarea
             className={styles.codeEditor}
@@ -235,7 +250,10 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             type="text"
             label="Dataset (optional)"
             placeholder="did:op:... or https://... or Qm..."
-            hint={datasetWarning || 'DID, URL, IPFS hash, or Arweave id. Leave empty if your algorithm fetches its own data.'}
+            hint={
+              datasetWarning ||
+              'DID, URL, IPFS hash, or Arweave id. Leave empty if your algorithm fetches its own data.'
+            }
             errorText={datasetWarning || undefined}
             value={dataset}
             onChange={(event) => setDataset(event.target.value)}
@@ -278,7 +296,12 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             >
               Upload Dockerfile
             </Button>
-            <input ref={dockerfileInputRef} type="file" className={styles.hiddenInput} onChange={handleDockerfileUpload} />
+            <input
+              ref={dockerfileInputRef}
+              type="file"
+              className={styles.hiddenInput}
+              onChange={handleDockerfileUpload}
+            />
           </div>
           <textarea
             className={styles.codeEditor}
@@ -308,14 +331,19 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
           </div>
           {Object.keys(additionalDockerFiles).length === 0 ? (
             <p className={styles.muted}>
-              Extra files for the Docker build context (e.g. requirements.txt). Sent only when a Dockerfile is
-              provided.
+              Extra files for the Docker build context (e.g. requirements.txt). Sent only when a Dockerfile is provided.
             </p>
           ) : (
             Object.keys(additionalDockerFiles).map((name) => (
               <div key={name} className={styles.row}>
                 <span>{name}</span>
-                <Button color="accent1" onClick={() => removeBuildFile(name)} size="sm" type="button" variant="transparent">
+                <Button
+                  color="accent1"
+                  onClick={() => removeBuildFile(name)}
+                  size="sm"
+                  type="button"
+                  variant="transparent"
+                >
                   Remove
                 </Button>
               </div>
@@ -327,7 +355,9 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
       {activeTab === 'storage' && (
         <div className={styles.section}>
           <span className={styles.fieldLabel}>Output bucket (optional)</span>
-          <p className={styles.muted}>Write the job&apos;s results into one of your persistent-storage buckets on this node.</p>
+          <p className={styles.muted}>
+            Write the job&apos;s results into one of your persistent-storage buckets on this node.
+          </p>
           <select
             className={styles.select}
             value={outputBucketId ?? ''}
