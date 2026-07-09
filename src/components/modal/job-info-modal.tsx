@@ -24,7 +24,10 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nodeUri = useMemo(() => resolveNodeUri(job?.peerId ?? '', nodeAddrs), [job?.peerId, nodeAddrs]);
+  const nodeUri = useMemo(
+    () => resolveNodeUri(job?.peerId ?? '', job?.multiaddrs?.length ? job.multiaddrs : nodeAddrs),
+    [job?.peerId, job?.multiaddrs, nodeAddrs]
+  );
 
   useEffect(() => {
     const fetchNodeEnv = async () => {

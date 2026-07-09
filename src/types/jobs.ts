@@ -44,6 +44,7 @@ export interface ComputeJobHistory {
 export interface ComputeJob {
   owner: string;
   peerId: string;
+  multiaddrs?: string[];
   nodeFriendlyName: string;
   epoch: number;
   errorMessage?: string;

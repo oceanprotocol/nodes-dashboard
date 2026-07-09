@@ -8,6 +8,7 @@ export type OptimisticJobSeed = {
   consumer: string;
   environmentId: string;
   peerId?: string;
+  multiaddrs?: string[];
   isFree: boolean;
   dateCreated: number;
   maxJobDuration: number;
@@ -49,6 +50,7 @@ export function buildOptimisticRow(seed: OptimisticJobSeed): ComputeJob & { id: 
     environmentId: seed.environmentId,
     environment: seed.environmentId,
     peerId: seed.peerId,
+    multiaddrs: seed.multiaddrs,
     isFree: seed.isFree,
     dateCreated: seed.dateCreated,
     startTime: formatDateTime(seed.dateCreated),
