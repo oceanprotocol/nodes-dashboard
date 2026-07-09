@@ -106,14 +106,24 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
           {!loading && !error && !environment && <div>No environment data available</div>}
         </div>
 
-        <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}>
-          <JobLogsPanel job={job} open={open} nodeUri={nodeUri} />
-        </div>
+        {!loading && !error && !nodeUri && (
+          <div style={{ marginTop: '24px', color: 'var(--error)' }}>
+            This node has no reachable addresses, so its logs and results can&apos;t be retrieved.
+          </div>
+        )}
 
-        <Stack direction="row" spacing={1} sx={{ marginTop: '16px' }}>
-          <DownloadResultButton job={job} nodeUri={nodeUri} />
-          <DownloadLogsButton job={job} nodeUri={nodeUri} />
-        </Stack>
+        {nodeUri && (
+          <>
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}>
+              <JobLogsPanel job={job} open={open} nodeUri={nodeUri} />
+            </div>
+
+            <Stack direction="row" spacing={1} sx={{ marginTop: '16px' }}>
+              <DownloadResultButton job={job} nodeUri={nodeUri} />
+              <DownloadLogsButton job={job} nodeUri={nodeUri} />
+            </Stack>
+          </>
+        )}
       </Stack>
     </Modal>
   );
