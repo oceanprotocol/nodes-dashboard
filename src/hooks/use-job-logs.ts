@@ -1,4 +1,4 @@
-import { useP2P } from '@/contexts/P2PContext';
+import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { cleanLogText } from '@/lib/strip-ansi';
 import { ComputeJob } from '@/types/jobs';
@@ -47,7 +47,7 @@ interface UseJobLogsResult {
 
 // Streams live logs for a running job (with status-checked reconnect) and
 // renders stored .log files for a completed/failed job. See docs/adr/0004.
-export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsResult {
+export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeUri): UseJobLogsResult {
   const { isReady, streamComputeLogs, streamComputeResult, getComputeJobStatus } = useP2P();
   const { getNodeToken, clearNodeToken } = useNodeAuth();
 
@@ -75,7 +75,8 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
     setStatus('connecting');
 
     const jobId = buildJobId(job);
-    const nodeUri = job.peerId;
+    // Auth tokens are cached per node by peerId; the P2P calls dial via `nodeUri` (multiaddrs).
+    const nodeId = job.peerId;
 
     const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -129,7 +130,7 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
     const run = async () => {
       let token: string;
       try {
-        token = await getNodeToken(nodeUri, nodeUri);
+        token = await getNodeToken(nodeId, nodeUri);
       } catch (e) {
         if (!cancelledRef.current) {
           setStatus('error');
@@ -177,9 +178,9 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
           const authFailed =
             e?.status === 401 || e?.httpStatus === 401 || /unauthori[sz]ed|token.*expired|invalid token/.test(msg);
           if (authFailed) {
-            clearNodeToken(nodeUri);
+            clearNodeToken(nodeId);
             try {
-              token = await getNodeToken(nodeUri, nodeUri);
+              token = await getNodeToken(nodeId, nodeUri);
             } catch (refreshErr) {
               // Without a valid token every follow-up call fails too — surface it instead of
               // letting the status check "assume terminal" and silently show 'ended'.
@@ -227,9 +228,10 @@ export function useJobLogs(job: ComputeJob | null, open: boolean): UseJobLogsRes
       cancelledRef.current = true;
       abortRef.current?.abort();
     };
-    // Re-run when the opened job changes (peerId+jobId identify it uniquely).
+    // Re-run when the opened job changes (peerId+jobId identify it uniquely) or when the node's
+    // multiaddrs resolve (nodeUri), so the stream dials via addresses instead of a bare peerId.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isReady, job?.peerId, job?.jobId]);
+  }, [open, isReady, job?.peerId, job?.jobId, nodeUri]);
 
   return { lines, status, error, stop };
 }

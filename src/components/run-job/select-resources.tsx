@@ -537,7 +537,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             onClick={() => setMode('package')}
             type="button"
           >
-            Package
+            Default
           </button>
           <button
             aria-pressed={isCustom}
