@@ -1,5 +1,6 @@
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
+import { buildNodeJobId } from '@/lib/build-node-job-id';
 import { cleanLogText } from '@/lib/strip-ansi';
 import { ComputeJob } from '@/types/jobs';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,10 +13,6 @@ const MAX_LINES = 5000;
 // a row so an unreachable node doesn't spin the reconnect loop forever.
 const MAX_CONSECUTIVE_FAILURES = 5;
 const RECONNECT_DELAY_MS = 1500;
-
-function buildJobId(job: ComputeJob): string {
-  return (job.environment ?? job.environmentId).split('-')[0] + '-' + job.jobId;
-}
 
 // The node's docker follow-stream replays the FULL history on every connection,
 // so treating each connection's output as the complete log (rather than an
@@ -75,7 +72,7 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
     setError(null);
     setStatus('connecting');
 
-    const jobId = buildJobId(job);
+    const jobId = buildNodeJobId(job);
     // Auth tokens are cached per node by peerId; the P2P calls dial via `nodeUri` (multiaddrs).
     const nodeId = job.peerId;
 

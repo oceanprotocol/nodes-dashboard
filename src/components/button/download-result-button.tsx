@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
+import { buildNodeJobId } from '@/lib/build-node-job-id';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { createAuthToken } from '@/services/nodeService';
 import { ComputeJob } from '@/types/jobs';
@@ -25,7 +26,7 @@ export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps
     if (!isReady || isDownloading || !account?.address) return;
 
     try {
-      const jobId = (job.environment ?? job.environmentId).split('-')[0] + '-' + job.jobId;
+      const jobId = buildNodeJobId(job);
       setIsDownloading(true);
 
       const { token } = await createAuthToken({

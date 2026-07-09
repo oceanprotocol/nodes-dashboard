@@ -191,13 +191,15 @@ export const MyJobsTableProvider = ({ children, consumer }: { children: ReactNod
     return () => clearInterval(interval);
   }, [optimisticJob, fetchData]);
 
-  // Show the optimistic row at the top until the fetched data includes it.
   const mergedData = useMemo(() => {
     if (!optimisticJob || data.some((job) => job.jobId === optimisticJob.jobId)) {
       return data;
     }
-    return [buildOptimisticRow(optimisticJob), ...data];
-  }, [data, optimisticJob]);
+    return [buildOptimisticRow(optimisticJob), ...data].map((row, i) => ({
+      ...row,
+      index: (crtPage - 1) * pageSize + i + 1,
+    }));
+  }, [data, optimisticJob, crtPage, pageSize]);
 
   return (
     <MyJobsTableContext.Provider
