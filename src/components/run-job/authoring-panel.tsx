@@ -160,8 +160,16 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     try {
       const job = await submitJob({ authToken, consumerAddress });
       if (selectedEnv && selectedResources) {
+        // computeStart returns `<clusterHash>-<uuid>`, but the indexer stores the bare `<uuid>`.
+        // Stash the bare form so the optimistic row matches (and is replaced by) the indexed row,
+        // and so buildNodeJobId doesn't double-prefix the cluster hash.
+        const clusterHash = selectedEnv.id.split('-')[0];
+        const bareJobId =
+          clusterHash && job.jobId.startsWith(`${clusterHash}-`)
+            ? job.jobId.slice(clusterHash.length + 1)
+            : job.jobId;
         stashOptimisticJob({
-          jobId: job.jobId,
+          jobId: bareJobId,
           consumer: consumerAddress,
           environmentId: selectedEnv.id,
           peerId: nodeInfo?.id ?? selectedEnv.nodeId,
