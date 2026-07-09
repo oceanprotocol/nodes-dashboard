@@ -17,22 +17,25 @@ const RECONNECT_DELAY_MS = 1500;
 // The node's docker follow-stream replays the FULL history on every connection,
 // so treating each connection's output as the complete log (rather than an
 // incremental append across reconnects) avoids duplicated lines.
-function statusIsTerminal(entry: any): boolean {
-  if (!entry) return false;
-  const text = typeof entry.statusText === 'string' ? entry.statusText.toLowerCase() : '';
-  if (/complet|finish|fail|error|timeout|stopped|removed/.test(text)) return true;
-  if (typeof entry.status === 'number' && entry.status >= 70) return true;
-  if (Array.isArray(entry.results) && entry.results.length > 0) return true;
-  return false;
-}
+// Compute status codes from ocean-node (src/@types/C2D/C2D.ts): >=70 is finished/settled, and these
+// are the terminal failure codes. 40 (RunningAlgorithm) is when the algorithm container exists and its
+// stdout can be live-tailed; below that the job is pulling/building/provisioning and only the stored
+// build log (image.log) exists yet.
+const RUNNING_ALGORITHM = 40;
+const TERMINAL_STATUS = 70;
+const FAILED_STATUS_CODES = new Set([2, 11, 13, 14, 21, 22, 31, 32, 33, 41, 42, 61, 62]);
 
-function jobStartsRunning(job: ComputeJob): boolean {
-  if (job.isRunning) return true;
-  const text = typeof job.statusText === 'string' ? job.statusText.toLowerCase() : '';
-  if (/run|start|provision|warm|pending|queue/.test(text)) return true;
-  // Numeric compute status < 70 means not yet finished.
-  if (typeof job.status === 'number' && job.status > 0 && job.status < 70) return true;
-  return false;
+function isTerminalEntry(entry: any): boolean {
+  if (!entry) return false;
+  const s = entry.status;
+  if (typeof s === 'number') {
+    if (s >= TERMINAL_STATUS) return true;
+    if (FAILED_STATUS_CODES.has(s)) return true;
+  }
+  // Fall back to wording for unknown numeric codes. NOTE: presence of `results` is deliberately NOT
+  // treated as terminal — the node exposes image.log in results while the build is still running.
+  const text = typeof entry.statusText === 'string' ? entry.statusText.toLowerCase() : '';
+  return /finish|complet|fail|error|timeout|expired|exceeded|vulnerable|stopped|removed/.test(text);
 }
 
 interface UseJobLogsResult {
@@ -84,45 +87,35 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
       return all.length > MAX_LINES ? all.slice(all.length - MAX_LINES) : all;
     };
 
-    const isStillRunning = async (token: string): Promise<boolean> => {
-      try {
-        const result: any = await getComputeJobStatus(nodeUri, jobId, token);
-        const entry = Array.isArray(result) ? result[0] : result;
-        return !statusIsTerminal(entry);
-      } catch {
-        // If we can't read status, assume terminal to avoid an infinite retry.
-        return false;
-      }
+    const fetchStatusEntry = async (token: string): Promise<any> => {
+      const result: any = await getComputeJobStatus(nodeUri, jobId, token);
+      return Array.isArray(result) ? result[0] : result;
     };
 
-    const loadStoredLogs = async (token: string): Promise<void> => {
-      setStatus('loading-result');
-      const result: any = await getComputeJobStatus(nodeUri, jobId, token);
-      const entry = Array.isArray(result) ? result[0] : result;
+    const fetchStoredLogsText = async (token: string, entry: any): Promise<string> => {
       const logFiles: any[] = (entry?.results ?? []).filter((r: any) => r?.filename?.includes('.log'));
-      if (logFiles.length === 0) {
-        if (!cancelledRef.current) {
-          setLines((prev) => (prev.length ? prev : ['No logs available for this job.']));
-          setStatus('ended');
-        }
-        return;
-      }
+      if (logFiles.length === 0) return '';
       const decoder = new TextDecoder('utf-8');
       let text = '';
       for (const file of logFiles) {
-        if (cancelledRef.current) return;
+        if (cancelledRef.current) return text;
         text += `\n===== ${file.filename} =====\n`;
         const generator = await streamComputeResult(nodeUri, token, jobId, file.index);
         for await (const chunk of generator) {
-          if (cancelledRef.current) return;
+          if (cancelledRef.current) return text;
           text += decoder.decode(chunk, { stream: true });
         }
         text += decoder.decode();
       }
-      if (!cancelledRef.current) {
-        setLines(toLines(text));
-        setStatus('ended');
-      }
+      return text;
+    };
+
+    const loadFinalStoredLogs = async (token: string, entry: any): Promise<void> => {
+      setStatus('loading-result');
+      const text = await fetchStoredLogsText(token, entry);
+      if (cancelledRef.current) return;
+      setLines((prev) => (text ? toLines(text) : prev.length ? prev : ['No logs available for this job.']));
+      setStatus('ended');
     };
 
     const run = async () => {
@@ -137,85 +130,108 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
         return;
       }
 
-      if (!jobStartsRunning(job)) {
+      // Refresh the node token once on a 401. true → fresh token obtained (caller retries);
+      // false → not an auth error (caller handles) or refresh failed (error state already set).
+      const reauthed = async (e: any): Promise<boolean> => {
+        const msg = typeof e?.message === 'string' ? e.message.toLowerCase() : '';
+        const authFailed =
+          e?.status === 401 || e?.httpStatus === 401 || /unauthori[sz]ed|token.*expired|invalid token/.test(msg);
+        if (!authFailed) return false;
+        clearNodeToken(nodeId);
         try {
-          await loadStoredLogs(token);
-        } catch (e) {
+          token = await getNodeToken(nodeId, nodeUri);
+          return true;
+        } catch (refreshErr) {
           if (!cancelledRef.current) {
             setStatus('error');
-            setError(e instanceof Error ? e.message : 'Failed to load logs');
+            setError(refreshErr instanceof Error ? refreshErr.message : 'Failed to re-authenticate with node');
           }
+          return false;
         }
-        return;
-      }
+      };
 
-      // Running job: live tail with status-checked reconnect.
-      let consecutiveFailures = 0;
+      let statusFailures = 0;
+
       while (!cancelledRef.current) {
-        let producedData = false;
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
-
+        let entry: any;
         try {
-          const controller = new AbortController();
-          abortRef.current = controller;
-          const generator = await streamComputeLogs(nodeUri, token, jobId, controller.signal);
-          if (cancelledRef.current) return;
-          setStatus('live');
-          for await (const chunk of generator) {
-            if (cancelledRef.current) return;
-            producedData = true;
-            buffer += decoder.decode(chunk, { stream: true });
-            setLines(toLines(buffer));
-          }
-          buffer += decoder.decode();
-          if (buffer) setLines(toLines(buffer));
+          entry = await fetchStatusEntry(token);
+          statusFailures = 0;
         } catch (e: any) {
           if (cancelledRef.current) return;
-          const msg = typeof e?.message === 'string' ? e.message.toLowerCase() : '';
-          const authFailed =
-            e?.status === 401 || e?.httpStatus === 401 || /unauthori[sz]ed|token.*expired|invalid token/.test(msg);
-          if (authFailed) {
-            clearNodeToken(nodeId);
-            try {
-              token = await getNodeToken(nodeId, nodeUri);
-            } catch (refreshErr) {
-              // Without a valid token every follow-up call fails too — surface it instead of
-              // letting the status check "assume terminal" and silently show 'ended'.
-              if (!cancelledRef.current) {
-                setStatus('error');
-                setError(refreshErr instanceof Error ? refreshErr.message : 'Failed to re-authenticate with node');
-              }
-              return;
+          if (await reauthed(e)) continue;
+          statusFailures += 1;
+          if (statusFailures >= MAX_CONSECUTIVE_FAILURES) {
+            if (!cancelledRef.current) {
+              setStatus('error');
+              setError('Lost connection to the node.');
             }
+            return;
+          }
+          if (!cancelledRef.current) setStatus('reconnecting');
+          await delay(RECONNECT_DELAY_MS);
+          continue;
+        }
+
+        if (isTerminalEntry(entry)) {
+          try {
+            await loadFinalStoredLogs(token, entry);
+          } catch (e: any) {
+            if (!cancelledRef.current && (await reauthed(e))) {
+              try {
+                await loadFinalStoredLogs(token, await fetchStatusEntry(token));
+                return;
+              } catch {
+                /* fall through to error */
+              }
+            }
+            if (!cancelledRef.current) {
+              setStatus('error');
+              setError(e instanceof Error ? e.message : 'Failed to load logs');
+            }
+          }
+          return;
+        }
+
+        const numeric = typeof entry?.status === 'number' ? entry.status : undefined;
+
+        if (numeric !== undefined && numeric >= RUNNING_ALGORITHM) {
+          // Algorithm container is up → live-tail its stdout until the stream ends, then re-check status.
+          try {
+            const controller = new AbortController();
+            abortRef.current = controller;
+            const generator = await streamComputeLogs(nodeUri, token, jobId, controller.signal);
+            if (cancelledRef.current) return;
+            setStatus('live');
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+            for await (const chunk of generator) {
+              if (cancelledRef.current) return;
+              buffer += decoder.decode(chunk, { stream: true });
+              setLines(toLines(buffer));
+            }
+            buffer += decoder.decode();
+            if (buffer) setLines(toLines(buffer));
+          } catch (e: any) {
+            if (cancelledRef.current) return;
+            if (await reauthed(e)) continue;
+            // transient stream error — re-check status and retry on the next loop
+          }
+        } else {
+          // Pulling / building / provisioning: no container yet, so follow the stored build log.
+          try {
+            const text = await fetchStoredLogsText(token, entry);
+            if (!cancelledRef.current) {
+              setStatus('live');
+              setLines(text ? toLines(text) : [`${entry?.statusText ?? 'Preparing job'}…`]);
+            }
+          } catch (e: any) {
+            if (cancelledRef.current) return;
+            if (await reauthed(e)) continue;
           }
         }
 
         if (cancelledRef.current) return;
-
-        // Disambiguate stream-end: job finished vs transient idle timeout.
-        if (!(await isStillRunning(token))) {
-          try {
-            await loadStoredLogs(token);
-          } catch (e) {
-            if (!cancelledRef.current) {
-              setStatus('error');
-              setError(e instanceof Error ? e.message : 'Failed to load stored logs');
-            }
-          }
-          return;
-        }
-
-        consecutiveFailures = producedData ? 0 : consecutiveFailures + 1;
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          if (!cancelledRef.current) {
-            setStatus('error');
-            setError('Lost connection to the log stream.');
-          }
-          return;
-        }
-
-        if (!cancelledRef.current) setStatus('reconnecting');
         await delay(RECONNECT_DELAY_MS);
       }
     };
@@ -226,19 +242,10 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
       cancelledRef.current = true;
       abortRef.current?.abort();
     };
+    // Keyed on job identity + addresses only. The hook polls the node's live status itself, so it must
+    // NOT restart when the indexed row's status/statusText churns (that would reset the log view).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    open,
-    isReady,
-    job?.peerId,
-    job?.jobId,
-    job?.environment,
-    job?.environmentId,
-    job?.status,
-    job?.statusText,
-    job?.isRunning,
-    nodeUriKey,
-  ]);
+  }, [open, isReady, job?.peerId, job?.jobId, job?.environment, job?.environmentId, nodeUriKey]);
 
   return { lines, status, error, stop };
 }
