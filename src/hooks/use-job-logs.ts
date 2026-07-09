@@ -57,6 +57,7 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
 
   const cancelledRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  const nodeUriKey = Array.isArray(nodeUri) ? nodeUri.join('|') : (nodeUri ?? '');
 
   const stop = useCallback(() => {
     cancelledRef.current = true;
@@ -228,10 +229,19 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
       cancelledRef.current = true;
       abortRef.current?.abort();
     };
-    // Re-run when the opened job changes (peerId+jobId identify it uniquely) or when the node's
-    // multiaddrs resolve (nodeUri), so the stream dials via addresses instead of a bare peerId.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isReady, job?.peerId, job?.jobId, nodeUri]);
+  }, [
+    open,
+    isReady,
+    job?.peerId,
+    job?.jobId,
+    job?.environment,
+    job?.environmentId,
+    job?.status,
+    job?.statusText,
+    job?.isRunning,
+    nodeUriKey,
+  ]);
 
   return { lines, status, error, stop };
 }

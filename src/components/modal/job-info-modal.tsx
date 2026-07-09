@@ -87,7 +87,7 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
     };
 
     fetchNodeEnv();
-  }, [open, job]);
+  }, [open, job?.peerId, job?.environment]);
 
   if (!job) return null;
 
