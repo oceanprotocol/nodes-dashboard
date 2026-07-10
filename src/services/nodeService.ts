@@ -118,18 +118,30 @@ export async function createAuthToken({
   nodeUri,
   signMessage,
   validUntil,
+  issuerPeerId,
 }: {
   consumerAddress: string;
   nodeUri: NodeUri;
   signMessage: SignMessageFn;
   validUntil?: number;
+  // The target node's own peerId. Required by ocean-node (next-4) to validate
+  // the CREATE_AUTH_TOKEN signature (`address + nonce + command + issuerPeerId`).
+  // Pass it when the caller already has it (avoids a round-trip); otherwise it's
+  // resolved from the node STATUS here.
+  issuerPeerId?: string;
 }): Promise<{ token: string }> {
+  const resolvedNode = normalizeNodeUri(nodeUri);
+  const peerId = issuerPeerId ?? (await ProviderInstance.getNodeStatus(resolvedNode))?.id;
+  if (!peerId) {
+    throw new Error('Could not resolve node peerId for auth token signature.');
+  }
   const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command: PROTOCOL_COMMANDS.CREATE_AUTH_TOKEN,
     consumerAddress,
     incrementedNonce,
     signMessage,
+    issuerPeerId: peerId,
   });
   const token = await ProviderInstance.generateSignedAuthToken(
     consumerAddress,
