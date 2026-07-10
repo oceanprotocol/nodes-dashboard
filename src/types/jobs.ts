@@ -75,6 +75,7 @@ export interface ComputeJob {
   isFree: boolean;
   algoStartTimestamp: number;
   maxJobDuration: number;
+  metadata?: { name?: string; [key: string]: string | number | boolean | undefined };
   payment: {
     token: string;
     cost: number;

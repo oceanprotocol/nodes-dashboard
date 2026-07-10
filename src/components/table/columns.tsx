@@ -391,6 +391,18 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     sortable: false,
   },
   {
+    field: 'name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return value;
+    },
+  },
+  {
     field: 'statusText',
     filterable: false,
     flex: 1,
