@@ -23,6 +23,8 @@ type InferenceNavigationProps = {
   nextButtonHtmlType?: 'button' | 'submit' | 'reset';
   nextLabel?: string;
   nextDisabled?: boolean;
+  /** Show a spinner + disable the next button (e.g. while a launch request is in flight). */
+  nextLoading?: boolean;
   /** Remove a model from the selection panel — model cards stay read-only when not provided. */
   onRemoveModel?: (model: HuggingFaceModel) => void;
 };
@@ -36,6 +38,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   nextButtonHtmlType = 'button',
   nextLabel = 'Continue',
   nextDisabled = false,
+  nextLoading = false,
   onRemoveModel,
 }) => {
   const [selectionOpen, setSelectionOpen] = useState(false);
@@ -116,7 +119,14 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
               </Button>
             )}
             {(onNext || showNext) && (
-              <Button color="accent1" disabled={nextDisabled} onClick={onNext} size="lg" type={nextButtonHtmlType}>
+              <Button
+                color="accent1"
+                disabled={nextDisabled}
+                loading={nextLoading}
+                onClick={onNext}
+                size="lg"
+                type={nextButtonHtmlType}
+              >
                 {nextLabel}
               </Button>
             )}

@@ -28,8 +28,21 @@ const VISIBLE_TAG_COUNT = 9;
 const CustomModelsPage: React.FC = () => {
   const router = useRouter();
 
-  const { selectedModels, toggleModel, isModelSelected, buildSelectionQuery, clearSelection, hydrateFromUrlFinished } =
-    useInferenceContext();
+  const {
+    selectedModels,
+    setSelectedModels,
+    isModelSelected,
+    buildSelectionQuery,
+    clearSelection,
+    hydrateFromUrlFinished,
+  } = useInferenceContext();
+
+  // Single-model flow: selecting a model REPLACES the current selection (one model + one vLLM
+  // instance). Clicking the already-selected model deselects it. Keeps context an array for
+  // compatibility, but the flow only ever carries one entry.
+  const selectModel = (model: HuggingFaceModel) => {
+    setSelectedModels(isModelSelected(model.id) ? [] : [model]);
+  };
   // Editing a running service: skip the env step (same env) and go straight to config on Continue.
   const isEditMode = router.query.edit === '1';
   // Clear any leftover selection from a prior run when entering the picker fresh (no selection in the
@@ -152,9 +165,8 @@ const CustomModelsPage: React.FC = () => {
           <h3>Models</h3>
 
           <div>
-            Models are pulled directly from <strong>Hugging Face</strong> and served on vLLM. You can load{' '}
-            <strong>more than one model</strong> on a single instance - they share the selected resources. Gated models
-            need an HF token in the next step.
+            Models are pulled directly from <strong>Hugging Face</strong> and served on vLLM.{' '}
+            <strong>One model per instance</strong>. Gated models need an HF token.
           </div>
 
           <Input
@@ -218,7 +230,7 @@ const CustomModelsPage: React.FC = () => {
                   <ModelCard
                     key={model.id}
                     model={model}
-                    onToggle={toggleModel}
+                    onToggle={selectModel}
                     selected={isModelSelected(model.id)}
                     showStats
                   />
@@ -247,7 +259,7 @@ const CustomModelsPage: React.FC = () => {
         </Card>
         <InferenceNavigation
           nextDisabled={selectedModels.length === 0}
-          nextLabel={selectedModels.length ? `Continue (${selectedModels.length})` : 'Continue'}
+          nextLabel="Continue"
           onNext={() =>
             router.push({
               pathname: isEditMode ? '/inference/custom-models/config' : '/inference/custom-models/resources',
@@ -255,7 +267,7 @@ const CustomModelsPage: React.FC = () => {
             })
           }
           onPrev={() => router.replace('/inference')}
-          onRemoveModel={toggleModel}
+          onRemoveModel={selectModel}
         />
       </div>
     </Container>

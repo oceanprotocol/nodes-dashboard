@@ -2,15 +2,14 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { SelectedToken } from '@/context/run-job-context';
-import { usePaySession } from '@/lib/use-pay-session';
-import { useOceanAccount } from '@/lib/use-ocean-account';
+import { usePaymentInfo } from '@/lib/use-payment-info';
+import { DEFAULT_MAX_LOCK_COUNT, usePaySession } from '@/lib/use-pay-session';
 import { ComputeEnvironment } from '@/types/environments';
-import { Authorizations } from '@/types/payment';
 import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 type PaymentProps = {
   minLockSeconds: number;
@@ -19,8 +18,6 @@ type PaymentProps = {
   setPageSubtitle: (subtitle: string) => void;
   totalCost: number;
 };
-
-const MAX_LOCK_COUNT = 10;
 
 const Payment = ({
   minLockSeconds,
@@ -31,39 +28,19 @@ const Payment = ({
 }: PaymentProps) => {
   const router = useRouter();
 
-  const { account, ocean } = useOceanAccount();
-
-  const [authorizations, setAuthorizations] = useState<Authorizations | null>(null);
-  const [escrowBalance, setEscrowBalance] = useState<number | null>(null);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
+  const {
+    authorizations,
+    escrowBalance,
+    walletBalance,
+    loading: loadingPaymentInfo,
+    loadPaymentInfo,
+  } = usePaymentInfo(selectedToken.address, selectedEnv.consumerAddress);
 
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
   useEffect(() => {
     setPageSubtitle('Confirm and authorize your payment in order to start your job');
   }, [setPageSubtitle]);
-
-  const loadPaymentInfo = useCallback(async () => {
-    if (ocean && account?.address) {
-      setLoadingPaymentInfo(true);
-      const authorizations = await ocean.getAuthorizations(
-        selectedToken.address,
-        account.address,
-        selectedEnv.consumerAddress
-      );
-      setAuthorizations(authorizations);
-      const walletBalance = await ocean.getBalance(selectedToken.address, account.address);
-      setWalletBalance(roundTokenAmount(Number(walletBalance), selectedToken.address, 'down'));
-      const escrowBalance = await ocean.getUserFunds(selectedToken.address, account.address);
-      setEscrowBalance(roundTokenAmount(Number(escrowBalance), selectedToken.address, 'down'));
-      setLoadingPaymentInfo(false);
-    }
-  }, [ocean, account.address, selectedToken.address, selectedEnv.consumerAddress]);
-
-  useEffect(() => {
-    loadPaymentInfo();
-  }, [loadPaymentInfo]);
 
   // Once escrow + authorization satisfy the session requirements, move on to the summary.
   useEffect(() => {
@@ -108,7 +85,7 @@ const Payment = ({
   // who has already used all their slots can still raise the limit and start a new session. Include
   // the existing cap so a higher limit set on the escrow page isn't silently shrunk on re-auth.
   const maxLockCount = Math.max(
-    MAX_LOCK_COUNT,
+    DEFAULT_MAX_LOCK_COUNT,
     Number(authorizations?.currentLocks ?? 0) + 1,
     Number(authorizations?.maxLockCounts ?? 0)
   );

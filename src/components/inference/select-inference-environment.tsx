@@ -1,6 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
@@ -9,11 +9,22 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
-import { NodeEnvironments } from '@/types/environments';
+import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { formatDuration } from '@/utils/formatters';
 import { useFormik } from 'formik';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
+
+/** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). Inference always
+ *  uses a paid token, so the top-level bounds apply (not the `free.*` ones). */
+function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
+  return {
+    min: env.minJobDuration ?? 0,
+    max: env.maxJobDuration ?? Infinity,
+  };
+}
 
 const sortOptions = [
   { label: 'Best score', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
@@ -38,6 +49,24 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     useRunJobEnvsContext();
   const { jobDurationSeconds, setJobDurationSeconds, setSelectedEnv, selectedEnv, setSelectedToken } =
     useInferenceContext();
+
+  // Set when a pick is rejected because the chosen duration falls outside the env's paid
+  // min/max job-duration window. Cleared on the next valid pick or duration change.
+  const [durationError, setDurationError] = useState<string | null>(null);
+
+  // Duration changed: clear the stale error, and if the already-picked env no longer fits the new
+  // duration, drop the selection so the "Skip" nav can't carry an out-of-window pick forward.
+  const onDurationChange = (seconds: number) => {
+    setDurationError(null);
+    setJobDurationSeconds(seconds);
+    if (selectedEnv) {
+      const { min, max } = durationBounds(selectedEnv.environment);
+      if (seconds < min || seconds > max) {
+        setSelectedEnv(null);
+        setSelectedToken(null);
+      }
+    }
+  };
 
   const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
 
@@ -68,11 +97,16 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     },
   });
 
-  // Keep only environments that support a paid token we accept (USDC / COMPY).
+  // Keep only environments that:
+  // (a) advertise service-on-demand support — the node rejects serviceStart with 403 otherwise
+  // (b) support a paid token we accept (USDC / COMPY).
   const filteredNodeEnvs = useMemo(() => {
     const result: NodeEnvironments[] = [];
     nodeEnvs.forEach((nodeEnv) => {
       const filteredEnvs = nodeEnv.computeEnvironments.environments.filter((env) => {
+        if (!env.features?.services) {
+          return false;
+        }
         if (!env.fees?.[CHAIN_ID]) {
           return false;
         }
@@ -115,6 +149,26 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     if (!environment) {
       return;
     }
+    // Block advancing when the duration is outside this env's paid window. The node doesn't reject
+    // a too-short serviceStart — it just sets expiresAt = now + duration, so a job below the min
+    // gets swept to Expired almost immediately. Catch it here instead.
+    const { min, max } = durationBounds(environment);
+    if (jobDurationSeconds < min || jobDurationSeconds > max) {
+      toast.error(
+        `The selected duration (${formatDuration(
+          jobDurationSeconds
+        )}) is outside the bounds for this environment (${formatDuration(min)} - ${formatDuration(max)}).`
+      );
+      if (jobDurationSeconds < min) {
+        setDurationError(`This environment needs at least ${formatDuration(min)}. Increase the duration above.`);
+        return;
+      }
+      if (jobDurationSeconds > max) {
+        setDurationError(`This environment allows at most ${formatDuration(max)}. Decrease the duration above.`);
+        return;
+      }
+    }
+    setDurationError(null);
     setSelectedEnv({
       environment,
       gpuSelection,
@@ -143,8 +197,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           <DurationInput
             availableUnits={DURATION_UNIT_OPTIONS}
             defaultUnit="hours"
-            min={0}
-            onChange={setJobDurationSeconds}
+            errorText={durationError ?? undefined}
+            min={1}
+            onChange={onDurationChange}
             size="md"
             value={jobDurationSeconds}
           />
@@ -165,8 +220,8 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 onChange={formik.handleChange}
                 options={gpuOptions}
                 placeholder="Any GPU"
-                renderOption={(option) => <GpuLabel gpu={option.label} />}
-                renderSelectedValue={(option) => <GpuLabel gpu={option} />}
+                renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
+                renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
                 size="sm"
                 value={formik.values.gpuName}
               />

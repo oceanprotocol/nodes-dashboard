@@ -402,23 +402,6 @@ export const MODEL_PARAM_BOUNDS = {
   gpuMemoryUtilization: { min: 0, max: 1 },
 } as const;
 
-function mapTorchDtype(torchDtype: string | null): ModelDtype {
-  switch (torchDtype) {
-    case 'bfloat16': {
-      return 'bfloat16';
-    }
-    case 'float16': {
-      return 'float16';
-    }
-    case 'float32': {
-      return 'float32';
-    }
-    default: {
-      return 'auto';
-    }
-  }
-}
-
 /** Map an HF quantization method to our enum; null when none/unrecognized (field then stays user-editable). */
 export function mapQuantization(method: string | null): ModelQuantization | null {
   switch (method?.toLowerCase()) {
@@ -454,7 +437,10 @@ export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelI
     ),
     gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
     quantization: lockedQuant ?? 'none',
-    dtype: mapTorchDtype(config?.torchDtype ?? null),
+    // Default to 'auto' rather than the model's own torch_dtype: many models declare bfloat16, which
+    // older GPUs (e.g. Tesla T4, compute 7.5) can't run — vLLM then exits at startup. 'auto' lets
+    // vLLM pick a dtype the target GPU supports (float16 on pre-Ampere). User can still override.
+    dtype: 'auto',
     kvCacheDtype: 'auto',
     trustRemoteCode: false,
     enforceEager: false,

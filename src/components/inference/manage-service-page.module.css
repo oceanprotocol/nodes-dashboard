@@ -27,16 +27,33 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--success);
-  color: var(--success-darker);
   font-weight: 600;
 
   .statusDot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--success-darker);
+    background: currentColor;
   }
+}
+
+/* Chip colour (text + dot via currentColor) and background tint by status kind. */
+.status_running {
+  background: var(--success);
+  color: var(--success-darker);
+}
+
+.status_pending {
+  color: var(--text-secondary);
+}
+
+.status_dead {
+  color: var(--text-secondary);
+}
+
+.status_failed {
+  background: var(--error);
+  color: var(--error-darker);
 }
 
 .divider {
@@ -92,91 +109,67 @@
   gap: 8px;
 }
 
-/* How to use — base URL / bearer field row */
-.field {
-  display: flex;
+.docsLink {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-
-  .fieldLabel {
-    flex-shrink: 0;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-  }
-
-  .fieldValue {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.mono {
-  font-family: var(--font-mono, monospace);
-  letter-spacing: 0.05em;
-}
-
-/* How to use — endpoint list */
-.endpoint {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-
-  .method {
-    flex-shrink: 0;
-    width: 52px;
-    padding: 2px 0;
-    border-radius: 8px;
-    text-align: center;
-    font-size: 12px;
-    font-weight: 700;
-
-    &.methodPost {
-      background: color-mix(in srgb, var(--accent1) 12%, transparent);
-      color: var(--accent1);
-    }
-    &.methodGet {
-      background: color-mix(in srgb, var(--success-darker) 16%, transparent);
-      color: var(--success-darker);
-    }
-  }
-
-  .endpointPath {
-    flex-shrink: 0;
-    font-family: var(--font-mono, monospace);
-    font-weight: 600;
-  }
-
-  .endpointDescription {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-secondary);
-    font-size: 14px;
-  }
-}
-
-.codeBlock {
-  margin: 0;
-  padding: 20px;
-  border-radius: 12px;
-  background: #1b1b1b;
-  color: #e6e6e6;
-  font-family: var(--font-mono, monospace);
+  gap: 4px;
   font-size: 14px;
+  font-weight: 600;
+  color: var(--accent1);
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  /* How to use — endpoint list */
+  .endpoint {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .endpointPath {
+      flex-shrink: 0;
+      font-family: var(--font-mono, monospace);
+      font-weight: 600;
+    }
+
+    .endpointDescription {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+  }
+}
+
+/* Quick test — console-styled snippet with a fake terminal title bar. */
+.quickTestHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Matches the logs console below. */
+.terminal {
+  margin: 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--terminal-bg);
+  color: var(--terminal-text);
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
   line-height: 1.6;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-word;
   overflow-x: auto;
 }

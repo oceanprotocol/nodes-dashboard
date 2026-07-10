@@ -1,14 +1,14 @@
 import BenchmarkSummary from '@/components/benchmarks/benchmark-summary';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useInferenceAllocation, { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
-import { formatTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import classNames from 'classnames';
@@ -101,6 +101,23 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const editable = !isControlled && !!onSelect;
 
+  // Paid service-on-demand job-duration window (inference always uses a paid token → top-level
+  // bounds, not `free.*`). Shown next to the select button so the user knows the valid range.
+  const durationRangeText = useMemo(() => {
+    const min = environment.minJobDuration;
+    const max = environment.maxJobDuration;
+    if (min && max) {
+      return `${formatDuration(min)} – ${formatDuration(max)}`;
+    }
+    if (min) {
+      return `min ${formatDuration(min)}`;
+    }
+    if (max) {
+      return `max ${formatDuration(max)}`;
+    }
+    return null;
+  }, [environment.minJobDuration, environment.maxJobDuration]);
+
   const setTypeCount = (key: string, count: number) => {
     setOwnSelection((prev) => ({ ...(prev ?? {}), [key]: count }));
   };
@@ -122,7 +139,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       return (
         <>
           <div className={styles.gpuType} key={gpu.key}>
-            <GpuLabel className={styles.gpuLabel} gpu={gpu.description || 'GPU'} />-
+            <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />-
             {editable ? (
               <div className={styles.counts}>
                 {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => (
@@ -192,6 +209,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         </div>
 
         <div className="actionsGroupMdEnd">
+          {onSelect && durationRangeText && <span className="textSecondary">Job duration: {durationRangeText}</span>}
           {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
             <Select
               onChange={(e) => setTokenAddress(e.target.value)}

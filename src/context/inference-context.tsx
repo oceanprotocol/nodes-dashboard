@@ -21,6 +21,8 @@ export type InferenceSelectionQuery = Partial<{
   params: string;
   /** '1' when re-entering the flow to edit a running service — skips env selection & payment. */
   edit: string;
+  /** Running service being edited/prolonged — target of serviceExtend / stop-on-relaunch. */
+  serviceId: string;
 }>;
 
 export type SelectedInferenceEnv = {
@@ -188,9 +190,23 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (editFlag) {
         query.edit = editFlag;
       }
+      // Carry the target service id forward too — edit/prolong need it at the payment step to
+      // stop/extend the running service.
+      const serviceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;
+      if (serviceId) {
+        query.serviceId = serviceId;
+      }
       return query;
     },
-    [selectedModels, selectedEnv, selectedToken, jobDurationSeconds, modelParamsByModel, router.query.edit]
+    [
+      selectedModels,
+      selectedEnv,
+      selectedToken,
+      jobDurationSeconds,
+      modelParamsByModel,
+      router.query.edit,
+      router.query.serviceId,
+    ]
   );
 
   /**
