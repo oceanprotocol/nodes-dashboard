@@ -6,6 +6,11 @@ import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import {
   PROTOCOL_COMMANDS,
   ProviderInstance,
+  type ComputeAlgorithm,
+  type ComputeAsset,
+  type ComputeJob,
+  type ComputeJobMetadata,
+  type ComputeResourceRequest,
   type NodeLogsParams,
   type NodeP2P,
   type OceanNode,
@@ -46,19 +51,17 @@ export async function getNodeEnvs(nodeUri: NodeUri) {
 // Query a node's indexed escrow events. Nodes index ALL on-chain escrow events (not just their
 // own), so this discovers every payee a payer has authorized without iterating compute envs.
 // Not wrapped by ocean.js — hit the node HTTP route directly.
-export async function getEscrowEvents(
-  filters: {
-    chainId?: number;
-    eventType?: string;
-    payer?: string;
-    payee?: string;
-    token?: string;
-    jobId?: string;
-    txId?: string;
-    offset?: number;
-    size?: number;
-  }
-): Promise<EscrowEvent[]> {
+export async function getEscrowEvents(filters: {
+  chainId?: number;
+  eventType?: string;
+  payer?: string;
+  payee?: string;
+  token?: string;
+  jobId?: string;
+  txId?: string;
+  offset?: number;
+  size?: number;
+}): Promise<EscrowEvent[]> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== null) {
@@ -101,23 +104,44 @@ export async function streamComputeResult(nodeUri: NodeUri, authToken: string, j
   return ProviderInstance.getComputeResult(normalizeNodeUri(nodeUri), authToken, jobId, index);
 }
 
+export async function streamComputeLogs(
+  nodeUri: NodeUri,
+  authToken: string,
+  jobId: string,
+  signal?: AbortSignal
+): Promise<AsyncIterable<Uint8Array>> {
+  return ProviderInstance.computeStreamableLogs(normalizeNodeUri(nodeUri), authToken, jobId, signal);
+}
+
 export async function createAuthToken({
   consumerAddress,
   nodeUri,
   signMessage,
   validUntil,
+  issuerPeerId,
 }: {
   consumerAddress: string;
   nodeUri: NodeUri;
   signMessage: SignMessageFn;
   validUntil?: number;
+  // The target node's own peerId. Required by ocean-node (next-4) to validate
+  // the CREATE_AUTH_TOKEN signature (`address + nonce + command + issuerPeerId`).
+  // Pass it when the caller already has it (avoids a round-trip); otherwise it's
+  // resolved from the node STATUS here.
+  issuerPeerId?: string;
 }): Promise<{ token: string }> {
+  const resolvedNode = normalizeNodeUri(nodeUri);
+  const peerId = issuerPeerId ?? (await ProviderInstance.getNodeStatus(resolvedNode))?.id;
+  if (!peerId) {
+    throw new Error('Could not resolve node peerId for auth token signature.');
+  }
   const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command: PROTOCOL_COMMANDS.CREATE_AUTH_TOKEN,
     consumerAddress,
     incrementedNonce,
     signMessage,
+    issuerPeerId: peerId,
   });
   const token = await ProviderInstance.generateSignedAuthToken(
     consumerAddress,
@@ -173,6 +197,97 @@ export async function initializeCompute(
     consumerAddress,
     resources,
     chainId
+  );
+}
+
+// Resolve a published dataset DDO by DID (P2P GET_DDO). Used to turn a dataset DID into the
+// { documentId, serviceId } pair that computeStart expects.
+export async function resolveDdo(nodeUri: NodeUri, did: string) {
+  return ProviderInstance.resolveDdo(normalizeNodeUri(nodeUri), did);
+}
+
+// Start a paid compute job. signerOrAuthToken accepts the consumer's auth token string.
+export async function startCompute({
+  algorithm,
+  authToken,
+  chainId,
+  computeEnv,
+  datasets,
+  maxJobDuration,
+  metadata,
+  nodeUri,
+  outputBucketId,
+  resources,
+  token,
+}: {
+  algorithm: ComputeAlgorithm;
+  authToken: string;
+  chainId: number;
+  computeEnv: string;
+  datasets: ComputeAsset[];
+  maxJobDuration: number;
+  metadata?: ComputeJobMetadata;
+  nodeUri: NodeUri;
+  outputBucketId?: string;
+  resources: ComputeResourceRequest[];
+  token: string;
+}): Promise<ComputeJob | ComputeJob[]> {
+  return ProviderInstance.computeStart(
+    normalizeNodeUri(nodeUri),
+    authToken,
+    computeEnv,
+    datasets,
+    algorithm,
+    maxJobDuration,
+    token,
+    resources,
+    chainId,
+    metadata,
+    undefined, // additionalViewers
+    undefined, // output
+    undefined, // policyServer
+    undefined, // signal
+    undefined, // queueMaxWaitTime
+    undefined, // dockerRegistryAuth
+    outputBucketId
+  );
+}
+
+// Start a free compute job.
+export async function startFreeCompute({
+  algorithm,
+  authToken,
+  computeEnv,
+  datasets,
+  metadata,
+  nodeUri,
+  outputBucketId,
+  resources,
+}: {
+  algorithm: ComputeAlgorithm;
+  authToken: string;
+  computeEnv: string;
+  datasets: ComputeAsset[];
+  metadata?: ComputeJobMetadata;
+  nodeUri: NodeUri;
+  outputBucketId?: string;
+  resources: ComputeResourceRequest[];
+}): Promise<ComputeJob | ComputeJob[]> {
+  return ProviderInstance.freeComputeStart(
+    normalizeNodeUri(nodeUri),
+    authToken,
+    computeEnv,
+    datasets,
+    algorithm,
+    resources,
+    metadata,
+    undefined, // additionalViewers
+    undefined, // output
+    undefined, // policyServer
+    undefined, // signal
+    undefined, // queueMaxWaitTime
+    undefined, // dockerRegistryAuth
+    outputBucketId
   );
 }
 

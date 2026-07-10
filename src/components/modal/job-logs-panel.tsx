@@ -1,0 +1,141 @@
+import type { NodeUri } from '@/contexts/P2PContext';
+import { LogViewStatus, useJobLogs } from '@/hooks/use-job-logs';
+import { ComputeJob } from '@/types/jobs';
+import StopIcon from '@mui/icons-material/Stop';
+import { useEffect, useRef, useState } from 'react';
+
+interface JobLogsPanelProps {
+  job: ComputeJob;
+  open: boolean;
+  nodeUri: NodeUri;
+}
+
+const STATUS_LABEL: Record<LogViewStatus, string> = {
+  idle: 'Idle',
+  connecting: 'Connecting…',
+  live: 'Live',
+  reconnecting: 'Reconnecting…',
+  'loading-result': 'Loading logs…',
+  ended: 'Ended',
+  error: 'Error',
+};
+
+const STATUS_COLOR: Record<LogViewStatus, string> = {
+  idle: 'var(--text-secondary, #888)',
+  connecting: 'var(--text-secondary, #888)',
+  live: 'var(--success, #22c55e)',
+  reconnecting: 'var(--warning, #f59e0b)',
+  'loading-result': 'var(--text-secondary, #888)',
+  ended: 'var(--text-secondary, #888)',
+  error: 'var(--error, #ef4444)',
+};
+
+export const JobLogsPanel = ({ job, open, nodeUri }: JobLogsPanelProps) => {
+  const { lines, status, error, stop } = useJobLogs(job, open, nodeUri);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [stickToBottom, setStickToBottom] = useState(true);
+
+  // Autoscroll to bottom on new lines unless the user scrolled up.
+  useEffect(() => {
+    if (!stickToBottom) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lines, stickToBottom]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    setStickToBottom(atBottom);
+  };
+
+  const isLive = status === 'live' || status === 'reconnecting' || status === 'connecting';
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <strong>Logs</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: STATUS_COLOR[status],
+                boxShadow: status === 'live' ? `0 0 6px ${STATUS_COLOR.live}` : 'none',
+              }}
+            />
+            {STATUS_LABEL[status]}
+          </span>
+          {isLive && (
+            <button
+              onClick={stop}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: 'transparent',
+                border: '1px solid var(--border-glass, #444)',
+                borderRadius: '6px',
+                color: 'var(--text-primary, inherit)',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                padding: '2px 8px',
+              }}
+              type="button"
+            >
+              <StopIcon style={{ fontSize: '0.9rem' }} /> Stop
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div
+        onScroll={onScroll}
+        ref={scrollRef}
+        style={{
+          background: '#2b2b2b',
+          border: '1px solid var(--border-glass, #444)',
+          borderRadius: '8px',
+          color: '#d4d4d4',
+          fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
+          fontSize: '0.78rem',
+          height: '320px',
+          lineHeight: 1.5,
+          overflow: 'auto',
+          padding: '12px',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {lines.length === 0 && status !== 'error' ? (
+          <span style={{ color: '#9e9e9e' }}>
+            {status === 'connecting' ? 'Connecting to log stream…' : 'Waiting for logs…'}
+          </span>
+        ) : (
+          lines.map((line, i) => <div key={i}>{line || ' '}</div>)
+        )}
+      </div>
+
+      {error && <div style={{ color: 'var(--error, #ef4444)', fontSize: '0.8rem', marginTop: '6px' }}>{error}</div>}
+      {!stickToBottom && isLive && (
+        <button
+          onClick={() => setStickToBottom(true)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--accent1, #7b5cff)',
+            cursor: 'pointer',
+            fontSize: '0.78rem',
+            marginTop: '6px',
+            padding: 0,
+          }}
+          type="button"
+        >
+          ↓ Jump to latest
+        </button>
+      )}
+    </div>
+  );
+};

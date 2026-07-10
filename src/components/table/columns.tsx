@@ -1,6 +1,6 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
@@ -73,7 +73,7 @@ function renderGpuList(gpus: GPUPopularity[]) {
           <span className="flexRow alignItemsCenter gapXs" key={index}>
             {index > 0 && <span className="textSecondary">, </span>}
             <strong className="textSecondary">{count > 1 ? `${count}x ` : ''}</strong>
-            <GpuLabel gpu={gpuLabel} />
+            <HardwareLabel type="gpu" value={gpuLabel} />
           </span>
         ))}
       </div>
@@ -389,6 +389,18 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     headerAlign: 'center',
     headerName: 'Index',
     sortable: false,
+  },
+  {
+    field: 'name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return value;
+    },
   },
   {
     field: 'statusText',

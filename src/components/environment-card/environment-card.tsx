@@ -2,7 +2,7 @@ import BenchmarkSummary from '@/components/benchmarks/benchmark-summary';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Select from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
@@ -16,7 +16,6 @@ import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PublicIcon from '@mui/icons-material/Public';
 import PublicOffIcon from '@mui/icons-material/PublicOff';
@@ -168,10 +167,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     if (compact) {
       return (
         <div className={styles.cpuWrapper}>
-          <div className={styles.label}>
-            <MemoryIcon className={styles.icon} />
-            <span className={styles.heading}>{cpu?.description || 'CPU'}</span>
-          </div>
+          <HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />
           <div className={styles.label}>
             <span className={styles.em}>
               {available} / {max}
@@ -195,11 +191,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       <div className={styles.cpuWrapper}>
         <ProgressBar
           value={percentage}
-          topLeftContent={
-            <span className={classNames(styles.label, styles.em)}>
-              <MemoryIcon className={styles.icon} /> {cpu?.description || 'CPU'}
-            </span>
-          }
+          topLeftContent={<HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />}
           bottomLeftContent={
             <span className={styles.label}>
               <span className={styles.em}>
@@ -242,7 +234,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       if (compact) {
         return (
           <div className={styles.gpuWrapper} key={gpu.id}>
-            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
+            <HardwareLabel className={classNames(styles.heading, styles.label)} type="gpu" value={gpu.description || 'GPU'} />
             <div className={styles.label}>
               <span className={styles.em}>
                 {available} / {max}
@@ -267,7 +259,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           <ProgressBar
             value={percentage}
             topLeftContent={
-              <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
+              <HardwareLabel className={classNames(styles.heading, styles.label)} type="gpu" value={gpu.description || 'GPU'} />
             }
             bottomLeftContent={
               <span className={styles.label}>
