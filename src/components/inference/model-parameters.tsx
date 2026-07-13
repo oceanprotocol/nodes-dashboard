@@ -81,18 +81,27 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
 // renders `errors.customParams[i].key`). Typed loosely so both can coexist on one errors object.
 type ParamErrors = Record<string, unknown>;
 
-function validateParams(v: ModelParametersType): ParamErrors {
+// `contextCeiling` is the model's reported max (null when HF reports none — the field is then a free,
+// optional input). Passed in because it's component state, not a static bound.
+function validateParams(v: ModelParametersType, contextCeiling: number | null): ParamErrors {
   const errors: ParamErrors = {};
   if (!v.servedModelName.trim()) {
     errors.servedModelName = 'Required.';
   }
-  const b = MODEL_PARAM_BOUNDS;
-  if (v.maxContext < b.maxContext.min || v.maxContext > b.maxContext.max) {
-    errors.maxContext = `Must be between ${b.maxContext.min} and ${b.maxContext.max}.`;
+  const min = MODEL_PARAM_BOUNDS.maxContext.min;
+  // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and, when
+  // the model reports a ceiling, stay within it.
+  if (v.maxContext != null) {
+    if (v.maxContext < min) {
+      errors.maxContext = `Must be at least ${min} (or leave blank to let vLLM decide).`;
+    } else if (contextCeiling != null && v.maxContext > contextCeiling) {
+      errors.maxContext = `Must be at most ${contextCeiling} — the model's context limit.`;
+    }
   }
   // GPU memory must be > 0 (0 = no VRAM claimed); message says "above 0" to match the rule.
-  if (v.gpuMemoryUtilization <= 0 || v.gpuMemoryUtilization > b.gpuMemoryUtilization.max) {
-    errors.gpuMemoryUtilization = `Must be above 0 and at most ${b.gpuMemoryUtilization.max}.`;
+  const gpuMax = MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max;
+  if (v.gpuMemoryUtilization <= 0 || v.gpuMemoryUtilization > gpuMax) {
+    errors.gpuMemoryUtilization = `Must be above 0 and at most ${gpuMax}.`;
   }
   if (v.toolCalling && !v.toolCallParser) {
     errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
@@ -232,14 +241,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     setReloadStatus('idle');
   }, [hfToken]);
 
-  // HF model facts that lock fields the user cannot freely change. Never let the ceiling drop below
-  // the min — a model reporting a tiny context (e.g. 512) would otherwise invert the slider range.
+  // HF model facts that lock fields the user cannot freely change. The context ceiling is the model's
+  // own reported max (uncapped) — never below the min, so a model reporting a tiny context (e.g. 512)
+  // can't invert the slider range. null when HF reports nothing: the field then becomes a free input
+  // and, left blank, launch omits --max-model-len so vLLM derives the length from the model config.
   const contextCeiling = useMemo(
-    () =>
-      Math.max(
-        MODEL_PARAM_BOUNDS.maxContext.min,
-        Math.min(config?.maxContext ?? MODEL_PARAM_BOUNDS.maxContext.max, MODEL_PARAM_BOUNDS.maxContext.max)
-      ),
+    () => (config?.maxContext != null ? Math.max(MODEL_PARAM_BOUNDS.maxContext.min, config.maxContext) : null),
     [config?.maxContext]
   );
   const lockedQuant = useMemo(() => mapQuantization(config?.quantizationMethod ?? null), [config?.quantizationMethod]);
@@ -268,7 +275,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const formik = useFormik<ModelParametersType>({
     enableReinitialize: true,
     initialValues,
-    validate: validateParams,
+    validate: (v) => validateParams(v, contextCeiling),
     onSubmit: () => {},
   });
 
@@ -488,21 +495,44 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                   type="text"
                   value={formik.values.servedModelName}
                 />
-                <Slider
-                  hint="--max-model-len"
-                  label={labelWithInfo(
-                    `Max context - ${formik.values.maxContext}`,
-                    'Max tokens (input + output combined) per request. Clients can’t exceed it. Higher handles longer documents but uses more VRAM for the KV cache. Ceiling comes from the model’s own config.'
-                  )}
-                  max={contextCeiling}
-                  min={MODEL_PARAM_BOUNDS.maxContext.min}
-                  name="maxContext"
-                  onChange={(_, value) => formik.setFieldValue('maxContext', value)}
-                  step={1024}
-                  topRight={`${MODEL_PARAM_BOUNDS.maxContext.min} - ${contextCeiling}`}
-                  value={formik.values.maxContext}
-                  valueLabelFormat={(value) => String(value)}
-                />
+                {contextCeiling != null ? (
+                  <Slider
+                    hint="--max-model-len"
+                    label={labelWithInfo(
+                      `Max context - ${formik.values.maxContext ?? contextCeiling}`,
+                      'Max tokens (input + output combined) per request. Clients can’t exceed it. Higher handles longer documents but uses more VRAM for the KV cache. Ceiling comes from the model’s own config.'
+                    )}
+                    max={contextCeiling}
+                    min={MODEL_PARAM_BOUNDS.maxContext.min}
+                    name="maxContext"
+                    onChange={(_, value) => formik.setFieldValue('maxContext', value)}
+                    step={1024}
+                    topRight={`${MODEL_PARAM_BOUNDS.maxContext.min} - ${contextCeiling}`}
+                    value={formik.values.maxContext ?? contextCeiling}
+                    valueLabelFormat={(value) => String(value)}
+                  />
+                ) : (
+                  // Hugging Face reported no context length — offer a free, optional input. Blank means
+                  // vLLM derives the length from the model config at launch (--max-model-len omitted).
+                  <Input
+                    size="sm"
+                    errorText={errorFor('maxContext')}
+                    hint="--max-model-len"
+                    label={labelWithInfo(
+                      'Max context',
+                      'Max tokens (input + output combined) per request. Leave blank to let vLLM derive it from the model’s own config; set a number to pin it explicitly.'
+                    )}
+                    name="maxContext"
+                    onBlur={formik.handleBlur}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      formik.setFieldValue('maxContext', raw === '' ? null : Number(raw));
+                    }}
+                    placeholder="Auto (vLLM decides)"
+                    type="number"
+                    value={formik.values.maxContext ?? ''}
+                  />
+                )}
                 <Select<ModelQuantization>
                   size="sm"
                   disabled={!!lockedQuant}

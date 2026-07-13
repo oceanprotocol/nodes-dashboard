@@ -389,15 +389,15 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
 }
 
 // vLLM launch-param defaults, used when the model config doesn't pin a value.
-const DEFAULT_MAX_CONTEXT = 32768;
 const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
 
 /**
- * Allowed [min, max] range for each numeric launch param — the single source for both the form's
- * sliders/validation and the config clamp.
+ * Allowed range for each numeric launch param — the single source for the form's sliders/validation.
+ * maxContext has only a floor: the ceiling is the model's own reported context (uncapped), and when
+ * the model reports nothing the field is left blank so vLLM derives the length itself.
  */
 export const MODEL_PARAM_BOUNDS = {
-  maxContext: { min: 1024, max: 131072 },
+  maxContext: { min: 1024 },
   gpuMemoryUtilization: { min: 0, max: 1 },
 } as const;
 
@@ -430,10 +430,9 @@ export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelI
     servedModelName: getModelShortName(modelId),
     // User-defined key/value params — none by default; the user adds them like env vars.
     customParams: [],
-    maxContext: Math.max(
-      MODEL_PARAM_BOUNDS.maxContext.min,
-      Math.min(config?.maxContext ?? DEFAULT_MAX_CONTEXT, MODEL_PARAM_BOUNDS.maxContext.max)
-    ),
+    // The model's own context ceiling when HF reports it; null otherwise so launch omits
+    // --max-model-len and lets vLLM derive it from the model config (no arbitrary fallback).
+    maxContext: config?.maxContext ?? null,
     gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
     quantization: lockedQuant ?? 'none',
     // Default to 'auto' rather than the model's own torch_dtype: many models declare bfloat16, which

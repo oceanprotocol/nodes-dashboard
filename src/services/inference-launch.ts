@@ -51,7 +51,7 @@ export function toNodeUri(nodeInfo: { multiaddrs?: string[]; id: string }): stri
 export function buildVllmCommand(model: HuggingFaceModel, params: ModelParameters): string[] {
   const cmd = ['--model', model.id, '--host', '0.0.0.0', '--port', String(VLLM_PORT)];
 
-  if (Number.isFinite(params.maxContext) && params.maxContext > 0) {
+  if (params.maxContext != null && Number.isFinite(params.maxContext) && params.maxContext > 0) {
     cmd.push('--max-model-len', String(Math.floor(params.maxContext)));
   }
   if (Number.isFinite(params.gpuMemoryUtilization) && params.gpuMemoryUtilization > 0) {
@@ -115,7 +115,9 @@ export function parseVllmCommand(cmd: string[]): { modelId: string | null; param
     params: {
       ...defaults,
       servedModelName: valueOf('--served-model-name') || defaults.servedModelName,
-      maxContext: Number.isFinite(maxContextRaw) && maxContextRaw > 0 ? maxContextRaw : defaults.maxContext,
+      // Flag absent (or garbage) → null: the service launched without a pinned length, so vLLM
+      // derived it. Keep that as null rather than inventing a number.
+      maxContext: Number.isFinite(maxContextRaw) && maxContextRaw > 0 ? maxContextRaw : null,
       gpuMemoryUtilization: Number.isFinite(gpuMemRaw) && gpuMemRaw > 0 ? gpuMemRaw : defaults.gpuMemoryUtilization,
       dtype: (dtype as ModelParameters['dtype']) ?? defaults.dtype,
       quantization: (quantization as ModelParameters['quantization']) ?? defaults.quantization,
