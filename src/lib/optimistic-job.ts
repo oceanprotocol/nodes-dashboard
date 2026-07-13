@@ -12,6 +12,7 @@ export type OptimisticJobSeed = {
   isFree: boolean;
   dateCreated: number;
   maxJobDuration: number;
+  jobName?: string;
 };
 
 export function stashOptimisticJob(seed: OptimisticJobSeed): void {
@@ -55,6 +56,7 @@ export function buildOptimisticRow(seed: OptimisticJobSeed): ComputeJob & { id: 
     dateCreated: seed.dateCreated,
     startTime: formatDateTime(seed.dateCreated),
     maxJobDuration: seed.maxJobDuration,
+    metadata: seed.jobName ? { name: seed.jobName } : undefined,
     statusText: 'pending',
     status: 0,
     isRunning: false,

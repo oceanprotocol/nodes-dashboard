@@ -148,7 +148,6 @@ export async function createAuthToken({
     consumerAddress,
     incrementedNonce,
     signMessage,
-    issuerPeerId: peerId,
   });
   const token = await ProviderInstance.generateSignedAuthToken(
     consumerAddress,

@@ -17675,6 +17675,7 @@ __metadata:
     react-toastify: "npm:^11.0.5"
     recharts: "npm:^3.3.0"
     typescript: "npm:^5"
+    unique-names-generator: "npm:^4.7.1"
     wagmi: "npm:^2.15.0"
     yup: "npm:^1.7.1"
   languageName: unknown
@@ -21226,6 +21227,13 @@ __metadata:
   dependencies:
     ev-emitter: "npm:^2.0.0"
   checksum: 10c0/d9751e6641b56fd92001ffafaa1b352ca5c80392de4f451926a75685a268bbabde6bb337a4fe45043c14ef8e632931dab60ba120bc7371768c1ad7011963af39
+  languageName: node
+  linkType: hard
+
+"unique-names-generator@npm:^4.7.1":
+  version: 4.7.1
+  resolution: "unique-names-generator@npm:4.7.1"
+  checksum: 10c0/db07b9a0fee6eac4a21cf567c9744ee97895aa744d51ec913557205173a65c1a7a4d12470295796acb7247e6646e7975c340bb634c7adf41e5d950fa5cf94375
   languageName: node
   linkType: hard
 

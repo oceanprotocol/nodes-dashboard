@@ -61,6 +61,7 @@
     "react-dom": "^18",
     "react-toastify": "^11.0.5",
     "recharts": "^3.3.0",
+    "unique-names-generator": "^4.7.1",
     "wagmi": "^2.15.0",
     "yup": "^1.7.1"
   },
