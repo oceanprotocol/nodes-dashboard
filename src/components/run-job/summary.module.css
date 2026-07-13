@@ -25,3 +25,77 @@
   flex-direction: column;
   gap: 16px;
 }
+
+.modeSelector {
+  display: grid;
+  gap: 16px;
+
+  @media (min-width: 640px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.modeCard {
+  align-items: flex-start;
+  background: var(--background-glass);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  width: 100%;
+}
+
+.modeCard:hover {
+  border-color: var(--accent1-light);
+}
+
+.modeCardSelected {
+  border-color: var(--accent1);
+  box-shadow: var(--input-shadow-focus);
+}
+
+.modeIcon {
+  align-items: center;
+  background: var(--background-glass-secondary);
+  border-radius: 10px;
+  color: var(--accent1);
+  display: flex;
+  flex-shrink: 0;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.modeCardSelected .modeIcon {
+  background: var(--accent1);
+  color: var(--text-primary-inverse);
+}
+
+.modeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modeTitle {
+  align-items: center;
+  color: var(--text-primary);
+  display: flex;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.modeDescription {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.modeCheck {
+  color: var(--accent1);
+  margin-left: auto;
+}

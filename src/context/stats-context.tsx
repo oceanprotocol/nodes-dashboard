@@ -1,5 +1,5 @@
 import { getApiRoute } from '@/config';
-import { formatGpuName } from '@/utils/formatters';
+import { formatHardwareName } from '@/utils/formatters';
 import { GPUPopularityDisplay, GPUPopularityStats, Node } from '@/types/nodes';
 import { AnalyticsGlobalStats, JobsPerEpochType, RevenuePerEpochType, SystemStatsData } from '@/types/stats';
 import axios from 'axios';
@@ -87,7 +87,7 @@ export const StatsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
       const res: GPUPopularityDisplay = response.data.map((gpu) => ({
-        gpuName: formatGpuName(`${gpu.vendor} ${gpu.name}`, { showVendor: true }),
+        gpuName: formatHardwareName(`${gpu.vendor} ${gpu.name}`, 'gpu', { showVendor: true }),
         popularity: gpu.popularity,
       }));
       setTopGpuModels(res);

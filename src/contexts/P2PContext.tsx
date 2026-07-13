@@ -15,6 +15,7 @@ import {
   listBucketFiles as listBucketFilesService,
   pushNodeConfig,
   renameNodeBucket as renameNodeBucketService,
+  streamComputeLogs as streamComputeLogsService,
   streamComputeResult as streamComputeResultService,
   uploadBucketFile as uploadBucketFileService,
 } from '@/services/nodeService';
@@ -147,6 +148,12 @@ interface P2PContextType {
     authToken: string,
     jobId: string,
     index: number
+  ) => Promise<AsyncIterable<Uint8Array>>;
+  streamComputeLogs: (
+    nodeUri: NodeUri,
+    authToken: string,
+    jobId: string,
+    signal?: AbortSignal
   ) => Promise<AsyncIterable<Uint8Array>>;
 }
 
@@ -382,6 +389,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  const streamComputeLogs = useCallback(
+    async (nodeUri: NodeUri, authToken: string, jobId: string, signal?: AbortSignal) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return streamComputeLogsService(nodeUri, authToken, jobId, signal);
+    },
+    [isReady]
+  );
+
   const createNodeBucket = useCallback(
     async ({
       accessLists,
@@ -506,6 +523,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         getPeerMultiaddr,
         sendCommand,
         streamComputeResult,
+        streamComputeLogs,
         uploadBucketFile,
       }}
     >

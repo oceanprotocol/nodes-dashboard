@@ -4234,10 +4234,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/contracts@npm:^2.8.0":
-  version: 2.8.0
-  resolution: "@oceanprotocol/contracts@npm:2.8.0"
-  checksum: 10c0/04c59d07c8c604ac16edfac1f749d957c419ac026eeb03890252fa8d2c2ff8b350a19de1ee34889992ca50efa913ab95d2608841d14165b9489cbcd8d2b91c63
+"@oceanprotocol/contracts@npm:^2.9.0":
+  version: 2.9.0
+  resolution: "@oceanprotocol/contracts@npm:2.9.0"
+  checksum: 10c0/f77b6f6f55668a3fde496ab8d9b2cca3a386a5f75dd040a4c8df389814a094a243ce7df26b8ac4754f72b7d1864f00db5755645f3bef7cef14baf8bfc9e12788
   languageName: node
   linkType: hard
 
@@ -4254,23 +4254,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:^8.5.1":
-  version: 8.5.1
-  resolution: "@oceanprotocol/lib@npm:8.5.1"
+"@oceanprotocol/lib@npm:8.6.1":
+  version: 8.6.1
+  resolution: "@oceanprotocol/lib@npm:8.6.1"
   dependencies:
     "@oasisprotocol/sapphire-paratime": "npm:^1.3.2"
     "@oceanprotocol/ddo-js": "npm:^0.3.0"
     bignumber.js: "npm:^9.3.1"
-    cross-fetch: "npm:^4.0.0"
     crypto-js: "npm:^4.1.1"
     decimal.js: "npm:^10.4.1"
     eciesjs: "npm:^0.4.5"
     ethers: "npm:^6.15.0"
-    form-data: "npm:^2.3.3"
     jsonwebtoken: "npm:^9.0.2"
   peerDependencies:
     web3: ^1.8.0
-  checksum: 10c0/f3c1a766204e1f9783d947ea4810cd595892f273f9d698c248350c06f77a468dbd39a92c65954fd37e1009c0cb9152109d4c8db2861717aaeefe0f072815f05d
+  checksum: 10c0/9969adca8ef86546d7b672c8894d581e9464a580c8287205b6b63dad16f5bda4d78d5c98ee202a95d4ac8f016e372d0073a84913ebe30fd128e5e30ee0a0ccf8
   languageName: node
   linkType: hard
 
@@ -14936,20 +14934,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"form-data@npm:^2.3.3":
-  version: 2.5.5
-  resolution: "form-data@npm:2.5.5"
-  dependencies:
-    asynckit: "npm:^0.4.0"
-    combined-stream: "npm:^1.0.8"
-    es-set-tostringtag: "npm:^2.1.0"
-    hasown: "npm:^2.0.2"
-    mime-types: "npm:^2.1.35"
-    safe-buffer: "npm:^5.2.1"
-  checksum: 10c0/7fb70447849fc9bce4d01fe9a626f6587441f85779a2803b67f803e1ab52b0bd78db0a7acd80d944c665f68ca90936c327f1244b730719b638a0219e98b20488
-  languageName: node
-  linkType: hard
-
 "form-data@npm:^4.0.4":
   version: 4.0.5
   resolution: "form-data@npm:4.0.5"
@@ -17018,7 +17002,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mime-types@npm:^2.1.12, mime-types@npm:^2.1.35, mime-types@npm:~2.1.24, mime-types@npm:~2.1.34":
+"mime-types@npm:^2.1.12, mime-types@npm:~2.1.24, mime-types@npm:~2.1.34":
   version: 2.1.35
   resolution: "mime-types@npm:2.1.35"
   dependencies:
@@ -17641,8 +17625,8 @@ __metadata:
     "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
-    "@oceanprotocol/contracts": "npm:^2.8.0"
-    "@oceanprotocol/lib": "npm:^8.5.1"
+    "@oceanprotocol/contracts": "npm:^2.9.0"
+    "@oceanprotocol/lib": "npm:8.6.1"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.22.2"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
@@ -17691,6 +17675,7 @@ __metadata:
     react-toastify: "npm:^11.0.5"
     recharts: "npm:^3.3.0"
     typescript: "npm:^5"
+    unique-names-generator: "npm:^4.7.1"
     wagmi: "npm:^2.15.0"
     yup: "npm:^1.7.1"
   languageName: unknown
@@ -21242,6 +21227,13 @@ __metadata:
   dependencies:
     ev-emitter: "npm:^2.0.0"
   checksum: 10c0/d9751e6641b56fd92001ffafaa1b352ca5c80392de4f451926a75685a268bbabde6bb337a4fe45043c14ef8e632931dab60ba120bc7371768c1ad7011963af39
+  languageName: node
+  linkType: hard
+
+"unique-names-generator@npm:^4.7.1":
+  version: 4.7.1
+  resolution: "unique-names-generator@npm:4.7.1"
+  checksum: 10c0/db07b9a0fee6eac4a21cf567c9744ee97895aa744d51ec913557205173a65c1a7a4d12470295796acb7247e6646e7975c340bb634c7adf41e5d950fa5cf94375
   languageName: node
   linkType: hard
 
