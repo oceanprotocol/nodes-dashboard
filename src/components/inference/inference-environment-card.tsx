@@ -137,30 +137,28 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     return mergedGpus.map((gpu) => {
       const chosen = selectedByKey[gpu.key] ?? 0;
       return (
-        <>
-          <div className={styles.gpuType} key={gpu.key}>
-            <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />-
-            {editable ? (
-              <div className={styles.counts}>
-                {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => (
-                  <Button
-                    color="accent1"
-                    key={n}
-                    onClick={() => setTypeCount(gpu.key, n)}
-                    size="xs"
-                    variant={chosen === n ? 'filled' : 'outlined'}
-                  >
-                    {n}x
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
-                {chosen} / {gpu.max} selected
-              </span>
-            )}
-          </div>
-        </>
+        <div className={styles.gpuType} key={gpu.key}>
+          <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />-
+          {editable ? (
+            <div className={styles.counts}>
+              {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => (
+                <Button
+                  color="accent1"
+                  key={n}
+                  onClick={() => setTypeCount(gpu.key, n)}
+                  size="xs"
+                  variant={chosen === n ? 'filled' : 'outlined'}
+                >
+                  {n}x
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
+              {chosen} / {gpu.max} selected
+            </span>
+          )}
+        </div>
       );
     });
   };

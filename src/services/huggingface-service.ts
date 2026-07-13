@@ -1,7 +1,6 @@
 import {
   HuggingFaceModel,
   HuggingFaceModelConfig,
-  ModelDtype,
   ModelParameters,
   ModelQuantization,
   ToolCallParser,

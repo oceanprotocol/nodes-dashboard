@@ -79,14 +79,18 @@ const ExistingServicesTable: React.FC = () => {
 
   // Route to the manage page. It hydrates its model/env display from the query params (peerId/env/
   // models) — the job alone can't rebuild the rich model card, so seed what we recovered from it.
+  // Carry the payment token too: the manage page needs it in context for a Prolong re-entry, and
+  // hydrating it from the URL avoids waiting on the async job-token seed effect (see manage page).
   const openService = (job: ServiceJob) => {
     const modelId = modelIdFromJob(job);
+    const token = job.payment?.token;
     router.push({
       pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
       query: {
         peerId: DEFAULT_NODE_ID,
         env: job.environment,
         ...(modelId ? { models: encodeModelIds([modelId]) } : {}),
+        ...(token ? { token } : {}),
         duration: String(job.duration),
       },
     });

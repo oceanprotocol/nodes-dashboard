@@ -13,16 +13,22 @@ export type MergedGpu = {
 /** How many units of each GPU type (keyed by MergedGpu.key) the user wants to use. */
 export type GpuSelection = Record<string, number>;
 
-/** 
- * Scale a resource by a fraction, clamping to min/max. 
- * If the resource is undefined or has no total/max, return 0. 
- * */
-function fractionResoruceClamped(resource: ComputeResource | undefined, fraction: number, round?: boolean): number {
+/**
+ * Scale a resource by a fraction, clamping to min/max.
+ * If the resource is undefined or has no total/max, return 0.
+ * When rounding, a positive fraction never rounds down to 0 — a resource that exists is requested
+ * with at least 1 unit, so a small GPU-fraction selection can't send the node an amount:0 CPU
+ * request (which the node rejects / would schedule a resource-less container).
+ */
+function fractionResourceClamped(resource: ComputeResource | undefined, fraction: number, round?: boolean): number {
   if (!resource) {
     return 0;
   }
   const fractionedResource = (resource.total ?? resource.max ?? 0) * fraction;
-  const roundedResource = round ? Math.round(fractionedResource) : fractionedResource;
+  let roundedResource = round ? Math.round(fractionedResource) : fractionedResource;
+  if (round && fraction > 0 && roundedResource < 1) {
+    roundedResource = 1;
+  }
   if (roundedResource > resource.max) {
     return resource.max;
   }
@@ -105,9 +111,9 @@ const useInferenceAllocation = ({
 
   const allocation = useMemo(() => {
     return {
-      cpu: fractionResoruceClamped(cpu, fraction, true),
-      ram: fractionResoruceClamped(ram, fraction),
-      disk: fractionResoruceClamped(disk, fraction)
+      cpu: fractionResourceClamped(cpu, fraction, true),
+      ram: fractionResourceClamped(ram, fraction, true),
+      disk: fractionResourceClamped(disk, fraction, true)
     };
   }, [cpu, ram, disk, fraction]);
 
