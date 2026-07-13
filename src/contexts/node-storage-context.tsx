@@ -32,7 +32,12 @@ type NodeStorageContextType = {
   /** Delete file from a bucket */
   deleteFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; fileName: string }) => Promise<void>;
   /** Create a bucket on a node */
-  createBucket: (args: { access: BucketAccessState; label?: string; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
+  createBucket: (args: {
+    access: BucketAccessState;
+    label?: string;
+    nodeId: string;
+    nodeUri: NodeUri;
+  }) => Promise<void>;
   /** Rename a bucket (set its human-readable name) */
   renameBucket: (args: { bucketId: string; label: string | null; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Get wallet addresses in an access list contract */
@@ -52,8 +57,14 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
   const { account } = useOceanAccount();
   const { withNodeAuth } = useNodeAuth();
 
-  const { createNodeBucket, renameBucket: renameBucketP2P, deleteBucketFile, getNodeBuckets, listBucketFiles, uploadBucketFile } =
-    useP2P();
+  const {
+    createNodeBucket,
+    renameBucket: renameBucketP2P,
+    deleteBucketFile,
+    getNodeBuckets,
+    listBucketFiles,
+    uploadBucketFile,
+  } = useP2P();
 
   const { deployNewAccessList, getAccessListAddresses, addWalletToAccessList, removeWalletFromAccessList } =
     useAccessList();
@@ -84,7 +95,8 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       try {
         const owned = await withNodeAuth(nodeId, nodeUri, async (token) => {
           const all = await getNodeBuckets({ authToken: token, nodeUri, ownerAddress: account.address! });
-          return all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
+          const filtered = all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
+          return filtered;
         });
         setBuckets((prev) => ({ ...prev, [nodeId]: owned }));
       } catch (e) {
@@ -194,9 +206,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       );
       setBuckets((prev) => ({
         ...prev,
-        [nodeId]: (prev[nodeId] ?? []).map((b) =>
-          b.bucketId === bucketId ? { ...b, label: result.label } : b
-        ),
+        [nodeId]: (prev[nodeId] ?? []).map((b) => (b.bucketId === bucketId ? { ...b, label: result.label } : b)),
       }));
     },
     [renameBucketP2P, withNodeAuth]
