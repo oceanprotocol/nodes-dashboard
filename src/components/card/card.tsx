@@ -1,8 +1,8 @@
 import cx from 'classnames';
-import { CSSProperties, ReactNode } from 'react';
+import { CSSProperties, KeyboardEvent, MouseEvent, MouseEventHandler, ReactNode } from 'react';
 import styles from './card.module.css';
 
-type Size = 'sm' | 'md' | 'lg';
+type Size = 'xs' | 'sm' | 'md' | 'lg';
 type Variant =
   | 'glass'
   | 'glass-shaded'
@@ -20,11 +20,13 @@ type Variant =
 type Shadow = 'black' | 'accent1' | 'accent2' | 'success' | 'warning' | 'error';
 
 type CardProps = {
+  ariaPressed?: boolean;
   children: ReactNode;
   className?: string;
   direction?: 'row' | 'column';
   id?: string;
   innerShadow?: Shadow;
+  onClick?: MouseEventHandler<HTMLDivElement>;
   padding?: Size;
   paddingX?: Size;
   paddingY?: Size;
@@ -37,11 +39,13 @@ type CardProps = {
 };
 
 const Card: React.FC<CardProps> = ({
+  ariaPressed,
   children,
   className,
   direction,
   id,
   innerShadow,
+  onClick,
   padding,
   paddingX,
   paddingY,
@@ -52,6 +56,17 @@ const Card: React.FC<CardProps> = ({
   style,
   variant,
 }) => {
+  // Allow keyboard activation when the card acts as a button.
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!onClick) {
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick(event as unknown as MouseEvent<HTMLDivElement>);
+    }
+  };
+
   let shadowStyles = [];
   if (variant === 'glass-shaded') {
     shadowStyles.push('var(--inner-shadow-glass)');
@@ -65,6 +80,7 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <div
+      aria-pressed={ariaPressed}
       className={cx(
         styles.root,
         {
@@ -79,7 +95,10 @@ const Card: React.FC<CardProps> = ({
         className
       )}
       id={id}
-      role={role}
+      role={role ?? (onClick ? 'button' : undefined)}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? handleKeyDown : undefined}
       style={{ boxShadow: shadowStyles.join(', '), ...style }}
     >
       {children}

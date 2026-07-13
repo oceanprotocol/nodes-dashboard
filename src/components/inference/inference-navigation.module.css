@@ -1,0 +1,47 @@
+.root {
+  bottom: 60px;
+  position: sticky;
+  /* Establishes the anchor for the selection panel that grows upward. */
+  z-index: 2;
+
+  .card {
+    padding: 8px;
+  }
+}
+
+.startGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  @media (min-width: 576px) {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.panel {
+  margin-bottom: 16px;
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+  }
+}
+
+.chevron {
+  transition: transform 0.2s ease;
+
+  &.chevronOpen {
+    transform: rotate(180deg);
+  }
+}

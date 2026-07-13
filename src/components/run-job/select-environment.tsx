@@ -17,7 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
 
 const sortOptions = [
-  { label: 'Most powerful', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
+  { label: 'Best score', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
   { label: 'Cheapest', value: JSON.stringify({ price: 'asc' }) },
   { label: 'Most expensive', value: JSON.stringify({ price: 'desc' }) },
 ];

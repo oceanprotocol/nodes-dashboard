@@ -108,7 +108,7 @@ type SelectProps<T> = {
   errorText?: string | string[];
   fullWidth?: boolean;
   hint?: string;
-  label?: string;
+  label?: React.ReactNode;
   name?: string;
   MenuProps?: any;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;

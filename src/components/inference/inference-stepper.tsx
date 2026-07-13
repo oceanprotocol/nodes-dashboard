@@ -5,10 +5,12 @@ import { InferenceFlowType } from '@/types/inference';
 type InferenceStepperProps = {
   currentStep: InferenceStep;
   flowType: InferenceFlowType;
+  /** Edit re-entry: hides the (skipped) Resources step. */
+  edit?: boolean;
 };
 
-const InferenceStepper: React.FC<InferenceStepperProps> = ({ currentStep, flowType }) => {
-  return <Stepper currentStep={currentStep} steps={getInferenceSteps(flowType)} />;
+const InferenceStepper: React.FC<InferenceStepperProps> = ({ currentStep, flowType, edit }) => {
+  return <Stepper currentStep={currentStep} steps={getInferenceSteps(flowType, edit)} />;
 };
 
 export default InferenceStepper;

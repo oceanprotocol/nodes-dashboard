@@ -1,9 +1,11 @@
 .root {
+  --padding-xs: 8px;
   --padding-sm: 14px;
   --padding-md: 18px;
   --padding-lg: 24px;
 
   @media (min-width: 576px) {
+    --padding-xs: 12px;
     --padding-sm: 24px;
     --padding-md: 32px;
     --padding-lg: 48px;
@@ -21,6 +23,9 @@
 }
 
 /* Paddings */
+.padding-xs {
+  padding: var(--padding-xs);
+}
 .padding-sm {
   padding: var(--padding-sm);
 }
@@ -32,6 +37,10 @@
 }
 
 /* X paddings */
+.paddingX-xs {
+  padding-left: var(--padding-xs);
+  padding-right: var(--padding-xs);
+}
 .paddingX-sm {
   padding-left: var(--padding-sm);
   padding-right: var(--padding-sm);
@@ -46,6 +55,10 @@
 }
 
 /* Y paddings */
+.paddingY-xs {
+  padding-top: var(--padding-xs);
+  padding-bottom: var(--padding-xs);
+}
 .paddingY-sm {
   padding-top: var(--padding-sm);
   padding-bottom: var(--padding-sm);
@@ -60,6 +73,9 @@
 }
 
 /* Radii */
+.radius-xs {
+  border-radius: 8px;
+}
 .radius-sm {
   border-radius: 16px;
 }
@@ -71,6 +87,9 @@
 }
 
 /* Spacings */
+.spacing-xs {
+  gap: 8px;
+}
 .spacing-sm {
   gap: 16px;
 }
