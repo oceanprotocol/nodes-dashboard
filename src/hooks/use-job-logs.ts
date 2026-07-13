@@ -10,8 +10,9 @@ export type LogViewStatus = 'idle' | 'connecting' | 'live' | 'reconnecting' | 'l
 const MAX_LINES = 5000;
 
 // Reopen cadence for following ongoing logs. Two P2P requests per cycle (status + stream),
-// so ~12 req/min — comfortably under ocean-node's default 30 req/min per-requester limit.
-const REOPEN_INTERVAL_MS = 10_000;
+// so ~6 req/min — well under ocean-node's default 30 req/min per-requester limit, reducing
+// rate-limit "Reconnecting" flashes at the cost of slightly less-live updates.
+const REOPEN_INTERVAL_MS = 20_000;
 // If the node still rate-limits us, back off rather than treating it as a dead node.
 const RATE_LIMIT_BACKOFF_MS = 20_000;
 
