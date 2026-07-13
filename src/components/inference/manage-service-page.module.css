@@ -40,7 +40,7 @@
 /* Chip colour (text + dot via currentColor) and background tint by status kind. */
 .status_running {
   background: var(--success);
-  color: var(--success-darker);
+  /* color: var(--success-darker); */
 }
 
 .status_pending {
@@ -53,7 +53,7 @@
 
 .status_failed {
   background: var(--error);
-  color: var(--error-darker);
+  /* color: var(--error-darker); */
 }
 
 .divider {
