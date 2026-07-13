@@ -15,7 +15,7 @@ import { useNodeAuth } from '@/contexts/node-auth-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { getModelShortName } from '@/services/huggingface-service';
-import { toNodeUri, VLLM_PORT } from '@/services/inference-launch';
+import { parseVllmCommand, toNodeUri, VLLM_PORT } from '@/services/inference-launch';
 import { getServiceStatusView } from '@/services/service-status';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
@@ -150,6 +150,7 @@ const ManageServicePage: React.FC = () => {
   const {
     selectedModels,
     modelParamsByModel,
+    setParamsForModel,
     selectedEnv,
     selectedToken,
     setSelectedToken,
@@ -160,16 +161,16 @@ const ManageServicePage: React.FC = () => {
     buildSelectionQuery,
   } = useInferenceContext();
   const { account } = useOceanAccount();
-  const { getServiceStatus, serviceRestart, serviceStop } = useP2P();
+  const { getServiceStatus, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeAuth();
 
   // The real service job, polled from the node until it reaches a terminal status (Running/Failed/…).
   const [job, setJob] = useState<ServiceJob | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
-  // Stop/Restart in flight — disables both buttons while one runs.
-  const [actionLoading, setActionLoading] = useState<'stop' | 'restart' | null>(null);
-  // Bumped after stop/restart to re-kick the poll loop (it stops once a terminal status is reached).
+  // Restart in flight — disables the button while it runs.
+  const [actionLoading, setActionLoading] = useState<'restart' | null>(null);
+  // Bumped after restart / on local expiry to re-kick the poll loop (it stops once terminal).
   const [pollEpoch, setPollEpoch] = useState(0);
   // Logs stream on demand — revealed by the user, then live-tailed by ServiceLogsPanel.
   const [logsOpen, setLogsOpen] = useState(false);
@@ -181,7 +182,9 @@ const ManageServicePage: React.FC = () => {
   const nodeUri = useMemo(() => (selectedEnv ? toNodeUri(selectedEnv.nodeInfo) : null), [selectedEnv]);
   const nodePeerId = selectedEnv?.nodeInfo.id;
 
-  // Fetch the service status once, returning true when it has reached a terminal state (stop polling).
+  /**
+   * Fetch the service status once, returning true when it has reached a terminal state (stop polling).
+   */
   const fetchStatus = useCallback(async (): Promise<boolean> => {
     if (!nodeUri || !nodePeerId || !account.address || !id) {
       return false;
@@ -252,10 +255,29 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
-  // Stop / Restart the running container. Both re-kick the status poll afterwards so the page
-  // tracks the transition (Running → Stopped, or Running → Starting → Running).
+  // Seed the model launch params from the running service's own dockerCmd when the URL didn't carry
+  // them (e.g. opened from the services table, which only puts models/env/duration on the query).
+  // Recovering them from the job keeps the Model card and a prolong summary from rendering N/A, and
+  // gives an Edit relaunch the committed params it needs. Only fills a model that has none yet — a
+  // full config committed earlier in-flow always wins.
+  useEffect(() => {
+    const cmd = job?.dockerCmd;
+    if (!cmd || selectedModels.length === 0) {
+      return;
+    }
+    const parsed = parseVllmCommand(cmd);
+    const target = parsed.modelId ? selectedModels.find((m) => m.id === parsed.modelId) : selectedModels[0];
+    if (!target || modelParamsByModel[target.id]) {
+      return;
+    }
+    setParamsForModel(target.id, parsed.params);
+  }, [job?.dockerCmd, selectedModels, modelParamsByModel, setParamsForModel]);
+
+  /**
+   * Restart the running container in place, then re-kick the status poll so the page tracks the transition (Running → Starting → Running).
+   */
   const runServiceAction = useCallback(
-    async (action: 'stop' | 'restart') => {
+    async (action: 'restart') => {
       if (!nodeUri || !nodePeerId || !account.address || !id) {
         return;
       }
@@ -264,9 +286,7 @@ const ManageServicePage: React.FC = () => {
       try {
         // Same cached token as the poll loop — avoids a concurrent createAuthToken (nonce clash)
         // when the user acts while a poll tick is in flight.
-        await withNodeAuth(nodePeerId, nodeUri, (token) =>
-          action === 'stop' ? serviceStop(nodeUri, token, id) : serviceRestart(nodeUri, token, id)
-        );
+        await withNodeAuth(nodePeerId, nodeUri, (token) => serviceRestart(nodeUri, token, id));
         setPollEpoch((epoch) => epoch + 1);
       } catch (error) {
         console.error(`Failed to ${action} service:`, error);
@@ -275,15 +295,8 @@ const ManageServicePage: React.FC = () => {
         setActionLoading(null);
       }
     },
-    [nodeUri, nodePeerId, account.address, id, withNodeAuth, serviceStop, serviceRestart]
+    [nodeUri, nodePeerId, account.address, id, withNodeAuth, serviceRestart]
   );
-
-  const onStop = () => {
-    // Stopping is irreversible for this session (remaining runtime is forfeited) — confirm first.
-    if (window.confirm('Stop this service? The container is torn down and the session ends now.')) {
-      runServiceAction('stop');
-    }
-  };
 
   const models: ServiceModel[] = useMemo(
     () => selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] })),
@@ -293,12 +306,19 @@ const ManageServicePage: React.FC = () => {
   const environment = selectedEnv?.environment ?? null;
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
   const gpuSelection = selectedEnv?.gpuSelection;
-  // Prefer the real job's duration once loaded; else the selection's requested duration.
-  const durationTotalSeconds = job?.duration ?? jobDurationSeconds;
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const durationElapsedSeconds = job
-    ? Math.max(0, Math.min(durationTotalSeconds, durationTotalSeconds - Math.floor(job.expiresAt / 1000 - nowSeconds)))
-    : 0;
+  // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both stay
+  // consistent with the ACTUAL window — including after a Prolong/Extend, which pushes expiresAt
+  // forward while leaving job.duration at the original paid value. Falling back to job.duration for
+  // the total would make the bar/countdown wrong after an extend. Only fall back to the requested
+  // duration before the job has loaded. `expiresAt` is ms; `dateCreated` is an ISO timestamp.
+  const jobStartSeconds = job ? Math.floor(new Date(job.dateCreated).getTime() / 1000) : 0;
+  const jobExpirySeconds = job ? Math.floor(job.expiresAt / 1000) : 0;
+  const durationTotalSeconds =
+    job && Number.isFinite(jobStartSeconds) && jobExpirySeconds > jobStartSeconds
+      ? jobExpirySeconds - jobStartSeconds
+      : jobDurationSeconds;
+  const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
   const serviceName = hasSelection
     ? models.map((m) => getModelShortName(m.model.id)).join(' + ') || 'Custom selection'
@@ -308,23 +328,20 @@ const ManageServicePage: React.FC = () => {
     ? getServiceStatusView(job.status, job.statusText)
     : { kind: 'pending' as const, label: jobLoading ? 'Loading…' : 'Unknown' };
   const isRunning = job?.status === ServiceStatusNumber.Running;
-  // Stopping only makes sense while the service is (or is becoming) alive.
-  const canStop =
-    !!job &&
-    job.status !== ServiceStatusNumber.Stopped &&
-    job.status !== ServiceStatusNumber.Expired &&
-    job.status !== ServiceStatusNumber.Error;
-  // Edit relaunches via serviceRestart, which the node refuses once the paid window is up — it
-  // rejects both the Expired status AND any job already past its expiry (the expiry cron flips the
-  // status asynchronously, so a service can be past expiresAt while still reading Running). Mirror
-  // that here so Edit isn't offered when the relaunch is guaranteed to fail. `expiresAt` is ms.
+  // The node refuses serviceRestart once the paid window is up — it rejects both the Expired status
+  // AND any job already past its expiry (the expiry cron flips the status asynchronously, so a
+  // service can be past expiresAt while still reading Running). Mirror that here so Edit/Restart
+  // aren't offered when the relaunch is guaranteed to fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
   const canEdit = !!job && !isExpired;
+  const canRestart = !!job && !isExpired;
   const baseUrl = serviceBaseUrl(job);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
 
-  // Edit → back to the model-selection step with the whole selection preselected on the query. The
-  // `edit` flag makes the flow skip env selection & payment (same env, no re-pay) — see payment-page.
+  /**
+   * Edit → back to the model-selection step with the whole selection preselected on the query.
+   * The `edit` flag makes the flow skip env selection & payment (same env, no re-pay) — see payment-page.
+   */
   const onEdit = () => {
     // Relaunch would be rejected by the node once expired — the button is disabled then, but guard
     // the handler too so a stale render can't fire it.
@@ -337,10 +354,27 @@ const ManageServicePage: React.FC = () => {
     });
   };
 
-  // Prolong → straight to payment for the extra runtime only. Same selection (env/token/gpu/models),
-  // duration overridden to the chosen extra time; the `prolong` flag skips the earlier steps and
-  // reuses the same price formula. See payment-page.
+  /**
+   * The local countdown hitting zero is only an estimate — the node's expiry cron flips the status asynchronously.
+   * Re-kick the poll loop (it stopped once the service reached the terminal Running status)
+   * so the page tracks Running → Expired instead of showing a stale "Running" forever.
+   */
+  const onLocalExpiry = useCallback(() => {
+    setPollEpoch((epoch) => epoch + 1);
+  }, []);
+
+  /**
+   * Prolong → straight to payment for the extra runtime only.
+   * Same selection (env/token/gpu/models), duration overridden to the chosen extra time;
+   * the `prolong` flag skips the earlier steps and reuses the same price formula. See payment-page.
+   */
   const onProlong = (extraSeconds: number) => {
+    // The prolong payment page needs the token in the query to rehydrate on a hard reload; it's
+    // seeded from the running job, so wait until that's in before navigating (button is also gated).
+    if (!selectedToken) {
+      setJobError('Loading service details — try again in a moment.');
+      return;
+    }
     setProlongOpen(false);
     // Provider persists across client-side nav, so URL hydration won't re-run on the payment page —
     // push the chosen duration straight into context (the query keeps it for a hard reload).
@@ -388,28 +422,17 @@ curl ${chatUrl} \\
             {isRunning && (
               <DurationProgress
                 elapsedSeconds={durationElapsedSeconds}
-                onExpired={fetchStatus}
+                onExpired={onLocalExpiry}
                 totalSeconds={durationTotalSeconds}
               />
             )}
 
             <div className="actionsGroupMdBetween">
               <div className="actionsGroupMdEnd">
-                {/* <Button
-                  color="accent1"
-                  contentBefore={<StopIcon />}
-                  disabled={!canStop || actionLoading !== null}
-                  loading={actionLoading === 'stop'}
-                  onClick={onStop}
-                  size="md"
-                  variant="outlined"
-                >
-                  Stop
-                </Button> */}
                 <Button
                   color="accent1"
                   contentBefore={<RestartAltIcon />}
-                  disabled={!job || actionLoading !== null}
+                  disabled={!canRestart || actionLoading !== null}
                   loading={actionLoading === 'restart'}
                   onClick={() => runServiceAction('restart')}
                   size="md"
@@ -432,6 +455,7 @@ curl ${chatUrl} \\
                 <Button
                   color="accent1"
                   contentBefore={<BoltOutlinedIcon />}
+                  disabled={!job || !selectedToken}
                   onClick={() => setProlongOpen(true)}
                   size="md"
                   variant="filled"
@@ -470,11 +494,12 @@ curl ${chatUrl} \\
             </Card>
           )}
 
-          {/* How to use */}
+          {/* How to use — hidden once expired: the endpoint is torn down even if the status still
+              reads Running (expiry-cron lag), so a callable URL there would be misleading. */}
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <div className={styles.howToHead}>
               <h3>How to use</h3>
-              {baseUrl ? (
+              {baseUrl && !isExpired ? (
                 // vLLM runs on FastAPI, which serves interactive Swagger docs at /docs — the live,
                 // model-accurate source of truth for every route this container exposes.
                 <a className={styles.docsLink} href={`${baseUrl}/docs`} rel="noreferrer" target="_blank">
@@ -484,7 +509,7 @@ curl ${chatUrl} \\
               ) : null}
             </div>
 
-            {baseUrl ? (
+            {baseUrl && !isExpired ? (
               <>
                 <div className={styles.endpoints}>
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
@@ -520,9 +545,11 @@ curl ${chatUrl} \\
               </>
             ) : (
               <div className="textSecondary">
-                {isRunning
-                  ? 'Service is running but exposed no endpoint.'
-                  : 'Endpoint becomes available once the service is running…'}
+                {isExpired
+                  ? 'This session has ended — the endpoints are no longer available.'
+                  : isRunning
+                    ? 'Service is running but exposed no endpoint.'
+                    : 'Endpoints become available once the service is running…'}
               </div>
             )}
           </Card>

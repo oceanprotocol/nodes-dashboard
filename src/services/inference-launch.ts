@@ -1,6 +1,7 @@
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
+import { buildModelDefaults } from '@/services/huggingface-service';
 import { ComputeResource } from '@/types/environments';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
 import { ComputeResourceRequest, ServiceStartParams } from '@oceanprotocol/lib';
@@ -86,6 +87,49 @@ export function buildVllmCommand(model: HuggingFaceModel, params: ModelParameter
 }
 
 /**
+ * Reverse of buildVllmCommand: recover the model id + launch params from a running service's
+ * dockerCmd (the node returns the command, not the original ModelParameters). Used by the manage
+ * page to rebuild the params for a service opened without them in the URL. Flags absent from the
+ * command fall back to buildModelDefaults' neutral values; customParams can't be recovered from the
+ * command (they live in the encrypted userData), so they come back empty.
+ */
+export function parseVllmCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
+  // Read the value following a flag, or undefined when the flag is absent / has no value.
+  const valueOf = (flag: string): string | undefined => {
+    const idx = cmd.indexOf(flag);
+    return idx >= 0 && idx + 1 < cmd.length ? cmd[idx + 1] : undefined;
+  };
+  const has = (flag: string): boolean => cmd.includes(flag);
+
+  const modelId = valueOf('--model') ?? null;
+  const defaults = buildModelDefaults(null, modelId ?? '');
+
+  const maxContextRaw = Number(valueOf('--max-model-len'));
+  const gpuMemRaw = Number(valueOf('--gpu-memory-utilization'));
+  const dtype = valueOf('--dtype');
+  const quantization = valueOf('--quantization');
+  const kvCacheDtype = valueOf('--kv-cache-dtype');
+
+  return {
+    modelId,
+    params: {
+      ...defaults,
+      servedModelName: valueOf('--served-model-name') || defaults.servedModelName,
+      maxContext: Number.isFinite(maxContextRaw) && maxContextRaw > 0 ? maxContextRaw : defaults.maxContext,
+      gpuMemoryUtilization: Number.isFinite(gpuMemRaw) && gpuMemRaw > 0 ? gpuMemRaw : defaults.gpuMemoryUtilization,
+      dtype: (dtype as ModelParameters['dtype']) ?? defaults.dtype,
+      quantization: (quantization as ModelParameters['quantization']) ?? defaults.quantization,
+      kvCacheDtype: (kvCacheDtype as ModelParameters['kvCacheDtype']) ?? defaults.kvCacheDtype,
+      revision: valueOf('--revision') ?? defaults.revision,
+      trustRemoteCode: has('--trust-remote-code'),
+      enforceEager: has('--enforce-eager'),
+      toolCalling: has('--enable-auto-tool-choice'),
+      toolCallParser: (valueOf('--tool-call-parser') as ModelParameters['toolCallParser']) ?? defaults.toolCallParser,
+    },
+  };
+}
+
+/**
  * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit).
  * HF_TOKEN unlocks gated/private repos; the user's custom key/value params are passed through as-is.
  */
@@ -109,7 +153,7 @@ export function buildUserData(params: ModelParameters, hfToken: string): Record<
  * means "use every GPU unit" (whole-environment allocation).
  */
 function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
-  const gpus = resources.filter((r) => r.type === 'gpu');
+  const gpus = resources.filter((r) => r.type === 'gpu' || r.id.toLowerCase().includes('gpu'));
   if (gpus.length === 0) {
     return [];
   }

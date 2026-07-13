@@ -30,7 +30,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import cx from 'classnames';
 import { useFormik } from 'formik';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import styles from './model-parameters.module.css';
 
 const quantizationOptions: { label: string; value: ModelQuantization }[] = [
@@ -134,7 +134,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   ref
 ) {
   const { hfToken, selectedModels, modelParamsByModel } = useInferenceContext();
+  // `config` tracks the LATEST fetched facts (drives the locked ceiling/quant + tool visibility).
+  // `defaultsConfig` is the baseline the form's default values are built from — frozen except on the
+  // first load and an explicit "Reload defaults", so a revision-blur refresh can update the facts
+  // without reinitializing formik and silently wiping the user's uncommitted edits.
   const [config, setConfig] = useState<HuggingFaceModelConfig | null>(null);
+  const [defaultsConfig, setDefaultsConfig] = useState<HuggingFaceModelConfig | null>(null);
   const [loading, setLoading] = useState(true);
   // 'none' = no token needed / loaded ok; 'missing' = gated, no token supplied; 'rejected' = token invalid.
   const [authState, setAuthState] = useState<'none' | 'missing' | 'rejected'>('none');
@@ -143,26 +148,39 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const [open, setOpen] = useState(defaultOpen);
+  // Guards the one-time initial load: loadConfig's identity now changes when hfToken does, so we
+  // can't rely on an empty/[loadConfig] dep array to fire it exactly once — this ref does.
+  const initialLoadStartedRef = useRef(false);
 
   const loadConfig = useCallback(
-    (
-      token?: string,
-      revision?: string,
-      onLoaded?: (config: HuggingFaceModelConfig | null) => void,
-      isReload = false
-    ) => {
+    ({
+      revision,
+      onLoaded,
+      isReload,
+      resetDefaults,
+    }: {
+      revision?: string;
+      onLoaded?: (config: HuggingFaceModelConfig | null) => void;
+      isReload: boolean;
+      // Also refresh the baseline the form defaults are built from. Set for the initial load and an
+      // explicit reload; left false for a revision-blur refresh so the user's edits aren't reset.
+      resetDefaults: boolean;
+    }) => {
       let cancelled = false;
       setLoading(true);
       setLoadError(null);
       if (isReload) {
         setReloadStatus('loading');
       }
-      fetchHuggingFaceModelConfig(modelId, token || undefined, revision || undefined)
+      fetchHuggingFaceModelConfig(modelId, hfToken, revision)
         .then((result) => {
           if (cancelled) {
             return;
           }
           setConfig(result);
+          if (resetDefaults) {
+            setDefaultsConfig(result);
+          }
           setAuthState('none');
           setReloadStatus(isReload ? 'success' : 'idle');
           onLoaded?.(result);
@@ -177,6 +195,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             setReloadStatus(isReload ? 'error' : 'idle');
           } else {
             setConfig(null);
+            if (resetDefaults) {
+              setDefaultsConfig(null);
+            }
             setLoadError('Could not load model defaults from Hugging Face. Using generic defaults.');
             setReloadStatus(isReload ? 'error' : 'idle');
             onLoaded?.(null);
@@ -191,12 +212,19 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         cancelled = true;
       };
     },
-    [modelId]
+    [hfToken, modelId]
   );
 
-  // Initial load only. Token/revision changes reload via the explicit "Reload defaults" button.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => loadConfig(hfToken), [loadConfig]);
+  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a
+  // token edit). Token/revision changes reload via the explicit "Reload defaults" button; typing in
+  // the token field must NOT auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  useEffect(() => {
+    if (initialLoadStartedRef.current) {
+      return;
+    }
+    initialLoadStartedRef.current = true;
+    return loadConfig({ isReload: false, resetDefaults: true });
+  }, [loadConfig]);
 
   // Editing the shared token invalidates the last reload result — clear the transient feedback so a
   // stale "reloaded"/"rejected" notice doesn't linger until the user clicks Reload again.
@@ -232,9 +260,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const initialValues = useMemo(
     () =>
       committedParams
-        ? { ...buildModelDefaults(config, modelId), ...committedParams }
-        : buildModelDefaults(config, modelId),
-    [committedParams, config, modelId]
+        ? { ...buildModelDefaults(defaultsConfig, modelId), ...committedParams }
+        : buildModelDefaults(defaultsConfig, modelId),
+    [committedParams, defaultsConfig, modelId]
   );
 
   const formik = useFormik<ModelParametersType>({
@@ -270,22 +298,27 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // The entered revision is preserved — buildDefaults blanks it, but it's what we just fetched against.
   const reloadDefaults = () => {
     const revision = formik.values.revision;
-    loadConfig(
-      hfToken,
+    loadConfig({
       revision,
-      (result) => {
+      onLoaded: (result) => {
         // Only reset the form when defaults actually loaded; on failure keep the user's values.
         if (result) {
           formik.resetForm({ values: { ...buildModelDefaults(result, modelId), revision } });
         }
       },
-      true
-    );
+      isReload: true,
+      resetDefaults: true,
+    });
   };
 
-  // Pinning a new revision refreshes the model facts (locked ceiling/quant) without touching the user's edits.
+  // Pinning a new revision refreshes the model facts (locked ceiling/quant) without touching the
+  // user's edits — resetDefaults=false keeps the form baseline frozen so formik doesn't reinitialize.
   const handleRevisionBlur = () => {
-    loadConfig(hfToken, formik.values.revision);
+    loadConfig({
+      revision: formik.values.revision,
+      isReload: false,
+      resetDefaults: false,
+    });
   };
 
   // Validate on demand (parent submit); return values only when the form is clean, open the card on error.
