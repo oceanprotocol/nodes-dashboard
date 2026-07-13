@@ -28,6 +28,14 @@ type AuthoringPanelProps = {
   consumerAddress: string;
 };
 
+const formatBytes = (bytes: number): string => {
+  if (!bytes || bytes < 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, i);
+  return `${i === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
+};
+
 const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,8 +76,14 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   const [activeTab, setActiveTab] = useState<AuthoringTab>('algorithm');
   const [submitting, setSubmitting] = useState(false);
   const [expandedBucketId, setExpandedBucketId] = useState<string | null>(null);
+  const [buildDragActive, setBuildDragActive] = useState(false);
 
-  const nodeId = selectedEnv?.nodeId;
+  const nodeId =
+    typeof multiaddrsOrPeerId === 'string'
+      ? multiaddrsOrPeerId
+      : Array.isArray(multiaddrsOrPeerId)
+        ? multiaddrsOrPeerId.join(',')
+        : undefined;
   const nodeBuckets = (nodeId && buckets[nodeId]) || [];
 
   // Load the node's buckets when the storage tab is first opened (auth prompts the wallet once).
@@ -91,6 +105,13 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     }
   };
 
+  const refreshBuckets = () => {
+    if (!nodeId || !multiaddrsOrPeerId) return;
+    fetchBuckets({ nodeId, nodeUri: multiaddrsOrPeerId as NodeUri }).catch(() =>
+      toast.error('Failed to load storage buckets for this node.')
+    );
+  };
+
   const isMounted = (bucketId: string, fileName: string) =>
     mountedFiles.some((mount) => mount.bucketId === bucketId && mount.fileName === fileName);
 
@@ -100,6 +121,20 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
         ? mountedFiles.filter((mount) => !(mount.bucketId === bucketId && mount.fileName === fileName))
         : [...mountedFiles, { bucketId, fileName }]
     );
+  };
+
+  const allMounted = (bucketId: string, fileNames: string[]) =>
+    fileNames.length > 0 && fileNames.every((fileName) => isMounted(bucketId, fileName));
+
+  const toggleAllInBucket = (bucketId: string, fileNames: string[]) => {
+    if (allMounted(bucketId, fileNames)) {
+      setMountedFiles(mountedFiles.filter((mount) => mount.bucketId !== bucketId));
+      return;
+    }
+    const missing = fileNames
+      .filter((fileName) => !isMounted(bucketId, fileName))
+      .map((fileName) => ({ bucketId, fileName }));
+    setMountedFiles([...mountedFiles, ...missing]);
   };
 
   const datasetWarning =
@@ -126,15 +161,24 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   };
 
   // Extra Dockerfile build-context files (e.g. requirements.txt), sent alongside the Dockerfile.
-  const handleBuildFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
+  const addBuildFiles = async (files: File[]) => {
     if (files.length === 0) return;
     const added: Record<string, string> = {};
     for (const file of files) {
       added[file.name] = await file.text();
     }
     setAdditionalDockerFiles({ ...additionalDockerFiles, ...added });
+  };
+
+  const handleBuildFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    await addBuildFiles(Array.from(event.target.files ?? []));
     event.target.value = '';
+  };
+
+  const handleBuildFilesDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setBuildDragActive(false);
+    await addBuildFiles(Array.from(event.dataTransfer.files ?? []));
   };
 
   const removeBuildFile = (name: string) => {
@@ -165,9 +209,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
         // and so buildNodeJobId doesn't double-prefix the cluster hash.
         const clusterHash = selectedEnv.id.split('-')[0];
         const bareJobId =
-          clusterHash && job.jobId.startsWith(`${clusterHash}-`)
-            ? job.jobId.slice(clusterHash.length + 1)
-            : job.jobId;
+          clusterHash && job.jobId.startsWith(`${clusterHash}-`) ? job.jobId.slice(clusterHash.length + 1) : job.jobId;
         stashOptimisticJob({
           jobId: bareJobId,
           consumer: consumerAddress,
@@ -177,6 +219,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
           isFree: freeCompute,
           dateCreated: Math.floor(Date.now() / 1000),
           maxJobDuration: selectedResources.maxJobDurationSeconds,
+          jobName: jobName.trim() || undefined,
         });
       }
       posthog.capture('dashboard_job_submitted', {
@@ -318,44 +361,60 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             value={dockerfile}
             onChange={(event) => setDockerfile(event.target.value)}
           />
-          <div className={styles.row}>
+          <div className={styles.sectionHeader}>
             <span className={styles.fieldLabel}>Build files</span>
-            <Button
-              color="accent1"
-              onClick={() => buildFilesInputRef.current?.click()}
-              size="sm"
-              type="button"
-              variant="outlined"
-            >
-              + Add build files
-            </Button>
-            <input
-              ref={buildFilesInputRef}
-              type="file"
-              multiple
-              className={styles.hiddenInput}
-              onChange={handleBuildFilesUpload}
-            />
+            {Object.keys(additionalDockerFiles).length > 0 && (
+              <span className={styles.badge}>{Object.keys(additionalDockerFiles).length}</span>
+            )}
           </div>
-          {Object.keys(additionalDockerFiles).length === 0 ? (
-            <p className={styles.muted}>
+          <input
+            ref={buildFilesInputRef}
+            type="file"
+            multiple
+            className={styles.hiddenInput}
+            onChange={handleBuildFilesUpload}
+          />
+          <div
+            className={classNames(styles.dropzone, { [styles.dropzoneActive]: buildDragActive })}
+            role="button"
+            tabIndex={0}
+            onClick={() => buildFilesInputRef.current?.click()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                buildFilesInputRef.current?.click();
+              }
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setBuildDragActive(true);
+            }}
+            onDragLeave={() => setBuildDragActive(false)}
+            onDrop={handleBuildFilesDrop}
+          >
+            <span className={styles.dropzoneTitle}>Drop files here or click to browse</span>
+            <span className={styles.dropzoneHint}>
               Extra files for the Docker build context (e.g. requirements.txt). Sent only when a Dockerfile is provided.
-            </p>
-          ) : (
-            Object.keys(additionalDockerFiles).map((name) => (
-              <div key={name} className={styles.row}>
-                <span>{name}</span>
-                <Button
-                  color="accent1"
-                  onClick={() => removeBuildFile(name)}
-                  size="sm"
-                  type="button"
-                  variant="transparent"
-                >
-                  Remove
-                </Button>
-              </div>
-            ))
+            </span>
+          </div>
+          {Object.keys(additionalDockerFiles).length > 0 && (
+            <div className={styles.fileChips}>
+              {Object.entries(additionalDockerFiles).map(([name, content]) => (
+                <div key={name} className={styles.fileChip}>
+                  <span className={styles.fileChipIcon}>📄</span>
+                  <span className={styles.fileChipName}>{name}</span>
+                  <span className={styles.fileSize}>{formatBytes(new Blob([content]).size)}</span>
+                  <button
+                    type="button"
+                    className={styles.chipRemove}
+                    aria-label={`Remove ${name}`}
+                    onClick={() => removeBuildFile(name)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -379,38 +438,121 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             ))}
           </select>
 
-          <span className={styles.fieldLabel}>Mount dataset files</span>
-          <p className={styles.muted}>
-            Mounted files are passed to the job as datasets, alongside the dataset from the Dataset tab.
-          </p>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionHeaderText}>
+              <span className={styles.fieldLabel}>Mount dataset files</span>
+              <p className={styles.muted}>
+                Mounted files are passed to the job as datasets, alongside the dataset from the Dataset tab.
+              </p>
+            </div>
+            <div className={styles.headerActions}>
+              {mountedFiles.length > 0 && <span className={styles.badge}>{mountedFiles.length}</span>}
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={refreshBuckets}
+                disabled={!nodeId || (nodeId ? fetchingBuckets[nodeId] : false)}
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {mountedFiles.length > 0 && (
+            <div className={styles.mountedSummary}>
+              {mountedFiles.map((mount) => (
+                <span key={`${mount.bucketId}:${mount.fileName}`} className={styles.mountedChip}>
+                  <span className={styles.mountedChipName}>{mount.fileName}</span>
+                  <button
+                    type="button"
+                    className={styles.chipRemove}
+                    aria-label={`Unmount ${mount.fileName}`}
+                    onClick={() => toggleMount(mount.bucketId, mount.fileName)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           {nodeId && fetchingBuckets[nodeId] && <p className={styles.muted}>Loading buckets…</p>}
           {nodeId && !fetchingBuckets[nodeId] && nodeBuckets.length === 0 && (
-            <p className={styles.muted}>No persistent-storage buckets on this node yet.</p>
+            <div className={styles.emptyState}>No persistent-storage buckets on this node yet.</div>
           )}
-          {nodeBuckets.map((bucket) => (
-            <div key={bucket.bucketId}>
-              <button type="button" className={styles.bucketToggle} onClick={() => toggleBucket(bucket.bucketId)}>
-                {expandedBucketId === bucket.bucketId ? '▾' : '▸'} {bucket.label || bucket.bucketId}
-              </button>
-              {expandedBucketId === bucket.bucketId && (
-                <div className={styles.bucketFiles}>
-                  {fetchingFiles[bucket.bucketId] && <p className={styles.muted}>Loading files…</p>}
-                  {!fetchingFiles[bucket.bucketId] && (bucketFiles[bucket.bucketId] ?? []).length === 0 && (
-                    <p className={styles.muted}>Empty bucket.</p>
-                  )}
-                  {(bucketFiles[bucket.bucketId] ?? []).map((file) => (
-                    <Checkbox
-                      key={file.name}
-                      type="multiple"
-                      checked={isMounted(bucket.bucketId, file.name)}
-                      label={file.name}
-                      onChange={() => toggleMount(bucket.bucketId, file.name)}
-                    />
-                  ))}
-                </div>
-              )}
+          {nodeBuckets.length > 0 && (
+            <div className={styles.bucketList}>
+              {nodeBuckets.map((bucket) => {
+                const isOpen = expandedBucketId === bucket.bucketId;
+                const files = bucketFiles[bucket.bucketId] ?? [];
+                const loaded = !!bucketFiles[bucket.bucketId];
+                const mountedInBucket = mountedFiles.filter((mount) => mount.bucketId === bucket.bucketId).length;
+                return (
+                  <div
+                    key={bucket.bucketId}
+                    className={classNames(styles.bucketCard, { [styles.bucketCardOpen]: isOpen })}
+                  >
+                    <button
+                      type="button"
+                      className={styles.bucketCardHeader}
+                      onClick={() => toggleBucket(bucket.bucketId)}
+                    >
+                      <span className={classNames(styles.chevron, { [styles.chevronOpen]: isOpen })}>▶</span>
+                      <span className={styles.bucketName}>{bucket.label || bucket.bucketId}</span>
+                      <span className={styles.bucketMeta}>
+                        {mountedInBucket > 0 ? `${mountedInBucket} selected` : loaded ? `${files.length} files` : ''}
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className={styles.fileList}>
+                        {fetchingFiles[bucket.bucketId] && <p className={styles.muted}>Loading files…</p>}
+                        {!fetchingFiles[bucket.bucketId] && files.length === 0 && (
+                          <p className={styles.muted}>Empty bucket.</p>
+                        )}
+                        {!fetchingFiles[bucket.bucketId] && files.length > 0 && (
+                          <label className={classNames(styles.fileRow, styles.selectAllRow)}>
+                            <Checkbox
+                              className={styles.fileRowLabel}
+                              type="multiple"
+                              checked={allMounted(
+                                bucket.bucketId,
+                                files.map((file) => file.name)
+                              )}
+                              label={`Select all (${files.length})`}
+                              onChange={() =>
+                                toggleAllInBucket(
+                                  bucket.bucketId,
+                                  files.map((file) => file.name)
+                                )
+                              }
+                            />
+                          </label>
+                        )}
+                        {files.map((file) => {
+                          const selected = isMounted(bucket.bucketId, file.name);
+                          return (
+                            <label
+                              key={file.name}
+                              className={classNames(styles.fileRow, { [styles.fileRowSelected]: selected })}
+                            >
+                              <Checkbox
+                                className={styles.fileRowLabel}
+                                type="multiple"
+                                checked={selected}
+                                label={file.name}
+                                onChange={() => toggleMount(bucket.bucketId, file.name)}
+                              />
+                              <span className={styles.fileSize}>{formatBytes(file.size)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
         </div>
       )}
 

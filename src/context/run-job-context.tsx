@@ -9,6 +9,7 @@ import {
   resolveDatasetAssets,
 } from '@/lib/compute-inputs';
 import { directNodeCommand } from '@/lib/direct-node-command';
+import { generateJobName } from '@/lib/job-name';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { getNodeEnvs, startCompute, startFreeCompute } from '@/services/nodeService';
@@ -243,7 +244,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setDockerImage('');
     setDockerTag('');
     setEnvVars([]);
-    setJobName('');
+    // Job name is independent of env/resource selection and is auto-generated once
+    // on mount; don't clear it here or selecting an env wipes the generated name.
     setMountedFiles([]);
     setOutputBucketId(null);
     setAuthToken(null);
@@ -626,6 +628,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       setHydrateFromUrlFinished(true);
     }
   }, [fetchEstimatedCost, searchParams, selectEnv, selectToken]);
+
+  useEffect(() => {
+    setJobName((current) => (current.trim() ? current : generateJobName()));
+  }, []);
 
   /**
    * Initiate hydration when initializing the context

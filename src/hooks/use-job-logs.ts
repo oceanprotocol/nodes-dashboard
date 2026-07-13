@@ -8,15 +8,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type LogViewStatus = 'idle' | 'connecting' | 'live' | 'reconnecting' | 'loading-result' | 'ended' | 'error';
 
 const MAX_LINES = 5000;
-// A "failure" is a connection that ended/threw without producing any data while
-// the job is still running (e.g. an idle-read timeout). Bail after this many in
-// a row so an unreachable node doesn't spin the reconnect loop forever.
-const MAX_CONSECUTIVE_FAILURES = 5;
-const RECONNECT_DELAY_MS = 1500;
 
-// The node's docker follow-stream replays the FULL history on every connection,
-// so treating each connection's output as the complete log (rather than an
-// incremental append across reconnects) avoids duplicated lines.
+// Reopen cadence for following ongoing logs. Two P2P requests per cycle (status + stream),
+// so ~12 req/min — comfortably under ocean-node's default 30 req/min per-requester limit.
+const REOPEN_INTERVAL_MS = 10_000;
+// If the node still rate-limits us, back off rather than treating it as a dead node.
+const RATE_LIMIT_BACKOFF_MS = 20_000;
+
 // Compute status codes from ocean-node (src/@types/C2D/C2D.ts): >=70 is finished/settled, and these
 // are the terminal failure codes. 40 (RunningAlgorithm) is when the algorithm container exists and its
 // stdout can be live-tailed; below that the job is pulling/building/provisioning and only the stored
@@ -38,6 +36,19 @@ function isTerminalEntry(entry: any): boolean {
   return /finish|complet|fail|error|timeout|expired|exceeded|vulnerable|stopped|removed/.test(text);
 }
 
+// ocean-node returns HTTP 403 "Rate limit exceeded. Try again in N seconds." when a
+// requester exceeds its per-minute budget. Treat this as transient, not a lost node.
+function isRateLimitError(e: any): boolean {
+  const msg = typeof e?.message === 'string' ? e.message : '';
+  return e?.status === 403 || e?.httpStatus === 403 || /rate limit exceeded|too many/i.test(msg);
+}
+
+// Honor the node's suggested wait ("Try again in N seconds.") when present, capped.
+function rateLimitBackoffMs(e: any, fallback: number): number {
+  const m = /in\s+(\d+)\s*second/i.exec(typeof e?.message === 'string' ? e.message : '');
+  return m ? Math.min(60_000, (parseInt(m[1], 10) + 1) * 1000) : fallback;
+}
+
 interface UseJobLogsResult {
   lines: string[];
   status: LogViewStatus;
@@ -45,8 +56,15 @@ interface UseJobLogsResult {
   stop: () => void;
 }
 
-// Streams live logs for a running job (with status-checked reconnect) and
-// renders stored .log files for a completed/failed job. See docs/adr/0004.
+// Streams live logs for a running job and renders stored .log files for a
+// completed/failed job. The node's streamable-logs endpoint returns the current
+// log snapshot (full history) and then ends per connection, so we reopen on a SLOW
+// cadence to follow ongoing output — while blocking on any stream the node happens
+// to keep open (true live, zero reopens). The status + stream P2P commands reuse the
+// cached node token (1 request each), so the cadence stays far under ocean-node's
+// per-requester rate limit (default 30 req/min). The old 1.5s loop blew past that
+// limit, surfacing as a spurious "Lost connection to the node."; a rate-limit
+// rejection is now treated as a transient backoff, never fatal. See docs/adr/0004.
 export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeUri): UseJobLogsResult {
   const { isReady, streamComputeLogs, streamComputeResult, getComputeJobStatus } = useP2P();
   const { getNodeToken, clearNodeToken } = useNodeAuth();
@@ -150,26 +168,50 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
         }
       };
 
-      let statusFailures = 0;
+      // Live-tail the algorithm's stdout. Blocks while the node keeps the stream open
+      // (true live); returns when the node ends the connection's snapshot, after which
+      // the outer loop reopens on the slow cadence. Each connection replays the FULL
+      // history, so the whole buffer is treated as the complete log (no cross-reopen
+      // append) to avoid duplicated lines.
+      const streamLiveOnce = async (): Promise<void> => {
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        const generator = await streamComputeLogs(nodeUri, token, jobId, controller.signal);
+        if (cancelledRef.current) return;
+        setStatus('live');
+        for await (const chunk of generator) {
+          if (cancelledRef.current) return;
+          buffer += decoder.decode(chunk, { stream: true });
+          setLines(toLines(buffer));
+        }
+        buffer += decoder.decode();
+        if (buffer) setLines(toLines(buffer));
+      };
 
+      // Backoff helper: keep the view "reconnecting" and wait, without ever declaring the
+      // node dead (rate-limit and transient errors are recoverable). Returns via caller loop.
+      const backoff = async (ms: number) => {
+        if (!cancelledRef.current) setStatus('reconnecting');
+        await delay(ms);
+      };
+
+      // Follow the job: reopen on the slow cadence until it reaches a terminal status
+      // (then load the stored result logs) or the panel closes.
       while (!cancelledRef.current) {
         let entry: any;
         try {
           entry = await fetchStatusEntry(token);
-          statusFailures = 0;
         } catch (e: any) {
           if (cancelledRef.current) return;
           if (await reauthed(e)) continue;
-          statusFailures += 1;
-          if (statusFailures >= MAX_CONSECUTIVE_FAILURES) {
-            if (!cancelledRef.current) {
-              setStatus('error');
-              setError('Lost connection to the node.');
-            }
-            return;
+          if (isRateLimitError(e)) {
+            await backoff(rateLimitBackoffMs(e, RATE_LIMIT_BACKOFF_MS));
+            continue;
           }
-          if (!cancelledRef.current) setStatus('reconnecting');
-          await delay(RECONNECT_DELAY_MS);
+          // Other transient error → retry on the slow cadence instead of giving up.
+          await backoff(REOPEN_INTERVAL_MS);
           continue;
         }
 
@@ -196,29 +238,21 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
         const numeric = typeof entry?.status === 'number' ? entry.status : undefined;
 
         if (numeric !== undefined && numeric >= RUNNING_ALGORITHM) {
-          // Algorithm container is up → live-tail its stdout until the stream ends, then re-check status.
+          // Algorithm container is up → live-tail stdout (blocks if the node follows live).
           try {
-            const controller = new AbortController();
-            abortRef.current = controller;
-            const generator = await streamComputeLogs(nodeUri, token, jobId, controller.signal);
-            if (cancelledRef.current) return;
-            setStatus('live');
-            const decoder = new TextDecoder('utf-8');
-            let buffer = '';
-            for await (const chunk of generator) {
-              if (cancelledRef.current) return;
-              buffer += decoder.decode(chunk, { stream: true });
-              setLines(toLines(buffer));
-            }
-            buffer += decoder.decode();
-            if (buffer) setLines(toLines(buffer));
+            await streamLiveOnce();
           } catch (e: any) {
             if (cancelledRef.current) return;
             if (await reauthed(e)) continue;
-            // transient stream error — re-check status and retry on the next loop
+            if (isRateLimitError(e)) {
+              await backoff(rateLimitBackoffMs(e, RATE_LIMIT_BACKOFF_MS));
+              continue;
+            }
+            // Transient stream error → reopen on the next cycle.
+            if (!cancelledRef.current) setStatus('reconnecting');
           }
         } else {
-          // Pulling / building / provisioning: no container yet, so follow the stored build log.
+          // Pulling / building / provisioning: no algorithm container yet → show the build log.
           try {
             const text = await fetchStoredLogsText(token, entry);
             if (!cancelledRef.current) {
@@ -228,11 +262,15 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
           } catch (e: any) {
             if (cancelledRef.current) return;
             if (await reauthed(e)) continue;
+            if (isRateLimitError(e)) {
+              await backoff(rateLimitBackoffMs(e, RATE_LIMIT_BACKOFF_MS));
+              continue;
+            }
           }
         }
 
         if (cancelledRef.current) return;
-        await delay(RECONNECT_DELAY_MS);
+        await delay(REOPEN_INTERVAL_MS);
       }
     };
 
@@ -242,7 +280,7 @@ export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeU
       cancelledRef.current = true;
       abortRef.current?.abort();
     };
-    // Keyed on job identity + addresses only. The hook polls the node's live status itself, so it must
+    // Keyed on job identity + addresses only. The hook reads the node's live status itself, so it must
     // NOT restart when the indexed row's status/statusText churns (that would reset the log view).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isReady, job?.peerId, job?.jobId, job?.environment, job?.environmentId, nodeUriKey]);
