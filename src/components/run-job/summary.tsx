@@ -5,8 +5,10 @@ import GpuLabel from '@/components/gpu-label/gpu-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Menu from '@/components/menu/menu';
 import GenerateTokenCard from '@/components/run-job/generate-token-card';
+import { CHAIN_ID } from '@/constants/chains';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
+import { captureError } from '@/lib/analytics';
 import { IdeResourceRequest } from '@/lib/ocean-provider';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
@@ -39,7 +41,7 @@ const Summary = ({
 }: SummaryProps) => {
   const router = useRouter();
 
-  const { account, ocean } = useOceanAccount();
+  const { account, ocean, user } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
   const { minLockSeconds, multiaddrsOrPeerId } = useRunJobContext();
 
@@ -138,23 +140,44 @@ const Summary = ({
       });
     }
     const isFreeCompute = estimatedTotalCost === 0;
-    ocean.updateConfiguration(
-      authToken,
-      account.address,
-      nodeInfo.id,
-      peerMultiaddr,
-      isFreeCompute,
-      selectedEnv.id,
-      token?.address ?? '',
-      selectedResources.maxJobDurationSeconds,
-      resources,
-      uriScheme
-    );
+    try {
+      // Must await: updateConfiguration is async, so a synchronous try/catch
+      // would neither catch its rejection nor prevent the ide_opened fall-through.
+      await ocean.updateConfiguration(
+        authToken,
+        account.address,
+        nodeInfo.id,
+        peerMultiaddr,
+        isFreeCompute,
+        selectedEnv.id,
+        token?.address ?? '',
+        selectedResources.maxJobDurationSeconds,
+        resources,
+        uriScheme
+      );
+    } catch (err) {
+      captureError('ide_handoff_failed', err, {
+        stage: 'ide_handoff',
+        reason: 'window_open_threw',
+        ide: uriScheme,
+        node_id: nodeInfo.id,
+        environment_id: selectedEnv.id,
+        free_compute: isFreeCompute,
+      });
+      return;
+    }
+    // Note: handoff *success* is confirmed cross-repo by the extension's
+    // `ide_config_received` event (joined on wallet address), not here — a
+    // missing protocol handler cannot be detected client-side reliably.
     posthog.capture('ide_opened', {
+      source: 'dashboard',
       ide: uriScheme,
       nodeId: nodeInfo.id,
+      node_id: nodeInfo.id,
       environmentId: selectedEnv.id,
       freeCompute: isFreeCompute,
+      wallet_type: user?.type,
+      chainId: CHAIN_ID,
     });
   };
 
