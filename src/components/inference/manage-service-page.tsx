@@ -387,8 +387,7 @@ const ManageServicePage: React.FC = () => {
 
   // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.
   const chatUrl = baseUrl ? `${baseUrl}/v1/chat/completions` : '$BASE/v1/chat/completions';
-  const curlSnippet = `# quick test
-curl ${chatUrl} \\
+  const curlSnippet = `curl ${chatUrl} \\
   -H "Content-Type: application/json" \\
   -d '{ "model": "${primaryModelName}", "messages": [ { "role": "user", "content": "Hello!" } ] }'`;
 
