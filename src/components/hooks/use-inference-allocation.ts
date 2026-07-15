@@ -151,15 +151,19 @@ const useInferenceAllocation = ({
     const result: Record<string, number> = {};
     // Default (no explicit selection): fill types in declared order up to the combined shared-resource
     // budget, so the whole-environment default never asks for more units than CPU/RAM/disk can back.
+    // Explicit requests also draw down that budget — clamp remaining to >= 0 before each default so a
+    // budget already spent by explicit picks can't produce a negative fallback allocation.
     let remaining = Math.max(0, maxUnitsByResources);
     mergedGpus.forEach((g) => {
       const requested = gpuSelection?.[g.key];
       if (requested === undefined) {
-        const cap = Math.min(maxByKey[g.key] ?? 0, remaining);
+        const cap = Math.min(maxByKey[g.key] ?? 0, Math.max(0, remaining));
         result[g.key] = cap;
         remaining -= cap;
       } else {
-        result[g.key] = Math.min(Math.max(requested, 0), g.max);
+        const value = Math.min(Math.max(requested, 0), g.max);
+        result[g.key] = value;
+        remaining -= value;
       }
     });
     return result;
