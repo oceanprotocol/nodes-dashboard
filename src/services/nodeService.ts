@@ -1,3 +1,4 @@
+import { NodeUri } from '@/contexts/P2PContext';
 import { NODE_URL } from '@/lib/constants';
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
@@ -24,11 +25,16 @@ import {
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
 
-type NodeUri = OceanNode | string[];
+/** Pull the peer id from the `/p2p/<id>` suffix of a multiaddr string, or null when absent. */
+function peerIdFromMultiaddr(addr: string): string | null {
+  const parts = addr.split('/p2p/');
+  return parts.length > 1 ? parts[parts.length - 1].split('/')[0] || null : null;
+}
 
-function normalizeNodeUri(input: NodeUri): OceanNode {
+export function normalizeNodeUri(input: NodeUri): OceanNode {
   if (Array.isArray(input)) {
-    return { multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
+    const nodeId = input.map(peerIdFromMultiaddr).find((id): id is string => !!id);
+    return { nodeId, multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
   }
   return input;
 }

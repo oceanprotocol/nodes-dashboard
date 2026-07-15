@@ -15,26 +15,25 @@ import {
   initializeCompute as initializeComputeFromService,
   initializeP2P,
   listBucketFiles as listBucketFilesService,
+  normalizeNodeUri,
   pushNodeConfig,
   renameNodeBucket as renameNodeBucketService,
   serviceExtend as serviceExtendFromService,
   serviceRestart as serviceRestartFromService,
   serviceStart as serviceStartFromService,
   serviceStop as serviceStopFromService,
-  streamServiceLogs as streamServiceLogsFromService,
   streamComputeLogs as streamComputeLogsService,
   streamComputeResult as streamComputeResultService,
+  streamServiceLogs as streamServiceLogsFromService,
   uploadBucketFile as uploadBucketFileService,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
-import { multiaddr } from '@multiformats/multiaddr';
 import {
   ComputeResourceRequest,
   type NodeLogEntry,
   type NodeLogsParams,
-  type NodeP2P,
-  type OceanNode,
+  OceanNode,
   type PersistentStorageAccessList,
   type PersistentStorageBucket,
   type PersistentStorageDeleteFileResponse,
@@ -49,13 +48,6 @@ import BigNumber from 'bignumber.js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type NodeUri = OceanNode | string[];
-
-function normalizeNodeUri(input: NodeUri): OceanNode {
-  if (Array.isArray(input)) {
-    return { multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
-  }
-  return input;
-}
 
 interface P2PContextType {
   computeLogs: any;
