@@ -36,6 +36,8 @@ type InferenceContextType = {
   selectedModels: HuggingFaceModel[];
   setSelectedModels: (models: HuggingFaceModel[]) => void;
   toggleModel: (model: HuggingFaceModel) => void;
+  /** Replace the whole selection with a single model (or clear it), pruning deselected models' params. */
+  selectSingleModel: (model: HuggingFaceModel) => void;
   isModelSelected: (modelId: string) => boolean;
   selectedEnv: SelectedInferenceEnv | null;
   setSelectedEnv: (env: SelectedInferenceEnv | null) => void;
@@ -143,6 +145,23 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         return current.filter((m) => m.id !== model.id);
       }
       return [...current, model];
+    });
+  }, []);
+
+  /**
+   * Single-model flow: make the selection exactly `[model]` (or clear it), pruning the committed
+   * params of every model that's no longer selected. Clicking the already-selected model clears it.
+   * Prevents stale launch settings from resurfacing when switching A → B → A: A's params are dropped
+   * the moment A is deselected, not left lingering in `modelParamsByModel`.
+   */
+  const selectSingleModel = useCallback((model: HuggingFaceModel) => {
+    setSelectedModels((current) => {
+      const next = current.some((m) => m.id === model.id) ? [] : [model];
+      const keep = new Set(next.map((m) => m.id));
+      setModelParamsByModel((params) =>
+        Object.fromEntries(Object.entries(params).filter(([id]) => keep.has(id)))
+      );
+      return next;
     });
   }, []);
 
@@ -363,6 +382,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedModels,
       setSelectedModels,
       toggleModel,
+      selectSingleModel,
       isModelSelected,
       selectedEnv,
       setSelectedEnv,
@@ -390,6 +410,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     [
       selectedModels,
       toggleModel,
+      selectSingleModel,
       isModelSelected,
       selectedEnv,
       selectedToken,

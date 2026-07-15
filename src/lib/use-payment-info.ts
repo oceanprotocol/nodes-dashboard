@@ -1,7 +1,7 @@
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Authorizations } from '@/types/payment';
 import { roundTokenAmount } from '@/utils/formatters';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type PaymentInfoSnapshot = {
   authorizations: Authorizations | null;
@@ -25,7 +25,14 @@ export const usePaymentInfo = (tokenAddress: string, spender: string) => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Monotonic id of the most recently STARTED request. A resolved/rejected fetch only writes to
+  // state if it's still the latest — otherwise a slow request for an old token/spender pair (or a
+  // superseded manual reload) could clobber the current snapshot with stale data.
+  const latestRequestRef = useRef(0);
+
   const loadPaymentInfo = useCallback(async (): Promise<PaymentInfoSnapshot | null> => {
+    const requestId = ++latestRequestRef.current;
+    const isLatest = () => latestRequestRef.current === requestId;
     if (!ocean || !account?.address || !tokenAddress || !spender) {
       return null;
     }
@@ -42,22 +49,36 @@ export const usePaymentInfo = (tokenAddress: string, spender: string) => {
         walletBalance: roundTokenAmount(Number(wallet), tokenAddress, 'down'),
         escrowBalance: roundTokenAmount(Number(escrow), tokenAddress, 'down'),
       };
-      setAuthorizations(snapshot.authorizations);
-      setWalletBalance(snapshot.walletBalance);
-      setEscrowBalance(snapshot.escrowBalance);
+      // Return the fresh snapshot to the direct caller regardless, but only let the latest request
+      // publish it to state.
+      if (isLatest()) {
+        setAuthorizations(snapshot.authorizations);
+        setWalletBalance(snapshot.walletBalance);
+        setEscrowBalance(snapshot.escrowBalance);
+      }
       return snapshot;
     } catch (err) {
-      setAuthorizations(null);
-      setWalletBalance(null);
-      setEscrowBalance(null);
-      setLoadError(err instanceof Error ? err.message : 'Failed to load payment info.');
+      if (isLatest()) {
+        setAuthorizations(null);
+        setWalletBalance(null);
+        setEscrowBalance(null);
+        setLoadError(err instanceof Error ? err.message : 'Failed to load payment info.');
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (isLatest()) {
+        setLoading(false);
+      }
     }
   }, [ocean, account?.address, tokenAddress, spender]);
 
+  // Refetch when the token/spender pair changes. Clearing here (before the fetch) drops the previous
+  // pair's snapshot immediately so a stale balance/authorization is never shown against a new pair.
   useEffect(() => {
+    setAuthorizations(null);
+    setWalletBalance(null);
+    setEscrowBalance(null);
+    setLoadError(null);
     loadPaymentInfo();
   }, [loadPaymentInfo]);
 

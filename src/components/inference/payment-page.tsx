@@ -362,6 +362,16 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunchError('Pick a duration greater than zero.');
       return;
     }
+    // The node sets expiresAt = now + duration and rejects a window past the env's max.
+    // Mirror the prolong guard so a deep-linked/refreshed payment page with an
+    // over-max duration fails here rather than after the (wasted) escrow deposit tx.
+    const envMax = selectedEnv.environment.maxJobDuration;
+    if (envMax && jobDurationSeconds > envMax) {
+      setLaunchError(
+        `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
+      );
+      return;
+    }
 
     setLaunching(true);
     setLaunchError(null);

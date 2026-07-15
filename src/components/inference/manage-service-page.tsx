@@ -70,9 +70,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
   ]);
 }
-// Statuses past which polling is pointless — the service reached a terminal state.
+
+/**
+ * Statuses past which polling is pointless — the service reached a genuinely final state.
+ * `Running` is deliberately NOT here: a running service can still crash (→ Error/Stopped) or hit
+ * its expiry (→ Expired), so we keep polling for the whole session to catch those transitions.
+ * Only a truly terminal status stops the loop.
+ */
 const TERMINAL_STATUSES = new Set<ServiceStatusNumber>([
-  ServiceStatusNumber.Running,
   ServiceStatusNumber.PullImageFailed,
   ServiceStatusNumber.BuildImageFailed,
   ServiceStatusNumber.VulnerableImage,
@@ -170,7 +175,7 @@ const ManageServicePage: React.FC = () => {
   const [jobLoading, setJobLoading] = useState(true);
   // Restart in flight — disables the button while it runs.
   const [actionLoading, setActionLoading] = useState<'restart' | null>(null);
-  // Bumped after restart / on local expiry to re-kick the poll loop (it stops once terminal).
+  // Bumped after restart to re-kick the poll loop (harmless while it's already running).
   const [pollEpoch, setPollEpoch] = useState(0);
   // Logs stream on demand — revealed by the user, then live-tailed by ServiceLogsPanel.
   const [logsOpen, setLogsOpen] = useState(false);
@@ -200,6 +205,8 @@ const ManageServicePage: React.FC = () => {
       setJob(found);
       setJobError(null);
       setJobLoading(false);
+      // Running is NOT terminal (see TERMINAL_STATUSES) — keep polling a running service so a later
+      // crash (Error/Stopped) or expiry (Expired) is caught. Only a final status stops the loop.
       return !!found && TERMINAL_STATUSES.has(found.status);
     } catch (error) {
       console.error('Failed to fetch service status:', error);
@@ -355,9 +362,9 @@ const ManageServicePage: React.FC = () => {
   };
 
   /**
-   * The local countdown hitting zero is only an estimate — the node's expiry cron flips the status asynchronously.
-   * Re-kick the poll loop (it stopped once the service reached the terminal Running status)
-   * so the page tracks Running → Expired instead of showing a stale "Running" forever.
+   * The local countdown hitting zero is only an estimate — the node's expiry cron flips the status
+   * asynchronously. Bump pollEpoch to re-kick the loop for an immediate status re-check (instead of
+   * waiting up to POLL_INTERVAL_MS) so the page tracks Running → Expired promptly.
    */
   const onLocalExpiry = useCallback(() => {
     setPollEpoch((epoch) => epoch + 1);

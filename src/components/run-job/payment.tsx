@@ -33,6 +33,7 @@ const Payment = ({
     escrowBalance,
     walletBalance,
     loading: loadingPaymentInfo,
+    loadError: paymentInfoError,
     loadPaymentInfo,
   } = usePaymentInfo(selectedToken.address, selectedEnv.consumerAddress);
 
@@ -115,9 +116,27 @@ const Payment = ({
     ]
   );
 
-  return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
-    <CircularProgress className="alignSelfCenter" />
-  ) : (
+  if (loadingPaymentInfo && (escrowBalance === null || walletBalance === null)) {
+    return <CircularProgress className="alignSelfCenter" />;
+  }
+
+  // Load finished with an error and no data to fall back to — show the reason and let the user retry
+  // instead of rendering a summary with misleading zeroed balances.
+  if (paymentInfoError && escrowBalance === null && walletBalance === null) {
+    return (
+      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+        <h3>Payment</h3>
+        <div className="textAccent1">{paymentInfoError}</div>
+        <div className="actionsGroupLgEnd">
+          <Button color="accent1" onClick={() => loadPaymentInfo()} size="lg" type="button" variant="outlined">
+            Retry
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Payment</h3>
       <PaymentSummary

@@ -30,18 +30,21 @@ const CustomModelsPage: React.FC = () => {
 
   const {
     selectedModels,
-    setSelectedModels,
+    selectSingleModel,
     isModelSelected,
     buildSelectionQuery,
     clearSelection,
     hydrateFromUrlFinished,
   } = useInferenceContext();
 
-  // Single-model flow: selecting a model REPLACES the current selection (one model + one vLLM
-  // instance). Clicking the already-selected model deselects it. Keeps context an array for
-  // compatibility, but the flow only ever carries one entry.
+  /**
+   * Single-model flow: selecting a model REPLACES the current selection (one model + one vLLM instance).
+   * Clicking the already-selected model deselects it. selectSingleModel also prunes the previous
+   * model's committed params, so switching A → B → A can't restore A's stale launch settings.
+   * Keeps context an array for compatibility, but the flow only ever carries one entry.
+   */
   const selectModel = (model: HuggingFaceModel) => {
-    setSelectedModels(isModelSelected(model.id) ? [] : [model]);
+    selectSingleModel(model);
   };
   // Editing a running service: skip the env step (same env) and go straight to config on Continue.
   const isEditMode = router.query.edit === '1';

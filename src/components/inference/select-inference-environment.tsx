@@ -154,10 +154,13 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     // gets swept to Expired almost immediately. Catch it here instead.
     const { min, max } = durationBounds(environment);
     if (jobDurationSeconds < min || jobDurationSeconds > max) {
+      // Build the range from whatever bounds are actually set — an unset max is Infinity, which
+      // formatDuration would render as garbage ("Infinity seconds (Infinity:NaN:NaN)").
+      const rangeText = Number.isFinite(max)
+        ? `${formatDuration(min)} - ${formatDuration(max)}`
+        : `min ${formatDuration(min)}`;
       toast.error(
-        `The selected duration (${formatDuration(
-          jobDurationSeconds
-        )}) is outside the bounds for this environment (${formatDuration(min)} - ${formatDuration(max)}).`
+        `The selected duration (${formatDuration(jobDurationSeconds)}) is outside the bounds for this environment (${rangeText}).`
       );
       if (jobDurationSeconds < min) {
         setDurationError(`This environment needs at least ${formatDuration(min)}. Increase the duration above.`);

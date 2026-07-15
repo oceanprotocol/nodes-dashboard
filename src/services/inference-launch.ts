@@ -137,13 +137,15 @@ export function parseVllmCommand(cmd: string[]): { modelId: string | null; param
  */
 export function buildUserData(params: ModelParameters, hfToken: string): Record<string, string> {
   const userData: Record<string, string> = {};
-  if (hfToken) {
-    userData.HF_TOKEN = hfToken;
-  }
   for (const { key, value } of params.customParams) {
     if (key) {
       userData[key] = value;
     }
+  }
+  // Assign the dedicated HF token LAST so a stray custom param keyed HF_TOKEN can't shadow the
+  // real credential and lock the launch out of gated/private repos.
+  if (hfToken) {
+    userData.HF_TOKEN = hfToken;
   }
   return userData;
 }
