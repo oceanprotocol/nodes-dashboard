@@ -46,7 +46,7 @@
   height: 420px;
   overflow-y: auto;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 
   .line {
     min-height: 1.6em;
