@@ -61,14 +61,23 @@ function serviceBaseUrl(job: ServiceJob | null): string | null {
 const POLL_INTERVAL_MS = 4000;
 // A P2P round-trip can hang indefinitely if the node/relay is unreachable (no built-in timeout).
 // Cap each status fetch so a hung dial surfaces as an error + retry instead of an eternal spinner.
-const STATUS_TIMEOUT_MS = 15000;
+const STATUS_TIMEOUT_MS = 30000;
 
-/** Reject after `ms` so a hung P2P call can't freeze the poll loop forever. */
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
-  ]);
+/**
+ * Reject after `ms` so a hung P2P call can't freeze the poll loop forever, and ABORT the underlying
+ * dial when the timeout fires — `run` receives an AbortSignal it must forward to the transport, so a
+ * timed-out request is cancelled rather than left running in the background before the next retry.
+ */
+function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number, label: string): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`${label} timed out`));
+    }, ms);
+  });
+  return Promise.race([run(controller.signal), timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -199,7 +208,7 @@ const ManageServicePage: React.FC = () => {
       // doesn't mint a fresh token every tick — concurrent token creation collides on the node's
       // per-address nonce. withNodeAuth transparently re-mints once on a 401.
       const jobs = await withNodeAuth(nodePeerId, nodeUri, (token) =>
-        withTimeout(getServiceStatus(nodeUri, token, id), STATUS_TIMEOUT_MS, 'Service status')
+        withTimeout((signal) => getServiceStatus(nodeUri, token, id, signal), STATUS_TIMEOUT_MS, 'Service status')
       );
       const found = jobs.find((j) => j.serviceId === id) ?? jobs[0] ?? null;
       setJob(found);

@@ -395,6 +395,11 @@ const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
  * Allowed range for each numeric launch param — the single source for the form's sliders/validation.
  * maxContext has only a floor: the ceiling is the model's own reported context (uncapped), and when
  * the model reports nothing the field is left blank so vLLM derives the length itself.
+ *
+ * Policy for a model whose reported context is BELOW this floor (e.g. 512): the form LOWERS its floor
+ * to the model's reported max so the whole valid range collapses to that single value — the user can
+ * set exactly what the model accepts (512) and nothing higher. We never raise the ceiling to the
+ * floor (that would allow more than the model serves, and the launch would be rejected).
  */
 export const MODEL_PARAM_BOUNDS = {
   maxContext: { min: 1024 },
@@ -430,8 +435,10 @@ export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelI
     servedModelName: getModelShortName(modelId),
     // User-defined key/value params — none by default; the user adds them like env vars.
     customParams: [],
-    // The model's own context ceiling when HF reports it; null otherwise so launch omits
-    // --max-model-len and lets vLLM derive it from the model config (no arbitrary fallback).
+    // The model's own reported context, seeded as-is; null when HF reports nothing so launch omits
+    // --max-model-len and lets vLLM derive it from the model config (no arbitrary fallback). The form
+    // lowers its floor to the model's max for sub-floor models (see MODEL_PARAM_BOUNDS), so even a
+    // reported value below the nominal floor is a valid default the user can keep or pin.
     maxContext: config?.maxContext ?? null,
     gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
     quantization: lockedQuant ?? 'none',

@@ -328,9 +328,10 @@ export async function serviceStart(
 export async function getServiceStatus(
   nodeUri: NodeUri,
   signerOrAuthToken: SignerOrAuthTokenOrSignature,
-  serviceId?: string
+  serviceId?: string,
+  signal?: AbortSignal
 ): Promise<ServiceJob[]> {
-  return ProviderInstance.getServiceStatus(normalizeNodeUri(nodeUri), signerOrAuthToken, serviceId);
+  return ProviderInstance.getServiceStatus(normalizeNodeUri(nodeUri), signerOrAuthToken, serviceId, signal);
 }
 
 /**

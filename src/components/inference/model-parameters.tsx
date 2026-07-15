@@ -82,18 +82,18 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
 type ParamErrors = Record<string, unknown>;
 
 // `contextCeiling` is the model's reported max (null when HF reports none — the field is then a free,
-// optional input). Passed in because it's component state, not a static bound.
-function validateParams(v: ModelParametersType, contextCeiling: number | null): ParamErrors {
+// optional input). `contextFloor` is the effective lower bound (lowered to the model's max for a
+// sub-floor model). Both passed in because they're component state, not static bounds.
+function validateParams(v: ModelParametersType, contextCeiling: number | null, contextFloor: number): ParamErrors {
   const errors: ParamErrors = {};
   if (!v.servedModelName.trim()) {
     errors.servedModelName = 'Required.';
   }
-  const min = MODEL_PARAM_BOUNDS.maxContext.min;
   // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and, when
   // the model reports a ceiling, stay within it.
   if (v.maxContext != null) {
-    if (v.maxContext < min) {
-      errors.maxContext = `Must be at least ${min} (or leave blank to let vLLM decide).`;
+    if (v.maxContext < contextFloor) {
+      errors.maxContext = `Must be at least ${contextFloor} (or leave blank to let vLLM decide).`;
     } else if (contextCeiling != null && v.maxContext > contextCeiling) {
       errors.maxContext = `Must be at most ${contextCeiling} — the model's context limit.`;
     }
@@ -242,12 +242,18 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   }, [hfToken]);
 
   // HF model facts that lock fields the user cannot freely change. The context ceiling is the model's
-  // own reported max (uncapped) — never below the min, so a model reporting a tiny context (e.g. 512)
-  // can't invert the slider range. null when HF reports nothing: the field then becomes a free input
-  // and, left blank, launch omits --max-model-len so vLLM derives the length from the model config.
-  const contextCeiling = useMemo(
-    () => (config?.maxContext != null ? Math.max(MODEL_PARAM_BOUNDS.maxContext.min, config.maxContext) : null),
-    [config?.maxContext]
+  // own reported max, used verbatim — NEVER raised above the model's real capability. null when HF
+  // reports nothing: the field becomes a free/blank input and launch omits --max-model-len so vLLM
+  // derives the real length from the model config.
+  const contextCeiling = useMemo(() => config?.maxContext ?? null, [config?.maxContext]);
+
+  // Effective lower bound for the max-context field. Normally the static floor, but a model whose
+  // reported max is BELOW that floor lowers it to the model's max — so the valid range collapses to
+  // that single value and the user can set exactly what the model accepts, never more (see
+  // MODEL_PARAM_BOUNDS). No ceiling reported → the nominal floor applies to a pinned value.
+  const contextFloor = useMemo(
+    () => (contextCeiling != null ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling) : MODEL_PARAM_BOUNDS.maxContext.min),
+    [contextCeiling]
   );
   const lockedQuant = useMemo(() => mapQuantization(config?.quantizationMethod ?? null), [config?.quantizationMethod]);
 
@@ -275,7 +281,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const formik = useFormik<ModelParametersType>({
     enableReinitialize: true,
     initialValues,
-    validate: (v) => validateParams(v, contextCeiling),
+    validate: (v) => validateParams(v, contextCeiling, contextFloor),
     onSubmit: () => {},
   });
 
@@ -503,11 +509,11 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                       'Max tokens (input + output combined) per request. Clients can’t exceed it. Higher handles longer documents but uses more VRAM for the KV cache. Ceiling comes from the model’s own config.'
                     )}
                     max={contextCeiling}
-                    min={MODEL_PARAM_BOUNDS.maxContext.min}
+                    min={contextFloor}
                     name="maxContext"
                     onChange={(_, value) => formik.setFieldValue('maxContext', value)}
                     step={1024}
-                    topRight={`${MODEL_PARAM_BOUNDS.maxContext.min} - ${contextCeiling}`}
+                    topRight={`${contextFloor} - ${contextCeiling}`}
                     value={formik.values.maxContext ?? contextCeiling}
                     valueLabelFormat={(value) => String(value)}
                   />

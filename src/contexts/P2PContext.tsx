@@ -168,11 +168,12 @@ interface P2PContextType {
     signerOrAuthToken: SignerOrAuthTokenOrSignature,
     params: ServiceStartParams
   ) => Promise<ServiceJob[]>;
-  /** Fetch the caller's service jobs; pass a serviceId to scope to one, omit to list all. */
+  /** Fetch the caller's service jobs; pass a serviceId to scope to one, omit to list all. `signal` aborts the dial. */
   getServiceStatus: (
     nodeUri: NodeUri,
     signerOrAuthToken: SignerOrAuthTokenOrSignature,
-    serviceId?: string
+    serviceId?: string,
+    signal?: AbortSignal
   ) => Promise<ServiceJob[]>;
   /** Extend a running service's lifetime by `additionalDuration` seconds (paid like the start). */
   serviceExtend: (
@@ -571,11 +572,11 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getServiceStatus = useCallback(
-    async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, serviceId?: string) => {
+    async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, serviceId?: string, signal?: AbortSignal) => {
       if (!isReady) {
         throw new Error('Node not ready');
       }
-      return getServiceStatusFromService(nodeUri, signerOrAuthToken, serviceId);
+      return getServiceStatusFromService(nodeUri, signerOrAuthToken, serviceId, signal);
     },
     [isReady]
   );

@@ -137,16 +137,19 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     }
   }, []);
 
-  const toggleModel = useCallback((model: HuggingFaceModel) => {
-    setSelectedModels((current) => {
-      if (current.some((m) => m.id === model.id)) {
+  const toggleModel = useCallback(
+    (model: HuggingFaceModel) => {
+      const isSelected = selectedModels.some((m) => m.id === model.id);
+      // Compute the next selection from the closure, then drive both setters sequentially — never
+      // nest one setter inside the other's updater (updaters must stay pure; React may re-run them).
+      setSelectedModels(isSelected ? selectedModels.filter((m) => m.id !== model.id) : [...selectedModels, model]);
+      if (isSelected) {
         // Deselecting: also drop any committed params so they can't linger in state or the URL.
         setModelParamsByModel(({ [model.id]: _removed, ...rest }) => rest);
-        return current.filter((m) => m.id !== model.id);
       }
-      return [...current, model];
-    });
-  }, []);
+    },
+    [selectedModels]
+  );
 
   /**
    * Single-model flow: make the selection exactly `[model]` (or clear it), pruning the committed
@@ -154,16 +157,17 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
    * Prevents stale launch settings from resurfacing when switching A → B → A: A's params are dropped
    * the moment A is deselected, not left lingering in `modelParamsByModel`.
    */
-  const selectSingleModel = useCallback((model: HuggingFaceModel) => {
-    setSelectedModels((current) => {
-      const next = current.some((m) => m.id === model.id) ? [] : [model];
+  const selectSingleModel = useCallback(
+    (model: HuggingFaceModel) => {
+      // Compute the next selection from the closure, then drive both setters sequentially — never
+      // nest one setter inside the other's updater (updaters must stay pure; React may re-run them).
+      const next = selectedModels.some((m) => m.id === model.id) ? [] : [model];
       const keep = new Set(next.map((m) => m.id));
-      setModelParamsByModel((params) =>
-        Object.fromEntries(Object.entries(params).filter(([id]) => keep.has(id)))
-      );
-      return next;
-    });
-  }, []);
+      setSelectedModels(next);
+      setModelParamsByModel((params) => Object.fromEntries(Object.entries(params).filter(([id]) => keep.has(id))));
+    },
+    [selectedModels]
+  );
 
   const isModelSelected = useCallback(
     (modelId: string) => selectedModels.some((m) => m.id === modelId),
@@ -372,8 +376,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     }
     setHydrationFailed(false);
     setHydrateFromUrlFinished(false);
-    // Clear the guard so the effect doesn't treat the current (unchanged) URL as already hydrated.
-    hydratedSignatureRef.current = null;
+    // Re-run against the current URL directly. Leave hydratedSignatureRef at the current signature
+    // (the effect already set it) so the guard stays synced — clearing it would make a later
+    // non-signature URL change (env/serviceId) re-trigger an unnecessary re-hydration.
     hydrateFromQueryParams();
   }, [hydrateFromQueryParams, router.query.models, router.query.peerId]);
 

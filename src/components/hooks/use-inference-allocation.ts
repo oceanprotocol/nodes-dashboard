@@ -126,19 +126,18 @@ const useInferenceAllocation = ({
   }, [totalGpus, cpu, cpuAvailable, ram, ramAvailable, disk, diskAvailable]);
 
   /**
-   * Ceiling of pickable units per type: free units of that type, but never more than the shared CPU/RAM/disk can back overall. 
-   * Distributed to types in declared order so the caps sum to the resource limit rather than each type independently claiming the whole shared budget.
+   * Independent pickable ceiling per type: its own free units. This is NOT bounded by the shared
+   * CPU/RAM/disk budget — that budget caps the COMBINED selection across types (maxUnitsByResources),
+   * enforced by the caller as units are picked. Reserving the shared budget per type in declaration
+   * order would wrongly zero later types and forbid valid combos (e.g. pick all of type B, none of A).
    */
   const maxByKey = useMemo<Record<string, number>>(() => {
     const result: Record<string, number> = {};
-    let remaining = Math.max(0, maxUnitsByResources);
     mergedGpus.forEach((g) => {
-      const cap = Math.min(g.available, remaining);
-      result[g.key] = cap;
-      remaining -= cap;
+      result[g.key] = g.available;
     });
     return result;
-  }, [mergedGpus, maxUnitsByResources]);
+  }, [mergedGpus]);
 
   /**
    * Resolve selected units per type.
@@ -150,12 +149,21 @@ const useInferenceAllocation = ({
    */
   const selectedByKey = useMemo<Record<string, number>>(() => {
     const result: Record<string, number> = {};
+    // Default (no explicit selection): fill types in declared order up to the combined shared-resource
+    // budget, so the whole-environment default never asks for more units than CPU/RAM/disk can back.
+    let remaining = Math.max(0, maxUnitsByResources);
     mergedGpus.forEach((g) => {
       const requested = gpuSelection?.[g.key];
-      result[g.key] = requested === undefined ? (maxByKey[g.key] ?? 0) : Math.min(Math.max(requested, 0), g.max);
+      if (requested === undefined) {
+        const cap = Math.min(maxByKey[g.key] ?? 0, remaining);
+        result[g.key] = cap;
+        remaining -= cap;
+      } else {
+        result[g.key] = Math.min(Math.max(requested, 0), g.max);
+      }
     });
     return result;
-  }, [mergedGpus, maxByKey, gpuSelection]);
+  }, [mergedGpus, maxByKey, maxUnitsByResources, gpuSelection]);
 
   const selectedTotal = useMemo(
     () => Object.values(selectedByKey).reduce((sum, n) => sum + n, 0),
@@ -184,15 +192,18 @@ const useInferenceAllocation = ({
   return {
     mergedGpus,
     totalGpus,
-    /** Pickable unit ceiling per type (free units, bounded by shared CPU/RAM/disk). */
+    /** Independent pickable ceiling per type (its own free units). Combined picks are bounded by maxUnitsByResources. */
     maxByKey,
+    /** Max COMBINED units across all types the shared CPU/RAM/disk can back right now. */
+    maxUnitsByResources,
     selectedByKey,
     selectedTotal,
     allocation,
     price,
     hasGpus: totalGpus > 0,
-    /** GPU env but nothing can be booked right now (all units busy or no shared capacity to back them). */
-    gpuExhausted: totalGpus > 0 && Object.values(maxByKey).every((n) => n <= 0),
+    /** GPU env but nothing can be booked right now (all units busy, or no shared capacity to back any). */
+    gpuExhausted:
+      totalGpus > 0 && (maxUnitsByResources <= 0 || Object.values(maxByKey).every((n) => n <= 0)),
   };
 };
 

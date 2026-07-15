@@ -4,6 +4,7 @@ import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
 import { ComputeResource } from '@/types/environments';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
+import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResourceRequest, ServiceStartParams } from '@oceanprotocol/lib';
 
 /**
@@ -153,8 +154,17 @@ export function buildUserData(params: ModelParameters, hfToken: string): Record<
 /**
  * Expand the per-GPU-type unit selection into individual GPU resource-id requests. `gpuSelection`
  * is keyed by GPU description (as merged in useInferenceAllocation); each entry asks for N units,
- * which we satisfy by taking the first N gpu resources of that description. Omit / empty selection
+ * which we satisfy by taking N gpu resources of that description. Omit / empty selection
  * means "use every GPU unit" (whole-environment allocation).
+ *
+ * Units are drawn only from ids with free capacity (max − inUse > 0) — the same free pool the
+ * allocation hook counted and priced. Taking the first N ids blindly could hand the node a busy id
+ * (another tenant using it) and get the whole serviceStart rejected even though N units were free.
+ *
+ * Throws if the selection can't be satisfied from the free pool — an unknown description, or more
+ * units requested than are free for a type. Silently truncating would launch (and provision) FEWER
+ * GPUs than the user selected and is paying escrow for; failing loudly surfaces the real shortfall
+ * (e.g. a restored/booked pick whose units were taken by another tenant since) instead.
  */
 function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
   const gpus = resources.filter((r) => r.type === 'gpu' || r.id.toLowerCase().includes('gpu'));
@@ -162,16 +172,26 @@ function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelect
     return [];
   }
 
-  // No explicit selection → request every GPU unit.
+  const freeGpus = gpus.filter((gpu) => getAvailableAmount(gpu) > 0);
+
+  // No explicit selection → request every free GPU unit.
   if (!gpuSelection || Object.keys(gpuSelection).length === 0) {
-    return gpus.map((gpu) => ({ id: gpu.id, amount: 1 }));
+    return freeGpus.map((gpu) => ({ id: gpu.id, amount: 1 }));
   }
 
   const requests: ComputeResourceRequest[] = [];
   for (const [key, units] of Object.entries(gpuSelection)) {
-    const ofType = gpus.filter((gpu) => (gpu.description || 'GPU') === key);
-    // Take the first `units` resource ids of this description; each GPU unit is amount 1.
-    for (let i = 0; i < Math.min(units, ofType.length); i++) {
+    if (units <= 0) {
+      continue;
+    }
+    const ofType = freeGpus.filter((gpu) => (gpu.description || 'GPU') === key);
+    if (ofType.length < units) {
+      throw new Error(
+        `Cannot allocate ${units} × "${key}" GPU${units > 1 ? 's' : ''}: only ${ofType.length} free right now. Try reducing your selection.`
+      );
+    }
+    // Take the first `units` FREE resource ids of this description; each GPU unit is amount 1.
+    for (let i = 0; i < units; i++) {
       requests.push({ id: ofType[i].id, amount: 1 });
     }
   }
