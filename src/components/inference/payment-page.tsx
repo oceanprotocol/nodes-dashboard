@@ -18,6 +18,7 @@ import { usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceStartParams, buildUserData, buildVllmCommand, toNodeUri } from '@/services/inference-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
+import { usePrivy } from '@privy-io/react-auth';
 import { CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -45,6 +46,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     buildSelectionQuery,
   } = useInferenceContext();
   const { account } = useOceanAccount();
+  const { login } = usePrivy();
   const { isReady, serviceExtend, serviceStart, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeAuth();
   const { handlePay } = usePaySession();
@@ -445,9 +447,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         ) : (
           <>
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-              {/* Payment summary — hidden in edit mode (same env, no re-pay). */}
+              {/* Payment summary — hidden in edit mode (same env, no re-pay) and while the wallet is
+                  disconnected, where escrow/wallet balances read as 0 and would misrepresent the cost. */}
               {!isEditMode &&
-                (selectedEnv && selectedToken ? (
+                (!account.address ? (
+                  <div className="textSecondary">Connect your wallet to see payment details.</div>
+                ) : selectedEnv && selectedToken ? (
                   loadingPaymentInfo && escrowBalance === null && walletBalance === null ? (
                     <CircularProgress className="alignSelfCenter" />
                   ) : paymentInfoError ? (
@@ -499,12 +504,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             </Card>
             <InferenceNavigation
               hideSelection
-              // Launch/extend/restart all need the wallet (auth token signature + escrow tx), not
-              // just a ready P2P layer — keep the button disabled until the wallet is connected.
-              nextDisabled={!isReady || !account.address}
-              nextLabel={isProlongMode ? 'Pay & prolong' : isEditMode ? 'Relaunch' : 'Pay & launch'}
+              // Launch/extend/restart all need the wallet (auth token signature + escrow tx). When it
+              // isn't connected, prompt the login modal instead of stranding the user on a dead button;
+              // once connected, gate only on the P2P layer being ready.
+              nextDisabled={account.address ? !isReady : false}
+              nextLabel={
+                !account.address
+                  ? 'Connect wallet'
+                  : isProlongMode
+                    ? 'Pay & prolong'
+                    : isEditMode
+                      ? 'Relaunch'
+                      : 'Pay & launch'
+              }
               nextLoading={launching}
-              onNext={goToNextStep}
+              onNext={account.address ? goToNextStep : login}
               onPrev={goToPrevStep}
             />
           </>
