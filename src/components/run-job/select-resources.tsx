@@ -416,12 +416,6 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     }
   };
 
-  const selectAllGpus = () => {
-    const available = gpus.filter((gpu) => (gpusAvailable[gpu.id] ?? 0) > 0).map((gpu) => gpu.id);
-    const cap = Number.isFinite(maxSelectableUnits) ? Math.min(available.length, maxSelectableUnits) : available.length;
-    formik.setFieldValue('gpus', available.slice(0, cap));
-  };
-
   // Replace one model group's selection with its first `count` available cards, leaving the
   // selections of other groups untouched.
   const setGroupCount = (availableIds: string[], count: number) => {
@@ -429,67 +423,102 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     formik.setFieldValue('gpus', [...others, ...availableIds.slice(0, count)]);
   };
 
-  const renderDerivedResource = (label: React.ReactNode, value: string, fee: React.ReactNode) => (
-    <Card
-      className={styles.derivedCard}
-      direction="column"
-      innerShadow="black"
-      paddingX="md"
-      paddingY="sm"
-      radius="md"
-      spacing="sm"
-      variant="glass"
-    >
-      <div className={styles.derivedLabel}>{label}</div>
-      <div className={styles.derivedValue}>{value}</div>
-      <div className={styles.derivedHint}>{fee}</div>
-    </Card>
+  const renderGpuPills = (group: (typeof gpuGroups)[number]) => {
+    const available = group.availableIds.length;
+    const count = group.availableIds.filter((id) => formik.values.gpus.includes(id)).length;
+    const selectedElsewhere = formik.values.gpus.length - count;
+    return (
+      <div className={styles.pills} role="group" aria-label={group.description}>
+        {Array.from({ length: available + 1 }, (_, n) => {
+          // Disabled when it would exceed this model's free cards, or when the running
+          // total would outstrip the units the shared resources can still back.
+          const disabled = n > available || selectedElsewhere + n > maxSelectableUnits;
+          return (
+            <button
+              aria-pressed={n === count}
+              className={`${styles.pill} ${n === count ? styles.pillSelected : ''}`}
+              disabled={disabled && n !== count}
+              key={n}
+              onClick={() => setGroupCount(group.availableIds, n)}
+              type="button"
+            >
+              {n === 0 ? 'None' : `${n}×`}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderAllocItem = (value: string, label: React.ReactNode) => (
+    <div className={styles.allocItem}>
+      <span className={styles.allocValue}>{value}</span>
+      <span className={styles.allocLabel}>{label}</span>
+    </div>
   );
+
+  // One GPU model line: overline + name + fee·availability on the left, "Units" + count pills on the
+  // right. The overline is shown only when there is a single model (multi-model lists get one header).
+  const renderGpuRow = (group: (typeof gpuGroups)[number], withOverline: boolean) => {
+    const available = group.availableIds.length;
+    const pricing = freeCompute ? 'Free' : `${group.fee ?? ''} ${token?.symbol}/unit`;
+    return (
+      <div className={styles.gpuRow} key={group.description}>
+        <div className={styles.gpuInfo}>
+          {withOverline ? <span className={styles.overline}>GPU</span> : null}
+          <span className={styles.gpuName}>{group.description}</span>
+          <div className={styles.gpuMeta}>
+            <span className={styles.gpuFee}>{pricing}</span>
+            <span className={styles.dot} />
+            <span className={`${styles.gpuAvail} ${available > 0 ? styles.gpuAvailOk : styles.gpuAvailNone}`}>
+              {available > 0 ? `${available} of ${group.total} available` : '0 available'}
+            </span>
+          </div>
+        </div>
+        <div className={styles.units}>
+          <span className={styles.unitsLabel}>Units</span>
+          {available > 0 ? renderGpuPills(group) : <span className={styles.gpuFee}>None available</span>}
+        </div>
+      </div>
+    );
+  };
 
   const renderCostCard = () => {
     const renderCostEstimation = () => {
       if (isLoadingCost) {
         return (
-          <h3 className={styles.estimationMessage}>
-            <CircularProgress size={24} />
+          <p className={styles.estimationMessage}>
+            <CircularProgress size={16} />
             Estimating cost...
-          </h3>
+          </p>
         );
       }
       if (!p2pReady || (!estimatedTotalCost && estimatedTotalCost !== 0)) {
         return (
-          <h3 className={styles.estimationMessage}>
-            <CircularProgress size={24} />
+          <p className={styles.estimationMessage}>
+            <CircularProgress size={16} />
             Connecting to node...
-          </h3>
+          </p>
         );
       }
       return (
-        <div>
+        <div className={styles.costAmount}>
           <span className={styles.token}>{token?.symbol}</span>
-          &nbsp;
           <span className={styles.amount}>{token ? formatTokenAmount(estimatedTotalCost, token.address) : null}</span>
         </div>
       );
     };
 
     return (
-      <Card
-        className={styles.costCard}
-        direction="column"
-        innerShadow="black"
-        paddingX="md"
-        paddingY="sm"
-        radius="md"
-        spacing="sm"
-        variant="glass"
-      >
-        <div className={styles.costEstimation}>
-          <h3>Estimated total cost</h3>
+      <Card innerShadow="accent2" paddingX="lg" paddingY="md" radius="md" shadow="black" variant="glass-shaded">
+        <div className={styles.costBody}>
+          <div className={styles.costInfo}>
+            <h3 className={styles.costTitle}>Estimated total cost</h3>
+            <span className={styles.costNote}>
+              If your job finishes earlier, unconsumed tokens remain in your escrow.
+            </span>
+          </div>
           {renderCostEstimation()}
-        </div>
-        <div className="alignSelfEnd textSuccessDarker">
-          If your job finishes earlier than estimated, the unconsumed tokens remain in your escrow
         </div>
       </Card>
     );
@@ -526,10 +555,19 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     );
   };
 
+  const diskTooltip = (
+    <Tooltip title="The disk space should accommodate the container images, required datasets, temporary results, and final algorithm outputs">
+      <InfoOutlinedIcon className="textAccent1" />
+    </Tooltip>
+  );
+
   return (
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+    <div className={styles.root}>
       <div className={styles.titleRow}>
-        <h3>Select resources</h3>
+        <div className={styles.titleText}>
+          <h2 className={styles.title}>Select resources</h2>
+          <p className={styles.subtitle}>Choose how much compute to allocate. Unused tokens return to your escrow.</p>
+        </div>
         <div className={styles.modeToggle} role="group" aria-label="Resource selection mode">
           <button
             aria-pressed={!isCustom}
@@ -549,155 +587,107 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           </button>
         </div>
       </div>
+
       <form className={styles.form} onSubmit={formik.handleSubmit}>
-        {hasGpu ? (
-          <div className={styles.gpuGroups}>
-            <div className={styles.gpuHeader}>
-              <label className={styles.gpuGroupsLabel}>GPUs</label>
-              <Button
-                color="accent2"
-                disabled={gpuExhausted}
-                onClick={selectAllGpus}
-                size="sm"
-                type="button"
-                variant="filled"
-              >
-                Select all
-              </Button>
-            </div>
-            {gpuGroups.map((group) => {
-              const available = group.availableIds.length;
-              const count = group.availableIds.filter((id) => formik.values.gpus.includes(id)).length;
-              const selectedElsewhere = formik.values.gpus.length - count;
-              const pricing = freeCompute ? 'Free' : `${group.fee ?? ''} ${token?.symbol}/unit`;
-              return (
-                <div className={styles.gpuGroup} key={group.description}>
-                  <div className={styles.gpuGroupTop}>
-                    <span className={styles.gpuGroupName}>{group.description}</span>
-                    <span className={styles.gpuGroupFee}>{pricing}</span>
-                  </div>
-                  {available > 0 ? (
+        <Card paddingX="lg" paddingY="lg" radius="md" shadow="black" variant="glass-shaded">
+          <div className={styles.heroBody}>
+            {hasGpu ? (
+              <div className={styles.gpuSection}>
+                {gpuGroups.length === 1 ? (
+                  renderGpuRow(gpuGroups[0], true)
+                ) : (
+                  <>
+                    <span className={styles.overline}>GPUs</span>
+                    {gpuGroups.map((group) => renderGpuRow(group, false))}
+                  </>
+                )}
+                {formik.touched.gpus && formik.errors.gpus ? (
+                  <div className={styles.gpuError}>{formik.errors.gpus as string}</div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {hasGpu ? <div className={styles.divider} /> : null}
+
+            {isCustom ? (
+              <div className={styles.customGrid}>
+                <Slider
+                  disabled={cpuExhausted}
+                  errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
+                  hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}
+                  label={`CPU - ${formik.values.cpuCores} ${formik.values.cpuCores === 1 ? 'core' : 'cores'}`}
+                  marks
+                  max={maxAllowedCpuCores}
+                  min={minAllowedCpuCores}
+                  name="cpuCores"
+                  onBlur={formik.handleBlur}
+                  onChange={formik.handleChange}
+                  step={1}
+                  topRight={cpuExhausted ? '0 available' : `${minAllowedCpuCores} - ${maxAllowedCpuCores} available`}
+                  value={formik.values.cpuCores}
+                  valueLabelFormat={(value) => (value === 1 ? `${value} core` : `${value} cores`)}
+                />
+                <Slider
+                  disabled={ramExhausted}
+                  errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
+                  hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}
+                  label={`RAM - ${formik.values.ram} GB`}
+                  marks
+                  max={maxAllowedRam}
+                  min={minAllowedRam}
+                  name="ram"
+                  onBlur={formik.handleBlur}
+                  onChange={formik.handleChange}
+                  step={1}
+                  topRight={ramExhausted ? '0 GB available' : `${minAllowedRam} - ${maxAllowedRam} GB available`}
+                  value={formik.values.ram}
+                  valueLabelFormat={(value) => `${value} GB`}
+                />
+                <Input
+                  endAdornment={
+                    <Button color="accent2" onClick={setMaxDiskSpace} size="sm" type="button" variant="filled">
+                      Set max
+                    </Button>
+                  }
+                  errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
+                  hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`}
+                  label={<div>Disk space {diskTooltip}</div>}
+                  max={maxAllowedDiskSpace}
+                  min={0}
+                  name="diskSpace"
+                  onBlur={formik.handleBlur}
+                  onChange={handleDiskSpaceChange}
+                  startAdornment="GB"
+                  topRight={`${minAllowedDiskSpace} - ${maxAllowedDiskSpace} available`}
+                  type="number"
+                  value={formik.values.diskSpace}
+                />
+              </div>
+            ) : (
+              <div className={styles.alloc}>
+                {!hasGpu ? (
+                  <p className={styles.wholeEnvNote}>
+                    This environment runs as a single unit — the full capacity below is allocated to your job.
+                  </p>
+                ) : null}
+                <span className={styles.overline}>Allocated to your job</span>
+                <div className={styles.allocGrid}>
+                  {renderAllocItem(
+                    `${derivedCpu} ${derivedCpu === 1 ? 'core' : 'cores'}`,
+                    `CPU · ${freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}`
+                  )}
+                  {renderAllocItem(`${derivedRam} GB`, `RAM · ${freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}`)}
+                  {renderAllocItem(
+                    `${derivedDisk} GB`,
                     <>
-                      <div className={styles.pills} role="group" aria-label={group.description}>
-                        {Array.from({ length: available + 1 }, (_, n) => {
-                          // Disabled when it would exceed this model's free cards, or when the running
-                          // total would outstrip the units the shared resources can still back.
-                          const disabled = n > available || selectedElsewhere + n > maxSelectableUnits;
-                          return (
-                            <button
-                              aria-pressed={n === count}
-                              className={`${styles.pill} ${n === count ? styles.pillSelected : ''}`}
-                              disabled={disabled && n !== count}
-                              key={n}
-                              onClick={() => setGroupCount(group.availableIds, n)}
-                              type="button"
-                            >
-                              {n}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className={styles.gpuGroupMeta}>
-                        {available} of {group.total} available
-                      </div>
+                      Disk · {freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`} {diskTooltip}
                     </>
-                  ) : (
-                    <div className={styles.gpuGroupMeta}>None available</div>
                   )}
                 </div>
-              );
-            })}
-            {formik.touched.gpus && formik.errors.gpus ? (
-              <div className={styles.gpuError}>{formik.errors.gpus as string}</div>
-            ) : null}
-          </div>
-        ) : !isCustom ? (
-          <p className={styles.wholeEnvNote}>
-            This environment runs as a single unit. The full CPU, RAM, and disk capacity below is allocated to your job.
-          </p>
-        ) : null}
-
-        {isCustom ? (
-          <div className={styles.inputsGrid}>
-            <Slider
-              disabled={cpuExhausted}
-              errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
-              hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}
-              label={`CPU - ${formik.values.cpuCores} ${formik.values.cpuCores === 1 ? 'core' : 'cores'}`}
-              marks
-              max={maxAllowedCpuCores}
-              min={minAllowedCpuCores}
-              name="cpuCores"
-              onBlur={formik.handleBlur}
-              onChange={formik.handleChange}
-              step={1}
-              topRight={cpuExhausted ? '0 available' : `${minAllowedCpuCores} - ${maxAllowedCpuCores} available`}
-              value={formik.values.cpuCores}
-              valueLabelFormat={(value) => (value === 1 ? `${value} core` : `${value} cores`)}
-            />
-            <Slider
-              disabled={ramExhausted}
-              errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
-              hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}
-              label={`RAM - ${formik.values.ram} GB`}
-              marks
-              max={maxAllowedRam}
-              min={minAllowedRam}
-              name="ram"
-              onBlur={formik.handleBlur}
-              onChange={formik.handleChange}
-              step={1}
-              topRight={ramExhausted ? '0 GB available' : `${minAllowedRam} - ${maxAllowedRam} GB available`}
-              value={formik.values.ram}
-              valueLabelFormat={(value) => `${value} GB`}
-            />
-            <Input
-              endAdornment={
-                <Button color="accent2" onClick={setMaxDiskSpace} size="sm" type="button" variant="filled">
-                  Set max
-                </Button>
-              }
-              errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
-              hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`}
-              label={
-                <div>
-                  Disk space{' '}
-                  <Tooltip title="The disk space should accommodate the container images, required datasets, temporary results, and final algorithm outputs">
-                    <InfoOutlinedIcon className="textAccent1" />
-                  </Tooltip>
-                </div>
-              }
-              max={maxAllowedDiskSpace}
-              min={0}
-              name="diskSpace"
-              onBlur={formik.handleBlur}
-              onChange={handleDiskSpaceChange}
-              startAdornment="GB"
-              topRight={`${minAllowedDiskSpace} - ${maxAllowedDiskSpace} available`}
-              type="number"
-              value={formik.values.diskSpace}
-            />
-          </div>
-        ) : (
-          <div className={styles.derivedGrid}>
-            {renderDerivedResource(
-              'CPU',
-              `${derivedCpu} ${derivedCpu === 1 ? 'core' : 'cores'}`,
-              freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`
-            )}
-            {renderDerivedResource('RAM', `${derivedRam} GB`, freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`)}
-            {renderDerivedResource(
-              <div>
-                Disk space{' '}
-                <Tooltip title="The disk space should accommodate the container images, required datasets, temporary results, and final algorithm outputs">
-                  <InfoOutlinedIcon className="textAccent1" />
-                </Tooltip>
-              </div>,
-              `${derivedDisk} GB`,
-              freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`
+              </div>
             )}
           </div>
-        )}
+        </Card>
 
         <DurationInput
           availableUnits={DURATION_UNIT_OPTIONS}
@@ -725,7 +715,8 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
             ) : null}
           </TransitionGroup>
         )}
-        <div className="actionsGroupLgBetween">
+
+        <div className={styles.footer}>
           <Button
             color="accent1"
             onClick={() => router.replace('/run-job/environments')}
@@ -740,7 +731,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           </Button>
         </div>
       </form>
-    </Card>
+    </div>
   );
 };
 
