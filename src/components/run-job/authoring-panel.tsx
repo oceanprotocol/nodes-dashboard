@@ -604,7 +604,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
                         placeholder="e.g. python /app/main.py"
                         value={entrypoint}
                         onChange={(e) => setEntrypoint(e.target.value)}
-                        errorText={attempted[0] && selfContained && !entrypoint.trim() ? 'Entrypoint is required.' : undefined}
+                        errorText={attempted[0] === 1 && selfContained && !entrypoint.trim() ? 'Entrypoint is required.' : undefined}
                       />
                     </div>
                     <div className={styles.tagCol}>
@@ -622,7 +622,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             )}
 
             <div className={styles.sectionActions}>
-              {attempted[0] && !imageDone && (
+              {attempted[0] === 1 && !imageDone && (
                 <span className={styles.sectionError}>
                   {imageOk ? 'Set the entrypoint command before confirming.' : 'Pick an image — the default also counts.'}
                 </span>
@@ -674,7 +674,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
                   : 'Optional — your image’s entrypoint runs its own baked-in code.'}
             </span>
             <div className={styles.sectionActions}>
-              {attempted[1] && algoRequired && !algoOk && (
+              {attempted[1] === 1 && algoRequired && !algoOk && (
                 <span className={styles.sectionError}>Add your algorithm code — or make the image self-contained.</span>
               )}
               <span className={styles.spacer} />
@@ -842,18 +842,21 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
               <span className={classNames(styles.chip, sectionChip(4).cls)}>{sectionChip(4).text}</span>
               <span className={styles.muted}>Where results go — the opposite direction from Inputs.</span>
             </div>
-            <label className={styles.jobNameField}>
-              <span className={styles.fieldLabel}>Output bucket</span>
-              <select className={styles.select} value={outputBucketId ?? ''} onChange={(e) => setOutputBucketId(e.target.value || null)}>
-                <option value="">None — download results manually</option>
-                {nodeBuckets.map((bucket) => (
-                  <option key={bucket.bucketId} value={bucket.bucketId}>
-                    {bucket.label || bucket.bucketId}
-                  </option>
-                ))}
-              </select>
-              <span className={styles.muted}>Write the job’s results into one of your persistent-storage buckets on this node.</span>
-            </label>
+            <div className={styles.outputSelect}>
+              <Select
+                label="Output bucket"
+                hint="Write the job’s results into one of your persistent-storage buckets on this node."
+                options={[
+                  { value: 'none', label: 'None — download results manually' },
+                  ...nodeBuckets.map((bucket) => ({ value: bucket.bucketId, label: bucket.label || bucket.bucketId })),
+                ]}
+                value={outputBucketId ?? 'none'}
+                onChange={(e) => {
+                  const value = e.target.value as string;
+                  setOutputBucketId(value === 'none' ? null : value);
+                }}
+              />
+            </div>
             <div className={styles.sectionActions}>
               <span className={styles.spacer} />
               <Button color="accent1" onClick={() => skipSection(4)} size="sm" type="button" variant="transparent">

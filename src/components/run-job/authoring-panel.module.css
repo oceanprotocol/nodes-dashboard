@@ -399,8 +399,9 @@
 }
 
 .fieldLabel {
-  color: var(--text-secondary);
-  font-size: 14px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .hiddenInput {
@@ -439,30 +440,17 @@
 
 .muted {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
 }
 
 .footer {
-  display: flex;
-  justify-content: flex-end;
+  display: block;
+  padding-top: 4px;
 }
 
-.select {
-  background: var(--background-glass);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  color: var(--text-primary);
-  font-size: 14px;
-  max-width: 420px;
-  padding: 10px 16px;
-  width: 100%;
-}
-
-.select:focus {
-  border-color: var(--border);
-  box-shadow: var(--input-shadow-focus);
-  outline: none;
+.outputSelect {
+  max-width: 380px;
 }
 
 /* ---- shared section header ---- */
