@@ -103,8 +103,12 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   // True when the URL described a selection we couldn't fully rebuild (HF/env fetch failed or a
   // model/env is gone). Lets guards distinguish that from "no selection in URL" and offer a retry.
   const [hydrationFailed, setHydrationFailed] = useState(false);
-  // Ref (not state) so StrictMode's double-invoked mount effect can't fire hydration twice.
-  const hydrationStartedRef = useRef(false);
+  // The URL signature (models/peerId/env/serviceId) we last hydrated from. Re-hydration keys on this
+  // changing — so a client-side nav that lands on a *different* selection (e.g. Manage from the
+  // services table, where the Provider is already mounted and never remounts) re-runs hydration
+  // instead of leaving stale/empty context. Same signature = no re-run, so StrictMode's double mount
+  // and within-flow param tweaks (gpus/token/params, derived from context) don't refetch.
+  const hydratedSignatureRef = useRef<string | null>(null);
 
   // Persist the HF token to sessionStorage on change so a refresh mid-flow doesn't force the user to
   // re-enter it for gated models. The token stays out of the URL (it's a secret).
@@ -305,19 +309,42 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     setHydrateFromUrlFinished(true);
   }, [router.query]);
 
-  // Hydrate once, after the router is ready so query params are populated. Ref guard survives
-  // StrictMode's double mount; skip the network work when there's no selection in the URL.
+  // Hydrate after the router is ready so query params are populated. Re-runs when the identifying
+  // signature changes (a nav to a different selection) so client-side nav — where the Provider stays
+  // mounted — re-hydrates instead of showing stale/empty context. The signature guard also absorbs
+  // StrictMode's double mount and ignores within-flow param tweaks (same identity).
   useEffect(() => {
-    if (hydrationStartedRef.current || !router.isReady) {
+    if (!router.isReady) {
       return;
     }
-    hydrationStartedRef.current = true;
+    const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+    const signature = [
+      first(router.query.models),
+      first(router.query.peerId),
+      first(router.query.env),
+      first(router.query.serviceId),
+    ].join('|');
+    if (hydratedSignatureRef.current === signature) {
+      return;
+    }
+    hydratedSignatureRef.current = signature;
     if (router.query.models || router.query.peerId) {
+      // Re-hydration (signature changed on a client-side nav): flip back to "not finished" so step
+      // guards show loading against the new selection instead of the previous one's stale state.
+      setHydrateFromUrlFinished(false);
+      setHydrationFailed(false);
       hydrateFromQueryParams();
     } else {
       setHydrateFromUrlFinished(true);
     }
-  }, [hydrateFromQueryParams, router.isReady, router.query.models, router.query.peerId]);
+  }, [
+    hydrateFromQueryParams,
+    router.isReady,
+    router.query.models,
+    router.query.peerId,
+    router.query.env,
+    router.query.serviceId,
+  ]);
 
   // Retry a failed hydration: reset the finished/failed flags and re-run against the current URL.
   const retryHydration = useCallback(() => {
@@ -326,6 +353,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     }
     setHydrationFailed(false);
     setHydrateFromUrlFinished(false);
+    // Clear the guard so the effect doesn't treat the current (unchanged) URL as already hydrated.
+    hydratedSignatureRef.current = null;
     hydrateFromQueryParams();
   }, [hydrateFromQueryParams, router.query.models, router.query.peerId]);
 
