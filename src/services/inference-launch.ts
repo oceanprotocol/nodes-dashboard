@@ -12,7 +12,7 @@ import { ComputeResourceRequest, ServiceStartParams } from '@oceanprotocol/lib';
  * serving a single HF model, listening on port 8000.
  */
 export const VLLM_IMAGE = 'vllm/vllm-openai';
-export const VLLM_TAG = 'latest';
+export const VLLM_TAG = process.env.NEXT_PUBLIC_VLLM_TAG ?? 'latest';
 export const VLLM_PORT = 8000;
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */

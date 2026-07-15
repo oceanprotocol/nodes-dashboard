@@ -129,9 +129,10 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 
 ### Compute
 
-| Variable               | Description                                                          |
-| ---------------------- | -------------------------------------------------------------------- |
-| `NEXT_PUBLIC_GPU_LIST` | Comma-separated list of supported GPU models shown in the job wizard |
+| Variable                | Description                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_GPU_LIST`  | Comma-separated list of supported GPU models shown in the job wizard             |
+| `NEXT_PUBLIC_VLLM_TAG`  | Optional. Docker tag for the vLLM inference image (`vllm/vllm-openai`). Defaults to `latest`. |
 
 > **Note:** Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser. All others are server-side only and must never be committed or exposed publicly.
 
