@@ -215,6 +215,11 @@ export type HuggingFaceModelsPage = {
   nextCursor: string | null;
 };
 
+/** How the model list is ordered. Maps 1:1 to the HF API `sort` param (all descending). */
+export type ModelSort = 'trendingScore' | 'downloads' | 'likes' | 'lastModified' | 'createdAt';
+
+export const DEFAULT_MODEL_SORT: ModelSort = 'trendingScore';
+
 /** HF paginates via a `Link: rel="next"` header carrying an opaque `cursor` token. */
 function parseNextCursor(linkHeader: string | null): string | null {
   if (!linkHeader) {
@@ -236,7 +241,12 @@ function parseNextCursor(linkHeader: string | null): string | null {
  */
 export async function fetchHuggingFaceModels(
   query?: string,
-  { limit = 50, cursor, pipelineTag }: { limit?: number; cursor?: string; pipelineTag?: string } = {}
+  {
+    limit = 50,
+    cursor,
+    pipelineTag,
+    sort = DEFAULT_MODEL_SORT,
+  }: { limit?: number; cursor?: string; pipelineTag?: string; sort?: ModelSort } = {}
 ): Promise<HuggingFaceModelsPage> {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -246,10 +256,8 @@ export async function fetchHuggingFaceModels(
   const trimmed = query?.trim();
   if (trimmed) {
     params.set('search', trimmed);
-    params.set('sort', 'downloads');
-  } else {
-    params.set('sort', 'trendingScore');
   }
+  params.set('sort', sort);
   params.set('direction', '-1');
   if (pipelineTag) {
     params.set('pipeline_tag', pipelineTag);

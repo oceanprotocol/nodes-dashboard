@@ -5,18 +5,22 @@ import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import ModelCard from '@/components/inference/model-card';
 import Input from '@/components/input/input';
+import Select, { SelectOption } from '@/components/input/select';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import {
+  DEFAULT_MODEL_SORT,
   FALLBACK_PIPELINE_TAGS,
   fetchHuggingFaceModels,
   fetchPipelineTags,
+  ModelSort,
   PipelineTag,
 } from '@/services/huggingface-service';
 import { HuggingFaceModel } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchIcon from '@mui/icons-material/Search';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
@@ -24,6 +28,14 @@ import { useEffect, useRef, useState } from 'react';
 import styles from './custom-models-page.module.css';
 
 const VISIBLE_TAG_COUNT = 9;
+
+const SORT_OPTIONS: SelectOption<ModelSort>[] = [
+  { value: 'trendingScore', label: 'Trending' },
+  { value: 'downloads', label: 'Most downloaded' },
+  { value: 'likes', label: 'Most liked' },
+  { value: 'lastModified', label: 'Recently updated' },
+  { value: 'createdAt', label: 'Newest' },
+];
 
 const CustomModelsPage: React.FC = () => {
   const router = useRouter();
@@ -68,6 +80,7 @@ const CustomModelsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [sort, setSort] = useState<ModelSort>(DEFAULT_MODEL_SORT);
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
   const [pipelineTags, setPipelineTags] = useState<PipelineTag[]>(FALLBACK_PIPELINE_TAGS);
@@ -101,6 +114,7 @@ const CustomModelsPage: React.FC = () => {
       try {
         const { models: data, nextCursor: cursor } = await fetchHuggingFaceModels(query, {
           pipelineTag: activeTag ?? undefined,
+          sort,
         });
         if (!cancelled) {
           setModels(data);
@@ -123,7 +137,7 @@ const CustomModelsPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [query, activeTag]);
+  }, [query, activeTag, sort]);
 
   const loadMore = async () => {
     if (!nextCursor || loadingMore) {
@@ -131,20 +145,22 @@ const CustomModelsPage: React.FC = () => {
     }
     const requestQuery = query;
     const requestTag = activeTag;
+    const requestSort = sort;
     setLoadingMore(true);
     setLoadMoreError(null);
     try {
       const { models: data, nextCursor: cursor } = await fetchHuggingFaceModels(requestQuery, {
         cursor: nextCursor,
         pipelineTag: requestTag ?? undefined,
+        sort: requestSort,
       });
-      if (requestQuery !== query || requestTag !== activeTag) {
+      if (requestQuery !== query || requestTag !== activeTag || requestSort !== sort) {
         return;
       }
       setModels((prev) => [...prev, ...data]);
       setNextCursor(cursor);
     } catch (err) {
-      if (requestQuery !== query || requestTag !== activeTag) {
+      if (requestQuery !== query || requestTag !== activeTag || requestSort !== sort) {
         return;
       }
       setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more models');
@@ -172,13 +188,25 @@ const CustomModelsPage: React.FC = () => {
             <strong>One model per instance</strong>. Gated models need an HF token.
           </div>
 
-          <Input
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search models..."
-            startAdornment={<SearchIcon className={styles.searchIcon} />}
-            type="text"
-            value={searchInput}
-          />
+          <div className={styles.searchRow}>
+            <Input
+              className={styles.searchField}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search models..."
+              startAdornment={<SearchIcon className={styles.searchIcon} />}
+              size="sm"
+              type="text"
+              value={searchInput}
+            />
+            <Select
+              className={styles.sortField}
+              onChange={(event) => setSort(event.target.value as ModelSort)}
+              options={SORT_OPTIONS}
+              size="sm"
+              startAdornment={<SwapVertIcon className={styles.sortIcon} />}
+              value={sort}
+            />
+          </div>
 
           <div className={styles.filters}>
             <button

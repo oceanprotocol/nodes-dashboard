@@ -4,6 +4,36 @@
   margin-right: 4px;
 }
 
+.sortIcon {
+  color: var(--text-secondary);
+  font-size: 20px;
+  margin-right: 4px;
+}
+
+.searchRow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+.searchField {
+  flex: 1;
+  min-width: 0;
+}
+
+.sortField {
+  flex-shrink: 0;
+
+  @media (min-width: 768px) {
+    width: 240px;
+  }
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -30,6 +60,8 @@
 }
 
 .moreChevron {
+  transition: transform 0.2s ease;
+
   &.moreChevronOpen {
     transform: rotate(180deg);
   }
