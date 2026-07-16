@@ -105,6 +105,7 @@ type SelectProps<T> = {
   className?: string;
   disabled?: boolean;
   endAdornment?: React.ReactNode;
+  startAdornment?: React.ReactNode;
   errorText?: string | string[];
   fullWidth?: boolean;
   hint?: string;
@@ -148,6 +149,7 @@ const Select = <T extends string | number = string>({
   renderOption,
   renderSelectedValue,
   size = 'md',
+  startAdornment,
   topRight,
   value,
 }: SelectProps<T>) => {
@@ -210,6 +212,7 @@ const Select = <T extends string | number = string>({
         onBlur={onBlur}
         onChange={onChange}
         renderValue={memoizedRenderValue}
+        startAdornment={startAdornment}
         value={multiple ? (value ?? []) : value}
       >
         {options?.map((option) => (
