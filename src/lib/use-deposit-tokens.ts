@@ -1,4 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { captureError } from '@/lib/analytics';
 import { getRpc } from '@/lib/constants';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -48,13 +49,19 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
           setIsDepositing(false);
           setError(undefined);
           toast.success('Deposit successful!');
-          posthog.capture('payment_deposit', { tokenAddress, amount });
+          posthog.capture('payment_deposit', { tokenAddress, amount, wallet_type: user?.type });
           onSuccess?.();
         } catch (err) {
           console.error('Deposit error:', err);
           setIsDepositing(false);
           const errorText = err instanceof Error ? err.message : 'Deposit failed';
           setError(errorText);
+          captureError('payment_deposit_failed', err, {
+            stage: 'payment_deposit',
+            wallet_type: user?.type,
+            token_address: tokenAddress,
+            amount,
+          });
           toast.error(errorText);
         }
         return;
@@ -101,13 +108,19 @@ export const useDepositTokens = ({ onSuccess }: UseDepositTokensParams = {}): Us
         setIsDepositing(false);
         setError(undefined);
         toast.success('Deposit successful!');
-        posthog.capture('payment_deposit', { tokenAddress, amount });
+        posthog.capture('payment_deposit', { tokenAddress, amount, wallet_type: user?.type });
         onSuccess?.();
       } catch (err) {
         console.error('Deposit error:', err);
         setIsDepositing(false);
         const errorText = err instanceof Error ? err.message : 'Deposit failed';
         setError(errorText);
+        captureError('payment_deposit_failed', err, {
+          stage: 'payment_deposit',
+          wallet_type: user?.type,
+          token_address: tokenAddress,
+          amount,
+        });
         toast.error(errorText);
       }
     },

@@ -1,4 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { captureError } from '@/lib/analytics';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
@@ -63,13 +64,19 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
           setIsAuthorizing(false);
           setError(undefined);
           toast.success(authorizationSuccessMessage(spender, peerId));
-          posthog.capture('payment_authorize');
+          posthog.capture('payment_authorize', { wallet_type: user?.type });
           onSuccess?.();
         } catch (err) {
           console.error('Authorize error:', err);
           setIsAuthorizing(false);
           const errorText = err instanceof Error ? err.message : 'Authorization failed';
           setError(errorText);
+          captureError('payment_authorize_failed', err, {
+            stage: 'payment_authorize',
+            wallet_type: user?.type,
+            token_address: tokenAddress,
+            peer_id: peerId,
+          });
           toast.error('Authorization failed');
         }
         return;
@@ -115,12 +122,18 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
         setIsAuthorizing(false);
         setError(undefined);
         toast.success(authorizationSuccessMessage(spender, peerId));
-        posthog.capture('payment_authorize');
+        posthog.capture('payment_authorize', { wallet_type: user?.type });
         onSuccess?.();
       } catch (err) {
         console.error('Authorize error:', err);
         setIsAuthorizing(false);
         setError(err instanceof Error ? err.message : 'Failed to prepare authorization');
+        captureError('payment_authorize_failed', err, {
+          stage: 'payment_authorize',
+          wallet_type: user?.type,
+          token_address: tokenAddress,
+          peer_id: peerId,
+        });
         toast.error('Authorization failed');
       }
     },

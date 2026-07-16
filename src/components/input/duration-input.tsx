@@ -22,6 +22,7 @@ type DurationInputProps = {
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onChange: (seconds: number) => void;
   onSetMax?: () => void;
+  radius?: number;
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
   value: number; // seconds
@@ -40,6 +41,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   onBlur,
   onChange,
   onSetMax,
+  radius,
   size,
   topRight,
   value,
@@ -108,6 +110,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
       name={name}
       onBlur={onBlur}
       onChange={handleValueChange}
+      radius={radius}
       size={size}
       topRight={topRight}
       type="number"
