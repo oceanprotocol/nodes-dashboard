@@ -18,8 +18,8 @@ import { usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceStartParams, buildUserData, buildVllmCommand, toNodeUri } from '@/services/inference-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
-import { usePrivy } from '@privy-io/react-auth';
 import { CircularProgress } from '@mui/material';
+import { usePrivy } from '@privy-io/react-auth';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -28,7 +28,6 @@ import styles from './payment-page.module.css';
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
-  const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
   // Editing a running service: same env, no re-pay — hide the payment summary and relaunch instead.
   const isEditMode = router.query.edit === '1';
   // Prolonging a running service: same selection, pay only for the extra runtime. Skips the earlier
@@ -157,23 +156,36 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
-  // without a complete selection: no models → picker, no env → resources, unconfigured model → config.
-  // Skipped when hydration failed — we show a retry instead of discarding the URL selection.
+  // without a complete selection. Skipped when hydration failed — we show a retry instead of
+  // discarding the URL selection.
+  //   - Quick start: the whole selection (package + auto-matched env) is committed on the package
+  //     step, so anything missing bounces to the picker.
+  //   - Custom flow: no models → picker, no env → resources, unconfigured model → config.
+  //     Edit/prolong inherit env + params from the running service, so those steps are skipped.
   useEffect(() => {
-    if (!isCustomModelFlow || !hydrateFromUrlFinished || hydrationFailed) {
+    if (!hydrateFromUrlFinished || hydrationFailed) {
       return;
     }
-    if (selectedModels.length === 0) {
-      router.replace({ pathname: '/inference/custom-models', query: router.query });
-    } else if (!selectedEnv && !isEditMode && !isProlongMode) {
-      // In edit/prolong mode the env is inherited from the running service and the resources step is skipped.
-      router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
-    } else if (!isProlongMode && selectedModels.some((model) => !modelParamsByModel[model.id])) {
-      // Prolong reuses the running service's committed params — no config step to bounce back to.
-      router.replace({ pathname: '/inference/custom-models/config', query: router.query });
+    switch (flowType) {
+      case InferenceFlowType.DefaultModel: {
+        if (selectedModels.length === 0 || !selectedEnv) {
+          router.replace({ pathname: '/inference/default-models', query: router.query });
+        }
+        break;
+      }
+      case InferenceFlowType.CustomModel: {
+        if (selectedModels.length === 0) {
+          router.replace({ pathname: '/inference/custom-models', query: router.query });
+        } else if (!selectedEnv && !isEditMode && !isProlongMode) {
+          router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
+        } else if (!isProlongMode && selectedModels.some((model) => !modelParamsByModel[model.id])) {
+          router.replace({ pathname: '/inference/custom-models/config', query: router.query });
+        }
+        break;
+      }
     }
   }, [
-    isCustomModelFlow,
+    flowType,
     hydrateFromUrlFinished,
     hydrationFailed,
     selectedModels,
@@ -196,7 +208,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         break;
       }
       case InferenceFlowType.DefaultModel: {
-        router.replace(`/inference/default-models/${encodeURIComponent(params.modelId ?? '')}/resources`);
+        // Quick start has no resources step — back to the package picker; the query keeps the
+        // selection so the picker restores the chosen package.
+        router.replace({ pathname: '/inference/default-models', query: router.query });
         break;
       }
       case InferenceFlowType.Template: {

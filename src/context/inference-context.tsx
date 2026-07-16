@@ -67,14 +67,16 @@ type InferenceContextType = {
 
 /** Same-tick selection values not yet reflected in context state (e.g. an env just clicked). */
 type SelectionOverrides = {
+  models?: HuggingFaceModel[];
   peerId?: string;
   envId?: string;
   gpuSelection?: GpuSelection;
   tokenAddress?: string;
+  durationSeconds?: number;
   modelParamsByModel?: Record<string, ModelParameters>;
 };
 
-const DEFAULT_JOB_DURATION_SECONDS = 3600;
+export const DEFAULT_JOB_DURATION_SECONDS = 3600;
 
 // The HF token is kept out of the URL (it's a secret) but persisted per-tab so a refresh mid-flow
 // doesn't force the user to re-enter it for gated models. sessionStorage clears when the tab closes.
@@ -185,9 +187,11 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const gpuSelection = overrides?.gpuSelection ?? selectedEnv?.gpuSelection;
       const tokenAddress = overrides?.tokenAddress ?? selectedToken?.address;
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
+      const models = overrides?.models ?? selectedModels;
+      const duration = overrides?.durationSeconds ?? jobDurationSeconds;
 
       const query: InferenceSelectionQuery = {};
-      const modelIds = selectedModels.map((m) => m.id);
+      const modelIds = models.map((m) => m.id);
       if (modelIds.length > 0) {
         query.models = encodeModelIds(modelIds);
       }
@@ -207,7 +211,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (tokenAddress) {
         query.token = tokenAddress;
       }
-      query.duration = String(jobDurationSeconds);
+      query.duration = String(duration);
       const encodedParams = encodeModelParams(params);
       if (encodedParams) {
         query.params = encodedParams;
