@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Checkbox from '@/components/checkbox/checkbox';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import { getRunJobSteps, type RunJobStep } from '@/components/stepper/get-steps';
 import { useRunJobContext } from '@/context/run-job-context';
 import { type NodeUri } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
@@ -11,7 +12,7 @@ import { stashOptimisticJob } from '@/lib/optimistic-job';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './authoring-panel.module.css';
 
@@ -27,6 +28,13 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   inputs: 'Inputs',
   env: 'Environment variables',
   output: 'Output',
+};
+
+// Wizard-step routes for the in-card breadcrumb (Finish itself is the current page, so it has no route).
+const STEP_ROUTES: Record<Exclude<RunJobStep, 'finish'>, string> = {
+  environment: '/run-job/environments',
+  resources: '/run-job/resources',
+  payment: '/run-job/payment',
 };
 
 const IMAGE_OPTIONS: { value: Exclude<ImageSource, ''>; label: string; desc: string }[] = [
@@ -385,7 +393,36 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   return (
     <div className={styles.root}>
       <div className={styles.pageHeader}>
-        <span className={styles.overline}>RUN A JOB · FINISH</span>
+        <nav className={styles.breadcrumb} aria-label="Run a job steps">
+          {getRunJobSteps(freeCompute)
+            .filter((step) => !step.hidden)
+            .map((step, index) => {
+              const isFinish = step.key === 'finish';
+              return (
+                <Fragment key={step.key}>
+                  {index > 0 && <span className={styles.crumbSep}>·</span>}
+                  {isFinish ? (
+                    <span className={styles.crumbActive} aria-current="step">
+                      {step.label}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={styles.crumbLink}
+                      onClick={() =>
+                        router.push({
+                          pathname: STEP_ROUTES[step.key as Exclude<RunJobStep, 'finish'>],
+                          query: router.query,
+                        })
+                      }
+                    >
+                      {index === 0 ? `‹ ${step.label}` : step.label}
+                    </button>
+                  )}
+                </Fragment>
+              );
+            })}
+        </nav>
         <h3 className={styles.pageTitle}>Configure your job</h3>
       </div>
 
@@ -425,13 +462,6 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             : 'Fix the required sections marked in coral.'}
       </span>
 
-      <label className={styles.jobNameField}>
-        <span className={styles.fieldLabel}>
-          Job name <span className={styles.muted}>(optional)</span>
-        </span>
-        <Input type="text" placeholder="My experiment #1" value={jobName} onChange={(e) => setJobName(e.target.value)} />
-      </label>
-
       <div className={styles.sectionBox}>
         {open < 0 && (
           <div className={styles.reviewState}>
@@ -457,8 +487,11 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
                   options={IMAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                   renderOption={(o) => (
                     <div className={styles.optionRow}>
-                      <span className={styles.optionLabel}>{o.label}</span>
-                      <span className={styles.optionDesc}>{IMAGE_OPTIONS.find((x) => x.value === o.value)?.desc}</span>
+                      <div className={styles.optionText}>
+                        <span className={styles.optionLabel}>{o.label}</span>
+                        <span className={styles.optionDesc}>{IMAGE_OPTIONS.find((x) => x.value === o.value)?.desc}</span>
+                      </div>
+                      {o.value === imageSource && <span className={styles.optionCheck}>✓</span>}
                     </div>
                   )}
                   value={imageSource || undefined}
@@ -472,6 +505,12 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
                     placeholder={tagsLoading ? 'Loading…' : 'Select a tag'}
                     disabled={tagsLoading}
                     options={tagOptions.map((t) => ({ value: t, label: t }))}
+                    renderOption={(o) => (
+                      <div className={styles.optionRow}>
+                        <span className={styles.optionLabel}>{o.label}</span>
+                        {o.value === dockerTag && <span className={styles.optionCheck}>✓</span>}
+                      </div>
+                    )}
                     value={dockerTag}
                     onChange={(e) => setDockerTag(e.target.value as string)}
                   />
@@ -871,16 +910,23 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
       </div>
 
       <div className={styles.footer}>
-        <div className="actionsGroupLgBetween">
-          <Button
-            color="accent1"
-            onClick={() => router.replace({ pathname: '/run-job/summary', query: router.query })}
-            size="lg"
-            type="button"
-            variant="transparent"
-          >
-            Back
-          </Button>
+        <Button
+          color="accent1"
+          onClick={() => router.replace({ pathname: '/run-job/summary', query: router.query })}
+          size="lg"
+          type="button"
+          variant="transparent"
+        >
+          Back
+        </Button>
+        <div className={styles.footerActions}>
+          <Input
+            className={styles.footerJobName}
+            type="text"
+            placeholder="Job name (optional)"
+            value={jobName}
+            onChange={(e) => setJobName(e.target.value)}
+          />
           <Button autoLoading color="accent1" disabled={submitting || !ready} onClick={handleSubmit} size="lg" type="button">
             Submit job
           </Button>

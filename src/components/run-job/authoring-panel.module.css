@@ -17,11 +17,37 @@
   gap: 4px;
 }
 
-.overline {
+/* In-card wizard breadcrumb (‹ Environment · Resources · Payment · Finish). */
+.breadcrumb {
+  align-items: baseline;
   color: var(--text-secondary);
-  font-size: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 7px;
+}
+
+.crumbSep {
+  opacity: 0.4;
+}
+
+.crumbLink {
+  background: none;
+  border: none;
+  color: var(--accent1);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.crumbLink:hover {
+  text-decoration: underline;
+}
+
+.crumbActive {
+  color: var(--text-primary);
   font-weight: 700;
-  letter-spacing: 0.12em;
 }
 
 .pageTitle {
@@ -126,13 +152,7 @@
   text-align: center;
 }
 
-/* ---- Job name + section container ---- */
-.jobNameField {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
+/* ---- Section container ---- */
 .sectionBox {
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid var(--border-glass);
@@ -242,9 +262,32 @@
 }
 
 .optionRow {
+  align-items: center;
   display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.optionText {
+  display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
+}
+
+.optionCheck {
+  align-items: center;
+  background: var(--success);
+  border-radius: 50%;
+  color: #1d3b00;
+  display: flex;
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  height: 18px;
+  justify-content: center;
+  width: 18px;
 }
 
 .optionLabel {
@@ -445,8 +488,27 @@
 }
 
 .footer {
-  display: block;
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
   padding-top: 4px;
+}
+
+.footerActions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.footerJobName {
+  width: 220px;
+}
+
+@media (max-width: 640px) {
+  .footerJobName {
+    width: 150px;
+  }
 }
 
 .outputSelect {
