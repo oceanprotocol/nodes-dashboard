@@ -38,8 +38,8 @@ const PaymentSummary = ({
       <div className={styles.valueWithChip}>
         <TokenAmount amount={totalCost} tokenAddress={selectedToken.address} tokenSymbol={tokenSymbol} />
       </div>
-      {/* User available funds in escrow */}
-      <h3>User available funds in escrow</h3>
+      {/* Available in escrow */}
+      <h3>Available in escrow</h3>
       <div className={styles.valueWithChip}>
         <TokenAmount
           amount={escrowBalance ?? 0}
@@ -49,8 +49,8 @@ const PaymentSummary = ({
         />
         {insufficientEscrow ? <div className="chip chipError">Insufficient funds</div> : null}
       </div>
-      {/* Current locked amount */}
-      <h3>Current locked amount</h3>
+      {/* Locked now */}
+      <h3>Locked now</h3>
       <div className={styles.valueWithChip}>
         <TokenAmount
           amount={Number(authorizations?.currentLockedAmount ?? 0)}
@@ -58,8 +58,8 @@ const PaymentSummary = ({
           tokenSymbol={tokenSymbol}
         />
       </div>
-      {/* Max locked amount */}
-      <h3>Max locked amount</h3>
+      {/* Max locked */}
+      <h3>Max locked</h3>
       <div className={styles.valueWithChip}>
         <TokenAmount
           amount={Number(authorizations?.maxLockedAmount ?? 0)}
@@ -67,10 +67,10 @@ const PaymentSummary = ({
           tokenAddress={selectedToken.address}
           tokenSymbol={tokenSymbol}
         />
-        {insufficientAutorized ? <div className="chip chipError">Insufficient allowance</div> : null}
+        {insufficientAutorized ? <div className="chip chipError">Insufficient authorization</div> : null}
       </div>
-      {/* User available funds in wallet */}
-      <h3 className={styles.sm}>User available funds in wallet</h3>
+      {/* Available in wallet */}
+      <h3 className={styles.sm}>Available in wallet</h3>
       <div className={styles.values}>
         <TokenAmount amount={walletBalance} size="sm" tokenAddress={selectedToken.address} tokenSymbol={tokenSymbol} />
         {selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ? (
