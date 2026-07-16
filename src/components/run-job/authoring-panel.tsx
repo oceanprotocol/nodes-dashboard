@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Checkbox from '@/components/checkbox/checkbox';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
+import Modal from '@/components/modal/modal';
 import { getRunJobSteps, type RunJobStep } from '@/components/stepper/get-steps';
 import { useRunJobContext } from '@/context/run-job-context';
 import { type NodeUri } from '@/contexts/P2PContext';
@@ -9,6 +10,7 @@ import { useNodeStorage } from '@/contexts/node-storage-context';
 import { CURATED_IMAGES, detectLanguageFromFilename, type ImageSource, looksLikeDataset } from '@/lib/compute-inputs';
 import { fetchDockerHubTags, orderTags } from '@/lib/dockerhub';
 import { stashOptimisticJob } from '@/lib/optimistic-job';
+import { formatDuration } from '@/utils/formatters';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -35,6 +37,18 @@ const STEP_ROUTES: Record<Exclude<RunJobStep, 'finish'>, string> = {
   environment: '/run-job/environments',
   resources: '/run-job/resources',
   payment: '/run-job/payment',
+};
+
+// Confirm-button label per section index (the shared action bar renders one of these).
+const CONFIRM_LABELS = ['Confirm image', 'Confirm algorithm', 'Confirm inputs', 'Confirm env vars', 'Confirm output'];
+
+// Friendly adjective-animal default job names (e.g. "quarrelsome-marten"), suggested in the confirm dialog.
+const NAME_ADJECTIVES = ['quarrelsome', 'silky', 'misty', 'brave', 'clever', 'nimble', 'quiet', 'bold', 'gentle', 'swift'];
+const NAME_ANIMALS = ['marten', 'heron', 'otter', 'lynx', 'falcon', 'badger', 'ibis', 'gecko', 'raven', 'shrew'];
+const generateJobName = (): string => {
+  const adj = NAME_ADJECTIVES[Math.floor(Math.random() * NAME_ADJECTIVES.length)];
+  const animal = NAME_ANIMALS[Math.floor(Math.random() * NAME_ANIMALS.length)];
+  return `${adj}-${animal}`;
 };
 
 const IMAGE_OPTIONS: { value: Exclude<ImageSource, ''>; label: string; desc: string }[] = [
@@ -97,6 +111,8 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     setOutputBucketId,
     selectedEnv,
     selectedResources,
+    selectedToken,
+    estimatedTotalCost,
     submitJob,
   } = useRunJobContext();
   const { bucketFiles, buckets, fetchBucketFiles, fetchBuckets, fetchingBuckets, fetchingFiles } = useNodeStorage();
@@ -107,6 +123,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   const [resolved, setResolved] = useState<number[]>([0, 0, 0, 0, 0]);
   const [attempted, setAttempted] = useState<number[]>([0, 0, 0, 0, 0]);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [expandedBucketId, setExpandedBucketId] = useState<string | null>(null);
   const [buildDragActive, setBuildDragActive] = useState(false);
   const [tagOptions, setTagOptions] = useState<string[]>(() => (imageSource === 'default' ? CURATED.knownTags : []));
@@ -334,7 +351,8 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   const addEnvVar = () => setEnvVars([...envVars, { key: '', value: '' }]);
   const removeEnvVar = (index: number) => setEnvVars(envVars.filter((_, i) => i !== index));
 
-  const handleSubmit = async () => {
+  // "Submit job" gates on readiness, then opens the confirm dialog (where the job is named + started).
+  const openConfirm = () => {
     if (!ready) {
       // Open the first unresolved / invalid required section and flag it.
       const firstOpen = resolved.findIndex((r) => r === 0);
@@ -342,6 +360,12 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
       setAttempted(sections.map((s, i) => (s.req && !s.valid ? 1 : attempted[i])));
       return;
     }
+    // Suggest an editable friendly name so the field is never confusingly empty.
+    if (!jobName.trim()) setJobName(generateJobName());
+    setConfirmOpen(true);
+  };
+
+  const runSubmit = async () => {
     setSubmitting(true);
     try {
       const job = await submitJob({ authToken, consumerAddress });
@@ -396,6 +420,26 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   const mountCount = mountedFiles.length;
 
   const diskTooltipNote = 'Mounted files are passed to the job as datasets, alongside the dataset above.';
+
+  // Human-readable image summary for the confirm dialog.
+  const imageSummary =
+    imageSource === 'default'
+      ? `${CURATED.label}${dockerTag ? `:${dockerTag}` : ''}`
+      : imageSource === 'custom'
+        ? `${dockerImage || 'custom image'}:${dockerTag || 'latest'}`
+        : imageSource === 'dockerfile'
+          ? 'Built from Dockerfile'
+          : '—';
+
+  // Validation error shown in the shared action bar for the currently-open section (§0 image, §1 algorithm).
+  const openError =
+    open === 0 && attempted[0] === 1 && !imageDone
+      ? imageOk
+        ? 'Set the entrypoint command before confirming.'
+        : 'Pick an image — the default also counts.'
+      : open === 1 && attempted[1] === 1 && algoRequired && !algoOk
+        ? 'Add your algorithm code — or make the image self-contained.'
+        : '';
 
   return (
     <div className={styles.root}>
@@ -671,17 +715,6 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
               </div>
             )}
 
-            <div className={styles.sectionActions}>
-              {attempted[0] === 1 && !imageDone && (
-                <span className={styles.sectionError}>
-                  {imageOk ? 'Set the entrypoint command before confirming.' : 'Pick an image — the default also counts.'}
-                </span>
-              )}
-              <span className={styles.spacer} />
-              <Button color="accent1" onClick={() => confirmSection(0)} size="sm" type="button" variant="outlined">
-                Confirm image
-              </Button>
-            </div>
           </div>
         )}
 
@@ -716,27 +749,13 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
               value={algorithmCode}
               onChange={(e) => setAlgorithmCode(e.target.value)}
             />
-            <span className={classNames(styles.hint, { [styles.hintOk]: algoOk })}>
-              {algoOk
-                ? `${algorithmCode.split('\n').length} lines · ${algorithmLanguage === 'py' ? 'Python' : 'JavaScript'} — looks good.`
-                : algoRequired
+            {!algoOk && (
+              <span className={styles.hint}>
+                {algoRequired
                   ? 'Required — paste code or upload a file. Pick the language with the toggle.'
                   : 'Optional — your image’s entrypoint runs its own baked-in code.'}
-            </span>
-            <div className={styles.sectionActions}>
-              {attempted[1] === 1 && algoRequired && !algoOk && (
-                <span className={styles.sectionError}>Add your algorithm code — or make the image self-contained.</span>
-              )}
-              <span className={styles.spacer} />
-              {!algoRequired && (
-                <Button color="accent1" onClick={() => skipSection(1)} size="sm" type="button" variant="transparent">
-                  Skip
-                </Button>
-              )}
-              <Button color="accent1" onClick={() => confirmSection(1)} size="sm" type="button" variant="outlined">
-                Confirm algorithm
-              </Button>
-            </div>
+              </span>
+            )}
           </div>
         )}
 
@@ -838,15 +857,6 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
                 })}
               </div>
             )}
-            <div className={styles.sectionActions}>
-              <span className={styles.spacer} />
-              <Button color="accent1" onClick={() => skipSection(2)} size="sm" type="button" variant="transparent">
-                Skip
-              </Button>
-              <Button color="accent1" onClick={() => confirmSection(2)} size="sm" type="button" variant="outlined">
-                Confirm inputs
-              </Button>
-            </div>
           </div>
         )}
 
@@ -870,15 +880,6 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             <div>
               <Button color="accent1" onClick={addEnvVar} size="sm" type="button" variant="outlined">
                 + Add variable
-              </Button>
-            </div>
-            <div className={styles.sectionActions}>
-              <span className={styles.spacer} />
-              <Button color="accent1" onClick={() => skipSection(3)} size="sm" type="button" variant="transparent">
-                Skip
-              </Button>
-              <Button color="accent1" onClick={() => confirmSection(3)} size="sm" type="button" variant="outlined">
-                Confirm env vars
               </Button>
             </div>
           </div>
@@ -907,15 +908,21 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
                 }}
               />
             </div>
-            <div className={styles.sectionActions}>
-              <span className={styles.spacer} />
-              <Button color="accent1" onClick={() => skipSection(4)} size="sm" type="button" variant="transparent">
+          </div>
+        )}
+
+        {open >= 0 && (
+          <div className={styles.sectionActions}>
+            {openError && <span className={styles.sectionError}>{openError}</span>}
+            <span className={styles.spacer} />
+            {!sections[open].req && (
+              <Button color="accent1" onClick={() => skipSection(open)} size="sm" type="button" variant="transparent">
                 Skip
               </Button>
-              <Button color="accent1" onClick={() => confirmSection(4)} size="sm" type="button" variant="outlined">
-                Confirm output
-              </Button>
-            </div>
+            )}
+            <Button color="accent1" onClick={() => confirmSection(open)} size="sm" type="button" variant="outlined">
+              {CONFIRM_LABELS[open]}
+            </Button>
           </div>
         )}
       </div>
@@ -930,19 +937,51 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
         >
           Back
         </Button>
-        <div className={styles.footerActions}>
-          <Input
-            className={styles.footerJobName}
-            type="text"
-            placeholder="Job name (optional)"
-            value={jobName}
-            onChange={(e) => setJobName(e.target.value)}
-          />
-          <Button autoLoading color="accent1" disabled={submitting || !ready} onClick={handleSubmit} size="lg" type="button">
-            Submit job
-          </Button>
-        </div>
+        <Button color="accent1" disabled={submitting || !ready} onClick={openConfirm} size="lg" type="button">
+          Submit job
+        </Button>
       </div>
+
+      <Modal isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} title="Start this job?" width="xs" fullWidth>
+        <div className={styles.confirmBody}>
+          <label className={styles.confirmField}>
+            <span className={styles.fieldLabel}>Job name</span>
+            <Input
+              type="text"
+              placeholder="Name this job"
+              value={jobName}
+              onChange={(e) => setJobName(e.target.value)}
+            />
+            <span className={styles.hint}>A friendly label so you can find this run later. Optional.</span>
+          </label>
+
+          <div className={styles.confirmSummary}>
+            <span className={styles.confirmSummaryLabel}>Compute</span>
+            <span className={styles.confirmSummaryValue}>
+              {freeCompute ? 'Free' : `${estimatedTotalCost ?? '—'}${selectedToken ? ` ${selectedToken.symbol}` : ''}`}
+            </span>
+            <span className={styles.confirmSummaryLabel}>Image</span>
+            <span className={styles.confirmSummaryValue}>{imageSummary}</span>
+            {selectedResources && (
+              <>
+                <span className={styles.confirmSummaryLabel}>Duration</span>
+                <span className={styles.confirmSummaryValue}>
+                  {formatDuration(selectedResources.maxJobDurationSeconds)}
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="actionsGroupMdEnd">
+            <Button color="accent1" onClick={() => setConfirmOpen(false)} size="md" type="button" variant="outlined">
+              Cancel
+            </Button>
+            <Button autoLoading color="accent1" disabled={submitting} onClick={runSubmit} size="md" type="button">
+              Start job
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

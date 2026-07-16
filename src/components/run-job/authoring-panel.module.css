@@ -262,10 +262,6 @@
   font-size: 12px;
 }
 
-.hintOk {
-  color: var(--success-darker);
-}
-
 .optionRow {
   align-items: center;
   display: flex;
@@ -500,20 +496,40 @@
   padding-top: 4px;
 }
 
-.footerActions {
-  align-items: center;
+/* ---- Submit confirm dialog ---- */
+.confirmBody {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.footerJobName {
-  width: 220px;
+.confirmField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-@media (max-width: 640px) {
-  .footerJobName {
-    width: 150px;
-  }
+.confirmSummary {
+  align-items: center;
+  column-gap: 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  row-gap: 8px;
+}
+
+.confirmSummaryLabel {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.confirmSummaryValue {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .outputSelect {
