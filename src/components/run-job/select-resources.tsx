@@ -159,6 +159,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   const maxAllowedRam = Math.max(minAllowedRam, ramAvailable);
   const maxAllowedDiskSpace = Math.max(minAllowedDiskSpace, diskAvailable);
   const maxAllowedJobDurationSeconds = maxJobDurationSeconds ?? 0;
+  // Fresh selection defaults to 1 hour (clamped to the env's allowed range) so the displayed
+  // "1 hrs" matches the real value; using the raw minimum showed "1 hrs" but submitted 10 min.
+  const defaultJobDurationSeconds = clamp(3600, minAllowedJobDurationSeconds, maxAllowedJobDurationSeconds);
 
   // A resource is exhausted when even its per-job minimum no longer fits in what's free.
   const cpuExhausted = !!cpu && cpuAvailable < minAllowedCpuCores;
@@ -220,7 +223,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       cpuCores: clamp(selectedCpu ?? packageCpu, minAllowedCpuCores, maxAllowedCpuCores),
       diskSpace: clamp(selectedDisk ?? packageDisk, minAllowedDiskSpace, maxAllowedDiskSpace),
       gpus: initialGpus,
-      maxJobDurationSeconds: selectedMaxJobDurationSeconds ?? minAllowedJobDurationSeconds,
+      maxJobDurationSeconds: selectedMaxJobDurationSeconds ?? defaultJobDurationSeconds,
       mode: hydratedCustom ? 'custom' : 'package',
       ram: clamp(selectedRam ?? packageRam, minAllowedRam, maxAllowedRam),
     },
@@ -464,16 +467,15 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     const pricing = freeCompute ? 'Free' : `${group.fee ?? ''} ${token?.symbol}/unit`;
     return (
       <div className={styles.gpuRow} key={group.description}>
-        <div className={styles.gpuInfo}>
-          {withOverline ? <span className={styles.overline}>GPU</span> : null}
-          <span className={styles.gpuName}>{group.description}</span>
-          <div className={styles.gpuMeta}>
+        <div className={styles.gpuHeader}>
+          <div className={styles.gpuInfo}>
+            {withOverline ? <span className={styles.overline}>GPU</span> : null}
+            <span className={styles.gpuName}>{group.description}</span>
             <span className={styles.gpuFee}>{pricing}</span>
-            <span className={styles.dot} />
-            <span className={`${styles.gpuAvail} ${available > 0 ? styles.gpuAvailOk : styles.gpuAvailNone}`}>
-              {available > 0 ? `${available} of ${group.total} available` : '0 available'}
-            </span>
           </div>
+          <span className={`${styles.gpuAvail} ${available > 0 ? styles.gpuAvailOk : styles.gpuAvailNone}`}>
+            {available > 0 ? `${available} of ${group.total} available` : '0 available'}
+          </span>
         </div>
         <div className={styles.units}>
           <span className={styles.unitsLabel}>Units</span>
@@ -703,6 +705,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           onBlur={formik.handleBlur}
           onChange={(seconds) => formik.setFieldValue('maxJobDurationSeconds', seconds)}
           onSetMax={setMaxJobDuration}
+          radius={16}
           topRight={`${formatDuration(minAllowedJobDurationSeconds, true)} - ${formatDuration(maxAllowedJobDurationSeconds, true)}`}
           value={formik.values.maxJobDurationSeconds}
         />

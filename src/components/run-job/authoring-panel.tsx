@@ -7,7 +7,13 @@ import { getRunJobSteps, type RunJobStep } from '@/components/stepper/get-steps'
 import { useRunJobContext } from '@/context/run-job-context';
 import { type NodeUri } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
-import { CURATED_IMAGES, detectLanguageFromFilename, type ImageSource, looksLikeDataset } from '@/lib/compute-inputs';
+import {
+  CURATED_IMAGES,
+  curatedImageRef,
+  detectLanguageFromFilename,
+  type ImageSource,
+  looksLikeDataset,
+} from '@/lib/compute-inputs';
 import { fetchDockerHubTags, orderTags } from '@/lib/dockerhub';
 import { stashOptimisticJob } from '@/lib/optimistic-job';
 import { formatDuration } from '@/utils/formatters';
@@ -18,9 +24,10 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './authoring-panel.module.css';
 
-// The default image entry maps to this curated repo (oceanprotocol/c2d_examples); its tags are
-// fetched live from Docker Hub.
-const CURATED = CURATED_IMAGES[0];
+// Dropdown option value for a curated image: `curated:<repo>`. Kept distinct from the custom/dockerfile
+// ImageSource values so one flat dropdown can list every curated image plus the two non-curated sources.
+const curatedOptionValue = (repo: string) => `curated:${repo}`;
+const CURATED_PREFIX = 'curated:';
 
 // The 5 job sections shown as confirm/skip stepper pills, in order.
 type SectionKey = 'image' | 'algorithm' | 'inputs' | 'env' | 'output';
@@ -51,8 +58,10 @@ const generateJobName = (): string => {
   return `${adj}-${animal}`;
 };
 
-const IMAGE_OPTIONS: { value: Exclude<ImageSource, ''>; label: string; desc: string }[] = [
-  { value: 'default', label: CURATED.label, desc: 'Curated image with common ML libraries preinstalled.' },
+// Flat dropdown: one option per curated image, then the two non-curated sources. Curated options use
+// `curated:<repo>` values; custom/dockerfile use their raw ImageSource value.
+const IMAGE_OPTIONS: { value: string; label: string; desc: string }[] = [
+  ...CURATED_IMAGES.map((c) => ({ value: curatedOptionValue(c.repo), label: c.label, desc: c.desc })),
   { value: 'custom', label: 'Custom image…', desc: 'Any public image and tag from Docker Hub.' },
   { value: 'dockerfile', label: 'Build from Dockerfile…', desc: 'Upload or paste a Dockerfile; the node builds it.' },
 ];
@@ -117,6 +126,13 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   } = useRunJobContext();
   const { bucketFiles, buckets, fetchBucketFiles, fetchBuckets, fetchingBuckets, fetchingFiles } = useNodeStorage();
 
+  // Which curated image the "default" source currently points at, identified by its container ref
+  // stored in dockerImage. Falls back to the first curated entry (fresh state / empty dockerImage).
+  const currentCurated =
+    CURATED_IMAGES.find((c) => curatedImageRef(c) === dockerImage) ?? CURATED_IMAGES[0];
+  // Value the image dropdown shows selected: the curated option for a 'default' source, else the raw source.
+  const imageSelectValue = imageSource === 'default' ? curatedOptionValue(currentCurated.repo) : imageSource || undefined;
+
   // Confirm/skip stepper state. resolved[i]: 0 = open/unresolved, 1 = confirmed, 2 = skipped.
   // attempted[i] flags a required section whose Confirm was tried while invalid (to show the error).
   const [open, setOpen] = useState<number>(0);
@@ -126,7 +142,9 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [expandedBucketId, setExpandedBucketId] = useState<string | null>(null);
   const [buildDragActive, setBuildDragActive] = useState(false);
-  const [tagOptions, setTagOptions] = useState<string[]>(() => (imageSource === 'default' ? CURATED.knownTags : []));
+  const [tagOptions, setTagOptions] = useState<string[]>(() =>
+    imageSource === 'default' ? currentCurated.knownTags : []
+  );
   const [tagsLoading, setTagsLoading] = useState(false);
 
   // --- Derived validation ---
@@ -171,24 +189,26 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, nodeId, multiaddrsOrPeerId]);
 
-  // Fetch tags for the default (curated) image from Docker Hub. Falls back to knownTags on any failure
-  // (CORS / network / rate limit). Auto-selects the first tag so the default is never left tag-less.
+  // Fetch tags for the selected curated image from Docker Hub. Falls back to knownTags on any failure
+  // (CORS / network / rate limit). Auto-selects the first tag so the selection is never left tag-less.
+  // Re-runs when the curated image changes (currentCurated.repo), not just on entering the source.
   useEffect(() => {
     if (imageSource !== 'default') {
       setTagOptions([]);
       return;
     }
+    const curated = currentCurated;
     const controller = new AbortController();
     setTagsLoading(true);
     (async () => {
       let tags: string[];
       try {
-        const fetched = await fetchDockerHubTags(CURATED.repo, controller.signal);
-        tags = orderTags(fetched, CURATED.knownTags);
-        if (tags.length === 0) tags = CURATED.knownTags;
+        const fetched = await fetchDockerHubTags(curated.repo, controller.signal);
+        tags = orderTags(fetched, curated.knownTags);
+        if (tags.length === 0) tags = curated.knownTags;
       } catch {
         if (controller.signal.aborted) return;
-        tags = CURATED.knownTags;
+        tags = curated.knownTags;
       }
       setTagOptions(tags);
       setTagsLoading(false);
@@ -198,20 +218,30 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     })();
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageSource]);
+  }, [imageSource, currentCurated.repo]);
 
-  // Picking an image source clears the other sources and resets the entry mode.
-  const changeImageSource = (value: ImageSource) => {
-    setImageSource(value);
+  // Picking an image source clears the other sources and resets the entry mode. Curated options arrive
+  // as `curated:<repo>`: select the 'default' source and pin its container ref into dockerImage so the
+  // tag effect and container config target that specific image.
+  const changeImageSource = (raw: string) => {
     setEntryMode('algo');
     setEntrypoint('');
     setChecksum('');
-    if (value === 'default') {
+    if (raw.startsWith(CURATED_PREFIX)) {
+      const repo = raw.slice(CURATED_PREFIX.length);
+      const curated = CURATED_IMAGES.find((c) => c.repo === repo) ?? CURATED_IMAGES[0];
+      setImageSource('default');
+      setDockerfile('');
+      setDockerImage(curatedImageRef(curated));
+      setDockerTag(''); // the tag effect repopulates and auto-selects the first tag for this image
+      return;
+    }
+    const value = raw as ImageSource;
+    setImageSource(value);
+    if (value === 'custom') {
+      setDockerfile('');
       setDockerImage('');
-      setDockerfile('');
       setDockerTag('');
-    } else if (value === 'custom') {
-      setDockerfile('');
     } else if (value === 'dockerfile') {
       setDockerImage('');
       setDockerTag('');
@@ -424,7 +454,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   // Human-readable image summary for the confirm dialog.
   const imageSummary =
     imageSource === 'default'
-      ? `${CURATED.label}${dockerTag ? `:${dockerTag}` : ''}`
+      ? `${currentCurated.label}${dockerTag ? `:${dockerTag}` : ''}`
       : imageSource === 'custom'
         ? `${dockerImage || 'custom image'}:${dockerTag || 'latest'}`
         : imageSource === 'dockerfile'
@@ -536,7 +566,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
             </div>
             <div className={styles.imageRow}>
               <div className={styles.imageCol}>
-                <Select<ImageSource>
+                <Select<string>
                   label="Image"
                   placeholder="Choose an image…"
                   options={IMAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
@@ -546,11 +576,11 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
                         <span className={styles.optionLabel}>{o.label}</span>
                         <span className={styles.optionDesc}>{IMAGE_OPTIONS.find((x) => x.value === o.value)?.desc}</span>
                       </div>
-                      {o.value === imageSource && <span className={styles.optionCheck}>✓</span>}
+                      {o.value === imageSelectValue && <span className={styles.optionCheck}>✓</span>}
                     </div>
                   )}
-                  value={imageSource || undefined}
-                  onChange={(e) => changeImageSource(e.target.value as ImageSource)}
+                  value={imageSelectValue}
+                  onChange={(e) => changeImageSource(e.target.value as string)}
                 />
               </div>
               {imageSource === 'default' && (
