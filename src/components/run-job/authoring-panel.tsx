@@ -202,13 +202,15 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
   };
 
   // --- Section resolution (confirm / skip / navigate) ---
-  const nextUnresolved = (res: number[], from: number): number => {
-    for (let i = 0; i < 5; i++) {
-      const j = (from + 1 + i) % 5;
-      if (res[j] === 0) return j;
-    }
-    return -1;
+  // Sections must be resolved strictly in order (1 → 5). The "gate" is the first still-unresolved
+  // section: only sections up to and including it may be opened (earlier ones stay editable, later
+  // ones stay locked). Once everything is resolved the gate opens fully so any section can be revisited.
+  const firstUnresolvedIndex = (res: number[]): number => {
+    const i = res.findIndex((r) => r === 0);
+    return i === -1 ? 4 : i;
   };
+  const gateIndex = firstUnresolvedIndex(resolved);
+
   const resolveSection = (i: number, value: 1 | 2) => {
     const nextResolved = [...resolved];
     nextResolved[i] = value;
@@ -216,7 +218,8 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     const nextAttempted = [...attempted];
     nextAttempted[i] = 0;
     setAttempted(nextAttempted);
-    setOpen(nextUnresolved(nextResolved, i));
+    // Advance to the next still-unresolved section in order; -1 → all done, show the review state.
+    setOpen(nextResolved.findIndex((r) => r === 0));
   };
   const confirmSection = (i: number) => {
     const section = sections[i];
@@ -229,7 +232,11 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     resolveSection(i, 1);
   };
   const skipSection = (i: number) => resolveSection(i, 2);
-  const goSection = (i: number) => setOpen(open === i ? -1 : i);
+  // Block jumping ahead: only sections at or before the gate can be opened.
+  const goSection = (i: number) => {
+    if (i > gateIndex) return;
+    setOpen(open === i ? -1 : i);
+  };
 
   const toggleBucket = (bucketId: string) => {
     const next = expandedBucketId === bucketId ? null : bucketId;
@@ -432,18 +439,22 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
           const isOpen = open === i;
           const done = resolved[i] === 1;
           const skipped = resolved[i] === 2;
+          const locked = i > gateIndex;
           return (
             <div key={s.key} className={styles.pillWrap}>
               <button
                 type="button"
                 role="tab"
                 aria-selected={isOpen}
+                disabled={locked}
+                aria-disabled={locked}
                 onClick={() => goSection(i)}
                 className={classNames(styles.pill, {
                   [styles.pillOpen]: isOpen,
                   [styles.pillDone]: done && !isOpen,
                   [styles.pillSkipped]: skipped && !isOpen,
-                  [styles.pillReq]: !isOpen && !done && !skipped && s.req,
+                  [styles.pillReq]: !isOpen && !done && !skipped && !locked && s.req,
+                  [styles.pillLocked]: locked,
                 })}
               >
                 <span className={styles.pillMark}>{done ? '✓' : skipped ? '–' : i + 1}</span>

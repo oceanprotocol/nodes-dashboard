@@ -137,6 +137,11 @@
   color: var(--accent1);
 }
 
+.pillLocked {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .pillConn {
   background: var(--border-glass);
   border-radius: 1px;
