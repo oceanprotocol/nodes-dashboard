@@ -27,6 +27,53 @@ const DEFAULT_TAG: Record<AlgorithmLanguage, string> = {
   js: 'js-general',
 };
 
+export type CuratedImage = {
+  /** Docker Hub `namespace/repo` used to fetch tags. Official library images live under `library/`
+   * (e.g. `library/python`). */
+  repo: string;
+  /** Container `image` reference written into the algorithm config. Defaults to `repo`; set it for
+   * official images so the reference stays bare (`python`, not `library/python`). */
+  image?: string;
+  /** Human label shown in the image dropdown. */
+  label: string;
+  /** One-line description shown under the label in the dropdown. */
+  desc: string;
+  /** Tags pinned to the top of the tag dropdown and used as the offline fallback when the live
+   * Docker Hub fetch fails. */
+  knownTags: string[];
+};
+
+// The container `image` reference for a curated entry (falls back to its Docker Hub repo path).
+export function curatedImageRef(curated: CuratedImage): string {
+  return curated.image ?? curated.repo;
+}
+
+// Blessed images offered as a dropdown in the Docker step so users can start a job without knowing
+// image coordinates. Extend this list to add more images. Tags are fetched live from Docker Hub,
+// with `knownTags` pinned first and used as the fallback if the fetch fails.
+export const CURATED_IMAGES: CuratedImage[] = [
+  {
+    repo: 'oceanprotocol/c2d_examples',
+    label: 'Predefined Docker images',
+    desc: 'Curated image with common ML libraries preinstalled.',
+    knownTags: ['py-general', 'js-general', 'py-lite'],
+  },
+  {
+    repo: 'library/python',
+    image: 'python',
+    label: 'Python (Alpine)',
+    desc: 'Official minimal Python image from Docker Hub. Pick with the Python language.',
+    knownTags: ['alpine', '3.12-alpine', '3.11-alpine'],
+  },
+  {
+    repo: 'library/node',
+    image: 'node',
+    label: 'Node (Alpine)',
+    desc: 'Official minimal Node.js image from Docker Hub. Pick with the JavaScript language.',
+    knownTags: ['alpine', '22-alpine', '20-alpine'],
+  },
+];
+
 export const LANGUAGE_BY_EXTENSION: Record<string, AlgorithmLanguage> = {
   py: 'py',
   js: 'js',
@@ -38,14 +85,42 @@ export function detectLanguageFromFilename(filename: string): AlgorithmLanguage 
   const ext = filename.split('.').pop()?.toLowerCase();
   return ext ? (LANGUAGE_BY_EXTENSION[ext] ?? null) : null;
 }
-export function buildContainerConfig(
-  language: AlgorithmLanguage,
-  dockerfile?: string,
-  additionalDockerFiles?: Record<string, string>,
-  dockerImage?: string,
-  dockerTag?: string
-): ExtendedMetadataAlgorithm['container'] {
-  const entrypoint = ENTRYPOINT[language];
+// How the container starts:
+//  - 'algo' (default): the node injects the algorithm code as `$ALGO` and runs the language entrypoint.
+//  - 'self': the image is self-contained; the user's own entrypoint runs code baked into the image, so
+//    algorithm code is optional and an image checksum may be pinned.
+export type EntryMode = 'algo' | 'self';
+
+// Which container source the user picked in the authoring UI. '' = not yet chosen. Purely a UI/gating
+// concern; buildContainerConfig derives the actual container from dockerfile/dockerImage.
+export type ImageSource = '' | 'default' | 'custom' | 'dockerfile';
+
+export type BuildContainerArgs = {
+  language: AlgorithmLanguage;
+  dockerfile?: string;
+  additionalDockerFiles?: Record<string, string>;
+  dockerImage?: string;
+  dockerTag?: string;
+  entryMode?: EntryMode;
+  entrypoint?: string;
+  checksum?: string;
+};
+
+export function buildContainerConfig({
+  language,
+  dockerfile,
+  additionalDockerFiles,
+  dockerImage,
+  dockerTag,
+  entryMode,
+  entrypoint: customEntrypoint,
+  checksum,
+}: BuildContainerArgs): ExtendedMetadataAlgorithm['container'] {
+  // A self-contained image runs its own entrypoint; otherwise the node runs `<lang> $ALGO`.
+  const selfContained = entryMode === 'self' && !!customEntrypoint?.trim();
+  const entrypoint = selfContained ? customEntrypoint!.trim() : ENTRYPOINT[language];
+  const checksumValue = checksum?.trim() ?? '';
+
   const trimmedDockerfile = dockerfile?.trim();
   if (trimmedDockerfile) {
     return {
@@ -53,15 +128,16 @@ export function buildContainerConfig(
       tag: '',
       entrypoint,
       dockerfile: trimmedDockerfile,
-      checksum: '',
+      checksum: checksumValue,
       ...(additionalDockerFiles && Object.keys(additionalDockerFiles).length > 0 ? { additionalDockerFiles } : {}),
     };
   }
   const trimmedImage = dockerImage?.trim();
   if (trimmedImage) {
-    return { image: trimmedImage, tag: dockerTag?.trim() || 'latest', entrypoint, checksum: '' };
+    return { image: trimmedImage, tag: dockerTag?.trim() || 'latest', entrypoint, checksum: checksumValue };
   }
-  return { image: DEFAULT_IMAGE, tag: DEFAULT_TAG[language], entrypoint, checksum: '' };
+  // Default image (oceanprotocol/c2d_examples): honor a chosen tag, else the per-language default.
+  return { image: DEFAULT_IMAGE, tag: dockerTag?.trim() || DEFAULT_TAG[language], entrypoint, checksum: '' };
 }
 
 // Drop rows with an empty key; later duplicates win.
@@ -82,6 +158,9 @@ export function buildComputeAlgorithm({
   dockerfile,
   dockerImage,
   dockerTag,
+  entryMode,
+  entrypoint,
+  checksum,
   envVars,
   language,
 }: {
@@ -90,14 +169,27 @@ export function buildComputeAlgorithm({
   dockerfile?: string;
   dockerImage?: string;
   dockerTag?: string;
+  entryMode?: EntryMode;
+  entrypoint?: string;
+  checksum?: string;
   envVars: EnvVarEntry[];
   language: AlgorithmLanguage;
 }): ComputeAlgorithm {
   const envs = serializeEnvVars(envVars);
+  // rawcode may be empty for a self-contained image whose entrypoint runs baked-in code.
   return {
     meta: {
       rawcode: code,
-      container: buildContainerConfig(language, dockerfile, additionalDockerFiles, dockerImage, dockerTag),
+      container: buildContainerConfig({
+        language,
+        dockerfile,
+        additionalDockerFiles,
+        dockerImage,
+        dockerTag,
+        entryMode,
+        entrypoint,
+        checksum,
+      }),
     } as ExtendedMetadataAlgorithm,
     ...(Object.keys(envs).length > 0 ? { envs } : {}),
   };

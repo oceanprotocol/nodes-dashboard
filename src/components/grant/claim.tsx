@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import FaucetArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsTokenFaucet.sol/GrantsTokenFaucet.json';
+import { captureError } from '@/lib/analytics';
 import { ClaimGrantResponse } from '@/types/grant';
 import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
@@ -24,7 +25,9 @@ const Claim: React.FC = () => {
   const tokenAmount = process.env.NEXT_PUBLIC_GRANT_AMOUNT;
 
   const handleClaim = async () => {
-    posthog.capture('grant_claim_clicked');
+    // Fire in place (preserves the historical top-of-funnel count = raw button
+    // clicks). `connected` lets us segment out clicks that just divert to login.
+    posthog.capture('grant_claim_clicked', { connected: account.isConnected });
     if (!account.isConnected) {
       login();
       return;
@@ -71,13 +74,27 @@ const Claim: React.FC = () => {
         },
         onError: (error) => {
           setIsLoading(false);
-          posthog.capture('grant_claim_failed', { error: String(error) });
+          // On-chain claim tx failed / rejected.
+          posthog.capture('grant_claim_failed', { error: String(error), reason: 'rpc_error' });
           console.error('Claim error:', error);
           toast.error('Failed to claim complimentary credits. Please try again.');
         },
       });
     } catch (error) {
       setIsLoading(false);
+      // Failure fetching the claim voucher from /api/grant/claim — previously
+      // silent (toast only). Categorise so ineligible vs already-claimed vs a
+      // generic API error can be told apart in the funnel.
+      let reason = 'api_error';
+      if (axios.isAxiosError(error)) {
+        const apiMessage = String(error.response?.data?.message ?? '').toLowerCase();
+        if (apiMessage.includes('already') || apiMessage.includes('claimed')) {
+          reason = 'already_claimed';
+        } else if (apiMessage.includes('eligib') || error.response?.status === 403) {
+          reason = 'ineligible';
+        }
+      }
+      captureError('grant_claim_failed', error, { reason, error: String(error) });
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else {

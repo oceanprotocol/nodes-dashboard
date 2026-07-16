@@ -125,23 +125,23 @@ export async function streamComputeLogs(
 
 export async function createAuthToken({
   consumerAddress,
+  issuerPeerId,
   nodeUri,
   signMessage,
   validUntil,
-  issuerPeerId,
 }: {
   consumerAddress: string;
+  // The target node's own peerId. Required by ocean-node (next-4) to validate
+  // the CREATE_AUTH_TOKEN signature (`address + nonce + command + issuerPeerId`).
+  // Pass it when the caller already has it (avoids a round-trip); otherwise it's
+  // resolved from the node STATUS here.
+  issuerPeerId?: string;
   nodeUri: NodeUri;
   signMessage: SignMessageFn;
   // Epoch-ms instant the token expires. Omitted (or undefined) means the node stores it with no
   // expiry — valid forever until explicitly invalidated (a deliberate choice for the user-facing
   // token generator). Callers that cache tokens should pass a bounded value (see node-auth-context).
   validUntil?: number;
-  // The target node's own peerId. Required by ocean-node (next-4) to validate
-  // the CREATE_AUTH_TOKEN signature (`address + nonce + command + issuerPeerId`).
-  // Pass it when the caller already has it (avoids a round-trip); otherwise it's
-  // resolved from the node STATUS here.
-  issuerPeerId?: string;
 }): Promise<{ token: string; validUntil?: number }> {
   const resolvedNode = normalizeNodeUri(nodeUri);
   const peerId = issuerPeerId ?? (await ProviderInstance.getNodeStatus(resolvedNode))?.id;

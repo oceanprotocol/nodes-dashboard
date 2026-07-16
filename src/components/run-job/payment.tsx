@@ -2,14 +2,15 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { SelectedToken } from '@/context/run-job-context';
-import { usePaymentInfo } from '@/lib/use-payment-info';
-import { DEFAULT_MAX_LOCK_COUNT, usePaySession } from '@/lib/use-pay-session';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { usePaySession } from '@/lib/use-pay-session';
 import { ComputeEnvironment } from '@/types/environments';
+import { Authorizations } from '@/types/payment';
 import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type PaymentProps = {
   minLockSeconds: number;
@@ -19,29 +20,48 @@ type PaymentProps = {
   totalCost: number;
 };
 
-const Payment = ({
-  minLockSeconds,
-  selectedEnv,
-  selectedToken,
-  setPageSubtitle,
-  totalCost,
-}: PaymentProps) => {
+const MAX_LOCK_COUNT = 10;
+
+const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, totalCost }: PaymentProps) => {
   const router = useRouter();
 
-  const {
-    authorizations,
-    escrowBalance,
-    walletBalance,
-    loading: loadingPaymentInfo,
-    loadError: paymentInfoError,
-    loadPaymentInfo,
-  } = usePaymentInfo(selectedToken.address, selectedEnv.consumerAddress);
+  const { account, ocean } = useOceanAccount();
+
+  const [authorizations, setAuthorizations] = useState<Authorizations | null>(null);
+  const [escrowBalance, setEscrowBalance] = useState<number | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
+  // The payment-status effect below re-runs on every balance/auth refetch; without
+  // this guard `payment_authorized` fires many times per session, inflating the
+  // funnel above `payment_authorize`. Capture once per mount instead.
+  const authorizedTracked = useRef(false);
 
   const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
 
   useEffect(() => {
     setPageSubtitle('Confirm and authorize your payment in order to start your job');
   }, [setPageSubtitle]);
+
+  const loadPaymentInfo = useCallback(async () => {
+    if (ocean && account?.address) {
+      setLoadingPaymentInfo(true);
+      const authorizations = await ocean.getAuthorizations(
+        selectedToken.address,
+        account.address,
+        selectedEnv.consumerAddress
+      );
+      setAuthorizations(authorizations);
+      const walletBalance = await ocean.getBalance(selectedToken.address, account.address);
+      setWalletBalance(roundTokenAmount(Number(walletBalance), selectedToken.address, 'down'));
+      const escrowBalance = await ocean.getUserFunds(selectedToken.address, account.address);
+      setEscrowBalance(roundTokenAmount(Number(escrowBalance), selectedToken.address, 'down'));
+      setLoadingPaymentInfo(false);
+    }
+  }, [ocean, account.address, selectedToken.address, selectedEnv.consumerAddress]);
+
+  useEffect(() => {
+    loadPaymentInfo();
+  }, [loadPaymentInfo]);
 
   // Once escrow + authorization satisfy the session requirements, move on to the summary.
   useEffect(() => {
@@ -52,11 +72,14 @@ const Payment = ({
     const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
     const hasAvailableLockSlot = Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
     if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
-      posthog.capture('payment_authorized', {
-        totalCost,
-        tokenSymbol: selectedToken.symbol,
-        tokenAddress: selectedToken.address,
-      });
+      if (!authorizedTracked.current) {
+        authorizedTracked.current = true;
+        posthog.capture('payment_authorized', {
+          totalCost,
+          tokenSymbol: selectedToken.symbol,
+          tokenAddress: selectedToken.address,
+        });
+      }
       router.push({ pathname: '/run-job/summary', query: router.query });
     }
   }, [
@@ -75,18 +98,14 @@ const Payment = ({
 
   const { handlePay, isPaying } = usePaySession({ onSuccess: loadPaymentInfo });
 
-  const depositAmount = roundTokenAmount(
-    Math.max(0, totalCost - (escrowBalance ?? 0)),
-    selectedToken.address,
-    'up'
-  );
+  const depositAmount = roundTokenAmount(Math.max(0, totalCost - (escrowBalance ?? 0)), selectedToken.address, 'up');
   const maxLockedAmount = roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address, 'up');
   const maxLockSeconds = minLockSeconds < 1 ? 1 : Math.ceil(minLockSeconds);
   // Escrow's authorize SETS (not increments) the lock cap. Derive above the current locks so a user
   // who has already used all their slots can still raise the limit and start a new session. Include
   // the existing cap so a higher limit set on the escrow page isn't silently shrunk on re-auth.
   const maxLockCount = Math.max(
-    DEFAULT_MAX_LOCK_COUNT,
+    MAX_LOCK_COUNT,
     Number(authorizations?.currentLocks ?? 0) + 1,
     Number(authorizations?.maxLockCounts ?? 0)
   );
@@ -116,27 +135,9 @@ const Payment = ({
     ]
   );
 
-  if (loadingPaymentInfo && (escrowBalance === null || walletBalance === null)) {
-    return <CircularProgress className="alignSelfCenter" />;
-  }
-
-  // Load finished with an error and no data to fall back to — show the reason and let the user retry
-  // instead of rendering a summary with misleading zeroed balances.
-  if (paymentInfoError && escrowBalance === null && walletBalance === null) {
-    return (
-      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-        <h3>Payment</h3>
-        <div className="textAccent1">{paymentInfoError}</div>
-        <div className="actionsGroupLgEnd">
-          <Button color="accent1" onClick={() => loadPaymentInfo()} size="lg" type="button" variant="outlined">
-            Retry
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
+  return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
+    <CircularProgress className="alignSelfCenter" />
+  ) : (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Payment</h3>
       <PaymentSummary

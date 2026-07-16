@@ -4,7 +4,9 @@ import { useP2P } from '@/contexts/P2PContext';
 import {
   type AlgorithmLanguage,
   buildComputeAlgorithm,
+  type EntryMode,
   type EnvVarEntry,
+  type ImageSource,
   type NodeUri,
   resolveDatasetAssets,
 } from '@/lib/compute-inputs';
@@ -135,6 +137,17 @@ type RunJobContextType = {
   setDockerImage: (image: string) => void;
   dockerTag: string;
   setDockerTag: (tag: string) => void;
+  // Which container source the user picked (default c2d_examples / custom image / Dockerfile).
+  imageSource: ImageSource;
+  setImageSource: (source: ImageSource) => void;
+  // How the job starts: 'algo' injects code as $ALGO; 'self' runs the image's own entrypoint
+  // (algorithm code then optional). entrypoint/checksum apply only when self-contained.
+  entryMode: EntryMode;
+  setEntryMode: (mode: EntryMode) => void;
+  entrypoint: string;
+  setEntrypoint: (entrypoint: string) => void;
+  checksum: string;
+  setChecksum: (checksum: string) => void;
   envVars: EnvVarEntry[];
   setEnvVars: (envVars: EnvVarEntry[]) => void;
   jobName: string;
@@ -221,6 +234,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [dockerfile, setDockerfile] = useState<string>('');
   const [dockerImage, setDockerImage] = useState<string>('');
   const [dockerTag, setDockerTag] = useState<string>('');
+  const [imageSource, setImageSource] = useState<ImageSource>('');
+  const [entryMode, setEntryMode] = useState<EntryMode>('algo');
+  const [entrypoint, setEntrypoint] = useState<string>('');
+  const [checksum, setChecksum] = useState<string>('');
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>([]);
   const [jobName, setJobName] = useState<string>('');
   const [mountedFiles, setMountedFiles] = useState<MountedStorageFile[]>([]);
@@ -243,6 +260,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setDockerfile('');
     setDockerImage('');
     setDockerTag('');
+    setImageSource('');
+    setEntryMode('algo');
+    setEntrypoint('');
+    setChecksum('');
     setEnvVars([]);
     // Job name is independent of env/resource selection and is auto-generated once
     // on mount; don't clear it here or selecting an env wipes the generated name.
@@ -258,7 +279,10 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       if (!selectedEnv || !selectedResources || !multiaddrsOrPeerId) {
         throw new Error('Missing job configuration. Select an environment and resources first.');
       }
-      if (!algorithmCode.trim()) {
+      // Algorithm code is required unless the image is self-contained (its own entrypoint runs
+      // baked-in code, so rawcode may be empty).
+      const selfContained = entryMode === 'self' && !!entrypoint.trim();
+      if (!selfContained && !algorithmCode.trim()) {
         throw new Error('Algorithm code is required.');
       }
 
@@ -273,6 +297,9 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         dockerfile,
         dockerImage,
         dockerTag,
+        entryMode,
+        entrypoint,
+        checksum,
         envVars,
         language: algorithmLanguage,
       });
@@ -321,10 +348,13 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       additionalDockerFiles,
       algorithmCode,
       algorithmLanguage,
+      checksum,
       dataset,
       dockerfile,
       dockerImage,
       dockerTag,
+      entryMode,
+      entrypoint,
       envVars,
       freeCompute,
       jobName,
@@ -671,6 +701,14 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         setDockerImage,
         dockerTag,
         setDockerTag,
+        imageSource,
+        setImageSource,
+        entryMode,
+        setEntryMode,
+        entrypoint,
+        setEntrypoint,
+        checksum,
+        setChecksum,
         envVars,
         setEnvVars,
         jobName,

@@ -1,8 +1,6 @@
 import Container from '@/components/container/container';
 import AuthoringPanel from '@/components/run-job/authoring-panel';
 import SectionTitle from '@/components/section-title/section-title';
-import { getRunJobSteps, RunJobStep } from '@/components/stepper/get-steps';
-import Stepper from '@/components/stepper/stepper';
 import { useRunJobContext } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { CircularProgress } from '@mui/material';
@@ -13,7 +11,7 @@ const AuthoringPage = () => {
   const router = useRouter();
   const { account } = useOceanAccount();
 
-  const { authToken, freeCompute, hydrateFromUrlFinished, selectedEnv, selectedResources } = useRunJobContext();
+  const { authToken, hydrateFromUrlFinished, selectedEnv, selectedResources } = useRunJobContext();
 
   // The auth token and selection live only in memory, so a direct load / refresh drops us back to the summary.
   useEffect(() => {
@@ -28,7 +26,6 @@ const AuthoringPage = () => {
         moreReadable
         title="Run a job"
         subTitle="Provide your algorithm, dataset, Dockerfile, and env vars, then submit"
-        contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
         mobileWarning
       />
       {authToken && selectedEnv && selectedResources && account.address ? (
