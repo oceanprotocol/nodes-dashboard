@@ -4254,9 +4254,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:8.6.1":
-  version: 8.6.1
-  resolution: "@oceanprotocol/lib@npm:8.6.1"
+"@oceanprotocol/lib@npm:8.6.2":
+  version: 8.6.2
+  resolution: "@oceanprotocol/lib@npm:8.6.2"
   dependencies:
     "@oasisprotocol/sapphire-paratime": "npm:^1.3.2"
     "@oceanprotocol/ddo-js": "npm:^0.3.0"
@@ -4268,7 +4268,7 @@ __metadata:
     jsonwebtoken: "npm:^9.0.2"
   peerDependencies:
     web3: ^1.8.0
-  checksum: 10c0/9969adca8ef86546d7b672c8894d581e9464a580c8287205b6b63dad16f5bda4d78d5c98ee202a95d4ac8f016e372d0073a84913ebe30fd128e5e30ee0a0ccf8
+  checksum: 10c0/325a7101861da86448ab2b738a99aea86e432ee1453632260ca2dc7e5dedd0ba570819cfea6815afea416dfff8447da0421423ba6523e0fd3709eab78a436378
   languageName: node
   linkType: hard
 
@@ -17626,7 +17626,7 @@ __metadata:
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
     "@oceanprotocol/contracts": "npm:^2.9.0"
-    "@oceanprotocol/lib": "npm:8.6.1"
+    "@oceanprotocol/lib": "npm:8.6.2"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.22.2"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
