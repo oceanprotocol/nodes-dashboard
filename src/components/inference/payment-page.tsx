@@ -22,7 +22,7 @@ import { CircularProgress } from '@mui/material';
 import { usePrivy } from '@privy-io/react-auth';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './payment-page.module.css';
 
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
@@ -54,6 +54,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
 
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard for the launch handler. `launching`/the disabled button only take
+  // effect on the next render commit, so a fast double-click (or a synthetic re-fire) can invoke the
+  // handler twice before that commit — and this is the money path (escrow deposit + serviceStart).
+  // A ref flips synchronously, so the second invocation bails immediately.
+  const launchInFlightRef = useRef(false);
 
   // Pair each selected model with the launch params committed in the config step. Params come
   // straight from context (no fallback) — a model without them renders its values as N/A.
@@ -65,7 +70,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
   // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv/token exist.
-  const { allocation, price } = useInferenceAllocation({
+  const { allocation, price, selectedByKey } = useInferenceAllocation({
     environment: selectedEnv?.environment ?? ({ resources: [] } as any),
     tokenAddress: selectedToken?.address ?? '',
     gpuSelection: selectedEnv?.gpuSelection,
@@ -348,16 +353,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // claims the cost server-side. Auth is a JWT node token (same as the run-job auth-token flow);
   // serviceStart returns a job in `Starting` state and the manage page polls it to `Running` to
   // read the real endpoint.
-  const goToNextStep = useCallback(async () => {
-    if (isProlongMode) {
-      await prolongService();
-      return;
-    }
-    // Edit → restart the existing service in place (keeps port + elapsed time); never a fresh start.
-    if (isEditMode) {
-      await relaunchService();
-      return;
-    }
+  // Fresh launch of a new vLLM service. Kept as its own callback so the re-entrancy guard in
+  // goToNextStep can wrap all three launch paths (prolong / edit-relaunch / fresh) uniformly.
+  const runFreshLaunch = useCallback(async () => {
     // A single model is selected (the flow is capped at one); its committed params come from context.
     const model = selectedModels[0];
     const params = model ? modelParamsByModel[model.id] : undefined;
@@ -400,6 +398,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         model,
         params,
         selectedEnv,
+        // Launch the exact per-type unit count that was priced and escrowed. The hook resolves an
+        // empty/whole-env selection down to the budget-capped count (bounded by free CPU/RAM/disk);
+        // passing selectedEnv.gpuSelection ({} on a whole-env hydrate) straight through would make
+        // buildGpuRequests request every free GPU instead, over-provisioning past the escrow.
+        gpuSelection: selectedByKey,
         allocation,
         durationSeconds: jobDurationSeconds,
         tokenAddress: selectedToken.address,
@@ -422,10 +425,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
-    isProlongMode,
-    prolongService,
-    isEditMode,
-    relaunchService,
     selectedModels,
     modelParamsByModel,
     selectedEnv,
@@ -434,12 +433,36 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     withNodeAuth,
     ensureEscrowForSelection,
     allocation,
+    selectedByKey,
     jobDurationSeconds,
     hfToken,
     serviceStart,
     router,
     buildManageQuery,
   ]);
+
+  const goToNextStep = useCallback(async () => {
+    // Bail synchronously if a launch is already running — the disabled button only guards the NEXT
+    // render, so a double-click before that commit would otherwise fire two escrow txs / launches.
+    if (launchInFlightRef.current) {
+      return;
+    }
+    launchInFlightRef.current = true;
+    try {
+      if (isProlongMode) {
+        await prolongService();
+        return;
+      }
+      // Edit → restart the existing service in place (keeps port + elapsed time); never a fresh start.
+      if (isEditMode) {
+        await relaunchService();
+        return;
+      }
+      await runFreshLaunch();
+    } finally {
+      launchInFlightRef.current = false;
+    }
+  }, [isProlongMode, prolongService, isEditMode, relaunchService, runFreshLaunch]);
 
   return (
     <Container className="pageRoot">

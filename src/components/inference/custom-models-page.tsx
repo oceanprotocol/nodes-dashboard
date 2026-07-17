@@ -86,6 +86,12 @@ const CustomModelsPage: React.FC = () => {
   const [pipelineTags, setPipelineTags] = useState<PipelineTag[]>(FALLBACK_PIPELINE_TAGS);
   const [showAllTags, setShowAllTags] = useState(false);
 
+  // Latest filter values, readable inside an in-flight loadMore. Its guard can't compare captured
+  // closure vars against themselves (always equal) — it must compare the request's snapshot against
+  // the live filter, so a filter change mid-request drops the now-stale page instead of appending it.
+  const filterRef = useRef({ query, activeTag, sort });
+  filterRef.current = { query, activeTag, sort };
+
   useEffect(() => {
     const handle = setTimeout(() => setQuery(searchInput), 400);
     return () => clearTimeout(handle);
@@ -143,24 +149,28 @@ const CustomModelsPage: React.FC = () => {
     if (!nextCursor || loadingMore) {
       return;
     }
-    const requestQuery = query;
-    const requestTag = activeTag;
-    const requestSort = sort;
+    const request = { query, activeTag, sort };
+    // The filter changed while this page was in flight — its result belongs to a stale filter and
+    // must be dropped (not appended / shown as an error) whether the fetch resolved or threw.
+    const isStale = () =>
+      request.query !== filterRef.current.query ||
+      request.activeTag !== filterRef.current.activeTag ||
+      request.sort !== filterRef.current.sort;
     setLoadingMore(true);
     setLoadMoreError(null);
     try {
-      const { models: data, nextCursor: cursor } = await fetchHuggingFaceModels(requestQuery, {
+      const { models: data, nextCursor: cursor } = await fetchHuggingFaceModels(request.query, {
         cursor: nextCursor,
-        pipelineTag: requestTag ?? undefined,
-        sort: requestSort,
+        pipelineTag: request.activeTag ?? undefined,
+        sort: request.sort,
       });
-      if (requestQuery !== query || requestTag !== activeTag || requestSort !== sort) {
+      if (isStale()) {
         return;
       }
       setModels((prev) => [...prev, ...data]);
       setNextCursor(cursor);
     } catch (err) {
-      if (requestQuery !== query || requestTag !== activeTag || requestSort !== sort) {
+      if (isStale()) {
         return;
       }
       setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more models');

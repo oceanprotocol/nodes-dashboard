@@ -14,6 +14,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { withTimeout } from '@/lib/with-timeout';
 import { getModelShortName } from '@/services/huggingface-service';
 import { parseVllmCommand, toNodeUri, VLLM_PORT } from '@/services/inference-launch';
 import { getServiceStatusView } from '@/services/service-status';
@@ -64,23 +65,6 @@ const POLL_INTERVAL_MS = 4000;
 const STATUS_TIMEOUT_MS = 30000;
 
 /**
- * Reject after `ms` so a hung P2P call can't freeze the poll loop forever, and ABORT the underlying
- * dial when the timeout fires — `run` receives an AbortSignal it must forward to the transport, so a
- * timed-out request is cancelled rather than left running in the background before the next retry.
- */
-function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number, label: string): Promise<T> {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<T>((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      reject(new Error(`${label} timed out`));
-    }, ms);
-  });
-  return Promise.race([run(controller.signal), timeout]).finally(() => clearTimeout(timer));
-}
-
-/**
  * Statuses past which polling is pointless — the service reached a genuinely final state.
  * `Running` is deliberately NOT here: a running service can still crash (→ Error/Stopped) or hit
  * its expiry (→ Expired), so we keep polling for the whole session to catch those transitions.
@@ -115,9 +99,19 @@ const DurationProgress: React.FC<{ totalSeconds: number; elapsedSeconds: number;
 }) => {
   const [elapsed, setElapsed] = useState(elapsedSeconds);
 
+  // Latest authoritative elapsed (parent recomputes it from wall-clock on every status poll). Held in
+  // a ref so the interval below can resync to it WITHOUT re-arming — depending on elapsedSeconds would
+  // tear down and rebuild the timer every poll, dropping sub-poll ticks.
+  const elapsedSecondsRef = useRef(elapsedSeconds);
+  elapsedSecondsRef.current = elapsedSeconds;
+
+  // Advance one second per tick, but never below the authoritative value: the interval free-runs and
+  // falls behind while the tab is backgrounded (browsers throttle setInterval to as little as ~1/min),
+  // so clamping up to the ref each tick corrects the stale countdown on refocus. Never rewind — the
+  // local tick can be a hair ahead of the last poll.
   useEffect(() => {
     const timer = setInterval(() => {
-      setElapsed((prev) => Math.min(prev + 1, totalSeconds));
+      setElapsed((prev) => Math.min(Math.max(prev + 1, elapsedSecondsRef.current), totalSeconds));
     }, 1000);
     return () => clearInterval(timer);
   }, [totalSeconds]);

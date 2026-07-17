@@ -98,10 +98,11 @@ function validateParams(v: ModelParametersType, contextCeiling: number | null, c
       errors.maxContext = `Must be at most ${contextCeiling} — the model's context limit.`;
     }
   }
-  // GPU memory must be > 0 (0 = no VRAM claimed); message says "above 0" to match the rule.
+  // GPU memory must stay within bounds — the floor is > 0 (0 = no VRAM claimed, rejected).
+  const gpuMin = MODEL_PARAM_BOUNDS.gpuMemoryUtilization.min;
   const gpuMax = MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max;
-  if (v.gpuMemoryUtilization <= 0 || v.gpuMemoryUtilization > gpuMax) {
-    errors.gpuMemoryUtilization = `Must be above 0 and at most ${gpuMax}.`;
+  if (v.gpuMemoryUtilization < gpuMin || v.gpuMemoryUtilization > gpuMax) {
+    errors.gpuMemoryUtilization = `Must be between ${gpuMin} and ${gpuMax}.`;
   }
   if (v.toolCalling && !v.toolCallParser) {
     errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
@@ -503,6 +504,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                 />
                 {contextCeiling != null ? (
                   <Slider
+                    errorText={errorFor('maxContext')}
                     hint="--max-model-len"
                     label={labelWithInfo(
                       `Max context - ${formik.values.maxContext ?? contextCeiling}`,
@@ -621,6 +623,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                   </>
                 )}
                 <Slider
+                  errorText={errorFor('gpuMemoryUtilization')}
                   hint="--gpu-memory-utilization"
                   label={labelWithInfo(
                     `GPU memory utilization - ${formik.values.gpuMemoryUtilization.toFixed(2)}`,

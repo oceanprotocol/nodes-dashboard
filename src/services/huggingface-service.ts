@@ -35,6 +35,19 @@ function encodeModelPath(modelId: string): string {
     .join('/');
 }
 
+/**
+ * Encode a revision for the `resolve/{rev}/…` path, preserving slashes. HF revisions can be
+ * slash-containing refs (e.g. `refs/pr/6`, or a branch named `feature/foo`) that the resolve
+ * endpoint expects as real path segments — encodeURIComponent alone would turn `/` into `%2F`
+ * and 404. Same segment-wise encoding as encodeModelPath.
+ */
+function encodeRevision(revision: string): string {
+  return revision
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
 type RawHfConfig = {
   architectures?: string[];
   model_type?: string;
@@ -74,7 +87,7 @@ export class HuggingFaceAuthError extends Error {
  * 401/403 throw HuggingFaceAuthError; any other failure resolves to null (treat as "file absent").
  */
 async function fetchModelFile<T>(modelId: string, file: string, token?: string, revision = 'main'): Promise<T | null> {
-  const rev = encodeURIComponent(revision || 'main');
+  const rev = encodeRevision(revision || 'main');
   let response;
   try {
     response = await http.get<T>(`${HF_RESOLVE_URL}/${encodeModelPath(modelId)}/resolve/${rev}/${file}`, {
@@ -101,7 +114,7 @@ async function fetchModelTextFile(
   token?: string,
   revision = 'main'
 ): Promise<string | null> {
-  const rev = encodeURIComponent(revision || 'main');
+  const rev = encodeRevision(revision || 'main');
   let response;
   try {
     response = await http.get<string>(`${HF_RESOLVE_URL}/${encodeModelPath(modelId)}/resolve/${rev}/${file}`, {
@@ -411,7 +424,9 @@ const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
  */
 export const MODEL_PARAM_BOUNDS = {
   maxContext: { min: 1024 },
-  gpuMemoryUtilization: { min: 0, max: 1 },
+  // min is the lowest VALID fraction, not 0: claiming 0 VRAM is rejected, so the slider must not
+  // offer it and validation floors at this value. One 0.05 step above zero.
+  gpuMemoryUtilization: { min: 0.05, max: 1 },
 } as const;
 
 /** Map an HF quantization method to our enum; null when none/unrecognized (field then stays user-editable). */

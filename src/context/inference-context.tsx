@@ -253,10 +253,13 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     if (Number.isFinite(duration) && duration > 0) {
       setJobDurationSeconds(duration);
     }
-    const params = decodeModelParams(q.params);
-    if (Object.keys(params).length > 0) {
-      setModelParamsByModel(params);
-    }
+    // Reset to exactly what the URL carries (even when it carries nothing). The Provider is mounted
+    // once and never remounts, so re-hydrating on a client-side nav must overwrite the prior
+    // selection's params — not merge onto them. Otherwise switching to another service of the SAME
+    // model id (whose Manage link carries no `params`) would leave the previous run's params live
+    // under the colliding model-id key, and the manage page's dockerCmd seed (which refuses to
+    // overwrite an already-set key) could never correct it.
+    setModelParamsByModel(decodeModelParams(q.params));
 
     // Each restore reports whether it fully succeeded, so we can tell "URL carried a selection we
     // failed to rebuild" (a real error — don't bounce the user) from "URL had nothing to restore".

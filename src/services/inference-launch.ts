@@ -139,8 +139,12 @@ export function parseVllmCommand(cmd: string[]): { modelId: string | null; param
 export function buildUserData(params: ModelParameters, hfToken: string): Record<string, string> {
   const userData: Record<string, string> = {};
   for (const { key, value } of params.customParams) {
-    if (key) {
-      userData[key] = value;
+    // Trim the key — the form validates uniqueness/non-emptiness on the trimmed key, so a stray
+    // leading/trailing space would otherwise reach the container as a distinct env-var name (e.g.
+    // "HF_TOKEN ") that silently never sets the intended variable.
+    const trimmedKey = key.trim();
+    if (trimmedKey) {
+      userData[trimmedKey] = value;
     }
   }
   // Assign the dedicated HF token LAST so a stray custom param keyed HF_TOKEN can't shadow the
@@ -153,13 +157,15 @@ export function buildUserData(params: ModelParameters, hfToken: string): Record<
 
 /**
  * Expand the per-GPU-type unit selection into individual GPU resource-id requests. `gpuSelection`
- * is keyed by GPU description (as merged in useInferenceAllocation); each entry asks for N units,
- * which we satisfy by taking N gpu resources of that description. Omit / empty selection
- * means "use every GPU unit" (whole-environment allocation).
+ * is keyed by GPU description (as merged in useInferenceAllocation); each entry asks for N units.
+ * Omit / empty selection means "use every free GPU unit" (whole-environment allocation).
  *
- * Units are drawn only from ids with free capacity (max − inUse > 0) — the same free pool the
- * allocation hook counted and priced. Taking the first N ids blindly could hand the node a busy id
- * (another tenant using it) and get the whole serviceStart rejected even though N units were free.
+ * Units are counted the same way the allocation hook prices them: a resource id contributes
+ * `getAvailableAmount(id)` (max − inUse) UNITS, which may be >1 for a pooled id. We draw the
+ * requested units from the free ids of a type, taking up to each id's free amount before moving to
+ * the next id — so a single pooled id with 4 free units satisfies a 4-unit pick as `{id, amount:4}`,
+ * matching what was priced/escrowed. Requesting per-id blindly (amount:1 each) would disagree with
+ * the pricing whenever an id advertises more than one free unit.
  *
  * Throws if the selection can't be satisfied from the free pool — an unknown description, or more
  * units requested than are free for a type. Silently truncating would launch (and provision) FEWER
@@ -174,9 +180,9 @@ function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelect
 
   const freeGpus = gpus.filter((gpu) => getAvailableAmount(gpu) > 0);
 
-  // No explicit selection → request every free GPU unit.
+  // No explicit selection → request every free GPU unit across all ids.
   if (!gpuSelection || Object.keys(gpuSelection).length === 0) {
-    return freeGpus.map((gpu) => ({ id: gpu.id, amount: 1 }));
+    return freeGpus.map((gpu) => ({ id: gpu.id, amount: getAvailableAmount(gpu) }));
   }
 
   const requests: ComputeResourceRequest[] = [];
@@ -185,14 +191,21 @@ function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelect
       continue;
     }
     const ofType = freeGpus.filter((gpu) => (gpu.description || 'GPU') === key);
-    if (ofType.length < units) {
+    const freeUnits = ofType.reduce((sum, gpu) => sum + getAvailableAmount(gpu), 0);
+    if (freeUnits < units) {
       throw new Error(
-        `Cannot allocate ${units} × "${key}" GPU${units > 1 ? 's' : ''}: only ${ofType.length} free right now. Try reducing your selection.`
+        `Cannot allocate ${units} × "${key}" GPU${units > 1 ? 's' : ''}: only ${freeUnits} free right now. Try reducing your selection.`
       );
     }
-    // Take the first `units` FREE resource ids of this description; each GPU unit is amount 1.
-    for (let i = 0; i < units; i++) {
-      requests.push({ id: ofType[i].id, amount: 1 });
+    // Draw `units` from the free pool of this type, taking up to each id's free amount in turn.
+    let remaining = units;
+    for (const gpu of ofType) {
+      if (remaining <= 0) {
+        break;
+      }
+      const take = Math.min(remaining, getAvailableAmount(gpu));
+      requests.push({ id: gpu.id, amount: take });
+      remaining -= take;
     }
   }
   return requests;
@@ -212,6 +225,7 @@ export function buildInferenceStartParams({
   model,
   params,
   selectedEnv,
+  gpuSelection,
   allocation,
   durationSeconds,
   tokenAddress,
@@ -220,6 +234,12 @@ export function buildInferenceStartParams({
   model: HuggingFaceModel;
   params: ModelParameters;
   selectedEnv: SelectedInferenceEnv;
+  /**
+   * Per-type unit counts to actually request — pass the allocation hook's RESOLVED selectedByKey so
+   * the launch requests exactly what was priced/escrowed. Falls back to selectedEnv.gpuSelection,
+   * but that can be `{}` (whole-env hydrate) which buildGpuRequests reads as "every free GPU".
+   */
+  gpuSelection?: GpuSelection;
   allocation: Allocation;
   durationSeconds: number;
   tokenAddress: string;
@@ -231,7 +251,7 @@ export function buildInferenceStartParams({
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
     { id: resourceId(envResources, 'ram'), amount: allocation.ram },
     { id: resourceId(envResources, 'disk'), amount: allocation.disk },
-    ...buildGpuRequests(envResources, selectedEnv.gpuSelection),
+    ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
   ];
 
   return {
