@@ -39,9 +39,8 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
   const { resolved, loading: resolvingEnv, loadError: envError, retry } = env;
   const serviceModels: ServiceModel[] = useMemo(() => (pkg ? [{ model: pkg.model, params: pkg.params }] : []), [pkg]);
 
-  // The picked env's paid service-on-demand window. The node sets expiresAt = now + duration and
-  // sweeps a below-min job to Expired almost immediately, so the duration must stay inside these
-  // bounds. Unset bounds fall back to 0 / Infinity. Same rule the custom flow enforces.
+  // Paid service-on-demand window. The node sweeps a below-min job to Expired almost immediately, so
+  // duration must stay in bounds. Unset bounds fall back to 0 / Infinity. Same rule as the custom flow.
   const durationMin = resolved?.env.environment.minJobDuration ?? 0;
   const durationMax = resolved?.env.environment.maxJobDuration ?? Infinity;
 
@@ -128,7 +127,9 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
               <Button
                 color="accent1"
                 contentBefore={<TuneOutlinedIcon />}
-                disabled={!resolved || !!durationError}
+                // Customize lands on the custom flow's env-selection step, so it doesn't need the
+                // pinned env to resolve. (durationError is only set once resolved, so it still guards.)
+                disabled={!!durationError}
                 onClick={onCustomize}
                 variant="outlined"
               >

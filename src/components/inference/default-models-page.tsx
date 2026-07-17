@@ -14,10 +14,9 @@ import { useEffect, useState } from 'react';
 import styles from './default-models-page.module.css';
 
 /**
- * Quick start: pick a curated package (model + engine preset + a pinned environment), review
- * what's inside, then go straight to payment. The environment is baked into the package and
- * resolved live by id — so the only decisions left are the package and how long it runs.
- * "Advanced flow" hands the same selection to the custom-model flow for full control.
+ * Quick start: pick a curated package (model + engine preset + pinned env), review it, go straight
+ * to payment. Env is baked into the package and resolved live by id. "Advanced flow" hands the same
+ * selection to the custom-model flow for full control.
  */
 const DefaultModelsPage: React.FC = () => {
   const router = useRouter();
@@ -34,8 +33,7 @@ const DefaultModelsPage: React.FC = () => {
   const [packages, setPackages] = useState<InferencePackage[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState<InferencePackage | null>(null);
-  // Duration is edited in the details modal but stays local until Continue/Customize — nothing is
-  // committed to the shared flow context on a mere pick. Seeded from the default on open.
+  // Duration edited in the modal but stays local until Continue/Customize — a pick commits nothing.
   const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
 
   useEffect(() => {
@@ -51,15 +49,13 @@ const DefaultModelsPage: React.FC = () => {
     };
   }, []);
 
-  // This page always starts fresh: no package is preselected, whether entering new or via Back-nav
-  // from payment. Clear any leftover selection context from a prior run once, on mount.
+  // Always start fresh (new entry or Back-nav from payment): clear leftover selection once, on mount.
   useEffect(() => {
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Picking a package only opens its details — nothing is committed to the shared flow context until
-  // the user confirms with Continue/Customize. (Clicking the open package again just keeps it open.)
+  // Picking a package only opens its details — commits nothing until Continue/Customize.
   const selectPackage = (pkg: InferencePackage) => {
     setSelectedPackage(pkg);
     setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
@@ -68,28 +64,35 @@ const DefaultModelsPage: React.FC = () => {
   const env = usePackageEnv(selectedPackage);
   const { resolved } = env;
 
-  // Commit the picked bundle to the shared flow context and hand it off. Runs only on Continue/
-  // Customize — the downstream pages read the committed context, and the query below carries the
-  // same selection in the URL (built from overrides so it doesn't depend on the setState timing).
-  const goTo = (pathname: string) => {
-    if (!selectedPackage || !resolved) {
+  // Commit the picked bundle to context and hand off. Env/token are pre-picked only when the pinned
+  // env has resolved; the env query fields are carried on the same condition (else the custom flow
+  // starts with none pre-picked). The query is built from overrides so it doesn't depend on the
+  // setState timing. Callers gate on `resolved` themselves when the target step needs a live env.
+  const commitAndPush = (pathname: string) => {
+    if (!selectedPackage) {
       return;
     }
     setSelectedModels([selectedPackage.model]);
     setParamsForModel(selectedPackage.model.id, selectedPackage.params);
     setJobDurationSeconds(durationSeconds);
-    setSelectedEnv(resolved.env);
-    setSelectedToken(resolved.token);
+    if (resolved) {
+      setSelectedEnv(resolved.env);
+      setSelectedToken(resolved.token);
+    }
     router.push({
       pathname,
       query: buildSelectionQuery({
         models: [selectedPackage.model],
-        peerId: resolved.env.nodeInfo.id,
-        envId: resolved.env.environment.id,
-        gpuSelection: resolved.env.gpuSelection,
-        tokenAddress: resolved.token.address,
         durationSeconds,
         modelParamsByModel: { [selectedPackage.model.id]: selectedPackage.params },
+        ...(resolved
+          ? {
+              peerId: resolved.env.nodeInfo.id,
+              envId: resolved.env.environment.id,
+              gpuSelection: resolved.env.gpuSelection,
+              tokenAddress: resolved.token.address,
+            }
+          : {}),
       }),
     });
   };
@@ -97,14 +100,14 @@ const DefaultModelsPage: React.FC = () => {
   const goToPayment = () => {
     // Payment needs the resolved env; the button is disabled until it resolves, but guard anyway.
     if (selectedPackage && resolved) {
-      goTo(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`);
+      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`);
     }
   };
 
-  // Advanced handoff: same selection, full control. Lands on the env step of the custom flow with
-  // the package's model preselected, its params committed (config prefills from them) and — once
-  // the env has resolved — that env pre-picked, so "Skip" continues with the package's env.
-  const goToAdvancedFlow = () => goTo('/inference/custom-models/resources');
+  // Advanced handoff: same selection, full control. Lands on the custom flow's env-selection step, so
+  // unlike Continue/payment it does NOT need the pinned env to resolve — a failed pinned env still
+  // lets the user escape into the custom flow.
+  const goToAdvancedFlow = () => commitAndPush('/inference/custom-models/resources');
 
   return (
     <Container className="pageRoot">

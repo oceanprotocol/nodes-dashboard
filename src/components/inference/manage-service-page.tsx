@@ -65,10 +65,8 @@ const POLL_INTERVAL_MS = 4000;
 const STATUS_TIMEOUT_MS = 30000;
 
 /**
- * Statuses past which polling is pointless — the service reached a genuinely final state.
- * `Running` is deliberately NOT here: a running service can still crash (→ Error/Stopped) or hit
- * its expiry (→ Expired), so we keep polling for the whole session to catch those transitions.
- * Only a truly terminal status stops the loop.
+ * Statuses that stop the poll loop — genuinely final states. `Running` is deliberately NOT here: a
+ * running service can still crash (→ Error/Stopped) or expire (→ Expired), so we keep polling.
  */
 const TERMINAL_STATUSES = new Set<ServiceStatusNumber>([
   ServiceStatusNumber.PullImageFailed,
@@ -99,16 +97,17 @@ const DurationProgress: React.FC<{ totalSeconds: number; elapsedSeconds: number;
 }) => {
   const [elapsed, setElapsed] = useState(elapsedSeconds);
 
-  // Latest authoritative elapsed (parent recomputes it from wall-clock on every status poll). Held in
-  // a ref so the interval below can resync to it WITHOUT re-arming — depending on elapsedSeconds would
-  // tear down and rebuild the timer every poll, dropping sub-poll ticks.
+  // Authoritative elapsed (parent recomputes from wall-clock each poll). In a ref so the interval can
+  // resync WITHOUT re-arming — depending on elapsedSeconds would rebuild the timer every poll and drop
+  // sub-poll ticks. Synced in an effect (not during render) to stay concurrent-safe.
   const elapsedSecondsRef = useRef(elapsedSeconds);
-  elapsedSecondsRef.current = elapsedSeconds;
+  useEffect(() => {
+    elapsedSecondsRef.current = elapsedSeconds;
+  }, [elapsedSeconds]);
 
-  // Advance one second per tick, but never below the authoritative value: the interval free-runs and
-  // falls behind while the tab is backgrounded (browsers throttle setInterval to as little as ~1/min),
-  // so clamping up to the ref each tick corrects the stale countdown on refocus. Never rewind — the
-  // local tick can be a hair ahead of the last poll.
+  // Advance 1s/tick, clamped up to the authoritative value: the interval free-runs and falls behind
+  // while backgrounded (browsers throttle setInterval to ~1/min), so clamping corrects it on refocus.
+  // Never rewind — the local tick can be a hair ahead of the last poll.
   useEffect(() => {
     const timer = setInterval(() => {
       setElapsed((prev) => Math.min(Math.max(prev + 1, elapsedSecondsRef.current), totalSeconds));
@@ -120,8 +119,7 @@ const DurationProgress: React.FC<{ totalSeconds: number; elapsedSeconds: number;
   const percent = totalSeconds > 0 ? Math.min(100, (elapsed / totalSeconds) * 100) : 0;
   const expired = remaining <= 0;
 
-  // The local countdown reaching zero is only an estimate — tell the parent so it can re-check the
-  // real status with the node (polling stopped when the service reached Running).
+  // Local countdown hitting zero is only an estimate — tell the parent to re-check the real status.
   const expiredNotifiedRef = useRef(false);
   useEffect(() => {
     if (expired && !expiredNotifiedRef.current) {
@@ -172,35 +170,30 @@ const ManageServicePage: React.FC = () => {
   const { getServiceStatus, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeAuth();
 
-  // The real service job, polled from the node until it reaches a terminal status (Running/Failed/…).
+  // The real service job, polled from the node until terminal.
   const [job, setJob] = useState<ServiceJob | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
-  // Restart in flight — disables the button while it runs.
   const [actionLoading, setActionLoading] = useState<'restart' | null>(null);
-  // Bumped after restart to re-kick the poll loop (harmless while it's already running).
+  // Bumped after restart to re-kick the poll loop.
   const [pollEpoch, setPollEpoch] = useState(0);
-  // Logs stream on demand — revealed by the user, then live-tailed by ServiceLogsPanel.
   const [logsOpen, setLogsOpen] = useState(false);
 
   // Model/env display comes from the URL-hydrated selection — the node returns the launch command,
-  // not Hugging Face metadata, so we can't reconstruct the rich model cards from the job alone.
+  // not HF metadata, so the rich model cards can't be rebuilt from the job alone.
   const hasSelection = hydrateFromUrlFinished && selectedModels.length > 0;
 
   const nodeUri = useMemo(() => (selectedEnv ? toNodeUri(selectedEnv.nodeInfo) : null), [selectedEnv]);
   const nodePeerId = selectedEnv?.nodeInfo.id;
 
-  /**
-   * Fetch the service status once, returning true when it has reached a terminal state (stop polling).
-   */
+  /** Fetch the service status once; returns true when terminal (stop polling). */
   const fetchStatus = useCallback(async (): Promise<boolean> => {
     if (!nodeUri || !nodePeerId || !account.address || !id) {
       return false;
     }
     try {
-      // Reuse the node's cached auth token (shared with the logs stream & actions) so the 4s poll
-      // doesn't mint a fresh token every tick — concurrent token creation collides on the node's
-      // per-address nonce. withNodeAuth transparently re-mints once on a 401.
+      // Reuse the node's cached auth token so the poll doesn't mint one per tick — concurrent token
+      // creation collides on the node's per-address nonce. withNodeAuth re-mints once on a 401.
       const jobs = await withNodeAuth(nodePeerId, nodeUri, (token) =>
         withTimeout((signal) => getServiceStatus(nodeUri, token, id, signal), STATUS_TIMEOUT_MS, 'Service status')
       );
@@ -208,8 +201,6 @@ const ManageServicePage: React.FC = () => {
       setJob(found);
       setJobError(null);
       setJobLoading(false);
-      // Running is NOT terminal (see TERMINAL_STATUSES) — keep polling a running service so a later
-      // crash (Error/Stopped) or expiry (Expired) is caught. Only a final status stops the loop.
       return !!found && TERMINAL_STATUSES.has(found.status);
     } catch (error) {
       console.error('Failed to fetch service status:', error);
@@ -219,7 +210,7 @@ const ManageServicePage: React.FC = () => {
     }
   }, [nodeUri, nodePeerId, account.address, id, withNodeAuth, getServiceStatus]);
 
-  // Poll until terminal. Wait for hydration so nodeUri (from the selected env) is available.
+  // Poll until terminal. Wait for hydration so nodeUri is available.
   useEffect(() => {
     if (!hydrateFromUrlFinished || !nodeUri || !account.address) {
       return;
@@ -239,10 +230,9 @@ const ManageServicePage: React.FC = () => {
     };
   }, [hydrateFromUrlFinished, nodeUri, account.address, fetchStatus, pollEpoch]);
 
-  // Seed the payment token from the running service itself once it loads, when the URL-hydrated
-  // selection didn't carry one (e.g. token-symbol lookup failed during hydration). This is the
-  // authoritative token the service was started with, so an Edit relaunch reuses it rather than
-  // tripping the "missing payment token" guard on the payment step.
+  // Seed the payment token from the running job when the URL-hydrated selection didn't carry one (e.g.
+  // token-symbol lookup failed during hydration). Authoritative token the service started with, so an
+  // Edit relaunch reuses it instead of tripping the "missing payment token" guard on payment.
   useEffect(() => {
     const paymentToken = job?.payment?.token;
     if (!paymentToken || selectedToken?.address?.toLowerCase() === paymentToken.toLowerCase()) {
@@ -265,11 +255,10 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
-  // Seed the model launch params from the running service's own dockerCmd when the URL didn't carry
-  // them (e.g. opened from the services table, which only puts models/env/duration on the query).
-  // Recovering them from the job keeps the Model card and a prolong summary from rendering N/A, and
-  // gives an Edit relaunch the committed params it needs. Only fills a model that has none yet — a
-  // full config committed earlier in-flow always wins.
+  // Seed model launch params from the job's dockerCmd when the URL didn't carry them (e.g. opened from
+  // the services table, which only puts models/env/duration on the query). Keeps the Model card and
+  // prolong summary from rendering N/A, and gives an Edit relaunch its params. Only fills a model that
+  // has none yet — a full config committed earlier in-flow always wins.
   useEffect(() => {
     const cmd = job?.dockerCmd;
     if (!cmd || selectedModels.length === 0) {
@@ -283,9 +272,7 @@ const ManageServicePage: React.FC = () => {
     setParamsForModel(target.id, parsed.params);
   }, [job?.dockerCmd, selectedModels, modelParamsByModel, setParamsForModel]);
 
-  /**
-   * Restart the running container in place, then re-kick the status poll so the page tracks the transition (Running → Starting → Running).
-   */
+  /** Restart the container in place, then re-kick the poll to track Running → Starting → Running. */
   const runServiceAction = useCallback(
     async (action: 'restart') => {
       if (!nodeUri || !nodePeerId || !account.address || !id) {
@@ -294,8 +281,7 @@ const ManageServicePage: React.FC = () => {
       setActionLoading(action);
       setJobError(null);
       try {
-        // Same cached token as the poll loop — avoids a concurrent createAuthToken (nonce clash)
-        // when the user acts while a poll tick is in flight.
+        // Same cached token as the poll loop — avoids a concurrent createAuthToken (nonce clash).
         await withNodeAuth(nodePeerId, nodeUri, (token) => serviceRestart(nodeUri, token, id));
         setPollEpoch((epoch) => epoch + 1);
       } catch (error) {
@@ -317,11 +303,10 @@ const ManageServicePage: React.FC = () => {
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
   const gpuSelection = selectedEnv?.gpuSelection;
   const nowSeconds = Math.floor(Date.now() / 1000);
-  // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both stay
-  // consistent with the ACTUAL window — including after a Prolong/Extend, which pushes expiresAt
-  // forward while leaving job.duration at the original paid value. Falling back to job.duration for
-  // the total would make the bar/countdown wrong after an extend. Only fall back to the requested
-  // duration before the job has loaded. `expiresAt` is ms; `dateCreated` is an ISO timestamp.
+  // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both track the ACTUAL
+  // window — including after a Prolong, which pushes expiresAt forward while leaving job.duration at the
+  // original paid value (using that would make the bar wrong post-extend). Fall back to the requested
+  // duration only before the job loads. `expiresAt` is ms; `dateCreated` is an ISO timestamp.
   const jobStartSeconds = job ? Math.floor(new Date(job.dateCreated).getTime() / 1000) : 0;
   const jobExpirySeconds = job ? Math.floor(job.expiresAt / 1000) : 0;
   const durationTotalSeconds =
@@ -338,10 +323,10 @@ const ManageServicePage: React.FC = () => {
     ? getServiceStatusView(job.status, job.statusText)
     : { kind: 'pending' as const, label: jobLoading ? 'Loading…' : 'Unknown' };
   const isRunning = job?.status === ServiceStatusNumber.Running;
-  // The node refuses serviceRestart once the paid window is up — it rejects both the Expired status
-  // AND any job already past its expiry (the expiry cron flips the status asynchronously, so a
-  // service can be past expiresAt while still reading Running). Mirror that here so Edit/Restart
-  // aren't offered when the relaunch is guaranteed to fail. `expiresAt` is ms.
+  // The node refuses serviceRestart once the paid window is up — rejecting both the Expired status AND
+  // any job past expiresAt (the expiry cron flips status asynchronously, so a service can be past
+  // expiresAt while still reading Running). Mirror it so Edit/Restart aren't offered when doomed to
+  // fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
   const canEdit = !!job && !isExpired;
   const canRestart = !!job && !isExpired;
@@ -349,12 +334,11 @@ const ManageServicePage: React.FC = () => {
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
 
   /**
-   * Edit → back to the model-selection step with the whole selection preselected on the query.
-   * The `edit` flag makes the flow skip env selection & payment (same env, no re-pay) — see payment-page.
+   * Edit → back to model-selection with the whole selection on the query. The `edit` flag skips env
+   * selection & payment (same env, no re-pay) — see payment-page.
    */
   const onEdit = () => {
-    // Relaunch would be rejected by the node once expired — the button is disabled then, but guard
-    // the handler too so a stale render can't fire it.
+    // Node rejects relaunch once expired — button is disabled, but guard so a stale render can't fire.
     if (!canEdit) {
       return;
     }
@@ -364,30 +348,27 @@ const ManageServicePage: React.FC = () => {
     });
   };
 
-  /**
-   * The local countdown hitting zero is only an estimate — the node's expiry cron flips the status
-   * asynchronously. Bump pollEpoch to re-kick the loop for an immediate status re-check (instead of
-   * waiting up to POLL_INTERVAL_MS) so the page tracks Running → Expired promptly.
-   */
+  // Local countdown hitting zero is only an estimate — bump pollEpoch for an immediate status re-check
+  // (vs. waiting up to POLL_INTERVAL_MS) so Running → Expired is tracked promptly.
   const onLocalExpiry = useCallback(() => {
     setPollEpoch((epoch) => epoch + 1);
   }, []);
 
   /**
-   * Prolong → straight to payment for the extra runtime only.
-   * Same selection (env/token/gpu/models), duration overridden to the chosen extra time;
-   * the `prolong` flag skips the earlier steps and reuses the same price formula. See payment-page.
+   * Prolong → straight to payment for the extra runtime only. Same selection (env/token/gpu/models),
+   * duration overridden to the extra time; the `prolong` flag skips earlier steps and reuses the same
+   * price formula. See payment-page.
    */
   const onProlong = (extraSeconds: number) => {
-    // The prolong payment page needs the token in the query to rehydrate on a hard reload; it's
-    // seeded from the running job, so wait until that's in before navigating (button is also gated).
+    // Prolong payment needs the token in the query to rehydrate on a hard reload; it's seeded from the
+    // running job, so wait until that's in (button is also gated).
     if (!selectedToken) {
       setJobError('Loading service details — try again in a moment.');
       return;
     }
     setProlongOpen(false);
-    // Provider persists across client-side nav, so URL hydration won't re-run on the payment page —
-    // push the chosen duration straight into context (the query keeps it for a hard reload).
+    // Provider persists across client-side nav, so URL hydration won't re-run — push duration straight
+    // into context (query keeps it for a hard reload).
     setJobDurationSeconds(extraSeconds);
     router.push({
       pathname: '/inference/custom-models/payment',
@@ -509,8 +490,8 @@ const ManageServicePage: React.FC = () => {
             <div className={styles.howToHead}>
               <h3>How to use</h3>
               {baseUrl && !isExpired ? (
-                // vLLM runs on FastAPI, which serves interactive Swagger docs at /docs — the live,
-                // model-accurate source of truth for every route this container exposes.
+                // vLLM (FastAPI) serves interactive Swagger docs at /docs — live source of truth for
+                // every route this container exposes.
                 <a className={styles.docsLink} href={`${baseUrl}/docs`} rel="noreferrer" target="_blank">
                   Service API docs
                   <OpenInNewIcon fontSize="inherit" />

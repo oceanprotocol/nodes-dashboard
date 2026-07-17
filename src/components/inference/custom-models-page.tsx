@@ -50,18 +50,16 @@ const CustomModelsPage: React.FC = () => {
   } = useInferenceContext();
 
   /**
-   * Single-model flow: selecting a model REPLACES the current selection (one model + one vLLM instance).
-   * Clicking the already-selected model deselects it. selectSingleModel also prunes the previous
-   * model's committed params, so switching A → B → A can't restore A's stale launch settings.
-   * Keeps context an array for compatibility, but the flow only ever carries one entry.
+   * Single-model flow: selecting a model REPLACES the selection. Clicking the selected model
+   * deselects it. selectSingleModel also prunes the previous model's committed params, so
+   * A → B → A can't restore A's stale launch settings.
    */
   const selectModel = (model: HuggingFaceModel) => {
     selectSingleModel(model);
   };
-  // Editing a running service: skip the env step (same env) and go straight to config on Continue.
+  // Edit mode skips env step (same env) → straight to config on Continue.
   const isEditMode = router.query.edit === '1';
-  // Clear any leftover selection from a prior run when entering the picker fresh (no selection in the
-  // URL). A Back-navigation into the picker carries `models` in the query, so that case is preserved.
+  // Fresh entry (no `models` in URL): clear leftover selection. Back-nav carries `models`, so preserved.
   const freshEntryHandledRef = useRef(false);
   useEffect(() => {
     if (freshEntryHandledRef.current || !router.isReady || !hydrateFromUrlFinished) {
@@ -86,11 +84,12 @@ const CustomModelsPage: React.FC = () => {
   const [pipelineTags, setPipelineTags] = useState<PipelineTag[]>(FALLBACK_PIPELINE_TAGS);
   const [showAllTags, setShowAllTags] = useState(false);
 
-  // Latest filter values, readable inside an in-flight loadMore. Its guard can't compare captured
-  // closure vars against themselves (always equal) — it must compare the request's snapshot against
-  // the live filter, so a filter change mid-request drops the now-stale page instead of appending it.
+  // Live filter values, read inside an in-flight loadMore to detect a mid-request filter change and
+  // drop the now-stale page. Synced in an effect (not during render) to stay concurrent-safe.
   const filterRef = useRef({ query, activeTag, sort });
-  filterRef.current = { query, activeTag, sort };
+  useEffect(() => {
+    filterRef.current = { query, activeTag, sort };
+  }, [query, activeTag, sort]);
 
   useEffect(() => {
     const handle = setTimeout(() => setQuery(searchInput), 400);
@@ -150,8 +149,7 @@ const CustomModelsPage: React.FC = () => {
       return;
     }
     const request = { query, activeTag, sort };
-    // The filter changed while this page was in flight — its result belongs to a stale filter and
-    // must be dropped (not appended / shown as an error) whether the fetch resolved or threw.
+    // Filter changed mid-flight → drop the result (don't append or show as error).
     const isStale = () =>
       request.query !== filterRef.current.query ||
       request.activeTag !== filterRef.current.activeTag ||

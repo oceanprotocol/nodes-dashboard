@@ -14,6 +14,7 @@ export type ButtonProps = {
   disabled?: boolean;
   href?: string;
   id?: string;
+  /** Loading state; Shows spinner inside the button and disables it */
   loading?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   target?: '_blank' | '_self';

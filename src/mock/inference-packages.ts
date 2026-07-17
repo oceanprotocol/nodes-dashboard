@@ -2,18 +2,18 @@ import { getSupportedTokens } from '@/constants/tokens';
 import { InferencePackage } from '@/types/inference';
 
 /**
- * Curated quick-start packages. MOCK DATA — the backend doesn't serve packages yet; swap
- * fetchInferencePackages for the real API call when it lands. Model ids are real, ungated Hugging
- * Face repos so URL hydration (which re-fetches models by id on a hard reload) works.
+ * Curated quick-start packages. MOCK DATA — backend doesn't serve packages yet; swap
+ * fetchInferencePackages for the real API when it lands. Model ids are real, ungated HF repos so URL
+ * hydration (re-fetches models by id on hard reload) works.
  *
- * Each package pins a concrete environment by id (peer + env prefix + per-type GPU selection) —
- * the same selection the custom flow commits, but hardcoded. The live env is resolved from the
- * environments API at selection time. The pinned envs below are real Base-chain service nodes
- * (H200 pool); repoint them if the fleet changes.
+ * Each package pins a concrete env by id (peer + env prefix + GPU selection) — same as the custom
+ * flow commits, but hardcoded; resolved live from the environments API at selection time. Repoint the
+ * env below (and gpuSelection key) if the fleet changes.
  */
 const USDC = getSupportedTokens().USDC.address;
 
-// A node advertising 8× H200, service-on-demand capable.
+// Real service-on-demand node. Advertises its GPU as description "NVIDIA Tesla T4" — the gpuSelection
+// keys below must match that string exactly or buildGpuRequests can't resolve them.
 const NODE_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';
 const NODE_ENV_ID_PREFIX = '0xff1004b67de08fc505fbf0a2089010d0f23015338c7def8557697513c4a39935';
 
@@ -32,7 +32,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       maxContext: 32768,
       gpuMemoryUtilization: 0.9,
       quantization: 'none',
-      dtype: 'auto',
+      dtype: 'float16',
       kvCacheDtype: 'auto',
       trustRemoteCode: false,
       enforceEager: false,
@@ -61,7 +61,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       maxContext: 32768,
       gpuMemoryUtilization: 0.9,
       quantization: 'none',
-      dtype: 'auto',
+      dtype: 'float16',
       kvCacheDtype: 'auto',
       trustRemoteCode: false,
       enforceEager: false,
@@ -90,7 +90,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       maxContext: 32768,
       gpuMemoryUtilization: 0.9,
       quantization: 'none',
-      dtype: 'auto',
+      dtype: 'float16',
       kvCacheDtype: 'auto',
       trustRemoteCode: false,
       enforceEager: false,
@@ -119,7 +119,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       maxContext: 16384,
       gpuMemoryUtilization: 0.85,
       quantization: 'none',
-      dtype: 'auto',
+      dtype: 'float16',
       kvCacheDtype: 'auto',
       trustRemoteCode: true,
       enforceEager: false,

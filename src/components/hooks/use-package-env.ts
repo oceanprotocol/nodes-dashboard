@@ -2,10 +2,14 @@ import { getApiRoute } from '@/config';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
+import { withTimeout } from '@/lib/with-timeout';
 import { NodeEnvironments } from '@/types/environments';
 import { InferencePackage } from '@/types/inference';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
+
+// Cap the environments lookup so a hung indexer can't keep the package modal on "loading" forever.
+const ENV_FETCH_TIMEOUT_MS = 30000;
 
 export type ResolvedPackageEnv = {
   env: SelectedInferenceEnv;
@@ -13,11 +17,10 @@ export type ResolvedPackageEnv = {
 };
 
 /**
- * Resolve the live environment a package pins. The package stores only ids (peer + env prefix +
- * per-type GPU selection + token); this fetches the node's environments and rebuilds the same
- * SelectedInferenceEnv shape the custom flow commits — so the payment page prices, escrows and
- * launches against the real env. Mirrors the env restore in inference-context's URL hydration:
- * match the env by its stable id prefix (the suffix rotates per epoch).
+ * Resolve the live environment a package pins. The package stores only ids (peer + env prefix + GPU
+ * selection + token); this fetches the node's environments and rebuilds the SelectedInferenceEnv the
+ * custom flow commits, so the payment page prices/escrows/launches against the real env. Matches the
+ * env by its stable id prefix (the suffix rotates per epoch), like inference-context's URL hydration.
  */
 const usePackageEnv = (pkg: InferencePackage | null) => {
   const [resolved, setResolved] = useState<ResolvedPackageEnv | null>(null);
@@ -32,6 +35,9 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
       return;
     }
     let cancelled = false;
+    // Aborts the in-flight request on effect re-run / unmount (modal closed, package switched), on top
+    // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
+    const cleanupController = new AbortController();
     const { peerId, envIdPrefix, gpuSelection, tokenAddress } = pkg.env;
 
     async function resolve() {
@@ -39,12 +45,19 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
       setLoadError(null);
       setResolved(null);
       try {
-        const response = await axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
-          params: {
-            filters: JSON.stringify({ id: { operator: 'eq', value: peerId } }),
-            size: 1000,
-          },
-        });
+        const response = await withTimeout(
+          (timeoutSignal) =>
+            axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
+              params: {
+                filters: JSON.stringify({ id: { operator: 'eq', value: peerId } }),
+                size: 1000,
+              },
+              // Abort on whichever fires first: the timeout, or effect cleanup.
+              signal: AbortSignal.any([timeoutSignal, cleanupController.signal]),
+            }),
+          ENV_FETCH_TIMEOUT_MS,
+          'Package environment lookup'
+        );
         const node = response.data.envs.find((n) => n.id === peerId);
         const envs = node?.computeEnvironments.environments ?? [];
         const environment = envs.find((env) => env.id.split('-')[0] === envIdPrefix);
@@ -88,6 +101,7 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
     resolve();
     return () => {
       cancelled = true;
+      cleanupController.abort();
     };
   }, [pkg, fetchEpoch]);
 

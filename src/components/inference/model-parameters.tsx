@@ -81,16 +81,15 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
 // renders `errors.customParams[i].key`). Typed loosely so both can coexist on one errors object.
 type ParamErrors = Record<string, unknown>;
 
-// `contextCeiling` is the model's reported max (null when HF reports none — the field is then a free,
-// optional input). `contextFloor` is the effective lower bound (lowered to the model's max for a
-// sub-floor model). Both passed in because they're component state, not static bounds.
+// `contextCeiling` is the model's reported max (null when HF reports none → free optional input).
+// `contextFloor` is the effective lower bound. Passed in because they're component state, not static.
 function validateParams(v: ModelParametersType, contextCeiling: number | null, contextFloor: number): ParamErrors {
   const errors: ParamErrors = {};
   if (!v.servedModelName.trim()) {
     errors.servedModelName = 'Required.';
   }
-  // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and, when
-  // the model reports a ceiling, stay within it.
+  // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and (when
+  // the model reports a ceiling) stay within it.
   if (v.maxContext != null) {
     if (v.maxContext < contextFloor) {
       errors.maxContext = `Must be at least ${contextFloor} (or leave blank to let vLLM decide).`;
@@ -144,10 +143,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   ref
 ) {
   const { hfToken, selectedModels, modelParamsByModel } = useInferenceContext();
-  // `config` tracks the LATEST fetched facts (drives the locked ceiling/quant + tool visibility).
-  // `defaultsConfig` is the baseline the form's default values are built from — frozen except on the
-  // first load and an explicit "Reload defaults", so a revision-blur refresh can update the facts
-  // without reinitializing formik and silently wiping the user's uncommitted edits.
+  // `config` = LATEST fetched facts (drives locked ceiling/quant + tool visibility). `defaultsConfig`
+  // = baseline the form defaults build from — frozen except on first load and explicit "Reload
+  // defaults", so a revision-blur refresh updates facts without reinitializing formik and wiping edits.
   const [config, setConfig] = useState<HuggingFaceModelConfig | null>(null);
   const [defaultsConfig, setDefaultsConfig] = useState<HuggingFaceModelConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -158,8 +156,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const [open, setOpen] = useState(defaultOpen);
-  // Guards the one-time initial load: loadConfig's identity now changes when hfToken does, so we
-  // can't rely on an empty/[loadConfig] dep array to fire it exactly once — this ref does.
+  // Guards the one-time initial load: loadConfig's identity changes with hfToken, so a [loadConfig]
+  // dep can't fire it exactly once — this ref does.
   const initialLoadStartedRef = useRef(false);
 
   const loadConfig = useCallback(
@@ -200,7 +198,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             return;
           }
           if (error instanceof HuggingFaceAuthError) {
-            // Gated/private model — distinguish "no token yet" from "token supplied but rejected".
+            // Gated/private — distinguish "no token yet" from "token supplied but rejected".
             setAuthState(error.tokenProvided ? 'rejected' : 'missing');
             setReloadStatus(isReload ? 'error' : 'idle');
           } else {
@@ -225,9 +223,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     [hfToken, modelId]
   );
 
-  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a
-  // token edit). Token/revision changes reload via the explicit "Reload defaults" button; typing in
-  // the token field must NOT auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a token
+  // edit). Reloads happen via the explicit "Reload defaults" button — typing the token must NOT
+  // auto-refetch, which would reset the baseline and wipe uncommitted edits.
   useEffect(() => {
     if (initialLoadStartedRef.current) {
       return;
@@ -236,22 +234,19 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     return loadConfig({ isReload: false, resetDefaults: true });
   }, [loadConfig]);
 
-  // Editing the shared token invalidates the last reload result — clear the transient feedback so a
-  // stale "reloaded"/"rejected" notice doesn't linger until the user clicks Reload again.
+  // Editing the token invalidates the last reload result — clear transient feedback so a stale
+  // "reloaded"/"rejected" notice doesn't linger.
   useEffect(() => {
     setReloadStatus('idle');
   }, [hfToken]);
 
-  // HF model facts that lock fields the user cannot freely change. The context ceiling is the model's
-  // own reported max, used verbatim — NEVER raised above the model's real capability. null when HF
-  // reports nothing: the field becomes a free/blank input and launch omits --max-model-len so vLLM
-  // derives the real length from the model config.
+  // Model's own reported max context, used verbatim — NEVER raised above its real capability. null
+  // when HF reports nothing: the field goes free/blank and launch omits --max-model-len (vLLM derives it).
   const contextCeiling = useMemo(() => config?.maxContext ?? null, [config?.maxContext]);
 
-  // Effective lower bound for the max-context field. Normally the static floor, but a model whose
-  // reported max is BELOW that floor lowers it to the model's max — so the valid range collapses to
-  // that single value and the user can set exactly what the model accepts, never more (see
-  // MODEL_PARAM_BOUNDS). No ceiling reported → the nominal floor applies to a pinned value.
+  // Effective lower bound for max-context. Normally the static floor, but a model whose reported max
+  // is BELOW the floor lowers it to that max — so the range collapses to the single value the model
+  // accepts (see MODEL_PARAM_BOUNDS). No ceiling → nominal floor applies to a pinned value.
   const contextFloor = useMemo(
     () => (contextCeiling != null ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling) : MODEL_PARAM_BOUNDS.maxContext.min),
     [contextCeiling]
@@ -266,10 +261,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const isGenerative = isGenerativePipeline(pipelineTag);
   const showTools = isGenerative && !!config?.supportsTools;
 
-  // Prefill from previously committed/restored context params (returning to the step or after a
-  // refresh rehydrates them); else HF-derived defaults. Keyed on this model's params specifically so
-  // an unrelated model's commit doesn't reinitialize this card. Defaults are spread underneath so a
-  // params object hydrated from an older URL that lacks newer fields is completed, not left partial.
+  // Prefill from committed/restored context params (else HF-derived defaults). Keyed on this model's
+  // params so an unrelated model's commit doesn't reinitialize this card. Defaults spread underneath
+  // so a params object from an older URL lacking newer fields is completed, not left partial.
   const committedParams = modelParamsByModel[modelId];
   const initialValues = useMemo(
     () =>
@@ -308,8 +302,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     );
   };
 
-  // Re-fetch HF defaults for the current token + pinned revision, then reset the form to them.
-  // The entered revision is preserved — buildDefaults blanks it, but it's what we just fetched against.
+  // Re-fetch HF defaults for the current token + pinned revision, then reset the form to them. The
+  // entered revision is preserved — buildDefaults blanks it, but it's what we just fetched against.
   const reloadDefaults = () => {
     const revision = formik.values.revision;
     loadConfig({
@@ -325,8 +319,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     });
   };
 
-  // Pinning a new revision refreshes the model facts (locked ceiling/quant) without touching the
-  // user's edits — resetDefaults=false keeps the form baseline frozen so formik doesn't reinitialize.
+  // Pinning a new revision refreshes model facts (locked ceiling/quant) without touching edits —
+  // resetDefaults=false keeps the form baseline frozen so formik doesn't reinitialize.
   const handleRevisionBlur = () => {
     loadConfig({
       revision: formik.values.revision,
@@ -342,8 +336,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       validateAndGet: async () => {
         const errors = await formik.validateForm();
         if (Object.keys(errors).length > 0) {
-          // Mark every errored field touched so its message shows. customParams errors are a
-          // per-row array — mirror that shape so Formik surfaces each row's key error.
+          // Mark every errored field touched so its message shows. customParams errors are a per-row
+          // array — mirror that shape so Formik surfaces each row's key error.
           const touched = Object.keys(errors).reduce<Record<string, unknown>>((acc, key) => {
             if (key === 'customParams' && Array.isArray(errors.customParams)) {
               acc.customParams = (errors.customParams as unknown[]).map((rowError) => (rowError ? { key: true } : {}));
@@ -371,7 +365,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     }
   }, [showTools, formik]);
 
-  // Full-card spinner only on the first load; later reloads (e.g. after a token) keep the form visible.
+  // Full-card spinner only on first load; later reloads keep the form visible.
   if (loading && !config && authState === 'none' && !loadError) {
     return (
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -419,8 +413,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       </div>
       <Collapse in={open} unmountOnExit>
         <section className={styles.section}>
-          {/* Custom parameters — arbitrary key/value pairs (env-var style). No fixed schema; any
-              param can be set on any model. Only rule: non-empty, unique keys. */}
+          {/* Custom parameters — arbitrary key/value pairs (env-var style). Only rule: non-empty, unique keys. */}
           <div className={styles.subsection}>
             <div className={styles.subsectionHead}>
               <div>

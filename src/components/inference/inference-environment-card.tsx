@@ -99,12 +99,12 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   });
 
   // Seed the local chips once the types are known: restore a prior pick for this env, or default to
-  // all pickable units. Clamp to what's actually free — a restored pick can exceed current availability.
+  // all pickable units. Clamp to what's free — a restored pick can exceed current availability.
   useEffect(() => {
     if (!isControlled && ownSelection === null && mergedGpus.length > 0) {
       const seeded: GpuSelection = {};
-      // Fill types in declared order up to the combined shared-resource budget, so the default seed
-      // never sums past what CPU/RAM/disk can back (per-type maxByKey is now an independent ceiling).
+      // Fill types in declared order up to the combined shared-resource budget, so the seed never sums
+      // past what CPU/RAM/disk can back (per-type maxByKey is an independent ceiling).
       let remaining = Math.max(0, maxUnitsByResources);
       mergedGpus.forEach((g) => {
         const cap = Math.min(maxByKey[g.key] ?? 0, remaining);
@@ -119,8 +119,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const editable = !isControlled && !!onSelect;
 
-  // Paid service-on-demand job-duration window (inference always uses a paid token → top-level
-  // bounds, not `free.*`). Shown next to the select button so the user knows the valid range.
+  // Paid service-on-demand job-duration window (inference always uses a paid token → top-level bounds).
+  // Shown next to the select button so the user knows the valid range.
   const durationRangeText = useMemo(() => {
     const min = environment.minJobDuration;
     const max = environment.maxJobDuration;
@@ -152,22 +152,22 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     if (!hasGpus) {
       return null;
     }
-    // Units already committed to OTHER types; what the shared CPU/RAM/disk budget can still back for
-    // this type is the leftover after them. Keeps the COMBINED pick within maxUnitsByResources without
-    // reserving budget per type up front (which would wrongly starve later types).
+    // For each type, the shared CPU/RAM/disk budget left after units committed to OTHER types. Keeps
+    // the COMBINED pick within maxUnitsByResources without reserving budget per type up front (which
+    // would wrongly starve later types).
     return mergedGpus.map((gpu) => {
       const chosen = selectedByKey[gpu.key] ?? 0;
       const othersSelected = selectedTotal - chosen;
       const budgetForThisType = Math.max(0, maxUnitsByResources - othersSelected);
-      // Pickable ceiling = this type's own free units, capped by the shared budget left after other types.
+      // Pickable = this type's own free units, capped by the shared budget left after other types.
       const pickable = Math.min(maxByKey[gpu.key] ?? 0, budgetForThisType);
       return (
         <div className={styles.gpuType} key={gpu.key}>
           <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />
           {editable ? (
             <div className={styles.counts}>
-              {/* All units shown; counts above what's currently free are disabled (units in use, or
-                  not enough shared CPU/RAM/disk to back them) with a tooltip explaining why. */}
+              {/* All units shown; counts above what's free are disabled (in use, or not enough shared
+                  CPU/RAM/disk) with a tooltip explaining why. */}
               {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => {
                 const disabled = n > pickable;
                 const button = (
@@ -186,8 +186,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                     ? 'This many units are currently in use.'
                     : 'Not enough shared CPU/ RAM/ disk to back this many units right now.';
                 return disabled ? (
-                  // Disabled buttons don't emit pointer/focus events, so wrap in a focusable span
-                  // (tabIndex + aria-label) — keeps the tooltip reason reachable by keyboard and screen readers.
+                  // Disabled buttons emit no pointer/focus events — focusable span (tabIndex +
+                  // aria-label) keeps the tooltip reason reachable by keyboard and screen readers.
                   <Tooltip key={n} title={disabledReason}>
                     <span tabIndex={0} aria-label={`${n}x — ${disabledReason}`}>
                       {button}
@@ -277,8 +277,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
           ) : null}
           {onSelect ? (
             <Tooltip title={selectBlockedReason ?? ''}>
-              {/* When the button is disabled it swallows focus/pointer events; a focusable, labelled
-                  wrapper keeps the blocked reason reachable by keyboard and screen readers. */}
+              {/* Disabled button swallows focus/pointer events — focusable, labelled wrapper keeps the
+                  blocked reason reachable by keyboard and screen readers. */}
               <span
                 className="flexColumn"
                 tabIndex={selectBlockedReason ? 0 : undefined}
