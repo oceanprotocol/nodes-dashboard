@@ -156,6 +156,62 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
+  // without a complete selection: no models → picker, no env → resources, unconfigured model → config.
+  // Skipped when hydration failed — we show a retry instead of discarding the URL selection.
+  useEffect(() => {
+    if (!isCustomModelFlow || !hydrateFromUrlFinished || hydrationFailed) {
+      return;
+    }
+    const info = await loadPaymentInfo();
+    if (!info) {
+      throw new Error('Failed to load payment info.');
+    }
+    const tokenAddress = selectedToken.address;
+    const auth = info.authorizations;
+    const depositAmount = roundTokenAmount(Math.max(0, totalCost - info.escrowBalance), tokenAddress, 'up');
+    const currentLockedAmount = Number(auth?.currentLockedAmount ?? 0);
+    const requiredMaxLocked = roundTokenAmount(totalCost + currentLockedAmount, tokenAddress, 'up');
+    const sufficientAuthorization =
+      !!auth &&
+      roundTokenAmount(Number(auth.maxLockedAmount), tokenAddress) >= requiredMaxLocked &&
+      Number(auth.maxLockSeconds) >= escrowLockSeconds &&
+      Number(auth.currentLocks) < Number(auth.maxLockCounts);
+    if (depositAmount <= 0 && sufficientAuthorization) {
+      return;
+    }
+    if (info.walletBalance < depositAmount) {
+      throw new Error(
+        `Insufficient wallet balance: need ${depositAmount} more in escrow but only ${info.walletBalance} available.`
+      );
+    }
+    // Re-authorizing overwrites the previous grant, so the new one must cover both the running
+    // locks and this payment, keep at least the lock window this service needs, and never shrink
+    // limits already granted. Lock count always leaves a free slot (run-job formula).
+    const maxLockedAmount = Math.max(
+      requiredMaxLocked,
+      roundTokenAmount(Number(auth?.maxLockedAmount ?? 0), tokenAddress)
+    );
+    const maxLockSeconds = Math.max(Math.ceil(escrowLockSeconds), Number(auth?.maxLockSeconds ?? 0));
+    const maxLockCount = Math.max(
+      DEFAULT_MAX_LOCK_COUNT,
+      Number(auth?.currentLocks ?? 0) + 1,
+      Number(auth?.maxLockCounts ?? 0)
+    );
+    const paid = await handlePay({
+      tokenAddress,
+      peerId: selectedEnv.nodeInfo.id,
+      spender: selectedEnv.environment.consumerAddress,
+      depositAmount: depositAmount.toString(),
+      maxLockedAmount: maxLockedAmount.toString(),
+      maxLockSeconds: maxLockSeconds.toString(),
+      maxLockCount: maxLockCount.toString(),
+    });
+    if (!paid) {
+      throw new Error('Escrow payment was not completed.');
+    }
+  }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay]);
+
+  // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
   // without a complete selection. Skipped when hydration failed — we show a retry instead of
   // discarding the URL selection.
   //   - Quick start: the whole selection (package + auto-matched env) is committed on the package
