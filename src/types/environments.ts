@@ -44,6 +44,11 @@ export type ComputeEnvironment = {
   consumerAddress: string;
   description?: string;
   enableNetwork?: boolean;
+  /** Capability flags enabled on the node */
+  features?: {
+    /** `services` gates service-on-demand (long-lived containers, e.g. vLLM inference) */
+    services?: boolean
+  };
   fees?: ComputeEnvFeesStructure;
   free?: {
     access?: EnvironmentAccess;

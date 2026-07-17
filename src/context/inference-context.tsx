@@ -21,6 +21,8 @@ export type InferenceSelectionQuery = Partial<{
   params: string;
   /** '1' when re-entering the flow to edit a running service — skips env selection & payment. */
   edit: string;
+  /** Running service being edited/prolonged — target of serviceExtend / stop-on-relaunch. */
+  serviceId: string;
 }>;
 
 export type SelectedInferenceEnv = {
@@ -34,6 +36,8 @@ type InferenceContextType = {
   selectedModels: HuggingFaceModel[];
   setSelectedModels: (models: HuggingFaceModel[]) => void;
   toggleModel: (model: HuggingFaceModel) => void;
+  /** Replace the whole selection with a single model (or clear it), pruning deselected models' params. */
+  selectSingleModel: (model: HuggingFaceModel) => void;
   isModelSelected: (modelId: string) => boolean;
   selectedEnv: SelectedInferenceEnv | null;
   setSelectedEnv: (env: SelectedInferenceEnv | null) => void;
@@ -101,8 +105,12 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   // True when the URL described a selection we couldn't fully rebuild (HF/env fetch failed or a
   // model/env is gone). Lets guards distinguish that from "no selection in URL" and offer a retry.
   const [hydrationFailed, setHydrationFailed] = useState(false);
-  // Ref (not state) so StrictMode's double-invoked mount effect can't fire hydration twice.
-  const hydrationStartedRef = useRef(false);
+  // The URL signature (models/peerId/env/serviceId) we last hydrated from. Re-hydration keys on this
+  // changing — so a client-side nav that lands on a *different* selection (e.g. Manage from the
+  // services table, where the Provider is already mounted and never remounts) re-runs hydration
+  // instead of leaving stale/empty context. Same signature = no re-run, so StrictMode's double mount
+  // and within-flow param tweaks (gpus/token/params, derived from context) don't refetch.
+  const hydratedSignatureRef = useRef<string | null>(null);
 
   // Persist the HF token to sessionStorage on change so a refresh mid-flow doesn't force the user to
   // re-enter it for gated models. The token stays out of the URL (it's a secret).
@@ -129,16 +137,37 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     }
   }, []);
 
-  const toggleModel = useCallback((model: HuggingFaceModel) => {
-    setSelectedModels((current) => {
-      if (current.some((m) => m.id === model.id)) {
+  const toggleModel = useCallback(
+    (model: HuggingFaceModel) => {
+      const isSelected = selectedModels.some((m) => m.id === model.id);
+      // Compute the next selection from the closure, then drive both setters sequentially — never
+      // nest one setter inside the other's updater (updaters must stay pure; React may re-run them).
+      setSelectedModels(isSelected ? selectedModels.filter((m) => m.id !== model.id) : [...selectedModels, model]);
+      if (isSelected) {
         // Deselecting: also drop any committed params so they can't linger in state or the URL.
         setModelParamsByModel(({ [model.id]: _removed, ...rest }) => rest);
-        return current.filter((m) => m.id !== model.id);
       }
-      return [...current, model];
-    });
-  }, []);
+    },
+    [selectedModels]
+  );
+
+  /**
+   * Single-model flow: make the selection exactly `[model]` (or clear it), pruning the committed
+   * params of every model that's no longer selected. Clicking the already-selected model clears it.
+   * Prevents stale launch settings from resurfacing when switching A → B → A: A's params are dropped
+   * the moment A is deselected, not left lingering in `modelParamsByModel`.
+   */
+  const selectSingleModel = useCallback(
+    (model: HuggingFaceModel) => {
+      // Compute the next selection from the closure, then drive both setters sequentially — never
+      // nest one setter inside the other's updater (updaters must stay pure; React may re-run them).
+      const next = selectedModels.some((m) => m.id === model.id) ? [] : [model];
+      const keep = new Set(next.map((m) => m.id));
+      setSelectedModels(next);
+      setModelParamsByModel((params) => Object.fromEntries(Object.entries(params).filter(([id]) => keep.has(id))));
+    },
+    [selectedModels]
+  );
 
   const isModelSelected = useCallback(
     (modelId: string) => selectedModels.some((m) => m.id === modelId),
@@ -188,9 +217,23 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (editFlag) {
         query.edit = editFlag;
       }
+      // Carry the target service id forward too — edit/prolong need it at the payment step to
+      // stop/extend the running service.
+      const serviceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;
+      if (serviceId) {
+        query.serviceId = serviceId;
+      }
       return query;
     },
-    [selectedModels, selectedEnv, selectedToken, jobDurationSeconds, modelParamsByModel, router.query.edit]
+    [
+      selectedModels,
+      selectedEnv,
+      selectedToken,
+      jobDurationSeconds,
+      modelParamsByModel,
+      router.query.edit,
+      router.query.serviceId,
+    ]
   );
 
   /**
@@ -289,19 +332,42 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     setHydrateFromUrlFinished(true);
   }, [router.query]);
 
-  // Hydrate once, after the router is ready so query params are populated. Ref guard survives
-  // StrictMode's double mount; skip the network work when there's no selection in the URL.
+  // Hydrate after the router is ready so query params are populated. Re-runs when the identifying
+  // signature changes (a nav to a different selection) so client-side nav — where the Provider stays
+  // mounted — re-hydrates instead of showing stale/empty context. The signature guard also absorbs
+  // StrictMode's double mount and ignores within-flow param tweaks (same identity).
   useEffect(() => {
-    if (hydrationStartedRef.current || !router.isReady) {
+    if (!router.isReady) {
       return;
     }
-    hydrationStartedRef.current = true;
+    const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+    const signature = [
+      first(router.query.models),
+      first(router.query.peerId),
+      first(router.query.env),
+      first(router.query.serviceId),
+    ].join('|');
+    if (hydratedSignatureRef.current === signature) {
+      return;
+    }
+    hydratedSignatureRef.current = signature;
     if (router.query.models || router.query.peerId) {
+      // Re-hydration (signature changed on a client-side nav): flip back to "not finished" so step
+      // guards show loading against the new selection instead of the previous one's stale state.
+      setHydrateFromUrlFinished(false);
+      setHydrationFailed(false);
       hydrateFromQueryParams();
     } else {
       setHydrateFromUrlFinished(true);
     }
-  }, [hydrateFromQueryParams, router.isReady, router.query.models, router.query.peerId]);
+  }, [
+    hydrateFromQueryParams,
+    router.isReady,
+    router.query.models,
+    router.query.peerId,
+    router.query.env,
+    router.query.serviceId,
+  ]);
 
   // Retry a failed hydration: reset the finished/failed flags and re-run against the current URL.
   const retryHydration = useCallback(() => {
@@ -310,6 +376,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     }
     setHydrationFailed(false);
     setHydrateFromUrlFinished(false);
+    // Re-run against the current URL directly. Leave hydratedSignatureRef at the current signature
+    // (the effect already set it) so the guard stays synced — clearing it would make a later
+    // non-signature URL change (env/serviceId) re-trigger an unnecessary re-hydration.
     hydrateFromQueryParams();
   }, [hydrateFromQueryParams, router.query.models, router.query.peerId]);
 
@@ -318,6 +387,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedModels,
       setSelectedModels,
       toggleModel,
+      selectSingleModel,
       isModelSelected,
       selectedEnv,
       setSelectedEnv,
@@ -345,6 +415,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     [
       selectedModels,
       toggleModel,
+      selectSingleModel,
       isModelSelected,
       selectedEnv,
       selectedToken,

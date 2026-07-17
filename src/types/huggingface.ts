@@ -47,7 +47,9 @@ export type ModelParameters = {
   customParams: CustomParam[];
 
   // Cold engine flags (vLLM-specific).
-  maxContext: number;
+  // Optional: null = don't emit --max-model-len, let vLLM derive the context length from the model
+  // config at launch. A number pins it explicitly.
+  maxContext: number | null;
   gpuMemoryUtilization: number;
   quantization: ModelQuantization;
   dtype: ModelDtype;

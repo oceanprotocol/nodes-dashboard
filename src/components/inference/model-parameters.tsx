@@ -30,7 +30,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import cx from 'classnames';
 import { useFormik } from 'formik';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import styles from './model-parameters.module.css';
 
 const quantizationOptions: { label: string; value: ModelQuantization }[] = [
@@ -81,18 +81,27 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
 // renders `errors.customParams[i].key`). Typed loosely so both can coexist on one errors object.
 type ParamErrors = Record<string, unknown>;
 
-function validateParams(v: ModelParametersType): ParamErrors {
+// `contextCeiling` is the model's reported max (null when HF reports none — the field is then a free,
+// optional input). `contextFloor` is the effective lower bound (lowered to the model's max for a
+// sub-floor model). Both passed in because they're component state, not static bounds.
+function validateParams(v: ModelParametersType, contextCeiling: number | null, contextFloor: number): ParamErrors {
   const errors: ParamErrors = {};
   if (!v.servedModelName.trim()) {
     errors.servedModelName = 'Required.';
   }
-  const b = MODEL_PARAM_BOUNDS;
-  if (v.maxContext < b.maxContext.min || v.maxContext > b.maxContext.max) {
-    errors.maxContext = `Must be between ${b.maxContext.min} and ${b.maxContext.max}.`;
+  // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and, when
+  // the model reports a ceiling, stay within it.
+  if (v.maxContext != null) {
+    if (v.maxContext < contextFloor) {
+      errors.maxContext = `Must be at least ${contextFloor} (or leave blank to let vLLM decide).`;
+    } else if (contextCeiling != null && v.maxContext > contextCeiling) {
+      errors.maxContext = `Must be at most ${contextCeiling} — the model's context limit.`;
+    }
   }
   // GPU memory must be > 0 (0 = no VRAM claimed); message says "above 0" to match the rule.
-  if (v.gpuMemoryUtilization <= 0 || v.gpuMemoryUtilization > b.gpuMemoryUtilization.max) {
-    errors.gpuMemoryUtilization = `Must be above 0 and at most ${b.gpuMemoryUtilization.max}.`;
+  const gpuMax = MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max;
+  if (v.gpuMemoryUtilization <= 0 || v.gpuMemoryUtilization > gpuMax) {
+    errors.gpuMemoryUtilization = `Must be above 0 and at most ${gpuMax}.`;
   }
   if (v.toolCalling && !v.toolCallParser) {
     errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
@@ -134,7 +143,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   ref
 ) {
   const { hfToken, selectedModels, modelParamsByModel } = useInferenceContext();
+  // `config` tracks the LATEST fetched facts (drives the locked ceiling/quant + tool visibility).
+  // `defaultsConfig` is the baseline the form's default values are built from — frozen except on the
+  // first load and an explicit "Reload defaults", so a revision-blur refresh can update the facts
+  // without reinitializing formik and silently wiping the user's uncommitted edits.
   const [config, setConfig] = useState<HuggingFaceModelConfig | null>(null);
+  const [defaultsConfig, setDefaultsConfig] = useState<HuggingFaceModelConfig | null>(null);
   const [loading, setLoading] = useState(true);
   // 'none' = no token needed / loaded ok; 'missing' = gated, no token supplied; 'rejected' = token invalid.
   const [authState, setAuthState] = useState<'none' | 'missing' | 'rejected'>('none');
@@ -143,26 +157,39 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const [open, setOpen] = useState(defaultOpen);
+  // Guards the one-time initial load: loadConfig's identity now changes when hfToken does, so we
+  // can't rely on an empty/[loadConfig] dep array to fire it exactly once — this ref does.
+  const initialLoadStartedRef = useRef(false);
 
   const loadConfig = useCallback(
-    (
-      token?: string,
-      revision?: string,
-      onLoaded?: (config: HuggingFaceModelConfig | null) => void,
-      isReload = false
-    ) => {
+    ({
+      revision,
+      onLoaded,
+      isReload,
+      resetDefaults,
+    }: {
+      revision?: string;
+      onLoaded?: (config: HuggingFaceModelConfig | null) => void;
+      isReload: boolean;
+      // Also refresh the baseline the form defaults are built from. Set for the initial load and an
+      // explicit reload; left false for a revision-blur refresh so the user's edits aren't reset.
+      resetDefaults: boolean;
+    }) => {
       let cancelled = false;
       setLoading(true);
       setLoadError(null);
       if (isReload) {
         setReloadStatus('loading');
       }
-      fetchHuggingFaceModelConfig(modelId, token || undefined, revision || undefined)
+      fetchHuggingFaceModelConfig(modelId, hfToken, revision)
         .then((result) => {
           if (cancelled) {
             return;
           }
           setConfig(result);
+          if (resetDefaults) {
+            setDefaultsConfig(result);
+          }
           setAuthState('none');
           setReloadStatus(isReload ? 'success' : 'idle');
           onLoaded?.(result);
@@ -177,6 +204,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             setReloadStatus(isReload ? 'error' : 'idle');
           } else {
             setConfig(null);
+            if (resetDefaults) {
+              setDefaultsConfig(null);
+            }
             setLoadError('Could not load model defaults from Hugging Face. Using generic defaults.');
             setReloadStatus(isReload ? 'error' : 'idle');
             onLoaded?.(null);
@@ -191,12 +221,19 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         cancelled = true;
       };
     },
-    [modelId]
+    [hfToken, modelId]
   );
 
-  // Initial load only. Token/revision changes reload via the explicit "Reload defaults" button.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => loadConfig(hfToken), [loadConfig]);
+  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a
+  // token edit). Token/revision changes reload via the explicit "Reload defaults" button; typing in
+  // the token field must NOT auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  useEffect(() => {
+    if (initialLoadStartedRef.current) {
+      return;
+    }
+    initialLoadStartedRef.current = true;
+    return loadConfig({ isReload: false, resetDefaults: true });
+  }, [loadConfig]);
 
   // Editing the shared token invalidates the last reload result — clear the transient feedback so a
   // stale "reloaded"/"rejected" notice doesn't linger until the user clicks Reload again.
@@ -204,15 +241,19 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     setReloadStatus('idle');
   }, [hfToken]);
 
-  // HF model facts that lock fields the user cannot freely change. Never let the ceiling drop below
-  // the min — a model reporting a tiny context (e.g. 512) would otherwise invert the slider range.
-  const contextCeiling = useMemo(
-    () =>
-      Math.max(
-        MODEL_PARAM_BOUNDS.maxContext.min,
-        Math.min(config?.maxContext ?? MODEL_PARAM_BOUNDS.maxContext.max, MODEL_PARAM_BOUNDS.maxContext.max)
-      ),
-    [config?.maxContext]
+  // HF model facts that lock fields the user cannot freely change. The context ceiling is the model's
+  // own reported max, used verbatim — NEVER raised above the model's real capability. null when HF
+  // reports nothing: the field becomes a free/blank input and launch omits --max-model-len so vLLM
+  // derives the real length from the model config.
+  const contextCeiling = useMemo(() => config?.maxContext ?? null, [config?.maxContext]);
+
+  // Effective lower bound for the max-context field. Normally the static floor, but a model whose
+  // reported max is BELOW that floor lowers it to the model's max — so the valid range collapses to
+  // that single value and the user can set exactly what the model accepts, never more (see
+  // MODEL_PARAM_BOUNDS). No ceiling reported → the nominal floor applies to a pinned value.
+  const contextFloor = useMemo(
+    () => (contextCeiling != null ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling) : MODEL_PARAM_BOUNDS.maxContext.min),
+    [contextCeiling]
   );
   const lockedQuant = useMemo(() => mapQuantization(config?.quantizationMethod ?? null), [config?.quantizationMethod]);
 
@@ -232,15 +273,15 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const initialValues = useMemo(
     () =>
       committedParams
-        ? { ...buildModelDefaults(config, modelId), ...committedParams }
-        : buildModelDefaults(config, modelId),
-    [committedParams, config, modelId]
+        ? { ...buildModelDefaults(defaultsConfig, modelId), ...committedParams }
+        : buildModelDefaults(defaultsConfig, modelId),
+    [committedParams, defaultsConfig, modelId]
   );
 
   const formik = useFormik<ModelParametersType>({
     enableReinitialize: true,
     initialValues,
-    validate: validateParams,
+    validate: (v) => validateParams(v, contextCeiling, contextFloor),
     onSubmit: () => {},
   });
 
@@ -270,22 +311,27 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // The entered revision is preserved — buildDefaults blanks it, but it's what we just fetched against.
   const reloadDefaults = () => {
     const revision = formik.values.revision;
-    loadConfig(
-      hfToken,
+    loadConfig({
       revision,
-      (result) => {
+      onLoaded: (result) => {
         // Only reset the form when defaults actually loaded; on failure keep the user's values.
         if (result) {
           formik.resetForm({ values: { ...buildModelDefaults(result, modelId), revision } });
         }
       },
-      true
-    );
+      isReload: true,
+      resetDefaults: true,
+    });
   };
 
-  // Pinning a new revision refreshes the model facts (locked ceiling/quant) without touching the user's edits.
+  // Pinning a new revision refreshes the model facts (locked ceiling/quant) without touching the
+  // user's edits — resetDefaults=false keeps the form baseline frozen so formik doesn't reinitialize.
   const handleRevisionBlur = () => {
-    loadConfig(hfToken, formik.values.revision);
+    loadConfig({
+      revision: formik.values.revision,
+      isReload: false,
+      resetDefaults: false,
+    });
   };
 
   // Validate on demand (parent submit); return values only when the form is clean, open the card on error.
@@ -455,21 +501,44 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                   type="text"
                   value={formik.values.servedModelName}
                 />
-                <Slider
-                  hint="--max-model-len"
-                  label={labelWithInfo(
-                    `Max context - ${formik.values.maxContext}`,
-                    'Max tokens (input + output combined) per request. Clients can’t exceed it. Higher handles longer documents but uses more VRAM for the KV cache. Ceiling comes from the model’s own config.'
-                  )}
-                  max={contextCeiling}
-                  min={MODEL_PARAM_BOUNDS.maxContext.min}
-                  name="maxContext"
-                  onChange={(_, value) => formik.setFieldValue('maxContext', value)}
-                  step={1024}
-                  topRight={`${MODEL_PARAM_BOUNDS.maxContext.min} - ${contextCeiling}`}
-                  value={formik.values.maxContext}
-                  valueLabelFormat={(value) => String(value)}
-                />
+                {contextCeiling != null ? (
+                  <Slider
+                    hint="--max-model-len"
+                    label={labelWithInfo(
+                      `Max context - ${formik.values.maxContext ?? contextCeiling}`,
+                      'Max tokens (input + output combined) per request. Clients can’t exceed it. Higher handles longer documents but uses more VRAM for the KV cache. Ceiling comes from the model’s own config.'
+                    )}
+                    max={contextCeiling}
+                    min={contextFloor}
+                    name="maxContext"
+                    onChange={(_, value) => formik.setFieldValue('maxContext', value)}
+                    step={1024}
+                    topRight={`${contextFloor} - ${contextCeiling}`}
+                    value={formik.values.maxContext ?? contextCeiling}
+                    valueLabelFormat={(value) => String(value)}
+                  />
+                ) : (
+                  // Hugging Face reported no context length — offer a free, optional input. Blank means
+                  // vLLM derives the length from the model config at launch (--max-model-len omitted).
+                  <Input
+                    size="sm"
+                    errorText={errorFor('maxContext')}
+                    hint="--max-model-len"
+                    label={labelWithInfo(
+                      'Max context',
+                      'Max tokens (input + output combined) per request. Leave blank to let vLLM derive it from the model’s own config; set a number to pin it explicitly.'
+                    )}
+                    name="maxContext"
+                    onBlur={formik.handleBlur}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      formik.setFieldValue('maxContext', raw === '' ? null : Number(raw));
+                    }}
+                    placeholder="Auto (vLLM decides)"
+                    type="number"
+                    value={formik.values.maxContext ?? ''}
+                  />
+                )}
                 <Select<ModelQuantization>
                   size="sm"
                   disabled={!!lockedQuant}

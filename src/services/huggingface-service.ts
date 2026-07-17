@@ -1,7 +1,6 @@
 import {
   HuggingFaceModel,
   HuggingFaceModelConfig,
-  ModelDtype,
   ModelParameters,
   ModelQuantization,
   ToolCallParser,
@@ -216,6 +215,11 @@ export type HuggingFaceModelsPage = {
   nextCursor: string | null;
 };
 
+/** How the model list is ordered. Maps 1:1 to the HF API `sort` param (all descending). */
+export type ModelSort = 'trendingScore' | 'downloads' | 'likes' | 'lastModified' | 'createdAt';
+
+export const DEFAULT_MODEL_SORT: ModelSort = 'trendingScore';
+
 /** HF paginates via a `Link: rel="next"` header carrying an opaque `cursor` token. */
 function parseNextCursor(linkHeader: string | null): string | null {
   if (!linkHeader) {
@@ -237,7 +241,12 @@ function parseNextCursor(linkHeader: string | null): string | null {
  */
 export async function fetchHuggingFaceModels(
   query?: string,
-  { limit = 50, cursor, pipelineTag }: { limit?: number; cursor?: string; pipelineTag?: string } = {}
+  {
+    limit = 50,
+    cursor,
+    pipelineTag,
+    sort = DEFAULT_MODEL_SORT,
+  }: { limit?: number; cursor?: string; pipelineTag?: string; sort?: ModelSort } = {}
 ): Promise<HuggingFaceModelsPage> {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -247,10 +256,8 @@ export async function fetchHuggingFaceModels(
   const trimmed = query?.trim();
   if (trimmed) {
     params.set('search', trimmed);
-    params.set('sort', 'downloads');
-  } else {
-    params.set('sort', 'trendingScore');
   }
+  params.set('sort', sort);
   params.set('direction', '-1');
   if (pipelineTag) {
     params.set('pipeline_tag', pipelineTag);
@@ -390,34 +397,22 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
 }
 
 // vLLM launch-param defaults, used when the model config doesn't pin a value.
-const DEFAULT_MAX_CONTEXT = 32768;
 const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
 
 /**
- * Allowed [min, max] range for each numeric launch param — the single source for both the form's
- * sliders/validation and the config clamp.
+ * Allowed range for each numeric launch param — the single source for the form's sliders/validation.
+ * maxContext has only a floor: the ceiling is the model's own reported context (uncapped), and when
+ * the model reports nothing the field is left blank so vLLM derives the length itself.
+ *
+ * Policy for a model whose reported context is BELOW this floor (e.g. 512): the form LOWERS its floor
+ * to the model's reported max so the whole valid range collapses to that single value — the user can
+ * set exactly what the model accepts (512) and nothing higher. We never raise the ceiling to the
+ * floor (that would allow more than the model serves, and the launch would be rejected).
  */
 export const MODEL_PARAM_BOUNDS = {
-  maxContext: { min: 1024, max: 131072 },
+  maxContext: { min: 1024 },
   gpuMemoryUtilization: { min: 0, max: 1 },
 } as const;
-
-function mapTorchDtype(torchDtype: string | null): ModelDtype {
-  switch (torchDtype) {
-    case 'bfloat16': {
-      return 'bfloat16';
-    }
-    case 'float16': {
-      return 'float16';
-    }
-    case 'float32': {
-      return 'float32';
-    }
-    default: {
-      return 'auto';
-    }
-  }
-}
 
 /** Map an HF quantization method to our enum; null when none/unrecognized (field then stays user-editable). */
 export function mapQuantization(method: string | null): ModelQuantization | null {
@@ -448,13 +443,17 @@ export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelI
     servedModelName: getModelShortName(modelId),
     // User-defined key/value params — none by default; the user adds them like env vars.
     customParams: [],
-    maxContext: Math.max(
-      MODEL_PARAM_BOUNDS.maxContext.min,
-      Math.min(config?.maxContext ?? DEFAULT_MAX_CONTEXT, MODEL_PARAM_BOUNDS.maxContext.max)
-    ),
+    // The model's own reported context, seeded as-is; null when HF reports nothing so launch omits
+    // --max-model-len and lets vLLM derive it from the model config (no arbitrary fallback). The form
+    // lowers its floor to the model's max for sub-floor models (see MODEL_PARAM_BOUNDS), so even a
+    // reported value below the nominal floor is a valid default the user can keep or pin.
+    maxContext: config?.maxContext ?? null,
     gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
     quantization: lockedQuant ?? 'none',
-    dtype: mapTorchDtype(config?.torchDtype ?? null),
+    // Default to 'auto' rather than the model's own torch_dtype: many models declare bfloat16, which
+    // older GPUs (e.g. Tesla T4, compute 7.5) can't run — vLLM then exits at startup. 'auto' lets
+    // vLLM pick a dtype the target GPU supports (float16 on pre-Ampere). User can still override.
+    dtype: 'auto',
     kvCacheDtype: 'auto',
     trustRemoteCode: false,
     enforceEager: false,

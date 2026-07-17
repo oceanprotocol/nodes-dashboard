@@ -1,0 +1,84 @@
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+/* Horizontal scroll on narrow viewports rather than squashing the row. */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.model {
+  font-weight: 600;
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  .statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentcolor;
+  }
+}
+
+/* Colour the chip (text + dot via currentColor) by status kind. */
+.status_running {
+  color: var(--success-darker);
+}
+
+.status_pending {
+  color: var(--text-secondary);
+}
+
+.status_dead {
+  color: var(--text-secondary);
+}
+
+.status_failed {
+  color: var(--error-darker);
+}
+
+.actionCell {
+  text-align: right;
+  white-space: nowrap;
+}

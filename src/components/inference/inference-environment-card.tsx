@@ -1,16 +1,17 @@
 import BenchmarkSummary from '@/components/benchmarks/benchmark-summary';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useInferenceAllocation, { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
-import { formatTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
+import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './inference-environment-card.module.css';
@@ -80,26 +81,60 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const activeSelection = isControlled ? controlledSelection : (ownSelection ?? undefined);
 
-  const { mergedGpus, selectedByKey, allocation, price, hasGpus } = useInferenceAllocation({
+  const {
+    mergedGpus,
+    maxByKey,
+    maxUnitsByResources,
+    selectedByKey,
+    selectedTotal,
+    allocation,
+    price,
+    hasGpus,
+    gpuExhausted,
+  } = useInferenceAllocation({
     environment,
     tokenAddress,
     gpuSelection: activeSelection,
     durationSeconds,
   });
 
-  // Seed the local chips once the types are known: restore a prior pick for this env, or default to all units.
+  // Seed the local chips once the types are known: restore a prior pick for this env, or default to
+  // all pickable units. Clamp to what's actually free — a restored pick can exceed current availability.
   useEffect(() => {
     if (!isControlled && ownSelection === null && mergedGpus.length > 0) {
       const seeded: GpuSelection = {};
+      // Fill types in declared order up to the combined shared-resource budget, so the default seed
+      // never sums past what CPU/RAM/disk can back (per-type maxByKey is now an independent ceiling).
+      let remaining = Math.max(0, maxUnitsByResources);
       mergedGpus.forEach((g) => {
+        const cap = Math.min(maxByKey[g.key] ?? 0, remaining);
         const prior = initialSelection?.[g.key];
-        seeded[g.key] = prior === undefined ? g.max : Math.min(Math.max(prior, 0), g.max);
+        const value = prior === undefined ? cap : Math.min(Math.max(prior, 0), cap);
+        seeded[g.key] = value;
+        remaining -= value;
       });
       setOwnSelection(seeded);
     }
-  }, [isControlled, ownSelection, mergedGpus, initialSelection]);
+  }, [isControlled, ownSelection, mergedGpus, maxByKey, maxUnitsByResources, initialSelection]);
 
   const editable = !isControlled && !!onSelect;
+
+  // Paid service-on-demand job-duration window (inference always uses a paid token → top-level
+  // bounds, not `free.*`). Shown next to the select button so the user knows the valid range.
+  const durationRangeText = useMemo(() => {
+    const min = environment.minJobDuration;
+    const max = environment.maxJobDuration;
+    if (min && max) {
+      return `${formatDuration(min)} – ${formatDuration(max)}`;
+    }
+    if (min) {
+      return `min ${formatDuration(min)}`;
+    }
+    if (max) {
+      return `max ${formatDuration(max)}`;
+    }
+    return null;
+  }, [environment.minJobDuration, environment.maxJobDuration]);
 
   const setTypeCount = (key: string, count: number) => {
     setOwnSelection((prev) => ({ ...(prev ?? {}), [key]: count }));
@@ -117,36 +152,72 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     if (!hasGpus) {
       return null;
     }
+    // Units already committed to OTHER types; what the shared CPU/RAM/disk budget can still back for
+    // this type is the leftover after them. Keeps the COMBINED pick within maxUnitsByResources without
+    // reserving budget per type up front (which would wrongly starve later types).
     return mergedGpus.map((gpu) => {
       const chosen = selectedByKey[gpu.key] ?? 0;
+      const othersSelected = selectedTotal - chosen;
+      const budgetForThisType = Math.max(0, maxUnitsByResources - othersSelected);
+      // Pickable ceiling = this type's own free units, capped by the shared budget left after other types.
+      const pickable = Math.min(maxByKey[gpu.key] ?? 0, budgetForThisType);
       return (
-        <>
-          <div className={styles.gpuType} key={gpu.key}>
-            <GpuLabel className={styles.gpuLabel} gpu={gpu.description || 'GPU'} />-
-            {editable ? (
-              <div className={styles.counts}>
-                {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => (
+        <div className={styles.gpuType} key={gpu.key}>
+          <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />
+          {editable ? (
+            <div className={styles.counts}>
+              {/* All units shown; counts above what's currently free are disabled (units in use, or
+                  not enough shared CPU/RAM/disk to back them) with a tooltip explaining why. */}
+              {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => {
+                const disabled = n > pickable;
+                const button = (
                   <Button
                     color="accent1"
-                    key={n}
+                    disabled={disabled}
                     onClick={() => setTypeCount(gpu.key, n)}
                     size="xs"
                     variant={chosen === n ? 'filled' : 'outlined'}
                   >
                     {n}x
                   </Button>
-                ))}
-              </div>
-            ) : (
-              <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
-                {chosen} / {gpu.max} selected
-              </span>
-            )}
-          </div>
-        </>
+                );
+                const disabledReason =
+                  n > gpu.available
+                    ? 'This many units are currently in use.'
+                    : 'Not enough shared CPU/ RAM/ disk to back this many units right now.';
+                return disabled ? (
+                  // Disabled buttons don't emit pointer/focus events, so wrap in a focusable span
+                  // (tabIndex + aria-label) — keeps the tooltip reason reachable by keyboard and screen readers.
+                  <Tooltip key={n} title={disabledReason}>
+                    <span tabIndex={0} aria-label={`${n}x — ${disabledReason}`}>
+                      {button}
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <span key={n}>{button}</span>
+                );
+              })}
+            </div>
+          ) : (
+            <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
+              {chosen} / {gpu.max} selected
+            </span>
+          )}
+        </div>
       );
     });
   };
+
+  // Reason the env can't be selected right now (GPU envs only): fully busy, or the user zeroed every
+  // type. Null → selectable. Drives the disabled state + tooltip on the select button.
+  const selectBlockedReason = hasGpus
+    ? gpuExhausted
+      ? 'All GPU units in this environment are currently in use.'
+      : selectedTotal <= 0
+        ? 'Select at least one GPU unit to continue.'
+        : null
+    : null;
+  const selectDisabled = !tokenSymbol || !!selectBlockedReason;
 
   return (
     <Card
@@ -192,6 +263,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         </div>
 
         <div className="actionsGroupMdEnd">
+          {onSelect && durationRangeText && <span className="textSecondary">Job duration: {durationRangeText}</span>}
           {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
             <Select
               onChange={(e) => setTokenAddress(e.target.value)}
@@ -204,17 +276,27 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             />
           ) : null}
           {onSelect ? (
-            <Button
-              className={styles.continueButton}
-              color="accent1"
-              contentBefore={<PlayArrowIcon />}
-              disabled={!tokenSymbol}
-              onClick={() => tokenSymbol && onSelect(tokenAddress, tokenSymbol, selectedByKey)}
-              type="button"
-              variant="filled"
-            >
-              {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
-            </Button>
+            <Tooltip title={selectBlockedReason ?? ''}>
+              {/* When the button is disabled it swallows focus/pointer events; a focusable, labelled
+                  wrapper keeps the blocked reason reachable by keyboard and screen readers. */}
+              <span
+                className="flexColumn"
+                tabIndex={selectBlockedReason ? 0 : undefined}
+                aria-label={selectBlockedReason ?? undefined}
+              >
+                <Button
+                  className={styles.continueButton}
+                  color="accent1"
+                  contentBefore={<PlayArrowIcon />}
+                  disabled={selectDisabled}
+                  onClick={() => !selectDisabled && tokenSymbol && onSelect(tokenAddress, tokenSymbol, selectedByKey)}
+                  type="button"
+                  variant="filled"
+                >
+                  {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
+                </Button>
+              </span>
+            </Tooltip>
           ) : (
             <span className={styles.price}>
               {formatTokenAmount(price, tokenAddress)} {tokenSymbol}

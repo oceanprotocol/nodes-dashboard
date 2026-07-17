@@ -12,6 +12,9 @@ import { useCallback, useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
 
+/** Lock slots granted when (re)authorizing — shared default for all payment flows. */
+export const DEFAULT_MAX_LOCK_COUNT = 10;
+
 export interface PaySessionParams {
   tokenAddress: string;
   peerId?: string;
@@ -29,7 +32,8 @@ export interface UsePaySessionParams {
 
 export interface UsePaySessionReturn {
   isPaying: boolean;
-  handlePay: (params: PaySessionParams) => Promise<void>;
+  /** Resolves true when the payment transaction(s) succeeded, false otherwise (error is toasted). */
+  handlePay: (params: PaySessionParams) => Promise<boolean>;
   error?: string;
 }
 
@@ -60,7 +64,7 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
       if (!tokenAddress || !spender) {
         setError('Missing required parameters');
         toast.error('Missing required parameters');
-        return;
+        return false;
       }
 
       const needsDeposit = new BigNumber(depositAmount ?? 0).gt(0);
@@ -130,11 +134,13 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
 
         toast.success(paySuccessMessage(spender, peerId));
         onSuccess?.();
+        return true;
       } catch (err) {
         console.error('Pay session error:', err);
         const message = err instanceof Error && err.message ? err.message : 'Payment failed';
         setError(message);
         toast.error(`Payment failed: ${message}`);
+        return false;
       } finally {
         setIsPaying(false);
       }
@@ -149,5 +155,5 @@ const paySuccessMessage = (consumerAddress: string, peerId?: string) => {
   const target = peerId
     ? `node ${formatWalletAddress(peerId)} (consumer ${formatWalletAddress(consumerAddress)})`
     : `consumer ${formatWalletAddress(consumerAddress)}`;
-  return `Payment authorized for ${target}. Your session can start shortly.`;
+  return `Payment authorized for ${target}. Your updated service will be available shortly.`;
 };
