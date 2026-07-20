@@ -1,32 +1,48 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import { useP2P } from '@/contexts/P2PContext';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds, getModelShortName } from '@/services/huggingface-service';
 import { getServiceStatusView } from '@/services/service-status';
 import { formatDateTime, formatDuration } from '@/utils/formatters';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { CircularProgress, Collapse } from '@mui/material';
-import { ServiceJob } from '@oceanprotocol/lib';
+import axios from 'axios';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import styles from './existing-services-table.module.css';
 
-// TODO: aggregate services across all reachable nodes, not just the default one.
+// A service session as indexed by incentive-backend (see recordServiceStarted /
+// GET /owners/:owner/services in incentive-backend). Snapshotted at service-start time —
+// not a live status feed (see manage-service-page.tsx for that).
+type ServiceSession = {
+  serviceId: string;
+  peerId?: string;
+  owner?: string;
+  status?: number;
+  statusText?: string;
+  environment?: string;
+  dockerCmd?: string[];
+  model?: string;
+  duration?: number;
+  expiresAt?: number;
+  dateCreated: string;
+  payment?: {
+    chainId?: number;
+    token?: string;
+    cost?: string | number;
+    lockTx?: string;
+    claimTx?: string;
+  };
+};
 
-// Services live per-node (getServiceStatus lists all of a node's services for the authenticated
-// owner). We query a single default node by peer id and full multiaddr so the P2P layer can reach
-// it without a separate peer lookup.
-const DEFAULT_NODE_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';
-const DEFAULT_NODE_URI = [
-  '/ip4/35.202.16.215/tcp/9001/tls/sni/35-202-16-215.kzwfwjn5ji4puuok23h2yyzro0fe1rqv1bqzbmrjf7uqyj504rawjl4zs68mepr.libp2p.direct/ws/p2p/16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
-];
-
-/** The node returns the launch command, not HF metadata — recover the model id from `--model`. */
-function modelIdFromJob(job: ServiceJob): string | null {
-  const cmd = job.dockerCmd ?? [];
+/** Prefer the indexed `model` field; fall back to recovering it from the launch command. */
+function modelIdFromSession(session: ServiceSession): string | null {
+  if (session.model) {
+    return session.model;
+  }
+  const cmd = session.dockerCmd ?? [];
   const idx = cmd.indexOf('--model');
   if (idx >= 0 && idx + 1 < cmd.length) {
     return cmd[idx + 1];
@@ -37,35 +53,31 @@ function modelIdFromJob(job: ServiceJob): string | null {
 const ExistingServicesTable: React.FC = () => {
   const router = useRouter();
   const { account } = useOceanAccount();
-  const { getServiceStatus, isReady } = useP2P();
-  const { withNodeAuth } = useNodeAuth();
 
-  const [jobs, setJobs] = useState<ServiceJob[]>([]);
+  const [sessions, setSessions] = useState<ServiceSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Services aren't fetched on mount — the collapsible only opens (and loads) once "Load" is pressed.
   const [open, setOpen] = useState(false);
 
   const load = useCallback(async () => {
-    if (!isReady || !account.address) {
+    if (!account.address) {
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const result = await withNodeAuth(DEFAULT_NODE_ID, DEFAULT_NODE_URI, (token) =>
-        getServiceStatus(DEFAULT_NODE_URI, token)
-      );
-      // Newest first — dateCreated is an ISO timestamp.
-      const sorted = [...result].sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1));
-      setJobs(sorted);
+      const response = await axios.get(`${getApiRoute('owners')}/${account.address}/services`, {
+        params: { page: 1, size: 100, sort: JSON.stringify({ dateCreated: 'desc' }) },
+      });
+      setSessions(response.data.services ?? []);
     } catch (err) {
       console.error('Failed to load existing services:', err);
       setError(err instanceof Error ? err.message : 'Failed to load your services.');
     } finally {
       setLoading(false);
     }
-  }, [isReady, account.address, withNodeAuth, getServiceStatus]);
+  }, [account.address]);
 
   // Open the collapsible and (re)fetch. Toggles closed again if already open.
   const handleLoad = useCallback(() => {
@@ -77,21 +89,34 @@ const ExistingServicesTable: React.FC = () => {
     load();
   }, [open, load]);
 
+  // Switching wallets mid-session must drop the previous address's rows — otherwise a stale
+  // session (and its serviceId/peerId) stays visible and actionable under the new address.
+  useEffect(() => {
+    setSessions([]);
+    setOpen(false);
+  }, [account.address]);
+
   // Route to the manage page. It hydrates its model/env display from the query params (peerId/env/
-  // models) — the job alone can't rebuild the rich model card, so seed what we recovered from it.
+  // models) — the session alone can't rebuild the rich model card, so seed what we recovered from it.
   // Carry the payment token too: the manage page needs it in context for a Prolong re-entry, and
   // hydrating it from the URL avoids waiting on the async job-token seed effect (see manage page).
-  const openService = (job: ServiceJob) => {
-    const modelId = modelIdFromJob(job);
-    const token = job.payment?.token;
+  // peerId/environment are required to resolve the node on the manage page — an older/unverified
+  // session doc missing either would otherwise land on a page stuck at "Loading…" with no error.
+  const openService = (session: ServiceSession) => {
+    if (!session.peerId || !session.environment) {
+      setError('This service is missing node info and cannot be managed from here.');
+      return;
+    }
+    const modelId = modelIdFromSession(session);
+    const token = session.payment?.token;
     router.push({
-      pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+      pathname: `/inference/services/${encodeURIComponent(session.serviceId)}`,
       query: {
-        peerId: DEFAULT_NODE_ID,
-        env: job.environment,
+        peerId: session.peerId,
+        env: session.environment,
         ...(modelId ? { models: encodeModelIds([modelId]) } : {}),
         ...(token ? { token } : {}),
-        duration: String(job.duration),
+        ...(session.duration != null ? { duration: String(session.duration) } : {}),
       },
     });
   };
@@ -107,7 +132,7 @@ const ExistingServicesTable: React.FC = () => {
           <h3>Your services</h3>
           <span className="textSecondary">Running & recent inference services</span>
         </div>
-        <Button color="accent2" disabled={!isReady} onClick={handleLoad} size="md" variant="filled">
+        <Button color="accent2" onClick={handleLoad} size="md" variant="filled">
           {open ? 'Hide services' : 'Load services'}
         </Button>
       </div>
@@ -115,11 +140,11 @@ const ExistingServicesTable: React.FC = () => {
       <Collapse in={open} mountOnEnter unmountOnExit>
         {error && <div className="textErrorDarker">{error}</div>}
 
-        {loading && jobs.length === 0 ? (
+        {loading && sessions.length === 0 ? (
           <div className={styles.centered}>
             <CircularProgress size={18} />
           </div>
-        ) : jobs.length === 0 ? (
+        ) : sessions.length === 0 ? (
           <div className={cx('textSecondary', styles.centered)}>No services yet.</div>
         ) : (
           <div className={styles.tableWrap}>
@@ -135,12 +160,12 @@ const ExistingServicesTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {jobs.map((job) => {
-                  const modelId = modelIdFromJob(job);
-                  const name = modelId ? getModelShortName(modelId) : job.serviceId.slice(0, 10);
-                  const status = getServiceStatusView(job.status, job.statusText);
+                {sessions.map((session) => {
+                  const modelId = modelIdFromSession(session);
+                  const name = modelId ? getModelShortName(modelId) : session.serviceId.slice(0, 10);
+                  const status = getServiceStatusView(session.status, session.statusText);
                   return (
-                    <tr key={job.serviceId}>
+                    <tr key={session.serviceId}>
                       <td>
                         <span className={styles.model}>{name}</span>
                       </td>
@@ -155,15 +180,19 @@ const ExistingServicesTable: React.FC = () => {
                         </span>
                       </td>
                       <td className="textSecondary">
-                        {formatDateTime(Math.floor(new Date(job.dateCreated).getTime() / 1000))}
+                        {formatDateTime(Math.floor(new Date(session.dateCreated).getTime() / 1000))}
                       </td>
-                      <td className="textSecondary">{formatDuration(job.duration)}</td>
-                      <td className="textSecondary">{formatDateTime(job.expiresAt / 1000)}</td>
+                      <td className="textSecondary">
+                        {session.duration != null ? formatDuration(session.duration) : '—'}
+                      </td>
+                      <td className="textSecondary">
+                        {session.expiresAt != null ? formatDateTime(session.expiresAt / 1000) : '—'}
+                      </td>
                       <td className={styles.actionCell}>
                         <Button
                           color="accent1"
                           contentAfter={<ArrowForwardIcon />}
-                          onClick={() => openService(job)}
+                          onClick={() => openService(session)}
                           size="sm"
                           variant="outlined"
                         >
