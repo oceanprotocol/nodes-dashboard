@@ -8,10 +8,11 @@ import config from '@/config';
 import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { ComputeEnvironment } from '@/types/environments';
+import { ComputeEnvironment, ComputeResource } from '@/types/environments';
+import { BoundsMap, constraintError, deriveBounds, isSelectionValid, resolveConstraints, ResourceRequest } from '@/utils/constraints';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
-import { capacityOf } from '@/utils/resources';
+import { capacityOf, getAvailableAmount } from '@/utils/resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { usePrivy } from '@privy-io/react-auth';
@@ -162,6 +163,48 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   // Fresh selection defaults to 1 hour (clamped to the env's allowed range) so the displayed
   // "1 hrs" matches the real value; using the raw minimum showed "1 hrs" but submitted 10 min.
   const defaultJobDurationSeconds = clamp(3600, minAllowedJobDurationSeconds, maxAllowedJobDurationSeconds);
+
+  const cpuId = cpu?.id ?? 'cpu';
+  const ramId = ram?.id ?? 'ram';
+  const diskId = disk?.id ?? 'disk';
+
+  // Every resource that participates in constraint math, each carrying its (free-overlaid)
+  // `constraints`. This is the client-side mirror of what the node validates against.
+  const constraintResources = useMemo<ComputeResource[]>(
+    () => [cpu, ram, disk, ...gpus].filter((r): r is ComputeResource => !!r),
+    [cpu, ram, disk, gpus]
+  );
+
+  // Same resources, but each `max` narrowed to what's currently AVAILABLE (max - inUse). The node's
+  // constraint check runs against per-job `max`; the dashboard runs against availability so a raised
+  // floor can never exceed what a job could actually be granted right now.
+  const availResources = useMemo<ComputeResource[]>(
+    () => constraintResources.map((r) => ({ ...r, max: getAvailableAmount(r) })),
+    [constraintResources]
+  );
+
+  // Availability envelope per resource, before cross-resource constraints narrow it further.
+  const baseBounds = useMemo<BoundsMap>(() => {
+    const b: BoundsMap = {
+      [cpuId]: { min: minAllowedCpuCores, max: maxAllowedCpuCores },
+      [ramId]: { min: minAllowedRam, max: maxAllowedRam },
+      [diskId]: { min: minAllowedDiskSpace, max: maxAllowedDiskSpace },
+    };
+    for (const gpu of gpus) b[gpu.id] = { min: 0, max: gpusAvailable[gpu.id] ?? 0 };
+    return b;
+  }, [
+    cpuId,
+    ramId,
+    diskId,
+    gpus,
+    gpusAvailable,
+    minAllowedCpuCores,
+    maxAllowedCpuCores,
+    minAllowedRam,
+    maxAllowedRam,
+    minAllowedDiskSpace,
+    maxAllowedDiskSpace,
+  ]);
 
   // A resource is exhausted when even its per-job minimum no longer fits in what's free.
   const cpuExhausted = !!cpu && cpuAvailable < minAllowedCpuCores;
@@ -334,19 +377,117 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     [gpus, formik.values.gpus]
   );
 
-  // Package-mode CPU/RAM/disk: the proportional slice for the chosen unit count, clamped to available.
-  const derivedCpu = clamp(Math.round(perUnitCpu * unitCount), minAllowedCpuCores, maxAllowedCpuCores);
-  const derivedRam = clamp(Math.round(perUnitRam * unitCount), minAllowedRam, maxAllowedRam);
-  const derivedDisk = clamp(Math.round(perUnitDisk * unitCount), minAllowedDiskSpace, maxAllowedDiskSpace);
+  const gpuRequests = useMemo<ResourceRequest[]>(
+    () => selectedGpuEntries.map((g) => ({ id: g.id, amount: g.amount })),
+    [selectedGpuEntries]
+  );
+
+  // Live per-slider bounds: the availability envelope narrowed by the current selection of parent
+  // resources (custom mode). Recomputed from formik values so a dependent slider's range moves as
+  // its driver changes (e.g. RAM caps to CPU×ratio).
+  const bounds = useMemo<BoundsMap>(
+    () =>
+      deriveBounds(
+        availResources,
+        {
+          [cpuId]: formik.values.cpuCores,
+          [ramId]: formik.values.ram,
+          [diskId]: Number(formik.values.diskSpace) || 0,
+          ...Object.fromEntries(gpuRequests.map((g) => [g.id, g.amount])),
+        },
+        baseBounds
+      ),
+    [availResources, baseBounds, cpuId, ramId, diskId, formik.values.cpuCores, formik.values.ram, formik.values.diskSpace, gpuRequests]
+  );
+
+  const cpuMin = bounds[cpuId]?.min ?? minAllowedCpuCores;
+  const cpuMax = bounds[cpuId]?.max ?? maxAllowedCpuCores;
+  const ramMin = bounds[ramId]?.min ?? minAllowedRam;
+  const ramMax = bounds[ramId]?.max ?? maxAllowedRam;
+  const diskMin = bounds[diskId]?.min ?? minAllowedDiskSpace;
+  const diskMax = bounds[diskId]?.max ?? maxAllowedDiskSpace;
+
+  // Package-mode CPU/RAM/disk: proportional slice for the chosen unit count, then constraint-adjusted
+  // (floors raised to satisfy cross-resource constraints) and clamped to available. Mirrors the node,
+  // so a package slice is never a combo the node would reject.
+  const { derivedCpu, derivedRam, derivedDisk } = useMemo(() => {
+    const rawCpu = Math.round(perUnitCpu * unitCount);
+    const rawRam = Math.round(perUnitRam * unitCount);
+    const rawDisk = Math.round(perUnitDisk * unitCount);
+    // Bounds implied by renting `unitCount` GPU units (constraint ceilings AND floors), so the
+    // proportional slice is clamped into what the node will accept — not just floor-raised.
+    const pkgBounds = deriveBounds(
+      availResources,
+      { [cpuId]: rawCpu, [ramId]: rawRam, [diskId]: rawDisk, ...Object.fromEntries(gpuRequests.map((g) => [g.id, g.amount])) },
+      baseBounds
+    );
+    const cb = pkgBounds[cpuId] ?? { min: minAllowedCpuCores, max: maxAllowedCpuCores };
+    const rb = pkgBounds[ramId] ?? { min: minAllowedRam, max: maxAllowedRam };
+    const db = pkgBounds[diskId] ?? { min: minAllowedDiskSpace, max: maxAllowedDiskSpace };
+    let sel: ResourceRequest[] = [
+      { id: cpuId, amount: clamp(rawCpu, cb.min, cb.max) },
+      { id: ramId, amount: clamp(rawRam, rb.min, rb.max) },
+      { id: diskId, amount: clamp(rawDisk, db.min, db.max) },
+      ...gpuRequests,
+    ];
+    try {
+      // Settle any remaining floors (aggregate / type-group) the per-slider bounds don't cover.
+      sel = resolveConstraints(availResources, sel);
+    } catch {
+      // Infeasible at this unit count — the unit cap prevents reaching it and the constraint gate
+      // blocks Continue if one is somehow selected.
+    }
+    const amt = (id: string, fallback: number) => sel.find((r) => r.id === id)?.amount ?? fallback;
+    return {
+      derivedCpu: clamp(amt(cpuId, rawCpu), cb.min, cb.max),
+      derivedRam: clamp(amt(ramId, rawRam), rb.min, rb.max),
+      derivedDisk: clamp(amt(diskId, rawDisk), db.min, db.max),
+    };
+  }, [perUnitCpu, perUnitRam, perUnitDisk, unitCount, cpuId, ramId, diskId, gpuRequests, availResources, baseBounds, minAllowedCpuCores, maxAllowedCpuCores, minAllowedRam, maxAllowedRam, minAllowedDiskSpace, maxAllowedDiskSpace]);
 
   // What the job actually requests: hand-set values in custom mode, the derived slice otherwise.
   const effectiveCpu = isCustom ? formik.values.cpuCores : derivedCpu;
   const effectiveRam = isCustom ? formik.values.ram : derivedRam;
   const effectiveDisk = isCustom ? Number(formik.values.diskSpace) || 0 : derivedDisk;
 
+  // Constraint-aware GPU unit cap: the largest whole unit count whose package slice — the
+  // proportional split CLAMPED into the constraint envelope, exactly as the derived slice is built —
+  // still satisfies every constraint within availability. Must clamp before validating: a raw
+  // proportional slice can exceed a constraint ceiling (e.g. ram) that the real derivation trims.
+  const maxUnitsByConstraints = useMemo(() => {
+    if (!hasGpu) return Number.POSITIVE_INFINITY;
+    const orderedGpuIds = gpuGroups.flatMap((g) => g.availableIds);
+    let feasible = 0;
+    for (let u = 1; u <= orderedGpuIds.length; u++) {
+      const gpuSel = orderedGpuIds.slice(0, u).map((id) => ({ id, amount: 1 }));
+      const rawCpu = Math.round(perUnitCpu * u);
+      const rawRam = Math.round(perUnitRam * u);
+      const rawDisk = Math.round(perUnitDisk * u);
+      const b = deriveBounds(
+        availResources,
+        { [cpuId]: rawCpu, [ramId]: rawRam, [diskId]: rawDisk, ...Object.fromEntries(gpuSel.map((g) => [g.id, g.amount])) },
+        baseBounds
+      );
+      const cb = b[cpuId] ?? { min: minAllowedCpuCores, max: maxAllowedCpuCores };
+      const rb = b[ramId] ?? { min: minAllowedRam, max: maxAllowedRam };
+      const db = b[diskId] ?? { min: minAllowedDiskSpace, max: maxAllowedDiskSpace };
+      const sel: ResourceRequest[] = [
+        { id: cpuId, amount: clamp(rawCpu, cb.min, cb.max) },
+        { id: ramId, amount: clamp(rawRam, rb.min, rb.max) },
+        { id: diskId, amount: clamp(rawDisk, db.min, db.max) },
+        ...gpuSel,
+      ];
+      if (!isSelectionValid(availResources, sel)) break;
+      feasible = u;
+    }
+    return feasible;
+  }, [hasGpu, gpuGroups, cpuId, ramId, diskId, perUnitCpu, perUnitRam, perUnitDisk, availResources, baseBounds, minAllowedCpuCores, maxAllowedCpuCores, minAllowedRam, maxAllowedRam, minAllowedDiskSpace, maxAllowedDiskSpace]);
+
   // Cap on total GPU units the pills allow. Package mode additionally caps by the shared resources
-  // left behind by other jobs; custom mode caps only by physically free GPUs.
-  const maxSelectableUnits = isCustom ? totalAvailableGpus : Math.min(totalAvailableGpus, maxUnitsByResources);
+  // left behind by other jobs and by constraint feasibility; custom mode caps only by physically free GPUs.
+  const maxSelectableUnits = isCustom
+    ? totalAvailableGpus
+    : Math.min(totalAvailableGpus, maxUnitsByResources, maxUnitsByConstraints);
 
   const resourcesExhausted = gpuExhausted || cpuExhausted || ramExhausted || diskExhausted;
 
@@ -361,6 +502,27 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     }
     return list;
   }, [cpu?.id, disk?.id, ram?.id, selectedGpuEntries, effectiveCpu, effectiveRam, effectiveDisk]);
+
+  // Authoritative backstop: the exact request the node would receive, checked against the full
+  // constraint model (covers type-group / aggregate cases that live slider clamping cannot bound).
+  // Null when the node would accept the request.
+  const constraintViolation = useMemo(() => constraintError(availResources, resources), [availResources, resources]);
+
+  // Dynamic clamping: when a driver change shrinks a dependent's live range below its current value,
+  // pull the dependent back into range (custom mode only — package values are derived already-valid).
+  useEffect(() => {
+    if (formik.values.mode !== 'custom') return;
+    const nextCpu = clamp(formik.values.cpuCores, cpuMin, cpuMax);
+    const nextRam = clamp(formik.values.ram, ramMin, ramMax);
+    if (nextCpu !== formik.values.cpuCores) formik.setFieldValue('cpuCores', nextCpu);
+    if (nextRam !== formik.values.ram) formik.setFieldValue('ram', nextRam);
+    if (formik.values.diskSpace !== '') {
+      const curDisk = Number(formik.values.diskSpace) || 0;
+      const nextDisk = clamp(curDisk, diskMin, diskMax);
+      if (nextDisk !== curDisk) formik.setFieldValue('diskSpace', nextDisk);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cpuMin, cpuMax, ramMin, ramMax, diskMin, diskMax, formik.values.mode, formik.values.cpuCores, formik.values.ram, formik.values.diskSpace]);
 
   const estimateCost = useCallback(async () => {
     setIsLoadingCost(true);
@@ -398,7 +560,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   };
 
   const setMaxDiskSpace = () => {
-    formik.setFieldValue('diskSpace', maxAllowedDiskSpace);
+    formik.setFieldValue('diskSpace', diskMax);
   };
 
   const handleDiskSpaceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -619,13 +781,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                   hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}
                   label={`CPU - ${formik.values.cpuCores} ${formik.values.cpuCores === 1 ? 'core' : 'cores'}`}
                   marks
-                  max={maxAllowedCpuCores}
-                  min={minAllowedCpuCores}
+                  max={cpuMax}
+                  min={cpuMin}
                   name="cpuCores"
                   onBlur={formik.handleBlur}
                   onChange={formik.handleChange}
                   step={1}
-                  topRight={cpuExhausted ? '0 available' : `${minAllowedCpuCores} - ${maxAllowedCpuCores} available`}
+                  topRight={cpuExhausted ? '0 available' : `${cpuMin} - ${cpuMax} available`}
                   value={formik.values.cpuCores}
                   valueLabelFormat={(value) => (value === 1 ? `${value} core` : `${value} cores`)}
                 />
@@ -635,13 +797,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                   hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}
                   label={`RAM - ${formik.values.ram} GB`}
                   marks
-                  max={maxAllowedRam}
-                  min={minAllowedRam}
+                  max={ramMax}
+                  min={ramMin}
                   name="ram"
                   onBlur={formik.handleBlur}
                   onChange={formik.handleChange}
                   step={1}
-                  topRight={ramExhausted ? '0 GB available' : `${minAllowedRam} - ${maxAllowedRam} GB available`}
+                  topRight={ramExhausted ? '0 GB available' : `${ramMin} - ${ramMax} GB available`}
                   value={formik.values.ram}
                   valueLabelFormat={(value) => `${value} GB`}
                 />
@@ -654,13 +816,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                   errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
                   hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`}
                   label={<div>Disk space {diskTooltip}</div>}
-                  max={maxAllowedDiskSpace}
-                  min={0}
+                  max={diskMax}
+                  min={diskMin}
                   name="diskSpace"
                   onBlur={formik.handleBlur}
                   onChange={handleDiskSpaceChange}
                   startAdornment="GB"
-                  topRight={`${minAllowedDiskSpace} - ${maxAllowedDiskSpace} available`}
+                  topRight={`${diskMin} - ${diskMax} available`}
                   type="number"
                   value={formik.values.diskSpace}
                 />
@@ -713,11 +875,13 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         {freeCompute ? null : (
           <TransitionGroup>
             {initComputeError ? <Collapse>{renderConnectionErrorCard()}</Collapse> : null}
-            {!initComputeError && formik.isValid && !resourcesExhausted ? (
+            {!initComputeError && formik.isValid && !resourcesExhausted && !constraintViolation ? (
               <Collapse>{renderCostCard()}</Collapse>
             ) : null}
           </TransitionGroup>
         )}
+
+        {constraintViolation ? <div className={styles.gpuError}>{constraintViolation}</div> : null}
 
         <div className={styles.footer}>
           <Button
@@ -729,7 +893,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
           >
             Change environment
           </Button>
-          <Button disabled={!isCostEstimated || resourcesExhausted} color="accent1" size="lg" type="submit">
+          <Button
+            disabled={!isCostEstimated || resourcesExhausted || !!constraintViolation}
+            color="accent1"
+            size="lg"
+            type="submit"
+          >
             Continue
           </Button>
         </div>
