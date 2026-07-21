@@ -711,7 +711,7 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
 ];
 
 // The node returns the launch command, not HF metadata — recover the model id from `--model`.
-function modelIdFromJob(job: ServiceJob): string | null {
+export function modelIdFromJob(job: ServiceJob): string | null {
   const cmd = job.dockerCmd ?? [];
   const idx = cmd.indexOf('--model');
   if (idx >= 0 && idx + 1 < cmd.length) {

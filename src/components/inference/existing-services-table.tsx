@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import { modelIdFromJob } from '@/components/table/columns';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useP2P } from '@/contexts/P2PContext';
@@ -24,16 +25,6 @@ const DEFAULT_NODE_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';
 const DEFAULT_NODE_URI = [
   '/ip4/35.202.16.215/tcp/9001/tls/sni/35-202-16-215.kzwfwjn5ji4puuok23h2yyzro0fe1rqv1bqzbmrjf7uqyj504rawjl4zs68mepr.libp2p.direct/ws/p2p/16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
 ];
-
-/** The node returns the launch command, not HF metadata — recover the model id from `--model`. */
-function modelIdFromJob(job: ServiceJob): string | null {
-  const cmd = job.dockerCmd ?? [];
-  const idx = cmd.indexOf('--model');
-  if (idx >= 0 && idx + 1 < cmd.length) {
-    return cmd[idx + 1];
-  }
-  return null;
-}
 
 const ExistingServicesTable: React.FC = () => {
   const router = useRouter();
