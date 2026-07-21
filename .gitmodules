@@ -1,4 +1,4 @@
 [submodule "ai-instructions"]
 	path = ai-instructions
 	url = https://github.com/oceanprotocol/ai-instructions.git
-    branch = feature/add-hooks
+	branch = feature/add-hooks
