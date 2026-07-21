@@ -1,3 +1,4 @@
+import { PinnedAllocation } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
@@ -18,6 +19,14 @@ export type ResolvedPackageEnv = {
   /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
   token: SelectedToken | null;
 };
+
+// Quick start books each package's recommended CPU/RAM/disk (pinned, not GPU-fraction-derived).
+// GPU is handled separately by gpuSelection. Missing/omitted resources fall back to 0 → the
+// allocation hook then floors them at the env's own min.
+function recommendedAllocation(pkg: InferencePackage): PinnedAllocation {
+  const amount = (id: string) => pkg.requiredResources.find((r) => r.id === id)?.recommended ?? 0;
+  return { cpu: amount('cpu'), ram: amount('ram'), disk: amount('disk') };
+}
 
 // Seed fee token: USDC when accepted, else first supported paid token. Mirrors the modal env card's
 // getDefaultToken so both agree on the seed before the user switches it there.
@@ -53,6 +62,7 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
     // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
     const cleanupController = new AbortController();
     const { peerId, envIdPrefix, gpuSelection } = pkg.env;
+    const pinnedAllocation = recommendedAllocation(pkg);
 
     async function resolve() {
       setLoading(true);
@@ -92,6 +102,7 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
             env: {
               environment,
               gpuSelection,
+              pinnedAllocation,
               nodeInfo: {
                 currentAddrs: node.currentAddrs,
                 friendlyName: node.friendlyName,

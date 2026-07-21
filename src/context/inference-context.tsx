@@ -1,9 +1,18 @@
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, PinnedAllocation, ResourceFloor } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { decodeModelIds, encodeModelIds, fetchHuggingFaceModel } from '@/services/huggingface-service';
-import { decodeGpuSelection, decodeModelParams, encodeGpuSelection, encodeModelParams } from '@/services/inference-url';
+import {
+  decodeGpuSelection,
+  decodeModelParams,
+  decodePinnedAllocation,
+  decodeResourceFloor,
+  encodeGpuSelection,
+  encodeModelParams,
+  encodePinnedAllocation,
+  encodeResourceFloor,
+} from '@/services/inference-url';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
 import axios from 'axios';
@@ -16,6 +25,10 @@ export type InferenceSelectionQuery = Partial<{
   peerId: string;
   env: string;
   gpus: string;
+  /** Pinned CPU/RAM/disk (`cpu:ram:disk`) — quick start only; absent in the custom flow. */
+  res: string;
+  /** Per-resource min floor (`cpu:ram:disk`) for the fraction slice — custom flow package handoff only. */
+  resfloor: string;
   token: string;
   duration: string;
   params: string;
@@ -30,6 +43,17 @@ export type SelectedInferenceEnv = {
   nodeInfo: EnvNodeInfo;
   /** Units to use per GPU type, keyed by type (defaults to all units of every type). */
   gpuSelection: GpuSelection;
+  /**
+   * Fixed CPU/RAM/disk to book (quick start pins a package's recommended amounts); the custom flow
+   * leaves this undefined and gets the GPU-fraction-derived slice.
+   */
+  pinnedAllocation?: PinnedAllocation;
+  /**
+   * Per-resource lower bound raising the floor of the fraction-derived slice, set by the default-models
+   * advanced handoff (the package's per-resource min). Distinct from pinnedAllocation: it does not force
+   * a fixed amount — above the floor the slice stays GPU-proportional.
+   */
+  resourceFloor?: ResourceFloor;
 };
 
 type InferenceContextType = {
@@ -71,6 +95,8 @@ type SelectionOverrides = {
   peerId?: string;
   envId?: string;
   gpuSelection?: GpuSelection;
+  pinnedAllocation?: PinnedAllocation;
+  resourceFloor?: ResourceFloor;
   tokenAddress?: string;
   durationSeconds?: number;
   modelParamsByModel?: Record<string, ModelParameters>;
@@ -185,6 +211,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const peerId = overrides?.peerId ?? selectedEnv?.nodeInfo.id;
       const envId = overrides?.envId ?? selectedEnv?.environment.id;
       const gpuSelection = overrides?.gpuSelection ?? selectedEnv?.gpuSelection;
+      const pinnedAllocation = overrides?.pinnedAllocation ?? selectedEnv?.pinnedAllocation;
+      const resourceFloor = overrides?.resourceFloor ?? selectedEnv?.resourceFloor;
       const tokenAddress = overrides?.tokenAddress ?? selectedToken?.address;
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
       const models = overrides?.models ?? selectedModels;
@@ -207,6 +235,14 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const gpus = encodeGpuSelection(gpuSelection);
       if (gpus) {
         query.gpus = gpus;
+      }
+      const res = encodePinnedAllocation(pinnedAllocation);
+      if (res) {
+        query.res = res;
+      }
+      const resfloor = encodeResourceFloor(resourceFloor);
+      if (resfloor) {
+        query.resfloor = resfloor;
       }
       if (tokenAddress) {
         query.token = tokenAddress;
@@ -303,6 +339,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setSelectedEnv({
         environment: foundEnv,
         gpuSelection: decodeGpuSelection(q.gpus) ?? {},
+        pinnedAllocation: decodePinnedAllocation(q.res),
+        resourceFloor: decodeResourceFloor(q.resfloor),
         nodeInfo: {
           currentAddrs: foundNode.currentAddrs,
           friendlyName: foundNode.friendlyName,

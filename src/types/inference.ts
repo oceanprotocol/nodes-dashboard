@@ -25,6 +25,24 @@ export type InferencePackageEnv = {
 };
 
 /**
+ * One resource the package needs to run. `min` is the floor to launch at all; `recommended` is the
+ * amount the quick-start flow actually books (custom flow ignores these and lets the user size the
+ * env). GPU entries are `kind: 'discrete'` (whole units); cpu/ram/disk are implicitly continuous.
+ * All values are amounts in `unit`, resolved against — and clamped to — the live env at launch.
+ */
+export type ResourceRequirement = {
+  /** Resource key: 'cpu' | 'ram' | 'disk' for continuous resources, or 'gpu' when `kind` is set. */
+  id: string;
+  min: number;
+  recommended: number;
+  unit: string;
+  /** Present only for GPU — marks the resource as booked in whole units. */
+  kind?: 'discrete';
+  type?: 'gpu';
+  description?: string;
+};
+
+/**
  * A curated quick-start bundle: model + complete launch parameters + a pinned environment,
  * launchable as-is with no config or resource step. The model id must be a real (ungated) Hugging
  * Face repo — the payment page re-fetches the model by id on a hard reload.
@@ -41,4 +59,9 @@ export type InferencePackage = {
   params: ModelParameters;
   /** The pinned environment to run on — resolved live from the environments API by id. */
   env: InferencePackageEnv;
+  /**
+   * Resource floors/recommendations for this package. Quick start books the `recommended` amount of
+   * each (clamped to the live env); the custom flow ignores this and lets the user size resources.
+   */
+  requiredResources: ResourceRequirement[];
 };

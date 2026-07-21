@@ -1,5 +1,6 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import { ResourceFloor } from '@/components/hooks/use-inference-allocation';
 import usePackageEnv from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
 import InferenceStepper from '@/components/inference/inference-stepper';
@@ -21,6 +22,15 @@ import styles from './default-models-page.module.css';
  * id on pick. Env resolved live by id; fee token picked in the modal. "Advanced flow" hands the same
  * selection to the custom-model flow for full control.
  */
+
+// Advanced handoff floors: the package's per-resource MIN (cpu/ram/disk) becomes a lower bound on the
+// custom flow's GPU-fraction-derived slice. Combined with the env's own min via max downstream in the
+// allocation hook, so it only bites where the package minimum is stricter than the environment's.
+function packageResourceFloor(pkg: InferencePackage): ResourceFloor {
+  const min = (id: string) => pkg.requiredResources.find((r) => r.id === id)?.min ?? 0;
+  return { cpu: min('cpu'), ram: min('ram'), disk: min('disk') };
+}
+
 const DefaultModelsPage: React.FC = () => {
   const router = useRouter();
   const {
@@ -82,7 +92,12 @@ const DefaultModelsPage: React.FC = () => {
   // env has resolved; the env query fields are carried on the same condition (else the custom flow
   // starts with none pre-picked). The query is built from overrides so it doesn't depend on the
   // setState timing. Callers gate on `resolved` themselves when the target step needs a live env.
-  const commitAndPush = (pathname: string) => {
+  // `pinResources`: quick start pins the package's recommended CPU/RAM/disk into the URL/context so
+  // payment books them. The advanced handoff omits the pin — the custom flow lets the user size
+  // resources via the GPU picker — but instead carries the package's per-resource MIN as a `resourceFloor`
+  // so the fraction-derived slice can't drop below the package minimum (only where it's stricter than
+  // the env's own min; the allocation hook takes max(envMin, floor)).
+  const commitAndPush = (pathname: string, pinResources: boolean) => {
     if (!selectedPackage || !model) {
       return;
     }
@@ -90,7 +105,11 @@ const DefaultModelsPage: React.FC = () => {
     setParamsForModel(model.id, selectedPackage.params);
     setJobDurationSeconds(durationSeconds);
     if (resolved) {
-      setSelectedEnv(resolved.env);
+      setSelectedEnv(
+        pinResources
+          ? resolved.env
+          : { ...resolved.env, pinnedAllocation: undefined, resourceFloor: packageResourceFloor(selectedPackage) }
+      );
       setSelectedToken(tokenToCommit);
     }
     router.push({
@@ -104,6 +123,9 @@ const DefaultModelsPage: React.FC = () => {
               peerId: resolved.env.nodeInfo.id,
               envId: resolved.env.environment.id,
               gpuSelection: resolved.env.gpuSelection,
+              ...(pinResources
+                ? { pinnedAllocation: resolved.env.pinnedAllocation }
+                : { resourceFloor: packageResourceFloor(selectedPackage) }),
               ...(tokenToCommit ? { tokenAddress: tokenToCommit.address } : {}),
             }
           : {}),
@@ -114,14 +136,14 @@ const DefaultModelsPage: React.FC = () => {
   const goToPayment = () => {
     // Payment needs the resolved env; the button is disabled until it resolves, but guard anyway.
     if (selectedPackage && resolved) {
-      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`);
+      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`, true);
     }
   };
 
   // Advanced handoff: same selection, full control. Lands on the custom flow's env-selection step, so
   // unlike Continue/payment it does NOT need the pinned env to resolve — a failed pinned env still
   // lets the user escape into the custom flow.
-  const goToAdvancedFlow = () => commitAndPush('/inference/custom-models/resources');
+  const goToAdvancedFlow = () => commitAndPush('/inference/custom-models/resources', false);
 
   return (
     <Container className="pageRoot">

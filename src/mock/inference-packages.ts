@@ -1,4 +1,4 @@
-import { InferencePackage } from '@/types/inference';
+import { InferencePackage, ResourceRequirement } from '@/types/inference';
 
 /**
  * Curated quick-start packages. MOCK DATA — backend doesn't serve packages yet; swap
@@ -16,6 +16,22 @@ import { InferencePackage } from '@/types/inference';
 // keys below must match that string exactly or buildGpuRequests can't resolve them.
 const NODE_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';
 const NODE_ENV_ID_PREFIX = '0xff1004b67de08fc505fbf0a2089010d0f23015338c7def8557697513c4a39935';
+
+// Shared resource floors/recommendations — every package targets the same single-GPU footprint.
+const REQUIRED_RESOURCES: ResourceRequirement[] = [
+  { id: 'cpu', min: 2, recommended: 4, unit: 'cores' },
+  { id: 'ram', min: 8, recommended: 16, unit: 'GB' },
+  { id: 'disk', min: 10, recommended: 20, unit: 'GB' },
+  {
+    kind: 'discrete',
+    type: 'gpu',
+    id: 'gpu',
+    min: 1,
+    recommended: 1,
+    unit: 'count',
+    description: 'CUDA-capable GPU with >= 3 GB VRAM (compute capability >= 7.0); both models share the one GPU',
+  },
+];
 
 const INFERENCE_PACKAGES: InferencePackage[] = [
   {
@@ -44,6 +60,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
     },
+    requiredResources: REQUIRED_RESOURCES,
   },
   {
     id: 'code-assistant',
@@ -71,6 +88,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
     },
+    requiredResources: REQUIRED_RESOURCES,
   },
   {
     id: 'deep-reasoning',
@@ -98,6 +116,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
     },
+    requiredResources: REQUIRED_RESOURCES,
   },
   {
     id: 'light-and-fast',
@@ -125,6 +144,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
     },
+    requiredResources: REQUIRED_RESOURCES,
   },
 ];
 

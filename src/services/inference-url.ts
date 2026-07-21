@@ -1,4 +1,4 @@
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, PinnedAllocation, ResourceFloor } from '@/components/hooks/use-inference-allocation';
 import { ModelParameters } from '@/types/huggingface';
 
 /**
@@ -15,6 +15,8 @@ import { ModelParameters } from '@/types/huggingface';
  * - `token`    selected fee token address
  * - `duration` job duration in seconds
  * - `params`   base64url JSON of per-model launch parameters (custom-model config step)
+ * - `res`      pinned CPU/RAM/disk amounts (quick start), `cpu:ram:disk` — absent in the custom flow
+ * - `resfloor` per-resource min floor for the fraction slice (custom flow package handoff), `cpu:ram:disk`
  */
 
 /** Serialize per-type GPU unit counts into a `key:count,key:count` string. */
@@ -45,6 +47,48 @@ export function decodeGpuSelection(raw: string | string[] | undefined): GpuSelec
     }
   });
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** Serialize pinned CPU/RAM/disk into a `cpu:ram:disk` string (quick start only). */
+export function encodePinnedAllocation(allocation: PinnedAllocation | undefined): string | undefined {
+  if (!allocation) {
+    return undefined;
+  }
+  return `${allocation.cpu}:${allocation.ram}:${allocation.disk}`;
+}
+
+/** Parse the `res` param back into pinned CPU/RAM/disk; undefined when absent or malformed. */
+export function decodePinnedAllocation(raw: string | string[] | undefined): PinnedAllocation | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const [cpu, ram, disk] = value.split(':').map(Number);
+  if (![cpu, ram, disk].every(Number.isFinite)) {
+    return undefined;
+  }
+  return { cpu, ram, disk };
+}
+
+/** Serialize a per-resource floor into a `cpu:ram:disk` string (custom flow package handoff only). */
+export function encodeResourceFloor(floor: ResourceFloor | undefined): string | undefined {
+  if (!floor) {
+    return undefined;
+  }
+  return `${floor.cpu}:${floor.ram}:${floor.disk}`;
+}
+
+/** Parse the `resfloor` param back into a per-resource floor; undefined when absent or malformed. */
+export function decodeResourceFloor(raw: string | string[] | undefined): ResourceFloor | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const [cpu, ram, disk] = value.split(':').map(Number);
+  if (![cpu, ram, disk].every(Number.isFinite)) {
+    return undefined;
+  }
+  return { cpu, ram, disk };
 }
 
 function base64UrlEncode(input: string): string {

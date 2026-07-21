@@ -2,7 +2,11 @@ import BenchmarkSummary from '@/components/benchmarks/benchmark-summary';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
-import useInferenceAllocation, { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import useInferenceAllocation, {
+  GpuSelection,
+  PinnedAllocation,
+  ResourceFloor,
+} from '@/components/hooks/use-inference-allocation';
 import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
@@ -34,6 +38,16 @@ type InferenceEnvironmentCardProps = {
   gpuSelection?: GpuSelection;
   /** Seeds the chips when the card is uncontrolled (e.g. restoring a prior pick for this env). Defaults to all units. */
   initialSelection?: GpuSelection;
+  /**
+   * Fixed CPU/RAM/disk to display and price (quick start's pinned recommended amounts) instead of the
+   * GPU-fraction slice. Omit in the custom flow to show the proportional allocation.
+   */
+  pinnedAllocation?: PinnedAllocation;
+  /**
+   * Per-resource min floor raising the GPU-fraction slice (custom flow package handoff). Only affects
+   * the non-pinned display/price. Omit in quick start.
+   */
+  resourceFloor?: ResourceFloor;
 };
 
 function formatGb(value: number): string {
@@ -54,6 +68,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   onTokenChange,
   gpuSelection: controlledSelection,
   initialSelection,
+  pinnedAllocation,
+  resourceFloor,
 }) => {
   const supportedTokens = useMemo(() => getEnvSupportedTokens(environment, true), [environment]);
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
@@ -106,6 +122,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     environment,
     tokenAddress,
     gpuSelection: activeSelection,
+    pinnedAllocation,
+    resourceFloor,
     durationSeconds,
   });
 
