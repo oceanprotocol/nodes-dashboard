@@ -2,7 +2,7 @@ import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import ModelCell from '@/components/inference/model-cell';
-import ServiceStatusChip from '@/components/service-status-chip/service-status-chip';
+import ServiceStatusChip, { JobStatusChip } from '@/components/service-status-chip/service-status-chip';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
@@ -774,6 +774,21 @@ export const existingServicesColumns: GridColDef<ServiceJob>[] = [
   },
 ];
 
+// An env id is a hyphen-joined list of addresses; render each shortened, joined with ' - '.
+function renderEnvironment(value?: string) {
+  if (!value) {
+    return <span className="textSecondary">-</span>;
+  }
+  return (
+    <span title={value}>
+      {value
+        .split('-')
+        .map((v) => formatWalletAddress(v))
+        .join(' - ')}
+    </span>
+  );
+}
+
 // Services running on a node, listed node-wide across all owners (ProviderInstance.getServices).
 // The listed shape strips dockerCmd/dockerfile, so identity is the container image, not the model.
 export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
@@ -806,15 +821,7 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     flex: 1,
     headerName: 'Environment',
     sortable: false,
-    renderCell: ({ value }) =>
-      value ? (
-        value
-          .split('-')
-          .map((v: string) => formatWalletAddress(v))
-          .join(' - ')
-      ) : (
-        <span className="textSecondary">-</span>
-      ),
+    renderCell: ({ value }) => renderEnvironment(value),
   },
   {
     field: 'statusText',
@@ -856,15 +863,16 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
 // Compute jobs running on a node, listed node-wide across all owners (ProviderInstance.getNodeJobs).
 export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
   {
-    field: 'jobId',
-    filterable: true,
+    field: 'name',
+    filterable: false,
     flex: 1,
-    headerName: 'Job ID',
+    headerName: 'Name',
     sortable: false,
-    filterOperators: getGridStringOperators().filter(
-      (operator) => operator.value === 'contains' || operator.value === 'equals'
-    ),
-    renderCell: ({ value }) => <span title={value}>{value ? `${value.slice(0, 12)}…` : '-'}</span>,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return value;
+    },
   },
   {
     field: 'owner',
@@ -883,7 +891,7 @@ export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
     flex: 1,
     headerName: 'Environment',
     sortable: false,
-    renderCell: ({ value }) => value || <span className="textSecondary">-</span>,
+    renderCell: ({ value }) => renderEnvironment(value),
   },
   {
     field: 'statusText',
@@ -891,17 +899,7 @@ export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
     flex: 1,
     headerName: 'Status',
     sortable: false,
-    renderCell: ({ value }) => {
-      if (!value) return '-';
-      switch (value) {
-        case 'pending':
-          return <span className="chip chipWarning">Pending</span>;
-        case 'running':
-          return <span className="chip chipWarning">Running</span>;
-        default:
-          return value;
-      }
-    },
+    renderCell: ({ row }) => <JobStatusChip status={row.status} statusText={row.statusText} />,
   },
   {
     field: 'dateCreated',

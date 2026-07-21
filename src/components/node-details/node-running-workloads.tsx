@@ -5,10 +5,11 @@ import { TableTypeEnum } from '@/components/table/table-type';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { isComputeJobInFlight, isServiceInFlight } from '@/services/service-status';
 import { Node } from '@/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Tooltip } from '@mui/material';
-import { NodeComputeJob, ServiceJobListed, ServiceStatusNumber } from '@oceanprotocol/lib';
+import { NodeComputeJob, ServiceJobListed } from '@oceanprotocol/lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './node-running-workloads.module.css';
 
@@ -17,8 +18,9 @@ type NodeRunningWorkloadsProps = {
 };
 
 // Node owners can see everything running on their hardware — services (getServices) and compute jobs
-// (getNodeJobs), both node-wide across all owners. Only currently-running items are shown. Jobs load
-// automatically (unauthenticated); services need a signature, so they load only on button press.
+// (getNodeJobs), both node-wide across all owners. Only in-flight items are shown (status logic lives
+// in services/service-status). Jobs load automatically (unauthenticated); services need a signature,
+// so they load only on button press.
 const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
   const { account } = useOceanAccount();
   const { getServices, getNodeJobs, isReady } = useP2P();
@@ -59,10 +61,10 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
     setServicesError(null);
     try {
       const result = await withNodeAuth(nodeId, nodeUri, (token) => getServices(nodeUri, token));
-      const running = result
-        .filter((s) => s.status === ServiceStatusNumber.Running)
+      const inFlight = result
+        .filter((s) => isServiceInFlight(s.status, s.statusText))
         .sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1));
-      setServices(running);
+      setServices(inFlight);
       setServicesLoaded(true);
     } catch (err) {
       console.error('Failed to load node services:', err);
@@ -93,10 +95,10 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
     setJobsError(null);
     try {
       const result = await getNodeJobs(nodeUri);
-      const running = result
-        .filter((j) => j.statusText === 'running')
+      const inFlight = result
+        .filter((j) => isComputeJobInFlight(j.status, j.statusText))
         .sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1));
-      setJobs(running);
+      setJobs(inFlight);
     } catch (err) {
       console.error('Failed to load node jobs:', err);
       setJobsError(err instanceof Error ? err.message : 'Failed to load jobs running on this node.');
@@ -126,7 +128,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
                 Loading services…
               </span>
             ) : services.length > 0 ? (
-              <span className="textSecondary">Service-on-demand containers currently running on this node</span>
+              <span className="textSecondary">Service-on-demand containers currently active on this node</span>
             ) : servicesLoaded ? (
               <span className="textSecondary">No services currently running on this node</span>
             ) : null}
@@ -173,7 +175,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
                 Loading jobs…
               </span>
             ) : jobs.length > 0 ? (
-              <span className="textSecondary">Compute jobs currently running on this node</span>
+              <span className="textSecondary">Compute jobs currently running or starting up on this node</span>
             ) : (
               <span className="textSecondary">No jobs currently running on this node</span>
             )}
