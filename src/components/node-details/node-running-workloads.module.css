@@ -1,0 +1,13 @@
+.head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.centered {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}

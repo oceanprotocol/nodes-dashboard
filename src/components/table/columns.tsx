@@ -3,18 +3,31 @@ import JobInfoButton from '@/components/button/job-info-button';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
+import { getServiceStatusView } from '@/services/service-status';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatAccessLists, formatBytes, formatDateTime, formatNumber, formatWalletAddress } from '@/utils/formatters';
+import {
+  formatAccessLists,
+  formatBytes,
+  formatDateTime,
+  formatDuration,
+  formatNumber,
+  formatWalletAddress,
+} from '@/utils/formatters';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
+import {
+  NodeComputeJob,
+  PersistentStorageBucket,
+  PersistentStorageFileEntry,
+  ServiceJobListed,
+} from '@oceanprotocol/lib';
 import classNames from 'classnames';
 
 function getUnbanAttemptResult(result: any) {
@@ -692,6 +705,164 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
         {getUnbanAttemptResult(params.row.benchmarkResult)}
       </div>
     ),
+  },
+];
+
+// Map a service's display kind to the shared chip style (green/amber/red/dim).
+function renderServiceStatus(status: ServiceJobListed['status'], statusText?: string) {
+  const view = getServiceStatusView(status, statusText);
+  return (
+    <span
+      className={classNames('chip', {
+        chipSuccess: view.kind === 'running',
+        chipWarning: view.kind === 'pending',
+        chipError: view.kind === 'failed',
+      })}
+    >
+      {view.label}
+    </span>
+  );
+}
+
+// Services running on a node, listed node-wide across all owners (ProviderInstance.getServices).
+// The listed shape strips dockerCmd/dockerfile, so identity is the container image, not the model.
+export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
+  {
+    field: 'image',
+    filterable: true,
+    flex: 1,
+    headerName: 'Image',
+    sortable: true,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
+    ),
+    valueGetter: (_value, row) => (row.tag ? `${row.image}:${row.tag}` : row.image),
+    renderCell: ({ value }) => <span title={value}>{value || '-'}</span>,
+  },
+  {
+    field: 'owner',
+    filterable: true,
+    flex: 1,
+    headerName: 'Owner',
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'equals'
+    ),
+    renderCell: ({ value }) => (value ? <span title={value}>{formatWalletAddress(value)}</span> : '-'),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => value || <span className="textSecondary">-</span>,
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ row }) => renderServiceStatus(row.status, row.statusText),
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Created',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'duration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value) : '-'),
+  },
+  {
+    field: 'expiresAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'End time',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+];
+
+// Compute jobs running on a node, listed node-wide across all owners (ProviderInstance.getNodeJobs).
+export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
+  {
+    field: 'jobId',
+    filterable: true,
+    flex: 1,
+    headerName: 'Job ID',
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'equals'
+    ),
+    renderCell: ({ value }) => <span title={value}>{value ? `${value.slice(0, 12)}…` : '-'}</span>,
+  },
+  {
+    field: 'owner',
+    filterable: true,
+    flex: 1,
+    headerName: 'Owner',
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'equals'
+    ),
+    renderCell: ({ value }) => (value ? <span title={value}>{formatWalletAddress(value)}</span> : '-'),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => value || <span className="textSecondary">-</span>,
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      switch (value) {
+        case 'pending':
+          return <span className="chip chipWarning">Pending</span>;
+        case 'running':
+          return <span className="chip chipWarning">Running</span>;
+        default:
+          return value;
+      }
+    },
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Start time',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'algoDuration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value) : '-'),
   },
 ];
 

@@ -12,6 +12,7 @@ import {
   type ComputeJob,
   type ComputeJobMetadata,
   type ComputeResourceRequest,
+  type NodeComputeJob,
   type NodeLogsParams,
   type NodeP2P,
   type OceanNode,
@@ -20,6 +21,8 @@ import {
   type PersistentStorageDeleteFileResponse,
   type PersistentStorageFileEntry,
   type ServiceJob,
+  type ServiceJobListed,
+  type ServiceListFilters,
   type ServicePayment,
   type ServiceStartParams,
   type SignerOrAuthTokenOrSignature,
@@ -332,6 +335,36 @@ export async function getServiceStatus(
   signal?: AbortSignal
 ): Promise<ServiceJob[]> {
   return ProviderInstance.getServiceStatus(normalizeNodeUri(nodeUri), signerOrAuthToken, serviceId, signal);
+}
+
+/**
+ * List EVERY service running on the node, across all owners — not just the caller's own (that's
+ * getServiceStatus). Authenticated but not owner-scoped: any consumer identity sees every owner's
+ * services, so a node owner can view what's actually running on their hardware. By default the node
+ * returns only services holding a resource reservation (running/restarting/stopping/paid-error);
+ * pass `includeAllStatuses` to get every status. The listed shape strips launch internals
+ * (`dockerCmd`, `dockerEntrypoint`, `dockerfile`, `additionalDockerFiles`).
+ */
+export async function getServices(
+  nodeUri: NodeUri,
+  signerOrAuthToken: SignerOrAuthTokenOrSignature,
+  filters?: ServiceListFilters,
+  signal?: AbortSignal
+): Promise<ServiceJobListed[]> {
+  return ProviderInstance.getServices(normalizeNodeUri(nodeUri), signerOrAuthToken, filters, signal);
+}
+
+/**
+ * List all compute jobs on the node (node-wide, every owner — not scoped to the caller). Optionally
+ * bound to jobs created at/after `fromTimestamp` (Unix seconds). Unauthenticated. Used to show a
+ * node owner what compute is running on their hardware.
+ */
+export async function getNodeJobs(
+  nodeUri: NodeUri,
+  fromTimestamp?: number,
+  signal?: AbortSignal
+): Promise<NodeComputeJob[]> {
+  return ProviderInstance.getNodeJobs(normalizeNodeUri(nodeUri), fromTimestamp, signal);
 }
 
 /**

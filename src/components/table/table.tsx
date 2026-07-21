@@ -6,6 +6,8 @@ import {
   NodesLeaderboardColumnsVisibility,
   nodesLeaderboardHomeColumns,
   nodesTopByJobCountColumns,
+  nodeJobsColumns,
+  nodeServicesColumns,
   nodesTopByRevenueColumns,
   nodeStorageFilesColumns,
   nodeStorageMyBucketsColumns,
@@ -232,6 +234,12 @@ export const Table = <T extends GridValidRowModel>({
       }
       case TableTypeEnum.NODE_STORAGE_SHARED_BUCKETS: {
         return withActions(nodeStorageSharedBucketsColumns);
+      }
+      case TableTypeEnum.NODE_SERVICES: {
+        return withActions(nodeServicesColumns);
+      }
+      case TableTypeEnum.NODE_JOBS: {
+        return withActions(nodeJobsColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {
