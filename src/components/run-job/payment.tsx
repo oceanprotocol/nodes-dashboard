@@ -2,15 +2,13 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { SelectedToken } from '@/context/run-job-context';
-import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
+import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { ComputeEnvironment } from '@/types/environments';
-import { Authorizations } from '@/types/payment';
-import { roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 type PaymentProps = {
   minLockSeconds: number;
@@ -20,58 +18,44 @@ type PaymentProps = {
   totalCost: number;
 };
 
-const MAX_LOCK_COUNT = 10;
-
 const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, totalCost }: PaymentProps) => {
   const router = useRouter();
 
-  const { account, ocean } = useOceanAccount();
+  // Escrow state (wallet/escrow balances + authorizations) — shared with the inference payment step.
+  const {
+    authorizations,
+    escrowBalance,
+    walletBalance,
+    loading: loadingPaymentInfo,
+    loadPaymentInfo,
+  } = usePaymentInfo(selectedToken.address, selectedEnv.consumerAddress);
 
-  const [authorizations, setAuthorizations] = useState<Authorizations | null>(null);
-  const [escrowBalance, setEscrowBalance] = useState<number | null>(null);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
   // The payment-status effect below re-runs on every balance/auth refetch; without
   // this guard `payment_authorized` fires many times per session, inflating the
   // funnel above `payment_authorize`. Capture once per mount instead.
   const authorizedTracked = useRef(false);
 
-  const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
-
   useEffect(() => {
     setPageSubtitle('Confirm and authorize your payment in order to start your job');
   }, [setPageSubtitle]);
 
-  const loadPaymentInfo = useCallback(async () => {
-    if (ocean && account?.address) {
-      setLoadingPaymentInfo(true);
-      const authorizations = await ocean.getAuthorizations(
-        selectedToken.address,
-        account.address,
-        selectedEnv.consumerAddress
-      );
-      setAuthorizations(authorizations);
-      const walletBalance = await ocean.getBalance(selectedToken.address, account.address);
-      setWalletBalance(roundTokenAmount(Number(walletBalance), selectedToken.address, 'down'));
-      const escrowBalance = await ocean.getUserFunds(selectedToken.address, account.address);
-      setEscrowBalance(roundTokenAmount(Number(escrowBalance), selectedToken.address, 'down'));
-      setLoadingPaymentInfo(false);
-    }
-  }, [ocean, account.address, selectedToken.address, selectedEnv.consumerAddress]);
-
-  useEffect(() => {
-    loadPaymentInfo();
-  }, [loadPaymentInfo]);
+  // Deposit + (re)authorization the session needs, and whether escrow already satisfies it.
+  // Same helper as the inference step; run-job floors the lock window at 1s.
+  const requirement = useMemo(
+    () =>
+      computeEscrowRequirement({
+        snapshot: { authorizations, escrowBalance: escrowBalance ?? 0, walletBalance: walletBalance ?? 0 },
+        totalCost,
+        tokenAddress: selectedToken.address,
+        requiredLockSeconds: minLockSeconds,
+        minLockSecondsFloor: 1,
+      }),
+    [authorizations, escrowBalance, walletBalance, totalCost, selectedToken.address, minLockSeconds]
+  );
 
   // Once escrow + authorization satisfy the session requirements, move on to the summary.
   useEffect(() => {
-    const sufficientEscrow = (escrowBalance ?? 0) >= totalCost;
-    const suffficientAuthorized =
-      roundTokenAmount(Number(authorizations?.maxLockedAmount ?? 0), selectedToken.address) >=
-      roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address);
-    const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= minLockSeconds;
-    const hasAvailableLockSlot = Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
-    if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
+    if (requirement.sufficient) {
       if (!authorizedTracked.current) {
         authorizedTracked.current = true;
         posthog.capture('payment_authorized', {
@@ -82,35 +66,9 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
       }
       router.push({ pathname: '/run-job/summary', query: router.query });
     }
-  }, [
-    authorizations?.currentLocks,
-    authorizations?.maxLockCounts,
-    authorizations?.maxLockSeconds,
-    authorizations?.maxLockedAmount,
-    currentLockedAmount,
-    escrowBalance,
-    minLockSeconds,
-    router,
-    selectedToken.address,
-    selectedToken.symbol,
-    totalCost,
-  ]);
+  }, [requirement.sufficient, router, selectedToken.symbol, selectedToken.address, totalCost]);
 
   const { handlePay, isPaying } = usePaySession({ onSuccess: loadPaymentInfo });
-
-  const depositAmount = roundTokenAmount(Math.max(0, totalCost - (escrowBalance ?? 0)), selectedToken.address, 'up');
-  const maxLockedAmount = roundTokenAmount(totalCost + currentLockedAmount, selectedToken.address, 'up');
-  const maxLockSeconds = minLockSeconds < 1 ? 1 : Math.ceil(minLockSeconds);
-  // Escrow's authorize SETS (not increments) the lock cap. Derive above the current locks so a user
-  // who has already used all their slots can still raise the limit and start a new session. Include
-  // the existing cap so a higher limit set on the escrow page isn't silently shrunk on re-auth.
-  const maxLockCount = Math.max(
-    MAX_LOCK_COUNT,
-    Number(authorizations?.currentLocks ?? 0) + 1,
-    Number(authorizations?.maxLockCounts ?? 0)
-  );
-
-  const insufficientWalletFunds = (walletBalance ?? 0) < depositAmount;
 
   const handleSubmit = useCallback(
     () =>
@@ -118,21 +76,12 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         tokenAddress: selectedToken.address,
         peerId: selectedEnv.nodeId,
         spender: selectedEnv.consumerAddress,
-        depositAmount: depositAmount.toString(),
-        maxLockedAmount: maxLockedAmount.toString(),
-        maxLockSeconds: maxLockSeconds.toString(),
-        maxLockCount: maxLockCount.toString(),
+        depositAmount: requirement.depositAmount.toString(),
+        maxLockedAmount: requirement.maxLockedAmount.toString(),
+        maxLockSeconds: requirement.maxLockSeconds.toString(),
+        maxLockCount: requirement.maxLockCount.toString(),
       }),
-    [
-      handlePay,
-      selectedToken.address,
-      selectedEnv.nodeId,
-      selectedEnv.consumerAddress,
-      depositAmount,
-      maxLockedAmount,
-      maxLockSeconds,
-      maxLockCount,
-    ]
+    [handlePay, selectedToken.address, selectedEnv.nodeId, selectedEnv.consumerAddress, requirement]
   );
 
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
@@ -161,7 +110,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         </Button>
         <Button
           color="accent1"
-          disabled={loadingPaymentInfo || isPaying || insufficientWalletFunds}
+          disabled={loadingPaymentInfo || isPaying || requirement.insufficientWalletFunds}
           loading={isPaying}
           onClick={handleSubmit}
           size="lg"

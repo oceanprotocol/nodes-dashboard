@@ -13,8 +13,8 @@ import { useInferenceContext } from '@/context/inference-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { DEFAULT_MAX_LOCK_COUNT, usePaySession } from '@/lib/use-pay-session';
-import { usePaymentInfo } from '@/lib/use-payment-info';
+import { usePaySession } from '@/lib/use-pay-session';
+import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceStartParams, buildUserData, buildVllmCommand, toNodeUri } from '@/services/inference-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
@@ -116,44 +116,28 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       throw new Error('Failed to load payment info.');
     }
     const tokenAddress = selectedToken.address;
-    const auth = info.authorizations;
-    const depositAmount = roundTokenAmount(Math.max(0, totalCost - info.escrowBalance), tokenAddress, 'up');
-    const currentLockedAmount = Number(auth?.currentLockedAmount ?? 0);
-    const requiredMaxLocked = roundTokenAmount(totalCost + currentLockedAmount, tokenAddress, 'up');
-    const sufficientAuthorization =
-      !!auth &&
-      roundTokenAmount(Number(auth.maxLockedAmount), tokenAddress) >= requiredMaxLocked &&
-      Number(auth.maxLockSeconds) >= escrowLockSeconds &&
-      Number(auth.currentLocks) < Number(auth.maxLockCounts);
-    if (depositAmount <= 0 && sufficientAuthorization) {
+    const requirement = computeEscrowRequirement({
+      snapshot: info,
+      totalCost,
+      tokenAddress,
+      requiredLockSeconds: escrowLockSeconds,
+    });
+    if (requirement.depositAmount <= 0 && requirement.sufficient) {
       return;
     }
-    if (info.walletBalance < depositAmount) {
+    if (requirement.insufficientWalletFunds) {
       throw new Error(
-        `Insufficient wallet balance: need ${depositAmount} more in escrow but only ${info.walletBalance} available.`
+        `Insufficient wallet balance: need ${requirement.depositAmount} more in escrow but only ${info.walletBalance} available.`
       );
     }
-    // Re-authorizing overwrites the previous grant, so the new one must cover both the running
-    // locks and this payment, keep at least the lock window this service needs, and never shrink
-    // limits already granted. Lock count always leaves a free slot (run-job formula).
-    const maxLockedAmount = Math.max(
-      requiredMaxLocked,
-      roundTokenAmount(Number(auth?.maxLockedAmount ?? 0), tokenAddress)
-    );
-    const maxLockSeconds = Math.max(Math.ceil(escrowLockSeconds), Number(auth?.maxLockSeconds ?? 0));
-    const maxLockCount = Math.max(
-      DEFAULT_MAX_LOCK_COUNT,
-      Number(auth?.currentLocks ?? 0) + 1,
-      Number(auth?.maxLockCounts ?? 0)
-    );
     const paid = await handlePay({
       tokenAddress,
       peerId: selectedEnv.nodeInfo.id,
       spender: selectedEnv.environment.consumerAddress,
-      depositAmount: depositAmount.toString(),
-      maxLockedAmount: maxLockedAmount.toString(),
-      maxLockSeconds: maxLockSeconds.toString(),
-      maxLockCount: maxLockCount.toString(),
+      depositAmount: requirement.depositAmount.toString(),
+      maxLockedAmount: requirement.maxLockedAmount.toString(),
+      maxLockSeconds: requirement.maxLockSeconds.toString(),
+      maxLockCount: requirement.maxLockCount.toString(),
     });
     if (!paid) {
       throw new Error('Escrow payment was not completed.');

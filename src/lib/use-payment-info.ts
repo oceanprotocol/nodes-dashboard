@@ -1,3 +1,4 @@
+import { DEFAULT_MAX_LOCK_COUNT } from '@/lib/use-pay-session';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Authorizations } from '@/types/payment';
 import { roundTokenAmount } from '@/utils/formatters';
@@ -7,6 +8,74 @@ export type PaymentInfoSnapshot = {
   authorizations: Authorizations | null;
   escrowBalance: number;
   walletBalance: number;
+};
+
+export type EscrowRequirement = {
+  /** Additional funds to deposit so escrow covers this payment; rounded up. "0" when already covered. */
+  depositAmount: number;
+  /** Escrow authorization params to (re)grant — never shrink an existing grant. */
+  maxLockedAmount: number;
+  maxLockSeconds: number;
+  maxLockCount: number;
+  /** True when the current escrow balance + authorization already satisfy this payment. */
+  sufficient: boolean;
+  /** True when the wallet can't cover the required deposit. */
+  insufficientWalletFunds: boolean;
+};
+
+/**
+ * Escrow-sufficiency math shared by the run-job and inference payment steps. Given a payment-info
+ * snapshot and the payment's cost + lock window, computes whether the current escrow balance and
+ * authorization already suffice, and — if not — the deposit + (re)authorization params to request.
+ * Re-authorizing OVERWRITES the previous grant, so every derived limit is `Math.max`'d against the
+ * existing grant: the new one must cover both the running locks and this payment and never shrink a
+ * limit already granted. A wider lock window locks no extra funds, so over-authorizing is free.
+ */
+export const computeEscrowRequirement = ({
+  snapshot,
+  totalCost,
+  tokenAddress,
+  requiredLockSeconds,
+  minLockSecondsFloor = 0,
+}: {
+  snapshot: PaymentInfoSnapshot;
+  totalCost: number;
+  tokenAddress: string;
+  requiredLockSeconds: number;
+  /** Smallest lock window to ever request (run-job floors at 1s); the requirement is the max of this and the grant. */
+  minLockSecondsFloor?: number;
+}): EscrowRequirement => {
+  const { authorizations: auth, escrowBalance, walletBalance } = snapshot;
+  const currentLockedAmount = Number(auth?.currentLockedAmount ?? 0);
+  const requiredMaxLocked = roundTokenAmount(totalCost + currentLockedAmount, tokenAddress, 'up');
+  const depositAmount = roundTokenAmount(Math.max(0, totalCost - escrowBalance), tokenAddress, 'up');
+
+  const sufficient =
+    escrowBalance >= totalCost &&
+    !!auth &&
+    roundTokenAmount(Number(auth.maxLockedAmount), tokenAddress) >= requiredMaxLocked &&
+    Number(auth.maxLockSeconds) >= requiredLockSeconds &&
+    Number(auth.currentLocks) < Number(auth.maxLockCounts);
+
+  const maxLockedAmount = Math.max(requiredMaxLocked, roundTokenAmount(Number(auth?.maxLockedAmount ?? 0), tokenAddress));
+  const maxLockSeconds = Math.max(minLockSecondsFloor, Math.ceil(requiredLockSeconds), Number(auth?.maxLockSeconds ?? 0));
+  // Authorize SETS (not increments) the lock cap. Derive above the current locks so a user who has
+  // used all their slots can still raise the limit and start a new session; keep any higher cap the
+  // user already granted (e.g. on the escrow page) so it isn't silently shrunk on re-auth.
+  const maxLockCount = Math.max(
+    DEFAULT_MAX_LOCK_COUNT,
+    Number(auth?.currentLocks ?? 0) + 1,
+    Number(auth?.maxLockCounts ?? 0)
+  );
+
+  return {
+    depositAmount,
+    maxLockedAmount,
+    maxLockSeconds,
+    maxLockCount,
+    sufficient,
+    insufficientWalletFunds: walletBalance < depositAmount,
+  };
 };
 
 /**
