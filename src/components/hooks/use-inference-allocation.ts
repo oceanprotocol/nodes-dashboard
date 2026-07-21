@@ -19,8 +19,17 @@ export type MergedGpu = {
 export type GpuSelection = Record<string, number>;
 
 /**
- * Scale a resource by a fraction, clamping to min/max.
- * If the resource is undefined or has no total/max, return 0.
+ * Scale a resource by a fraction of the environment, then clamp to the env's real constraints —
+ * the same way run-job derives a package slice from a GPU pick (see select-resources.tsx):
+ *
+ *  - Base the slice on the JOB-REACHABLE capacity, min(capacityOf, max), not the raw `total`. A
+ *    per-job `max` below `total` (e.g. a free-compute overlay) caps what one job can request, so
+ *    fractioning the full `total` would over-derive.
+ *  - Upper bound is what's currently AVAILABLE (max − inUse), not the physical `max`: another tenant
+ *    may hold part of the resource, and the node rejects a serviceStart that asks for more than free.
+ *  - Lower bound is the env's `min`, so the slice never drops below a required minimum.
+ *
+ * If the resource is undefined or advertises no capacity, return 0.
  * When rounding, a positive fraction never rounds down to 0 — a resource that exists is requested
  * with at least 1 unit, so a small GPU-fraction selection can't send the node an amount:0 CPU
  * request (which the node rejects / would schedule a resource-less container).
@@ -29,16 +38,24 @@ function fractionResourceClamped(resource: ComputeResource | undefined, fraction
   if (!resource) {
     return 0;
   }
-  const fractionedResource = (resource.total ?? resource.max ?? 0) * fraction;
+  // Job-reachable capacity: the per-job `max` caps `total` when it's set lower (free-compute overlay).
+  const capacity = resource.total && resource.total > 0 ? resource.total : (resource.max ?? 0);
+  const jobCapacity = resource.max > 0 ? Math.min(capacity, resource.max) : capacity;
+  const fractionedResource = jobCapacity * fraction;
   let roundedResource = round ? Math.round(fractionedResource) : fractionedResource;
   if (round && fraction > 0 && roundedResource < 1) {
     roundedResource = 1;
   }
-  if (roundedResource > resource.max) {
-    return resource.max;
+  // Clamp to what's free right now (max − inUse), then floor at the env's required minimum. The
+  // available ceiling wins over min only when nothing is free — an exhausted resource can't be met,
+  // and the card blocks selection in that case (gpuExhausted / maxUnitsByResources <= 0).
+  const available = Math.max(0, (resource.max ?? 0) - (resource.inUse ?? 0));
+  if (roundedResource > available) {
+    roundedResource = available;
   }
-  if ((resource.min || resource.min === 0) && roundedResource < resource.min) {
-    return resource.min;
+  const min = resource.min ?? 0;
+  if (roundedResource < min) {
+    return min;
   }
   return roundedResource;
 }
@@ -112,7 +129,12 @@ const useInferenceAllocation = ({
       return 1;
     }
     const unitsThatFit = (available: number, resource: ComputeResource | undefined): number => {
-      const per = (resource?.total ?? resource?.max ?? 0) / totalGpus;
+      // Per-unit share is based on JOB-REACHABLE capacity (min(total, max)), matching the slice
+      // fractionResourceClamped derives — a per-job `max` below `total` caps what one job can reach,
+      // so dividing the full `total` would understate the share and over-count fitting units.
+      const total = resource?.total && resource.total > 0 ? resource.total : (resource?.max ?? 0);
+      const jobCapacity = resource?.max && resource.max > 0 ? Math.min(total, resource.max) : total;
+      const per = jobCapacity / totalGpus;
       if (per <= 0) {
         return totalGpus; // resource doesn't constrain (none required per unit)
       }
