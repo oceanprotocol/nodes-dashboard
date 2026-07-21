@@ -270,13 +270,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                       initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
                       key={`${node.id}-${env.id}`}
                       selected={isPriorSelection}
-                      nodeInfo={{
-                        currentAddrs: node.currentAddrs,
-                        friendlyName: node.friendlyName,
-                        id: node.id,
-                        latestBenchmarkResults: node.latestBenchmarkResults,
-                        multiaddrs: node.multiaddrs,
-                      }}
+                      nodeInfo={node}
                       onSelect={(tokenAddress, tokenSymbol, gpuSelection) =>
                         handleSelect(node, env.id, tokenAddress, tokenSymbol, gpuSelection)
                       }

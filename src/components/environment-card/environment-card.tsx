@@ -191,7 +191,9 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       <div className={styles.cpuWrapper}>
         <ProgressBar
           value={percentage}
-          topLeftContent={<HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />}
+          topLeftContent={
+            <HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />
+          }
           bottomLeftContent={
             <span className={styles.label}>
               <span className={styles.em}>
@@ -234,7 +236,11 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       if (compact) {
         return (
           <div className={styles.gpuWrapper} key={gpu.id}>
-            <HardwareLabel className={classNames(styles.heading, styles.label)} type="gpu" value={gpu.description || 'GPU'} />
+            <HardwareLabel
+              className={classNames(styles.heading, styles.label)}
+              type="gpu"
+              value={gpu.description || 'GPU'}
+            />
             <div className={styles.label}>
               <span className={styles.em}>
                 {available} / {max}
@@ -259,7 +265,11 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           <ProgressBar
             value={percentage}
             topLeftContent={
-              <HardwareLabel className={classNames(styles.heading, styles.label)} type="gpu" value={gpu.description || 'GPU'} />
+              <HardwareLabel
+                className={classNames(styles.heading, styles.label)}
+                type="gpu"
+                value={gpu.description || 'GPU'}
+              />
             }
             bottomLeftContent={
               <span className={styles.label}>
@@ -513,7 +523,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               >
                 {nodeInfo.friendlyName || nodeInfo.id}
               </Button>
-              {nodeInfo.latestBenchmarkResults ? <VerifiedIcon className={styles.verified} /> : null}
+              {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
             </span>
           </div>
           {nodeInfo.latestBenchmarkResults ? (

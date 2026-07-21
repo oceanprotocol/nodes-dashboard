@@ -243,7 +243,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             >
               {nodeInfo.friendlyName || nodeInfo.id}
             </Button>
-            {nodeInfo.latestBenchmarkResults ? <VerifiedIcon className={styles.verified} /> : null}
+            {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
           </span>
         </div>
         {nodeInfo.latestBenchmarkResults ? (
