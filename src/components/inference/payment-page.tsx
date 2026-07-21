@@ -15,7 +15,7 @@ import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
-import { buildInferenceStartParams, buildUserData, buildVllmCommand, toNodeUri } from '@/services/inference-launch';
+import { buildEngineCommand, buildInferenceStartParams, buildUserData, toNodeUri } from '@/services/inference-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
@@ -309,7 +309,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildUserData(params, hfToken), buildVllmCommand(model, params))
+        serviceRestart(nodeUri, token, targetServiceId, buildUserData(params, hfToken), buildEngineCommand(model, params))
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');

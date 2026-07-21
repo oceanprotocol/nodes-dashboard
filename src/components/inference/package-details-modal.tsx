@@ -41,6 +41,7 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
 }) => {
   const { resolved, loading: resolvingEnv, loadError: envError, retry } = env;
   const serviceModels: ServiceModel[] = useMemo(() => (pkg ? [{ model: pkg.model, params: pkg.params }] : []), [pkg]);
+  const engineLabel = pkg?.params.engine === 'llamacpp' ? 'llama.cpp' : 'vLLM';
 
   // Paid service-on-demand window. The node sweeps a below-min job to Expired almost immediately, so
   // duration must stay in bounds. Unset bounds fall back to 0 / Infinity. Same rule as the custom flow.
@@ -94,7 +95,9 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
           <div className={styles.section}>
             <div>
               <h4>Model &amp; engine</h4>
-              <div>Expand for the full launch preset</div>
+              <div>
+                Runs on <strong>{engineLabel}</strong>. Expand for the full launch preset.
+              </div>
             </div>
             <InferenceModelList models={serviceModels} />
           </div>

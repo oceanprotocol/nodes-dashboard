@@ -16,7 +16,7 @@ import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
 import { getModelShortName } from '@/services/huggingface-service';
-import { parseVllmCommand, toNodeUri, VLLM_PORT } from '@/services/inference-launch';
+import { detectEngine, enginePort, parseEngineCommand, toNodeUri } from '@/services/inference-launch';
 import { getServiceStatusView } from '@/services/service-status';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
@@ -49,13 +49,17 @@ const ENDPOINTS: Endpoint[] = [
   { method: 'GET', path: '/version', description: 'Running vLLM version' },
 ];
 
-/** vLLM listens on 8000; prefer that endpoint, else fall back to the first exposed one. */
+/**
+ * Prefer the endpoint on the engine's OpenAI-compatible port (vLLM 8000, llama.cpp 8080), detected
+ * from the running service's dockerCmd; fall back to the first exposed endpoint.
+ */
 function serviceBaseUrl(job: ServiceJob | null): string | null {
   if (!job || job.endpoints.length === 0) {
     return null;
   }
-  const vllm = job.endpoints.find((ep) => ep.containerPort === VLLM_PORT);
-  return (vllm ?? job.endpoints[0]).url;
+  const port = enginePort(job.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm');
+  const match = job.endpoints.find((ep) => ep.containerPort === port);
+  return (match ?? job.endpoints[0]).url;
 }
 
 // How often to poll the node for the service status while it's still spinning up.
@@ -264,7 +268,7 @@ const ManageServicePage: React.FC = () => {
     if (!cmd || selectedModels.length === 0) {
       return;
     }
-    const parsed = parseVllmCommand(cmd);
+    const parsed = parseEngineCommand(cmd);
     const target = parsed.modelId ? selectedModels.find((m) => m.id === parsed.modelId) : selectedModels[0];
     if (!target || modelParamsByModel[target.id]) {
       return;

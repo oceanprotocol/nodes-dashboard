@@ -42,6 +42,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       pipelineTag: 'text-generation',
     },
     params: {
+      engine: 'vllm',
       servedModelName: 'qwen2.5-7b-instruct',
       customParams: [],
       maxContext: 32768,
@@ -70,6 +71,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       pipelineTag: 'text-generation',
     },
     params: {
+      engine: 'vllm',
       servedModelName: 'qwen2.5-coder-7b-instruct',
       customParams: [],
       maxContext: 32768,
@@ -98,6 +100,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       pipelineTag: 'text-generation',
     },
     params: {
+      engine: 'vllm',
       servedModelName: 'r1-distill-qwen-7b',
       customParams: [],
       maxContext: 32768,
@@ -125,19 +128,19 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       author: 'microsoft',
       pipelineTag: 'text-generation',
     },
+    // Showcases the llama.cpp engine: a GGUF quantization. This package pins the same GPU env as the
+    // others (the node's only advertised env), so gpuLayers offloads the whole model to that GPU —
+    // Phi-3.5-mini (3.8B) at Q4_K_M fits well inside a T4's 16 GB. Set gpuLayers to 0 only on a
+    // package pinned to a GPU-less env (none on this node yet), or it books a GPU it never uses.
     params: {
+      engine: 'llamacpp',
       servedModelName: 'phi-3.5-mini-instruct',
       customParams: [],
-      maxContext: 16384,
-      gpuMemoryUtilization: 0.85,
-      quantization: 'none',
-      dtype: 'float16',
-      kvCacheDtype: 'auto',
-      trustRemoteCode: true,
-      enforceEager: false,
-      revision: '',
-      toolCalling: false,
-      toolCallParser: null,
+      ggufRepo: 'bartowski/Phi-3.5-mini-instruct-GGUF',
+      ggufQuant: 'Q4_K_M',
+      contextLength: 16384,
+      gpuLayers: 99,
+      jinja: true,
     },
     env: {
       peerId: NODE_ID,

@@ -8,6 +8,21 @@
     align-items: center;
     justify-content: space-between;
   }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    @media (min-width: 576px) {
+      flex-direction: row;
+      align-items: flex-end;
+    }
+
+    .input {
+      min-width: 160px;
+    }
+  }
 }
 
 .filters {

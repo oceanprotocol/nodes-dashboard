@@ -34,6 +34,11 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
   // Pinned GPU booking, one entry per type: "2x <logo> H200". Zero-count types skipped.
   const gpuEntries = Object.entries(env.gpuSelection).filter(([, count]) => count > 0);
 
+  // Engine-specific chips: vLLM exposes tool calling + a context ceiling; llama.cpp shows its context.
+  const showToolChip = params.engine === 'vllm' && params.toolCalling;
+  const contextTokens = params.engine === 'vllm' ? params.maxContext : params.contextLength;
+  const engineLabel = params.engine === 'llamacpp' ? 'llama.cpp' : 'vLLM';
+
   return (
     <Card
       ariaPressed={onToggle ? selected : undefined}
@@ -64,7 +69,8 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
       </div>
       <div className={styles.chips}>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{prettyPipeline(model.pipelineTag)}</span>
-        {params.toolCalling && <span className={classNames('chip', 'chipAccent2', styles.chip)}>Tools</span>}
+        <span className={classNames('chip', 'chipGlass', styles.chip)}>{engineLabel}</span>
+        {showToolChip && <span className={classNames('chip', 'chipAccent2', styles.chip)}>Tools</span>}
       </div>
       <div className={styles.stats}>
         {gpuEntries.length > 0 ? (
@@ -79,10 +85,10 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
             GPU
           </span>
         )}
-        {params.maxContext !== null && (
+        {contextTokens != null && (
           <span className={styles.statItem} title="Context length">
             <ViewStreamOutlinedIcon fontSize="small" />
-            {Math.round(params.maxContext / 1024)}k ctx
+            {Math.round(contextTokens / 1024)}k ctx
           </span>
         )}
       </div>

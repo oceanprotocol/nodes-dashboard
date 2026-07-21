@@ -1,9 +1,12 @@
 import {
   HuggingFaceModel,
   HuggingFaceModelConfig,
+  InferenceEngine,
+  LlamaCppParameters,
   ModelParameters,
   ModelQuantization,
   ToolCallParser,
+  VllmParameters,
 } from '@/types/huggingface';
 import axios from 'axios';
 
@@ -411,6 +414,28 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
 
 // vLLM launch-param defaults, used when the model config doesn't pin a value.
 const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
+// llama.cpp defaults: quant tag most GGUF repos ship (good size/quality tradeoff) and CPU-only offload.
+const DEFAULT_GGUF_QUANT = 'Q4_K_M';
+const DEFAULT_LLAMA_GPU_LAYERS = 0;
+
+/** Ocean's supported inference engines, for selectors. `vllm` is the default. */
+export const INFERENCE_ENGINE_OPTIONS: { label: string; value: InferenceEngine }[] = [
+  { label: 'vLLM', value: 'vllm' },
+  { label: 'llama.cpp', value: 'llamacpp' },
+];
+
+export const DEFAULT_INFERENCE_ENGINE: InferenceEngine = 'vllm';
+
+/**
+ * Best-effort GGUF repo guess for llama.cpp from an HF model id. GGUF repos are separate from the raw
+ * weights repo (llama.cpp can't serve raw weights) and follow no strict rule, so this is only a
+ * starting suggestion the user is expected to correct: `bartowski` re-publishes most popular models
+ * as `<repo>-GGUF`, so we point there. Empty for a bare id with no author.
+ */
+export function guessGgufRepo(modelId: string): string {
+  const repo = getModelShortName(modelId);
+  return repo ? `bartowski/${repo}-GGUF` : '';
+}
 
 /**
  * Allowed range for each numeric launch param — the single source for the form's sliders/validation.
@@ -447,14 +472,11 @@ export function mapQuantization(method: string | null): ModelQuantization | null
   }
 }
 
-/**
- * Build the launch parameters for a model from its HF config, falling back to neutral defaults for
- * anything the config doesn't pin. Passing `config: null` yields the pure defaults — the fallback
- * used for a selection whose params haven't been committed yet.
- */
-export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelId: string): ModelParameters {
+/** vLLM launch-param defaults from HF config, falling back to neutral values for anything unpinned. */
+function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: string): VllmParameters {
   const lockedQuant = mapQuantization(config?.quantizationMethod ?? null);
   return {
+    engine: 'vllm',
     servedModelName: getModelShortName(modelId),
     // User-defined key/value params — none by default; the user adds them like env vars.
     customParams: [],
@@ -477,6 +499,36 @@ export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelI
     // Pre-fill the best-guess parser (still user-overridable); null when the family is unknown.
     toolCallParser: inferToolCallParser(config),
   };
+}
+
+/** llama.cpp launch-param defaults. Seeds a best-guess GGUF repo + common quant; user corrects both. */
+function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: string): LlamaCppParameters {
+  return {
+    engine: 'llamacpp',
+    servedModelName: getModelShortName(modelId),
+    customParams: [],
+    ggufRepo: guessGgufRepo(modelId),
+    ggufQuant: DEFAULT_GGUF_QUANT,
+    // Seed the model's reported context; null lets llama.cpp use its trained default.
+    contextLength: config?.maxContext ?? null,
+    gpuLayers: DEFAULT_LLAMA_GPU_LAYERS,
+    // Jinja on by default so chat/tool templates work; the models we serve are chat models.
+    jinja: true,
+  };
+}
+
+/**
+ * Build the launch parameters for a model + engine from its HF config, falling back to neutral
+ * defaults for anything the config doesn't pin. Passing `config: null` yields the pure defaults —
+ * the fallback used for a selection whose params haven't been committed yet. The engine picks which
+ * branch of ModelParameters is returned (defaults to vLLM).
+ */
+export function buildModelDefaults(
+  config: HuggingFaceModelConfig | null,
+  modelId: string,
+  engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE
+): ModelParameters {
+  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId) : buildVllmDefaults(config, modelId);
 }
 
 /** Short display name for a model id — the repo part after the `author/` prefix. */

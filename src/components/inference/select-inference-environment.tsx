@@ -9,7 +9,9 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
+import { INFERENCE_ENGINE_OPTIONS } from '@/services/huggingface-service';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
+import { InferenceEngine } from '@/types/huggingface';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
 import { useFormik } from 'formik';
@@ -47,8 +49,15 @@ type SelectInferenceEnvironmentProps = {
 const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({ onEnvSelected }) => {
   const { loading, loadMoreEnvs, nodeEnvs, paginationResponse, filters, setFilters, setSort, sort } =
     useRunJobEnvsContext();
-  const { jobDurationSeconds, setJobDurationSeconds, setSelectedEnv, selectedEnv, setSelectedToken } =
-    useInferenceContext();
+  const {
+    jobDurationSeconds,
+    setJobDurationSeconds,
+    setSelectedEnv,
+    selectedEnv,
+    setSelectedToken,
+    engine,
+    setEngine,
+  } = useInferenceContext();
 
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
   // min/max job-duration window. Cleared on the next valid pick or duration change.
@@ -195,20 +204,32 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
         <div className={styles.durationRow}>
           <div>
-            <h3>Duration</h3>
+            <h3>Engine &amp; duration</h3>
             <div className="textSecondary">
               Prices below are shown for <strong>selected duration</strong>
             </div>
           </div>
-          <DurationInput
-            availableUnits={DURATION_UNIT_OPTIONS}
-            defaultUnit="hours"
-            errorText={durationError ?? undefined}
-            min={1}
-            onChange={onDurationChange}
-            size="md"
-            value={jobDurationSeconds}
-          />
+          <div className={styles.controls}>
+            <Select<InferenceEngine>
+              className={styles.input}
+              label="Engine"
+              onChange={(e) => setEngine(e.target.value as InferenceEngine)}
+              options={INFERENCE_ENGINE_OPTIONS}
+              size="sm"
+              value={engine}
+            />
+            <DurationInput
+              availableUnits={DURATION_UNIT_OPTIONS}
+              className={styles.input}
+              defaultUnit="hours"
+              errorText={durationError ?? undefined}
+              label="Session length"
+              min={1}
+              onChange={onDurationChange}
+              size="sm"
+              value={jobDurationSeconds}
+            />
+          </div>
         </div>
       </Card>
 

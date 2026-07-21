@@ -13,8 +13,9 @@ import {
   encodePinnedAllocation,
   encodeResourceFloor,
 } from '@/services/inference-url';
+import { DEFAULT_INFERENCE_ENGINE } from '@/services/huggingface-service';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
-import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
+import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,6 +26,8 @@ export type InferenceSelectionQuery = Partial<{
   peerId: string;
   env: string;
   gpus: string;
+  /** Inference engine driving the launch (`vllm` | `llamacpp`) — picks the image, port & command. */
+  engine: string;
   /** Pinned CPU/RAM/disk (`cpu:ram:disk`) — quick start only; absent in the custom flow. */
   res: string;
   /** Per-resource min floor (`cpu:ram:disk`) for the fraction slice — custom flow package handoff only. */
@@ -72,6 +75,13 @@ type InferenceContextType = {
   setHfToken: (token: string) => void;
   jobDurationSeconds: number;
   setJobDurationSeconds: (seconds: number) => void;
+  /**
+   * Inference engine for the custom flow (vLLM | llama.cpp). Drives which launch params the config
+   * step edits and the image/port/command at launch. The committed ModelParameters carry the same
+   * engine (params.engine is authoritative at launch/manage); this is the in-flow selection driver.
+   */
+  engine: InferenceEngine;
+  setEngine: (engine: InferenceEngine) => void;
   modelParamsByModel: Record<string, ModelParameters>;
   setParamsForModel: (modelId: string, params: ModelParameters) => void;
   clearSelection: () => void;
@@ -99,6 +109,7 @@ type SelectionOverrides = {
   resourceFloor?: ResourceFloor;
   tokenAddress?: string;
   durationSeconds?: number;
+  engine?: InferenceEngine;
   modelParamsByModel?: Record<string, ModelParameters>;
 };
 
@@ -128,6 +139,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
+  const [engine, setEngine] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
   const [hydrateFromUrlFinished, setHydrateFromUrlFinished] = useState(false);
   // True when the URL described a selection we couldn't fully rebuild (HF/env fetch failed or a
@@ -217,6 +229,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
       const models = overrides?.models ?? selectedModels;
       const duration = overrides?.durationSeconds ?? jobDurationSeconds;
+      const selectedEngine = overrides?.engine ?? engine;
 
       const query: InferenceSelectionQuery = {};
       const modelIds = models.map((m) => m.id);
@@ -247,6 +260,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (tokenAddress) {
         query.token = tokenAddress;
       }
+      query.engine = selectedEngine;
       query.duration = String(duration);
       const encodedParams = encodeModelParams(params);
       if (encodedParams) {
@@ -270,6 +284,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedEnv,
       selectedToken,
       jobDurationSeconds,
+      engine,
       modelParamsByModel,
       router.query.edit,
       router.query.serviceId,
@@ -295,7 +310,16 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     // model id (whose Manage link carries no `params`) would leave the previous run's params live
     // under the colliding model-id key, and the manage page's dockerCmd seed (which refuses to
     // overwrite an already-set key) could never correct it.
-    setModelParamsByModel(decodeModelParams(q.params));
+    const restoredParams = decodeModelParams(q.params);
+    setModelParamsByModel(restoredParams);
+    // Restore the engine: the explicit `engine` param wins; else infer it from the committed params
+    // (their `engine` discriminator); else fall back to the default. Keeps the config step's selector
+    // and the launch command in sync on a refresh / deep link.
+    const engineParam = Array.isArray(q.engine) ? q.engine[0] : q.engine;
+    const paramEngine = Object.values(restoredParams)[0]?.engine;
+    const restoredEngine: InferenceEngine =
+      engineParam === 'vllm' || engineParam === 'llamacpp' ? engineParam : (paramEngine ?? DEFAULT_INFERENCE_ENGINE);
+    setEngine(restoredEngine);
 
     // Each restore reports whether it fully succeeded, so we can tell "URL carried a selection we
     // failed to rebuild" (a real error — don't bounce the user) from "URL had nothing to restore".
@@ -442,6 +466,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setHfToken,
       jobDurationSeconds,
       setJobDurationSeconds,
+      engine,
+      setEngine,
       modelParamsByModel,
       setParamsForModel,
       clearSelection: () => {
@@ -450,6 +476,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedToken(null);
         setHfToken('');
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+        setEngine(DEFAULT_INFERENCE_ENGINE);
         setModelParamsByModel({});
       },
       hydrateFromUrlFinished,
@@ -467,6 +494,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       hfToken,
       setHfToken,
       jobDurationSeconds,
+      engine,
       modelParamsByModel,
       setParamsForModel,
       hydrateFromUrlFinished,

@@ -49,16 +49,26 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
   const show = <T,>(value: T | null | undefined, format: (v: T) => React.ReactNode): React.ReactNode =>
     value === null || value === undefined ? 'N/A' : format(value);
 
+  const isLlama = params?.engine === 'llamacpp';
+
   // Headline specs shown inline; the rest live behind the toggle. Each guarded independently so a
   // partial params object (e.g. from an older URL) just omits the missing chips rather than throwing.
-  const specs = params
-    ? ([
-        params.maxContext != null && `${params.maxContext.toLocaleString()} ctx`,
-        params.dtype,
-        params.quantization && params.quantization !== 'none' && params.quantization,
-        params.toolCalling && 'tools',
-      ].filter(Boolean) as string[])
-    : [];
+  // vLLM and llama.cpp expose different fields, so the chip set is engine-specific.
+  let specs: string[] = [];
+  if (params?.engine === 'llamacpp') {
+    specs = [
+      params.contextLength != null && `${params.contextLength.toLocaleString()} ctx`,
+      params.ggufQuant || undefined,
+      params.gpuLayers > 0 && `${params.gpuLayers} gpu layers`,
+    ].filter(Boolean) as string[];
+  } else if (params?.engine === 'vllm') {
+    specs = [
+      params.maxContext != null && `${params.maxContext.toLocaleString()} ctx`,
+      params.dtype,
+      params.quantization !== 'none' && params.quantization,
+      params.toolCalling && 'tools',
+    ].filter(Boolean) as string[];
+  }
 
   // User-defined key/value params (env-var style). Each becomes a row; the flag is its key.
   const customRows: ParamRow[] = (params?.customParams ?? []).map((param) => ({
@@ -66,37 +76,65 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
     value: param.value || 'N/A',
   }));
 
-  const engineRows: ParamRow[] = [
-    { label: 'Max context', value: show(params?.maxContext, (v) => v.toLocaleString()), flag: '--max-model-len' },
-    {
-      label: 'GPU memory',
-      value: show(params?.gpuMemoryUtilization, (v) => v.toFixed(2)),
-      flag: '--gpu-memory-utilization',
-    },
-    { label: 'dtype', value: show(params?.dtype, (v) => v), flag: '--dtype' },
-    {
-      label: 'Quantization',
-      value: show(params?.quantization, (v) => (v === 'none' ? 'None' : v)),
-      flag: '--quantization',
-    },
-    { label: 'KV cache', value: show(params?.kvCacheDtype, (v) => v), flag: '--kv-cache-dtype' },
-    { label: 'Revision', value: show(params?.revision, (v) => v || 'main'), flag: '--revision' },
-    {
-      label: 'Trust remote code',
-      value: show(params?.trustRemoteCode, (v) => (v ? 'On' : 'Off')),
-      flag: '--trust-remote-code',
-    },
-    { label: 'Enforce eager', value: show(params?.enforceEager, (v) => (v ? 'On' : 'Off')), flag: '--enforce-eager' },
-    {
-      label: 'Tool parser',
-      value: show(params?.toolCalling, (v) => (v ? (params?.toolCallParser ?? '—') : 'Off')),
-      flag: '--tool-call-parser',
-    },
-  ];
+  // The cold-launch flag rows, per engine. Labels double as the flag column below.
+  const engineRows: ParamRow[] =
+    params?.engine === 'llamacpp'
+      ? [
+          { label: 'GGUF repo', value: show(params.ggufRepo || undefined, (v) => v), flag: '-hf' },
+          { label: 'Quantization', value: show(params.ggufQuant || undefined, (v) => v), flag: '-hf :quant' },
+          { label: 'Context length', value: show(params.contextLength, (v) => v.toLocaleString()), flag: '-c' },
+          { label: 'GPU layers', value: show(params.gpuLayers, (v) => String(v)), flag: '-ngl' },
+          { label: 'Chat template', value: show(params.jinja, (v) => (v ? 'On' : 'Off')), flag: '--jinja' },
+        ]
+      : [
+          {
+            label: 'Max context',
+            value: show(params?.engine === 'vllm' ? params.maxContext : undefined, (v) => v.toLocaleString()),
+            flag: '--max-model-len',
+          },
+          {
+            label: 'GPU memory',
+            value: show(params?.engine === 'vllm' ? params.gpuMemoryUtilization : undefined, (v) => v.toFixed(2)),
+            flag: '--gpu-memory-utilization',
+          },
+          { label: 'dtype', value: show(params?.engine === 'vllm' ? params.dtype : undefined, (v) => v), flag: '--dtype' },
+          {
+            label: 'Quantization',
+            value: show(params?.engine === 'vllm' ? params.quantization : undefined, (v) => (v === 'none' ? 'None' : v)),
+            flag: '--quantization',
+          },
+          {
+            label: 'KV cache',
+            value: show(params?.engine === 'vllm' ? params.kvCacheDtype : undefined, (v) => v),
+            flag: '--kv-cache-dtype',
+          },
+          {
+            label: 'Revision',
+            value: show(params?.engine === 'vllm' ? params.revision : undefined, (v) => v || 'main'),
+            flag: '--revision',
+          },
+          {
+            label: 'Trust remote code',
+            value: show(params?.engine === 'vllm' ? params.trustRemoteCode : undefined, (v) => (v ? 'On' : 'Off')),
+            flag: '--trust-remote-code',
+          },
+          {
+            label: 'Enforce eager',
+            value: show(params?.engine === 'vllm' ? params.enforceEager : undefined, (v) => (v ? 'On' : 'Off')),
+            flag: '--enforce-eager',
+          },
+          {
+            label: 'Tool parser',
+            value: show(params?.engine === 'vllm' ? params.toolCalling : undefined, (v) =>
+              v ? ((params?.engine === 'vllm' && params.toolCallParser) ?? '—') : 'Off'
+            ),
+            flag: '--tool-call-parser',
+          },
+        ];
 
   const groups: ParamGroup[] = [
     ...(customRows.length > 0 ? [{ eyebrow: 'Model parameters', rows: customRows }] : []),
-    { eyebrow: 'vLLM engine', rows: engineRows },
+    { eyebrow: isLlama ? 'llama.cpp engine' : 'vLLM engine', rows: engineRows },
   ];
 
   return (

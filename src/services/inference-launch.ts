@@ -3,7 +3,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
 import { ComputeResource } from '@/types/environments';
-import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
+import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResourceRequest, ServiceStartParams } from '@oceanprotocol/lib';
 
@@ -15,6 +15,26 @@ import { ComputeResourceRequest, ServiceStartParams } from '@oceanprotocol/lib';
 export const VLLM_IMAGE = 'vllm/vllm-openai';
 export const VLLM_TAG = process.env.NEXT_PUBLIC_VLLM_TAG ?? 'latest';
 export const VLLM_PORT = 8000;
+
+/**
+ * The container image + port for the llama.cpp service. Mirrors ocean-node's
+ * `docs/serviceTemplates/llamacpp-phi4-cpu.json`: the OpenAI-compatible llama.cpp server serving a
+ * GGUF quantization off the Hub, listening on port 8080. CPU-capable (vLLM's image is CUDA-only).
+ */
+export const LLAMACPP_IMAGE = 'ghcr.io/ggml-org/llama.cpp';
+export const LLAMACPP_TAG = process.env.NEXT_PUBLIC_LLAMACPP_TAG ?? 'server';
+export const LLAMACPP_PORT = 8080;
+
+/** Per-engine container image/tag/port. The launch command differs too — see buildEngineCommand. */
+export const ENGINE_RUNTIME: Record<InferenceEngine, { image: string; tag: string; port: number }> = {
+  vllm: { image: VLLM_IMAGE, tag: VLLM_TAG, port: VLLM_PORT },
+  llamacpp: { image: LLAMACPP_IMAGE, tag: LLAMACPP_TAG, port: LLAMACPP_PORT },
+};
+
+/** The container port an engine's OpenAI-compatible server listens on (for endpoint lookup on manage). */
+export function enginePort(engine: InferenceEngine): number {
+  return ENGINE_RUNTIME[engine].port;
+}
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
 type Allocation = {
@@ -43,13 +63,13 @@ export function toNodeUri(nodeInfo: { multiaddrs?: string[]; id: string }): stri
 }
 
 /**
- * Turn the model launch parameters into the vLLM server command (Docker CMD, exec-form).
- * Every arg is a separate array element (exec form — no shell). `--max-model-len` /
- * `--gpu-memory-utilization` are only emitted when they hold a valid value: a NaN/0/empty
- * value stringifies to a garbage flag (`--max-model-len NaN`) that makes vLLM exit 1 at startup,
- * so we drop it and let vLLM derive the default from the model config instead.
+ * Turn vLLM launch parameters into the server command (Docker CMD, exec-form). Every arg is a
+ * separate array element (exec form — no shell). `--max-model-len` / `--gpu-memory-utilization` are
+ * only emitted when they hold a valid value: a NaN/0/empty value stringifies to a garbage flag
+ * (`--max-model-len NaN`) that makes vLLM exit 1 at startup, so we drop it and let vLLM derive the
+ * default from the model config instead.
  */
-export function buildVllmCommand(model: HuggingFaceModel, params: ModelParameters): string[] {
+function buildVllmCommand(model: HuggingFaceModel, params: Extract<ModelParameters, { engine: 'vllm' }>): string[] {
   const cmd = ['--model', model.id, '--host', '0.0.0.0', '--port', String(VLLM_PORT)];
 
   if (params.maxContext != null && Number.isFinite(params.maxContext) && params.maxContext > 0) {
@@ -88,13 +108,51 @@ export function buildVllmCommand(model: HuggingFaceModel, params: ModelParameter
 }
 
 /**
- * Reverse of buildVllmCommand: recover the model id + launch params from a running service's
- * dockerCmd (the node returns the command, not the original ModelParameters). Used by the manage
- * page to rebuild the params for a service opened without them in the URL. Flags absent from the
- * command fall back to buildModelDefaults' neutral values; customParams can't be recovered from the
- * command (they live in the encrypted userData), so they come back empty.
+ * Turn llama.cpp launch parameters into the server command (Docker CMD, exec-form). llama.cpp pulls
+ * a GGUF from the Hub via `-hf <repo>:<quant>`, so the served model is the repo+quant, not the HF
+ * model id. `-c` / `-ngl` are only emitted when valid so a NaN can't crash the server at startup.
  */
-export function parseVllmCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
+function buildLlamaCppCommand(params: Extract<ModelParameters, { engine: 'llamacpp' }>): string[] {
+  // `-hf repo:quant` — the quant tag is appended only when set (bare repo lets llama.cpp pick).
+  const hfRef = params.ggufQuant ? `${params.ggufRepo}:${params.ggufQuant}` : params.ggufRepo;
+  const cmd = ['-hf', hfRef, '--host', '0.0.0.0', '--port', String(LLAMACPP_PORT)];
+
+  if (params.contextLength != null && Number.isFinite(params.contextLength) && params.contextLength > 0) {
+    cmd.push('-c', String(Math.floor(params.contextLength)));
+  }
+  if (Number.isFinite(params.gpuLayers) && params.gpuLayers > 0) {
+    cmd.push('-ngl', String(Math.floor(params.gpuLayers)));
+  }
+  if (params.servedModelName) {
+    cmd.push('--alias', params.servedModelName);
+  }
+  if (params.jinja) {
+    cmd.push('--jinja');
+  }
+  // Flash attention is left to llama.cpp's own auto-detection (the server default) — not exposed.
+
+  return cmd;
+}
+
+/** Build the launch command for whichever engine the params carry. Dispatches on `params.engine`. */
+export function buildEngineCommand(model: HuggingFaceModel, params: ModelParameters): string[] {
+  return params.engine === 'llamacpp' ? buildLlamaCppCommand(params) : buildVllmCommand(model, params);
+}
+
+/** Detect the engine a running service uses from its dockerCmd: `-hf` is llama.cpp, else vLLM. */
+export function detectEngine(cmd: string[]): InferenceEngine {
+  return cmd.includes('-hf') ? 'llamacpp' : 'vllm';
+}
+
+/**
+ * Reverse of buildEngineCommand: recover the model id + launch params from a running service's
+ * dockerCmd (the node returns the command, not the original ModelParameters). Used by the manage
+ * page to rebuild the params for a service opened without them in the URL. The engine is detected
+ * from the command shape; flags absent from the command fall back to buildModelDefaults' neutral
+ * values; customParams can't be recovered from the command (they live in the encrypted userData), so
+ * they come back empty.
+ */
+export function parseEngineCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
   // Read the value following a flag, or undefined when the flag is absent / has no value.
   const valueOf = (flag: string): string | undefined => {
     const idx = cmd.indexOf(flag);
@@ -102,8 +160,29 @@ export function parseVllmCommand(cmd: string[]): { modelId: string | null; param
   };
   const has = (flag: string): boolean => cmd.includes(flag);
 
+  if (detectEngine(cmd) === 'llamacpp') {
+    // `-hf repo:quant` — the model id we surface is the GGUF repo (llama.cpp has no raw-weights id).
+    const hfRef = valueOf('-hf') ?? '';
+    const [ggufRepo, ggufQuant] = hfRef.includes(':') ? hfRef.split(':') : [hfRef, ''];
+    const defaults = buildModelDefaults(null, ggufRepo, 'llamacpp') as Extract<ModelParameters, { engine: 'llamacpp' }>;
+    const contextRaw = Number(valueOf('-c'));
+    const nglRaw = Number(valueOf('-ngl'));
+    return {
+      modelId: ggufRepo || null,
+      params: {
+        ...defaults,
+        servedModelName: valueOf('--alias') || defaults.servedModelName,
+        ggufRepo: ggufRepo || defaults.ggufRepo,
+        ggufQuant: ggufQuant || defaults.ggufQuant,
+        contextLength: Number.isFinite(contextRaw) && contextRaw > 0 ? contextRaw : null,
+        gpuLayers: Number.isFinite(nglRaw) && nglRaw > 0 ? nglRaw : defaults.gpuLayers,
+        jinja: has('--jinja'),
+      },
+    };
+  }
+
   const modelId = valueOf('--model') ?? null;
-  const defaults = buildModelDefaults(null, modelId ?? '');
+  const defaults = buildModelDefaults(null, modelId ?? '', 'vllm') as Extract<ModelParameters, { engine: 'vllm' }>;
 
   const maxContextRaw = Number(valueOf('--max-model-len'));
   const gpuMemRaw = Number(valueOf('--gpu-memory-utilization'));
@@ -120,14 +199,14 @@ export function parseVllmCommand(cmd: string[]): { modelId: string | null; param
       // derived it. Keep that as null rather than inventing a number.
       maxContext: Number.isFinite(maxContextRaw) && maxContextRaw > 0 ? maxContextRaw : null,
       gpuMemoryUtilization: Number.isFinite(gpuMemRaw) && gpuMemRaw > 0 ? gpuMemRaw : defaults.gpuMemoryUtilization,
-      dtype: (dtype as ModelParameters['dtype']) ?? defaults.dtype,
-      quantization: (quantization as ModelParameters['quantization']) ?? defaults.quantization,
-      kvCacheDtype: (kvCacheDtype as ModelParameters['kvCacheDtype']) ?? defaults.kvCacheDtype,
+      dtype: (dtype as typeof defaults.dtype) ?? defaults.dtype,
+      quantization: (quantization as typeof defaults.quantization) ?? defaults.quantization,
+      kvCacheDtype: (kvCacheDtype as typeof defaults.kvCacheDtype) ?? defaults.kvCacheDtype,
       revision: valueOf('--revision') ?? defaults.revision,
       trustRemoteCode: has('--trust-remote-code'),
       enforceEager: has('--enforce-eager'),
       toolCalling: has('--enable-auto-tool-choice'),
-      toolCallParser: (valueOf('--tool-call-parser') as ModelParameters['toolCallParser']) ?? defaults.toolCallParser,
+      toolCallParser: (valueOf('--tool-call-parser') as typeof defaults.toolCallParser) ?? defaults.toolCallParser,
     },
   };
 }
@@ -246,6 +325,7 @@ export function buildInferenceStartParams({
   hfToken: string;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
+  const runtime = ENGINE_RUNTIME[params.engine];
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
@@ -256,10 +336,10 @@ export function buildInferenceStartParams({
 
   return {
     environment: selectedEnv.environment.id,
-    image: VLLM_IMAGE,
-    tag: VLLM_TAG,
-    exposedPorts: [VLLM_PORT],
-    dockerCmd: buildVllmCommand(model, params),
+    image: runtime.image,
+    tag: runtime.tag,
+    exposedPorts: [runtime.port],
+    dockerCmd: buildEngineCommand(model, params),
     userData: buildUserData(params, hfToken),
     resources,
     duration: durationSeconds,

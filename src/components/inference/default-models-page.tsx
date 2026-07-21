@@ -39,6 +39,7 @@ const DefaultModelsPage: React.FC = () => {
     setSelectedEnv,
     setSelectedToken,
     setJobDurationSeconds,
+    setEngine,
     clearSelection,
     buildSelectionQuery,
   } = useInferenceContext();
@@ -104,6 +105,9 @@ const DefaultModelsPage: React.FC = () => {
     setSelectedModels([model]);
     setParamsForModel(model.id, selectedPackage.params);
     setJobDurationSeconds(durationSeconds);
+    // Carry the package's engine into the flow so the Advanced handoff lands on the custom flow with
+    // it preselected (still changeable), and payment launches on the right runtime.
+    setEngine(selectedPackage.params.engine);
     if (resolved) {
       setSelectedEnv(
         pinResources
@@ -117,6 +121,7 @@ const DefaultModelsPage: React.FC = () => {
       query: buildSelectionQuery({
         models: [model],
         durationSeconds,
+        engine: selectedPackage.params.engine,
         modelParamsByModel: { [model.id]: selectedPackage.params },
         ...(resolved
           ? {
