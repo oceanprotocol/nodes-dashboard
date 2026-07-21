@@ -1,10 +1,12 @@
 import { getApiRoute } from '@/config';
+import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
 import { NodeEnvironments } from '@/types/environments';
 import { InferencePackage } from '@/types/inference';
+import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -13,14 +15,26 @@ const ENV_FETCH_TIMEOUT_MS = 30000;
 
 export type ResolvedPackageEnv = {
   env: SelectedInferenceEnv;
-  token: SelectedToken;
+  /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
+  token: SelectedToken | null;
 };
+
+// Seed fee token: USDC when accepted, else first supported paid token. Mirrors the modal env card's
+// getDefaultToken so both agree on the seed before the user switches it there.
+function pickDefaultToken(supportedTokens: string[]): string | null {
+  const usdc = getSupportedTokens().USDC.address;
+  if (supportedTokens.some((t) => t.toLowerCase() === usdc.toLowerCase())) {
+    return usdc;
+  }
+  return supportedTokens[0] ?? null;
+}
 
 /**
  * Resolve the live environment a package pins. The package stores only ids (peer + env prefix + GPU
- * selection + token); this fetches the node's environments and rebuilds the SelectedInferenceEnv the
- * custom flow commits, so the payment page prices/escrows/launches against the real env. Matches the
- * env by its stable id prefix (the suffix rotates per epoch), like inference-context's URL hydration.
+ * selection); this fetches the node's environments and rebuilds the SelectedInferenceEnv the custom
+ * flow commits, so the payment page prices/escrows/launches against the real env. Matches the env by
+ * its stable id prefix (the suffix rotates per epoch), like inference-context's URL hydration. Token
+ * isn't pinned — seeded here, switchable in the modal's env card.
  */
 const usePackageEnv = (pkg: InferencePackage | null) => {
   const [resolved, setResolved] = useState<ResolvedPackageEnv | null>(null);
@@ -38,7 +52,7 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
     // Aborts the in-flight request on effect re-run / unmount (modal closed, package switched), on top
     // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
     const cleanupController = new AbortController();
-    const { peerId, envIdPrefix, gpuSelection, tokenAddress } = pkg.env;
+    const { peerId, envIdPrefix, gpuSelection } = pkg.env;
 
     async function resolve() {
       setLoading(true);
@@ -64,11 +78,14 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
         if (!node || !environment) {
           throw new Error('The environment for this package is not reachable right now.');
         }
+        const tokenAddress = pickDefaultToken(getEnvSupportedTokens(environment, true));
         let symbol: string | null = null;
-        try {
-          symbol = await getTokenSymbol(tokenAddress);
-        } catch (error) {
-          console.error('Failed to resolve package token symbol:', error);
+        if (tokenAddress) {
+          try {
+            symbol = await getTokenSymbol(tokenAddress);
+          } catch (error) {
+            console.error('Failed to resolve package token symbol:', error);
+          }
         }
         if (!cancelled) {
           setResolved({
@@ -83,7 +100,7 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
                 multiaddrs: node.multiaddrs,
               },
             },
-            token: { address: tokenAddress, symbol: symbol ?? '' },
+            token: tokenAddress ? { address: tokenAddress, symbol: symbol ?? '' } : null,
           });
         }
       } catch (error) {

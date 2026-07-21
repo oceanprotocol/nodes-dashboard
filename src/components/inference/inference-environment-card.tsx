@@ -24,6 +24,9 @@ type InferenceEnvironmentCardProps = {
   defaultToken?: string;
   selected?: boolean;
   onSelect?: (tokenAddress: string, tokenSymbol: string, gpuSelection: GpuSelection) => void;
+  /** Reports the current fee token (address + symbol) on settle/switch — lets a read-only card (no
+   * `onSelect`) still surface the user's token pick. */
+  onTokenChange?: (tokenAddress: string, tokenSymbol: string) => void;
   /**
    * Units per GPU type to use. Uncontrolled when omitted (card owns its selection via the chips);
    * pass a value to render a fixed selection read-only (e.g. the selection summary).
@@ -48,6 +51,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   defaultToken,
   selected = false,
   onSelect,
+  onTokenChange,
   gpuSelection: controlledSelection,
   initialSelection,
 }) => {
@@ -74,6 +78,13 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   useEffect(() => {
     setTokenAddress(getDefaultToken());
   }, [getDefaultToken]);
+
+  // Waits for the symbol so the parent never gets an address with an empty symbol.
+  useEffect(() => {
+    if (tokenAddress && tokenSymbol) {
+      onTokenChange?.(tokenAddress, tokenSymbol);
+    }
+  }, [tokenAddress, tokenSymbol, onTokenChange]);
 
   const isControlled = controlledSelection !== undefined;
   // Local per-type selection when the card owns it; null until we learn the GPU types.

@@ -22,19 +22,20 @@ export type InferencePackageEnv = {
   envIdPrefix: string;
   /** Units to book per GPU type, keyed by the env's GPU `description` (e.g. `"NVIDIA H200"`). */
   gpuSelection: Record<string, number>;
-  /** Fee token address to pay in (must be one the env accepts). */
-  tokenAddress: string;
 };
 
 /**
  * A curated quick-start bundle: model + complete launch parameters + a pinned environment,
  * launchable as-is with no config or resource step. The model id must be a real (ungated) Hugging
- * Face repo — URL hydration on the payment page re-fetches the model by id on a hard reload.
+ * Face repo — the payment page re-fetches the model by id on a hard reload.
  */
 export type InferencePackage = {
   /** Stable slug — used as the payment route param and to restore the pick from the URL. */
   id: string;
-  /** Static snapshot of the Hugging Face model this package serves. */
+  /**
+   * Minimal model snapshot — only what the card + modal render (`id`, `author`, `pipelineTag`).
+   * A sparsely-filled `HuggingFaceModel`; the full model is fetched by id when the package is opened.
+   */
   model: HuggingFaceModel;
   /** Complete vLLM launch parameters — committed as-is, no config step. */
   params: ModelParameters;

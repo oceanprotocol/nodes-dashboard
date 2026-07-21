@@ -1,16 +1,16 @@
-import { getSupportedTokens } from '@/constants/tokens';
 import { InferencePackage } from '@/types/inference';
 
 /**
  * Curated quick-start packages. MOCK DATA — backend doesn't serve packages yet; swap
- * fetchInferencePackages for the real API when it lands. Model ids are real, ungated HF repos so URL
- * hydration (re-fetches models by id on hard reload) works.
+ * fetchInferencePackages for the real API when it lands.
  *
- * Each package pins a concrete env by id (peer + env prefix + GPU selection) — same as the custom
- * flow commits, but hardcoded; resolved live from the environments API at selection time. Repoint the
- * env below (and gpuSelection key) if the fleet changes.
+ * `model` holds only what the card + modal render (id, author, pipelineTag); the full HF model is
+ * fetched by id when a package is opened. Model ids are real, ungated HF repos.
+ *
+ * Each package pins a concrete env by id (peer + env prefix + GPU selection), resolved live from the
+ * environments API at selection time. The fee token isn't pinned — it's picked in the modal's env
+ * card. Repoint the env below (and gpuSelection key) if the fleet changes.
  */
-const USDC = getSupportedTokens().USDC.address;
 
 // Real service-on-demand node. Advertises its GPU as description "NVIDIA Tesla T4" — the gpuSelection
 // keys below must match that string exactly or buildGpuRequests can't resolve them.
@@ -24,7 +24,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       id: 'Qwen/Qwen2.5-7B-Instruct',
       author: 'Qwen',
       pipelineTag: 'text-generation',
-      gated: false,
     },
     params: {
       servedModelName: 'qwen2.5-7b-instruct',
@@ -44,7 +43,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
-      tokenAddress: USDC,
     },
   },
   {
@@ -53,7 +51,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       id: 'Qwen/Qwen2.5-Coder-7B-Instruct',
       author: 'Qwen',
       pipelineTag: 'text-generation',
-      gated: false,
     },
     params: {
       servedModelName: 'qwen2.5-coder-7b-instruct',
@@ -73,7 +70,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
-      tokenAddress: USDC,
     },
   },
   {
@@ -82,7 +78,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       id: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B',
       author: 'deepseek-ai',
       pipelineTag: 'text-generation',
-      gated: false,
     },
     params: {
       servedModelName: 'r1-distill-qwen-7b',
@@ -102,7 +97,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
-      tokenAddress: USDC,
     },
   },
   {
@@ -111,7 +105,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       id: 'microsoft/Phi-3.5-mini-instruct',
       author: 'microsoft',
       pipelineTag: 'text-generation',
-      gated: false,
     },
     params: {
       servedModelName: 'phi-3.5-mini-instruct',
@@ -131,7 +124,6 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
       gpuSelection: { 'NVIDIA Tesla T4': 1 },
-      tokenAddress: USDC,
     },
   },
 ];

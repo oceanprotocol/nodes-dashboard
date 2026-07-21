@@ -18,6 +18,8 @@ interface PackageDetailsModalProps {
   env: ReturnType<typeof usePackageEnv>;
   durationSeconds: number;
   onDurationChange: (seconds: number) => void;
+  /** Reports the fee token the user picked in the env card (address + symbol). */
+  onTokenChange: (tokenAddress: string, tokenSymbol: string) => void;
   onClose: () => void;
   onCustomize: () => void;
   onContinue: () => void;
@@ -32,6 +34,7 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
   env,
   durationSeconds,
   onDurationChange,
+  onTokenChange,
   onClose,
   onCustomize,
   onContinue,
@@ -76,6 +79,7 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
         environment={resolved.env.environment}
         gpuSelection={resolved.env.gpuSelection}
         nodeInfo={resolved.env.nodeInfo}
+        onTokenChange={onTokenChange}
       />
     );
   };

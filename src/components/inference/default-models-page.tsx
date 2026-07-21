@@ -1,21 +1,24 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import usePackageEnv from '@/components/hooks/use-package-env';
+import usePackageModel from '@/components/hooks/use-package-model';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import PackageCard from '@/components/inference/package-card';
 import PackageDetailsModal from '@/components/inference/package-details-modal';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
+import { SelectedToken } from '@/context/run-job-context';
 import { fetchInferencePackages } from '@/mock/inference-packages';
 import { InferenceFlowType, InferencePackage } from '@/types/inference';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import styles from './default-models-page.module.css';
 
 /**
- * Quick start: pick a curated package (model + engine preset + pinned env), review it, go straight
- * to payment. Env is baked into the package and resolved live by id. "Advanced flow" hands the same
+ * Quick start: pick a curated package (model + engine preset + pinned env), review it, go straight to
+ * payment. The package carries a model stub (grid renders with no fetch); the full model is fetched by
+ * id on pick. Env resolved live by id; fee token picked in the modal. "Advanced flow" hands the same
  * selection to the custom-model flow for full control.
  */
 const DefaultModelsPage: React.FC = () => {
@@ -35,6 +38,8 @@ const DefaultModelsPage: React.FC = () => {
   const [selectedPackage, setSelectedPackage] = useState<InferencePackage | null>(null);
   // Duration edited in the modal but stays local until Continue/Customize — a pick commits nothing.
   const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
+  // Token chosen in the modal's env card; overrides the env's seeded default. Resets on each pick.
+  const [pickedToken, setPickedToken] = useState<SelectedToken | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,38 +64,47 @@ const DefaultModelsPage: React.FC = () => {
   const selectPackage = (pkg: InferencePackage) => {
     setSelectedPackage(pkg);
     setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+    setPickedToken(null);
   };
+
+  // Card refires onTokenChange on every settle; ignore no-op repeats to avoid a re-render loop.
+  const handleTokenChange = useCallback((address: string, symbol: string) => {
+    setPickedToken((prev) => (prev?.address === address && prev.symbol === symbol ? prev : { address, symbol }));
+  }, []);
 
   const env = usePackageEnv(selectedPackage);
   const { resolved } = env;
+  const model = usePackageModel(selectedPackage);
+  // Modal pick wins, else the env's seeded default.
+  const tokenToCommit = pickedToken ?? resolved?.token ?? null;
 
   // Commit the picked bundle to context and hand off. Env/token are pre-picked only when the pinned
   // env has resolved; the env query fields are carried on the same condition (else the custom flow
   // starts with none pre-picked). The query is built from overrides so it doesn't depend on the
   // setState timing. Callers gate on `resolved` themselves when the target step needs a live env.
   const commitAndPush = (pathname: string) => {
-    if (!selectedPackage) {
+    if (!selectedPackage || !model) {
       return;
     }
-    setSelectedModels([selectedPackage.model]);
-    setParamsForModel(selectedPackage.model.id, selectedPackage.params);
+    setSelectedModels([model]);
+    setParamsForModel(model.id, selectedPackage.params);
     setJobDurationSeconds(durationSeconds);
     if (resolved) {
       setSelectedEnv(resolved.env);
-      setSelectedToken(resolved.token);
+      setSelectedToken(tokenToCommit);
     }
     router.push({
       pathname,
       query: buildSelectionQuery({
-        models: [selectedPackage.model],
+        models: [model],
         durationSeconds,
-        modelParamsByModel: { [selectedPackage.model.id]: selectedPackage.params },
+        modelParamsByModel: { [model.id]: selectedPackage.params },
         ...(resolved
           ? {
               peerId: resolved.env.nodeInfo.id,
               envId: resolved.env.environment.id,
               gpuSelection: resolved.env.gpuSelection,
-              tokenAddress: resolved.token.address,
+              ...(tokenToCommit ? { tokenAddress: tokenToCommit.address } : {}),
             }
           : {}),
       }),
@@ -141,6 +155,7 @@ const DefaultModelsPage: React.FC = () => {
         env={env}
         durationSeconds={durationSeconds}
         onDurationChange={setDurationSeconds}
+        onTokenChange={handleTokenChange}
         onClose={() => setSelectedPackage(null)}
         onCustomize={goToAdvancedFlow}
         onContinue={goToPayment}
