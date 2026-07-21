@@ -176,9 +176,9 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
               </span>
             ) : jobs.length > 0 ? (
               <span className="textSecondary">Compute jobs currently running or starting up on this node</span>
-            ) : (
+            ) : jobsLoaded ? (
               <span className="textSecondary">No jobs currently running on this node</span>
-            )}
+            ) : null}
           </div>
           <Button
             color="accent2"
