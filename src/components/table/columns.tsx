@@ -806,7 +806,15 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     flex: 1,
     headerName: 'Environment',
     sortable: false,
-    renderCell: ({ value }) => value || <span className="textSecondary">-</span>,
+    renderCell: ({ value }) =>
+      value ? (
+        value
+          .split('-')
+          .map((v: string) => formatWalletAddress(v))
+          .join(' - ')
+      ) : (
+        <span className="textSecondary">-</span>
+      ),
   },
   {
     field: 'statusText',
