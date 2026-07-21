@@ -84,6 +84,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
 
   // --- Compute jobs ---
   const [jobs, setJobs] = useState<NodeComputeJob[]>([]);
+  const [jobsLoaded, setJobsLoaded] = useState(false);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobsError, setJobsError] = useState<string | null>(null);
 
@@ -99,6 +100,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
         .filter((j) => isComputeJobInFlight(j.status, j.statusText))
         .sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1));
       setJobs(inFlight);
+      setJobsLoaded(true);
     } catch (err) {
       console.error('Failed to load node jobs:', err);
       setJobsError(err instanceof Error ? err.message : 'Failed to load jobs running on this node.');
