@@ -118,9 +118,18 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
     <>
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         <div className={styles.head}>
-          <div>
+          <div className={styles.title}>
             <h3>Running services</h3>
-            <span className="textSecondary">Service-on-demand containers currently running on this node</span>
+            {servicesLoading ? (
+              <span className="textSecondary flexRow alignItemsCenter gapXs">
+                <CircularProgress size={12} />
+                Loading services…
+              </span>
+            ) : services.length > 0 ? (
+              <span className="textSecondary">Service-on-demand containers currently running on this node</span>
+            ) : servicesLoaded ? (
+              <span className="textSecondary">No services currently running on this node</span>
+            ) : null}
           </div>
           <Button
             color="accent2"
@@ -143,15 +152,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
           </p>
         )}
 
-        {servicesLoading && services.length === 0 ? (
-          <div className={styles.centered}>
-            <CircularProgress size={18} />
-          </div>
-        ) : !servicesLoaded ? null : services.length === 0 ? (
-          <p className="textSecondary" style={{ margin: 0 }}>
-            No services currently running on this node.
-          </p>
-        ) : (
+        {services.length > 0 && (
           <Table<ServiceJobListed>
             autoHeight
             data={services}
@@ -164,9 +165,18 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
 
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         <div className={styles.head}>
-          <div>
+          <div className={styles.title}>
             <h3>Running jobs</h3>
-            <span className="textSecondary">Compute jobs currently running on this node</span>
+            {jobsLoading ? (
+              <span className="textSecondary flexRow alignItemsCenter gapXs">
+                <CircularProgress size={12} />
+                Loading jobs…
+              </span>
+            ) : jobs.length > 0 ? (
+              <span className="textSecondary">Compute jobs currently running on this node</span>
+            ) : (
+              <span className="textSecondary">No jobs currently running on this node</span>
+            )}
           </div>
           <Button
             color="accent2"
@@ -189,15 +199,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
           </p>
         )}
 
-        {jobsLoading && jobs.length === 0 ? (
-          <div className={styles.centered}>
-            <CircularProgress size={18} />
-          </div>
-        ) : jobs.length === 0 ? (
-          <p className="textSecondary" style={{ margin: 0 }}>
-            No jobs currently running on this node.
-          </p>
-        ) : (
+        {jobs.length > 0 && (
           <Table<NodeComputeJob>
             autoHeight
             data={jobs}
