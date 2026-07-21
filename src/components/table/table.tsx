@@ -1,6 +1,7 @@
 import {
   actionsColumnProps,
   benchmarkJobsColumns,
+  existingServicesColumns,
   jobsColumns,
   nodesLeaderboardColumns,
   NodesLeaderboardColumnsVisibility,
@@ -240,6 +241,9 @@ export const Table = <T extends GridValidRowModel>({
       }
       case TableTypeEnum.NODE_JOBS: {
         return withActions(nodeJobsColumns);
+      }
+      case TableTypeEnum.EXISTING_SERVICES: {
+        return withActions(existingServicesColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {

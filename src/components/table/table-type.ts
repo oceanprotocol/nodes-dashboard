@@ -7,6 +7,7 @@ export enum TableTypeEnum {
   NODE_STORAGE_SHARED_BUCKETS = 'node-storage-shared-buckets',
   NODE_SERVICES = 'node-services',
   NODE_JOBS = 'node-jobs',
+  EXISTING_SERVICES = 'existing-services',
   NODES_LEADERBOARD = 'nodes-leaderboard',
   NODES_LEADERBOARD_HOME = 'nodes-leaderboard-home',
   NODES_TOP_JOBS = 'nodes-top-jobs',

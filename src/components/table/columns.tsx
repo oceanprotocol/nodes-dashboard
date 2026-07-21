@@ -1,9 +1,10 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
+import ModelCell from '@/components/inference/model-cell';
+import ServiceStatusChip from '@/components/service-status-chip/service-status-chip';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
-import { getServiceStatusView } from '@/services/service-status';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
@@ -26,6 +27,7 @@ import {
   NodeComputeJob,
   PersistentStorageBucket,
   PersistentStorageFileEntry,
+  ServiceJob,
   ServiceJobListed,
 } from '@oceanprotocol/lib';
 import classNames from 'classnames';
@@ -708,21 +710,69 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
   },
 ];
 
-// Map a service's display kind to the shared chip style (green/amber/red/dim).
-function renderServiceStatus(status: ServiceJobListed['status'], statusText?: string) {
-  const view = getServiceStatusView(status, statusText);
-  return (
-    <span
-      className={classNames('chip', {
-        chipSuccess: view.kind === 'running',
-        chipWarning: view.kind === 'pending',
-        chipError: view.kind === 'failed',
-      })}
-    >
-      {view.label}
-    </span>
-  );
+// The node returns the launch command, not HF metadata — recover the model id from `--model`.
+function modelIdFromJob(job: ServiceJob): string | null {
+  const cmd = job.dockerCmd ?? [];
+  const idx = cmd.indexOf('--model');
+  if (idx >= 0 && idx + 1 < cmd.length) {
+    return cmd[idx + 1];
+  }
+  return null;
 }
+
+// The caller's own inference services (getServiceStatus keeps dockerCmd, so the model id is
+// recoverable). Actions column (Manage) is supplied by the consumer via the Table `actionsColumn`.
+export const existingServicesColumns: GridColDef<ServiceJob>[] = [
+  {
+    field: 'model',
+    filterable: false,
+    flex: 1.5,
+    headerName: 'Model',
+    sortable: false,
+    renderCell: ({ row }) => {
+      const modelId = modelIdFromJob(row);
+      if (modelId) {
+        return <ModelCell modelId={modelId} />;
+      }
+      return <span title={row.serviceId}>{row.serviceId.slice(0, 10)}</span>;
+    },
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Created',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'duration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+  },
+  {
+    field: 'expiresAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'End time',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+];
 
 // Services running on a node, listed node-wide across all owners (ProviderInstance.getServices).
 // The listed shape strips dockerCmd/dockerfile, so identity is the container image, not the model.
@@ -764,13 +814,13 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     flex: 1,
     headerName: 'Status',
     sortable: false,
-    renderCell: ({ row }) => renderServiceStatus(row.status, row.statusText),
+    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
   },
   {
     field: 'dateCreated',
     filterable: false,
     flex: 1,
-    headerName: 'Created',
+    headerName: 'Start time',
     sortable: true,
     renderCell: ({ value }) => {
       if (!value) return '-';
@@ -783,7 +833,7 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     flex: 1,
     headerName: 'Duration',
     sortable: true,
-    renderCell: ({ value }) => (value ? formatDuration(value) : '-'),
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
   },
   {
     field: 'expiresAt',
@@ -862,7 +912,7 @@ export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
     flex: 1,
     headerName: 'Duration',
     sortable: true,
-    renderCell: ({ value }) => (value ? formatDuration(value) : '-'),
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
   },
 ];
 

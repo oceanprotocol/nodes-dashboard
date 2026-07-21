@@ -6,7 +6,8 @@ import { useNodeAuth } from '@/contexts/node-auth-context';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
-import { CircularProgress } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { CircularProgress, Tooltip } from '@mui/material';
 import { NodeComputeJob, ServiceJobListed, ServiceStatusNumber } from '@oceanprotocol/lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './node-running-workloads.module.css';
@@ -21,7 +22,7 @@ type NodeRunningWorkloadsProps = {
 const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
   const { account } = useOceanAccount();
   const { getServices, getNodeJobs, isReady } = useP2P();
-  const { withNodeAuth } = useNodeAuth();
+  const { withNodeAuth, hasValidNodeToken } = useNodeAuth();
 
   const nodeId = node.id ?? node.nodeId;
 
@@ -43,8 +44,9 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
 
   // --- Services ---
   const [services, setServices] = useState<ServiceJobListed[]>([]);
-  // Services need a signature (withNodeAuth), so they don't auto-load — the user triggers the first
-  // fetch. Once loaded, the same button re-fetches (acts as Refresh) and the table stays visible.
+  // Services need a signature (withNodeAuth). If a valid node token is already cached, loading is
+  // free of a prompt, so we auto-fetch; otherwise the user triggers the first fetch via the button.
+  // Once loaded, the same button re-fetches (acts as Refresh) and the table stays visible.
   const [servicesLoaded, setServicesLoaded] = useState(false);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [servicesError, setServicesError] = useState<string | null>(null);
@@ -69,6 +71,14 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
       setServicesLoading(false);
     }
   }, [isReady, isOwner, nodeId, nodeUri, withNodeAuth, getServices]);
+
+  // Auto-load services only when a valid node token is already cached (no signature prompt). If not,
+  // the user must press the button — which mints a token via the signature flow.
+  useEffect(() => {
+    if (!servicesLoaded && isReady && isOwner && nodeId && hasValidNodeToken(nodeId)) {
+      loadServices();
+    }
+  }, [servicesLoaded, isReady, isOwner, nodeId, hasValidNodeToken, loadServices]);
 
   // --- Compute jobs ---
   const [jobs, setJobs] = useState<NodeComputeJob[]>([]);
@@ -118,13 +128,20 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
             loading={servicesLoading}
             onClick={loadServices}
             size="md"
-            variant={servicesLoaded ? 'outlined' : 'filled'}
+            variant="filled"
           >
             {servicesLoaded ? 'Refresh' : 'Load services'}
           </Button>
         </div>
 
-        {servicesError && <p className="textErrorDarker">{servicesError}</p>}
+        {servicesError && (
+          <p className="textErrorDarker flexRow alignItemsCenter gapXs">
+            <span className="textBold">Failed to load services</span>
+            <Tooltip title={servicesError}>
+              <InfoOutlinedIcon fontSize="small" />
+            </Tooltip>
+          </p>
+        )}
 
         {servicesLoading && services.length === 0 ? (
           <div className={styles.centered}>
@@ -132,7 +149,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
           </div>
         ) : !servicesLoaded ? null : services.length === 0 ? (
           <p className="textSecondary" style={{ margin: 0 }}>
-            No services running on this node.
+            No services currently running on this node.
           </p>
         ) : (
           <Table<ServiceJobListed>
@@ -163,7 +180,14 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
           </Button>
         </div>
 
-        {jobsError && <p className="textErrorDarker">{jobsError}</p>}
+        {jobsError && (
+          <p className="textErrorDarker flexRow alignItemsCenter gapXs">
+            <span className="textBold">Failed to load jobs</span>
+            <Tooltip title={jobsError}>
+              <InfoOutlinedIcon fontSize="small" />
+            </Tooltip>
+          </p>
+        )}
 
         {jobsLoading && jobs.length === 0 ? (
           <div className={styles.centered}>
@@ -171,7 +195,7 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
           </div>
         ) : jobs.length === 0 ? (
           <p className="textSecondary" style={{ margin: 0 }}>
-            No jobs running on this node.
+            No jobs currently running on this node.
           </p>
         ) : (
           <Table<NodeComputeJob>

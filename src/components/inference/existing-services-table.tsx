@@ -1,17 +1,18 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import { Table } from '@/components/table/table';
+import { TableTypeEnum } from '@/components/table/table-type';
 import { useP2P } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { encodeModelIds, getModelShortName } from '@/services/huggingface-service';
-import { getServiceStatusView } from '@/services/service-status';
-import { formatDateTime, formatDuration } from '@/utils/formatters';
+import { encodeModelIds } from '@/services/huggingface-service';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { CircularProgress, Collapse } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { ServiceJob } from '@oceanprotocol/lib';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import styles from './existing-services-table.module.css';
 
 // TODO: aggregate services across all reachable nodes, not just the default one.
@@ -38,7 +39,7 @@ const ExistingServicesTable: React.FC = () => {
   const router = useRouter();
   const { account } = useOceanAccount();
   const { getServiceStatus, isReady } = useP2P();
-  const { withNodeAuth } = useNodeAuth();
+  const { withNodeAuth, hasValidNodeToken } = useNodeAuth();
 
   const [jobs, setJobs] = useState<ServiceJob[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,6 +78,15 @@ const ExistingServicesTable: React.FC = () => {
     load();
   }, [open, load]);
 
+  // Auto-open and load when a valid node token is already cached (no signature prompt). Without one,
+  // the user must press "Load services" — which mints a token via the signature flow.
+  useEffect(() => {
+    if (!open && isReady && account.address && hasValidNodeToken(DEFAULT_NODE_ID)) {
+      setOpen(true);
+      load();
+    }
+  }, [open, isReady, account.address, hasValidNodeToken, load]);
+
   // Route to the manage page. It hydrates its model/env display from the query params (peerId/env/
   // models) — the job alone can't rebuild the rich model card, so seed what we recovered from it.
   // Carry the payment token too: the manage page needs it in context for a Prolong re-entry, and
@@ -113,7 +123,14 @@ const ExistingServicesTable: React.FC = () => {
       </div>
 
       <Collapse in={open} mountOnEnter unmountOnExit>
-        {error && <div className="textErrorDarker">{error}</div>}
+        {error && (
+          <p className="textErrorDarker flexRow alignItemsCenter gapXs">
+            <span className="textBold">Failed to load services</span>
+            <Tooltip title={error}>
+              <InfoOutlinedIcon fontSize="small" />
+            </Tooltip>
+          </p>
+        )}
 
         {loading && jobs.length === 0 ? (
           <div className={styles.centered}>
@@ -122,60 +139,24 @@ const ExistingServicesTable: React.FC = () => {
         ) : jobs.length === 0 ? (
           <div className={cx('textSecondary', styles.centered)}>No services yet.</div>
         ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Model</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Duration</th>
-                  <th>End time</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.map((job) => {
-                  const modelId = modelIdFromJob(job);
-                  const name = modelId ? getModelShortName(modelId) : job.serviceId.slice(0, 10);
-                  const status = getServiceStatusView(job.status, job.statusText);
-                  return (
-                    <tr key={job.serviceId}>
-                      <td>
-                        <span className={styles.model}>{name}</span>
-                      </td>
-                      <td>
-                        <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
-                          {status.kind === 'pending' ? (
-                            <CircularProgress size={10} />
-                          ) : (
-                            <span className={styles.statusDot} />
-                          )}
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="textSecondary">
-                        {formatDateTime(Math.floor(new Date(job.dateCreated).getTime() / 1000))}
-                      </td>
-                      <td className="textSecondary">{formatDuration(job.duration)}</td>
-                      <td className="textSecondary">{formatDateTime(job.expiresAt / 1000)}</td>
-                      <td className={styles.actionCell}>
-                        <Button
-                          color="accent1"
-                          contentAfter={<ArrowForwardIcon />}
-                          onClick={() => openService(job)}
-                          size="sm"
-                          variant="outlined"
-                        >
-                          Manage
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Table<ServiceJob>
+            autoHeight
+            actionsColumn={({ row }) => (
+              <Button
+                color="accent1"
+                contentAfter={<ArrowForwardIcon />}
+                onClick={() => openService(row)}
+                size="sm"
+                variant="outlined"
+              >
+                Manage
+              </Button>
+            )}
+            data={jobs}
+            getRowId={(row) => row.serviceId}
+            paginationType="none"
+            tableType={TableTypeEnum.EXISTING_SERVICES}
+          />
         )}
       </Collapse>
     </Card>
