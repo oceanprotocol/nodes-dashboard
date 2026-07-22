@@ -74,11 +74,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     environment: selectedEnv?.environment ?? ({ resources: [] } as any),
     tokenAddress: selectedToken?.address ?? '',
     gpuSelection: selectedEnv?.gpuSelection,
-    // Quick start pins the package's recommended CPU/RAM/disk; undefined in the custom flow.
-    pinnedAllocation: selectedEnv?.pinnedAllocation,
-    // Custom flow via the advanced handoff: package min floor on the fraction slice, so the priced
-    // and escrowed allocation matches what the resources step showed.
-    resourceFloor: selectedEnv?.resourceFloor,
+    // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
+    // slice at the package min; undefined for a plain custom-flow slice. Keeps the priced/escrowed
+    // allocation matching what the resources step showed.
+    sizing: selectedEnv?.sizing,
     durationSeconds: jobDurationSeconds,
   });
 
@@ -522,8 +521,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
                     gpuSelection={selectedEnv.gpuSelection}
-                    pinnedAllocation={selectedEnv.pinnedAllocation}
-                    resourceFloor={selectedEnv.resourceFloor}
+                    sizing={selectedEnv.sizing}
                     nodeInfo={selectedEnv.nodeInfo}
                   />
                 </>

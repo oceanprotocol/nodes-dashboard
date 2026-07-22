@@ -18,19 +18,25 @@ export type MergedGpu = {
 /** How many units of each GPU type (keyed by MergedGpu.key) the user wants to use. */
 export type GpuSelection = Record<string, number>;
 
-/**
- * Fixed CPU/RAM/disk amounts to book instead of the GPU-fraction-derived slice. Used by the
- * quick-start flow to pin a package's `recommended` resources; the custom flow leaves this undefined
- * and gets the proportional slice. Each value is still clamped to the env's min/available.
- */
-export type PinnedAllocation = { cpu: number; ram: number; disk: number };
+/** Per-resource CPU/RAM/disk amounts (the shape both sizing modes carry). */
+export type ResourceAmounts = { cpu: number; ram: number; disk: number };
 
 /**
- * Per-resource lower bound (custom flow, handed off from a default-models package) that raises the
- * floor of the GPU-fraction-derived slice. Unlike PinnedAllocation it does NOT force a fixed amount:
- * above the floor the slice stays GPU-proportional. Still clamped to available (available wins).
+ * How the shared CPU/RAM/disk are sized, beyond the default GPU-fraction slice. The two modes are
+ * mutually exclusive — one field replaces the former `pinnedAllocation` + `resourceFloor` pair, so
+ * nothing has to enforce "at most one". Omit entirely for a pure proportional (custom-flow) slice.
+ *
+ *  - `pinned` (quick start): book these FIXED amounts instead of the fraction slice — a package's
+ *    `recommended` resources. Still clamped to the env's min/available.
+ *  - `floor` (advanced handoff from a default-models package): raise the LOWER BOUND of the fraction
+ *    slice to these amounts (the package's per-resource min). Above the floor the slice stays
+ *    GPU-proportional. Combined with the env's own min via max, then clamped to available.
+ *
+ * Each amount is always clamped to what the env can actually grant (available wins over min/floor).
  */
-export type ResourceFloor = { cpu: number; ram: number; disk: number };
+export type ResourceSizing =
+  | ({ mode: 'pinned' } & ResourceAmounts)
+  | ({ mode: 'floor' } & ResourceAmounts);
 
 /**
  * Free units the node will actually grant for a fungible resource. The node's availability gate
@@ -47,71 +53,87 @@ function grantableAmount(resource: Pick<ComputeResource, 'total' | 'max' | 'inUs
   return Math.max(0, ceiling - (resource.inUse ?? 0));
 }
 
-/** Clamp a pinned amount into what the env can actually give: floor at `min`, ceil at free units. */
-function clampPinned(resource: ComputeResource | undefined, amount: number, round?: boolean): number {
-  if (!resource) {
-    return 0;
-  }
-  let value = round ? Math.round(amount) : amount;
-  const available = grantableAmount(resource);
-  if (value > available) {
-    value = available;
-  }
-  const min = resource.min ?? 0;
-  if (value < min) {
-    return min;
-  }
-  return value;
+/**
+ * Capacity ONE job can reach: the per-job `max` caps `total` when it's set lower (e.g. a free-compute
+ * overlay), so fractioning the full `total` would over-derive. Used both to size the fraction slice
+ * and to divide the shared budget into per-GPU-unit shares — they must agree, hence one helper.
+ */
+function jobCapacityOf(resource: Pick<ComputeResource, 'total' | 'max'> | undefined): number {
+  const max = resource?.max ?? 0;
+  const total = resource?.total && resource.total > 0 ? resource.total : max;
+  return max > 0 ? Math.min(total, max) : total;
 }
 
 /**
- * Scale a resource by a fraction of the environment, then clamp to the env's real constraints —
- * the same way run-job derives a package slice from a GPU pick (see select-resources.tsx):
+ * Resolve one shared resource (CPU/RAM/disk) to the amount to book, clamped to the env's real
+ * constraints — the same way run-job derives a package slice from a GPU pick (see select-resources.tsx).
+ * `target` is the desired amount before clamping:
+ *   - fraction slice → `jobCapacityOf(resource) * fraction` (proportional, the custom-flow default)
+ *   - pinned         → the fixed package amount
+ * `floor` raises the lower bound above the env's own `min` (the advanced-handoff package minimum);
+ * omit it for pinned/plain-fraction.
  *
- *  - Base the slice on the JOB-REACHABLE capacity, min(capacityOf, max), not the raw `total`. A
- *    per-job `max` below `total` (e.g. a free-compute overlay) caps what one job can request, so
- *    fractioning the full `total` would over-derive.
- *  - Upper bound is what's currently AVAILABLE (max − inUse), not the physical `max`: another tenant
- *    may hold part of the resource, and the node rejects a serviceStart that asks for more than free.
- *  - Lower bound is the env's `min`, so the slice never drops below a required minimum.
- *
- * If the resource is undefined or advertises no capacity, return 0.
- * When rounding, a positive fraction never rounds down to 0 — a resource that exists is requested
- * with at least 1 unit, so a small GPU-fraction selection can't send the node an amount:0 CPU
- * request (which the node rejects / would schedule a resource-less container).
+ * Clamping rules (shared by every mode):
+ *   - Upper bound is what's currently AVAILABLE (min(total, max) − inUse), not the physical `max`:
+ *     another tenant may hold part of the resource and the node rejects a serviceStart asking for
+ *     more than free. Available wins over min/floor — an exhausted resource can't be met, and the
+ *     card blocks selection in that case (gpuExhausted / maxUnitsByResources <= 0).
+ *   - Lower bound is max(env min, floor). A floor can't over-provision past what's free (we return
+ *     min(bound, available)).
+ * If the resource is undefined, return 0. When rounding, a positive target never rounds to 0 — a
+ * resource that exists is requested with >= 1 unit, so a small selection can't send the node an
+ * amount:0 request (which it rejects / would schedule a resource-less container).
  */
-function fractionResourceClamped(
+function clampResource(
   resource: ComputeResource | undefined,
-  fraction: number,
+  target: number,
   round?: boolean,
   floor?: number
 ): number {
   if (!resource) {
     return 0;
   }
-  // Job-reachable capacity: the per-job `max` caps `total` when it's set lower (free-compute overlay).
-  const capacity = resource.total && resource.total > 0 ? resource.total : (resource.max ?? 0);
-  const jobCapacity = resource.max > 0 ? Math.min(capacity, resource.max) : capacity;
-  const fractionedResource = jobCapacity * fraction;
-  let roundedResource = round ? Math.round(fractionedResource) : fractionedResource;
-  if (round && fraction > 0 && roundedResource < 1) {
-    roundedResource = 1;
+  let value = round ? Math.round(target) : target;
+  if (round && target > 0 && value < 1) {
+    value = 1;
   }
-  // Clamp to what the node will actually grant (min(total, max) − inUse), then floor at the required
-  // minimum. The available ceiling wins over min only when nothing is free — an exhausted resource
-  // can't be met, and the card blocks selection in that case (gpuExhausted / maxUnitsByResources <= 0).
   const available = grantableAmount(resource);
-  if (roundedResource > available) {
-    roundedResource = available;
+  if (value > available) {
+    value = available;
   }
-  // The floor is max(env min, handoff floor): the custom flow's package handoff can raise the floor
-  // above the env's own min, but never above what's free — if the floor exceeds available we return
-  // available (never more), so a floor can't over-provision past what the node will grant.
   const min = Math.max(resource.min ?? 0, floor ?? 0);
-  if (roundedResource < min) {
+  if (value < min) {
     return Math.min(min, available);
   }
-  return roundedResource;
+  return value;
+}
+
+/**
+ * Resolve per-type GPU units, drawing down the combined shared-resource budget in declared order so
+ * the total never asks for more units than the free CPU/RAM/disk can back (per-type `maxByKey` is an
+ * independent ceiling; `budget` = maxUnitsByResources caps the COMBINED pick). For each type, `pick`
+ * receives that type and its budget-capped ceiling `cap` (= min(maxByKey, budget left)); return a fixed
+ * unit count to honor (drawn from the budget too), or `undefined` to default that type to `cap`. Shared
+ * by the hook's `selectedByKey` and the card's uncontrolled seed so both agree on the whole-env default.
+ */
+export function drawUnitsAcrossTypes(
+  mergedGpus: MergedGpu[],
+  maxByKey: Record<string, number>,
+  budget: number,
+  pick: (gpu: MergedGpu, cap: number) => number | undefined
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  let remaining = Math.max(0, budget);
+  mergedGpus.forEach((g) => {
+    // This type's free units, capped by the budget left after earlier types (remaining clamped to >= 0
+    // first so a budget already spent by explicit picks can't produce a negative default).
+    const cap = Math.min(maxByKey[g.key] ?? 0, Math.max(0, remaining));
+    const chosen = pick(g, cap);
+    const value = chosen === undefined ? cap : chosen;
+    result[g.key] = value;
+    remaining -= value;
+  });
+  return result;
 }
 
 /**
@@ -131,8 +153,7 @@ const useInferenceAllocation = ({
   environment,
   tokenAddress,
   gpuSelection,
-  pinnedAllocation,
-  resourceFloor,
+  sizing,
   durationSeconds,
 }: {
   environment: ComputeEnvironment;
@@ -140,16 +161,11 @@ const useInferenceAllocation = ({
   /** Omit to use every unit of every type (the default, whole-environment allocation). */
   gpuSelection?: GpuSelection;
   /**
-   * Fixed CPU/RAM/disk to book (quick start), overriding the GPU-fraction slice. Still clamped to the
-   * env's min/available. Omit (custom flow) to keep the proportional allocation.
+   * How to size the shared CPU/RAM/disk: `pinned` fixed amounts (quick start) or a `floor` under the
+   * GPU-fraction slice (advanced handoff). Omit for a pure proportional slice (custom flow). See
+   * {@link ResourceSizing}.
    */
-  pinnedAllocation?: PinnedAllocation;
-  /**
-   * Per-resource lower bound for the GPU-fraction slice (custom flow handoff from a package). Only
-   * affects the non-pinned branch; each floor is combined with the env min via max, then clamped to
-   * available. Omit for a pure proportional allocation.
-   */
-  resourceFloor?: ResourceFloor;
+  sizing?: ResourceSizing;
   durationSeconds: number;
 }) => {
   const { cpu, cpuAvailable, cpuFee, disk, diskAvailable, diskFee, gpus, gpusAvailable, gpuFees, ram, ramAvailable, ramFee } =
@@ -197,11 +213,8 @@ const useInferenceAllocation = ({
     }
     const unitsThatFit = (available: number, resource: ComputeResource | undefined): number => {
       // Per-unit share is based on JOB-REACHABLE capacity (min(total, max)), matching the slice
-      // fractionResourceClamped derives — a per-job `max` below `total` caps what one job can reach,
-      // so dividing the full `total` would understate the share and over-count fitting units.
-      const total = resource?.total && resource.total > 0 ? resource.total : (resource?.max ?? 0);
-      const jobCapacity = resource?.max && resource.max > 0 ? Math.min(total, resource.max) : total;
-      const per = jobCapacity / totalGpus;
+      // clampResource derives — dividing the full `total` would understate the share and over-count.
+      const per = jobCapacityOf(resource) / totalGpus;
       if (per <= 0) {
         return totalGpus; // resource doesn't constrain (none required per unit)
       }
@@ -236,27 +249,17 @@ const useInferenceAllocation = ({
    * fixed record of an already-booked service (manage / payment / summary). Clamping the latter to 
    * current availability would under-report what was actually booked once other tenants fill units.
    */
-  const selectedByKey = useMemo<Record<string, number>>(() => {
-    const result: Record<string, number> = {};
-    // Default (no explicit selection): fill types in declared order up to the combined shared-resource
-    // budget, so the whole-environment default never asks for more units than CPU/RAM/disk can back.
-    // Explicit requests also draw down that budget — clamp remaining to >= 0 before each default so a
-    // budget already spent by explicit picks can't produce a negative fallback allocation.
-    let remaining = Math.max(0, maxUnitsByResources);
-    mergedGpus.forEach((g) => {
-      const requested = gpuSelection?.[g.key];
-      if (requested === undefined) {
-        const cap = Math.min(maxByKey[g.key] ?? 0, Math.max(0, remaining));
-        result[g.key] = cap;
-        remaining -= cap;
-      } else {
-        const value = Math.min(Math.max(requested, 0), g.max);
-        result[g.key] = value;
-        remaining -= value;
-      }
-    });
-    return result;
-  }, [mergedGpus, maxByKey, maxUnitsByResources, gpuSelection]);
+  const selectedByKey = useMemo<Record<string, number>>(
+    () =>
+      drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g) => {
+        const requested = gpuSelection?.[g.key];
+        // Explicit request → honor it, clamped only to the PHYSICAL max (not current availability): it's
+        // either the card's already-capped live pick or a fixed record of a booked service, which we must
+        // not under-report once other tenants fill units. undefined → fall back to the budget default.
+        return requested === undefined ? undefined : Math.min(Math.max(requested, 0), g.max);
+      }),
+    [mergedGpus, maxByKey, maxUnitsByResources, gpuSelection]
+  );
 
   const selectedTotal = useMemo(
     () => Object.values(selectedByKey).reduce((sum, n) => sum + n, 0),
@@ -265,23 +268,25 @@ const useInferenceAllocation = ({
 
   const fraction = totalGpus > 0 ? selectedTotal / totalGpus : 1;
 
-  // Quick start pins CPU/RAM/disk to the package's recommended amounts (clamped to the env); the
-  // custom flow leaves pinnedAllocation undefined and gets the GPU-fraction-derived slice. GPUs are
-  // always driven by the unit selection above — only the shared resources are pinnable.
+  // Size the shared CPU/RAM/disk, then clamp each to the env (clampResource). GPUs are always driven
+  // by the unit selection above — only the shared resources are sized here.
+  //  - `pinned` (quick start): book the package's fixed recommended amounts.
+  //  - `floor` (advanced handoff) / omitted (custom flow): the GPU-fraction slice, optionally floored
+  //    at the package's per-resource min.
   const allocation = useMemo(() => {
-    if (pinnedAllocation) {
-      return {
-        cpu: clampPinned(cpu, pinnedAllocation.cpu, true),
-        ram: clampPinned(ram, pinnedAllocation.ram, true),
-        disk: clampPinned(disk, pinnedAllocation.disk, true),
-      };
-    }
-    return {
-      cpu: fractionResourceClamped(cpu, fraction, true, resourceFloor?.cpu),
-      ram: fractionResourceClamped(ram, fraction, true, resourceFloor?.ram),
-      disk: fractionResourceClamped(disk, fraction, true, resourceFloor?.disk)
+    const clamp = (resource: ComputeResource | undefined, amounts: ResourceAmounts | undefined, key: keyof ResourceAmounts) => {
+      if (sizing?.mode === 'pinned') {
+        return clampResource(resource, sizing[key], true);
+      }
+      return clampResource(resource, jobCapacityOf(resource) * fraction, true, amounts?.[key]);
     };
-  }, [cpu, ram, disk, fraction, pinnedAllocation, resourceFloor]);
+    const floor = sizing?.mode === 'floor' ? sizing : undefined;
+    return {
+      cpu: clamp(cpu, floor, 'cpu'),
+      ram: clamp(ram, floor, 'ram'),
+      disk: clamp(disk, floor, 'disk'),
+    };
+  }, [cpu, ram, disk, fraction, sizing]);
 
   const price = useMemo(() => {
     const cpuTotal = (cpuFee ?? 0) * allocation.cpu;

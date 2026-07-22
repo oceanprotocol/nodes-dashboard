@@ -3,9 +3,9 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useInferenceAllocation, {
+  drawUnitsAcrossTypes,
   GpuSelection,
-  PinnedAllocation,
-  ResourceFloor,
+  ResourceSizing,
 } from '@/components/hooks/use-inference-allocation';
 import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
@@ -39,15 +39,10 @@ type InferenceEnvironmentCardProps = {
   /** Seeds the chips when the card is uncontrolled (e.g. restoring a prior pick for this env). Defaults to all units. */
   initialSelection?: GpuSelection;
   /**
-   * Fixed CPU/RAM/disk to display and price (quick start's pinned recommended amounts) instead of the
-   * GPU-fraction slice. Omit in the custom flow to show the proportional allocation.
+   * How to size/display/price the shared CPU/RAM/disk: `pinned` fixed amounts (quick start) or a `floor`
+   * under the GPU-fraction slice (advanced handoff). Omit for the proportional slice. See {@link ResourceSizing}.
    */
-  pinnedAllocation?: PinnedAllocation;
-  /**
-   * Per-resource min floor raising the GPU-fraction slice (custom flow package handoff). Only affects
-   * the non-pinned display/price. Omit in quick start.
-   */
-  resourceFloor?: ResourceFloor;
+  sizing?: ResourceSizing;
 };
 
 function formatGb(value: number): string {
@@ -68,8 +63,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   onTokenChange,
   gpuSelection: controlledSelection,
   initialSelection,
-  pinnedAllocation,
-  resourceFloor,
+  sizing,
 }) => {
   const supportedTokens = useMemo(() => getEnvSupportedTokens(environment, true), [environment]);
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
@@ -122,27 +116,24 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     environment,
     tokenAddress,
     gpuSelection: activeSelection,
-    pinnedAllocation,
-    resourceFloor,
+    sizing,
     durationSeconds,
   });
 
   // Seed the local chips once the types are known: restore a prior pick for this env, or default to
-  // all pickable units. Clamp to what's free — a restored pick can exceed current availability.
+  // all pickable units. Same budget-draw as the hook's selectedByKey (drawUnitsAcrossTypes) so the
+  // seed never sums past what CPU/RAM/disk can back. A restored pick is clamped to the per-type
+  // budget left (`cap`), matching the disable rules the chips render.
   useEffect(() => {
     if (!isControlled && ownSelection === null && mergedGpus.length > 0) {
-      const seeded: GpuSelection = {};
-      // Fill types in declared order up to the combined shared-resource budget, so the seed never sums
-      // past what CPU/RAM/disk can back (per-type maxByKey is an independent ceiling).
-      let remaining = Math.max(0, maxUnitsByResources);
-      mergedGpus.forEach((g) => {
-        const cap = Math.min(maxByKey[g.key] ?? 0, remaining);
-        const prior = initialSelection?.[g.key];
-        const value = prior === undefined ? cap : Math.min(Math.max(prior, 0), cap);
-        seeded[g.key] = value;
-        remaining -= value;
-      });
-      setOwnSelection(seeded);
+      setOwnSelection(
+        drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g, cap) => {
+          const prior = initialSelection?.[g.key];
+          // undefined → default this type to `cap`; a restored pick is clamped to `cap` (it can exceed
+          // current availability). Returning undefined lets drawUnitsAcrossTypes fill `cap` itself.
+          return prior === undefined ? undefined : Math.min(Math.max(prior, 0), cap);
+        })
+      );
     }
   }, [isControlled, ownSelection, mergedGpus, maxByKey, maxUnitsByResources, initialSelection]);
 

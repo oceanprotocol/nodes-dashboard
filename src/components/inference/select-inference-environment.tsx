@@ -186,7 +186,8 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       gpuSelection,
       // Preserve a package handoff floor across a re-select in this step (mirrors the URL round-trip),
       // so a user who re-picks the same/another env in the custom flow keeps the package's min floor.
-      resourceFloor: selectedEnv?.resourceFloor,
+      // The custom flow only ever carries a `floor` sizing here (never pinned).
+      sizing: selectedEnv?.sizing,
       nodeInfo: {
         currentAddrs: node.currentAddrs,
         friendlyName: node.friendlyName,
@@ -293,7 +294,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                       environment={env}
                       initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
                       key={`${node.id}-${env.id}`}
-                      resourceFloor={selectedEnv?.resourceFloor}
+                      sizing={selectedEnv?.sizing}
                       selected={isPriorSelection}
                       nodeInfo={node}
                       onSelect={(tokenAddress, tokenSymbol, gpuSelection) =>

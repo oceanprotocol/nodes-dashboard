@@ -1,4 +1,4 @@
-import { GpuSelection, PinnedAllocation, ResourceFloor } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
@@ -6,12 +6,10 @@ import { decodeModelIds, encodeModelIds, fetchHuggingFaceModel } from '@/service
 import {
   decodeGpuSelection,
   decodeModelParams,
-  decodePinnedAllocation,
-  decodeResourceFloor,
+  decodeResourceSizing,
   encodeGpuSelection,
   encodeModelParams,
-  encodePinnedAllocation,
-  encodeResourceFloor,
+  encodeResourceSizing,
   firstQueryValue,
 } from '@/services/inference-url';
 import { DEFAULT_INFERENCE_ENGINE } from '@/services/huggingface-service';
@@ -29,10 +27,8 @@ export type InferenceSelectionQuery = Partial<{
   gpus: string;
   /** Inference engine driving the launch (`vllm` | `llamacpp`) — picks the image, port & command. */
   engine: string;
-  /** Pinned CPU/RAM/disk (`cpu:ram:disk`) — quick start only; absent in the custom flow. */
+  /** Shared-resource sizing (`mode:cpu:ram:disk`) — `pinned` quick start / `floor` handoff; absent for a plain slice. */
   res: string;
-  /** Per-resource min floor (`cpu:ram:disk`) for the fraction slice — custom flow package handoff only. */
-  resfloor: string;
   token: string;
   duration: string;
   params: string;
@@ -48,16 +44,11 @@ export type SelectedInferenceEnv = {
   /** Units to use per GPU type, keyed by type (defaults to all units of every type). */
   gpuSelection: GpuSelection;
   /**
-   * Fixed CPU/RAM/disk to book (quick start pins a package's recommended amounts); the custom flow
-   * leaves this undefined and gets the GPU-fraction-derived slice.
+   * How the shared CPU/RAM/disk are sized: `pinned` fixed amounts (quick start) or a `floor` under the
+   * GPU-fraction slice (advanced handoff). Omit for a pure proportional slice (custom flow). See
+   * {@link ResourceSizing}.
    */
-  pinnedAllocation?: PinnedAllocation;
-  /**
-   * Per-resource lower bound raising the floor of the fraction-derived slice, set by the default-models
-   * advanced handoff (the package's per-resource min). Distinct from pinnedAllocation: it does not force
-   * a fixed amount — above the floor the slice stays GPU-proportional.
-   */
-  resourceFloor?: ResourceFloor;
+  sizing?: ResourceSizing;
 };
 
 type InferenceContextType = {
@@ -106,8 +97,7 @@ type SelectionOverrides = {
   peerId?: string;
   envId?: string;
   gpuSelection?: GpuSelection;
-  pinnedAllocation?: PinnedAllocation;
-  resourceFloor?: ResourceFloor;
+  sizing?: ResourceSizing;
   tokenAddress?: string;
   durationSeconds?: number;
   engine?: InferenceEngine;
@@ -224,8 +214,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const peerId = overrides?.peerId ?? selectedEnv?.nodeInfo.id;
       const envId = overrides?.envId ?? selectedEnv?.environment.id;
       const gpuSelection = overrides?.gpuSelection ?? selectedEnv?.gpuSelection;
-      const pinnedAllocation = overrides?.pinnedAllocation ?? selectedEnv?.pinnedAllocation;
-      const resourceFloor = overrides?.resourceFloor ?? selectedEnv?.resourceFloor;
+      const sizing = overrides?.sizing ?? selectedEnv?.sizing;
       const tokenAddress = overrides?.tokenAddress ?? selectedToken?.address;
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
       const models = overrides?.models ?? selectedModels;
@@ -250,13 +239,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (gpus) {
         query.gpus = gpus;
       }
-      const res = encodePinnedAllocation(pinnedAllocation);
+      const res = encodeResourceSizing(sizing);
       if (res) {
         query.res = res;
-      }
-      const resfloor = encodeResourceFloor(resourceFloor);
-      if (resfloor) {
-        query.resfloor = resfloor;
       }
       if (tokenAddress) {
         query.token = tokenAddress;
@@ -364,8 +349,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setSelectedEnv({
         environment: foundEnv,
         gpuSelection: decodeGpuSelection(q.gpus) ?? {},
-        pinnedAllocation: decodePinnedAllocation(q.res),
-        resourceFloor: decodeResourceFloor(q.resfloor),
+        sizing: decodeResourceSizing(q.res),
         nodeInfo: {
           currentAddrs: foundNode.currentAddrs,
           friendlyName: foundNode.friendlyName,

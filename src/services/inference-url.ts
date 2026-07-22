@@ -1,4 +1,4 @@
-import { GpuSelection, PinnedAllocation, ResourceFloor } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { ModelParameters } from '@/types/huggingface';
 
 /**
@@ -15,8 +15,8 @@ import { ModelParameters } from '@/types/huggingface';
  * - `token`    selected fee token address
  * - `duration` job duration in seconds
  * - `params`   base64url JSON of per-model launch parameters (custom-model config step)
- * - `res`      pinned CPU/RAM/disk amounts (quick start), `cpu:ram:disk` — absent in the custom flow
- * - `resfloor` per-resource min floor for the fraction slice (custom flow package handoff), `cpu:ram:disk`
+ * - `res`      shared-resource sizing, `mode:cpu:ram:disk` (`pinned` = quick start, `floor` = custom
+ *              flow package handoff) — absent for a pure GPU-fraction slice
  */
 
 /**
@@ -57,46 +57,29 @@ export function decodeGpuSelection(raw: string | string[] | undefined): GpuSelec
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-/** Serialize pinned CPU/RAM/disk into a `cpu:ram:disk` string (quick start only). */
-export function encodePinnedAllocation(allocation: PinnedAllocation | undefined): string | undefined {
-  if (!allocation) {
+/** Serialize shared-resource sizing into a `mode:cpu:ram:disk` string (absent for a plain fraction slice). */
+export function encodeResourceSizing(sizing: ResourceSizing | undefined): string | undefined {
+  if (!sizing) {
     return undefined;
   }
-  return `${allocation.cpu}:${allocation.ram}:${allocation.disk}`;
+  return `${sizing.mode}:${sizing.cpu}:${sizing.ram}:${sizing.disk}`;
 }
 
-/** Parse the `res` param back into pinned CPU/RAM/disk; undefined when absent or malformed. */
-export function decodePinnedAllocation(raw: string | string[] | undefined): PinnedAllocation | undefined {
+/** Parse the `res` param back into shared-resource sizing; undefined when absent, malformed, or an unknown mode. */
+export function decodeResourceSizing(raw: string | string[] | undefined): ResourceSizing | undefined {
   if (!raw) {
     return undefined;
   }
   const value = Array.isArray(raw) ? raw[0] : raw;
-  const [cpu, ram, disk] = value.split(':').map(Number);
+  const [mode, ...rest] = value.split(':');
+  if (mode !== 'pinned' && mode !== 'floor') {
+    return undefined;
+  }
+  const [cpu, ram, disk] = rest.map(Number);
   if (![cpu, ram, disk].every(Number.isFinite)) {
     return undefined;
   }
-  return { cpu, ram, disk };
-}
-
-/** Serialize a per-resource floor into a `cpu:ram:disk` string (custom flow package handoff only). */
-export function encodeResourceFloor(floor: ResourceFloor | undefined): string | undefined {
-  if (!floor) {
-    return undefined;
-  }
-  return `${floor.cpu}:${floor.ram}:${floor.disk}`;
-}
-
-/** Parse the `resfloor` param back into a per-resource floor; undefined when absent or malformed. */
-export function decodeResourceFloor(raw: string | string[] | undefined): ResourceFloor | undefined {
-  if (!raw) {
-    return undefined;
-  }
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  const [cpu, ram, disk] = value.split(':').map(Number);
-  if (![cpu, ram, disk].every(Number.isFinite)) {
-    return undefined;
-  }
-  return { cpu, ram, disk };
+  return { mode, cpu, ram, disk };
 }
 
 function base64UrlEncode(input: string): string {

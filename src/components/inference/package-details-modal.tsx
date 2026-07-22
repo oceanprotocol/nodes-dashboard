@@ -79,7 +79,7 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
         durationSeconds={durationSeconds}
         environment={resolved.env.environment}
         gpuSelection={resolved.env.gpuSelection}
-        pinnedAllocation={resolved.env.pinnedAllocation}
+        sizing={resolved.env.sizing}
         nodeInfo={resolved.env.nodeInfo}
         onTokenChange={onTokenChange}
       />
