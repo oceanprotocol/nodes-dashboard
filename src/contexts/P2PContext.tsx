@@ -12,6 +12,7 @@ import {
   getPeerMultiaddr as getPeerMultiaddrFromService,
   getServiceLogs as getServiceLogsFromService,
   getServiceStatus as getServiceStatusFromService,
+  getServiceTemplates as getServiceTemplatesFromService,
   initializeCompute as initializeComputeFromService,
   initializeP2P,
   listBucketFiles as listBucketFilesService,
@@ -42,6 +43,7 @@ import {
   type ServiceJob,
   type ServicePayment,
   type ServiceStartParams,
+  type ServiceTemplatePublic,
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
@@ -203,6 +205,11 @@ interface P2PContextType {
     dockerCmd?: string[],
     dockerEntrypoint?: string[]
   ) => Promise<ServiceJob[]>;
+  /**
+   * Fetch a node's advertised service templates (image + launch command + resource requirements),
+   * scoped to `chainId`. Seeds the quick-start packages on the default-models page.
+   */
+  getServiceTemplates: (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => Promise<ServiceTemplatePublic[]>;
   /** Fetch the service container's logs (stdout/stderr) — includes the crash reason on exit. */
   getServiceLogs: (
     nodeUri: NodeUri,
@@ -634,6 +641,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  const getServiceTemplates = useCallback(
+    async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getServiceTemplatesFromService(nodeUri, chainId, signal);
+    },
+    [isReady]
+  );
+
   const streamServiceLogs = useCallback(
     (
       nodeUri: NodeUri,
@@ -674,6 +691,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         serviceRestart,
         serviceStop,
         getServiceLogs,
+        getServiceTemplates,
         streamServiceLogs,
         streamComputeResult,
         streamComputeLogs,

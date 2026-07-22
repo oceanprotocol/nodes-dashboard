@@ -57,6 +57,7 @@ export type InferencePackage = {
   model: HuggingFaceModel;
   /** Complete vLLM launch parameters — committed as-is, no config step. */
   params: ModelParameters;
+  type: 'quickstart' | 'template'
   /** The pinned environment to run on — resolved live from the environments API by id. */
   env: InferencePackageEnv;
   /**

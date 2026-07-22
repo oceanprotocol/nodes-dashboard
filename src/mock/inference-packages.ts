@@ -33,7 +33,7 @@ const REQUIRED_RESOURCES: ResourceRequirement[] = [
   },
 ];
 
-const INFERENCE_PACKAGES: InferencePackage[] = [
+export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
   {
     id: 'everyday-chat',
     model: {
@@ -56,6 +56,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       toolCalling: true,
       toolCallParser: 'hermes',
     },
+    type: 'quickstart',
     env: {
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
@@ -85,6 +86,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       toolCalling: true,
       toolCallParser: 'hermes',
     },
+    type: 'quickstart',
     env: {
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
@@ -114,6 +116,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       toolCalling: false,
       toolCallParser: null,
     },
+    type: 'quickstart',
     env: {
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
@@ -142,6 +145,7 @@ const INFERENCE_PACKAGES: InferencePackage[] = [
       gpuLayers: 99,
       jinja: true,
     },
+    type: 'quickstart',
     env: {
       peerId: NODE_ID,
       envIdPrefix: NODE_ENV_ID_PREFIX,
@@ -156,5 +160,5 @@ const MOCK_FETCH_DELAY_MS = 300;
 /** Mimics the eventual packages API: resolves the curated list after a short delay. */
 export async function fetchInferencePackages(): Promise<InferencePackage[]> {
   await new Promise((resolve) => setTimeout(resolve, MOCK_FETCH_DELAY_MS));
-  return INFERENCE_PACKAGES;
+  return MOCK_INFERENCE_PACKAGES;
 }

@@ -22,6 +22,7 @@ import {
   type ServiceJob,
   type ServicePayment,
   type ServiceStartParams,
+  type ServiceTemplatePublic,
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
 
@@ -302,6 +303,19 @@ export async function startFreeCompute({
     undefined, // dockerRegistryAuth
     outputBucketId
   );
+}
+
+/**
+ * Fetch a node's public service templates (the long-running services it advertises — image, launch
+ * command, resource requirements). `chainId` scopes templates to a chain. Used to seed the
+ * quick-start packages on the default-models page: each listed node's templates become packages.
+ */
+export async function getServiceTemplates(
+  nodeUri: NodeUri,
+  chainId?: number,
+  signal?: AbortSignal
+): Promise<ServiceTemplatePublic[]> {
+  return ProviderInstance.getServiceTemplates(normalizeNodeUri(nodeUri), chainId, signal);
 }
 
 // --- Service on Demand (long-lived containers, e.g. vLLM inference) ---

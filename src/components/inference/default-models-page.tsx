@@ -1,5 +1,6 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
 import { ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import usePackageEnv from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
@@ -9,7 +10,6 @@ import PackageDetailsModal from '@/components/inference/package-details-modal';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
-import { fetchInferencePackages } from '@/mock/inference-packages';
 import { InferenceFlowType, InferencePackage } from '@/types/inference';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
@@ -44,26 +44,13 @@ const DefaultModelsPage: React.FC = () => {
     buildSelectionQuery,
   } = useInferenceContext();
 
-  const [packages, setPackages] = useState<InferencePackage[]>([]);
-  const [loadingPackages, setLoadingPackages] = useState(true);
+  // Packages come from the configured nodes' advertised service templates (getServiceTemplates).
+  const { packages, loading: loadingPackages, error: packagesError } = useDefaultModelPackages();
   const [selectedPackage, setSelectedPackage] = useState<InferencePackage | null>(null);
   // Duration edited in the modal but stays local until Continue/Customize — a pick commits nothing.
   const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
   // Token chosen in the modal's env card; overrides the env's seeded default. Resets on each pick.
   const [pickedToken, setPickedToken] = useState<SelectedToken | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchInferencePackages().then((data) => {
-      if (!cancelled) {
-        setPackages(data);
-        setLoadingPackages(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Always start fresh (new entry or Back-nav from payment): clear leftover selection once, on mount.
   useEffect(() => {
@@ -164,6 +151,10 @@ const DefaultModelsPage: React.FC = () => {
           </div>
           {loadingPackages ? (
             <div className={cx(styles.stateBox, 'textSecondary')}>Loading packages…</div>
+          ) : packagesError ? (
+            <div className={cx(styles.stateBox, 'textErrorDarker')}>{packagesError}</div>
+          ) : packages.length === 0 ? (
+            <div className={cx(styles.stateBox, 'textSecondary')}>No packages available right now.</div>
           ) : (
             <div className={styles.grid}>
               {packages.map((pkg) => (
