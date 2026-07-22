@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`nodes-dashboard` — the Next.js dashboard for Ocean Protocol node incentives and monitoring. It shows node maps, stats, and leaderboards, and hosts wallet-connected flows: running compute jobs, running/configuring your own node, profile/escrow management, token grants, and swapping tokens.
+`nodes-dashboard` — the Next.js dashboard for Ocean Network. It shows node stats, and leaderboards, and hosts wallet-connected flows: running compute jobs, running/configuring your own node, profile/escrow management, token grants, and swapping tokens.
 
 ## Stack at a glance
 
