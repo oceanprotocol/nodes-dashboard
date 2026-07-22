@@ -1,6 +1,7 @@
 import Card from '@/components/card/card';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
+import { formatPipelineTag } from '@/utils/formatters';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
@@ -12,16 +13,6 @@ export type ServiceModel = {
   /** Committed launch params. Undefined when a model was never configured — rendered as N/A. */
   params?: ModelParameters;
 };
-
-function prettyPipeline(tag?: string): string {
-  if (!tag) {
-    return 'Model';
-  }
-  return tag
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
 
 type ParamRow = {
   label: string;
@@ -151,7 +142,7 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
         <span className={styles.modelIdentity}>
           <span className={styles.modelName}>{params?.servedModelName ?? getModelShortName(model.id)}</span>
           <span className={styles.modelSub}>
-            {prettyPipeline(model.pipelineTag)} · {model.id}
+            {formatPipelineTag(model.pipelineTag, 'Model')} · {model.id}
           </span>
         </span>
         <span className={styles.modelSpecs}>

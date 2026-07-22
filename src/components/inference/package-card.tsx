@@ -2,20 +2,11 @@ import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { InferencePackage } from '@/types/inference';
+import { formatPipelineTag } from '@/utils/formatters';
 import ViewStreamOutlinedIcon from '@mui/icons-material/ViewStreamOutlined';
 import classNames from 'classnames';
 import { useState } from 'react';
 import styles from './package-card.module.css';
-
-function prettyPipeline(tag?: string): string {
-  if (!tag) {
-    return 'Other';
-  }
-  return tag
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
 
 type PackageCardProps = {
   pkg: InferencePackage;
@@ -68,7 +59,7 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
         </div>
       </div>
       <div className={styles.chips}>
-        <span className={classNames('chip', 'chipGlass', styles.chip)}>{prettyPipeline(model.pipelineTag)}</span>
+        <span className={classNames('chip', 'chipGlass', styles.chip)}>{formatPipelineTag(model.pipelineTag, 'Other')}</span>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{engineLabel}</span>
         {showToolChip && <span className={classNames('chip', 'chipAccent2', styles.chip)}>Tools</span>}
       </div>

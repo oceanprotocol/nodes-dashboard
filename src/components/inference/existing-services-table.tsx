@@ -4,6 +4,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds, getModelShortName } from '@/services/huggingface-service';
+import { parseEngineCommand } from '@/services/inference-launch';
 import { getServiceStatusView } from '@/services/service-status';
 import { formatDateTime, formatDuration } from '@/utils/formatters';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -24,14 +25,16 @@ const DEFAULT_NODE_URI = [
   '/ip4/35.202.16.215/tcp/9001/tls/sni/35-202-16-215.kzwfwjn5ji4puuok23h2yyzro0fe1rqv1bqzbmrjf7uqyj504rawjl4zs68mepr.libp2p.direct/ws/p2p/16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
 ];
 
-/** The node returns the launch command, not HF metadata — recover the model id from `--model`. */
+/**
+ * The node returns the launch command, not HF metadata — recover the model id from it. Delegates to
+ * the shared parser so both engines resolve: vLLM's `--model` and llama.cpp's `-hf` GGUF repo (the
+ * old `--model`-only lookup left llama.cpp services showing a serviceId slice instead of a name).
+ */
 function modelIdFromJob(job: ServiceJob): string | null {
-  const cmd = job.dockerCmd ?? [];
-  const idx = cmd.indexOf('--model');
-  if (idx >= 0 && idx + 1 < cmd.length) {
-    return cmd[idx + 1];
+  if (!job.dockerCmd || job.dockerCmd.length === 0) {
+    return null;
   }
-  return null;
+  return parseEngineCommand(job.dockerCmd).modelId;
 }
 
 const ExistingServicesTable: React.FC = () => {

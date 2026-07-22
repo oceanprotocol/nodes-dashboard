@@ -12,6 +12,7 @@ import {
   encodeModelParams,
   encodePinnedAllocation,
   encodeResourceFloor,
+  firstQueryValue,
 } from '@/services/inference-url';
 import { DEFAULT_INFERENCE_ENGINE } from '@/services/huggingface-service';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
@@ -267,13 +268,13 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         query.params = encodedParams;
       }
       // Carry the edit flag forward so every step keeps its edit-mode behavior across navigations.
-      const editFlag = Array.isArray(router.query.edit) ? router.query.edit[0] : router.query.edit;
+      const editFlag = firstQueryValue(router.query.edit);
       if (editFlag) {
         query.edit = editFlag;
       }
       // Carry the target service id forward too — edit/prolong need it at the payment step to
       // stop/extend the running service.
-      const serviceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;
+      const serviceId = firstQueryValue(router.query.serviceId);
       if (serviceId) {
         query.serviceId = serviceId;
       }
@@ -300,7 +301,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const hydrateFromQueryParams = useCallback(async () => {
     const q = router.query;
     // Synchronous restores first — these never fail and don't depend on the network.
-    const duration = Number(Array.isArray(q.duration) ? q.duration[0] : q.duration);
+    const duration = Number(firstQueryValue(q.duration));
     if (Number.isFinite(duration) && duration > 0) {
       setJobDurationSeconds(duration);
     }
@@ -315,7 +316,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     // Restore the engine: the explicit `engine` param wins; else infer it from the committed params
     // (their `engine` discriminator); else fall back to the default. Keeps the config step's selector
     // and the launch command in sync on a refresh / deep link.
-    const engineParam = Array.isArray(q.engine) ? q.engine[0] : q.engine;
+    const engineParam = firstQueryValue(q.engine);
     const paramEngine = Object.values(restoredParams)[0]?.engine;
     const restoredEngine: InferenceEngine =
       engineParam === 'vllm' || engineParam === 'llamacpp' ? engineParam : (paramEngine ?? DEFAULT_INFERENCE_ENGINE);
@@ -340,8 +341,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     };
 
     const restoreEnv = async (): Promise<boolean> => {
-      const peerId = Array.isArray(q.peerId) ? q.peerId[0] : q.peerId;
-      const envId = Array.isArray(q.env) ? q.env[0] : q.env;
+      const peerId = firstQueryValue(q.peerId);
+      const envId = firstQueryValue(q.env);
       if (!peerId || !envId) {
         return true;
       }
@@ -374,7 +375,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         },
       });
       // Token restore is best-effort and must not abort env restore if the symbol lookup throws.
-      const tokenAddress = Array.isArray(q.token) ? q.token[0] : q.token;
+      const tokenAddress = firstQueryValue(q.token);
       if (tokenAddress) {
         let symbol: string | null = null;
         try {
@@ -409,12 +410,12 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     if (!router.isReady) {
       return;
     }
-    const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+    const sigPart = (v: string | string[] | undefined) => firstQueryValue(v) ?? '';
     const signature = [
-      first(router.query.models),
-      first(router.query.peerId),
-      first(router.query.env),
-      first(router.query.serviceId),
+      sigPart(router.query.models),
+      sigPart(router.query.peerId),
+      sigPart(router.query.env),
+      sigPart(router.query.serviceId),
     ].join('|');
     if (hydratedSignatureRef.current === signature) {
       return;

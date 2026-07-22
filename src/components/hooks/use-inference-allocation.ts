@@ -32,13 +32,28 @@ export type PinnedAllocation = { cpu: number; ram: number; disk: number };
  */
 export type ResourceFloor = { cpu: number; ram: number; disk: number };
 
+/**
+ * Free units the node will actually grant for a fungible resource. The node's availability gate
+ * rejects a request above `total - inUse` (the env aggregate ceiling), while `max` is only the
+ * per-job ceiling — so the bookable amount is bounded by the SMALLER of the two, minus what's in
+ * use. Ceiling at `max - inUse` alone would let a pinned amount pass client-side and get rejected
+ * at serviceStart after the escrow deposit tx (wasted gas). See ocean-node
+ * checkIfResourcesAreAvailable (fungible gate: `total - inUse < amount`).
+ */
+function grantableAmount(resource: Pick<ComputeResource, 'total' | 'max' | 'inUse'>): number {
+  const max = resource.max ?? 0;
+  const total = resource.total && resource.total > 0 ? resource.total : max;
+  const ceiling = Math.min(total, max);
+  return Math.max(0, ceiling - (resource.inUse ?? 0));
+}
+
 /** Clamp a pinned amount into what the env can actually give: floor at `min`, ceil at free units. */
 function clampPinned(resource: ComputeResource | undefined, amount: number, round?: boolean): number {
   if (!resource) {
     return 0;
   }
   let value = round ? Math.round(amount) : amount;
-  const available = Math.max(0, (resource.max ?? 0) - (resource.inUse ?? 0));
+  const available = grantableAmount(resource);
   if (value > available) {
     value = available;
   }
@@ -82,10 +97,10 @@ function fractionResourceClamped(
   if (round && fraction > 0 && roundedResource < 1) {
     roundedResource = 1;
   }
-  // Clamp to what's free right now (max − inUse), then floor at the required minimum. The available
-  // ceiling wins over min only when nothing is free — an exhausted resource can't be met, and the
-  // card blocks selection in that case (gpuExhausted / maxUnitsByResources <= 0).
-  const available = Math.max(0, (resource.max ?? 0) - (resource.inUse ?? 0));
+  // Clamp to what the node will actually grant (min(total, max) − inUse), then floor at the required
+  // minimum. The available ceiling wins over min only when nothing is free — an exhausted resource
+  // can't be met, and the card blocks selection in that case (gpuExhausted / maxUnitsByResources <= 0).
+  const available = grantableAmount(resource);
   if (roundedResource > available) {
     roundedResource = available;
   }

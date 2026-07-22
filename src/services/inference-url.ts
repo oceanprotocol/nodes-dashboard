@@ -19,6 +19,14 @@ import { ModelParameters } from '@/types/huggingface';
  * - `resfloor` per-resource min floor for the fraction slice (custom flow package handoff), `cpu:ram:disk`
  */
 
+/**
+ * First value of a Next.js router query field. A repeated key (`?a=1&a=2`) arrives as `string[]`;
+ * the wizard only ever carries single values, so collapse to the first entry (undefined when empty).
+ */
+export function firstQueryValue(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
 /** Serialize per-type GPU unit counts into a `key:count,key:count` string. */
 export function encodeGpuSelection(selection: GpuSelection | undefined): string | undefined {
   if (!selection) {

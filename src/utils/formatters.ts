@@ -150,6 +150,21 @@ export const formatDateTime = (timestamp: number): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
 
+/**
+ * Title-case a Hugging Face pipeline tag for display (e.g. `text-generation` → "Text Generation").
+ * `fallback` is returned for a missing tag — callers pass what reads best in their context
+ * ("Model", "Other").
+ */
+export const formatPipelineTag = (tag: string | undefined, fallback: string): string => {
+  if (!tag) {
+    return fallback;
+  }
+  return tag
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
 export type HardwareType = 'cpu' | 'gpu';
 
 // Manufacturer/noise words dropped from a CPU/GPU model string; the brand is shown as a logo
