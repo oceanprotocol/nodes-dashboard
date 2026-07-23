@@ -13,7 +13,8 @@ import {
   firstQueryValue,
 } from '@/services/inference-url';
 import { DEFAULT_INFERENCE_ENGINE } from '@/services/huggingface-service';
-import { fetchServiceTemplate } from '@/mock/service-templates';
+import { fetchTemplates, findTemplateById } from '@/services/service-templates';
+import { useP2P } from '@/contexts/P2PContext';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
 import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { AppTemplate } from '@/types/templates';
@@ -86,7 +87,8 @@ type InferenceContextType = {
   /**
    * User-supplied values for the selected template's `userConfigurableEnvVars` (e.g. HF_TOKEN),
    * committed on the template config step. Kept in memory only — these are secrets, never put in the
-   * URL. Merged with the template's fixedEnvVars into container userData at launch/relaunch.
+   * URL. Sent as container userData at launch/relaunch (operator launch flags ride in the template's
+   * command, not env).
    */
   templateEnvValues: Record<string, string>;
   setTemplateEnvValues: (values: Record<string, string>) => void;
@@ -140,6 +142,8 @@ const InferenceContext = createContext<InferenceContextType | undefined>(undefin
 
 export const InferenceProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
+  // Templates are served by the node; restoreTemplate fetches them, so it waits on the P2P node.
+  const { getServiceTemplates, isReady: p2pReady } = useP2P();
   const [selectedModels, setSelectedModels] = useState<HuggingFaceModel[]>([]);
   const [selectedEnv, setSelectedEnv] = useState<SelectedInferenceEnv | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
@@ -401,7 +405,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedTemplate(null);
         return true;
       }
-      const template = await fetchServiceTemplate(templateId);
+      const templates = await fetchTemplates(getServiceTemplates);
+      const template = findTemplateById(templates, templateId);
       if (!template) {
         return false;
       }
@@ -421,7 +426,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     });
     setHydrationFailed(failed);
     setHydrateFromUrlFinished(true);
-  }, [router.query]);
+  }, [router.query, getServiceTemplates]);
 
   // Hydrate after the router is ready so query params are populated. Re-runs when the identifying
   // signature changes (a nav to a different selection) so client-side nav — where the Provider stays
@@ -429,6 +434,13 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   // StrictMode's double mount and ignores within-flow param tweaks (same identity).
   useEffect(() => {
     if (!router.isReady) {
+      return;
+    }
+    // A template restore fetches from the node — wait for the P2P node before hydrating, else the
+    // fetch throws and the restore is (wrongly) flagged as failed. Non-template selections (models/
+    // env, restored via HF/axios) don't wait. Returning before consuming the signature lets the
+    // effect re-run and hydrate once p2pReady flips true.
+    if (firstQueryValue(router.query.template) && !p2pReady) {
       return;
     }
     const sigPart = (v: string | string[] | undefined) => firstQueryValue(v) ?? '';
@@ -455,6 +467,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   }, [
     hydrateFromQueryParams,
     router.isReady,
+    p2pReady,
     router.query.models,
     router.query.peerId,
     router.query.env,

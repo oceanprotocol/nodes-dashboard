@@ -2,9 +2,9 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { fetchServiceTemplates } from '@/mock/service-templates';
 import { encodeModelIds, getModelShortName } from '@/services/huggingface-service';
 import { getServiceStatusView } from '@/services/service-status';
+import { findTemplateByImage } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import { formatDateTime, formatDuration } from '@/utils/formatters';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -80,7 +80,7 @@ const ExistingServicesTable: React.FC = () => {
       const byImage = new Map(templates.map((t) => [t.image, t]));
       const matched: Record<string, AppTemplate> = {};
       for (const job of sorted) {
-        const tpl = byImage.get(job.image);
+        const tpl = findTemplateByImage(templates, job.image);
         if (tpl) {
           matched[job.serviceId] = tpl;
         }

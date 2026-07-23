@@ -14,12 +14,12 @@ type Allocation = {
 
 /**
  * Container env vars for a template launch, sent as plaintext userData (ocean.js ECIES-encrypts before
- * transit). Operator-fixed `fixedEnvVars` (e.g. ComfyUI's CLI_ARGS) first, then the user-supplied values
- * for the template's `userConfigurableEnvVars` — only keys the user actually filled are emitted.
- * A user value never overwrites a fixed one (fixed applied first, user only sets its declared keys).
+ * transit) from the user-supplied values for the template's `userConfigurableEnvVars` — only keys the
+ * user actually filled are emitted. Operator-fixed launch config is not env: it rides in the template's
+ * `command`, which the node forwards to the container verbatim (dockerCmd), so nothing to merge here.
  */
 export function buildTemplateUserData(template: AppTemplate, envValues: Record<string, string>): Record<string, string> {
-  const userData: Record<string, string> = { ...(template.fixedEnvVars ?? {}) };
+  const userData: Record<string, string> = {};
   for (const spec of template.userConfigurableEnvVars ?? []) {
     const value = envValues[spec.key];
     if (value) {
@@ -79,7 +79,7 @@ export function buildTemplateStartParams({
   };
 }
 
-/** The port serving the template's primary web UI — for the "Open" link on the service page. */
+/** The port serving the template's primary web UI (first exposed port) — for the "Open" link. */
 export function templatePrimaryPort(template: AppTemplate): number | undefined {
-  return template.primaryPort ?? template.exposedPorts?.[0];
+  return template.exposedPorts?.[0];
 }

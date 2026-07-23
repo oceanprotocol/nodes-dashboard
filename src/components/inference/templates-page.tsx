@@ -2,45 +2,30 @@ import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import SectionTitle from '@/components/section-title/section-title';
+import useServiceTemplates from '@/components/hooks/use-service-templates';
 import { useInferenceContext } from '@/context/inference-context';
-import { fetchServiceTemplates } from '@/mock/service-templates';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import styles from './templates-page.module.css';
 
 /**
  * Templates flow entry: pick a ready-made containerized app (ComfyUI, …), then choose an environment
  * and pay. A template is a launch preset (image + ports + command + resources) — distinct from the
- * HF-model flows. Data is mock for now (see src/mock/service-templates.ts); swap for the node catalog
- * (getServiceTemplates) when it lands.
+ * HF-model flows. Templates are served by the node (getServiceTemplates); see useServiceTemplates.
  */
 const TemplatesPage: React.FC = () => {
   const router = useRouter();
   const { setSelectedTemplate, clearSelection, buildSelectionQuery } = useInferenceContext();
 
-  const [templates, setTemplates] = useState<AppTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { templates, loading } = useServiceTemplates();
 
   // Always start fresh (new entry or Back-nav from a later step): clear leftover selection once, on mount.
   useEffect(() => {
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchServiceTemplates().then((data) => {
-      if (!cancelled) {
-        setTemplates(data);
-        setLoading(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const selectTemplate = (tpl: AppTemplate) => {
@@ -84,7 +69,6 @@ const TemplatesPage: React.FC = () => {
                   <div className={styles.name} title={tpl.name ?? tpl.id}>
                     {tpl.name ?? tpl.id}
                   </div>
-                  {tpl.category && <span className={cx('chip', 'chipGlass', styles.chip)}>{tpl.category}</span>}
                   {tpl.description && <div className={cx(styles.description, 'textSecondary')}>{tpl.description}</div>}
                 </Card>
               ))}
