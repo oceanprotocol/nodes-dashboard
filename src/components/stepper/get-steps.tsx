@@ -13,7 +13,13 @@ export const getInferenceSteps = (flowType: InferenceFlowType, edit = false): St
   },
   { key: 'template', label: 'Template', hidden: flowType !== InferenceFlowType.Template },
   { key: 'resources', label: 'Resources', hidden: edit || flowType === InferenceFlowType.DefaultModel },
-  { key: 'config', label: 'Config', hidden: flowType === InferenceFlowType.DefaultModel },
+  {
+    key: 'config',
+    label: 'Config',
+    // Templates skip config on a fresh launch (env vars optional) but show it when editing a running
+    // service — reconfiguring the env vars is the whole point of a template edit.
+    hidden: flowType === InferenceFlowType.DefaultModel || (flowType === InferenceFlowType.Template && !edit),
+  },
   { key: 'payment', label: 'Payment' },
 ];
 

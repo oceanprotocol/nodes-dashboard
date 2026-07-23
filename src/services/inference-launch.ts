@@ -259,7 +259,7 @@ export function buildUserData(params: ModelParameters, hfToken: string): Record<
  * GPUs than the user selected and is paying escrow for; failing loudly surfaces the real shortfall
  * (e.g. a restored/booked pick whose units were taken by another tenant since) instead.
  */
-function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
+export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
   const gpus = resources.filter((r) => r.type === 'gpu' || r.id.toLowerCase().includes('gpu'));
   if (gpus.length === 0) {
     return [];
@@ -299,7 +299,7 @@ function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelect
 }
 
 /** Look up the resource id for a base type (cpu/ram/disk), falling back to the type name. */
-function resourceId(resources: ComputeResource[], type: 'cpu' | 'ram' | 'disk'): string {
+export function resourceId(resources: ComputeResource[], type: 'cpu' | 'ram' | 'disk'): string {
   return resources.find((r) => r.type === type || r.id === type)?.id ?? type;
 }
 

@@ -18,6 +18,7 @@ import { withTimeout } from '@/lib/with-timeout';
 import { getModelShortName } from '@/services/huggingface-service';
 import { detectEngine, enginePort, parseEngineCommand, toNodeUri } from '@/services/inference-launch';
 import { getServiceStatusView } from '@/services/service-status';
+import { templatePrimaryPort } from '@/services/template-launch';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -164,6 +165,7 @@ const ManageServicePage: React.FC = () => {
     selectedEnv,
     selectedToken,
     setSelectedToken,
+    selectedTemplate,
     jobDurationSeconds,
     setJobDurationSeconds,
     hydrateFromUrlFinished,
@@ -319,9 +321,21 @@ const ManageServicePage: React.FC = () => {
       : jobDurationSeconds;
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
-  const serviceName = hasSelection
-    ? models.map((m) => getModelShortName(m.model.id)).join(' + ') || 'Custom selection'
-    : id;
+  const isTemplate = !!selectedTemplate;
+  const serviceName = selectedTemplate
+    ? (selectedTemplate.name ?? selectedTemplate.id)
+    : hasSelection
+      ? models.map((m) => getModelShortName(m.model.id)).join(' + ') || 'Custom selection'
+      : id;
+  // Template services serve a web UI (not an OpenAI API) — the URL on the template's primary port.
+  const templateUiUrl = useMemo(() => {
+    if (!selectedTemplate || !job) {
+      return null;
+    }
+    const port = templatePrimaryPort(selectedTemplate);
+    const match = job.endpoints.find((ep) => ep.containerPort === port);
+    return (match ?? job.endpoints[0])?.url ?? null;
+  }, [selectedTemplate, job]);
 
   const status = job
     ? getServiceStatusView(job.status, job.statusText)
@@ -344,6 +358,15 @@ const ManageServicePage: React.FC = () => {
   const onEdit = () => {
     // Node rejects relaunch once expired — button is disabled, but guard so a stale render can't fire.
     if (!canEdit) {
+      return;
+    }
+    // A template service re-enters the template flow at the config (reconfigure) step; a model service
+    // re-enters the model picker. buildSelectionQuery already carries the template/model selection.
+    if (selectedTemplate) {
+      router.push({
+        pathname: `/inference/templates/${encodeURIComponent(selectedTemplate.id)}/config`,
+        query: { ...buildSelectionQuery(), edit: '1', serviceId: id },
+      });
       return;
     }
     router.push({
@@ -402,7 +425,7 @@ const ManageServicePage: React.FC = () => {
             <div className={styles.header}>
               <div>
                 <h3>{serviceName}</h3>
-                <div className={styles.meta}>Custom selection</div>
+                <div className={styles.meta}>{isTemplate ? 'Template app' : 'Custom selection'}</div>
               </div>
               <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
                 {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
@@ -493,7 +516,7 @@ const ManageServicePage: React.FC = () => {
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <div className={styles.howToHead}>
               <h3>How to use</h3>
-              {baseUrl && !isExpired ? (
+              {!isTemplate && baseUrl && !isExpired ? (
                 // vLLM (FastAPI) serves interactive Swagger docs at /docs — live source of truth for
                 // every route this container exposes.
                 <a className={styles.docsLink} href={`${baseUrl}/docs`} rel="noreferrer" target="_blank">
@@ -503,7 +526,30 @@ const ManageServicePage: React.FC = () => {
               ) : null}
             </div>
 
-            {baseUrl && !isExpired ? (
+            {isTemplate ? (
+              templateUiUrl && !isExpired ? (
+                <div className={styles.endpoints}>
+                  <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
+                    <div className="chip chipGlass">App URL</div>
+                    <span className={styles.endpointPath}>{templateUiUrl}</span>
+                    <span className={styles.endpointDescription}>Open this app&apos;s web UI in a new tab</span>
+                    <a href={templateUiUrl} rel="noreferrer" target="_blank">
+                      <Button color="accent1" contentAfter={<OpenInNewIcon fontSize="inherit" />} size="sm" variant="filled">
+                        Open UI
+                      </Button>
+                    </a>
+                  </Card>
+                </div>
+              ) : (
+                <div className="textSecondary">
+                  {isExpired
+                    ? 'This session has ended — the app is no longer available.'
+                    : isRunning
+                      ? 'App is running but exposed no endpoint.'
+                      : 'The app URL becomes available once the service is running…'}
+                </div>
+              )
+            ) : baseUrl && !isExpired ? (
               <>
                 <div className={styles.endpoints}>
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">

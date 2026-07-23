@@ -84,8 +84,13 @@ const InferenceIndexPage: React.FC = () => {
               <h3>Templates</h3>
               <div className="textSecondary">Start your workflow with our ready-made templates</div>
             </div>
-            <Button color="accent1" disabled href="/inference/templates" variant="outlined">
-              Coming soon
+            <Button
+              contentAfter={<ArrowForwardIcon />}
+              color="accent1"
+              href="/inference/templates"
+              variant="outlined"
+            >
+              Browse templates
             </Button>
           </Card>
         </div>

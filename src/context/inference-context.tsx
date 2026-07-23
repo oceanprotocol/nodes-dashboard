@@ -13,8 +13,10 @@ import {
   firstQueryValue,
 } from '@/services/inference-url';
 import { DEFAULT_INFERENCE_ENGINE } from '@/services/huggingface-service';
+import { fetchServiceTemplate } from '@/mock/service-templates';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
 import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
+import { AppTemplate } from '@/types/templates';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +34,8 @@ export type InferenceSelectionQuery = Partial<{
   token: string;
   duration: string;
   params: string;
+  /** Selected app-template id (Templates flow) — the `[templateId]` route param, restored on reload. */
+  template: string;
   /** '1' when re-entering the flow to edit a running service — skips env selection & payment. */
   edit: string;
   /** Running service being edited/prolonged — target of serviceExtend / stop-on-relaunch. */
@@ -76,6 +80,16 @@ type InferenceContextType = {
   setEngine: (engine: InferenceEngine) => void;
   modelParamsByModel: Record<string, ModelParameters>;
   setParamsForModel: (modelId: string, params: ModelParameters) => void;
+  /** Selected app template (Templates flow) — an APP to launch, distinct from the HF-model flows. */
+  selectedTemplate: AppTemplate | null;
+  setSelectedTemplate: (template: AppTemplate | null) => void;
+  /**
+   * User-supplied values for the selected template's `userConfigurableEnvVars` (e.g. HF_TOKEN),
+   * committed on the template config step. Kept in memory only — these are secrets, never put in the
+   * URL. Merged with the template's fixedEnvVars into container userData at launch/relaunch.
+   */
+  templateEnvValues: Record<string, string>;
+  setTemplateEnvValues: (values: Record<string, string>) => void;
   clearSelection: () => void;
   /** True once URL hydration has run (or was skipped) — pages wait on this before reading selection. */
   hydrateFromUrlFinished: boolean;
@@ -102,6 +116,7 @@ type SelectionOverrides = {
   durationSeconds?: number;
   engine?: InferenceEngine;
   modelParamsByModel?: Record<string, ModelParameters>;
+  templateId?: string;
 };
 
 export const DEFAULT_JOB_DURATION_SECONDS = 3600;
@@ -132,6 +147,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
   const [engine, setEngine] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
+  const [templateEnvValues, setTemplateEnvValues] = useState<Record<string, string>>({});
   const [hydrateFromUrlFinished, setHydrateFromUrlFinished] = useState(false);
   // True when the URL described a selection we couldn't fully rebuild (HF/env fetch failed or a
   // model/env is gone). Lets guards distinguish that from "no selection in URL" and offer a retry.
@@ -220,6 +237,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const models = overrides?.models ?? selectedModels;
       const duration = overrides?.durationSeconds ?? jobDurationSeconds;
       const selectedEngine = overrides?.engine ?? engine;
+      const templateId = overrides?.templateId ?? selectedTemplate?.id;
 
       const query: InferenceSelectionQuery = {};
       const modelIds = models.map((m) => m.id);
@@ -248,6 +266,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       }
       query.engine = selectedEngine;
       query.duration = String(duration);
+      if (templateId) {
+        query.template = templateId;
+      }
       const encodedParams = encodeModelParams(params);
       if (encodedParams) {
         query.params = encodedParams;
@@ -272,6 +293,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       jobDurationSeconds,
       engine,
       modelParamsByModel,
+      selectedTemplate,
       router.query.edit,
       router.query.serviceId,
     ]
@@ -372,7 +394,22 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       return true;
     };
 
-    const outcomes = await Promise.allSettled([restoreModels(), restoreEnv()]);
+    // Restore the selected app template (Templates flow) from its id. Best-effort, like models/env.
+    const restoreTemplate = async (): Promise<boolean> => {
+      const templateId = firstQueryValue(q.template);
+      if (!templateId) {
+        setSelectedTemplate(null);
+        return true;
+      }
+      const template = await fetchServiceTemplate(templateId);
+      if (!template) {
+        return false;
+      }
+      setSelectedTemplate(template);
+      return true;
+    };
+
+    const outcomes = await Promise.allSettled([restoreModels(), restoreEnv(), restoreTemplate()]);
     // A rejected restore (network throw) or a resolved-but-incomplete restore (missing model/env)
     // both mean the URL described a selection we couldn't rebuild — flag it so the step guards show
     // a retry instead of silently bouncing the user back and discarding the URL selection.
@@ -400,12 +437,13 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       sigPart(router.query.peerId),
       sigPart(router.query.env),
       sigPart(router.query.serviceId),
+      sigPart(router.query.template),
     ].join('|');
     if (hydratedSignatureRef.current === signature) {
       return;
     }
     hydratedSignatureRef.current = signature;
-    if (router.query.models || router.query.peerId) {
+    if (router.query.models || router.query.peerId || router.query.template) {
       // Re-hydration (signature changed on a client-side nav): flip back to "not finished" so step
       // guards show loading against the new selection instead of the previous one's stale state.
       setHydrateFromUrlFinished(false);
@@ -421,11 +459,12 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     router.query.peerId,
     router.query.env,
     router.query.serviceId,
+    router.query.template,
   ]);
 
   // Retry a failed hydration: reset the finished/failed flags and re-run against the current URL.
   const retryHydration = useCallback(() => {
-    if (!router.query.models && !router.query.peerId) {
+    if (!router.query.models && !router.query.peerId && !router.query.template) {
       return;
     }
     setHydrationFailed(false);
@@ -434,7 +473,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     // (the effect already set it) so the guard stays synced — clearing it would make a later
     // non-signature URL change (env/serviceId) re-trigger an unnecessary re-hydration.
     hydrateFromQueryParams();
-  }, [hydrateFromQueryParams, router.query.models, router.query.peerId]);
+  }, [hydrateFromQueryParams, router.query.models, router.query.peerId, router.query.template]);
 
   const value = useMemo<InferenceContextType>(
     () => ({
@@ -455,6 +494,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setEngine,
       modelParamsByModel,
       setParamsForModel,
+      selectedTemplate,
+      setSelectedTemplate,
+      templateEnvValues,
+      setTemplateEnvValues,
       clearSelection: () => {
         setSelectedModels([]);
         setSelectedEnv(null);
@@ -463,6 +506,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
         setEngine(DEFAULT_INFERENCE_ENGINE);
         setModelParamsByModel({});
+        setSelectedTemplate(null);
+        setTemplateEnvValues({});
       },
       hydrateFromUrlFinished,
       hydrationFailed,
@@ -482,6 +527,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       engine,
       modelParamsByModel,
       setParamsForModel,
+      selectedTemplate,
+      templateEnvValues,
       hydrateFromUrlFinished,
       hydrationFailed,
       retryHydration,

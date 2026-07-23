@@ -1,0 +1,41 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.name {
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip {
+  align-self: flex-start;
+  text-transform: capitalize;
+}
+
+.description {
+  font-size: 13px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.stateBox {
+  padding: 24px 0;
+  text-align: center;
+}

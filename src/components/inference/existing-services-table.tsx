@@ -2,8 +2,10 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { fetchServiceTemplates } from '@/mock/service-templates';
 import { encodeModelIds, getModelShortName } from '@/services/huggingface-service';
 import { getServiceStatusView } from '@/services/service-status';
+import { AppTemplate } from '@/types/templates';
 import { formatDateTime, formatDuration } from '@/utils/formatters';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { CircularProgress, Collapse } from '@mui/material';
@@ -42,6 +44,7 @@ const ExistingServicesTable: React.FC = () => {
 
   const [sessions, setSessions] = useState<ServiceSession[]>([]);
   const [total, setTotal] = useState(0);
+  const [templateByService, setTemplateByService] = useState<Record<string, AppTemplate>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -73,6 +76,16 @@ const ExistingServicesTable: React.FC = () => {
       });
       setSessions(data.services ?? []);
       setTotal(data.pagination?.totalItems ?? 0);
+      const templates = await fetchServiceTemplates();
+      const byImage = new Map(templates.map((t) => [t.image, t]));
+      const matched: Record<string, AppTemplate> = {};
+      for (const job of sorted) {
+        const tpl = byImage.get(job.image);
+        if (tpl) {
+          matched[job.serviceId] = tpl;
+        }
+      }
+      setTemplateByService(matched);
     } catch (err) {
       if (axios.isCancel(err)) {
         return;
@@ -103,14 +116,15 @@ const ExistingServicesTable: React.FC = () => {
       setError('This service is missing node info and cannot be managed from here.');
       return;
     }
-    const modelId = modelIdFromSession(session);
+    const template = templateByService[session.serviceId];
+    const modelId = template ? null : modelIdFromSession(session);
     const token = session.payment?.token;
     router.push({
       pathname: `/inference/services/${encodeURIComponent(session.serviceId)}`,
       query: {
         peerId: session.peerId,
         env: session.environment,
-        ...(modelId ? { models: encodeModelIds([modelId]) } : {}),
+        ...(template ? { template: template.id } : modelId ? { models: encodeModelIds([modelId]) } : {}),
         ...(token ? { token } : {}),
         ...(session.duration != null ? { duration: String(session.duration) } : {}),
       },
@@ -158,8 +172,13 @@ const ExistingServicesTable: React.FC = () => {
                 </thead>
                 <tbody>
                   {sessions.map((session) => {
-                    const modelId = modelIdFromSession(session);
-                    const name = modelId ? getModelShortName(modelId) : session.serviceId.slice(0, 10);
+                    const template = templateByService[session.serviceId];
+                    const modelId = template ? null : modelIdFromSession(session);
+                    const name = template
+                      ? (template.name ?? template.id)
+                      : modelId
+                        ? getModelShortName(modelId)
+                        : session.serviceId.slice(0, 10);
                     const status = getServiceStatusView(session.status, session.statusText);
                     const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
                     return (
