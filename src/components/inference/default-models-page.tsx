@@ -2,7 +2,7 @@ import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
 import { ResourceSizing } from '@/components/hooks/use-inference-allocation';
-import usePackageEnv from '@/components/hooks/use-package-env';
+import usePackageEnvs, { ResolvedPackageEnv } from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import PackageCard from '@/components/inference/package-card';
@@ -13,14 +13,15 @@ import { SelectedToken } from '@/context/run-job-context';
 import { InferenceFlowType, InferencePackage } from '@/types/inference';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import styles from './default-models-page.module.css';
 
 /**
- * Quick start: pick a curated package (model + engine preset + pinned env), review it, go straight to
- * payment. The package carries a model stub (grid renders with no fetch); the full model is fetched by
- * id on pick. Env resolved live by id; fee token picked in the modal. "Advanced flow" hands the same
- * selection to the custom-model flow for full control.
+ * Quick start: pick a curated package (model + engine preset), review it, pick one of the source
+ * node's environments in the modal, go straight to payment. The package carries a model stub (grid
+ * renders with no fetch); the full model is fetched by id on pick. Envs are resolved live from the
+ * package's source node and filtered to those that satisfy its resource floors; the fee token is
+ * picked per env card. "Advanced flow" hands the model/params to the custom-model flow for full control.
  */
 
 // Advanced handoff floor: the package's per-resource MIN (cpu/ram/disk) becomes a lower bound on the
@@ -47,10 +48,8 @@ const DefaultModelsPage: React.FC = () => {
   // Packages come from the configured nodes' advertised service templates (getServiceTemplates).
   const { packages, loading: loadingPackages, error: packagesError } = useDefaultModelPackages();
   const [selectedPackage, setSelectedPackage] = useState<InferencePackage | null>(null);
-  // Duration edited in the modal but stays local until Continue/Customize — a pick commits nothing.
+  // Duration edited in the modal but stays local until a Continue/Customize — a pick commits nothing.
   const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
-  // Token chosen in the modal's env card; overrides the env's seeded default. Resets on each pick.
-  const [pickedToken, setPickedToken] = useState<SelectedToken | null>(null);
 
   // Always start fresh (new entry or Back-nav from payment): clear leftover selection once, on mount.
   useEffect(() => {
@@ -58,34 +57,27 @@ const DefaultModelsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Picking a package only opens its details — commits nothing until Continue/Customize.
+  // Picking a package only opens its details — commits nothing until a Continue/Customize.
   const selectPackage = (pkg: InferencePackage) => {
     setSelectedPackage(pkg);
     setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
-    setPickedToken(null);
   };
 
-  // Card refires onTokenChange on every settle; ignore no-op repeats to avoid a re-render loop.
-  const handleTokenChange = useCallback((address: string, symbol: string) => {
-    setPickedToken((prev) => (prev?.address === address && prev.symbol === symbol ? prev : { address, symbol }));
-  }, []);
-
-  const env = usePackageEnv(selectedPackage);
-  const { resolved } = env;
+  const envs = usePackageEnvs(selectedPackage);
   const model = usePackageModel(selectedPackage);
-  // Modal pick wins, else the env's seeded default.
-  const tokenToCommit = pickedToken ?? resolved?.token ?? null;
 
-  // Commit the picked bundle to context and hand off. Env/token are pre-picked only when the pinned
-  // env has resolved; the env query fields are carried on the same condition (else the custom flow
-  // starts with none pre-picked). The query is built from overrides so it doesn't depend on the
-  // setState timing. Callers gate on `resolved` themselves when the target step needs a live env.
-  // `pinResources`: quick start pins the package's recommended CPU/RAM/disk (sizing.mode='pinned')
-  // into the URL/context so payment books them. The advanced handoff drops the pin — the custom flow
-  // lets the user size resources via the GPU picker — and instead carries the package's per-resource MIN
-  // as a floor (sizing.mode='floor') so the fraction-derived slice can't drop below the package minimum
-  // (only where it's stricter than the env's own min; the allocation hook takes max(envMin, floor)).
-  const commitAndPush = (pathname: string, pinResources: boolean) => {
+  // Commit the picked bundle (model + params + duration + engine) to context and hand off. The query
+  // is built from overrides so it doesn't depend on setState timing. `pickedEnv`/`token` are set only
+  // for the Continue → payment path; the advanced handoff commits none (the custom flow starts at
+  // env-selection). `sizing` differs by target: payment pins the package's recommended CPU/RAM/disk
+  // (sizing.mode='pinned', carried on pickedEnv); the advanced handoff carries the package's per-resource
+  // MIN as a floor under the custom flow's GPU-fraction slice (sizing.mode='floor', only where stricter
+  // than the env's own min — the allocation hook takes max(envMin, floor)).
+  const commitAndPush = (
+    pathname: string,
+    pickedEnv?: ResolvedPackageEnv,
+    token?: SelectedToken
+  ) => {
     if (!selectedPackage || !model) {
       return;
     }
@@ -95,13 +87,11 @@ const DefaultModelsPage: React.FC = () => {
     // Carry the package's engine into the flow so the Advanced handoff lands on the custom flow with
     // it preselected (still changeable), and payment launches on the right runtime.
     setEngine(selectedPackage.params.engine);
-    // Quick start keeps the package's pinned sizing (resolved.env.sizing); the advanced handoff swaps it
-    // for a floor under the custom flow's GPU-fraction slice (the package's per-resource min).
-    const sizing = pinResources ? resolved?.env.sizing : packageFloorSizing(selectedPackage);
-    if (resolved) {
-      setSelectedEnv({ ...resolved.env, sizing });
-      setSelectedToken(tokenToCommit);
+    if (pickedEnv) {
+      setSelectedEnv(pickedEnv.env);
+      setSelectedToken(token ?? pickedEnv.token);
     }
+    const sizing = pickedEnv ? pickedEnv.env.sizing : packageFloorSizing(selectedPackage);
     router.push({
       pathname,
       query: buildSelectionQuery({
@@ -109,30 +99,29 @@ const DefaultModelsPage: React.FC = () => {
         durationSeconds,
         engine: selectedPackage.params.engine,
         modelParamsByModel: { [model.id]: selectedPackage.params },
-        ...(resolved
+        ...(pickedEnv
           ? {
-              peerId: resolved.env.nodeInfo.id,
-              envId: resolved.env.environment.id,
-              gpuSelection: resolved.env.gpuSelection,
+              peerId: pickedEnv.env.nodeInfo.id,
+              envId: pickedEnv.env.environment.id,
+              gpuSelection: pickedEnv.env.gpuSelection,
               sizing,
-              ...(tokenToCommit ? { tokenAddress: tokenToCommit.address } : {}),
+              ...(token ?? pickedEnv.token ? { tokenAddress: (token ?? pickedEnv.token)!.address } : {}),
             }
-          : {}),
+          : { sizing }),
       }),
     });
   };
 
-  const goToPayment = () => {
-    // Payment needs the resolved env; the button is disabled until it resolves, but guard anyway.
-    if (selectedPackage && resolved) {
-      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`, true);
+  // Continue from a specific env card → straight to payment with that env + the card's fee token.
+  const goToPayment = (pickedEnv: ResolvedPackageEnv, token: SelectedToken) => {
+    if (selectedPackage) {
+      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`, pickedEnv, token);
     }
   };
 
-  // Advanced handoff: same selection, full control. Lands on the custom flow's env-selection step, so
-  // unlike Continue/payment it does NOT need the pinned env to resolve — a failed pinned env still
-  // lets the user escape into the custom flow.
-  const goToAdvancedFlow = () => commitAndPush('/inference/custom-models/resources', false);
+  // Advanced handoff: same model/params, full control. Lands on the custom flow's env-selection step,
+  // so it commits no env — the user picks one there. Carries the package's per-resource min as a floor.
+  const goToAdvancedFlow = () => commitAndPush('/inference/custom-models/resources');
 
   return (
     <Container className="pageRoot">
@@ -167,10 +156,9 @@ const DefaultModelsPage: React.FC = () => {
 
       <PackageDetailsModal
         pkg={selectedPackage}
-        env={env}
+        envs={envs}
         durationSeconds={durationSeconds}
         onDurationChange={setDurationSeconds}
-        onTokenChange={handleTokenChange}
         onClose={() => setSelectedPackage(null)}
         onCustomize={goToAdvancedFlow}
         onContinue={goToPayment}

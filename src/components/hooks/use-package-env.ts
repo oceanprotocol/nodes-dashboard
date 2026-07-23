@@ -1,12 +1,13 @@
 import { ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
+import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
-import { NodeEnvironments } from '@/types/environments';
-import { InferencePackage } from '@/types/inference';
+import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
+import { InferencePackage, ResourceRequirement } from '@/types/inference';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
@@ -14,6 +15,8 @@ import { useCallback, useEffect, useState } from 'react';
 // Cap the environments lookup so a hung indexer can't keep the package modal on "loading" forever.
 const ENV_FETCH_TIMEOUT_MS = 30000;
 
+/** One environment of the package's source node, resolved and ready to book (recommended sizing +
+ *  auto GPU selection + seeded fee token). The modal renders one card + Continue per entry. */
 export type ResolvedPackageEnv = {
   env: SelectedInferenceEnv;
   /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
@@ -38,22 +41,86 @@ function pickDefaultToken(supportedTokens: string[]): string | null {
   return supportedTokens[0] ?? null;
 }
 
+// Units of a fungible/GPU resource the env can hand ONE job right now: min(total, max) − inUse,
+// mirroring the allocation hook's grantableAmount. Used to test a package's resource floor.
+function grantable(resource: Pick<ComputeResource, 'total' | 'max' | 'inUse'>): number {
+  const max = resource.max ?? 0;
+  const total = resource.total && resource.total > 0 ? resource.total : max;
+  return Math.max(0, Math.min(total, max) - (resource.inUse ?? 0));
+}
+
+// Sum grantable units across every resource of a `type` (e.g. all GPUs).
+function grantableByType(environment: ComputeEnvironment, type: string): number {
+  return (environment.resources ?? [])
+    .filter((r) => r.type === type)
+    .reduce((sum, r) => sum + grantable(r), 0);
+}
+
+// Grantable amount for a single continuous resource by id (cpu/ram/disk).
+function grantableById(environment: ComputeEnvironment, id: string): number {
+  const resource = (environment.resources ?? []).find((r) => r.id === id);
+  return resource ? grantable(resource) : 0;
+}
+
 /**
- * Resolve the live environment a package pins. The package stores only ids (peer + env prefix + GPU
- * selection); this fetches the node's environments and rebuilds the SelectedInferenceEnv the custom
- * flow commits, so the payment page prices/escrows/launches against the real env. Matches the env by
- * its stable id prefix (the suffix rotates per epoch), like inference-context's URL hydration. Token
- * isn't pinned — seeded here, switchable in the modal's env card.
+ * Whether an env can currently satisfy every `requiredResources` floor (`min`). GPU requirements
+ * (`type: 'gpu'`) are summed across all GPU resources; cpu/ram/disk are matched by id. An env that
+ * can't meet a floor is hidden from the modal — it can't launch the package.
  */
-const usePackageEnv = (pkg: InferencePackage | null) => {
-  const [resolved, setResolved] = useState<ResolvedPackageEnv | null>(null);
+function meetsMinResources(environment: ComputeEnvironment, required: ResourceRequirement[]): boolean {
+  return required.every((req) => {
+    const available = req.type === 'gpu' ? grantableByType(environment, 'gpu') : grantableById(environment, req.id);
+    return available >= req.min;
+  });
+}
+
+/**
+ * Auto GPU selection for a read-only card: book the recommended GPU count when the env has that many
+ * units free, else fall back to the package's min (guaranteed by meetsMinResources). Keyed by GPU
+ * `description` (what the allocation hook/buildGpuRequests match on). Empty for a GPU-less package.
+ */
+function autoGpuSelection(
+  environment: ComputeEnvironment,
+  required: ResourceRequirement[]
+): Record<string, number> {
+  const gpuReq = required.find((r) => r.type === 'gpu');
+  if (!gpuReq) {
+    return {};
+  }
+  const selection: Record<string, number> = {};
+  let remaining = Math.min(gpuReq.recommended, grantableByType(environment, 'gpu'));
+  // Draw the target across GPU types in declared order (units free per type), each keyed by its
+  // description so units of one type merge under one key.
+  (environment.resources ?? [])
+    .filter((r) => r.type === 'gpu')
+    .forEach((r) => {
+      if (remaining <= 0) {
+        return;
+      }
+      const key = r.description || 'GPU';
+      const take = Math.min(grantable(r), remaining);
+      selection[key] = (selection[key] ?? 0) + take;
+      remaining -= take;
+    });
+  return selection;
+}
+
+/**
+ * Resolve the environments a package can run on. The package carries only its source node's peer id;
+ * this fetches that node's environments, keeps the ones that (a) advertise service-on-demand, (b)
+ * accept a supported paid token (USDC/COMPY), and (c) can currently satisfy the package's resource
+ * floors, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU
+ * selection + seeded token). The modal renders one card + Continue per entry.
+ */
+const usePackageEnvs = (pkg: InferencePackage | null) => {
+  const [resolved, setResolved] = useState<ResolvedPackageEnv[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fetchEpoch, setFetchEpoch] = useState(0);
 
   useEffect(() => {
     if (!pkg) {
-      setResolved(null);
+      setResolved([]);
       setLoadError(null);
       return;
     }
@@ -61,13 +128,13 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
     // Aborts the in-flight request on effect re-run / unmount (modal closed, package switched), on top
     // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
     const cleanupController = new AbortController();
-    const { peerId, envIdPrefix, gpuSelection } = pkg.env;
+    const peerId = pkg.sourcePeerId;
     const sizing = recommendedSizing(pkg);
 
     async function resolve() {
       setLoading(true);
       setLoadError(null);
-      setResolved(null);
+      setResolved([]);
       try {
         const response = await withTimeout(
           (timeoutSignal) =>
@@ -83,41 +150,57 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
           'Package environment lookup'
         );
         const node = response.data.envs.find((n) => n.id === peerId);
-        const envs = node?.computeEnvironments.environments ?? [];
-        const environment = envs.find((env) => env.id.split('-')[0] === envIdPrefix);
-        if (!node || !environment) {
-          throw new Error('The environment for this package is not reachable right now.');
+        if (!node) {
+          throw new Error('The node for this package is not reachable right now.');
         }
-        const tokenAddress = pickDefaultToken(getEnvSupportedTokens(environment, true));
-        let symbol: string | null = null;
-        if (tokenAddress) {
-          try {
-            symbol = await getTokenSymbol(tokenAddress);
-          } catch (error) {
-            console.error('Failed to resolve package token symbol:', error);
+        // Keep only envs that can run the package: service-on-demand + a supported paid token + the
+        // package's resource floors.
+        const candidates = (node.computeEnvironments.environments ?? []).filter((environment) => {
+          if (!environment.features?.services) {
+            return false;
           }
-        }
-        if (!cancelled) {
-          setResolved({
-            env: {
-              environment,
-              gpuSelection,
-              sizing,
-              nodeInfo: {
-                currentAddrs: node.currentAddrs,
-                friendlyName: node.friendlyName,
-                id: node.id,
-                latestBenchmarkResults: node.latestBenchmarkResults,
-                multiaddrs: node.multiaddrs,
+          if (getEnvSupportedTokens(environment, true).length === 0) {
+            return false;
+          }
+          return meetsMinResources(environment, pkg!.requiredResources);
+        });
+
+        const entries = await Promise.all(
+          candidates.map(async (environment): Promise<ResolvedPackageEnv> => {
+            const tokenAddress = pickDefaultToken(getEnvSupportedTokens(environment, true));
+            let symbol: string | null = null;
+            if (tokenAddress) {
+              try {
+                symbol = await getTokenSymbol(tokenAddress);
+              } catch (error) {
+                console.error('Failed to resolve package token symbol:', error);
+              }
+            }
+            return {
+              env: {
+                environment,
+                gpuSelection: autoGpuSelection(environment, pkg!.requiredResources),
+                sizing,
+                nodeInfo: {
+                  currentAddrs: node.currentAddrs,
+                  friendlyName: node.friendlyName,
+                  id: node.id,
+                  latestBenchmarkResults: node.latestBenchmarkResults,
+                  multiaddrs: node.multiaddrs,
+                },
               },
-            },
-            token: tokenAddress ? { address: tokenAddress, symbol: symbol ?? '' } : null,
-          });
+              token: tokenAddress ? { address: tokenAddress, symbol: symbol ?? '' } : null,
+            };
+          })
+        );
+
+        if (!cancelled) {
+          setResolved(entries);
         }
       } catch (error) {
-        console.error('Failed to resolve package environment:', error);
+        console.error('Failed to resolve package environments:', error);
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Failed to resolve the environment.');
+          setLoadError(error instanceof Error ? error.message : 'Failed to resolve the environments.');
         }
       } finally {
         if (!cancelled) {
@@ -140,4 +223,4 @@ const usePackageEnv = (pkg: InferencePackage | null) => {
   return { resolved, loading, loadError, retry };
 };
 
-export default usePackageEnv;
+export default usePackageEnvs;

@@ -32,6 +32,11 @@ type InferenceEnvironmentCardProps = {
    * `onSelect`) still surface the user's token pick. */
   onTokenChange?: (tokenAddress: string, tokenSymbol: string) => void;
   /**
+   * When set, force-disables the select button and shows this as its tooltip reason (e.g. the shared
+   * duration is out of this env's bounds). Adds to the card's own block reasons.
+   */
+  disabledReason?: string;
+  /**
    * Units per GPU type to use. Uncontrolled when omitted (card owns its selection via the chips);
    * pass a value to render a fixed selection read-only (e.g. the selection summary).
    */
@@ -61,6 +66,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   selected = false,
   onSelect,
   onTokenChange,
+  disabledReason,
   gpuSelection: controlledSelection,
   initialSelection,
   sizing,
@@ -228,15 +234,18 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     });
   };
 
-  // Reason the env can't be selected right now (GPU envs only): fully busy, or the user zeroed every
-  // type. Null → selectable. Drives the disabled state + tooltip on the select button.
-  const selectBlockedReason = hasGpus
-    ? gpuExhausted
-      ? 'All GPU units in this environment are currently in use.'
-      : selectedTotal <= 0
-        ? 'Select at least one GPU unit to continue.'
-        : null
-    : null;
+  // Reason the env can't be selected right now: a caller-supplied block (e.g. duration out of bounds)
+  // wins, then GPU-only cases — fully busy, or the user zeroed every type. Null → selectable. Drives
+  // the disabled state + tooltip on the select button.
+  const selectBlockedReason =
+    disabledReason ??
+    (hasGpus
+      ? gpuExhausted
+        ? 'All GPU units in this environment are currently in use.'
+        : selectedTotal <= 0
+          ? 'Select at least one GPU unit to continue.'
+          : null
+      : null);
   const selectDisabled = !tokenSymbol || !!selectBlockedReason;
 
   return (

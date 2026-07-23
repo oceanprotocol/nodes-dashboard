@@ -17,13 +17,14 @@ type PackageCardProps = {
 /** Quick-start package tile: same shape as ModelCard, with the bundle's hardware/engine specs. */
 const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onToggle }) => {
   const [avatarFailed, setAvatarFailed] = useState(false);
-  const { model, env, params } = pkg;
+  const { model, params, requiredResources } = pkg;
   const avatarUrl = getModelAvatarUrl(model);
   const modelName = getModelShortName(model.id);
   const initial = (model.author ?? model.id).charAt(0).toUpperCase();
 
-  // Pinned GPU booking, one entry per type: "2x <logo> H200". Zero-count types skipped.
-  const gpuEntries = Object.entries(env.gpuSelection).filter(([, count]) => count > 0);
+  // GPU footprint the package targets. The concrete GPU model isn't known until an env is picked in
+  // the modal, so the card shows the recommended unit count against a generic "GPU" label.
+  const gpuCount = requiredResources.find((r) => r.type === 'gpu')?.recommended ?? 0;
 
   // Engine-specific chips: vLLM exposes tool calling + a context ceiling; llama.cpp shows its context.
   const showToolChip = params.engine === 'vllm' && params.toolCalling;
@@ -64,18 +65,10 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
         {showToolChip && <span className={classNames('chip', 'chipAccent2', styles.chip)}>Tools</span>}
       </div>
       <div className={styles.stats}>
-        {gpuEntries.length > 0 ? (
-          gpuEntries.map(([description, count]) => (
-            <span className={styles.statItem} key={description} title="GPUs">
-              {count}x
-              <HardwareLabel type="gpu" value={description} />
-            </span>
-          ))
-        ) : (
-          <span className={styles.statItem} title="GPUs">
-            GPU
-          </span>
-        )}
+        <span className={styles.statItem} title="GPUs">
+          {gpuCount > 0 && `${gpuCount}x`}
+          <HardwareLabel type="gpu" value="GPU" />
+        </span>
         {contextTokens != null && (
           <span className={styles.statItem} title="Context length">
             <ViewStreamOutlinedIcon fontSize="small" />

@@ -7,15 +7,14 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
  * `model` holds only what the card + modal render (id, author, pipelineTag); the full HF model is
  * fetched by id when a package is opened. Model ids are real, ungated HF repos.
  *
- * Each package pins a concrete env by id (peer + env prefix + GPU selection), resolved live from the
- * environments API at selection time. The fee token isn't pinned — it's picked in the modal's env
- * card. Repoint the env below (and gpuSelection key) if the fleet changes.
+ * These mocks stand in for templates fetched from a node — so each carries a `sourcePeerId` (the
+ * node below). The details modal lists that node's environments, filtered to those that satisfy
+ * `requiredResources`, and the user picks one there.
  */
 
-// Real service-on-demand node. Advertises its GPU as description "NVIDIA Tesla T4" — the gpuSelection
-// keys below must match that string exactly or buildGpuRequests can't resolve them.
+// Real service-on-demand node these mock packages pretend to have been fetched from — the modal
+// lists its environments.
 const NODE_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';
-const NODE_ENV_ID_PREFIX = '0xff1004b67de08fc505fbf0a2089010d0f23015338c7def8557697513c4a39935';
 
 // Shared resource floors/recommendations — every package targets the same single-GPU footprint.
 const REQUIRED_RESOURCES: ResourceRequirement[] = [
@@ -57,11 +56,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       toolCallParser: 'hermes',
     },
     type: 'quickstart',
-    env: {
-      peerId: NODE_ID,
-      envIdPrefix: NODE_ENV_ID_PREFIX,
-      gpuSelection: { 'NVIDIA Tesla T4': 1 },
-    },
+    sourcePeerId: NODE_ID,
     requiredResources: REQUIRED_RESOURCES,
   },
   {
@@ -87,11 +82,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       toolCallParser: 'hermes',
     },
     type: 'quickstart',
-    env: {
-      peerId: NODE_ID,
-      envIdPrefix: NODE_ENV_ID_PREFIX,
-      gpuSelection: { 'NVIDIA Tesla T4': 1 },
-    },
+    sourcePeerId: NODE_ID,
     requiredResources: REQUIRED_RESOURCES,
   },
   {
@@ -117,11 +108,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       toolCallParser: null,
     },
     type: 'quickstart',
-    env: {
-      peerId: NODE_ID,
-      envIdPrefix: NODE_ENV_ID_PREFIX,
-      gpuSelection: { 'NVIDIA Tesla T4': 1 },
-    },
+    sourcePeerId: NODE_ID,
     requiredResources: REQUIRED_RESOURCES,
   },
   {
@@ -146,11 +133,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       jinja: true,
     },
     type: 'quickstart',
-    env: {
-      peerId: NODE_ID,
-      envIdPrefix: NODE_ENV_ID_PREFIX,
-      gpuSelection: { 'NVIDIA Tesla T4': 1 },
-    },
+    sourcePeerId: NODE_ID,
     requiredResources: REQUIRED_RESOURCES,
   },
 ];

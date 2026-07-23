@@ -81,7 +81,9 @@ const useDefaultModelPackages = (): DefaultModelPackages => {
         const templates = Array.isArray(result.value) ? (result.value as unknown as InferencePackage[]) : [];
         for (const template of templates) {
           if (template.type === 'quickstart' && template?.id && !byId.has(template.id)) {
-            byId.set(template.id, template);
+            // Stamp the source node so the details modal knows whose environments to list — the
+            // template JSON itself carries no peer id.
+            byId.set(template.id, { ...template, sourcePeerId: peerIds[index] });
           }
         }
       });

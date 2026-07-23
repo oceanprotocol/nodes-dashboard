@@ -12,6 +12,12 @@
   gap: 12px;
 }
 
+.envList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .durationRow {
   display: flex;
   flex-direction: column;

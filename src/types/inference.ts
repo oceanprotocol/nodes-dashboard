@@ -7,24 +7,6 @@ export enum InferenceFlowType {
 }
 
 /**
- * A specific environment a package runs on, pinned by id — the same selection the custom flow
- * commits when a user picks an env card, but hardcoded. The live ComputeEnvironment + node info
- * are resolved from the environments API by these ids at selection time (the env's real resources,
- * fees and availability aren't stored here — only which env to book).
- */
-export type InferencePackageEnv = {
-  /** Peer id of the node hosting the environment. */
-  peerId: string;
-  /**
-   * Stable environment identity: the id PREFIX (the part before `-`). The full id's suffix rotates
-   * per epoch, so we match on the prefix — same fallback the URL hydration uses.
-   */
-  envIdPrefix: string;
-  /** Units to book per GPU type, keyed by the env's GPU `description` (e.g. `"NVIDIA H200"`). */
-  gpuSelection: Record<string, number>;
-};
-
-/**
  * One resource the package needs to run. `min` is the floor to launch at all; `recommended` is the
  * amount the quick-start flow actually books (custom flow ignores these and lets the user size the
  * env). GPU entries are `kind: 'discrete'` (whole units); cpu/ram/disk are implicitly continuous.
@@ -58,8 +40,12 @@ export type InferencePackage = {
   /** Complete vLLM launch parameters — committed as-is, no config step. */
   params: ModelParameters;
   type: 'quickstart' | 'template'
-  /** The pinned environment to run on — resolved live from the environments API by id. */
-  env: InferencePackageEnv;
+  /**
+   * Peer id of the node this package was fetched from. Not part of the node's template JSON —
+   * stamped at load time (see use-default-model-packages) so the details modal knows whose
+   * environments to list. Its envs are filtered to those that satisfy `requiredResources`.
+   */
+  sourcePeerId: string;
   /**
    * Resource floors/recommendations for this package. Quick start books the `recommended` amount of
    * each (clamped to the live env); the custom flow ignores this and lets the user size resources.
