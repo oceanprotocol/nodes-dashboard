@@ -158,14 +158,17 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [fetchEnvironments, filters, sort]);
 
-  // TODO fetch all GPUs not only top 5
   const fetchGpus = useCallback(async () => {
     try {
       const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
-      const res: GPUPopularityDisplay = response.data.map((gpu) => ({
-        gpuName: `${gpu.vendor} ${gpu.name}`,
-        popularity: gpu.popularity,
-      }));
+      const res: GPUPopularityDisplay = response.data
+        .map((gpu) => ({
+          // Use the raw `name` only: the /envs gpuName filter matches against the
+          // environment resource's `name` field (e.g. "NVIDIA H200"), not vendor + name.
+          gpuName: gpu.name,
+          popularity: gpu.popularity,
+        }))
+        .sort((a, b) => b.popularity - a.popularity);
       setGpus(res);
     } catch (error) {
       console.error('Failed to fetch GPUs:', error);

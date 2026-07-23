@@ -48,6 +48,9 @@ export interface ComputeJob {
   epoch: number;
   errorMessage?: string;
   did: string;
+  metadata?: {
+    name?: string;
+  };
   jobId: string;
   dateCreated: number;
   dateFinished: number;
@@ -70,9 +73,11 @@ export interface ComputeJob {
   isRunning: boolean;
   isStarted: boolean;
   containerImage: string;
-  resources: any;
+  resources: { id: string; amount: number }[];
   isFree: boolean;
   algoStartTimestamp: number;
+  algoStopTimestamp?: number;
+  algoDuration?: number;
   maxJobDuration: number;
   payment: {
     token: string;

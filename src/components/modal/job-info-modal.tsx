@@ -5,6 +5,7 @@ import Modal from '@/components/modal/modal';
 import { getApiRoute } from '@/config';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { ComputeJob } from '@/types/jobs';
+import { formatDuration, getJobDurationSeconds } from '@/utils/formatters';
 import { Stack } from '@mui/material';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
@@ -14,6 +15,16 @@ interface JobInfoModalProps {
   open: boolean;
   onClose: () => void;
 }
+
+// Job resource amounts are stored in display units (CPU cores, RAM/disk GB, GPU units),
+// matching how they are submitted in the resources step.
+const formatResourceRow = (id: string, amount: number): string => {
+  if (id === 'cpu') return `CPU: ${amount} ${amount === 1 ? 'core' : 'cores'}`;
+  if (id === 'ram') return `RAM: ${amount} GB`;
+  if (id === 'disk') return `Disk: ${amount} GB`;
+  if (id.toLowerCase().startsWith('gpu')) return `GPU: ${amount} ${amount === 1 ? 'unit' : 'units'}`;
+  return `${id}: ${amount}`;
+};
 
 export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
   const [environment, setEnvironment] = useState<ComputeEnvironment | null>(null);
@@ -36,32 +47,20 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
         const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${job.peerId}`);
 
         if (!response.data?.nodes || response.data.nodes.length === 0) {
-          console.error('No nodes found in response');
           setError('Node not found');
           return;
         }
 
         const sanitizedData = response.data.nodes.map((element: any) => element._source)[0];
 
-        if (!sanitizedData) {
-          console.error('No node data found');
-          setError('Invalid node data');
-          return;
-        }
-
-        if (!sanitizedData.computeEnvironments?.environments) {
-          console.error('No compute environments found for node:', sanitizedData);
+        if (!sanitizedData?.computeEnvironments?.environments) {
           setError('No compute environments available');
           return;
         }
 
-        const env = sanitizedData.computeEnvironments.environments.find((env: any) => env.id === job.environment);
+        const env = sanitizedData.computeEnvironments.environments.find((e: any) => e.id === job.environment);
 
         if (!env) {
-          console.error(
-            `Environment ${job.environment} not found. Available:`,
-            sanitizedData.computeEnvironments.environments.map((e: any) => e.id)
-          );
           setError('Environment not found');
           return;
         }
@@ -81,22 +80,47 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
 
   if (!job) return null;
 
+  const durationSeconds = getJobDurationSeconds(job);
+  const resources = Array.isArray(job.resources) ? job.resources : [];
+
   return (
     <Modal isOpen={open} onClose={onClose} title="Job information" width="md">
       <Stack spacing={2}>
+        <div>
+          <strong>Job name</strong>
+          <div className="wordBreakWord">{job.metadata?.name || '—'}</div>
+        </div>
+
         <div>
           <strong>Job ID</strong>
           <div className="wordBreakWord">{job.jobId}</div>
         </div>
 
         <div>
-          <strong style={{ marginBottom: '8px' }}>Environment</strong>
+          <strong style={{ marginBottom: '8px' }}>Resources used</strong>
           {loading && <div>Loading environment data...</div>}
-          {error && <div style={{ color: 'var(--error)' }}>{error}</div>}
-          {!loading && !error && environment && nodeInfo && (
-            <EnvironmentCard key={environment.id} environment={environment} nodeInfo={nodeInfo} />
+          {!loading && environment && nodeInfo ? (
+            <EnvironmentCard
+              key={environment.id}
+              environment={environment}
+              nodeInfo={nodeInfo}
+              usedResources={resources}
+              jobDurationSeconds={durationSeconds}
+            />
+          ) : null}
+          {/* Fallback when the environment can no longer be fetched: still show the
+              actual used resources and duration so the info is never lost. */}
+          {!loading && (!environment || !nodeInfo) && (
+            <Stack spacing={0.5}>
+              {error && <div style={{ color: 'var(--text-secondary)' }}>{error}</div>}
+              {resources.length > 0 ? (
+                resources.map((resource) => <div key={resource.id}>{formatResourceRow(resource.id, resource.amount)}</div>)
+              ) : (
+                <div>No resource usage available</div>
+              )}
+              <div>Duration: {durationSeconds == null ? '—' : formatDuration(durationSeconds)}</div>
+            </Stack>
           )}
-          {!loading && !error && !environment && <div>No environment data available</div>}
         </div>
 
         <Stack

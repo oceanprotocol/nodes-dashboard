@@ -139,6 +139,23 @@ export const formatDuration = (totalSeconds: number | null | undefined, short?: 
   return `${sec} ${sUnit} (${formatHMS(sec)})`;
 };
 
+/**
+ * Total wall-clock duration of a compute job (in seconds): dateFinished - dateCreated.
+ * Timestamps arrive as unix-seconds strings (e.g. "1784196420.452"), so they are
+ * coerced to numbers. Returns null while the job is unfinished or the values are invalid.
+ */
+export const getJobDurationSeconds = (job: {
+  dateCreated?: number | string | null;
+  dateFinished?: number | string | null;
+}): number | null => {
+  const start = Number(job.dateCreated);
+  const finished = Number(job.dateFinished);
+  if (!Number.isFinite(start) || !Number.isFinite(finished) || finished <= start) {
+    return null;
+  }
+  return finished - start;
+};
+
 export const formatDateTime = (timestamp: number): string => {
   if (!timestamp) return '-';
   const date = new Date(timestamp * 1000);

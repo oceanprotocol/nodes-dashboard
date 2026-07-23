@@ -7,7 +7,15 @@ import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatAccessLists, formatBytes, formatDateTime, formatNumber, formatWalletAddress } from '@/utils/formatters';
+import {
+  formatAccessLists,
+  formatBytes,
+  formatDateTime,
+  formatDuration,
+  formatNumber,
+  formatWalletAddress,
+  getJobDurationSeconds,
+} from '@/utils/formatters';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -391,6 +399,15 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     sortable: false,
   },
   {
+    field: 'metadata.name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => <span title={value}>{value || '-'}</span>,
+  },
+  {
     field: 'statusText',
     filterable: false,
     flex: 1,
@@ -473,13 +490,8 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
-    renderCell: ({ value }) => {
-      if (!value) return '-';
-      if (value < 60) return `${value.toFixed(2)}s`;
-      const mins = Math.floor(value / 60);
-      const secs = (value % 60).toFixed(0);
-      return `${mins}m ${secs}s`;
-    },
+    valueGetter: (_value, row) => getJobDurationSeconds(row),
+    renderCell: ({ value }) => (value == null ? '-' : formatDuration(value, true)),
   },
   {
     align: 'right',
