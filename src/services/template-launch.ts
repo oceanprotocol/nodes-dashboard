@@ -3,7 +3,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildGpuRequests, resourceId } from '@/services/inference-launch';
 import { AppTemplate } from '@/types/templates';
-import { ComputeResourceRequest, ServiceStartParams } from '@oceanprotocol/lib';
+import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
 type Allocation = {
@@ -76,6 +76,30 @@ export function buildTemplateStartParams({
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },
+  };
+}
+
+/**
+ * Build the ServiceRestartParams to relaunch a running service ONTO a (possibly different) template,
+ * in place. As of next.6 serviceRestart can pull a new image, so this carries the target template's
+ * image/tag/checksum + launch command + configured env vars — letting an Edit switch apps without a
+ * stop+start (serviceId, host port and paid window are preserved). Unlike buildTemplateStartParams
+ * there is no environment/resources/ports/duration/payment: the node reuses the running service's
+ * allocation and never re-allocates ports on restart (a template needing different ports/hardware
+ * needs a fresh start instead).
+ */
+export function buildTemplateRestartParams(
+  template: AppTemplate,
+  envValues: Record<string, string>
+): ServiceRestartParams {
+  // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
+  const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
+  return {
+    image: template.image,
+    ...imageRef,
+    ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
+    ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
+    userData: buildTemplateUserData(template, envValues),
   };
 }
 

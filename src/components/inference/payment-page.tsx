@@ -16,7 +16,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
-import { buildTemplateStartParams, buildTemplateUserData } from '@/services/template-launch';
+import { buildTemplateStartParams } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
@@ -526,10 +526,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     buildManageQuery,
   ]);
 
-  // Edit relaunch for a template service: apply new env vars to the SAME running service via
-  // serviceRestart — same image, same serviceId, host port and expiry (no re-pay, endpoint unchanged).
-  // serviceRestart can't change the image, so this reconfigures (env/command), never switches apps.
-  // Passing the template's command/entrypoint keeps them explicit; userData carries fixed + new env.
+  // Edit relaunch for a template service: apply the selected template to the SAME running service via
+  // serviceRestart — same serviceId, host port and expiry (no re-pay, endpoint unchanged). As of
+  // next.6 serviceRestart pulls the new image/tag, so `selectedTemplate` may be a DIFFERENT template
+  // than the one running — this swaps the app in place. buildTemplateRestartParams carries the new
+  // image + command/entrypoint + configured env (userData). Ports/resources are NOT re-allocated on
+  // restart, so an app needing different ports/hardware needs a fresh start instead.
   const relaunchTemplateService = useCallback(async () => {
     if (!selectedTemplate || !selectedEnv || !account.address || !targetServiceId) {
       const missing = [
@@ -547,14 +549,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(
-          nodeUri,
-          token,
-          targetServiceId,
-          buildTemplateUserData(selectedTemplate, templateEnvValues),
-          selectedTemplate.command,
-          selectedTemplate.entrypoint
-        )
+        serviceRestart(nodeUri, token, targetServiceId, buildTemplateRestartParams(selectedTemplate, templateEnvValues))
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -589,6 +584,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     launchInFlightRef.current = true;
     try {
+      // Prolong just extends the running service's paid window (serviceExtend reuses the job's stored
+      // resources — same GPU/session, no re-allocation). It's flow-agnostic, so check it before the
+      // template branch: otherwise a template prolong falls into runTemplateLaunch and mints a fresh
+      // service, which re-checks GPU availability and fails ("Not enough available gpu globally") since
+      // the running service already holds the GPU.
+      if (isProlongMode) {
+        await prolongService();
+        return;
+      }
       // Template flow: edit re-entry reconfigures the running service in place (serviceRestart, same
       // image + paid window); otherwise mint a fresh service.
       if (flowType === InferenceFlowType.Template) {
@@ -597,10 +601,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         } else {
           await runTemplateLaunch();
         }
-        return;
-      }
-      if (isProlongMode) {
-        await prolongService();
         return;
       }
       // Edit → restart the existing service in place (keeps port + elapsed time); never a fresh start.

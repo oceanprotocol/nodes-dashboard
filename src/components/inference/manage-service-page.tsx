@@ -397,10 +397,17 @@ const ManageServicePage: React.FC = () => {
     // Provider persists across client-side nav, so URL hydration won't re-run — push duration straight
     // into context (query keeps it for a hard reload).
     setJobDurationSeconds(extraSeconds);
-    router.push({
-      pathname: '/inference/custom-models/payment',
-      query: { ...buildSelectionQuery(), duration: String(extraSeconds), prolong: '1', serviceId: id },
-    });
+    const query = { ...buildSelectionQuery(), duration: String(extraSeconds), prolong: '1', serviceId: id };
+    // A template service has no models, so the custom-models payment page would bounce back to the model
+    // picker — route template prolong into the template payment page (flowType=Template) instead.
+    if (selectedTemplate) {
+      router.push({
+        pathname: `/inference/templates/${encodeURIComponent(selectedTemplate.id)}/payment`,
+        query,
+      });
+      return;
+    }
+    router.push({ pathname: '/inference/custom-models/payment', query });
   };
 
   // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.

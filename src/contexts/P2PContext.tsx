@@ -579,7 +579,12 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getServiceStatus = useCallback(
-    async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, serviceId?: string, signal?: AbortSignal) => {
+    async (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      serviceId?: string,
+      signal?: AbortSignal
+    ) => {
       if (!isReady) {
         throw new Error('Node not ready');
       }

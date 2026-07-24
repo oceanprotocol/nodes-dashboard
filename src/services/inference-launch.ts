@@ -379,3 +379,24 @@ export function buildInferenceStartParams({
     payment: { chainId: CHAIN_ID, token: tokenAddress },
   };
 }
+
+/**
+ * Build the ServiceRestartParams to relaunch a running inference service in place with new launch
+ * params (RESPEC mode). The node's serviceRestart is all-old-or-all-new: sending any container field
+ * requires `image`, and re-supplies the WHOLE spec (see ocean-node restartService). So this carries
+ * the engine image/tag + the (possibly changed) launch command + env — the node reuses the running
+ * service's allocated ports and resources, so only the model/params/env change, not the hardware.
+ */
+export function buildInferenceRestartParams(
+  model: HuggingFaceModel,
+  params: ModelParameters,
+  hfToken: string
+): ServiceRestartParams {
+  const runtime = ENGINE_RUNTIME[params.engine];
+  return {
+    image: runtime.image,
+    tag: runtime.tag,
+    dockerCmd: buildEngineCommand(model, params),
+    userData: buildUserData(params, hfToken),
+  };
+}
