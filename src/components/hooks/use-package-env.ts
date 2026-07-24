@@ -23,12 +23,22 @@ export type ResolvedPackageEnv = {
   token: SelectedToken | null;
 };
 
-// Quick start pins each package's recommended CPU/RAM/disk (fixed, not GPU-fraction-derived).
-// GPU is handled separately by gpuSelection. Missing/omitted resources fall back to 0 → the
-// allocation hook then floors them at the env's own min.
+// Quick start pins each package's recommended CPU/RAM/disk (fixed, not GPU-fraction-derived), floored
+// at the package's per-resource min so the effective lower bound is max(envMin, packageMin) — a
+// constraint ceiling can't trim the booked amount below what the model needs. GPU is handled separately
+// by gpuSelection. Missing/omitted resources fall back to 0 → the allocation hook then floors them at
+// the env's own min.
 function recommendedSizing(pkg: InferencePackage): ResourceSizing {
-  const amount = (id: string) => pkg.requiredResources.find((r) => r.id === id)?.recommended ?? 0;
-  return { mode: 'pinned', cpu: amount('cpu'), ram: amount('ram'), disk: amount('disk') };
+  const req = (id: string) => pkg.requiredResources.find((r) => r.id === id);
+  const recommended = (id: string) => req(id)?.recommended ?? 0;
+  const min = (id: string) => req(id)?.min ?? 0;
+  return {
+    mode: 'pinned',
+    cpu: recommended('cpu'),
+    ram: recommended('ram'),
+    disk: recommended('disk'),
+    floor: { cpu: min('cpu'), ram: min('ram'), disk: min('disk') },
+  };
 }
 
 // Seed fee token: USDC when accepted, else first supported paid token. Mirrors the modal env card's
