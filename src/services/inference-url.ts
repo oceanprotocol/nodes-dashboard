@@ -57,29 +57,15 @@ export function decodeGpuSelection(raw: string | string[] | undefined): GpuSelec
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-/**
- * Serialize shared-resource sizing into `mode:cpu:ram:disk` (absent for a plain fraction slice).
- * A `pinned` sizing with a package-min floor appends it: `pinned:cpu:ram:disk:fcpu:fram:fdisk` — so a
- * hard-reloaded quick-start payment keeps the model's per-resource min. The 3-part form stays valid
- * (floor omitted); floor-mode never carries a floor field, so it's always 3-part.
- */
+/** Serialize shared-resource sizing into a `mode:cpu:ram:disk` string (absent for a plain fraction slice). */
 export function encodeResourceSizing(sizing: ResourceSizing | undefined): string | undefined {
   if (!sizing) {
     return undefined;
   }
-  const base = `${sizing.mode}:${sizing.cpu}:${sizing.ram}:${sizing.disk}`;
-  if (sizing.mode === 'pinned' && sizing.floor) {
-    return `${base}:${sizing.floor.cpu}:${sizing.floor.ram}:${sizing.floor.disk}`;
-  }
-  return base;
+  return `${sizing.mode}:${sizing.cpu}:${sizing.ram}:${sizing.disk}`;
 }
 
-/**
- * Parse the `res` param back into shared-resource sizing; undefined when absent, malformed, or an
- * unknown mode. Accepts both the 3-part `mode:cpu:ram:disk` form and the pinned 6-part form with a
- * trailing floor — a missing/partial/malformed floor just yields sizing without one (never rejected),
- * so old links and floor-mode still decode.
- */
+/** Parse the `res` param back into shared-resource sizing; undefined when absent, malformed, or an unknown mode. */
 export function decodeResourceSizing(raw: string | string[] | undefined): ResourceSizing | undefined {
   if (!raw) {
     return undefined;
@@ -89,16 +75,9 @@ export function decodeResourceSizing(raw: string | string[] | undefined): Resour
   if (mode !== 'pinned' && mode !== 'floor') {
     return undefined;
   }
-  const [cpu, ram, disk] = rest.slice(0, 3).map(Number);
+  const [cpu, ram, disk] = rest.map(Number);
   if (![cpu, ram, disk].every(Number.isFinite)) {
     return undefined;
-  }
-  if (mode === 'pinned') {
-    const [fcpu, fram, fdisk] = rest.slice(3, 6).map(Number);
-    if (rest.length >= 6 && [fcpu, fram, fdisk].every(Number.isFinite)) {
-      return { mode, cpu, ram, disk, floor: { cpu: fcpu, ram: fram, disk: fdisk } };
-    }
-    return { mode, cpu, ram, disk };
   }
   return { mode, cpu, ram, disk };
 }

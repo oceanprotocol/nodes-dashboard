@@ -118,7 +118,6 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     price,
     hasGpus,
     gpuExhausted,
-    constraintViolation,
   } = useInferenceAllocation({
     environment,
     tokenAddress,
@@ -236,8 +235,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   };
 
   // Reason the env can't be selected right now: a caller-supplied block (e.g. duration out of bounds)
-  // wins, then GPU-only cases — fully busy, or the user zeroed every type — then a cross-resource
-  // constraint the built request would violate (the node would reject it). Null → selectable. Drives
+  // wins, then GPU-only cases — fully busy, or the user zeroed every type. Null → selectable. Drives
   // the disabled state + tooltip on the select button.
   const selectBlockedReason =
     disabledReason ??
@@ -246,8 +244,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         ? 'All GPU units in this environment are currently in use.'
         : selectedTotal <= 0
           ? 'Select at least one GPU unit to continue.'
-          : (constraintViolation ?? null)
-      : (constraintViolation ?? null));
+          : null
+      : null);
   const selectDisabled = !tokenSymbol || !!selectBlockedReason;
 
   return (
