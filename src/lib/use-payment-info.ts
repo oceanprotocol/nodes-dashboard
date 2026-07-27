@@ -49,16 +49,20 @@ export const computeEscrowRequirement = ({
   const currentLockedAmount = Number(auth?.currentLockedAmount ?? 0);
   const requiredMaxLocked = roundTokenAmount(totalCost + currentLockedAmount, tokenAddress, 'up');
   const depositAmount = roundTokenAmount(Math.max(0, totalCost - escrowBalance), tokenAddress, 'up');
+  // Normalize the lock window once so the sufficiency check and the requested grant agree — otherwise
+  // a fractional requirement (or the floor) could make an existing grant look sufficient while a
+  // re-auth would still raise the cap.
+  const requiredMaxLockSeconds = Math.max(minLockSecondsFloor, Math.ceil(requiredLockSeconds));
 
   const sufficient =
     escrowBalance >= totalCost &&
     !!auth &&
     roundTokenAmount(Number(auth.maxLockedAmount), tokenAddress) >= requiredMaxLocked &&
-    Number(auth.maxLockSeconds) >= requiredLockSeconds &&
+    Number(auth.maxLockSeconds) >= requiredMaxLockSeconds &&
     Number(auth.currentLocks) < Number(auth.maxLockCounts);
 
   const maxLockedAmount = Math.max(requiredMaxLocked, roundTokenAmount(Number(auth?.maxLockedAmount ?? 0), tokenAddress));
-  const maxLockSeconds = Math.max(minLockSecondsFloor, Math.ceil(requiredLockSeconds), Number(auth?.maxLockSeconds ?? 0));
+  const maxLockSeconds = Math.max(requiredMaxLockSeconds, Number(auth?.maxLockSeconds ?? 0));
   // Authorize SETS (not increments) the lock cap. Derive above the current locks so a user who has
   // used all their slots can still raise the limit and start a new session; keep any higher cap the
   // user already granted (e.g. on the escrow page) so it isn't silently shrunk on re-auth.
