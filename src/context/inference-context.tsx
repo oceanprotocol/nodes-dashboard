@@ -1,11 +1,20 @@
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { decodeModelIds, encodeModelIds, fetchHuggingFaceModel } from '@/services/huggingface-service';
-import { decodeGpuSelection, decodeModelParams, encodeGpuSelection, encodeModelParams } from '@/services/inference-url';
+import {
+  decodeGpuSelection,
+  decodeModelParams,
+  decodeResourceSizing,
+  encodeGpuSelection,
+  encodeModelParams,
+  encodeResourceSizing,
+  firstQueryValue,
+} from '@/services/inference-url';
+import { DEFAULT_INFERENCE_ENGINE } from '@/services/huggingface-service';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
-import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
+import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,6 +25,10 @@ export type InferenceSelectionQuery = Partial<{
   peerId: string;
   env: string;
   gpus: string;
+  /** Inference engine driving the launch (`vllm` | `llamacpp`) — picks the image, port & command. */
+  engine: string;
+  /** Shared-resource sizing (`mode:cpu:ram:disk`) — `pinned` quick start / `floor` handoff; absent for a plain slice. */
+  res: string;
   token: string;
   duration: string;
   params: string;
@@ -30,6 +43,12 @@ export type SelectedInferenceEnv = {
   nodeInfo: EnvNodeInfo;
   /** Units to use per GPU type, keyed by type (defaults to all units of every type). */
   gpuSelection: GpuSelection;
+  /**
+   * How the shared CPU/RAM/disk are sized: `pinned` fixed amounts (quick start) or a `floor` under the
+   * GPU-fraction slice (advanced handoff). Omit for a pure proportional slice (custom flow). See
+   * {@link ResourceSizing}.
+   */
+  sizing?: ResourceSizing;
 };
 
 type InferenceContextType = {
@@ -48,6 +67,13 @@ type InferenceContextType = {
   setHfToken: (token: string) => void;
   jobDurationSeconds: number;
   setJobDurationSeconds: (seconds: number) => void;
+  /**
+   * Inference engine for the custom flow (vLLM | llama.cpp). Drives which launch params the config
+   * step edits and the image/port/command at launch. The committed ModelParameters carry the same
+   * engine (params.engine is authoritative at launch/manage); this is the in-flow selection driver.
+   */
+  engine: InferenceEngine;
+  setEngine: (engine: InferenceEngine) => void;
   modelParamsByModel: Record<string, ModelParameters>;
   setParamsForModel: (modelId: string, params: ModelParameters) => void;
   clearSelection: () => void;
@@ -67,14 +93,18 @@ type InferenceContextType = {
 
 /** Same-tick selection values not yet reflected in context state (e.g. an env just clicked). */
 type SelectionOverrides = {
+  models?: HuggingFaceModel[];
   peerId?: string;
   envId?: string;
   gpuSelection?: GpuSelection;
+  sizing?: ResourceSizing;
   tokenAddress?: string;
+  durationSeconds?: number;
+  engine?: InferenceEngine;
   modelParamsByModel?: Record<string, ModelParameters>;
 };
 
-const DEFAULT_JOB_DURATION_SECONDS = 3600;
+export const DEFAULT_JOB_DURATION_SECONDS = 3600;
 
 // The HF token is kept out of the URL (it's a secret) but persisted per-tab so a refresh mid-flow
 // doesn't force the user to re-enter it for gated models. sessionStorage clears when the tab closes.
@@ -100,6 +130,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
+  const [engine, setEngine] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
   const [hydrateFromUrlFinished, setHydrateFromUrlFinished] = useState(false);
   // True when the URL described a selection we couldn't fully rebuild (HF/env fetch failed or a
@@ -183,11 +214,15 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const peerId = overrides?.peerId ?? selectedEnv?.nodeInfo.id;
       const envId = overrides?.envId ?? selectedEnv?.environment.id;
       const gpuSelection = overrides?.gpuSelection ?? selectedEnv?.gpuSelection;
+      const sizing = overrides?.sizing ?? selectedEnv?.sizing;
       const tokenAddress = overrides?.tokenAddress ?? selectedToken?.address;
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
+      const models = overrides?.models ?? selectedModels;
+      const duration = overrides?.durationSeconds ?? jobDurationSeconds;
+      const selectedEngine = overrides?.engine ?? engine;
 
       const query: InferenceSelectionQuery = {};
-      const modelIds = selectedModels.map((m) => m.id);
+      const modelIds = models.map((m) => m.id);
       if (modelIds.length > 0) {
         query.models = encodeModelIds(modelIds);
       }
@@ -204,22 +239,27 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (gpus) {
         query.gpus = gpus;
       }
+      const res = encodeResourceSizing(sizing);
+      if (res) {
+        query.res = res;
+      }
       if (tokenAddress) {
         query.token = tokenAddress;
       }
-      query.duration = String(jobDurationSeconds);
+      query.engine = selectedEngine;
+      query.duration = String(duration);
       const encodedParams = encodeModelParams(params);
       if (encodedParams) {
         query.params = encodedParams;
       }
       // Carry the edit flag forward so every step keeps its edit-mode behavior across navigations.
-      const editFlag = Array.isArray(router.query.edit) ? router.query.edit[0] : router.query.edit;
+      const editFlag = firstQueryValue(router.query.edit);
       if (editFlag) {
         query.edit = editFlag;
       }
       // Carry the target service id forward too — edit/prolong need it at the payment step to
       // stop/extend the running service.
-      const serviceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;
+      const serviceId = firstQueryValue(router.query.serviceId);
       if (serviceId) {
         query.serviceId = serviceId;
       }
@@ -230,6 +270,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedEnv,
       selectedToken,
       jobDurationSeconds,
+      engine,
       modelParamsByModel,
       router.query.edit,
       router.query.serviceId,
@@ -245,14 +286,26 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const hydrateFromQueryParams = useCallback(async () => {
     const q = router.query;
     // Synchronous restores first — these never fail and don't depend on the network.
-    const duration = Number(Array.isArray(q.duration) ? q.duration[0] : q.duration);
+    const duration = Number(firstQueryValue(q.duration));
     if (Number.isFinite(duration) && duration > 0) {
       setJobDurationSeconds(duration);
     }
-    const params = decodeModelParams(q.params);
-    if (Object.keys(params).length > 0) {
-      setModelParamsByModel(params);
-    }
+    // Reset to exactly what the URL carries (even when it carries nothing). The Provider is mounted
+    // once and never remounts, so re-hydrating on a client-side nav must overwrite the prior
+    // selection's params — not merge onto them. Otherwise switching to another service of the SAME
+    // model id (whose Manage link carries no `params`) would leave the previous run's params live
+    // under the colliding model-id key, and the manage page's dockerCmd seed (which refuses to
+    // overwrite an already-set key) could never correct it.
+    const restoredParams = decodeModelParams(q.params);
+    setModelParamsByModel(restoredParams);
+    // Restore the engine: the explicit `engine` param wins; else infer it from the committed params
+    // (their `engine` discriminator); else fall back to the default. Keeps the config step's selector
+    // and the launch command in sync on a refresh / deep link.
+    const engineParam = firstQueryValue(q.engine);
+    const paramEngine = Object.values(restoredParams)[0]?.engine;
+    const restoredEngine: InferenceEngine =
+      engineParam === 'vllm' || engineParam === 'llamacpp' ? engineParam : (paramEngine ?? DEFAULT_INFERENCE_ENGINE);
+    setEngine(restoredEngine);
 
     // Each restore reports whether it fully succeeded, so we can tell "URL carried a selection we
     // failed to rebuild" (a real error — don't bounce the user) from "URL had nothing to restore".
@@ -273,8 +326,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     };
 
     const restoreEnv = async (): Promise<boolean> => {
-      const peerId = Array.isArray(q.peerId) ? q.peerId[0] : q.peerId;
-      const envId = Array.isArray(q.env) ? q.env[0] : q.env;
+      const peerId = firstQueryValue(q.peerId);
+      const envId = firstQueryValue(q.env);
       if (!peerId || !envId) {
         return true;
       }
@@ -296,6 +349,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setSelectedEnv({
         environment: foundEnv,
         gpuSelection: decodeGpuSelection(q.gpus) ?? {},
+        sizing: decodeResourceSizing(q.res),
         nodeInfo: {
           currentAddrs: foundNode.currentAddrs,
           friendlyName: foundNode.friendlyName,
@@ -305,7 +359,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         },
       });
       // Token restore is best-effort and must not abort env restore if the symbol lookup throws.
-      const tokenAddress = Array.isArray(q.token) ? q.token[0] : q.token;
+      const tokenAddress = firstQueryValue(q.token);
       if (tokenAddress) {
         let symbol: string | null = null;
         try {
@@ -340,12 +394,12 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     if (!router.isReady) {
       return;
     }
-    const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+    const sigPart = (v: string | string[] | undefined) => firstQueryValue(v) ?? '';
     const signature = [
-      first(router.query.models),
-      first(router.query.peerId),
-      first(router.query.env),
-      first(router.query.serviceId),
+      sigPart(router.query.models),
+      sigPart(router.query.peerId),
+      sigPart(router.query.env),
+      sigPart(router.query.serviceId),
     ].join('|');
     if (hydratedSignatureRef.current === signature) {
       return;
@@ -397,6 +451,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setHfToken,
       jobDurationSeconds,
       setJobDurationSeconds,
+      engine,
+      setEngine,
       modelParamsByModel,
       setParamsForModel,
       clearSelection: () => {
@@ -405,6 +461,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedToken(null);
         setHfToken('');
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+        setEngine(DEFAULT_INFERENCE_ENGINE);
         setModelParamsByModel({});
       },
       hydrateFromUrlFinished,
@@ -422,6 +479,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       hfToken,
       setHfToken,
       jobDurationSeconds,
+      engine,
       modelParamsByModel,
       setParamsForModel,
       hydrateFromUrlFinished,

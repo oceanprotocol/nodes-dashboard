@@ -12,6 +12,7 @@ import {
   getPeerMultiaddr as getPeerMultiaddrFromService,
   getServiceLogs as getServiceLogsFromService,
   getServiceStatus as getServiceStatusFromService,
+  getServiceTemplates as getServiceTemplatesFromService,
   initializeCompute as initializeComputeFromService,
   initializeP2P,
   listBucketFiles as listBucketFilesService,
@@ -41,7 +42,9 @@ import {
   ProviderInstance,
   type ServiceJob,
   type ServicePayment,
+  type ServiceRestartParams,
   type ServiceStartParams,
+  type ServiceTemplatePublic,
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
@@ -191,18 +194,22 @@ interface P2PContextType {
   ) => Promise<ServiceJob[]>;
   /**
    * Restart a running service's container in place — same serviceId, host port and expiry (paid
-   * runtime is preserved). Optionally replace `userData` (container env vars) and/or the
-   * `dockerCmd`/`dockerEntrypoint` (the launch command). Supplying dockerCmd swaps the model/launch
-   * args without a new container — used by Edit to keep port + elapsed time instead of stop+start.
+   * runtime is preserved). Pass no `spec` to relaunch the stored container unchanged, or the COMPLETE
+   * new spec (image + tag + dockerCmd + userData) to swap the model/launch args without minting a new
+   * service — used by Edit to keep port + elapsed time instead of stop+start. A partial spec is
+   * rejected by the node; see `serviceRestart` in services/nodeService.
    */
   serviceRestart: (
     nodeUri: NodeUri,
     signerOrAuthToken: SignerOrAuthTokenOrSignature,
     serviceId: string,
-    userData?: Record<string, unknown>,
-    dockerCmd?: string[],
-    dockerEntrypoint?: string[]
+    spec?: ServiceRestartParams
   ) => Promise<ServiceJob[]>;
+  /**
+   * Fetch a node's advertised service templates (image + launch command + resource requirements),
+   * scoped to `chainId`. Seeds the quick-start packages on the default-models page.
+   */
+  getServiceTemplates: (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => Promise<ServiceTemplatePublic[]>;
   /** Fetch the service container's logs (stdout/stderr) — includes the crash reason on exit. */
   getServiceLogs: (
     nodeUri: NodeUri,
@@ -612,14 +619,12 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       nodeUri: NodeUri,
       signerOrAuthToken: SignerOrAuthTokenOrSignature,
       serviceId: string,
-      userData?: Record<string, unknown>,
-      dockerCmd?: string[],
-      dockerEntrypoint?: string[]
+      spec?: ServiceRestartParams
     ) => {
       if (!isReady) {
         throw new Error('Node not ready');
       }
-      return serviceRestartFromService(nodeUri, signerOrAuthToken, serviceId, userData, dockerCmd, dockerEntrypoint);
+      return serviceRestartFromService(nodeUri, signerOrAuthToken, serviceId, spec);
     },
     [isReady]
   );
@@ -630,6 +635,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Node not ready');
       }
       return getServiceLogsFromService(nodeUri, signerOrAuthToken, serviceId);
+    },
+    [isReady]
+  );
+
+  const getServiceTemplates = useCallback(
+    async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getServiceTemplatesFromService(nodeUri, chainId, signal);
     },
     [isReady]
   );
@@ -674,6 +689,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         serviceRestart,
         serviceStop,
         getServiceLogs,
+        getServiceTemplates,
         streamServiceLogs,
         streamComputeResult,
         streamComputeLogs,

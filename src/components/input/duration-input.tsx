@@ -11,6 +11,7 @@ type DurationUnitOption = {
 
 type DurationInputProps = {
   availableUnits: DurationUnitOption[];
+  className?: string;
   defaultUnit?: DurationUnit;
   disabled?: boolean;
   errorText?: string;
@@ -30,6 +31,7 @@ type DurationInputProps = {
 
 const DurationInput: React.FC<DurationInputProps> = ({
   availableUnits,
+  className,
   defaultUnit = 'seconds',
   disabled,
   errorText,
@@ -79,6 +81,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
 
   return (
     <Input
+      className={className}
       disabled={disabled}
       endAdornment={
         <div className={styles.controls}>

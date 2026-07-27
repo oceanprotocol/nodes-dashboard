@@ -24,6 +24,7 @@ export type ToolCallParser =
   | 'internlm'
   | 'jamba'
   | 'deepseek_v3'
+  | 'qwen3_coder'
   | 'pythonic';
 
 /** A user-defined launch parameter — an arbitrary key/value pair, like a Vercel env var. */
@@ -33,23 +34,37 @@ export type CustomParam = {
 };
 
 /**
- * Launch-time configuration for a custom model, in two groups:
- *
- * 1. Custom parameters — arbitrary key/value pairs the user adds (like env vars). No fixed schema or
- *    validation beyond non-empty, unique keys; any param can be set on any model.
- * 2. vLLM engine (cold) flags — how the server loads and runs the model. Fixed at launch.
+ * The inference server a model runs on. Each engine ships a different container image, listens on a
+ * different port and takes a different launch command, so the choice drives both the params the user
+ * edits (see the two branches of ModelParameters) and how the launch command is built.
+ * - `vllm`     — vllm/vllm-openai, CUDA GPU, serves the raw HF weights. The rich-flag default.
+ * - `llamacpp` — ghcr.io/ggml-org/llama.cpp, CPU-capable, serves a GGUF quantization off the Hub.
  */
-export type ModelParameters = {
-  // Identity / integration.
+export type InferenceEngine = 'vllm' | 'llamacpp';
+
+/** Fields every engine shares — identity + arbitrary user-defined env-var-style params. */
+type CommonModelParameters = {
+  /** The name the running model answers to (`--served-model-name` / `--alias`); clients address it by this. */
   servedModelName: string;
-
-  // Arbitrary user-defined key/value params (like env vars).
+  /** Arbitrary user-defined key/value params (like env vars), passed through as container userData. */
   customParams: CustomParam[];
+};
 
-  // Cold engine flags (vLLM-specific).
+/**
+ * vLLM cold-launch flags — how the server loads and runs the raw Hugging Face weights. Fixed at
+ * launch; changing them needs a restart.
+ */
+export type VllmParameters = CommonModelParameters & {
+  engine: 'vllm';
   // Optional: null = don't emit --max-model-len, let vLLM derive the context length from the model
   // config at launch. A number pins it explicitly.
   maxContext: number | null;
+  /**
+   * Number of GPUs to shard the model across (`--tensor-parallel-size`). 1 (or null) = single GPU,
+   * flag omitted. Must match the GPU count the package books, or vLLM either OOMs (booked fewer than
+   * it shards across) or leaves GPUs idle.
+   */
+  tensorParallelSize?: number | null;
   gpuMemoryUtilization: number;
   quantization: ModelQuantization;
   dtype: ModelDtype;
@@ -60,6 +75,32 @@ export type ModelParameters = {
   toolCalling: boolean;
   toolCallParser: ToolCallParser | null;
 };
+
+/**
+ * llama.cpp cold-launch flags. Unlike vLLM it serves a pre-quantized GGUF, pulled from the Hub by
+ * `-hf <repo>:<quant>` — so the repo (a `*-GGUF` repo) and the quantization tag are their own fields,
+ * distinct from the HF model id the picker returns.
+ */
+export type LlamaCppParameters = CommonModelParameters & {
+  engine: 'llamacpp';
+  /** GGUF repo on the Hub, e.g. `bartowski/phi-4-GGUF` — the `-hf` value before the `:` quant tag. */
+  ggufRepo: string;
+  /** Quantization tag within the repo, e.g. `Q4_K_M` — the part after the `:` in `-hf repo:quant`. */
+  ggufQuant: string;
+  /** Context window (`-c`); null lets llama.cpp use the model's trained default. */
+  contextLength: number | null;
+  /** GPU layers to offload (`-ngl`); 0 = pure CPU. Higher = more on GPU (needs a CUDA build/host). */
+  gpuLayers: number;
+  /** Enable Jinja chat templates (`--jinja`) — required for the model's tool/chat formatting. */
+  jinja: boolean;
+};
+
+/**
+ * Launch-time configuration for a model, discriminated by `engine`. Both branches share the identity
+ * + custom-param fields (CommonModelParameters); the rest are engine-specific cold flags. The UI
+ * renders the branch matching the picked engine, and buildEngineCommand dispatches on it.
+ */
+export type ModelParameters = VllmParameters | LlamaCppParameters;
 
 export type HuggingFaceModel = {
   id: string;

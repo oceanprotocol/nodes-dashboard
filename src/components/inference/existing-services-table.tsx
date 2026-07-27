@@ -161,8 +161,7 @@ const ExistingServicesTable: React.FC = () => {
                     const modelId = modelIdFromSession(session);
                     const name = modelId ? getModelShortName(modelId) : session.serviceId.slice(0, 10);
                     const status = getServiceStatusView(session.status, session.statusText);
-                    const createdMs =
-                      session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
+                    const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
                     return (
                       <tr key={session.serviceId}>
                         <td>

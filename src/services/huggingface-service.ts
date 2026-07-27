@@ -1,9 +1,12 @@
 import {
   HuggingFaceModel,
   HuggingFaceModelConfig,
+  InferenceEngine,
+  LlamaCppParameters,
   ModelParameters,
   ModelQuantization,
   ToolCallParser,
+  VllmParameters,
 } from '@/types/huggingface';
 import axios from 'axios';
 
@@ -30,6 +33,19 @@ const http = axios.create({ timeout: REQUEST_TIMEOUT_MS });
 /** Encode an HF model id for use in a URL path, preserving the `namespace/repo` slash. */
 function encodeModelPath(modelId: string): string {
   return modelId
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+/**
+ * Encode a revision for the `resolve/{rev}/…` path, preserving slashes. HF revisions can be
+ * slash-containing refs (e.g. `refs/pr/6`, or a branch named `feature/foo`) that the resolve
+ * endpoint expects as real path segments — encodeURIComponent alone would turn `/` into `%2F`
+ * and 404. Same segment-wise encoding as encodeModelPath.
+ */
+function encodeRevision(revision: string): string {
+  return revision
     .split('/')
     .map((segment) => encodeURIComponent(segment))
     .join('/');
@@ -74,7 +90,7 @@ export class HuggingFaceAuthError extends Error {
  * 401/403 throw HuggingFaceAuthError; any other failure resolves to null (treat as "file absent").
  */
 async function fetchModelFile<T>(modelId: string, file: string, token?: string, revision = 'main'): Promise<T | null> {
-  const rev = encodeURIComponent(revision || 'main');
+  const rev = encodeRevision(revision || 'main');
   let response;
   try {
     response = await http.get<T>(`${HF_RESOLVE_URL}/${encodeModelPath(modelId)}/resolve/${rev}/${file}`, {
@@ -101,7 +117,7 @@ async function fetchModelTextFile(
   token?: string,
   revision = 'main'
 ): Promise<string | null> {
-  const rev = encodeURIComponent(revision || 'main');
+  const rev = encodeRevision(revision || 'main');
   let response;
   try {
     response = await http.get<string>(`${HF_RESOLVE_URL}/${encodeModelPath(modelId)}/resolve/${rev}/${file}`, {
@@ -398,6 +414,28 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
 
 // vLLM launch-param defaults, used when the model config doesn't pin a value.
 const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
+// llama.cpp defaults: quant tag most GGUF repos ship (good size/quality tradeoff) and CPU-only offload.
+const DEFAULT_GGUF_QUANT = 'Q4_K_M';
+const DEFAULT_LLAMA_GPU_LAYERS = 0;
+
+/** Ocean's supported inference engines, for selectors. `vllm` is the default. */
+export const INFERENCE_ENGINE_OPTIONS: { label: string; value: InferenceEngine }[] = [
+  { label: 'vLLM', value: 'vllm' },
+  { label: 'llama.cpp', value: 'llamacpp' },
+];
+
+export const DEFAULT_INFERENCE_ENGINE: InferenceEngine = 'vllm';
+
+/**
+ * Best-effort GGUF repo guess for llama.cpp from an HF model id. GGUF repos are separate from the raw
+ * weights repo (llama.cpp can't serve raw weights) and follow no strict rule, so this is only a
+ * starting suggestion the user is expected to correct: `bartowski` re-publishes most popular models
+ * as `<repo>-GGUF`, so we point there. Empty for a bare id with no author.
+ */
+export function guessGgufRepo(modelId: string): string {
+  const repo = getModelShortName(modelId);
+  return repo ? `bartowski/${repo}-GGUF` : '';
+}
 
 /**
  * Allowed range for each numeric launch param — the single source for the form's sliders/validation.
@@ -411,7 +449,9 @@ const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
  */
 export const MODEL_PARAM_BOUNDS = {
   maxContext: { min: 1024 },
-  gpuMemoryUtilization: { min: 0, max: 1 },
+  // min is the lowest VALID fraction, not 0: claiming 0 VRAM is rejected, so the slider must not
+  // offer it and validation floors at this value. One 0.05 step above zero.
+  gpuMemoryUtilization: { min: 0.05, max: 1 },
 } as const;
 
 /** Map an HF quantization method to our enum; null when none/unrecognized (field then stays user-editable). */
@@ -432,14 +472,11 @@ export function mapQuantization(method: string | null): ModelQuantization | null
   }
 }
 
-/**
- * Build the launch parameters for a model from its HF config, falling back to neutral defaults for
- * anything the config doesn't pin. Passing `config: null` yields the pure defaults — the fallback
- * used for a selection whose params haven't been committed yet.
- */
-export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelId: string): ModelParameters {
+/** vLLM launch-param defaults from HF config, falling back to neutral values for anything unpinned. */
+function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: string): VllmParameters {
   const lockedQuant = mapQuantization(config?.quantizationMethod ?? null);
   return {
+    engine: 'vllm',
     servedModelName: getModelShortName(modelId),
     // User-defined key/value params — none by default; the user adds them like env vars.
     customParams: [],
@@ -448,6 +485,8 @@ export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelI
     // lowers its floor to the model's max for sub-floor models (see MODEL_PARAM_BOUNDS), so even a
     // reported value below the nominal floor is a valid default the user can keep or pin.
     maxContext: config?.maxContext ?? null,
+    // null = single GPU (vLLM's own default) — the flag is only emitted for a real multi-GPU shard.
+    tensorParallelSize: null,
     gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
     quantization: lockedQuant ?? 'none',
     // Default to 'auto' rather than the model's own torch_dtype: many models declare bfloat16, which
@@ -462,6 +501,36 @@ export function buildModelDefaults(config: HuggingFaceModelConfig | null, modelI
     // Pre-fill the best-guess parser (still user-overridable); null when the family is unknown.
     toolCallParser: inferToolCallParser(config),
   };
+}
+
+/** llama.cpp launch-param defaults. Seeds a best-guess GGUF repo + common quant; user corrects both. */
+function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: string): LlamaCppParameters {
+  return {
+    engine: 'llamacpp',
+    servedModelName: getModelShortName(modelId),
+    customParams: [],
+    ggufRepo: guessGgufRepo(modelId),
+    ggufQuant: DEFAULT_GGUF_QUANT,
+    // Seed the model's reported context; null lets llama.cpp use its trained default.
+    contextLength: config?.maxContext ?? null,
+    gpuLayers: DEFAULT_LLAMA_GPU_LAYERS,
+    // Jinja on by default so chat/tool templates work; the models we serve are chat models.
+    jinja: true,
+  };
+}
+
+/**
+ * Build the launch parameters for a model + engine from its HF config, falling back to neutral
+ * defaults for anything the config doesn't pin. Passing `config: null` yields the pure defaults —
+ * the fallback used for a selection whose params haven't been committed yet. The engine picks which
+ * branch of ModelParameters is returned (defaults to vLLM).
+ */
+export function buildModelDefaults(
+  config: HuggingFaceModelConfig | null,
+  modelId: string,
+  engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE
+): ModelParameters {
+  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId) : buildVllmDefaults(config, modelId);
 }
 
 /** Short display name for a model id — the repo part after the `author/` prefix. */

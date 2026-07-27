@@ -10,17 +10,21 @@ import {
   fetchHuggingFaceModelConfig,
   getModelShortName,
   HuggingFaceAuthError,
+  INFERENCE_ENGINE_OPTIONS,
   isGenerativePipeline,
   mapQuantization,
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
 import {
   HuggingFaceModelConfig,
+  InferenceEngine,
   KvCacheDtype,
+  LlamaCppParameters,
   ModelDtype,
   ModelParameters as ModelParametersType,
   ModelQuantization,
   ToolCallParser,
+  VllmParameters,
 } from '@/types/huggingface';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -62,6 +66,7 @@ const toolParserOptions: { label: string; value: ToolCallParser }[] = [
   { label: 'internlm', value: 'internlm' },
   { label: 'jamba', value: 'jamba' },
   { label: 'deepseek_v3', value: 'deepseek_v3' },
+  { label: 'qwen3_coder', value: 'qwen3_coder' },
   { label: 'pythonic', value: 'pythonic' },
 ];
 
@@ -81,32 +86,9 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
 // renders `errors.customParams[i].key`). Typed loosely so both can coexist on one errors object.
 type ParamErrors = Record<string, unknown>;
 
-// `contextCeiling` is the model's reported max (null when HF reports none — the field is then a free,
-// optional input). `contextFloor` is the effective lower bound (lowered to the model's max for a
-// sub-floor model). Both passed in because they're component state, not static bounds.
-function validateParams(v: ModelParametersType, contextCeiling: number | null, contextFloor: number): ParamErrors {
-  const errors: ParamErrors = {};
-  if (!v.servedModelName.trim()) {
-    errors.servedModelName = 'Required.';
-  }
-  // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and, when
-  // the model reports a ceiling, stay within it.
-  if (v.maxContext != null) {
-    if (v.maxContext < contextFloor) {
-      errors.maxContext = `Must be at least ${contextFloor} (or leave blank to let vLLM decide).`;
-    } else if (contextCeiling != null && v.maxContext > contextCeiling) {
-      errors.maxContext = `Must be at most ${contextCeiling} — the model's context limit.`;
-    }
-  }
-  // GPU memory must be > 0 (0 = no VRAM claimed); message says "above 0" to match the rule.
-  const gpuMax = MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max;
-  if (v.gpuMemoryUtilization <= 0 || v.gpuMemoryUtilization > gpuMax) {
-    errors.gpuMemoryUtilization = `Must be above 0 and at most ${gpuMax}.`;
-  }
-  if (v.toolCalling && !v.toolCallParser) {
-    errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
-  }
-  // Custom params (env-var style): the only rule is non-empty, unique keys. Values are free-form.
+// Custom params (env-var style): the only rule is non-empty, unique keys. Values are free-form.
+// Shared by both engines. Writes onto the passed errors object.
+function validateCustomParams(v: ModelParametersType, errors: ParamErrors): void {
   const seen = new Map<string, number>();
   const paramErrors: { key?: string }[] = [];
   v.customParams.forEach((param, index) => {
@@ -122,6 +104,63 @@ function validateParams(v: ModelParametersType, contextCeiling: number | null, c
   if (paramErrors.some(Boolean)) {
     errors.customParams = paramErrors;
   }
+}
+
+// `contextCeiling` is the model's reported max (null when HF reports none → free optional input).
+// `contextFloor` is the effective lower bound. Passed in because they're component state, not static.
+function validateParams(
+  v: ModelParametersType,
+  contextCeiling: number | null,
+  contextFloor: number,
+  bookedGpus: number
+): ParamErrors {
+  const errors: ParamErrors = {};
+  if (!v.servedModelName.trim()) {
+    errors.servedModelName = 'Required.';
+  }
+
+  if (v.engine === 'llamacpp') {
+    if (!v.ggufRepo.trim()) {
+      errors.ggufRepo = 'Required — the GGUF repo llama.cpp pulls the model from.';
+    }
+    // Optional: blank/null lets llama.cpp use the model's trained context. A pinned value clears the floor.
+    if (v.contextLength != null && v.contextLength < contextFloor) {
+      errors.contextLength = `Must be at least ${contextFloor} (or leave blank to use the model default).`;
+    }
+    if (v.gpuLayers < 0) {
+      errors.gpuLayers = 'Must be 0 or more (0 runs on CPU).';
+    }
+  } else {
+    // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and (when
+    // the model reports a ceiling) stay within it.
+    if (v.maxContext != null) {
+      if (v.maxContext < contextFloor) {
+        errors.maxContext = `Must be at least ${contextFloor} (or leave blank to let vLLM decide).`;
+      } else if (contextCeiling != null && v.maxContext > contextCeiling) {
+        errors.maxContext = `Must be at most ${contextCeiling} — the model's context limit.`;
+      }
+    }
+    // GPU memory must stay within bounds — the floor is > 0 (0 = no VRAM claimed, rejected).
+    const gpuMin = MODEL_PARAM_BOUNDS.gpuMemoryUtilization.min;
+    const gpuMax = MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max;
+    if (v.gpuMemoryUtilization < gpuMin || v.gpuMemoryUtilization > gpuMax) {
+      errors.gpuMemoryUtilization = `Must be between ${gpuMin} and ${gpuMax}.`;
+    }
+    // Sharding across more GPUs than were booked makes vLLM exit at startup, so the booked count is a
+    // hard ceiling. null/1 = single GPU, always valid.
+    if (v.tensorParallelSize != null) {
+      if (v.tensorParallelSize < 1 || !Number.isInteger(v.tensorParallelSize)) {
+        errors.tensorParallelSize = 'Must be a whole number of GPUs (1 or more).';
+      } else if (v.tensorParallelSize > bookedGpus) {
+        errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked — the model can't shard across more.`;
+      }
+    }
+    if (v.toolCalling && !v.toolCallParser) {
+      errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
+    }
+  }
+
+  validateCustomParams(v, errors);
   return errors;
 }
 
@@ -142,11 +181,18 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   { modelId, defaultOpen = false },
   ref
 ) {
-  const { hfToken, selectedModels, modelParamsByModel } = useInferenceContext();
-  // `config` tracks the LATEST fetched facts (drives the locked ceiling/quant + tool visibility).
-  // `defaultsConfig` is the baseline the form's default values are built from — frozen except on the
-  // first load and an explicit "Reload defaults", so a revision-blur refresh can update the facts
-  // without reinitializing formik and silently wiping the user's uncommitted edits.
+  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine, selectedEnv } = useInferenceContext();
+
+  // GPUs booked on the resources step (which runs before this one). This is the ceiling for tensor
+  // parallelism — sharding across more GPUs than were booked makes vLLM exit at startup. 1 or fewer
+  // means there's nothing to shard, so the field is hidden and the flag is never emitted.
+  const bookedGpus = useMemo(
+    () => Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, count) => sum + count, 0),
+    [selectedEnv?.gpuSelection]
+  );
+  // `config` = LATEST fetched facts (drives locked ceiling/quant + tool visibility). `defaultsConfig`
+  // = baseline the form defaults build from — frozen except on first load and explicit "Reload
+  // defaults", so a revision-blur refresh updates facts without reinitializing formik and wiping edits.
   const [config, setConfig] = useState<HuggingFaceModelConfig | null>(null);
   const [defaultsConfig, setDefaultsConfig] = useState<HuggingFaceModelConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,8 +203,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const [open, setOpen] = useState(defaultOpen);
-  // Guards the one-time initial load: loadConfig's identity now changes when hfToken does, so we
-  // can't rely on an empty/[loadConfig] dep array to fire it exactly once — this ref does.
+  // Guards the one-time initial load: loadConfig's identity changes with hfToken, so a [loadConfig]
+  // dep can't fire it exactly once — this ref does.
   const initialLoadStartedRef = useRef(false);
 
   const loadConfig = useCallback(
@@ -199,7 +245,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             return;
           }
           if (error instanceof HuggingFaceAuthError) {
-            // Gated/private model — distinguish "no token yet" from "token supplied but rejected".
+            // Gated/private — distinguish "no token yet" from "token supplied but rejected".
             setAuthState(error.tokenProvided ? 'rejected' : 'missing');
             setReloadStatus(isReload ? 'error' : 'idle');
           } else {
@@ -224,9 +270,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     [hfToken, modelId]
   );
 
-  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a
-  // token edit). Token/revision changes reload via the explicit "Reload defaults" button; typing in
-  // the token field must NOT auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a token
+  // edit). Reloads happen via the explicit "Reload defaults" button — typing the token must NOT
+  // auto-refetch, which would reset the baseline and wipe uncommitted edits.
   useEffect(() => {
     if (initialLoadStartedRef.current) {
       return;
@@ -235,22 +281,19 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     return loadConfig({ isReload: false, resetDefaults: true });
   }, [loadConfig]);
 
-  // Editing the shared token invalidates the last reload result — clear the transient feedback so a
-  // stale "reloaded"/"rejected" notice doesn't linger until the user clicks Reload again.
+  // Editing the token invalidates the last reload result — clear transient feedback so a stale
+  // "reloaded"/"rejected" notice doesn't linger.
   useEffect(() => {
     setReloadStatus('idle');
   }, [hfToken]);
 
-  // HF model facts that lock fields the user cannot freely change. The context ceiling is the model's
-  // own reported max, used verbatim — NEVER raised above the model's real capability. null when HF
-  // reports nothing: the field becomes a free/blank input and launch omits --max-model-len so vLLM
-  // derives the real length from the model config.
+  // Model's own reported max context, used verbatim — NEVER raised above its real capability. null
+  // when HF reports nothing: the field goes free/blank and launch omits --max-model-len (vLLM derives it).
   const contextCeiling = useMemo(() => config?.maxContext ?? null, [config?.maxContext]);
 
-  // Effective lower bound for the max-context field. Normally the static floor, but a model whose
-  // reported max is BELOW that floor lowers it to the model's max — so the valid range collapses to
-  // that single value and the user can set exactly what the model accepts, never more (see
-  // MODEL_PARAM_BOUNDS). No ceiling reported → the nominal floor applies to a pinned value.
+  // Effective lower bound for max-context. Normally the static floor, but a model whose reported max
+  // is BELOW the floor lowers it to that max — so the range collapses to the single value the model
+  // accepts (see MODEL_PARAM_BOUNDS). No ceiling → nominal floor applies to a pinned value.
   const contextFloor = useMemo(
     () => (contextCeiling != null ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling) : MODEL_PARAM_BOUNDS.maxContext.min),
     [contextCeiling]
@@ -265,29 +308,32 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const isGenerative = isGenerativePipeline(pipelineTag);
   const showTools = isGenerative && !!config?.supportsTools;
 
-  // Prefill from previously committed/restored context params (returning to the step or after a
-  // refresh rehydrates them); else HF-derived defaults. Keyed on this model's params specifically so
-  // an unrelated model's commit doesn't reinitialize this card. Defaults are spread underneath so a
-  // params object hydrated from an older URL that lacks newer fields is completed, not left partial.
+  // Prefill from committed/restored context params (else HF-derived defaults). Keyed on this model's
+  // params so an unrelated model's commit doesn't reinitialize this card. Defaults spread underneath
+  // so a params object from an older URL lacking newer fields is completed, not left partial. The
+  // committed params are only merged when they match the SELECTED engine — switching engine drops the
+  // old branch's fields and starts from that engine's fresh defaults (their shapes don't overlap).
   const committedParams = modelParamsByModel[modelId];
-  const initialValues = useMemo(
-    () =>
-      committedParams
-        ? { ...buildModelDefaults(defaultsConfig, modelId), ...committedParams }
-        : buildModelDefaults(defaultsConfig, modelId),
-    [committedParams, defaultsConfig, modelId]
-  );
+  const initialValues = useMemo(() => {
+    const defaults = buildModelDefaults(defaultsConfig, modelId, engine);
+    return committedParams && committedParams.engine === engine
+      ? ({ ...defaults, ...committedParams } as ModelParametersType)
+      : defaults;
+  }, [committedParams, defaultsConfig, modelId, engine]);
 
   const formik = useFormik<ModelParametersType>({
     enableReinitialize: true,
     initialValues,
-    validate: (v) => validateParams(v, contextCeiling, contextFloor),
+    validate: (v) => validateParams(v, contextCeiling, contextFloor, bookedGpus),
     onSubmit: () => {},
   });
 
-  // Show a field error only once the user has touched it.
-  const errorFor = (field: keyof ModelParametersType) =>
-    formik.touched[field] ? (formik.errors[field] as string | undefined) : undefined;
+  // Show a field error only once the user has touched it. Typed loosely (string) because the field
+  // set differs per engine branch — the form values are a discriminated union.
+  const errorFor = (field: string) =>
+    (formik.touched as Record<string, unknown>)[field]
+      ? ((formik.errors as Record<string, unknown>)[field] as string | undefined)
+      : undefined;
 
   // Per-row custom-param key error (Formik nests these as errors.customParams[i].key).
   const customParamKeyError = (index: number): string | undefined => {
@@ -307,16 +353,21 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     );
   };
 
-  // Re-fetch HF defaults for the current token + pinned revision, then reset the form to them.
-  // The entered revision is preserved — buildDefaults blanks it, but it's what we just fetched against.
+  // Re-fetch HF defaults for the current token + pinned revision, then reset the form to them. The
+  // entered revision (vLLM only) is preserved — buildDefaults blanks it, but it's what we just
+  // fetched against. Rebuilds defaults for the ACTIVE engine so a reload keeps the right branch.
   const reloadDefaults = () => {
-    const revision = formik.values.revision;
+    const revision = formik.values.engine === 'vllm' ? formik.values.revision : undefined;
     loadConfig({
       revision,
       onLoaded: (result) => {
         // Only reset the form when defaults actually loaded; on failure keep the user's values.
         if (result) {
-          formik.resetForm({ values: { ...buildModelDefaults(result, modelId), revision } });
+          const defaults = buildModelDefaults(result, modelId, formik.values.engine);
+          // `revision` is only set for vLLM, so `defaults` is the vLLM branch here — but TS can't
+          // correlate the two, so re-assert the union type on the merged values.
+          const values = (revision ? { ...defaults, revision } : defaults) as ModelParametersType;
+          formik.resetForm({ values });
         }
       },
       isReload: true,
@@ -324,11 +375,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     });
   };
 
-  // Pinning a new revision refreshes the model facts (locked ceiling/quant) without touching the
-  // user's edits — resetDefaults=false keeps the form baseline frozen so formik doesn't reinitialize.
+  // Pinning a new revision refreshes model facts (locked ceiling/quant) without touching edits —
+  // resetDefaults=false keeps the form baseline frozen so formik doesn't reinitialize. vLLM only
+  // (llama.cpp serves a GGUF by repo:quant and has no revision field).
   const handleRevisionBlur = () => {
     loadConfig({
-      revision: formik.values.revision,
+      revision: formik.values.engine === 'vllm' ? formik.values.revision : undefined,
       isReload: false,
       resetDefaults: false,
     });
@@ -341,8 +393,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       validateAndGet: async () => {
         const errors = await formik.validateForm();
         if (Object.keys(errors).length > 0) {
-          // Mark every errored field touched so its message shows. customParams errors are a
-          // per-row array — mirror that shape so Formik surfaces each row's key error.
+          // Mark every errored field touched so its message shows. customParams errors are a per-row
+          // array — mirror that shape so Formik surfaces each row's key error.
           const touched = Object.keys(errors).reduce<Record<string, unknown>>((acc, key) => {
             if (key === 'customParams' && Array.isArray(errors.customParams)) {
               acc.customParams = (errors.customParams as unknown[]).map((rowError) => (rowError ? { key: true } : {}));
@@ -363,14 +415,359 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     [formik]
   );
 
-  // Unset tool params for a model that doesn't support them.
+  // Unset vLLM tool params for a model that doesn't support them (llama.cpp has no tool-parser field).
   useEffect(() => {
+    if (formik.values.engine !== 'vllm') {
+      return;
+    }
     if (!showTools && (formik.values.toolCalling || formik.values.toolCallParser)) {
       formik.setValues({ ...formik.values, toolCalling: false, toolCallParser: null });
     }
   }, [showTools, formik]);
 
-  // Full-card spinner only on the first load; later reloads (e.g. after a token) keep the form visible.
+  // Going back and re-booking fewer GPUs would otherwise leave a now-impossible shard width behind
+  // (the field hides below 2 GPUs, so the user couldn't even see the stale value to fix it).
+  useEffect(() => {
+    if (formik.values.engine !== 'vllm' || formik.values.tensorParallelSize == null) {
+      return;
+    }
+    if (formik.values.tensorParallelSize > bookedGpus) {
+      formik.setFieldValue('tensorParallelSize', bookedGpus > 1 ? bookedGpus : null);
+    }
+  }, [bookedGpus, formik]);
+
+  // vLLM cold launch flags — how the server loads and runs the raw HF weights. `v` is the narrowed
+  // vLLM branch of the form values (writes still go through formik by field name).
+  const renderVllmFlags = (v: VllmParameters) => (
+    <div className={styles.subsection}>
+      <div>
+        <h4>vLLM launch flags</h4>
+        <div className="textSecondary">Fixed when the model starts — changing them requires a restart</div>
+      </div>
+      <div className={styles.grid}>
+        <div className={styles.column}>
+          <Input
+            size="sm"
+            errorText={errorFor('servedModelName')}
+            hint="--served-model-name"
+            label={labelWithInfo(
+              'Served model name',
+              'The name the running model answers to — clients put this in the request `model` field and it shows in the model dropdown. A routing label only; if wrong, clients can’t address the model.'
+            )}
+            name="servedModelName"
+            onBlur={formik.handleBlur}
+            onChange={formik.handleChange}
+            placeholder="model"
+            type="text"
+            value={v.servedModelName}
+          />
+          {contextCeiling != null ? (
+            <Slider
+              errorText={errorFor('maxContext')}
+              hint="--max-model-len"
+              label={labelWithInfo(
+                `Max context - ${v.maxContext ?? contextCeiling}`,
+                'Max tokens (input + output combined) per request. Clients can’t exceed it. Higher handles longer documents but uses more VRAM for the KV cache. Ceiling comes from the model’s own config.'
+              )}
+              max={contextCeiling}
+              min={contextFloor}
+              name="maxContext"
+              onChange={(_, value) => formik.setFieldValue('maxContext', value)}
+              step={1024}
+              topRight={`${contextFloor} - ${contextCeiling}`}
+              value={v.maxContext ?? contextCeiling}
+              valueLabelFormat={(value) => String(value)}
+            />
+          ) : (
+            // Hugging Face reported no context length — offer a free, optional input. Blank means
+            // vLLM derives the length from the model config at launch (--max-model-len omitted).
+            <Input
+              size="sm"
+              errorText={errorFor('maxContext')}
+              hint="--max-model-len"
+              label={labelWithInfo(
+                'Max context',
+                'Max tokens (input + output combined) per request. Leave blank to let vLLM derive it from the model’s own config; set a number to pin it explicitly.'
+              )}
+              name="maxContext"
+              onBlur={formik.handleBlur}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                formik.setFieldValue('maxContext', raw === '' ? null : Number(raw));
+              }}
+              placeholder="Auto (vLLM decides)"
+              type="number"
+              value={v.maxContext ?? ''}
+            />
+          )}
+          <Select<ModelQuantization>
+            size="sm"
+            disabled={!!lockedQuant}
+            hint={lockedQuant ? 'Locked by model — already quantized' : '--quantization'}
+            label={labelWithInfo(
+              'Quantization',
+              'Compress model weights to a smaller numeric format to save VRAM. none = full precision (bf16); fp8/awq/gptq = smaller, often faster, slight quality tradeoff. Locked when the model ships pre-quantized. FP8 needs H100+ hardware.'
+            )}
+            name="quantization"
+            onChange={formik.handleChange}
+            options={quantizationOptions}
+            value={v.quantization}
+          />
+          <Select<ModelDtype>
+            size="sm"
+            hint="--dtype"
+            label={labelWithInfo(
+              'dtype',
+              'Numeric precision for the model’s math when not quantized. bfloat16/float16 = half precision (standard, fast); float32 = full (2× memory, rarely needed); auto = let vLLM pick from config. bf16 is the normal choice.'
+            )}
+            name="dtype"
+            onChange={formik.handleChange}
+            options={dtypeOptions}
+            value={v.dtype}
+          />
+          <div>
+            <Switch
+              checked={v.trustRemoteCode}
+              label={labelWithInfo(
+                'Trust remote code',
+                'Allows the model to run custom Python shipped in its HF repo (custom architectures/tokenizers). Many vision/OCR models won’t load without it. Off by default because it executes repo-authored code.',
+                true
+              )}
+              name="trustRemoteCode"
+              onChange={(_, checked) => formik.setFieldValue('trustRemoteCode', checked)}
+            />
+            <div className="textSecondary">--trust-remote-code</div>
+          </div>
+        </div>
+
+        <div className={styles.column}>
+          {showTools && (
+            <>
+              <div>
+                <Switch
+                  checked={v.toolCalling}
+                  label={labelWithInfo(
+                    'Tool calling',
+                    'Enables function/tool calling so the model can emit structured tool-call requests (what OpenWebUI’s function-calling needs). Cold — must be set at launch, can’t be toggled per request. Only shown for models whose chat template supports tools.',
+                    true
+                  )}
+                  name="toolCalling"
+                  onChange={(_, checked) => {
+                    formik.setFieldValue('toolCalling', checked);
+                    if (!checked) {
+                      formik.setFieldValue('toolCallParser', null);
+                    }
+                  }}
+                />
+                <div className="textSecondary">--enable-auto-tool-choice</div>
+              </div>
+              {v.toolCalling && (
+                <Select<ToolCallParser | ''>
+                  size="sm"
+                  errorText={(formik.errors as Record<string, unknown>).toolCallParser as string | undefined}
+                  hint="--tool-call-parser"
+                  label={labelWithInfo(
+                    'Tool call parser',
+                    'Tells vLLM how to parse the tool calls this model family emits (each formats them differently — llama, mistral, hermes, deepseek…). Must match the model or tool calls break. Auto-inferred from family, overridable, required when tool calling is on.'
+                  )}
+                  name="toolCallParser"
+                  onChange={(e) => formik.setFieldValue('toolCallParser', (e.target.value as ToolCallParser) || null)}
+                  options={toolParserOptions}
+                  placeholder="Select parser"
+                  value={v.toolCallParser ?? ''}
+                />
+              )}
+            </>
+          )}
+          <Slider
+            errorText={errorFor('gpuMemoryUtilization')}
+            hint="--gpu-memory-utilization"
+            label={labelWithInfo(
+              `GPU memory utilization - ${v.gpuMemoryUtilization.toFixed(2)}`,
+              'Fraction of the GPU’s VRAM vLLM may claim (0–1). 0.9 = up to 90%, leaving headroom. Higher = more room for KV cache / bigger batches; too high risks OOM. The actual “how much VRAM” lever.'
+            )}
+            max={MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max}
+            min={MODEL_PARAM_BOUNDS.gpuMemoryUtilization.min}
+            name="gpuMemoryUtilization"
+            onChange={(_, value) => formik.setFieldValue('gpuMemoryUtilization', value)}
+            step={0.05}
+            topRight={`${MODEL_PARAM_BOUNDS.gpuMemoryUtilization.min} - ${MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max}`}
+            value={v.gpuMemoryUtilization}
+            valueLabelFormat={(value) => Number(value).toFixed(2)}
+          />
+          {/* Only meaningful with more than one GPU booked; with a single GPU there's nothing to shard
+              across, so the field is hidden and the flag is never emitted. */}
+          {bookedGpus > 1 && (
+            <Slider
+              errorText={errorFor('tensorParallelSize')}
+              hint="--tensor-parallel-size"
+              label={labelWithInfo(
+                `Tensor parallelism - ${v.tensorParallelSize ?? 1}`,
+                'How many GPUs to split the model across. 1 keeps it on a single GPU; higher shards the weights so a model too big for one GPU fits, and can speed up inference. Can’t exceed the GPUs you booked, and some models require a value that divides their attention heads evenly.'
+              )}
+              max={bookedGpus}
+              min={1}
+              name="tensorParallelSize"
+              onChange={(_, value) => formik.setFieldValue('tensorParallelSize', value)}
+              step={1}
+              topRight={`1 - ${bookedGpus}`}
+              value={v.tensorParallelSize ?? 1}
+              valueLabelFormat={(value) => String(value)}
+            />
+          )}
+          <Select<KvCacheDtype>
+            size="sm"
+            hint="--kv-cache-dtype"
+            label={labelWithInfo(
+              'KV cache dtype',
+              'Precision for the KV cache specifically (memory holding context during generation). auto matches the model dtype; fp8 shrinks the cache so you fit more/longer sequences in the same VRAM, tiny quality cost. Separate from weight quantization.'
+            )}
+            name="kvCacheDtype"
+            onChange={formik.handleChange}
+            options={kvCacheDtypeOptions}
+            value={v.kvCacheDtype}
+          />
+          <Input
+            size="sm"
+            hint="--revision"
+            label={labelWithInfo(
+              'Revision',
+              'Which version of the HF repo to load — a branch, tag, or commit hash. Blank = main (latest). Pin an exact checkpoint so the model doesn’t silently change if the repo updates.'
+            )}
+            name="revision"
+            onBlur={handleRevisionBlur}
+            onChange={formik.handleChange}
+            placeholder="main"
+            type="text"
+            value={v.revision}
+          />
+          <div>
+            <Switch
+              checked={v.enforceEager}
+              label={labelWithInfo(
+                'Enforce eager',
+                'Disables CUDA graph capture, forcing eager execution. Slower, but uses less VRAM and is more forgiving — a fallback for debugging or when a model won’t start cleanly. Off = normal (faster) mode.',
+                true
+              )}
+              name="enforceEager"
+              onChange={(_, checked) => formik.setFieldValue('enforceEager', checked)}
+            />
+            <div className="textSecondary">--enforce-eager</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // llama.cpp cold launch flags — serves a GGUF quantization off the Hub. `v` is the narrowed
+  // llama.cpp branch of the form values.
+  const renderLlamaCppFlags = (v: LlamaCppParameters) => (
+    <div className={styles.subsection}>
+      <div>
+        <h4>llama.cpp launch flags</h4>
+        <div className="textSecondary">Fixed when the model starts — changing them requires a restart</div>
+      </div>
+      <div className={styles.grid}>
+        <div className={styles.column}>
+          <Input
+            size="sm"
+            errorText={errorFor('servedModelName')}
+            hint="--alias"
+            label={labelWithInfo(
+              'Served model name',
+              'The name the running model answers to — clients put this in the request `model` field. A routing label only; if wrong, clients can’t address the model.'
+            )}
+            name="servedModelName"
+            onBlur={formik.handleBlur}
+            onChange={formik.handleChange}
+            placeholder="model"
+            type="text"
+            value={v.servedModelName}
+          />
+          <Input
+            size="sm"
+            errorText={errorFor('ggufRepo')}
+            hint="-hf (repo)"
+            label={labelWithInfo(
+              'GGUF repo',
+              'The Hugging Face repo llama.cpp pulls the GGUF from — a `*-GGUF` repo, NOT the raw-weights repo. On startup llama.cpp downloads this from the Hub. Seeded as a best guess; correct it to a repo that actually ships GGUF files.'
+            )}
+            name="ggufRepo"
+            onBlur={formik.handleBlur}
+            onChange={formik.handleChange}
+            placeholder="bartowski/phi-4-GGUF"
+            type="text"
+            value={v.ggufRepo}
+          />
+          <Input
+            size="sm"
+            hint="-hf (:quant)"
+            label={labelWithInfo(
+              'Quantization',
+              'Which quantization file inside the repo to load — the tag after the `:` in `-hf repo:quant`. Q4_K_M is a common size/quality balance. Leave blank to let llama.cpp pick from the repo.'
+            )}
+            name="ggufQuant"
+            onBlur={formik.handleBlur}
+            onChange={formik.handleChange}
+            placeholder="Q4_K_M"
+            type="text"
+            value={v.ggufQuant}
+          />
+          <Input
+            size="sm"
+            errorText={errorFor('contextLength')}
+            hint="-c"
+            label={labelWithInfo(
+              'Context length',
+              'Max tokens (input + output combined) per request. Leave blank to use the model’s trained default; set a number to pin it. Higher uses more RAM for the KV cache.'
+            )}
+            name="contextLength"
+            onBlur={formik.handleBlur}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              formik.setFieldValue('contextLength', raw === '' ? null : Number(raw));
+            }}
+            placeholder="Model default"
+            type="number"
+            value={v.contextLength ?? ''}
+          />
+        </div>
+
+        <div className={styles.column}>
+          <Input
+            size="sm"
+            errorText={errorFor('gpuLayers')}
+            hint="-ngl"
+            label={labelWithInfo(
+              'GPU layers',
+              'How many model layers to offload to the GPU. 0 runs entirely on CPU (works everywhere). Higher moves more of the model onto the GPU for speed — needs a CUDA host/build and enough VRAM.'
+            )}
+            name="gpuLayers"
+            onBlur={formik.handleBlur}
+            onChange={(e) => formik.setFieldValue('gpuLayers', Number(e.target.value))}
+            placeholder="0"
+            type="number"
+            value={v.gpuLayers}
+          />
+          <div>
+            <Switch
+              checked={v.jinja}
+              label={labelWithInfo(
+                'Chat template (Jinja)',
+                'Enables the model’s built-in Jinja chat template so multi-turn chat and tool calls format correctly. Keep on for chat models.',
+                true
+              )}
+              name="jinja"
+              onChange={(_, checked) => formik.setFieldValue('jinja', checked)}
+            />
+            <div className="textSecondary">--jinja</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Full-card spinner only on first load; later reloads keep the form visible.
   if (loading && !config && authState === 'none' && !loadError) {
     return (
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -418,8 +815,30 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       </div>
       <Collapse in={open} unmountOnExit>
         <section className={styles.section}>
-          {/* Custom parameters — arbitrary key/value pairs (env-var style). No fixed schema; any
-              param can be set on any model. Only rule: non-empty, unique keys. */}
+          {/* Engine picks the runtime (image/port/command) and which launch flags below are shown. */}
+          <div className={styles.subsection}>
+            <div>
+              <h4>Inference engine</h4>
+              <div className="textSecondary">
+                Switching resets the launch flags below — vLLM and llama.cpp take different settings.
+              </div>
+            </div>
+            <Select<InferenceEngine>
+              size="sm"
+              label={labelWithInfo(
+                'Engine',
+                'vLLM serves the raw Hugging Face weights on a CUDA GPU; llama.cpp serves a GGUF quantization and can run on CPU. The choice sets the container image, port and launch command.'
+              )}
+              name="engine"
+              onChange={(e) => setEngine(e.target.value as InferenceEngine)}
+              options={INFERENCE_ENGINE_OPTIONS}
+              value={engine}
+            />
+          </div>
+
+          <div className={styles.divider} />
+
+          {/* Custom parameters — arbitrary key/value pairs (env-var style). Only rule: non-empty, unique keys. */}
           <div className={styles.subsection}>
             <div className={styles.subsectionHead}>
               <div>
@@ -478,205 +897,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
 
           <div className={styles.divider} />
 
-          {/* vLLM engine — cold launch flags: how the server loads and runs the model. */}
-          <div className={styles.subsection}>
-            <div>
-              <h4>vLLM Launch flags</h4>
-              <div className="textSecondary">Fixed when the model starts — changing them requires a restart</div>
-            </div>
-            <div className={styles.grid}>
-              <div className={styles.column}>
-                <Input
-                  size="sm"
-                  errorText={errorFor('servedModelName')}
-                  hint="--served-model-name"
-                  label={labelWithInfo(
-                    'Served model name',
-                    'The name the running model answers to — clients put this in the request `model` field and it shows in the model dropdown. A routing label only; if wrong, clients can’t address the model.'
-                  )}
-                  name="servedModelName"
-                  onBlur={formik.handleBlur}
-                  onChange={formik.handleChange}
-                  placeholder="model"
-                  type="text"
-                  value={formik.values.servedModelName}
-                />
-                {contextCeiling != null ? (
-                  <Slider
-                    hint="--max-model-len"
-                    label={labelWithInfo(
-                      `Max context - ${formik.values.maxContext ?? contextCeiling}`,
-                      'Max tokens (input + output combined) per request. Clients can’t exceed it. Higher handles longer documents but uses more VRAM for the KV cache. Ceiling comes from the model’s own config.'
-                    )}
-                    max={contextCeiling}
-                    min={contextFloor}
-                    name="maxContext"
-                    onChange={(_, value) => formik.setFieldValue('maxContext', value)}
-                    step={1024}
-                    topRight={`${contextFloor} - ${contextCeiling}`}
-                    value={formik.values.maxContext ?? contextCeiling}
-                    valueLabelFormat={(value) => String(value)}
-                  />
-                ) : (
-                  // Hugging Face reported no context length — offer a free, optional input. Blank means
-                  // vLLM derives the length from the model config at launch (--max-model-len omitted).
-                  <Input
-                    size="sm"
-                    errorText={errorFor('maxContext')}
-                    hint="--max-model-len"
-                    label={labelWithInfo(
-                      'Max context',
-                      'Max tokens (input + output combined) per request. Leave blank to let vLLM derive it from the model’s own config; set a number to pin it explicitly.'
-                    )}
-                    name="maxContext"
-                    onBlur={formik.handleBlur}
-                    onChange={(e) => {
-                      const raw = e.target.value.trim();
-                      formik.setFieldValue('maxContext', raw === '' ? null : Number(raw));
-                    }}
-                    placeholder="Auto (vLLM decides)"
-                    type="number"
-                    value={formik.values.maxContext ?? ''}
-                  />
-                )}
-                <Select<ModelQuantization>
-                  size="sm"
-                  disabled={!!lockedQuant}
-                  hint={lockedQuant ? 'Locked by model — already quantized' : '--quantization'}
-                  label={labelWithInfo(
-                    'Quantization',
-                    'Compress model weights to a smaller numeric format to save VRAM. none = full precision (bf16); fp8/awq/gptq = smaller, often faster, slight quality tradeoff. Locked when the model ships pre-quantized. FP8 needs H100+ hardware.'
-                  )}
-                  name="quantization"
-                  onChange={formik.handleChange}
-                  options={quantizationOptions}
-                  value={formik.values.quantization}
-                />
-                <Select<ModelDtype>
-                  size="sm"
-                  hint="--dtype"
-                  label={labelWithInfo(
-                    'dtype',
-                    'Numeric precision for the model’s math when not quantized. bfloat16/float16 = half precision (standard, fast); float32 = full (2× memory, rarely needed); auto = let vLLM pick from config. bf16 is the normal choice.'
-                  )}
-                  name="dtype"
-                  onChange={formik.handleChange}
-                  options={dtypeOptions}
-                  value={formik.values.dtype}
-                />
-                <div>
-                  <Switch
-                    checked={formik.values.trustRemoteCode}
-                    label={labelWithInfo(
-                      'Trust remote code',
-                      'Allows the model to run custom Python shipped in its HF repo (custom architectures/tokenizers). Many vision/OCR models won’t load without it. Off by default because it executes repo-authored code.',
-                      true
-                    )}
-                    name="trustRemoteCode"
-                    onChange={(_, checked) => formik.setFieldValue('trustRemoteCode', checked)}
-                  />
-                  <div className="textSecondary">--trust-remote-code</div>
-                </div>
-              </div>
-
-              <div className={styles.column}>
-                {showTools && (
-                  <>
-                    <div>
-                      <Switch
-                        checked={formik.values.toolCalling}
-                        label={labelWithInfo(
-                          'Tool calling',
-                          'Enables function/tool calling so the model can emit structured tool-call requests (what OpenWebUI’s function-calling needs). Cold — must be set at launch, can’t be toggled per request. Only shown for models whose chat template supports tools.',
-                          true
-                        )}
-                        name="toolCalling"
-                        onChange={(_, checked) => {
-                          formik.setFieldValue('toolCalling', checked);
-                          if (!checked) {
-                            formik.setFieldValue('toolCallParser', null);
-                          }
-                        }}
-                      />
-                      <div className="textSecondary">--enable-auto-tool-choice</div>
-                    </div>
-                    {formik.values.toolCalling && (
-                      <Select<ToolCallParser | ''>
-                        size="sm"
-                        errorText={formik.errors.toolCallParser}
-                        hint="--tool-call-parser"
-                        label={labelWithInfo(
-                          'Tool call parser',
-                          'Tells vLLM how to parse the tool calls this model family emits (each formats them differently — llama, mistral, hermes, deepseek…). Must match the model or tool calls break. Auto-inferred from family, overridable, required when tool calling is on.'
-                        )}
-                        name="toolCallParser"
-                        onChange={(e) =>
-                          formik.setFieldValue('toolCallParser', (e.target.value as ToolCallParser) || null)
-                        }
-                        options={toolParserOptions}
-                        placeholder="Select parser"
-                        value={formik.values.toolCallParser ?? ''}
-                      />
-                    )}
-                  </>
-                )}
-                <Slider
-                  hint="--gpu-memory-utilization"
-                  label={labelWithInfo(
-                    `GPU memory utilization - ${formik.values.gpuMemoryUtilization.toFixed(2)}`,
-                    'Fraction of the GPU’s VRAM vLLM may claim (0–1). 0.9 = up to 90%, leaving headroom. Higher = more room for KV cache / bigger batches; too high risks OOM. The actual “how much VRAM” lever.'
-                  )}
-                  max={MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max}
-                  min={MODEL_PARAM_BOUNDS.gpuMemoryUtilization.min}
-                  name="gpuMemoryUtilization"
-                  onChange={(_, value) => formik.setFieldValue('gpuMemoryUtilization', value)}
-                  step={0.05}
-                  topRight={`${MODEL_PARAM_BOUNDS.gpuMemoryUtilization.min} - ${MODEL_PARAM_BOUNDS.gpuMemoryUtilization.max}`}
-                  value={formik.values.gpuMemoryUtilization}
-                  valueLabelFormat={(value) => Number(value).toFixed(2)}
-                />
-                <Select<KvCacheDtype>
-                  size="sm"
-                  hint="--kv-cache-dtype"
-                  label={labelWithInfo(
-                    'KV cache dtype',
-                    'Precision for the KV cache specifically (memory holding context during generation). auto matches the model dtype; fp8 shrinks the cache so you fit more/longer sequences in the same VRAM, tiny quality cost. Separate from weight quantization.'
-                  )}
-                  name="kvCacheDtype"
-                  onChange={formik.handleChange}
-                  options={kvCacheDtypeOptions}
-                  value={formik.values.kvCacheDtype}
-                />
-                <Input
-                  size="sm"
-                  hint="--revision"
-                  label={labelWithInfo(
-                    'Revision',
-                    'Which version of the HF repo to load — a branch, tag, or commit hash. Blank = main (latest). Pin an exact checkpoint so the model doesn’t silently change if the repo updates.'
-                  )}
-                  name="revision"
-                  onBlur={handleRevisionBlur}
-                  onChange={formik.handleChange}
-                  placeholder="main"
-                  type="text"
-                  value={formik.values.revision}
-                />
-                <div>
-                  <Switch
-                    checked={formik.values.enforceEager}
-                    label={labelWithInfo(
-                      'Enforce eager',
-                      'Disables CUDA graph capture, forcing eager execution. Slower, but uses less VRAM and is more forgiving — a fallback for debugging or when a model won’t start cleanly. Off = normal (faster) mode.',
-                      true
-                    )}
-                    name="enforceEager"
-                    onChange={(_, checked) => formik.setFieldValue('enforceEager', checked)}
-                  />
-                  <div className="textSecondary">--enforce-eager</div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {formik.values.engine === 'vllm' ? renderVllmFlags(formik.values) : renderLlamaCppFlags(formik.values)}
         </section>
       </Collapse>
     </Card>

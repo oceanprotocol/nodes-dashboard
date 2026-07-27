@@ -5,12 +5,14 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
-import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
+import { INFERENCE_ENGINE_OPTIONS } from '@/services/huggingface-service';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
+import { InferenceEngine } from '@/types/huggingface';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
@@ -24,6 +26,15 @@ function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
     min: env.minJobDuration ?? 0,
     max: env.maxJobDuration ?? Infinity,
   };
+}
+
+/** An env is bookable for inference when it (a) advertises service-on-demand support — the node
+ *  rejects serviceStart with 403 otherwise — and (b) accepts a paid token we support (USDC / COMPY). */
+function isBookableEnv(env: ComputeEnvironment): boolean {
+  if (!env.features?.services) {
+    return false;
+  }
+  return getEnvSupportedTokens(env, true).length > 0;
 }
 
 const sortOptions = [
@@ -47,8 +58,15 @@ type SelectInferenceEnvironmentProps = {
 const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({ onEnvSelected }) => {
   const { loading, loadMoreEnvs, nodeEnvs, paginationResponse, filters, setFilters, setSort, sort } =
     useRunJobEnvsContext();
-  const { jobDurationSeconds, setJobDurationSeconds, setSelectedEnv, selectedEnv, setSelectedToken } =
-    useInferenceContext();
+  const {
+    jobDurationSeconds,
+    setJobDurationSeconds,
+    setSelectedEnv,
+    selectedEnv,
+    setSelectedToken,
+    engine,
+    setEngine,
+  } = useInferenceContext();
 
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
   // min/max job-duration window. Cleared on the next valid pick or duration change.
@@ -97,25 +115,10 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     },
   });
 
-  // Keep only environments that:
-  // (a) advertise service-on-demand support — the node rejects serviceStart with 403 otherwise
-  // (b) support a paid token we accept (USDC / COMPY).
   const filteredNodeEnvs = useMemo(() => {
     const result: NodeEnvironments[] = [];
     nodeEnvs.forEach((nodeEnv) => {
-      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter((env) => {
-        if (!env.features?.services) {
-          return false;
-        }
-        if (!env.fees?.[CHAIN_ID]) {
-          return false;
-        }
-        return env.fees[CHAIN_ID].some(
-          (fee) =>
-            fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ||
-            fee.feeToken.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase()
-        );
-      });
+      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter(isBookableEnv);
       if (filteredEnvs.length > 0) {
         result.push({
           ...nodeEnv,
@@ -126,7 +129,8 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     return result;
   }, [nodeEnvs]);
 
-  // If everything was filtered out and there are more pages, load the next one.
+  // Keep paging while the visible list is empty. loadMoreEnvs itself skips over pages that contribute
+  // nothing bookable, so this fires once per stall rather than once per server page.
   useEffect(() => {
     if (
       !loading &&
@@ -134,7 +138,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       paginationResponse &&
       paginationResponse.currentPage < paginationResponse.totalPages
     ) {
-      loadMoreEnvs();
+      loadMoreEnvs(isBookableEnv);
     }
   }, [filteredNodeEnvs.length, loading, loadMoreEnvs, paginationResponse]);
 
@@ -175,6 +179,10 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     setSelectedEnv({
       environment,
       gpuSelection,
+      // Preserve a package handoff floor across a re-select in this step (mirrors the URL round-trip),
+      // so a user who re-picks the same/another env in the custom flow keeps the package's min floor.
+      // The custom flow only ever carries a `floor` sizing here (never pinned).
+      sizing: selectedEnv?.sizing,
       nodeInfo: {
         currentAddrs: node.currentAddrs,
         friendlyName: node.friendlyName,
@@ -192,20 +200,32 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
         <div className={styles.durationRow}>
           <div>
-            <h3>Duration</h3>
+            <h3>Engine &amp; duration</h3>
             <div className="textSecondary">
               Prices below are shown for <strong>selected duration</strong>
             </div>
           </div>
-          <DurationInput
-            availableUnits={DURATION_UNIT_OPTIONS}
-            defaultUnit="hours"
-            errorText={durationError ?? undefined}
-            min={1}
-            onChange={onDurationChange}
-            size="md"
-            value={jobDurationSeconds}
-          />
+          <div className={styles.controls}>
+            <Select<InferenceEngine>
+              className={styles.input}
+              label="Engine"
+              onChange={(e) => setEngine(e.target.value as InferenceEngine)}
+              options={INFERENCE_ENGINE_OPTIONS}
+              size="sm"
+              value={engine}
+            />
+            <DurationInput
+              availableUnits={DURATION_UNIT_OPTIONS}
+              className={styles.input}
+              defaultUnit="hours"
+              errorText={durationError ?? undefined}
+              label="Session length"
+              min={1}
+              onChange={onDurationChange}
+              size="sm"
+              value={jobDurationSeconds}
+            />
+          </div>
         </div>
       </Card>
 
@@ -257,41 +277,40 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
         <div className={styles.list}>
           {filteredNodeEnvs.length > 0 ? (
-            <>
-              {filteredNodeEnvs.map((node) =>
-                node.computeEnvironments.environments.map((env) => {
-                  const isPriorSelection =
-                    selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
-                  return (
-                    <InferenceEnvironmentCard
-                      defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
-                      durationSeconds={jobDurationSeconds}
-                      environment={env}
-                      initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
-                      key={`${node.id}-${env.id}`}
-                      selected={isPriorSelection}
-                      nodeInfo={{
-                        currentAddrs: node.currentAddrs,
-                        friendlyName: node.friendlyName,
-                        id: node.id,
-                        latestBenchmarkResults: node.latestBenchmarkResults,
-                        multiaddrs: node.multiaddrs,
-                      }}
-                      onSelect={(tokenAddress, tokenSymbol, gpuSelection) =>
-                        handleSelect(node, env.id, tokenAddress, tokenSymbol, gpuSelection)
-                      }
-                    />
-                  );
-                })
-              )}
-              {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-                <Button className="alignSelfCenter" color="accent2" loading={loading} onClick={loadMoreEnvs}>
-                  Load more
-                </Button>
-              )}
-            </>
+            filteredNodeEnvs.map((node) =>
+              node.computeEnvironments.environments.map((env) => {
+                const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
+                return (
+                  <InferenceEnvironmentCard
+                    defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
+                    durationSeconds={jobDurationSeconds}
+                    environment={env}
+                    initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
+                    key={`${node.id}-${env.id}`}
+                    sizing={selectedEnv?.sizing}
+                    selected={isPriorSelection}
+                    nodeInfo={node}
+                    onSelect={(tokenAddress, tokenSymbol, gpuSelection) =>
+                      handleSelect(node, env.id, tokenAddress, tokenSymbol, gpuSelection)
+                    }
+                  />
+                );
+              })
+            )
           ) : (
             <p className="alignSelfCenter">{loading ? 'Loading environments…' : 'No environments found'}</p>
+          )}
+          {/* Outside the empty-check above: a page whose envs all get filtered out client-side must
+              still offer a way forward, or the user is stranded with pages left unexplored. */}
+          {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
+            <Button
+              className="alignSelfCenter"
+              color="accent2"
+              loading={loading}
+              onClick={() => loadMoreEnvs(isBookableEnv)}
+            >
+              Load more
+            </Button>
           )}
         </div>
       </Card>
