@@ -8,9 +8,11 @@ import {
   getComputeStatus,
   getNodeBuckets as getNodeBucketsService,
   getNodeEnvs,
+  getNodeJobs as getNodeJobsFromService,
   getNodeLogs as getNodeLogsService,
   getPeerMultiaddr as getPeerMultiaddrFromService,
   getServiceLogs as getServiceLogsFromService,
+  getServices as getServicesFromService,
   getServiceStatus as getServiceStatusFromService,
   getServiceTemplates as getServiceTemplatesFromService,
   initializeCompute as initializeComputeFromService,
@@ -32,6 +34,7 @@ import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
 import {
   ComputeResourceRequest,
+  type NodeComputeJob,
   type NodeLogEntry,
   type NodeLogsParams,
   OceanNode,
@@ -41,6 +44,8 @@ import {
   type PersistentStorageFileEntry,
   ProviderInstance,
   type ServiceJob,
+  type ServiceJobListed,
+  type ServiceListFilters,
   type ServicePayment,
   type ServiceRestartParams,
   type ServiceStartParams,
@@ -178,6 +183,22 @@ interface P2PContextType {
     serviceId?: string,
     signal?: AbortSignal
   ) => Promise<ServiceJob[]>;
+  /**
+   * List every service running on the node across all owners (node-wide, not owner-scoped like
+   * getServiceStatus) — for a node owner to see what's actually running on their hardware. Defaults
+   * to services holding a reservation; pass `filters.includeAllStatuses` for every status.
+   */
+  getServices: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    filters?: ServiceListFilters,
+    signal?: AbortSignal
+  ) => Promise<ServiceJobListed[]>;
+  /**
+   * List all compute jobs on the node (node-wide, every owner — not scoped to the caller).
+   * Unauthenticated. `fromTimestamp` (Unix seconds) optionally bounds to recent jobs.
+   */
+  getNodeJobs: (nodeUri: NodeUri, fromTimestamp?: number, signal?: AbortSignal) => Promise<NodeComputeJob[]>;
   /** Extend a running service's lifetime by `additionalDuration` seconds (paid like the start). */
   serviceExtend: (
     nodeUri: NodeUri,
@@ -579,11 +600,41 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getServiceStatus = useCallback(
-    async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, serviceId?: string, signal?: AbortSignal) => {
+    async (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      serviceId?: string,
+      signal?: AbortSignal
+    ) => {
       if (!isReady) {
         throw new Error('Node not ready');
       }
       return getServiceStatusFromService(nodeUri, signerOrAuthToken, serviceId, signal);
+    },
+    [isReady]
+  );
+
+  const getServices = useCallback(
+    async (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      filters?: ServiceListFilters,
+      signal?: AbortSignal
+    ) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getServicesFromService(nodeUri, signerOrAuthToken, filters, signal);
+    },
+    [isReady]
+  );
+
+  const getNodeJobs = useCallback(
+    async (nodeUri: NodeUri, fromTimestamp?: number, signal?: AbortSignal) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getNodeJobsFromService(nodeUri, fromTimestamp, signal);
     },
     [isReady]
   );
@@ -685,6 +736,8 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         sendCommand,
         serviceStart,
         getServiceStatus,
+        getServices,
+        getNodeJobs,
         serviceExtend,
         serviceRestart,
         serviceStop,
