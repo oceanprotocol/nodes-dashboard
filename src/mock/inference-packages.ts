@@ -7,14 +7,14 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
  * `model` holds only what the card + modal render (id, author, pipelineTag); the full HF model is
  * fetched by id when a package is opened. Model ids are real, ungated HF repos.
  *
- * These mocks stand in for templates fetched from a node — so each carries a `sourcePeerId` (the
- * node below). The details modal lists that node's environments, filtered to those that satisfy
- * `requiredResources`, and the user picks one there.
+ * These mocks stand in for templates fetched from a node — so each carries `sourcePeerIds`, the
+ * nodes it may be run on (the list below). The details modal lists every one of those nodes'
+ * environments, filtered to those that satisfy `requiredResources`, and the user picks one there.
  */
 
-// Real service-on-demand node these mock packages pretend to have been fetched from — the modal
-// lists its environments.
-const NODE_ID = '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi';
+// Real service-on-demand nodes these mock packages can run on — the modal lists their environments.
+// Add more peer ids here to offer a package on more nodes.
+const NODE_IDS = ['16Uiu2HAmVa9jQFm4SKrNtYs1QXLzwmMa8YPBCAjEBf8aR8dbLgeE', '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'];
 
 // Shared resource floors/recommendations — every package targets the same single-GPU footprint.
 const REQUIRED_RESOURCES: ResourceRequirement[] = [
@@ -59,7 +59,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       toolCallParser: 'hermes',
     },
     type: 'quickstart',
-    sourcePeerId: NODE_ID,
+    sourcePeerIds: NODE_IDS,
     requiredResources: REQUIRED_RESOURCES,
   },
   {
@@ -85,7 +85,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       toolCallParser: 'hermes',
     },
     type: 'quickstart',
-    sourcePeerId: NODE_ID,
+    sourcePeerIds: NODE_IDS,
     requiredResources: REQUIRED_RESOURCES,
   },
   {
@@ -111,7 +111,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       toolCallParser: null,
     },
     type: 'quickstart',
-    sourcePeerId: NODE_ID,
+    sourcePeerIds: NODE_IDS,
     requiredResources: REQUIRED_RESOURCES,
   },
   {
@@ -136,7 +136,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
       jinja: true,
     },
     type: 'quickstart',
-    sourcePeerId: NODE_ID,
+    sourcePeerIds: NODE_IDS,
     requiredResources: REQUIRED_RESOURCES,
   },
 ];

@@ -41,11 +41,12 @@ export type InferencePackage = {
   params: ModelParameters;
   type: 'quickstart' | 'template'
   /**
-   * Peer id of the node this package was fetched from. Not part of the node's template JSON —
-   * stamped at load time (see use-default-model-packages) so the details modal knows whose
-   * environments to list. Its envs are filtered to those that satisfy `requiredResources`.
+   * Peer ids of the nodes this package can run on. For a template fetched from a node this holds
+   * that single node (stamped at load time — see use-default-model-packages; the template JSON
+   * carries no peer id); for a curated mock it lists every node it may be launched on. The details
+   * modal lists all of these nodes' envs, filtered to those that satisfy `requiredResources`.
    */
-  sourcePeerId: string;
+  sourcePeerIds: string[];
   /**
    * Resource floors/recommendations for this package. Quick start books the `recommended` amount of
    * each (clamped to the live env); the custom flow ignores this and lets the user size resources.

@@ -116,11 +116,12 @@ function autoGpuSelection(
 }
 
 /**
- * Resolve the environments a package can run on. The package carries only its source node's peer id;
- * this fetches that node's environments, keeps the ones that (a) advertise service-on-demand, (b)
+ * Resolve the environments a package can run on. The package carries only its source nodes' peer ids;
+ * this fetches those nodes' environments, keeps the ones that (a) advertise service-on-demand, (b)
  * accept a supported paid token (USDC/COMPY), and (c) can currently satisfy the package's resource
  * floors, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU
- * selection + seeded token). The modal renders one card + Continue per entry.
+ * selection + seeded token). The modal renders one card + Continue per entry, across all nodes.
+ * Only when EVERY listed node is unreachable does this surface an error.
  */
 const usePackageEnvs = (pkg: InferencePackage | null) => {
   const [resolved, setResolved] = useState<ResolvedPackageEnv[]>([]);
@@ -138,7 +139,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
     // Aborts the in-flight request on effect re-run / unmount (modal closed, package switched), on top
     // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
     const cleanupController = new AbortController();
-    const peerId = pkg.sourcePeerId;
+    const peerIds = Array.from(new Set(pkg.sourcePeerIds ?? []));
     const sizing = recommendedSizing(pkg);
 
     async function resolve() {
@@ -146,37 +147,65 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
       setLoadError(null);
       setResolved([]);
       try {
-        const response = await withTimeout(
-          (timeoutSignal) =>
-            axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
-              params: {
-                filters: JSON.stringify({ id: { operator: 'eq', value: peerId } }),
-                size: 1000,
-              },
-              // Abort on whichever fires first: the timeout, or effect cleanup.
-              signal: AbortSignal.any([timeoutSignal, cleanupController.signal]),
-            }),
-          ENV_FETCH_TIMEOUT_MS,
-          'Package environment lookup'
+        // One lookup per source node, isolated: an unreachable node contributes nothing instead of
+        // dropping the envs of the nodes that did answer.
+        const nodeResults = await Promise.allSettled(
+          peerIds.map(async (peerId) => {
+            const response = await withTimeout(
+              (timeoutSignal) =>
+                axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
+                  params: {
+                    filters: JSON.stringify({ id: { operator: 'eq', value: peerId } }),
+                    size: 1000,
+                  },
+                  // Abort on whichever fires first: the timeout, or effect cleanup.
+                  signal: AbortSignal.any([timeoutSignal, cleanupController.signal]),
+                }),
+              ENV_FETCH_TIMEOUT_MS,
+              'Package environment lookup'
+            );
+            const node = response.data.envs.find((n) => n.id === peerId);
+            if (!node) {
+              throw new Error(`Node ${peerId} is not reachable right now.`);
+            }
+            return node;
+          })
         );
-        const node = response.data.envs.find((n) => n.id === peerId);
-        if (!node) {
-          throw new Error('The node for this package is not reachable right now.');
-        }
-        // Keep only envs that can run the package: service-on-demand + a supported paid token + the
-        // package's resource floors.
-        const candidates = (node.computeEnvironments.environments ?? []).filter((environment) => {
-          if (!environment.features?.services) {
-            return false;
+
+        const nodes = nodeResults
+          .filter((result): result is PromiseFulfilledResult<NodeEnvironments> => result.status === 'fulfilled')
+          .map((result) => result.value);
+
+        nodeResults.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.error(`Failed to fetch environments from ${peerIds[index]}:`, result.reason);
           }
-          if (getEnvSupportedTokens(environment, true).length === 0) {
-            return false;
-          }
-          return meetsMinResources(environment, pkg!.requiredResources);
         });
 
+        // Error only when nothing came back at all — a partial result still gives the user something
+        // bookable.
+        if (nodes.length === 0) {
+          throw new Error('The nodes for this package are not reachable right now.');
+        }
+
+        // Keep only envs that can run the package: service-on-demand + a supported paid token + the
+        // package's resource floors. Flattened across nodes, each env keeping its own node.
+        const candidates = nodes.flatMap((node) =>
+          (node.computeEnvironments.environments ?? [])
+            .filter((environment) => {
+              if (!environment.features?.services) {
+                return false;
+              }
+              if (getEnvSupportedTokens(environment, true).length === 0) {
+                return false;
+              }
+              return meetsMinResources(environment, pkg!.requiredResources);
+            })
+            .map((environment) => ({ node, environment }))
+        );
+
         const entries = await Promise.all(
-          candidates.map(async (environment): Promise<ResolvedPackageEnv> => {
+          candidates.map(async ({ node, environment }): Promise<ResolvedPackageEnv> => {
             const tokenAddress = pickDefaultToken(getEnvSupportedTokens(environment, true));
             let symbol: string | null = null;
             if (tokenAddress) {

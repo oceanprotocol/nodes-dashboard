@@ -83,7 +83,7 @@ const useDefaultModelPackages = (): DefaultModelPackages => {
           if (template.type === 'quickstart' && template?.id && !byId.has(template.id)) {
             // Stamp the source node so the details modal knows whose environments to list — the
             // template JSON itself carries no peer id.
-            byId.set(template.id, { ...template, sourcePeerId: peerIds[index] });
+            byId.set(template.id, { ...template, sourcePeerIds: [peerIds[index]] });
           }
         }
       });
