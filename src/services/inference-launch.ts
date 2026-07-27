@@ -78,6 +78,11 @@ function buildVllmCommand(model: HuggingFaceModel, params: Extract<ModelParamete
   if (Number.isFinite(params.gpuMemoryUtilization) && params.gpuMemoryUtilization > 0) {
     cmd.push('--gpu-memory-utilization', String(params.gpuMemoryUtilization));
   }
+  // Only emitted for a genuine multi-GPU shard — vLLM's default is 1, and passing it explicitly adds
+  // nothing. Guarded like the numeric flags above so a NaN can't produce `--tensor-parallel-size NaN`.
+  if (params.tensorParallelSize != null && Number.isFinite(params.tensorParallelSize) && params.tensorParallelSize > 1) {
+    cmd.push('--tensor-parallel-size', String(Math.floor(params.tensorParallelSize)));
+  }
 
   if (params.servedModelName) {
     cmd.push('--served-model-name', params.servedModelName);
@@ -186,6 +191,7 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
 
   const maxContextRaw = Number(valueOf('--max-model-len'));
   const gpuMemRaw = Number(valueOf('--gpu-memory-utilization'));
+  const tensorParallelRaw = Number(valueOf('--tensor-parallel-size'));
   const dtype = valueOf('--dtype');
   const quantization = valueOf('--quantization');
   const kvCacheDtype = valueOf('--kv-cache-dtype');
@@ -199,6 +205,8 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
       // derived it. Keep that as null rather than inventing a number.
       maxContext: Number.isFinite(maxContextRaw) && maxContextRaw > 0 ? maxContextRaw : null,
       gpuMemoryUtilization: Number.isFinite(gpuMemRaw) && gpuMemRaw > 0 ? gpuMemRaw : defaults.gpuMemoryUtilization,
+      // Flag absent → single GPU (vLLM's default), which we represent as null so it isn't re-emitted.
+      tensorParallelSize: Number.isFinite(tensorParallelRaw) && tensorParallelRaw > 1 ? tensorParallelRaw : null,
       dtype: (dtype as typeof defaults.dtype) ?? defaults.dtype,
       quantization: (quantization as typeof defaults.quantization) ?? defaults.quantization,
       kvCacheDtype: (kvCacheDtype as typeof defaults.kvCacheDtype) ?? defaults.kvCacheDtype,

@@ -3,7 +3,7 @@ import { normalizeNodeUri } from '@/services/nodeService';
 import { CHAIN_ID } from '@/constants/chains';
 import { InferencePackage } from '@/types/inference';
 import { useEffect, useState } from 'react';
-import { MOCK_INFERENCE_PACKAGES } from '@/mock/inference-packages';
+import { INFERENCE_QUICKSTART_PACKAGES } from '@/data/inference-quickstart-packages';
 
 /**
  * Nodes whose service templates seed the quick-start packages, from NEXT_PUBLIC_DEFAULT_MODEL_PEER_IDS
@@ -103,8 +103,8 @@ const useDefaultModelPackages = (): DefaultModelPackages => {
   }, [isReady, getServiceTemplates]);
 
   return {
-    // TODO remove mock inference packages from list
-    packages: [...packages, ...MOCK_INFERENCE_PACKAGES],
+    // Node-advertised templates first, then the curated static catalogue.
+    packages: [...packages, ...INFERENCE_QUICKSTART_PACKAGES],
     loading,
     error
   };

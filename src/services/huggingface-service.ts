@@ -485,6 +485,8 @@ function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: strin
     // lowers its floor to the model's max for sub-floor models (see MODEL_PARAM_BOUNDS), so even a
     // reported value below the nominal floor is a valid default the user can keep or pin.
     maxContext: config?.maxContext ?? null,
+    // null = single GPU (vLLM's own default) — the flag is only emitted for a real multi-GPU shard.
+    tensorParallelSize: null,
     gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
     quantization: lockedQuant ?? 'none',
     // Default to 'auto' rather than the model's own torch_dtype: many models declare bfloat16, which

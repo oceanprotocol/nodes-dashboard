@@ -24,6 +24,7 @@ export type ToolCallParser =
   | 'internlm'
   | 'jamba'
   | 'deepseek_v3'
+  | 'qwen3_coder'
   | 'pythonic';
 
 /** A user-defined launch parameter — an arbitrary key/value pair, like a Vercel env var. */
@@ -58,6 +59,12 @@ export type VllmParameters = CommonModelParameters & {
   // Optional: null = don't emit --max-model-len, let vLLM derive the context length from the model
   // config at launch. A number pins it explicitly.
   maxContext: number | null;
+  /**
+   * Number of GPUs to shard the model across (`--tensor-parallel-size`). 1 (or null) = single GPU,
+   * flag omitted. Must match the GPU count the package books, or vLLM either OOMs (booked fewer than
+   * it shards across) or leaves GPUs idle.
+   */
+  tensorParallelSize?: number | null;
   gpuMemoryUtilization: number;
   quantization: ModelQuantization;
   dtype: ModelDtype;

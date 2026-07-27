@@ -37,6 +37,11 @@ export type InferencePackage = {
    * A sparsely-filled `HuggingFaceModel`; the full model is fetched by id when the package is opened.
    */
   model: HuggingFaceModel;
+  /**
+   * Short human blurb — why this package is worth picking. Rendered on the package card, clamped to
+   * two lines. Optional: node-advertised templates may not carry one.
+   */
+  description?: string;
   /** Complete vLLM launch parameters — committed as-is, no config step. */
   params: ModelParameters;
   type: 'quickstart' | 'template'

@@ -59,6 +59,21 @@
   }
 }
 
+/* Clamped to two lines so cards in the grid keep their chips/stats rows aligned regardless of blurb
+   length; the full text stays available via the title attribute. */
+.description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  min-height: calc(2 * 1.4em);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

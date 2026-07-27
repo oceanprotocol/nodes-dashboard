@@ -17,7 +17,7 @@ type PackageCardProps = {
 /** Quick-start package tile: same shape as ModelCard, with the bundle's hardware/engine specs. */
 const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onToggle }) => {
   const [avatarFailed, setAvatarFailed] = useState(false);
-  const { model, params, requiredResources } = pkg;
+  const { model, params, requiredResources, description } = pkg;
   const avatarUrl = getModelAvatarUrl(model);
   const modelName = getModelShortName(model.id);
   const initial = (model.author ?? model.id).charAt(0).toUpperCase();
@@ -59,6 +59,11 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
           {model.author && <div className={styles.author}>{model.author}</div>}
         </div>
       </div>
+      {description && (
+        <p className={styles.description} title={description}>
+          {description}
+        </p>
+      )}
       <div className={styles.chips}>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{formatPipelineTag(model.pipelineTag, 'Other')}</span>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{engineLabel}</span>

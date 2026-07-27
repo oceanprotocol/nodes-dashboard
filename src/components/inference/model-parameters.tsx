@@ -66,6 +66,7 @@ const toolParserOptions: { label: string; value: ToolCallParser }[] = [
   { label: 'internlm', value: 'internlm' },
   { label: 'jamba', value: 'jamba' },
   { label: 'deepseek_v3', value: 'deepseek_v3' },
+  { label: 'qwen3_coder', value: 'qwen3_coder' },
   { label: 'pythonic', value: 'pythonic' },
 ];
 
@@ -107,7 +108,12 @@ function validateCustomParams(v: ModelParametersType, errors: ParamErrors): void
 
 // `contextCeiling` is the model's reported max (null when HF reports none → free optional input).
 // `contextFloor` is the effective lower bound. Passed in because they're component state, not static.
-function validateParams(v: ModelParametersType, contextCeiling: number | null, contextFloor: number): ParamErrors {
+function validateParams(
+  v: ModelParametersType,
+  contextCeiling: number | null,
+  contextFloor: number,
+  bookedGpus: number
+): ParamErrors {
   const errors: ParamErrors = {};
   if (!v.servedModelName.trim()) {
     errors.servedModelName = 'Required.';
@@ -140,6 +146,15 @@ function validateParams(v: ModelParametersType, contextCeiling: number | null, c
     if (v.gpuMemoryUtilization < gpuMin || v.gpuMemoryUtilization > gpuMax) {
       errors.gpuMemoryUtilization = `Must be between ${gpuMin} and ${gpuMax}.`;
     }
+    // Sharding across more GPUs than were booked makes vLLM exit at startup, so the booked count is a
+    // hard ceiling. null/1 = single GPU, always valid.
+    if (v.tensorParallelSize != null) {
+      if (v.tensorParallelSize < 1 || !Number.isInteger(v.tensorParallelSize)) {
+        errors.tensorParallelSize = 'Must be a whole number of GPUs (1 or more).';
+      } else if (v.tensorParallelSize > bookedGpus) {
+        errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked — the model can't shard across more.`;
+      }
+    }
     if (v.toolCalling && !v.toolCallParser) {
       errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
     }
@@ -166,7 +181,15 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   { modelId, defaultOpen = false },
   ref
 ) {
-  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine } = useInferenceContext();
+  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine, selectedEnv } = useInferenceContext();
+
+  // GPUs booked on the resources step (which runs before this one). This is the ceiling for tensor
+  // parallelism — sharding across more GPUs than were booked makes vLLM exit at startup. 1 or fewer
+  // means there's nothing to shard, so the field is hidden and the flag is never emitted.
+  const bookedGpus = useMemo(
+    () => Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, count) => sum + count, 0),
+    [selectedEnv?.gpuSelection]
+  );
   // `config` = LATEST fetched facts (drives locked ceiling/quant + tool visibility). `defaultsConfig`
   // = baseline the form defaults build from — frozen except on first load and explicit "Reload
   // defaults", so a revision-blur refresh updates facts without reinitializing formik and wiping edits.
@@ -301,7 +324,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const formik = useFormik<ModelParametersType>({
     enableReinitialize: true,
     initialValues,
-    validate: (v) => validateParams(v, contextCeiling, contextFloor),
+    validate: (v) => validateParams(v, contextCeiling, contextFloor, bookedGpus),
     onSubmit: () => {},
   });
 
@@ -401,6 +424,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       formik.setValues({ ...formik.values, toolCalling: false, toolCallParser: null });
     }
   }, [showTools, formik]);
+
+  // Going back and re-booking fewer GPUs would otherwise leave a now-impossible shard width behind
+  // (the field hides below 2 GPUs, so the user couldn't even see the stale value to fix it).
+  useEffect(() => {
+    if (formik.values.engine !== 'vllm' || formik.values.tensorParallelSize == null) {
+      return;
+    }
+    if (formik.values.tensorParallelSize > bookedGpus) {
+      formik.setFieldValue('tensorParallelSize', bookedGpus > 1 ? bookedGpus : null);
+    }
+  }, [bookedGpus, formik]);
 
   // vLLM cold launch flags — how the server loads and runs the raw HF weights. `v` is the narrowed
   // vLLM branch of the form values (writes still go through formik by field name).
@@ -561,6 +595,26 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             value={v.gpuMemoryUtilization}
             valueLabelFormat={(value) => Number(value).toFixed(2)}
           />
+          {/* Only meaningful with more than one GPU booked; with a single GPU there's nothing to shard
+              across, so the field is hidden and the flag is never emitted. */}
+          {bookedGpus > 1 && (
+            <Slider
+              errorText={errorFor('tensorParallelSize')}
+              hint="--tensor-parallel-size"
+              label={labelWithInfo(
+                `Tensor parallelism - ${v.tensorParallelSize ?? 1}`,
+                'How many GPUs to split the model across. 1 keeps it on a single GPU; higher shards the weights so a model too big for one GPU fits, and can speed up inference. Can’t exceed the GPUs you booked, and some models require a value that divides their attention heads evenly.'
+              )}
+              max={bookedGpus}
+              min={1}
+              name="tensorParallelSize"
+              onChange={(_, value) => formik.setFieldValue('tensorParallelSize', value)}
+              step={1}
+              topRight={`1 - ${bookedGpus}`}
+              value={v.tensorParallelSize ?? 1}
+              valueLabelFormat={(value) => String(value)}
+            />
+          )}
           <Select<KvCacheDtype>
             size="sm"
             hint="--kv-cache-dtype"
