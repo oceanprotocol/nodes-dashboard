@@ -127,6 +127,7 @@ export type EnvNodeInfo = {
     totalScore: number;
   };
   multiaddrs?: string[];
+  verified?: boolean
 };
 
 export type MultiaddrsOrPeerId = string[] | string | null;

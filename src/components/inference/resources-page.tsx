@@ -29,15 +29,13 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     }
   }, [isCustomModelFlow, hydrateFromUrlFinished, hydrationFailed, selectedModels.length, router]);
 
+  // The quick-start (DefaultModel) flow has no resources step — its package bundles the hardware
+  // and the env auto-matches on the package step — so only the custom & template flows route here.
   const goToPrevStep = () => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
         // Keep the selection in the URL so a refresh on the model-picker restores it.
         router.replace({ pathname: '/inference/custom-models', query: router.query });
-        break;
-      }
-      case InferenceFlowType.DefaultModel: {
-        router.replace('/inference/default-models');
         break;
       }
       case InferenceFlowType.Template: {
@@ -61,10 +59,6 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
           pathname: '/inference/custom-models/config',
           query: { ...router.query, ...buildSelectionQuery(picked) },
         });
-        break;
-      }
-      case InferenceFlowType.DefaultModel: {
-        router.push(`/inference/default-models/${encodeURIComponent(params.modelId ?? '')}/payment`);
         break;
       }
       case InferenceFlowType.Template: {

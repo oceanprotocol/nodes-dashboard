@@ -1,9 +1,15 @@
 import { ServiceStatusNumber } from '@oceanprotocol/lib';
 
-// The node reports one of ~13 numeric statuses. For display we collapse them into three visual
+// The node reports one of ~14 numeric statuses. For display we collapse them into three visual
 // kinds — a live service (green dot), one still settling (spinner), or a terminal/failed one
 // (dim/red dot) — plus a human label that reads better than the node's raw `statusText`.
 export type ServiceStatusKind = 'running' | 'pending' | 'dead' | 'failed';
+
+// ocean-node reports `Restarting = 45` (set by SERVICE_RESTART: teardown + re-pull + new container)
+// but the installed @oceanprotocol/lib enum doesn't declare it yet — reference it by literal so an
+// Edit relaunch shows "Restarting" instead of the raw "Status 45", and is treated as pending (not
+// terminal, not failed). Remove once the lib enum gains the member.
+const RESTARTING_STATUS = 45 as ServiceStatusNumber;
 
 export interface ServiceStatusView {
   kind: ServiceStatusKind;
@@ -37,6 +43,7 @@ const LABELS: Record<ServiceStatusNumber, string> = {
   [ServiceStatusNumber.Locking]: 'Locking funds',
   [ServiceStatusNumber.Claiming]: 'Processing payment',
   [ServiceStatusNumber.Running]: 'Running',
+  [RESTARTING_STATUS]: 'Restarting',
   [ServiceStatusNumber.Stopping]: 'Stopping',
   [ServiceStatusNumber.Stopped]: 'Stopped',
   [ServiceStatusNumber.Expired]: 'Expired',

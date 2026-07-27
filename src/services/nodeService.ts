@@ -24,7 +24,9 @@ import {
   type ServiceJobListed,
   type ServiceListFilters,
   type ServicePayment,
+  type ServiceRestartParams,
   type ServiceStartParams,
+  type ServiceTemplatePublic,
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
 
@@ -305,6 +307,19 @@ export async function startFreeCompute({
     undefined, // dockerRegistryAuth
     outputBucketId
   );
+}
+
+/**
+ * Fetch a node's public service templates (the long-running services it advertises — image, launch
+ * command, resource requirements). `chainId` scopes templates to a chain. Used to seed the
+ * quick-start packages on the default-models page: each listed node's templates become packages.
+ */
+export async function getServiceTemplates(
+  nodeUri: NodeUri,
+  chainId?: number,
+  signal?: AbortSignal
+): Promise<ServiceTemplatePublic[]> {
+  return ProviderInstance.getServiceTemplates(normalizeNodeUri(nodeUri), chainId, signal);
 }
 
 // --- Service on Demand (long-lived containers, e.g. vLLM inference) ---
@@ -592,31 +607,28 @@ export async function serviceExtend(
 }
 
 /**
- * Restart a running service's container, keeping the SAME serviceId, host port and expiry
- * (elapsed/paid runtime is preserved — the node reuses the allocated ports and never touches
- * `expiresAt`; see ocean-node `restartService`). Optionally pass fresh `userData` (container env
- * vars) and/or a new `dockerCmd`/`dockerEntrypoint` — each, when supplied, REPLACES the stored
- * value; omitted ones are reused. This is what an Edit-with-relaunch wants: swap the model/launch
- * command in place instead of stop+start (which mints a new serviceId, port and resets the timer).
+ * Restart a running service's container, keeping the SAME serviceId, payment, resources, host port(s)
+ * and expiry (elapsed/paid runtime is preserved — the node never touches `expiresAt`; see ocean-node
+ * `restartService`). This is what an Edit-with-relaunch wants: swap the model/launch command in place
+ * instead of stop+start (which mints a new serviceId, port and resets the timer).
+ *
+ * `spec` is atomic, and ocean.js takes it as ONE object (its next arg is an AbortSignal — passing the
+ * fields positionally lands `dockerCmd` in `signal` and blows up inside the transport with
+ * "t.removeEventListener is not a function"):
+ *   - omitted / no image-ish field → REUSE mode: the stored container spec is bounced unchanged.
+ *   - any of image/tag/checksum/dockerfile/additionalDockerFiles → RESPEC mode: the container is
+ *     rebuilt from `spec` alone, so `image` is mandatory (the node rejects a partial spec with
+ *     'Restarting with new parameters requires "image"') and exactly one of tag/checksum/dockerfile
+ *     applies.
+ * `userData`/`dockerCmd`/`dockerEntrypoint` replace the stored value when supplied, reuse it when not.
  */
 export async function serviceRestart(
   nodeUri: NodeUri,
   signerOrAuthToken: SignerOrAuthTokenOrSignature,
   serviceId: string,
-  userData?: Record<string, unknown>,
-  dockerCmd?: string[],
-  dockerEntrypoint?: string[]
+  spec?: ServiceRestartParams
 ): Promise<ServiceJob[]> {
-  return ProviderInstance.serviceRestart(
-    normalizeNodeUri(nodeUri),
-    signerOrAuthToken,
-    serviceId,
-    {
-      userData,
-      dockerCmd,
-      dockerEntrypoint
-    }
-  );
+  return ProviderInstance.serviceRestart(normalizeNodeUri(nodeUri), signerOrAuthToken, serviceId, spec);
 }
 
 /** Stop a running service. Resolves to the updated job(s) in `Stopped` state. */

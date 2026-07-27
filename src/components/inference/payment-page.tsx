@@ -13,22 +13,21 @@ import { useInferenceContext } from '@/context/inference-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { DEFAULT_MAX_LOCK_COUNT, usePaySession } from '@/lib/use-pay-session';
-import { usePaymentInfo } from '@/lib/use-payment-info';
-import { buildInferenceStartParams, buildUserData, buildVllmCommand, toNodeUri } from '@/services/inference-launch';
+import { usePaySession } from '@/lib/use-pay-session';
+import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
+import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { usePrivy } from '@privy-io/react-auth';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './payment-page.module.css';
 
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
-  const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
   // Editing a running service: same env, no re-pay — hide the payment summary and relaunch instead.
   const isEditMode = router.query.edit === '1';
   // Prolonging a running service: same selection, pay only for the extra runtime. Skips the earlier
@@ -55,6 +54,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
 
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard for the launch handler. `launching`/the disabled button only take
+  // effect on the next render commit, so a fast double-click (or a synthetic re-fire) can invoke the
+  // handler twice before that commit — and this is the money path (escrow deposit + serviceStart).
+  // A ref flips synchronously, so the second invocation bails immediately.
+  const launchInFlightRef = useRef(false);
 
   // Pair each selected model with the launch params committed in the config step. Params come
   // straight from context (no fallback) — a model without them renders its values as N/A.
@@ -66,10 +70,14 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
   // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv/token exist.
-  const { allocation, price } = useInferenceAllocation({
+  const { allocation, price, selectedByKey } = useInferenceAllocation({
     environment: selectedEnv?.environment ?? ({ resources: [] } as any),
     tokenAddress: selectedToken?.address ?? '',
     gpuSelection: selectedEnv?.gpuSelection,
+    // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
+    // slice at the package min; undefined for a plain custom-flow slice. Keeps the priced/escrowed
+    // allocation matching what the resources step showed.
+    sizing: selectedEnv?.sizing,
     durationSeconds: jobDurationSeconds,
   });
 
@@ -112,44 +120,28 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       throw new Error('Failed to load payment info.');
     }
     const tokenAddress = selectedToken.address;
-    const auth = info.authorizations;
-    const depositAmount = roundTokenAmount(Math.max(0, totalCost - info.escrowBalance), tokenAddress, 'up');
-    const currentLockedAmount = Number(auth?.currentLockedAmount ?? 0);
-    const requiredMaxLocked = roundTokenAmount(totalCost + currentLockedAmount, tokenAddress, 'up');
-    const sufficientAuthorization =
-      !!auth &&
-      roundTokenAmount(Number(auth.maxLockedAmount), tokenAddress) >= requiredMaxLocked &&
-      Number(auth.maxLockSeconds) >= escrowLockSeconds &&
-      Number(auth.currentLocks) < Number(auth.maxLockCounts);
-    if (depositAmount <= 0 && sufficientAuthorization) {
+    const requirement = computeEscrowRequirement({
+      snapshot: info,
+      totalCost,
+      tokenAddress,
+      requiredLockSeconds: escrowLockSeconds,
+    });
+    if (requirement.depositAmount <= 0 && requirement.sufficient) {
       return;
     }
-    if (info.walletBalance < depositAmount) {
+    if (requirement.insufficientWalletFunds) {
       throw new Error(
-        `Insufficient wallet balance: need ${depositAmount} more in escrow but only ${info.walletBalance} available.`
+        `Insufficient wallet balance: need ${requirement.depositAmount} more in escrow but only ${info.walletBalance} available.`
       );
     }
-    // Re-authorizing overwrites the previous grant, so the new one must cover both the running
-    // locks and this payment, keep at least the lock window this service needs, and never shrink
-    // limits already granted. Lock count always leaves a free slot (run-job formula).
-    const maxLockedAmount = Math.max(
-      requiredMaxLocked,
-      roundTokenAmount(Number(auth?.maxLockedAmount ?? 0), tokenAddress)
-    );
-    const maxLockSeconds = Math.max(Math.ceil(escrowLockSeconds), Number(auth?.maxLockSeconds ?? 0));
-    const maxLockCount = Math.max(
-      DEFAULT_MAX_LOCK_COUNT,
-      Number(auth?.currentLocks ?? 0) + 1,
-      Number(auth?.maxLockCounts ?? 0)
-    );
     const paid = await handlePay({
       tokenAddress,
       peerId: selectedEnv.nodeInfo.id,
       spender: selectedEnv.environment.consumerAddress,
-      depositAmount: depositAmount.toString(),
-      maxLockedAmount: maxLockedAmount.toString(),
-      maxLockSeconds: maxLockSeconds.toString(),
-      maxLockCount: maxLockCount.toString(),
+      depositAmount: requirement.depositAmount.toString(),
+      maxLockedAmount: requirement.maxLockedAmount.toString(),
+      maxLockSeconds: requirement.maxLockSeconds.toString(),
+      maxLockCount: requirement.maxLockCount.toString(),
     });
     if (!paid) {
       throw new Error('Escrow payment was not completed.');
@@ -157,23 +149,36 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
-  // without a complete selection: no models → picker, no env → resources, unconfigured model → config.
-  // Skipped when hydration failed — we show a retry instead of discarding the URL selection.
+  // without a complete selection. Skipped when hydration failed — we show a retry instead of
+  // discarding the URL selection.
+  //   - Quick start: the whole selection (package + auto-matched env) is committed on the package
+  //     step, so anything missing bounces to the picker.
+  //   - Custom flow: no models → picker, no env → resources, unconfigured model → config.
+  //     Edit/prolong inherit env + params from the running service, so those steps are skipped.
   useEffect(() => {
-    if (!isCustomModelFlow || !hydrateFromUrlFinished || hydrationFailed) {
+    if (!hydrateFromUrlFinished || hydrationFailed) {
       return;
     }
-    if (selectedModels.length === 0) {
-      router.replace({ pathname: '/inference/custom-models', query: router.query });
-    } else if (!selectedEnv && !isEditMode && !isProlongMode) {
-      // In edit/prolong mode the env is inherited from the running service and the resources step is skipped.
-      router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
-    } else if (!isProlongMode && selectedModels.some((model) => !modelParamsByModel[model.id])) {
-      // Prolong reuses the running service's committed params — no config step to bounce back to.
-      router.replace({ pathname: '/inference/custom-models/config', query: router.query });
+    switch (flowType) {
+      case InferenceFlowType.DefaultModel: {
+        if (selectedModels.length === 0 || !selectedEnv) {
+          router.replace({ pathname: '/inference/default-models', query: router.query });
+        }
+        break;
+      }
+      case InferenceFlowType.CustomModel: {
+        if (selectedModels.length === 0) {
+          router.replace({ pathname: '/inference/custom-models', query: router.query });
+        } else if (!selectedEnv && !isEditMode && !isProlongMode) {
+          router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
+        } else if (!isProlongMode && selectedModels.some((model) => !modelParamsByModel[model.id])) {
+          router.replace({ pathname: '/inference/custom-models/config', query: router.query });
+        }
+        break;
+      }
     }
   }, [
-    isCustomModelFlow,
+    flowType,
     hydrateFromUrlFinished,
     hydrationFailed,
     selectedModels,
@@ -196,7 +201,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         break;
       }
       case InferenceFlowType.DefaultModel: {
-        router.replace(`/inference/default-models/${encodeURIComponent(params.modelId ?? '')}/resources`);
+        // Quick start has no resources step — back to the package picker; the query keeps the
+        // selection so the picker restores the chosen package.
+        router.replace({ pathname: '/inference/default-models', query: router.query });
         break;
       }
       case InferenceFlowType.Template: {
@@ -300,8 +307,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      // Full container spec — the node rejects a partial restart spec (image is required whenever
+      // anything changes), and the image/tag come from the new params' engine so an engine switch
+      // (vLLM ↔ llama.cpp) relaunches on the right image.
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildUserData(params, hfToken), buildVllmCommand(model, params))
+        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken }))
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -334,16 +344,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // claims the cost server-side. Auth is a JWT node token (same as the run-job auth-token flow);
   // serviceStart returns a job in `Starting` state and the manage page polls it to `Running` to
   // read the real endpoint.
-  const goToNextStep = useCallback(async () => {
-    if (isProlongMode) {
-      await prolongService();
-      return;
-    }
-    // Edit → restart the existing service in place (keeps port + elapsed time); never a fresh start.
-    if (isEditMode) {
-      await relaunchService();
-      return;
-    }
+  // Fresh launch of a new vLLM service. Kept as its own callback so the re-entrancy guard in
+  // goToNextStep can wrap all three launch paths (prolong / edit-relaunch / fresh) uniformly.
+  const runFreshLaunch = useCallback(async () => {
     // A single model is selected (the flow is capped at one); its committed params come from context.
     const model = selectedModels[0];
     const params = model ? modelParamsByModel[model.id] : undefined;
@@ -386,6 +389,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         model,
         params,
         selectedEnv,
+        // Launch the exact per-type unit count that was priced and escrowed. The hook resolves an
+        // empty/whole-env selection down to the budget-capped count (bounded by free CPU/RAM/disk);
+        // passing selectedEnv.gpuSelection ({} on a whole-env hydrate) straight through would make
+        // buildGpuRequests request every free GPU instead, over-provisioning past the escrow.
+        gpuSelection: selectedByKey,
         allocation,
         durationSeconds: jobDurationSeconds,
         tokenAddress: selectedToken.address,
@@ -408,10 +416,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
-    isProlongMode,
-    prolongService,
-    isEditMode,
-    relaunchService,
     selectedModels,
     modelParamsByModel,
     selectedEnv,
@@ -420,12 +424,36 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     withNodeAuth,
     ensureEscrowForSelection,
     allocation,
+    selectedByKey,
     jobDurationSeconds,
     hfToken,
     serviceStart,
     router,
     buildManageQuery,
   ]);
+
+  const goToNextStep = useCallback(async () => {
+    // Bail synchronously if a launch is already running — the disabled button only guards the NEXT
+    // render, so a double-click before that commit would otherwise fire two escrow txs / launches.
+    if (launchInFlightRef.current) {
+      return;
+    }
+    launchInFlightRef.current = true;
+    try {
+      if (isProlongMode) {
+        await prolongService();
+        return;
+      }
+      // Edit → restart the existing service in place (keeps port + elapsed time); never a fresh start.
+      if (isEditMode) {
+        await relaunchService();
+        return;
+      }
+      await runFreshLaunch();
+    } finally {
+      launchInFlightRef.current = false;
+    }
+  }, [isProlongMode, prolongService, isEditMode, relaunchService, runFreshLaunch]);
 
   return (
     <Container className="pageRoot">
@@ -496,6 +524,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
                     gpuSelection={selectedEnv.gpuSelection}
+                    sizing={selectedEnv.sizing}
                     nodeInfo={selectedEnv.nodeInfo}
                   />
                 </>

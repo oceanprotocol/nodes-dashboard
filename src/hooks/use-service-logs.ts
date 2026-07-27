@@ -1,5 +1,6 @@
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { cleanLogText } from '@/lib/strip-ansi';
+import { withTimeout } from '@/lib/with-timeout';
 import { demuxDockerLogs, getServiceLogs } from '@/services/nodeService';
 import { ServiceJob, ServiceStatusNumber } from '@oceanprotocol/lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -11,6 +12,10 @@ const MAX_LINES = 5000;
 // a row so an unreachable node doesn't spin the reconnect loop forever.
 const MAX_CONSECUTIVE_FAILURES = 5;
 const RECONNECT_DELAY_MS = 1500;
+// A P2P status round-trip has no built-in timeout: if the node/relay goes unreachable between
+// reconnects, an un-capped dial parks the tail loop forever (stuck on "reconnecting", leaks past
+// unmount). Cap it so a hung dial surfaces as a failure and the loop retries/bails like any other.
+const STATUS_TIMEOUT_MS = 30000;
 
 // Statuses past which live-tailing is pointless — the container reached a terminal state, so grab
 // the final logs once and stop. Mirrors manage-service-page's TERMINAL_STATUSES minus Running
@@ -67,7 +72,10 @@ export function useServiceLogs({
 
   const cancelledRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const nodeUriKey = Array.isArray(nodeUri) ? nodeUri.join('|') : (nodeUri ? 'node' : '');
+  // Faithful identity of nodeUri for the effect deps. A bare-string nodeUri (toNodeUri's fallback
+  // when a node advertises no dialable ws/wss addrs) must key on its actual value — collapsing every
+  // string to a constant would hide a node change and keep the stream tailing the previous node.
+  const nodeUriKey = Array.isArray(nodeUri) ? nodeUri.join('|') : nodeUri ? String(nodeUri) : '';
 
   const stop = useCallback(() => {
     cancelledRef.current = true;
@@ -117,7 +125,11 @@ export function useServiceLogs({
       while (!cancelledRef.current) {
         let job: ServiceJob | null = null;
         try {
-          const jobs = await getServiceStatus(nodeUri, token, serviceId);
+          const jobs = await withTimeout(
+            (signal) => getServiceStatus(nodeUri, token, serviceId, signal),
+            STATUS_TIMEOUT_MS,
+            'Service status'
+          );
           job = jobs.find((j) => j.serviceId === serviceId) ?? jobs[0] ?? null;
           failures = 0;
         } catch (e) {
