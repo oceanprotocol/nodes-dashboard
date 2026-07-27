@@ -50,14 +50,14 @@ const useDefaultModelPackages = (): DefaultModelPackages => {
       setLoading(true);
       setError(null);
 
-      if (peerIds.length === 0) {
-        if (!cancelled) {
-          setPackages([]);
-          setError('No nodes configured for quick-start packages.');
-          setLoading(false);
-        }
-        return;
-      }
+      // if (peerIds.length === 0) {
+      //   if (!cancelled) {
+      //     setPackages([]);
+      //     setError('No nodes configured for quick-start packages.');
+      //     setLoading(false);
+      //   }
+      //   return;
+      // }
 
       // Per-node fetch, fully isolated: a node that fails (unreachable, timeout, malformed payload)
       // just contributes nothing — never blocks the packages that did come back.
