@@ -5,7 +5,7 @@ import { buildModelDefaults } from '@/services/huggingface-service';
 import { ComputeResource } from '@/types/environments';
 import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
-import { ComputeResourceRequest, ServiceStartParams } from '@oceanprotocol/lib';
+import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /**
  * The container image + port for the "any Hugging Face model on vLLM" service. Mirrors
@@ -293,6 +293,31 @@ function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelect
 /** Look up the resource id for a base type (cpu/ram/disk), falling back to the type name. */
 function resourceId(resources: ComputeResource[], type: 'cpu' | 'ram' | 'disk'): string {
   return resources.find((r) => r.type === type || r.id === type)?.id ?? type;
+}
+
+/**
+ * Build the container spec for an Edit relaunch (serviceRestart). Sending image/tag puts the node in
+ * RESPEC mode, where the container is rebuilt from this spec alone — so `image` is mandatory (a
+ * command-only spec is rejected with 'Restarting with new parameters requires "image"') and both are
+ * taken from the NEW params' engine, which is what makes switching engine (vLLM ↔ llama.cpp) work in
+ * place. Ports/resources/duration are NOT part of a restart: the node keeps the service's existing ones.
+ */
+export function buildInferenceRestartSpec({
+  model,
+  params,
+  hfToken,
+}: {
+  model: HuggingFaceModel;
+  params: ModelParameters;
+  hfToken: string;
+}): ServiceRestartParams {
+  const runtime = ENGINE_RUNTIME[params.engine];
+  return {
+    image: runtime.image,
+    tag: runtime.tag,
+    dockerCmd: buildEngineCommand(model, params),
+    userData: buildUserData(params, hfToken),
+  };
 }
 
 /**

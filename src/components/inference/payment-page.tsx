@@ -15,7 +15,7 @@ import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
-import { buildEngineCommand, buildInferenceStartParams, buildUserData, toNodeUri } from '@/services/inference-launch';
+import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
@@ -307,8 +307,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      // Full container spec — the node rejects a partial restart spec (image is required whenever
+      // anything changes), and the image/tag come from the new params' engine so an engine switch
+      // (vLLM ↔ llama.cpp) relaunches on the right image.
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildUserData(params, hfToken), buildEngineCommand(model, params))
+        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken }))
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
