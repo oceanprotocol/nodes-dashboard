@@ -611,9 +611,11 @@ export async function serviceRestart(
     normalizeNodeUri(nodeUri),
     signerOrAuthToken,
     serviceId,
-    userData,
-    dockerCmd,
-    dockerEntrypoint
+    {
+      userData,
+      dockerCmd,
+      dockerEntrypoint
+    }
   );
 }
 
