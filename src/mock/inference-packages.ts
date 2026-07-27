@@ -36,15 +36,18 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
   {
     id: 'everyday-chat',
     model: {
-      id: 'Qwen/Qwen2.5-7B-Instruct',
+      // id: 'Qwen/Qwen2.5-7B-Instruct',
+      id: 'Qwen/Qwen2.5-0.5B-Instruct',
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
     params: {
       engine: 'vllm',
-      servedModelName: 'qwen2.5-7b-instruct',
+      // servedModelName: 'qwen2.5-7b-instruct',
+      servedModelName: 'qwen2.5-0.5b-instruct',
       customParams: [],
-      maxContext: 32768,
+      // maxContext: 32768,
+      maxContext: 8192,
       gpuMemoryUtilization: 0.9,
       quantization: 'none',
       dtype: 'float16',
