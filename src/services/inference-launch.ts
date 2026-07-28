@@ -221,22 +221,32 @@ const KNOWN_FLAGS: Record<InferenceEngine, { valued: string[]; boolean: string[]
  * paired with the token after it (bare flags come back with an empty value). Keys keep the `--`
  * prefix they're re-emitted with, so a parse → relaunch round-trip reproduces the same command.
  *
+ * A REPEATED known flag is a custom param too: buildCustomArgs appends custom params after the
+ * builder's flags precisely so a custom param can override one (argparse keeps the last occurrence),
+ * and only the first occurrence of each known flag came from the builder. Dropping the repeat here
+ * would push the override into the typed form field — which can't hold a value outside its union
+ * (`--dtype` etc.) — and the next relaunch would emit something else. Tracked per flag so the
+ * override survives as what it is.
+ *
  * A value starting with `-` is read as the next flag rather than a value, so a genuinely negative
  * numeric value (`--seed -1`) comes back as two bare params. Rare enough to accept over guessing.
  */
 function parseCustomArgs(cmd: string[], engine: InferenceEngine): CustomParam[] {
   const known = KNOWN_FLAGS[engine];
   const custom: CustomParam[] = [];
+  const seenKnown = new Set<string>();
   for (let i = 0; i < cmd.length; i++) {
     const token = cmd[i];
     if (!token.startsWith('-')) {
       continue;
     }
-    if (known.valued.includes(token)) {
-      i++;
-      continue;
-    }
-    if (known.boolean.includes(token)) {
+    const isKnown = known.valued.includes(token) || known.boolean.includes(token);
+    // First occurrence of a known flag is the builder's own — not a custom param.
+    if (isKnown && !seenKnown.has(token)) {
+      seenKnown.add(token);
+      if (known.valued.includes(token)) {
+        i++;
+      }
       continue;
     }
     const next = cmd[i + 1];
@@ -257,7 +267,11 @@ function parseCustomArgs(cmd: string[], engine: InferenceEngine): CustomParam[] 
  * values; unrecognized flags come back as customParams so an Edit relaunch doesn't silently drop them.
  */
 export function parseEngineCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
-  // Read the value following a flag, or undefined when the flag is absent / has no value.
+  // Read the value following a flag, or undefined when the flag is absent / has no value. FIRST
+  // occurrence: buildCustomArgs appends custom params after the builder's own flags, so a repeated
+  // known flag is a custom override — the first occurrence is the one the typed form field emitted.
+  // parseCustomArgs recovers the repeat as a customParam, which is re-emitted last and wins again
+  // (argparse keeps the last occurrence), so the override survives without being counted twice.
   const valueOf = (flag: string): string | undefined => {
     const idx = cmd.indexOf(flag);
     return idx >= 0 && idx + 1 < cmd.length ? cmd[idx + 1] : undefined;
