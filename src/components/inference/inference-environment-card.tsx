@@ -169,8 +169,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,
-    allocation.ram > 0 && formatGb(allocation.ram),
-    allocation.disk > 0 && formatGb(allocation.disk),
+    allocation.ram > 0 && `${formatGb(allocation.ram)} RAM`,
+    allocation.disk > 0 && `${formatGb(allocation.disk)} disk`,
   ]
     .filter(Boolean)
     .join(' · ');
