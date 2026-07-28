@@ -1,38 +1,212 @@
+.headerRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterPill {
+  padding: 5px 14px;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1.5px var(--border-glass);
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.filterPill:hover {
+  color: var(--text-primary);
+}
+
+.filterPillActive,
+.filterPillActive:hover {
+  font-weight: 700;
+  background: var(--accent1);
+  color: #fff;
+  box-shadow: var(--drop-shadow-accent1);
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
 }
 
 .card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 20px;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+  background: #ffffffc0;
+  backdrop-filter: var(--backdrop-filter-glass);
+  -webkit-backdrop-filter: var(--backdrop-filter-glass);
+  box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
 
 .card:hover {
+  background: #ffffff;
   transform: translateY(-2px);
 }
 
+.card:active {
+  transform: translateY(-2px) scale(0.985);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* `--accent` is set inline per card from ACCENT_HEX. */
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* MUI category icon: tint to the card accent via currentColor. */
+.markIcon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  fill: currentColor;
+}
+
+.titleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
 .name {
-  font-weight: 600;
-  font-size: 16px;
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.category {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.chip {
-  align-self: flex-start;
-  text-transform: capitalize;
-}
-
-.description {
-  font-size: 13px;
-  line-height: 1.4;
+.desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  text-align: left;
+  min-height: 36px;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 16px;
+  background: var(--background-glass-secondary);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hw {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 16px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Hardware icon (repo gpu.svg / MUI Memory). `fill: currentColor` overrides gpu.svg's baked-in
+   coral so the icon takes the badge's text colour. */
+.hwIcon {
+  width: 13px;
+  height: 13px;
+  font-size: 13px;
+  fill: currentColor;
+}
+
+.hwGpu {
+  background: var(--accent2);
+  color: #1d3d00;
+  box-shadow: inset 0 0 0 1px #00000012;
+}
+
+.hwCpu {
+  background: var(--background-glass-secondary);
+  color: var(--text-secondary);
 }
 
 .stateBox {
