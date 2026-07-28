@@ -33,7 +33,7 @@ export type ResourceAmounts = { cpu: number; ram: number; disk: number };
 const clampNum = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 /**
- * How the shared CPU/RAM/disk are sized, beyond the default GPU-fraction slice. The two modes are
+ * How the shared CPU/RAM/disk are sized, beyond the default GPU-fraction slice. The modes are
  * mutually exclusive — one field replaces the former `pinnedAllocation` + `resourceFloor` pair, so
  * nothing has to enforce "at most one". Omit entirely for a pure proportional (custom-flow) slice.
  *
@@ -44,12 +44,16 @@ const clampNum = (value: number, min: number, max: number) => Math.min(Math.max(
  *  - `floor` (advanced handoff from a default-models package): raise the LOWER BOUND of the fraction
  *    slice to these amounts (the package's per-resource min). Above the floor the slice stays
  *    GPU-proportional. Combined with the env's own min via max, then clamped to available.
+ *  - `exact` (already-booked service): the amounts the node records for a RUNNING service, reported
+ *    verbatim — see the allocation memo for why nothing clamps them.
  *
- * Each amount is always clamped to what the env can actually grant (available wins over min/floor).
+ * `pinned`/`floor` amounts are always clamped to what the env can actually grant (available wins over
+ * min/floor); `exact` is the one mode that isn't clamped.
  */
 export type ResourceSizing =
   | ({ mode: 'pinned'; floor?: ResourceAmounts } & ResourceAmounts)
-  | ({ mode: 'floor' } & ResourceAmounts);
+  | ({ mode: 'floor' } & ResourceAmounts)
+  | ({ mode: 'exact' } & ResourceAmounts);
 
 /**
  * Free units the node will actually grant for a fungible resource. The node's availability gate
@@ -174,9 +178,9 @@ const useInferenceAllocation = ({
   /** Omit to use every unit of every type (the default, whole-environment allocation). */
   gpuSelection?: GpuSelection;
   /**
-   * How to size the shared CPU/RAM/disk: `pinned` fixed amounts (quick start) or a `floor` under the
-   * GPU-fraction slice (advanced handoff). Omit for a pure proportional slice (custom flow). See
-   * {@link ResourceSizing}.
+   * How to size the shared CPU/RAM/disk: `pinned` fixed amounts (quick start), a `floor` under the
+   * GPU-fraction slice (advanced handoff), or the `exact` amounts a running service already booked.
+   * Omit for a pure proportional slice (custom flow). See {@link ResourceSizing}.
    */
   sizing?: ResourceSizing;
   durationSeconds: number;
@@ -397,6 +401,14 @@ const useInferenceAllocation = ({
   // The raw slice is then run through deriveBounds + resolveConstraints (same as run-job package mode)
   // so constraint floors are raised and ceilings capped; with no constraints this is a no-op.
   const allocation = useMemo(() => {
+    // Already-booked service: report exactly what the node recorded. Nothing is clamped here —
+    // the running service's own usage is part of every resource's `inUse`, so clamping to what's
+    // still AVAILABLE would under-report the amounts it actually holds (same reasoning as the
+    // explicit GPU pick in `selectedByKey`) — and the constraint pass is moot: the node already
+    // accepted this exact request when the service started.
+    if (sizing?.mode === 'exact') {
+      return { cpu: sizing.cpu, ram: sizing.ram, disk: sizing.disk };
+    }
     const clampSlice = (
       resource: ComputeResource | undefined,
       amounts: ResourceAmounts | undefined,
@@ -448,15 +460,20 @@ const useInferenceAllocation = ({
 
   // The exact request the node would receive, checked against the full constraint model (covers
   // type-group / aggregate cases per-resource bounds can't express). Null when the node would accept.
+  // Skipped for `exact` sizing: that's a service the node already accepted and provisioned, so it's
+  // read-only here — and re-validating it against the CURRENT availability envelope (which counts the
+  // service's own usage as `inUse`) would report a violation for a perfectly live service.
   const constraintViolation = useMemo<string | null>(
     () =>
-      constraintError(availResources, [
-        { id: cpuId, amount: allocation.cpu },
-        { id: ramId, amount: allocation.ram },
-        { id: diskId, amount: allocation.disk },
-        ...gpuIdRequests,
-      ]),
-    [availResources, cpuId, ramId, diskId, allocation, gpuIdRequests]
+      sizing?.mode === 'exact'
+        ? null
+        : constraintError(availResources, [
+            { id: cpuId, amount: allocation.cpu },
+            { id: ramId, amount: allocation.ram },
+            { id: diskId, amount: allocation.disk },
+            ...gpuIdRequests,
+          ]),
+    [sizing?.mode, availResources, cpuId, ramId, diskId, allocation, gpuIdRequests]
   );
 
   const price = useMemo(() => {

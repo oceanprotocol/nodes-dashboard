@@ -16,7 +16,13 @@ import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
 import { getModelShortName } from '@/services/huggingface-service';
-import { detectEngine, enginePort, parseEngineCommand, toNodeUri } from '@/services/inference-launch';
+import {
+  detectEngine,
+  enginePort,
+  parseEngineCommand,
+  parseServiceResources,
+  toNodeUri,
+} from '@/services/inference-launch';
 import { getServiceStatusView } from '@/services/service-status';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
@@ -316,7 +322,29 @@ const ManageServicePage: React.FC = () => {
 
   const environment = selectedEnv?.environment ?? null;
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
-  const gpuSelection = selectedEnv?.gpuSelection;
+
+  // Resources the service ACTUALLY holds, from the node's own job record — authoritative, and the only
+  // source when the service was opened from the services table (whose Manage link carries no
+  // `gpus`/`res` params, leaving the hydrated selection to re-derive a whole-env slice that has nothing
+  // to do with what was booked). Falls back to the hydrated selection when the job record is unusable.
+  const bookedResources = useMemo(
+    () => (job && environment ? parseServiceResources(environment.resources ?? [], job.resources) : null),
+    [job, environment]
+  );
+  const gpuSelection = bookedResources?.gpuSelection ?? selectedEnv?.gpuSelection;
+  const sizing = bookedResources?.sizing ?? selectedEnv?.sizing;
+  // Nothing to size the environment card with yet: arrived from the services table (no `gpus`/`res` on
+  // the query) and the node's job record hasn't landed. Rendering the card now would show a whole-env
+  // allocation and price that aren't what the service holds, so wait out the first poll instead.
+  const awaitingBookedResources = !job && !sizing && Object.keys(gpuSelection ?? {}).length === 0;
+  /**
+   * Booked resources for the flow steps an Edit / Prolong re-enters, carried on the query. Without
+   * them the config step would ceiling tensor-parallelism at the wrong GPU count and a prolong would
+   * price (and escrow) the extra runtime off a whole-env slice instead of what the service holds.
+   */
+  const resourceOverrides = bookedResources
+    ? { gpuSelection: bookedResources.gpuSelection, sizing: bookedResources.sizing }
+    : undefined;
   const nowSeconds = Math.floor(Date.now() / 1000);
   // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both track the ACTUAL
   // window — including after a Prolong, which pushes expiresAt forward while leaving job.duration at the
@@ -364,7 +392,7 @@ const ManageServicePage: React.FC = () => {
     }
     router.push({
       pathname: '/inference/custom-models',
-      query: { ...buildSelectionQuery(), edit: '1', serviceId: id },
+      query: { ...buildSelectionQuery(resourceOverrides), edit: '1', serviceId: id },
     });
   };
 
@@ -397,7 +425,12 @@ const ManageServicePage: React.FC = () => {
     setJobDurationSeconds(extraSeconds);
     router.push({
       pathname: '/inference/custom-models/payment',
-      query: { ...buildSelectionQuery(), duration: String(extraSeconds), prolong: '1', serviceId: id },
+      query: {
+        ...buildSelectionQuery(resourceOverrides),
+        duration: String(extraSeconds),
+        prolong: '1',
+        serviceId: id,
+      },
     });
   };
 
@@ -501,13 +534,18 @@ const ManageServicePage: React.FC = () => {
                 <h3>Environment</h3>
                 <span className="textSecondary">Running for {formatDuration(durationTotalSeconds)}</span>
               </div>
-              <InferenceEnvironmentCard
-                defaultToken={defaultToken}
-                durationSeconds={durationTotalSeconds}
-                environment={environment}
-                gpuSelection={gpuSelection}
-                nodeInfo={nodeInfo}
-              />
+              {awaitingBookedResources ? (
+                <div className="textSecondary">Loading booked resources…</div>
+              ) : (
+                <InferenceEnvironmentCard
+                  defaultToken={defaultToken}
+                  durationSeconds={durationTotalSeconds}
+                  environment={environment}
+                  gpuSelection={gpuSelection}
+                  nodeInfo={nodeInfo}
+                  sizing={sizing}
+                />
+              )}
             </Card>
           )}
 

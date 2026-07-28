@@ -46,8 +46,9 @@ type InferenceEnvironmentCardProps = {
   /** Seeds the chips when the card is uncontrolled (e.g. restoring a prior pick for this env). Defaults to all units. */
   initialSelection?: GpuSelection;
   /**
-   * How to size/display/price the shared CPU/RAM/disk: `pinned` fixed amounts (quick start) or a `floor`
-   * under the GPU-fraction slice (advanced handoff). Omit for the proportional slice. See {@link ResourceSizing}.
+   * How to size/display/price the shared CPU/RAM/disk: `pinned` fixed amounts (quick start), a `floor`
+   * under the GPU-fraction slice (advanced handoff), or the `exact` amounts a running service booked
+   * (manage page). Omit for the proportional slice. See {@link ResourceSizing}.
    */
   sizing?: ResourceSizing;
 };

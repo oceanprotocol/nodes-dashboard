@@ -1,4 +1,4 @@
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
@@ -361,7 +361,7 @@ export function buildUserData(hfToken: string): Record<string, string> {
  * (e.g. a restored/booked pick whose units were taken by another tenant since) instead.
  */
 function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
-  const gpus = resources.filter((r) => r.type === 'gpu' || r.id.toLowerCase().includes('gpu'));
+  const gpus = resources.filter((r) => isGpuId(r.id, r.type));
   if (gpus.length === 0) {
     return [];
   }
@@ -402,6 +402,75 @@ function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelect
 /** Look up the resource id for a base type (cpu/ram/disk), falling back to the type name. */
 function resourceId(resources: ComputeResource[], type: 'cpu' | 'ram' | 'disk'): string {
   return resources.find((r) => r.type === type || r.id === type)?.id ?? type;
+}
+
+/** Same GPU test buildGpuRequests uses, so parse and build agree on which ids are GPUs. */
+function isGpuId(id: string, type?: string): boolean {
+  return type === 'gpu' || id.toLowerCase().includes('gpu');
+}
+
+/** What a running service actually holds, in the shapes the flow already speaks. */
+export type BookedServiceResources = {
+  /** Per-GPU-type unit counts, keyed the way useInferenceAllocation merges types (by description). */
+  gpuSelection: GpuSelection;
+  /** The booked CPU/RAM/disk as `exact` sizing — shown/priced verbatim, never re-clamped. */
+  sizing: ResourceSizing;
+};
+
+/**
+ * Reverse of the `resources` array buildInferenceStartParams sends: recover what a RUNNING service
+ * booked from the node's own job record (`ServiceJob.resources`, `[{ id, amount }]`) — the
+ * authoritative figures, as opposed to re-deriving a proportional slice that the service may not
+ * match (and which a service opened from the services table has no `gpus`/`res` params to restore).
+ *
+ * Returns null when the job carries no usable resource record, so callers can fall back to whatever
+ * the URL-hydrated selection holds.
+ */
+export function parseServiceResources(
+  envResources: ComputeResource[],
+  jobResources: { id?: string; amount?: number }[] | undefined
+): BookedServiceResources | null {
+  const booked = new Map<string, number>();
+  (jobResources ?? []).forEach((entry) => {
+    const amount = Number(entry?.amount);
+    if (typeof entry?.id !== 'string' || !Number.isFinite(amount)) {
+      return;
+    }
+    // Summed per id: the node may record a resource in more than one entry (as buildGpuRequests can
+    // emit for a pooled id).
+    booked.set(entry.id, (booked.get(entry.id) ?? 0) + amount);
+  });
+  if (booked.size === 0) {
+    return null;
+  }
+
+  // The env's own id for the type, with the bare type name as a fallback — a record written against a
+  // differently-named id than the env currently advertises still resolves.
+  const amountOf = (type: 'cpu' | 'ram' | 'disk'): number =>
+    booked.get(resourceId(envResources, type)) ?? booked.get(type) ?? 0;
+
+  const gpuSelection: GpuSelection = {};
+  // Seed EVERY GPU type the env advertises, including types this service booked none of: a missing key
+  // makes useInferenceAllocation fall back to its whole-env default for that type, which would report
+  // an untouched type as fully selected.
+  const envGpus = envResources.filter((r) => isGpuId(r.id, r.type));
+  envGpus.forEach((gpu) => {
+    const key = gpu.description || 'GPU';
+    gpuSelection[key] = (gpuSelection[key] ?? 0) + (booked.get(gpu.id) ?? 0);
+  });
+  // A booked GPU id the env no longer advertises can't be mapped to a type — attribute it to the
+  // description-less fallback key (the same one the merge uses) so its units aren't silently dropped.
+  const envGpuIds = new Set(envGpus.map((r) => r.id));
+  booked.forEach((amount, id) => {
+    if (isGpuId(id) && !envGpuIds.has(id)) {
+      gpuSelection.GPU = (gpuSelection.GPU ?? 0) + amount;
+    }
+  });
+
+  return {
+    gpuSelection,
+    sizing: { mode: 'exact', cpu: amountOf('cpu'), ram: amountOf('ram'), disk: amountOf('disk') },
+  };
 }
 
 /**
