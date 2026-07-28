@@ -86,13 +86,14 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
 // renders `errors.customParams[i].key`). Typed loosely so both can coexist on one errors object.
 type ParamErrors = Record<string, unknown>;
 
-// Custom params (env-var style): the only rule is non-empty, unique keys. Values are free-form.
-// Shared by both engines. Writes onto the passed errors object.
+// Custom params (extra launch flags): the only rule is non-empty, unique keys. Values are free-form.
+// Uniqueness is checked on the flag the key normalizes to, so `dtype` and `--dtype` collide — they'd
+// otherwise emit the same flag twice. Shared by both engines. Writes onto the passed errors object.
 function validateCustomParams(v: ModelParametersType, errors: ParamErrors): void {
   const seen = new Map<string, number>();
   const paramErrors: { key?: string }[] = [];
   v.customParams.forEach((param, index) => {
-    const trimmed = param.key.trim();
+    const trimmed = param.key.trim().replace(/^-+/, '');
     if (!trimmed) {
       paramErrors[index] = { key: 'Key is required.' };
     } else if (seen.has(trimmed)) {
@@ -295,7 +296,10 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // is BELOW the floor lowers it to that max — so the range collapses to the single value the model
   // accepts (see MODEL_PARAM_BOUNDS). No ceiling → nominal floor applies to a pinned value.
   const contextFloor = useMemo(
-    () => (contextCeiling != null ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling) : MODEL_PARAM_BOUNDS.maxContext.min),
+    () =>
+      contextCeiling != null
+        ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling)
+        : MODEL_PARAM_BOUNDS.maxContext.min,
     [contextCeiling]
   );
   const lockedQuant = useMemo(() => mapQuantization(config?.quantizationMethod ?? null), [config?.quantizationMethod]);
@@ -838,12 +842,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
 
           <div className={styles.divider} />
 
-          {/* Custom parameters — arbitrary key/value pairs (env-var style). Only rule: non-empty, unique keys. */}
+          {/* Custom parameters — extra launch flags as key/value pairs. Only rule: non-empty, unique keys. */}
           <div className={styles.subsection}>
             <div className={styles.subsectionHead}>
               <div>
                 <h4>Model parameters</h4>
-                <div className="textSecondary">Custom key/value pairs passed to the model at launch</div>
+                <div className="textSecondary">
+                  Extra launch flags, appended to the engine command as <code>--key value</code>. You don&apos;t need to
+                  add the leading <code>--</code>.
+                  <br />
+                  Leave the value empty for an on/off flag. Flags added here override the same flags set below.
+                </div>
               </div>
               <Button
                 color="accent2"
@@ -866,7 +875,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                       name={`customParams.${index}.key`}
                       onBlur={formik.handleBlur}
                       onChange={formik.handleChange}
-                      startAdornment="Key"
+                      startAdornment={<div style={{ whiteSpace: 'nowrap' }}>Key: --</div>}
                       type="text"
                       value={param.key}
                     />
@@ -876,7 +885,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                       name={`customParams.${index}.value`}
                       onBlur={formik.handleBlur}
                       onChange={formik.handleChange}
-                      startAdornment="Val"
+                      startAdornment="Val:"
                       type="text"
                       value={param.value}
                     />

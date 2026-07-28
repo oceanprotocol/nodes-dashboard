@@ -3,7 +3,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
 import { ComputeResource } from '@/types/environments';
-import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
+import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
@@ -80,7 +80,11 @@ function buildVllmCommand(model: HuggingFaceModel, params: Extract<ModelParamete
   }
   // Only emitted for a genuine multi-GPU shard — vLLM's default is 1, and passing it explicitly adds
   // nothing. Guarded like the numeric flags above so a NaN can't produce `--tensor-parallel-size NaN`.
-  if (params.tensorParallelSize != null && Number.isFinite(params.tensorParallelSize) && params.tensorParallelSize > 1) {
+  if (
+    params.tensorParallelSize != null &&
+    Number.isFinite(params.tensorParallelSize) &&
+    params.tensorParallelSize > 1
+  ) {
     cmd.push('--tensor-parallel-size', String(Math.floor(params.tensorParallelSize)));
   }
 
@@ -139,9 +143,43 @@ function buildLlamaCppCommand(params: Extract<ModelParameters, { engine: 'llamac
   return cmd;
 }
 
+/**
+ * Normalize a custom-param key into a CLI flag: `tensor-parallel-size` → `--tensor-parallel-size`.
+ * Keys already written with their dashes (`--dtype`, `-tp`) are kept verbatim, so both styles work.
+ */
+function toFlag(key: string): string {
+  return key.startsWith('-') ? key : `--${key}`;
+}
+
+/**
+ * The user's custom key/value params, as extra CLI args for the launch command. Emitted verbatim as
+ * `--<key> <value>` — no type coercion — with a bare `--<key>` when the value is empty (store_true
+ * style flags). Keys are trimmed (an untrimmed key would produce a `-- dtype`-ish broken flag), empty
+ * ones skipped.
+ *
+ * Appended LAST so a custom param naming a flag the form also emits wins: both vLLM's and llama.cpp's
+ * argparse keep the last occurrence of a repeated flag.
+ */
+function buildCustomArgs(params: ModelParameters): string[] {
+  const args: string[] = [];
+  for (const { key, value } of params.customParams) {
+    const trimmedKey = key.trim();
+    if (!trimmedKey) {
+      continue;
+    }
+    args.push(toFlag(trimmedKey));
+    const trimmedValue = value.trim();
+    if (trimmedValue) {
+      args.push(trimmedValue);
+    }
+  }
+  return args;
+}
+
 /** Build the launch command for whichever engine the params carry. Dispatches on `params.engine`. */
 export function buildEngineCommand(model: HuggingFaceModel, params: ModelParameters): string[] {
-  return params.engine === 'llamacpp' ? buildLlamaCppCommand(params) : buildVllmCommand(model, params);
+  const cmd = params.engine === 'llamacpp' ? buildLlamaCppCommand(params) : buildVllmCommand(model, params);
+  return [...cmd, ...buildCustomArgs(params)];
 }
 
 /** Detect the engine a running service uses from its dockerCmd: `-hf` is llama.cpp, else vLLM. */
@@ -150,12 +188,73 @@ export function detectEngine(cmd: string[]): InferenceEngine {
 }
 
 /**
+ * The flags each engine's own builder emits. Anything else in a command came from a custom param —
+ * that's how parseCustomArgs tells them apart. `valued` flags consume the next token, `boolean` ones
+ * stand alone.
+ */
+const KNOWN_FLAGS: Record<InferenceEngine, { valued: string[]; boolean: string[] }> = {
+  vllm: {
+    valued: [
+      '--model',
+      '--host',
+      '--port',
+      '--max-model-len',
+      '--gpu-memory-utilization',
+      '--tensor-parallel-size',
+      '--served-model-name',
+      '--dtype',
+      '--quantization',
+      '--kv-cache-dtype',
+      '--revision',
+      '--tool-call-parser',
+    ],
+    boolean: ['--trust-remote-code', '--enforce-eager', '--enable-auto-tool-choice'],
+  },
+  llamacpp: {
+    valued: ['-hf', '--host', '--port', '-c', '-ngl', '--alias'],
+    boolean: ['--jinja'],
+  },
+};
+
+/**
+ * Recover the custom params from a command: every flag the engine's builder doesn't emit itself,
+ * paired with the token after it (bare flags come back with an empty value). Keys keep the `--`
+ * prefix they're re-emitted with, so a parse → relaunch round-trip reproduces the same command.
+ *
+ * A value starting with `-` is read as the next flag rather than a value, so a genuinely negative
+ * numeric value (`--seed -1`) comes back as two bare params. Rare enough to accept over guessing.
+ */
+function parseCustomArgs(cmd: string[], engine: InferenceEngine): CustomParam[] {
+  const known = KNOWN_FLAGS[engine];
+  const custom: CustomParam[] = [];
+  for (let i = 0; i < cmd.length; i++) {
+    const token = cmd[i];
+    if (!token.startsWith('-')) {
+      continue;
+    }
+    if (known.valued.includes(token)) {
+      i++;
+      continue;
+    }
+    if (known.boolean.includes(token)) {
+      continue;
+    }
+    const next = cmd[i + 1];
+    const value = next && !next.startsWith('-') ? next : '';
+    if (value) {
+      i++;
+    }
+    custom.push({ key: token, value });
+  }
+  return custom;
+}
+
+/**
  * Reverse of buildEngineCommand: recover the model id + launch params from a running service's
  * dockerCmd (the node returns the command, not the original ModelParameters). Used by the manage
  * page to rebuild the params for a service opened without them in the URL. The engine is detected
  * from the command shape; flags absent from the command fall back to buildModelDefaults' neutral
- * values; customParams can't be recovered from the command (they live in the encrypted userData), so
- * they come back empty.
+ * values; unrecognized flags come back as customParams so an Edit relaunch doesn't silently drop them.
  */
 export function parseEngineCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
   // Read the value following a flag, or undefined when the flag is absent / has no value.
@@ -176,6 +275,7 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
       modelId: ggufRepo || null,
       params: {
         ...defaults,
+        customParams: parseCustomArgs(cmd, 'llamacpp'),
         servedModelName: valueOf('--alias') || defaults.servedModelName,
         ggufRepo: ggufRepo || defaults.ggufRepo,
         ggufQuant: ggufQuant || defaults.ggufQuant,
@@ -200,6 +300,7 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
     modelId,
     params: {
       ...defaults,
+      customParams: parseCustomArgs(cmd, 'vllm'),
       servedModelName: valueOf('--served-model-name') || defaults.servedModelName,
       // Flag absent (or garbage) → null: the service launched without a pinned length, so vLLM
       // derived it. Keep that as null rather than inventing a number.
@@ -220,26 +321,12 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
 }
 
 /**
- * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit).
- * HF_TOKEN unlocks gated/private repos; the user's custom key/value params are passed through as-is.
+ * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit). Only
+ * HF_TOKEN, which unlocks gated/private repos — the user's custom key/value params are launch flags
+ * on the command (see buildCustomArgs), not env vars.
  */
-export function buildUserData(params: ModelParameters, hfToken: string): Record<string, string> {
-  const userData: Record<string, string> = {};
-  for (const { key, value } of params.customParams) {
-    // Trim the key — the form validates uniqueness/non-emptiness on the trimmed key, so a stray
-    // leading/trailing space would otherwise reach the container as a distinct env-var name (e.g.
-    // "HF_TOKEN ") that silently never sets the intended variable.
-    const trimmedKey = key.trim();
-    if (trimmedKey) {
-      userData[trimmedKey] = value;
-    }
-  }
-  // Assign the dedicated HF token LAST so a stray custom param keyed HF_TOKEN can't shadow the
-  // real credential and lock the launch out of gated/private repos.
-  if (hfToken) {
-    userData.HF_TOKEN = hfToken;
-  }
-  return userData;
+export function buildUserData(hfToken: string): Record<string, string> {
+  return hfToken ? { HF_TOKEN: hfToken } : {};
 }
 
 /**
@@ -324,7 +411,7 @@ export function buildInferenceRestartSpec({
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(params, hfToken),
+    userData: buildUserData(hfToken),
   };
 }
 
@@ -373,7 +460,7 @@ export function buildInferenceStartParams({
     tag: runtime.tag,
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(params, hfToken),
+    userData: buildUserData(hfToken),
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },

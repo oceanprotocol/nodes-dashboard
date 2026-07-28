@@ -27,7 +27,11 @@ export type ToolCallParser =
   | 'qwen3_coder'
   | 'pythonic';
 
-/** A user-defined launch parameter — an arbitrary key/value pair, like a Vercel env var. */
+/**
+ * A user-defined launch flag — an arbitrary key/value pair appended to the engine's launch command
+ * as `--<key> <value>` (bare `--<key>` when the value is empty). Keys may be written with or without
+ * their leading dashes.
+ */
 export type CustomParam = {
   key: string;
   value: string;
@@ -42,11 +46,14 @@ export type CustomParam = {
  */
 export type InferenceEngine = 'vllm' | 'llamacpp';
 
-/** Fields every engine shares — identity + arbitrary user-defined env-var-style params. */
+/** Fields every engine shares — identity + arbitrary user-defined launch flags. */
 type CommonModelParameters = {
   /** The name the running model answers to (`--served-model-name` / `--alias`); clients address it by this. */
   servedModelName: string;
-  /** Arbitrary user-defined key/value params (like env vars), passed through as container userData. */
+  /**
+   * Arbitrary user-defined launch flags, appended to the engine command after the flags the form
+   * builds — so a custom param naming the same flag overrides the form's value (last one wins).
+   */
   customParams: CustomParam[];
 };
 

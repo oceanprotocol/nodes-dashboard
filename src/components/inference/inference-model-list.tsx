@@ -61,11 +61,16 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
     ].filter(Boolean) as string[];
   }
 
-  // User-defined key/value params (env-var style). Each becomes a row; the flag is its key.
-  const customRows: ParamRow[] = (params?.customParams ?? []).map((param) => ({
-    label: param.key,
-    value: param.value || 'N/A',
-  }));
+  // User-defined extra launch flags. The flag column shows what actually reaches the command (keys
+  // may be typed with or without dashes), and doubles as the row key.
+  const customRows: ParamRow[] = (params?.customParams ?? []).map((param) => {
+    const key = param.key.trim();
+    return {
+      label: key,
+      value: param.value.trim() || 'On',
+      flag: key.startsWith('-') ? key : `--${key}`,
+    };
+  });
 
   // The cold-launch flag rows, per engine. Labels double as the flag column below.
   const engineRows: ParamRow[] =
@@ -88,10 +93,16 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
             value: show(params?.engine === 'vllm' ? params.gpuMemoryUtilization : undefined, (v) => v.toFixed(2)),
             flag: '--gpu-memory-utilization',
           },
-          { label: 'dtype', value: show(params?.engine === 'vllm' ? params.dtype : undefined, (v) => v), flag: '--dtype' },
+          {
+            label: 'dtype',
+            value: show(params?.engine === 'vllm' ? params.dtype : undefined, (v) => v),
+            flag: '--dtype',
+          },
           {
             label: 'Quantization',
-            value: show(params?.engine === 'vllm' ? params.quantization : undefined, (v) => (v === 'none' ? 'None' : v)),
+            value: show(params?.engine === 'vllm' ? params.quantization : undefined, (v) =>
+              v === 'none' ? 'None' : v
+            ),
             flag: '--quantization',
           },
           {
