@@ -412,8 +412,10 @@ const ManageServicePage: React.FC = () => {
 
             {jobError && <div className="textAccent1">{jobError}</div>}
 
-            {/* Countdown only meaningful once the service is running with a known expiry. */}
-            {isRunning && (
+            {/* Countdown tracks the PAID window, not the container's health — a crashed (Error/Stopped)
+                service still holds its slot until expiresAt, and Restart/Prolong stay available until
+                then, so keep the bar up alongside the status chip. Only hidden once actually expired. */}
+            {job && !isExpired && durationTotalSeconds > 0 && (
               <DurationProgress
                 elapsedSeconds={durationElapsedSeconds}
                 onExpired={onLocalExpiry}
