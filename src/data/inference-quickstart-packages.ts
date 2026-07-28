@@ -22,14 +22,32 @@ const NODE_IDS = ['16Uiu2HAmVa9jQFm4SKrNtYs1QXLzwmMa8YPBCAjEBf8aR8dbLgeE', '16Ui
 /**
  * Resource floors for a package, built from its VRAM footprint and GPU count. `vramGb` is the
  * weights + KV-cache headroom per GPU (H200 = 141 GB/GPU), `gpus` the tensor-parallel width; both
- * are taken from the curated footprint column. CPU/RAM/disk scale with the GPU count — vLLM needs
- * host RAM to stage weights and disk to cache the HF download.
+ * are taken from the curated footprint column. vLLM needs host RAM to stage weights and disk to
+ * cache the HF download, so `cpu` (cores) / `ram` (GB) / `disk` (GB) are the host-side floors — each
+ * package states its own min and recommended, no implicit scaling.
+ *
+ * `computeCapability` is the CUDA arch floor the package's params imply — FP8 weights need >= 8.9,
+ * bf16 and an FP8 KV cache need >= 8.0, and fp16 + AWQ run down to 7.5 (Turing, e.g. a T4).
  */
-function resources(gpus: number, vramGb: number, diskGb: number): ResourceRequirement[] {
+function resources({
+  gpus,
+  vramGb,
+  computeCapability,
+  cpu,
+  ram,
+  disk,
+}: {
+  gpus: number;
+  vramGb: number;
+  computeCapability: number;
+  cpu: { min: number; recommended: number };
+  ram: { min: number; recommended: number };
+  disk: { min: number; recommended: number };
+}): ResourceRequirement[] {
   return [
-    { id: 'cpu', min: 4 * gpus, recommended: 8 * gpus, unit: 'cores' },
-    { id: 'ram', min: 16 * gpus, recommended: 32 * gpus, unit: 'GB' },
-    { id: 'disk', min: diskGb, recommended: Math.round(diskGb * 1.5), unit: 'GB' },
+    { id: 'cpu', min: cpu.min, recommended: cpu.recommended, unit: 'cores' },
+    { id: 'ram', min: ram.min, recommended: ram.recommended, unit: 'GB' },
+    { id: 'disk', min: disk.min, recommended: disk.recommended, unit: 'GB' },
     {
       kind: 'discrete',
       type: 'gpu',
@@ -37,12 +55,48 @@ function resources(gpus: number, vramGb: number, diskGb: number): ResourceRequir
       min: gpus,
       recommended: gpus,
       unit: 'count',
-      description: `${gpus} CUDA GPU${gpus > 1 ? 's' : ''} with >= ${vramGb} GB VRAM each (compute capability >= 8.0 for FP8 KV cache)`,
+      description: `${gpus} CUDA GPU${gpus > 1 ? 's' : ''} with >= ${vramGb} GB VRAM each (compute capability >= ${computeCapability})`,
     },
   ];
 }
 
 export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
+  {
+    id: 'lightweight-chat',
+    model: {
+      id: 'Qwen/Qwen2.5-7B-Instruct-AWQ',
+      author: 'Qwen',
+      pipelineTag: 'text-generation',
+    },
+    description: 'A smaller footprint and wider hardware reach — int4 weights fit a single 16 GB GPU, down to a T4. Start here if you are unsure a node can hold anything bigger.',
+    params: {
+      engine: 'vllm',
+      servedModelName: 'qwen2.5-7b-instruct',
+      customParams: [],
+      maxContext: 16384,
+      gpuMemoryUtilization: 0.9,
+      // AWQ int4 (~5.6 GB) instead of the 15.2 GB fp16 weights — the only way a 7B fits 16 GB.
+      // float16 + an unquantized KV cache keep it on Turing (T4): bf16 and FP8 both need >= 8.0.
+      quantization: 'awq',
+      dtype: 'float16',
+      kvCacheDtype: 'auto',
+      trustRemoteCode: false,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      toolCallParser: 'hermes',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 1,
+      vramGb: 16,
+      computeCapability: 7.5,
+      cpu: { min: 2, recommended: 4 },
+      ram: { min: 8, recommended: 14 },
+      disk: { min: 10, recommended: 16 },
+    }),
+  },
   {
     id: 'everyday-chat',
     model: {
@@ -50,7 +104,7 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
-    description: 'Fast, lightweight general chat model. The lowest-risk starting point — smallest footprint here, so it runs almost anywhere.',
+    description: 'Fast general chat at full precision, with reasoning built in. A sharper pick than the lightweight tier wherever a 24 GB GPU is free.',
     params: {
       engine: 'vllm',
       servedModelName: 'qwen3-8b',
@@ -68,7 +122,14 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources(1, 24, 40),
+    requiredResources: resources({
+      gpus: 1,
+      vramGb: 24,
+      computeCapability: 8.0,
+      cpu: { min: 4, recommended: 8 },
+      ram: { min: 16, recommended: 32 },
+      disk: { min: 40, recommended: 60 },
+    }),
   },
   {
     id: 'balanced-chat',
@@ -95,7 +156,14 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources(1, 80, 130),
+    requiredResources: resources({
+      gpus: 1,
+      vramGb: 80,
+      computeCapability: 8.0,
+      cpu: { min: 4, recommended: 8 },
+      ram: { min: 16, recommended: 32 },
+      disk: { min: 130, recommended: 195 },
+    }),
   },
   {
     id: 'fast-multimodal-chat',
@@ -122,7 +190,15 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources(1, 60, 90),
+    requiredResources: resources({
+      gpus: 1,
+      vramGb: 60,
+      // FP8 weights — needs Hopper or Ada (SM 8.9+), not just Ampere.
+      computeCapability: 8.9,
+      cpu: { min: 4, recommended: 8 },
+      ram: { min: 16, recommended: 32 },
+      disk: { min: 90, recommended: 135 },
+    }),
   },
   {
     id: 'flagship-chat',
@@ -149,7 +225,15 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources(1, 90, 150),
+    requiredResources: resources({
+      gpus: 1,
+      vramGb: 90,
+      // Native MXFP4 kernels are Hopper+; on older cards vLLM upconverts and no longer fits 90 GB.
+      computeCapability: 9.0,
+      cpu: { min: 4, recommended: 8 },
+      ram: { min: 16, recommended: 32 },
+      disk: { min: 150, recommended: 225 },
+    }),
   },
   {
     id: 'code-assistant',
@@ -176,7 +260,14 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources(1, 80, 120),
+    requiredResources: resources({
+      gpus: 1,
+      vramGb: 80,
+      computeCapability: 8.0,
+      cpu: { min: 4, recommended: 8 },
+      ram: { min: 16, recommended: 32 },
+      disk: { min: 120, recommended: 180 },
+    }),
   },
   // Code, 2 GPUs — sharded with --tensor-parallel-size 2. Needs a vLLM build carrying the qwen3_next
   // architecture; on an older image the server exits at startup with an unknown-arch error.
@@ -206,7 +297,14 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources(2, 90, 340),
+    requiredResources: resources({
+      gpus: 2,
+      vramGb: 90,
+      computeCapability: 8.0,
+      cpu: { min: 8, recommended: 16 },
+      ram: { min: 32, recommended: 64 },
+      disk: { min: 340, recommended: 510 },
+    }),
   },
   // General, 2 GPUs — frontier-family reasoning at the cheapest multi-GPU tier. Ships official FP8
   // weights and a custom architecture, hence trustRemoteCode; needs a vLLM/SGLang build with
@@ -237,6 +335,14 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources(2, 120, 500),
+    requiredResources: resources({
+      gpus: 2,
+      vramGb: 120,
+      // FP8 weights — Hopper/Ada only.
+      computeCapability: 8.9,
+      cpu: { min: 8, recommended: 16 },
+      ram: { min: 32, recommended: 64 },
+      disk: { min: 500, recommended: 750 },
+    }),
   },
 ];
