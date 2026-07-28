@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import { NodeUri } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { ServiceLogViewStatus, useServiceLogs } from '@/hooks/use-service-logs';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import cx from 'classnames';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -48,7 +49,7 @@ const ServiceLogsPanel: React.FC<ServiceLogsPanelProps> = ({
     }
   }, [clearNodeToken, nodePeerId]);
 
-  const { lines, status, error, stop } = useServiceLogs({
+  const { lines, status, error, stop, resume } = useServiceLogs({
     serviceId,
     nodeUri,
     consumerAddress,
@@ -89,9 +90,14 @@ const ServiceLogsPanel: React.FC<ServiceLogsPanelProps> = ({
           <span className={styles.dot} />
           {STATUS_LABEL[status]}
         </span>
-        {isLive && (
+        {/* 'idle' is the pre-effect first render — treat it as live so Resume doesn't flash for a frame. */}
+        {isLive || status === 'idle' ? (
           <Button color="accent1" contentBefore={<StopIcon />} onClick={stop} size="sm" variant="outlined">
             Stop
+          </Button>
+        ) : (
+          <Button color="accent1" contentBefore={<PlayArrowIcon />} onClick={resume} size="sm" variant="outlined">
+            Resume
           </Button>
         )}
       </div>
