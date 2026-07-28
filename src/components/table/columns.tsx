@@ -734,7 +734,13 @@ export const existingServicesColumns: GridColDef<ServiceJob>[] = [
       if (modelId) {
         return <ModelCell modelId={modelId} />;
       }
-      return <span title={row.serviceId}>{row.serviceId.slice(0, 10)}</span>;
+      // No `--model` in the launch command (e.g. a malformed record from an earlier run) — there's no
+      // model to name, so say so rather than showing a serviceId fragment that reads like a model id.
+      return (
+        <span className="textSecondary" title={`Service ${row.serviceId}`}>
+          Unknown model
+        </span>
+      );
     },
   },
   {

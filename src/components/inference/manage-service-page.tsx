@@ -93,10 +93,7 @@ const TERMINAL_STATUSES = new Set<ServiceStatusNumber>([
  * the mid-startup statuses the node itself sets (Locking/PullImage/BuildImage/Claiming) and Restarting:
  * they're rejected too, so offering Prolong there would take the user to payment for a doomed call.
  */
-const PROLONGABLE_STATUSES = new Set<ServiceStatusNumber>([
-  ServiceStatusNumber.Starting,
-  ServiceStatusNumber.Running,
-]);
+const PROLONGABLE_STATUSES = new Set<ServiceStatusNumber>([ServiceStatusNumber.Starting, ServiceStatusNumber.Running]);
 
 function pad(value: number): string {
   return String(value).padStart(2, '0');
@@ -200,10 +197,6 @@ const ManageServicePage: React.FC = () => {
   const [pollEpoch, setPollEpoch] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
 
-  // Model/env display comes from the URL-hydrated selection — the node returns the launch command,
-  // not HF metadata, so the rich model cards can't be rebuilt from the job alone.
-  const hasSelection = hydrateFromUrlFinished && selectedModels.length > 0;
-
   const nodeUri = useMemo(() => (selectedEnv ? toNodeUri(selectedEnv.nodeInfo) : null), [selectedEnv]);
   const nodePeerId = selectedEnv?.nodeInfo.id;
 
@@ -276,22 +269,24 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
+  // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
+  // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
+  const jobCommand = useMemo(() => (job?.dockerCmd ? parseEngineCommand(job.dockerCmd) : null), [job?.dockerCmd]);
+
   // Seed model launch params from the job's dockerCmd when the URL didn't carry them (e.g. opened from
   // the services table, which only puts models/env/duration on the query). Keeps the Model card and
   // prolong summary from rendering N/A, and gives an Edit relaunch its params. Only fills a model that
   // has none yet — a full config committed earlier in-flow always wins.
   useEffect(() => {
-    const cmd = job?.dockerCmd;
-    if (!cmd || selectedModels.length === 0) {
+    if (!jobCommand || selectedModels.length === 0) {
       return;
     }
-    const parsed = parseEngineCommand(cmd);
-    const target = parsed.modelId ? selectedModels.find((m) => m.id === parsed.modelId) : selectedModels[0];
+    const target = jobCommand.modelId ? selectedModels.find((m) => m.id === jobCommand.modelId) : selectedModels[0];
     if (!target || modelParamsByModel[target.id]) {
       return;
     }
-    setParamsForModel(target.id, parsed.params);
-  }, [job?.dockerCmd, selectedModels, modelParamsByModel, setParamsForModel]);
+    setParamsForModel(target.id, jobCommand.params);
+  }, [jobCommand, selectedModels, modelParamsByModel, setParamsForModel]);
 
   /** Restart the container in place, then re-kick the poll to track Running → Starting → Running. */
   const runServiceAction = useCallback(
@@ -315,10 +310,25 @@ const ManageServicePage: React.FC = () => {
     [nodeUri, nodePeerId, account.address, id, withNodeAuth, serviceRestart]
   );
 
-  const models: ServiceModel[] = useMemo(
-    () => selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] })),
-    [selectedModels, modelParamsByModel]
-  );
+  /**
+   * Which model this page shows, in order of authority:
+   *   1. the P2P job record's `--model` — what the container is actually running. Wins because an Edit
+   *      relaunch swaps the model in place (serviceRestart + dockerCmd, same serviceId), so the link
+   *      that got us here can name a model this service no longer serves.
+   *   2. the backend session record's model, which reaches us as the `models` query param,
+   *   3. neither → the card says "Unknown model".
+   * When both name the same model, the hydrated entry is used: same id, but with HF metadata (avatar,
+   * author) the job record doesn't carry. A node-only model renders off its id alone, with launch params
+   * parsed from the same dockerCmd. One container serves one model, so it replaces the list, not joins.
+   */
+  const models: ServiceModel[] = useMemo(() => {
+    const jobModelId = jobCommand?.modelId;
+    if (jobModelId) {
+      const hydrated = selectedModels.find((m) => m.id === jobModelId);
+      return [{ model: hydrated ?? { id: jobModelId }, params: modelParamsByModel[jobModelId] ?? jobCommand.params }];
+    }
+    return selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] }));
+  }, [selectedModels, modelParamsByModel, jobCommand]);
 
   const environment = selectedEnv?.environment ?? null;
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
@@ -338,13 +348,32 @@ const ManageServicePage: React.FC = () => {
   // allocation and price that aren't what the service holds, so wait out the first poll instead.
   const awaitingBookedResources = !job && !sizing && Object.keys(gpuSelection ?? {}).length === 0;
   /**
-   * Booked resources for the flow steps an Edit / Prolong re-enters, carried on the query. Without
-   * them the config step would ceiling tensor-parallelism at the wrong GPU count and a prolong would
-   * price (and escrow) the extra runtime off a whole-env slice instead of what the service holds.
+   * What the flow steps an Edit / Prolong re-enters must be told, carried on the query — the running
+   * service's own facts, not the context selection this page never rewrites.
+   *
+   * Resources: without them the config step would ceiling tensor-parallelism at the wrong GPU count and
+   * a prolong would price (and escrow) the extra runtime off a whole-env slice instead of what the
+   * service holds. Model: the P2P-resolved one (with its launch params, parsed from the same dockerCmd)
+   * whenever it isn't already the context selection — otherwise an Edit would relaunch the model the
+   * link happened to name rather than the one actually running.
    */
-  const resourceOverrides = bookedResources
-    ? { gpuSelection: bookedResources.gpuSelection, sizing: bookedResources.sizing }
-    : undefined;
+  const selectionOverrides = useMemo(() => {
+    const nodeOnlyModel = models.find((entry) => !selectedModels.some((m) => m.id === entry.model.id));
+    return {
+      ...(bookedResources ? { gpuSelection: bookedResources.gpuSelection, sizing: bookedResources.sizing } : {}),
+      ...(nodeOnlyModel
+        ? {
+            models: [nodeOnlyModel.model],
+            ...(nodeOnlyModel.params
+              ? {
+                  modelParamsByModel: { [nodeOnlyModel.model.id]: nodeOnlyModel.params },
+                  engine: nodeOnlyModel.params.engine,
+                }
+              : {}),
+          }
+        : {}),
+    };
+  }, [models, selectedModels, bookedResources]);
   const nowSeconds = Math.floor(Date.now() / 1000);
   // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both track the ACTUAL
   // window — including after a Prolong, which pushes expiresAt forward while leaving job.duration at the
@@ -358,9 +387,8 @@ const ManageServicePage: React.FC = () => {
       : jobDurationSeconds;
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
-  const serviceName = hasSelection
-    ? models.map((m) => getModelShortName(m.model.id)).join(' + ') || 'Custom selection'
-    : id;
+  // Named after whichever model won in `models`; the raw serviceId when there's no model at all.
+  const serviceName = models.length > 0 ? models.map((m) => getModelShortName(m.model.id)).join(' + ') : id;
 
   const status = job
     ? getServiceStatusView(job.status, job.statusText)
@@ -392,7 +420,7 @@ const ManageServicePage: React.FC = () => {
     }
     router.push({
       pathname: '/inference/custom-models',
-      query: { ...buildSelectionQuery(resourceOverrides), edit: '1', serviceId: id },
+      query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
     });
   };
 
@@ -426,7 +454,7 @@ const ManageServicePage: React.FC = () => {
     router.push({
       pathname: '/inference/custom-models/payment',
       query: {
-        ...buildSelectionQuery(resourceOverrides),
+        ...buildSelectionQuery(selectionOverrides),
         duration: String(extraSeconds),
         prolong: '1',
         serviceId: id,
@@ -516,16 +544,24 @@ const ManageServicePage: React.FC = () => {
             </div>
           </Card>
 
-          {/* Models */}
-          {models.length > 0 && (
-            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-              <div className={styles.howToHead}>
-                <h3>Model</h3>
-                <span className="textSecondary">Expand for launch parameters</span>
-              </div>
+          {/* Model. Rendered even when there's no model to name: the card is the only place the model
+              appears, so "unknown" must be stated rather than the card silently vanishing — otherwise
+              the previous service's card is the last thing the user saw here. */}
+          <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+            <div className={styles.howToHead}>
+              <h3>Model</h3>
+              {models.length > 0 && <span className="textSecondary">Expand for launch parameters</span>}
+            </div>
+            {models.length > 0 ? (
               <InferenceModelList models={models} />
-            </Card>
-          )}
+            ) : (
+              <div className="textSecondary">
+                {jobLoading
+                  ? 'Loading model…'
+                  : 'Unknown model — neither the node nor this service’s record names one.'}
+              </div>
+            )}
+          </Card>
 
           {/* Environment */}
           {environment && nodeInfo && (

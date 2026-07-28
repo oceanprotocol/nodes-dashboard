@@ -556,11 +556,14 @@ export function decodeModelIds(raw: string | string[] | undefined): string[] {
 }
 
 /**
- * Build the org avatar URL for a model's author.
+ * Build the org avatar URL for a model's author. `author` is only populated on models fetched from the
+ * HF API — one recovered from a running service's launch command is a bare id — so fall back to the id's
+ * namespace, which is the author for every `namespace/repo` id.
  */
 export function getModelAvatarUrl(model: HuggingFaceModel): string | undefined {
-  if (!model.author) {
+  const author = model.author || (model.id.includes('/') ? model.id.split('/')[0] : '');
+  if (!author) {
     return undefined;
   }
-  return `https://huggingface.co/api/organizations/${encodeURIComponent(model.author)}/avatar`;
+  return `https://huggingface.co/api/organizations/${encodeURIComponent(author)}/avatar`;
 }
