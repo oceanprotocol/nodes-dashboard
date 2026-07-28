@@ -81,6 +81,17 @@ const TERMINAL_STATUSES = new Set<ServiceStatusNumber>([
   ServiceStatusNumber.Error,
 ]);
 
+/**
+ * Statuses the node's SERVICE_EXTEND accepts — mirrors ocean-node `extendService.ts`, which rejects
+ * anything else with 400 "Only Starting or Running services can be extended". Deliberately excludes
+ * the mid-startup statuses the node itself sets (Locking/PullImage/BuildImage/Claiming) and Restarting:
+ * they're rejected too, so offering Prolong there would take the user to payment for a doomed call.
+ */
+const PROLONGABLE_STATUSES = new Set<ServiceStatusNumber>([
+  ServiceStatusNumber.Starting,
+  ServiceStatusNumber.Running,
+]);
+
 function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -334,6 +345,11 @@ const ManageServicePage: React.FC = () => {
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
   const canEdit = !!job && !isExpired;
   const canRestart = !!job && !isExpired;
+  // Mirror the node's SERVICE_EXTEND gate (Starting/Running only), plus our own expiry check: extend
+  // does `expiresAt += additionalDuration` with no past-expiry guard of its own, so a service still
+  // reading Running while past expiresAt (expiry-cron lag) would charge the user and land on a new
+  // expiresAt that is still in the past — paying for zero runtime.
+  const canProlong = !!job && !isExpired && !!selectedToken && PROLONGABLE_STATUSES.has(job.status);
   const baseUrl = serviceBaseUrl(job);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
 
@@ -364,10 +380,15 @@ const ManageServicePage: React.FC = () => {
    * price formula. See payment-page.
    */
   const onProlong = (extraSeconds: number) => {
-    // Prolong payment needs the token in the query to rehydrate on a hard reload; it's seeded from the
-    // running job, so wait until that's in (button is also gated).
-    if (!selectedToken) {
-      setJobError('Loading service details — try again in a moment.');
+    // Button is gated on the same flag, but guard so a stale render (or a status flip while the modal is
+    // open) can't send an expired/dead service to payment. The token half of canProlong is seeded from
+    // the running job, hence the separate "still loading" message.
+    if (!canProlong) {
+      // Close the modal too — the error renders in the page header, hidden behind an open modal.
+      setProlongOpen(false);
+      setJobError(
+        selectedToken ? 'This service can no longer be extended.' : 'Loading service details — try again in a moment.'
+      );
       return;
     }
     setProlongOpen(false);
@@ -451,7 +472,7 @@ const ManageServicePage: React.FC = () => {
                 <Button
                   color="accent1"
                   contentBefore={<BoltOutlinedIcon />}
-                  disabled={!job || !selectedToken}
+                  disabled={!canProlong}
                   onClick={() => setProlongOpen(true)}
                   size="md"
                   variant="filled"
