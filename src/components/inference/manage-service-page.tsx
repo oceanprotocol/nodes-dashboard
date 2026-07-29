@@ -23,7 +23,7 @@ import {
   parseServiceResources,
   toNodeUri,
 } from '@/services/inference-launch';
-import { getServiceStatusView } from '@/services/service-status';
+import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -86,14 +86,6 @@ const TERMINAL_STATUSES = new Set<ServiceStatusNumber>([
   ServiceStatusNumber.Expired,
   ServiceStatusNumber.Error,
 ]);
-
-/**
- * Statuses the node's SERVICE_EXTEND accepts — mirrors ocean-node `extendService.ts`, which rejects
- * anything else with 400 "Only Starting or Running services can be extended". Deliberately excludes
- * the mid-startup statuses the node itself sets (Locking/PullImage/BuildImage/Claiming) and Restarting:
- * they're rejected too, so offering Prolong there would take the user to payment for a doomed call.
- */
-const PROLONGABLE_STATUSES = new Set<ServiceStatusNumber>([ServiceStatusNumber.Starting, ServiceStatusNumber.Running]);
 
 function pad(value: number): string {
   return String(value).padStart(2, '0');
@@ -399,13 +391,23 @@ const ManageServicePage: React.FC = () => {
   // expiresAt while still reading Running). Mirror it so Edit/Restart aren't offered when doomed to
   // fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
-  const canEdit = !!job && !isExpired;
-  const canRestart = !!job && !isExpired;
-  // Mirror the node's SERVICE_EXTEND gate (Starting/Running only), plus our own expiry check: extend
-  // does `expiresAt += additionalDuration` with no past-expiry guard of its own, so a service still
-  // reading Running while past expiresAt (expiry-cron lag) would charge the user and land on a new
-  // expiresAt that is still in the past — paying for zero runtime.
-  const canProlong = !!job && !isExpired && !!selectedToken && PROLONGABLE_STATUSES.has(job.status);
+  // The statuses the node refuses a restart under — Expired, plus everything that holds its
+  // per-service lifecycle lock (mid-start / restarting / stopping), which comes back as
+  // "has a start/stop/restart operation in progress — retry shortly". See `isRestartBlocked`.
+  const restartBlocked = isRestartBlocked(job?.status);
+  // The node also refuses to restart a service whose payment was never claimed (escrow lock failed,
+  // or it was refunded — `cancelTx` set): restarting would run it for free, so it says "start a new
+  // service instead". claimTx is set before the first container start, so every legitimately
+  // restartable job (Running / crashed Error / Stopped) has it.
+  const isUnpaid = !!job && !job.payment?.claimTx;
+  // Edit relaunches through the same SERVICE_RESTART (with a new dockerCmd), so it shares the gate.
+  const canEdit = !!job && !isExpired && !restartBlocked && !isUnpaid;
+  const canRestart = !!job && !isExpired && !restartBlocked && !isUnpaid;
+  // Prolong's own status gate (Expired / Locking / Claiming — see `isProlongBlocked`), plus our
+  // expiry check: extend does `expiresAt += additionalDuration` with no past-expiry guard of its own,
+  // so a service still reading Running while past expiresAt (expiry-cron lag) would charge the user
+  // and land on a new expiresAt that is still in the past — paying for zero runtime.
+  const canProlong = !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken;
   const baseUrl = serviceBaseUrl(job);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
 
@@ -493,6 +495,16 @@ const ManageServicePage: React.FC = () => {
             </div>
 
             {jobError && <div className="textAccent1">{jobError}</div>}
+
+            {/* Say WHY Restart/Edit are greyed out — a disabled button with no reason reads as a broken
+                page. The status case clears itself on the next poll; unpaid never does. */}
+            {job && !isExpired && (restartBlocked || isUnpaid) && (
+              <div className="textSecondary">
+                {isUnpaid
+                  ? 'This service’s payment was never claimed (unpaid or refunded) — it can’t be restarted or edited. Start a new service instead.'
+                  : `Service is ${status.label.toLowerCase()} — Restart and Edit become available once the node finishes this operation.`}
+              </div>
+            )}
 
             {/* Countdown tracks the PAID window, not the container's health — a crashed (Error/Stopped)
                 service still holds its slot until expiresAt, and Restart/Prolong stay available until

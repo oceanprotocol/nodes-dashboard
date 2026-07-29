@@ -83,6 +83,62 @@ export function isServiceInFlight(status: ServiceStatusNumber | undefined, statu
   return IN_FLIGHT_KINDS.has(getServiceStatusView(status, statusText).kind);
 }
 
+/**
+ * Statuses under which the node REFUSES a SERVICE_RESTART (which is also how an Edit relaunches:
+ * serviceRestart + a new dockerCmd). Mirrors ocean-node:
+ *
+ * - `Expired` — `restartService` throws "Cannot restart an expired service". (The page pairs this
+ *   with its own `expiresAt` check: the expiry cron flips the status asynchronously, so a service can
+ *   be past its paid window while still reading Running.)
+ * - Everything else here holds the per-service lifecycle lock, so `acquireServiceLifecycleLock`
+ *   rejects with "Service <id> has a start/stop/restart operation in progress — retry shortly". The
+ *   lock covers the whole start pipeline (`SERVICE_START_PENDING_STATUSES` =
+ *   Starting/Locking/PullImage/BuildImage/Claiming/Restarting) and a teardown (Stopping), and every
+ *   one of those statuses is persisted while it's held.
+ *
+ * Restart is therefore offered on Running and on the terminal failure/stopped statuses — a crashed or
+ * stopped service keeps its slot (and its host ports) until `expiresAt`, so relaunching it is valid.
+ */
+const RESTART_BLOCKED_STATUSES = new Set<ServiceStatusNumber>([
+  ServiceStatusNumber.Expired,
+  ServiceStatusNumber.Starting,
+  ServiceStatusNumber.Locking,
+  ServiceStatusNumber.PullImage,
+  ServiceStatusNumber.BuildImage,
+  ServiceStatusNumber.Claiming,
+  RESTARTING_STATUS,
+  ServiceStatusNumber.Stopping,
+]);
+
+/**
+ * Statuses under which the node REFUSES a SERVICE_EXTEND (Prolong). Extend is being widened on the
+ * node to accept everything except:
+ *
+ * - `Expired` — the paid window is over; a new service is the only way forward.
+ * - `Locking` / `Claiming` — the initial payment is mid-flight (escrow createLock / claimLock).
+ *   Extending now would race a second escrow operation against the first on the same service.
+ *
+ * Unlike restart, the busy/mid-start statuses are NOT blocked: extend only rewrites `expiresAt` and
+ * the payment record, so it's valid while a container is still coming up. It does run inside
+ * `runExclusive` (same lifecycle lock), so a call landing mid-start/restart can still come back with
+ * "operation in progress" — that's a transient retry, not a permanent no, so the button stays live.
+ */
+const PROLONG_BLOCKED_STATUSES = new Set<ServiceStatusNumber>([
+  ServiceStatusNumber.Expired,
+  ServiceStatusNumber.Locking,
+  ServiceStatusNumber.Claiming,
+]);
+
+/** True when the node would refuse a restart (or an Edit relaunch) at this status. */
+export function isRestartBlocked(status: ServiceStatusNumber | undefined): boolean {
+  return status === undefined || RESTART_BLOCKED_STATUSES.has(status);
+}
+
+/** True when the node would refuse a Prolong (SERVICE_EXTEND) at this status. */
+export function isProlongBlocked(status: ServiceStatusNumber | undefined): boolean {
+  return status === undefined || PROLONG_BLOCKED_STATUSES.has(status);
+}
+
 // ── Compute-job status (ocean-node src/@types/C2D/C2D.ts: C2DStatusNumber / C2DStatusText) ──
 // The lib doesn't export the C2D enum, so map the raw codes here. Same three visual kinds as
 // services: running (algorithm executing), pending (queued/provisioning/publishing …), failed, dead.
