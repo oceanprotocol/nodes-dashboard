@@ -14,7 +14,7 @@ export const getInferenceSteps = (flowType: InferenceFlowType, edit = false): St
   { key: 'template', label: 'Template', hidden: flowType !== InferenceFlowType.Template },
   { key: 'resources', label: 'Resources', hidden: edit || flowType === InferenceFlowType.DefaultModel },
   { key: 'config', label: 'Config', hidden: flowType === InferenceFlowType.DefaultModel },
-  { key: 'payment', label: 'Payment' },
+  { key: 'payment', label: edit ? 'Relaunch' : 'Payment' },
 ];
 
 export type GrantStep = 'details' | 'verify' | 'claim';
