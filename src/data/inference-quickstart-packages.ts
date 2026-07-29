@@ -293,7 +293,7 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       enforceEager: false,
       revision: '',
       toolCalling: true,
-      toolCallParser: 'hermes',
+      toolCallParser: 'qwen3_coder',
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,

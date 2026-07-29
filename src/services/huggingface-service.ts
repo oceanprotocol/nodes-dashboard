@@ -405,7 +405,22 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
   if (/deepseek/.test(hay)) {
     return 'deepseek_v3';
   }
-  // Hermes-style is the common default for Qwen and many fine-tunes.
+  if (/glm/.test(hay)) {
+    return 'glm45';
+  }
+  if (/gemma3|gemma4/.test(hay)) {
+    return 'gemma4';
+  }
+  if (/phi4|phi3/.test(hay)) {
+    return 'phi4_mini_json';
+  }
+  // Qwen3+ switched to an XML tool-call format that the Hermes parser mis-reads. Note this can't
+  // distinguish Qwen3-Coder (which wants 'qwen3_coder') from Qwen3-Instruct — both report the same
+  // model_type/architecture, and the coder variant is only identifiable from the repo name.
+  if (/qwen(?:3|[4-9])/.test(hay)) {
+    return 'qwen3_xml';
+  }
+  // Hermes-style is the common default for Qwen2.x and many fine-tunes.
   if (/qwen|hermes/.test(hay)) {
     return 'hermes';
   }

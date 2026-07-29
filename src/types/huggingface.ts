@@ -13,20 +13,59 @@ export type ModelQuantization = 'none' | 'fp8' | 'awq' | 'gptq';
 export type ModelDtype = 'auto' | 'bfloat16' | 'float16' | 'float32';
 export type KvCacheDtype = 'auto' | 'fp8';
 
-/** vLLM `--tool-call-parser` values. No default — the user must pick the one matching the model family. */
-export type ToolCallParser =
-  | 'openai'
-  | 'hermes'
-  | 'llama3_json'
-  | 'llama4_json'
-  | 'mistral'
-  | 'granite'
-  | 'granite-20b-fc'
-  | 'internlm'
-  | 'jamba'
-  | 'deepseek_v3'
-  | 'qwen3_coder'
-  | 'pythonic';
+/**
+ * vLLM `--tool-call-parser` values — the single source for both the type and the picker's options.
+ * No default: the user must pick the one matching the model family, or tool calls fail to parse at
+ * runtime. Names come from vLLM's `ToolParserManager` registry
+ * (`vllm/tool_parsers/__init__.py`, `_TOOL_PARSERS_TO_REGISTER`); this is the subset relevant to
+ * models Ocean nodes realistically serve, not the full 46. vLLM adds parsers most releases and
+ * `VLLM_TAG` defaults to `latest`, so the running engine may know names absent here — hence
+ * `ToolCallParser` stays assignable from any string (see below).
+ */
+export const TOOL_CALL_PARSERS = [
+  // Qwen — the most-served family here, and the easiest to get wrong: Qwen3 switched to an XML
+  // format Hermes mis-parses, and the Coder variants use their own parser again.
+  { label: 'qwen3_xml — Qwen3 / Qwen3.x chat', value: 'qwen3_xml' },
+  { label: 'qwen3_coder — Qwen3-Coder', value: 'qwen3_coder' },
+  { label: 'hermes — Qwen2.x, NousResearch Hermes', value: 'hermes' },
+  // gpt-oss: harmony format. Named `openai` in vLLM, which reads like a generic default but is not.
+  { label: 'openai — gpt-oss (harmony)', value: 'openai' },
+  { label: 'llama3_json — Llama 3.x', value: 'llama3_json' },
+  { label: 'llama4_json — Llama 4', value: 'llama4_json' },
+  { label: 'llama4_pythonic — Llama 4 (pythonic)', value: 'llama4_pythonic' },
+  { label: 'deepseek_v32 — DeepSeek V3.2', value: 'deepseek_v32' },
+  { label: 'deepseek_v31 — DeepSeek V3.1', value: 'deepseek_v31' },
+  { label: 'deepseek_v3 — DeepSeek V3 / V4', value: 'deepseek_v3' },
+  { label: 'mistral — Mistral, Mixtral, Ministral', value: 'mistral' },
+  { label: 'glm45 — GLM-4.5 / 4.6 / 4.7', value: 'glm45' },
+  { label: 'kimi_k2 — Moonshot Kimi K2', value: 'kimi_k2' },
+  { label: 'minimax_m2 — MiniMax M2', value: 'minimax_m2' },
+  { label: 'gemma4 — Gemma 3 / 4', value: 'gemma4' },
+  { label: 'phi4_mini_json — Phi-4-mini', value: 'phi4_mini_json' },
+  { label: 'seed_oss — ByteDance Seed-OSS', value: 'seed_oss' },
+  { label: 'granite4 — IBM Granite 4', value: 'granite4' },
+  { label: 'granite — IBM Granite 3.x', value: 'granite' },
+  { label: 'granite-20b-fc — IBM Granite 20B FC', value: 'granite-20b-fc' },
+  { label: 'hunyuan_a13b — Tencent Hunyuan A13B', value: 'hunyuan_a13b' },
+  { label: 'step3 — StepFun Step 3', value: 'step3' },
+  { label: 'longcat — Meituan LongCat', value: 'longcat' },
+  { label: 'olmo3 — AI2 OLMo 3', value: 'olmo3' },
+  { label: 'internlm — InternLM2', value: 'internlm' },
+  { label: 'jamba — AI21 Jamba', value: 'jamba' },
+  { label: 'xlam — Salesforce xLAM', value: 'xlam' },
+  // Format-generic, not family-specific — the fallbacks when nothing above matches.
+  { label: 'pythonic — generic Python-call format', value: 'pythonic' },
+] as const;
+
+/** The parser names we ship options for — use this where an exhaustive check is wanted. */
+export type KnownToolCallParser = (typeof TOOL_CALL_PARSERS)[number]['value'];
+
+/**
+ * A parser name. Known values autocomplete; any other string is still accepted, so a parser added by
+ * a newer vLLM than this list knows about survives a round-trip through the form and the launch
+ * command instead of being silently dropped.
+ */
+export type ToolCallParser = KnownToolCallParser | (string & {});
 
 /**
  * A user-defined launch flag — an arbitrary key/value pair appended to the engine's launch command

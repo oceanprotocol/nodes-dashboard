@@ -23,6 +23,7 @@ import {
   ModelDtype,
   ModelParameters as ModelParametersType,
   ModelQuantization,
+  TOOL_CALL_PARSERS,
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
@@ -56,20 +57,12 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
   { label: 'fp8', value: 'fp8' },
 ];
 
-const toolParserOptions: { label: string; value: ToolCallParser }[] = [
-  { label: 'openai', value: 'openai' },
-  { label: 'hermes', value: 'hermes' },
-  { label: 'llama3_json', value: 'llama3_json' },
-  { label: 'llama4_json', value: 'llama4_json' },
-  { label: 'mistral', value: 'mistral' },
-  { label: 'granite', value: 'granite' },
-  { label: 'granite-20b-fc', value: 'granite-20b-fc' },
-  { label: 'internlm', value: 'internlm' },
-  { label: 'jamba', value: 'jamba' },
-  { label: 'deepseek_v3', value: 'deepseek_v3' },
-  { label: 'qwen3_coder', value: 'qwen3_coder' },
-  { label: 'pythonic', value: 'pythonic' },
-];
+// Options come from the shared registry subset in @/types/huggingface — kept there so the type and
+// the picker can't drift apart. Widened from the readonly `as const` tuple to what Select expects.
+const toolParserOptions: { label: string; value: ToolCallParser }[] = TOOL_CALL_PARSERS.map(({ label, value }) => ({
+  label,
+  value,
+}));
 
 /** Field label with an info-icon tooltip describing what the flag does. */
 function labelWithInfo(label: string, tooltip: string, bold = false): React.ReactNode {
