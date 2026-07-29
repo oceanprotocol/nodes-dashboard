@@ -57,6 +57,7 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
 ];
 
 const toolParserOptions: { label: string; value: ToolCallParser }[] = [
+  { label: 'openai', value: 'openai' },
   { label: 'hermes', value: 'hermes' },
   { label: 'llama3_json', value: 'llama3_json' },
   { label: 'llama4_json', value: 'llama4_json' },
