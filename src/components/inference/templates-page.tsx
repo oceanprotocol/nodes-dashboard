@@ -1,15 +1,10 @@
+import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
-import InferenceStepper from '@/components/inference/inference-stepper';
-import SectionTitle from '@/components/section-title/section-title';
 import useServiceTemplates from '@/components/hooks/use-service-templates';
-import {
-  ACCENT_HEX,
-  CATEGORY_ICON,
-  templateHardware,
-  visualFor,
-} from '@/components/inference/template-visual';
-import GpuIcon from '@/assets/icons/gpu.svg';
+import InferenceStepper from '@/components/inference/inference-stepper';
+import { ACCENT_HEX, CATEGORY_ICON, templateHardware, visualFor } from '@/components/inference/template-visual';
+import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
@@ -30,7 +25,7 @@ const TemplatesPage: React.FC = () => {
   const router = useRouter();
   const { setSelectedTemplate, clearSelection, buildSelectionQuery } = useInferenceContext();
 
-  const { templates, loading } = useServiceTemplates();
+  const { templates, loading, error } = useServiceTemplates();
   const [filter, setFilter] = useState<HardwareFilter>('all');
 
   // Always start fresh (new entry or Back-nav from a later step): clear leftover selection once, on mount.
@@ -54,8 +49,7 @@ const TemplatesPage: React.FC = () => {
   const cpuCount = decorated.length - gpuCount;
 
   const visible = useMemo(
-    () =>
-      decorated.filter((d) => (filter === 'all' ? true : filter === 'gpu' ? d.hw.gpu : !d.hw.gpu)),
+    () => decorated.filter((d) => (filter === 'all' ? true : filter === 'gpu' ? d.hw.gpu : !d.hw.gpu)),
     [decorated, filter]
   );
 
@@ -106,6 +100,8 @@ const TemplatesPage: React.FC = () => {
 
           {loading ? (
             <div className={cx(styles.stateBox, 'textSecondary')}>Loading templates…</div>
+          ) : error ? (
+            <div className={cx(styles.stateBox, 'textAccent1')}>{error}</div>
           ) : decorated.length === 0 ? (
             <div className={cx(styles.stateBox, 'textSecondary')}>No templates available.</div>
           ) : visible.length === 0 ? (
@@ -142,18 +138,12 @@ const TemplatesPage: React.FC = () => {
 
                     <div className={styles.footer}>
                       <span className={cx(styles.hw, hw.gpu ? styles.hwGpu : styles.hwCpu)}>
-                        {hw.gpu ? (
-                          <GpuIcon className={styles.hwIcon} />
-                        ) : (
-                          <MemoryIcon className={styles.hwIcon} />
-                        )}
+                        {hw.gpu ? <GpuIcon className={styles.hwIcon} /> : <MemoryIcon className={styles.hwIcon} />}
                         {hw.gpu ? 'GPU' : 'CPU'}
                       </span>
                       {hw.ram != null && <span className={styles.chip}>{hw.ram} GB RAM</span>}
                       {hw.disk != null && <span className={styles.chip}>{hw.disk} GB disk</span>}
-                      {hw.ram == null && hw.disk == null && (
-                        <span className={styles.chip}>Resources at next step</span>
-                      )}
+                      {hw.ram == null && hw.disk == null && <span className={styles.chip}>Resources at next step</span>}
                     </div>
                   </button>
                 );

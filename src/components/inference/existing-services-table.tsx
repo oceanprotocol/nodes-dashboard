@@ -1,10 +1,11 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { getApiRoute } from '@/config';
+import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds, getModelShortName } from '@/services/huggingface-service';
 import { getServiceStatusView } from '@/services/service-status';
-import { findTemplateByImage } from '@/services/service-templates';
+import { fetchTemplates, findTemplateByImage } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import { formatDateTime, formatDuration } from '@/utils/formatters';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -22,6 +23,8 @@ type ServiceSession = {
   statusText?: string;
   environment?: string;
   dockerCmd?: string[];
+  /** Container image the service was launched from — matched back to a template (see findTemplateByImage). */
+  image?: string;
   model?: string;
   duration?: number;
   expiresAt?: number;
@@ -41,6 +44,7 @@ function modelIdFromSession(session: ServiceSession): string | null {
 const ExistingServicesTable: React.FC = () => {
   const router = useRouter();
   const { account } = useOceanAccount();
+  const { isReady: p2pReady, getServiceTemplates } = useP2P();
 
   const [sessions, setSessions] = useState<ServiceSession[]>([]);
   const [total, setTotal] = useState(0);
@@ -55,6 +59,7 @@ const ExistingServicesTable: React.FC = () => {
     requestRef.current?.abort();
     setSessions([]);
     setTotal(0);
+    setTemplateByService({});
     setOpen(false);
     setLoading(false);
   }, [account.address]);
@@ -74,18 +79,26 @@ const ExistingServicesTable: React.FC = () => {
         params: { page: 1, size: 100, sort: JSON.stringify({ dateCreated: 'desc' }) },
         signal: request.signal,
       });
-      setSessions(data.services ?? []);
+      const services: ServiceSession[] = data.services ?? [];
+      setSessions(services);
       setTotal(data.pagination?.totalItems ?? 0);
-      const templates = await fetchServiceTemplates();
-      const byImage = new Map(templates.map((t) => [t.image, t]));
-      const matched: Record<string, AppTemplate> = {};
-      for (const job of sorted) {
-        const tpl = findTemplateByImage(templates, job.image);
-        if (tpl) {
-          matched[job.serviceId] = tpl;
+      if (p2pReady) {
+        try {
+          const templates = await fetchTemplates(getServiceTemplates, request.signal);
+          const matched: Record<string, AppTemplate> = {};
+          for (const service of services) {
+            const tpl = findTemplateByImage(templates, service.image);
+            if (tpl) {
+              matched[service.serviceId] = tpl;
+            }
+          }
+          if (!request.signal.aborted) {
+            setTemplateByService(matched);
+          }
+        } catch (templateErr) {
+          console.error('Failed to match services to templates:', templateErr);
         }
       }
-      setTemplateByService(matched);
     } catch (err) {
       if (axios.isCancel(err)) {
         return;
@@ -100,7 +113,7 @@ const ExistingServicesTable: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [account.address]);
+  }, [account.address, p2pReady, getServiceTemplates]);
 
   const handleLoad = useCallback(() => {
     if (open) {

@@ -16,7 +16,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
-import { buildTemplateStartParams } from '@/services/template-launch';
+import { buildTemplateRestartParams, buildTemplateStartParams } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
@@ -180,11 +180,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         break;
       }
       case InferenceFlowType.Template: {
-        // Template + env are required here. On edit the env is inherited from the running service (the
-        // resources step is skipped), so don't bounce to resources — the env comes from URL hydration.
+        // Template + env are required here. On edit AND prolong the env is inherited from the running
+        // service (the resources step is skipped), so don't bounce to resources — the env comes from URL
+        // hydration. Mirrors the CustomModel case, which excludes both modes for the same reason.
         if (!selectedTemplate) {
           router.replace({ pathname: '/inference/templates', query: router.query });
-        } else if (!selectedEnv && !isEditMode) {
+        } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({
             pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
             query: router.query,
@@ -628,7 +629,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       <SectionTitle
         moreReadable
         title="Inference"
-        subTitle={isProlongMode ? 'Prolong your running service' : 'Launch a model on an Ocean Node'}
+        subTitle={
+          isProlongMode
+            ? 'Prolong your running service'
+            : flowType === InferenceFlowType.Template
+              ? 'Launch an app on an Ocean Node'
+              : 'Launch a model on an Ocean Node'
+        }
         contentBetween={
           isProlongMode ? undefined : <InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} />
         }
