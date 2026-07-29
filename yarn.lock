@@ -6323,12 +6323,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/errors@npm:6.9.0":
-  version: 6.9.0
-  resolution: "@solana/errors@npm:6.9.0"
+"@solana/errors@npm:6.10.0":
+  version: 6.10.0
+  resolution: "@solana/errors@npm:6.10.0"
   dependencies:
     chalk: "npm:5.6.2"
-    commander: "npm:14.0.3"
+    commander: "npm:15.0.0"
   peerDependencies:
     typescript: ">=5.4.0"
   peerDependenciesMeta:
@@ -6336,7 +6336,7 @@ __metadata:
       optional: true
   bin:
     errors: bin/cli.mjs
-  checksum: 10c0/a0277d8f70dec085f33ccc6c9e611225c6847d3234ab30f540bbc3bc05d423ae6a6a5471a4ae3d77f2f36b7489c66dee5cb9ab09507878a8fddacebb00532299
+  checksum: 10c0/fe81aed0b2e026b707d24a742a941bb55d620f3d5b4a673ee1c56b700d8928e26e6ad29d462821a73b9653ca75e2bded1ee384bbfd2f1f845dd5ba52fe0b1323
   languageName: node
   linkType: hard
 
@@ -12554,10 +12554,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:14.0.3":
-  version: 14.0.3
-  resolution: "commander@npm:14.0.3"
-  checksum: 10c0/755652564bbf56ff2ff083313912b326450d3f8d8c85f4b71416539c9a05c3c67dbd206821ca72635bf6b160e2afdefcb458e86b317827d5cb333b69ce7f1a24
+"commander@npm:15.0.0":
+  version: 15.0.0
+  resolution: "commander@npm:15.0.0"
+  checksum: 10c0/539229c171914ea1ccd45ee5f10d924289a12a684ea3a7a44147abe54003c35ed6de9ae4ad198d88c29fdf403dca0428451a388234e6dc01b6faa978fb207206
   languageName: node
   linkType: hard
 
