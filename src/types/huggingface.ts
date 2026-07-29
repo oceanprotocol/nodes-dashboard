@@ -15,6 +15,7 @@ export type KvCacheDtype = 'auto' | 'fp8';
 
 /** vLLM `--tool-call-parser` values. No default — the user must pick the one matching the model family. */
 export type ToolCallParser =
+  | 'openai'
   | 'hermes'
   | 'llama3_json'
   | 'llama4_json'
