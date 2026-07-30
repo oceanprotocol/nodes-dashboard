@@ -1,8 +1,7 @@
 import Button from '@/components/button/button';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { usePrivy } from '@privy-io/react-auth';
 import { Container } from '@mui/material';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import styles from './auth-required-page.module.css';
 
 type AuthRequiredPage = {
@@ -14,13 +13,18 @@ type AuthRequiredPage = {
  * If the user is not authenticated, it will open the auth modal.
  */
 const AuthRequiredPage: React.FC<AuthRequiredPage> = ({ children }) => {
-  const { login } = usePrivy();
-  const { account } = useOceanAccount();
+  const { account, login } = useOceanAccount();
+  // Fires once per disconnected visit, so no second modal stacks on the first.
+  const promptedRef = useRef(false);
 
   useEffect(() => {
-    if (!account.isConnected) {
-      login();
+    if (account.isConnected) {
+      promptedRef.current = false;
+      return;
     }
+    if (promptedRef.current) return;
+    promptedRef.current = true;
+    login();
   }, [account.isConnected, login]);
 
   if (!account.isConnected) {

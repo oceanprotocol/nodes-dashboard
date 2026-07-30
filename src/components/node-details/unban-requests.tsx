@@ -6,7 +6,6 @@ import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
-import { usePrivy } from '@privy-io/react-auth';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './unban-requests.module.css';
@@ -16,9 +15,7 @@ type UnbanRequestsProps = {
 };
 
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
-  const { login } = usePrivy();
-
-  const { account, ocean, signMessage } = useOceanAccount();
+  const { account, login, ocean, signMessage } = useOceanAccount();
 
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
 

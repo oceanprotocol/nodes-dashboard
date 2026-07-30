@@ -1,14 +1,32 @@
+import LoginModal from '@/components/auth/login-modal';
+import PrivyModalWallets from '@/components/auth/privy-modal-wallets';
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
 import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
+import { forgetAuth, readAuth, useInjectedWallet, writeAuth, type StoredAuth } from '@/lib/use-injected-wallet';
 import { CircularProgress } from '@mui/material';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
+
+const FullScreenSpinner = () => (
+  <div
+    style={{
+      alignItems: 'center',
+      display: 'flex',
+      justifyContent: 'center',
+      height: '100vh',
+      width: '100vw',
+    }}
+  >
+    <CircularProgress />
+  </div>
+);
 
 // MetaMask returns nonce=null or nonce="undefined" for pending txs in eth_getTransactionByHash,
 // which ethers v6 fails to parse as BigInt. Patch it in send() before ethers processes the response.
@@ -31,7 +49,11 @@ type OceanAccountContextType = {
     address: string | undefined;
     isConnected: boolean;
   };
+  /** True while a Privy session exists — only used by the UI to show a settling spinner. */
+  authenticated: boolean;
+  isConnecting: boolean;
   isSendingTransaction: boolean;
+  login: () => void;
   logout: () => Promise<void>;
   ocean: OceanProvider | null;
   provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
@@ -47,8 +69,16 @@ type OceanAccountContextType = {
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
-const SCAHandler = ({ children }: { children: ReactNode }) => {
-  const { logout } = usePrivy();
+const SCAHandler = ({ children, onDisconnect }: { children: ReactNode; onDisconnect: () => void }) => {
+  const { login, logout: privyLogout } = usePrivy();
+
+  // Records an explicit disconnect: with no key at all the next load counts as a first visit
+  // and silently adopts whatever browser wallet is unlocked.
+  const logout = useCallback(async () => {
+    await privyLogout();
+    writeAuth('disconnected');
+    onDisconnect();
+  }, [onDisconnect, privyLogout]);
   // address is the Alchemy smart contract account (where the user's funds are), resolved from the
   // embedded-wallet signer — not the signer's own EOA address.
   const {
@@ -102,26 +132,18 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
   // Wait for the smart account address to resolve before rendering as connected, so we never
   // briefly expose the wrong address (or an unconnected state that retriggers the login modal).
   if (!address) {
-    return (
-      <div
-        style={{
-          alignItems: 'center',
-          display: 'flex',
-          justifyContent: 'center',
-          height: '100vh',
-          width: '100vw',
-        }}
-      >
-        <CircularProgress />
-      </div>
-    );
+    return <FullScreenSpinner />;
   }
 
   return (
     <OceanAccountContext.Provider
       value={{
         account: { address, isConnected: true },
+        authenticated: true,
+        isConnecting: false,
         isSendingTransaction,
+        // A SCA user is always already connected, so the chooser is never needed here.
+        login,
         logout,
         ocean,
         provider,
@@ -135,36 +157,87 @@ const SCAHandler = ({ children }: { children: ReactNode }) => {
   );
 };
 
-const EOAHandler = ({ children }: { children: ReactNode }) => {
+const EOAHandler = ({
+  authenticated,
+  canAutoAdopt,
+  children,
+  onAuthChange,
+  onPrivyLogout,
+  privyUnavailable,
+}: {
+  authenticated: boolean;
+  canAutoAdopt: boolean;
+  children: ReactNode;
+  onAuthChange: (auth: StoredAuth | undefined) => void;
+  onPrivyLogout: () => Promise<void>;
+  privyUnavailable: boolean;
+}) => {
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
-  const [address, setAddress] = useState<string | undefined>();
+  const [isFallbackLoginOpen, setIsFallbackLoginOpen] = useState(false);
+  const [loginRequested, setLoginRequested] = useState(false);
+  const { address, chainError, connect, disconnect, eip1193, error, isConnecting, wallets } = useInjectedWallet({
+    canAutoAdopt,
+  });
+  const { login: privyLogin, logout: privyLogout, ready: privyReady, user: privyUser } = usePrivy();
 
-  const provider = useMemo(() => {
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
-      return new MetaMaskBrowserProvider((window as any).ethereum);
-    }
-    return null;
-  }, []);
+  // A migrating user is `authenticated` with no embedded wallet until MigrationProvider
+  // imports it (see shouldCreateWallet in alchemy-provider.tsx) — legitimate, not stale.
+  const isMigrating = authenticated && privyUser?.customMetadata?.['alchemy_org_id'] !== undefined;
+
+  // Privy's modal is the login UI, with the wallet list portaled into it. Queue the request
+  // rather than drop it: `!ready` is true for the first moments of every healthy load.
+  const login = useCallback(() => setLoginRequested(true), []);
 
   useEffect(() => {
-    if (!provider) return;
-    const ethereum = (window as any).ethereum;
+    if (!loginRequested) return;
+    // Fall back to our wallet-only modal only once Privy has actually failed to come up.
+    if (privyUnavailable) {
+      setLoginRequested(false);
+      setIsFallbackLoginOpen(true);
+      return;
+    }
+    if (!privyReady) return; // still starting — keep the request pending
+    setLoginRequested(false);
+    // A fresh explicit choice, so forget the remembered wallet — this is what stops the
+    // native path being a dead end. Cleared, not marked, so cancelling still reconnects.
+    forgetAuth();
+    onAuthChange(undefined);
+    (async () => {
+      // Privy's login() no-ops on a stale session until it is cleared — but clearing a
+      // migrating user's session aborts their migration.
+      if (authenticated && !isMigrating) {
+        await privyLogout();
+      }
+      privyLogin();
+    })();
+  }, [authenticated, isMigrating, loginRequested, onAuthChange, privyLogin, privyLogout, privyReady, privyUnavailable]);
 
-    provider
-      .listAccounts()
-      .then((accounts) => accounts[0]?.address)
-      .then((addr) => setAddress(addr))
-      .catch(() => {});
+  // Mirror what the hook persisted, or the branch above keeps answering with page-load state.
+  const handleConnect = useCallback(
+    async (rdns: string) => {
+      const connected = await connect(rdns);
+      if (connected) onAuthChange({ rdns });
+      return connected;
+    },
+    [connect, onAuthChange]
+  );
 
-    const handleAccountsChanged = (accounts: string[]) => {
-      setAddress(accounts[0] ?? undefined);
-    };
+  // Log out means every session: a lingering Privy one would satisfy the SCA branch on the
+  // next render and sign the user back in under a different address.
+  const handleDisconnect = useCallback(async () => {
+    await disconnect();
+    if (authenticated) {
+      await onPrivyLogout();
+    }
+    onAuthChange('disconnected');
+  }, [authenticated, disconnect, onAuthChange, onPrivyLogout]);
 
-    ethereum?.on('accountsChanged', handleAccountsChanged);
-    return () => {
-      ethereum?.removeListener('accountsChanged', handleAccountsChanged);
-    };
-  }, [provider]);
+  const signerProvider = useMemo(() => (eip1193 ? new MetaMaskBrowserProvider(eip1193) : null), [eip1193]);
+
+  // Chain reads that need no account (node balances, access-list checks) must keep working
+  // while disconnected.
+  const readProvider = useMemo(() => new ethers.JsonRpcProvider(getRpc()), []);
+  const provider = signerProvider ?? readProvider;
 
   useEffect(() => {
     if (address) {
@@ -173,30 +246,24 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
     }
   }, [address]);
 
-  const ocean = useMemo(() => {
-    if (!provider) return null;
-    return new OceanProvider(CHAIN_ID, provider);
-  }, [provider]);
+  // Happens with both modals closed, so without a toast the header just flips back to
+  // "Log in" unexplained. Connect errors are excluded — the wallet list shows those inline.
+  useEffect(() => {
+    if (chainError) toast.error(chainError);
+  }, [chainError]);
 
-  const logout = useCallback(async () => {
-    try {
-      await (window as any).ethereum?.request({
-        method: 'wallet_revokePermissions',
-        params: [{ eth_accounts: {} }],
-      });
-    } catch {} // not supported by all wallets
-    setAddress(undefined);
-  }, []);
+  const ocean = useMemo(() => new OceanProvider(CHAIN_ID, provider), [provider]);
 
+  // Guarded on signerProvider: `provider` may be the read-only RPC one.
   const signMessageWrapper = useCallback(
     async (message: string) => {
-      if (!address || !provider) {
+      if (!address || !signerProvider) {
         throw new Error('No signer available');
       }
-      const signer = await provider.getSigner();
+      const signer = await signerProvider.getSigner();
       return await signMessage(message, signer);
     },
-    [address, provider]
+    [address, signerProvider]
   );
 
   const sendTransactionWrapper = useCallback(
@@ -211,13 +278,13 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
       onSuccess?: (result: any) => void;
       onError?: (error: any) => void;
     }) => {
-      if (!provider) {
-        onError?.(new Error('No provider available'));
+      if (!signerProvider) {
+        onError?.(new Error('No wallet connected'));
         return;
       }
       try {
         setIsSendingTransaction(true);
-        const signer = await provider.getSigner();
+        const signer = await signerProvider.getSigner();
         const tx = await signer.sendTransaction({ to: target, data });
         const receipt = await tx.wait();
         onSuccess?.(receipt);
@@ -228,15 +295,18 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
         setIsSendingTransaction(false);
       }
     },
-    [provider]
+    [signerProvider]
   );
 
   return (
     <OceanAccountContext.Provider
       value={{
         account: { address, isConnected: !!address },
+        authenticated,
+        isConnecting,
         isSendingTransaction,
-        logout,
+        login,
+        logout: handleDisconnect,
         ocean,
         provider,
         sendTransaction: sendTransactionWrapper,
@@ -245,52 +315,75 @@ const EOAHandler = ({ children }: { children: ReactNode }) => {
       }}
     >
       {children}
+      <PrivyModalWallets error={error} isConnecting={isConnecting} onConnect={handleConnect} wallets={wallets} />
+      <LoginModal
+        error={error}
+        isConnecting={isConnecting}
+        isOpen={isFallbackLoginOpen}
+        onClose={() => setIsFallbackLoginOpen(false)}
+        onConnect={handleConnect}
+        wallets={wallets}
+      />
     </OceanAccountContext.Provider>
   );
 };
 
+/** How long we wait on Privy before giving up and letting the native path through. */
+const PRIVY_READY_TIMEOUT_MS = 4000;
+
 export const OceanAccountProvider = ({ children }: { children: ReactNode }) => {
-  const { ready, authenticated, user } = usePrivy();
+  // null = localStorage not read yet; same spinner on server and first client paint.
+  const [auth, setAuth] = useState<StoredAuth | undefined | null>(null);
+  const [privyTimedOut, setPrivyTimedOut] = useState(false);
+
+  const { ready, authenticated, logout: privyLogout } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const embeddedWallet = getEmbeddedWallet(wallets);
 
-  if (!ready) {
-    return (
-      <div
-        style={{
-          alignItems: 'center',
-          display: 'flex',
-          justifyContent: 'center',
-          height: '100vh',
-          width: '100vw',
-        }}
-      >
-        <CircularProgress />
-      </div>
-    );
+  useEffect(() => setAuth(readAuth()), []);
+
+  // Armed for every visitor: privyTimedOut is what tells the rest of the tree that Privy
+  // failed to start. Without it a visitor behind an ad blocker has no way in at all.
+  const stalled = !ready || (authenticated && !walletsReady);
+  useEffect(() => {
+    if (!stalled) return;
+    const timer = setTimeout(() => setPrivyTimedOut(true), PRIVY_READY_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [stalled]);
+
+  const privyUnavailable = privyTimedOut && !ready;
+  const privySettled = ready || privyTimedOut;
+  const rememberedWallet = auth && auth !== 'disconnected';
+
+  // A remembered wallet never waits on Privy — the whole point of this provider. Logged-out
+  // has nothing to restore. Only the unknown case waits, so an existing smart-account user
+  // isn't mounted as logged-out and then remounted.
+  const waitForPrivy = auth === undefined && stalled && !privyTimedOut;
+
+  // Adopt silently when we know which wallet, or when Privy settled with no session.
+  const canAutoAdopt = !!rememberedWallet || (auth === undefined && privySettled && !authenticated);
+
+  if (auth === null || waitForPrivy) {
+    return <FullScreenSpinner />;
   }
 
-  if (authenticated && embeddedWallet) {
-    return <SCAHandler>{children}</SCAHandler>;
+  // A remembered wallet outranks an inherited Privy session, which would otherwise reclaim
+  // the account the user just connected.
+  if (!rememberedWallet && authenticated && embeddedWallet) {
+    return <SCAHandler onDisconnect={() => setAuth('disconnected')}>{children}</SCAHandler>;
   }
 
-  if (authenticated && !walletsReady) {
-    return (
-      <div
-        style={{
-          alignItems: 'center',
-          display: 'flex',
-          justifyContent: 'center',
-          height: '100vh',
-          width: '100vw',
-        }}
-      >
-        <CircularProgress />
-      </div>
-    );
-  }
-
-  return <EOAHandler>{children}</EOAHandler>;
+  return (
+    <EOAHandler
+      authenticated={authenticated}
+      canAutoAdopt={canAutoAdopt}
+      onAuthChange={setAuth}
+      onPrivyLogout={privyLogout}
+      privyUnavailable={privyUnavailable}
+    >
+      {children}
+    </EOAHandler>
+  );
 };
 
 export function useOceanAccount() {
