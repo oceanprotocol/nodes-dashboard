@@ -1,41 +1,17 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
-import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
+import { templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
-import { AppTemplate } from '@/types/templates';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
-
-/**
- * Pin the template's recommended CPU/RAM/disk so the payment step books that sized allocation (same
- * `pinned` sizing the quick-start flow uses). Prefer `recommendedResources`, else `requiredResources`;
- * per resource use `recommended`, falling back to `min`. Undefined if any of cpu/ram/disk is absent
- * (then the launch falls back to the GPU-fraction slice). Clamped to the env's real limits downstream.
- */
-function templatePinnedSizing(template: AppTemplate): ResourceSizing | undefined {
-  const reqs = template.recommendedResources ?? template.requiredResources;
-  if (!reqs) {
-    return undefined;
-  }
-  const amount = (id: string): number | undefined => {
-    const entry = reqs.find((r) => r.id === id);
-    return entry ? (entry.recommended ?? entry.min) : undefined;
-  };
-  const cpu = amount('cpu');
-  const ram = amount('ram');
-  const disk = amount('disk');
-  if (cpu == null || ram == null || disk == null) {
-    return undefined;
-  }
-  return { mode: 'pinned', cpu, ram, disk };
-}
 
 const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const router = useRouter();

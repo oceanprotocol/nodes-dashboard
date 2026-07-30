@@ -1,70 +1,142 @@
 import { AppTemplate } from '@/types/templates';
 import type { SvgIconComponent } from '@mui/icons-material';
+import AppsOutlined from '@mui/icons-material/AppsOutlined';
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
+import DnsOutlined from '@mui/icons-material/DnsOutlined';
 import GrainOutlined from '@mui/icons-material/GrainOutlined';
 import ImageOutlined from '@mui/icons-material/ImageOutlined';
 import MenuBook from '@mui/icons-material/MenuBook';
+import MovieOutlined from '@mui/icons-material/MovieOutlined';
 
 /**
- * Visual identity for a template card. The node's template catalogue carries no logo/category/color,
- * so we derive them here from the template `id` (a substring match against a small maintained map).
- * New templates that don't match fall back to a monogram + neutral "App" category — nothing breaks.
+ * Visual identity of an app template: its category (the picker's primary filter axis), the accent that
+ * tints its icon tile / category pill, and its brand mark. The node's template catalogue carries no
+ * category, logo or colour, so all three are derived here from the template `id` (a substring match
+ * against a small maintained map). An id that matches nothing falls back to the neutral `app` bucket
+ * with a 2-letter monogram — nothing breaks, it just reads as "uncategorised".
  */
 
-export type TemplateCategory = 'image' | 'llm' | 'embed' | 'notebook';
-export type TemplateAccent = 'coral' | 'lime' | 'amber' | 'ink';
+export type TemplateCategory = 'image' | 'video' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
 
-export interface TemplateVisual {
-  cat: TemplateCategory;
+export interface TemplateCategoryMeta {
   label: string;
-  accent: TemplateAccent;
-  mono: string;
+  /** Accent colour (light theme — the dashboard is light-only). */
+  accent: string;
+  Icon: SvgIconComponent;
+  /** "What you get" lead line in the details modal — the node publishes no such field per template. */
+  purpose: string;
 }
 
-/** Category → MUI icon. Rendered with `currentColor`, so it tints to the card accent. */
-export const CATEGORY_ICON: Record<TemplateCategory, SvgIconComponent> = {
-  image: ImageOutlined,
-  llm: ChatBubbleOutline,
-  embed: GrainOutlined,
-  notebook: MenuBook,
+/**
+ * Category → label / accent / glyph. `image` reuses --accent1 coral and `llm` the readable lime; video
+ * takes a violet that sits opposite coral without competing with it, serving a deep teal-green sibling
+ * of the lime (so the two model buckets read as related), and the `app` fallback a neutral slate —
+ * deliberately the least eye-catching of the set.
+ */
+export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
+  image: {
+    label: 'Image gen',
+    accent: '#d54335',
+    Icon: ImageOutlined,
+    purpose: 'For generating and editing images.',
+  },
+  video: { label: 'Video gen', accent: '#7b3fe4', Icon: MovieOutlined, purpose: 'For generating short video clips.' },
+  llm: {
+    label: 'LLM chat',
+    accent: '#4f9a10',
+    Icon: ChatBubbleOutline,
+    purpose: 'For chatting with a model in your browser.',
+  },
+  serving: {
+    label: 'LLM serving',
+    accent: '#0f7b6c',
+    Icon: DnsOutlined,
+    purpose: 'For serving an OpenAI-compatible model endpoint.',
+  },
+  notebook: {
+    label: 'Notebook',
+    accent: '#000000',
+    Icon: MenuBook,
+    purpose: 'For notebooks, scripting and data exploration.',
+  },
+  embeddings: {
+    label: 'Embeddings',
+    accent: '#c96b00',
+    Icon: GrainOutlined,
+    purpose: 'For building a vector index or a RAG pipeline.',
+  },
+  app: {
+    label: 'App',
+    accent: '#5a6b7a',
+    Icon: AppsOutlined,
+    purpose: 'This node published the image without a recognised category.',
+  },
 };
 
-/** Accent colours (light theme — the dashboard is light-only). `coral` / `lime` mirror --accent1 / --accent2. */
-export const ACCENT_HEX: Record<TemplateAccent, string> = {
-  coral: '#d54335',
-  lime: '#4f9a10',
-  amber: '#c96b00',
-  ink: '#000000',
-};
+/** Pill order in the filter toolbar (buckets with no templates are still rendered, dimmed, at 0). */
+export const CATEGORY_ORDER: TemplateCategory[] = [
+  'image',
+  'video',
+  'llm',
+  'serving',
+  'notebook',
+  'embeddings',
+  'app',
+];
 
-/** id-substring → visual. Extend as new templates ship; unknown ids fall back to a monogram. */
-const VISUALS: Record<string, TemplateVisual> = {
-  automatic1111: { cat: 'image', label: 'Image gen', accent: 'coral', mono: 'A1' },
-  comfyui: { cat: 'image', label: 'Image gen', accent: 'coral', mono: 'CY' },
-  fooocus: { cat: 'image', label: 'Image gen', accent: 'coral', mono: 'FO' },
-  jupyterlab: { cat: 'notebook', label: 'Notebook', accent: 'ink', mono: 'JL' },
-  llamacpp: { cat: 'llm', label: 'LLM', accent: 'lime', mono: 'LC' },
-  'open-webui': { cat: 'llm', label: 'LLM chat', accent: 'lime', mono: 'OW' },
-  vllm: { cat: 'llm', label: 'LLM serving', accent: 'lime', mono: 'vL' },
+/** id-substring → category. Extend as new templates ship; unknown ids fall back to `app`. */
+const CATEGORY_BY_ID_PART: Record<string, TemplateCategory> = {
+  automatic1111: 'image',
+  a1111: 'image',
+  'stable-diffusion': 'image',
+  'sd-webui': 'image',
+  comfyui: 'image',
+  fooocus: 'image',
+  flux: 'image',
+  'wan-video': 'video',
+  'ltx-video': 'video',
+  animatediff: 'video',
+  video: 'video',
+  jupyter: 'notebook',
   // Longer than `vllm`, so a `vllm-nomic-embed` id resolves to Embeddings (see MATCH_KEYS sort).
-  'nomic-embed': { cat: 'embed', label: 'Embeddings', accent: 'amber', mono: 'NE' },
+  'nomic-embed': 'embeddings',
+  embed: 'embeddings',
+  'open-webui': 'llm',
+  ollama: 'llm',
+  llamacpp: 'llm',
+  'llama-cpp': 'llm',
+  'llama.cpp': 'llm',
+  chat: 'llm',
+  vllm: 'serving',
+  tgi: 'serving',
+  'text-generation-inference': 'serving',
 };
 
 // Longest key first so the most specific substring wins (e.g. `nomic-embed` over `vllm`).
-const MATCH_KEYS = Object.keys(VISUALS).sort((a, b) => b.length - a.length);
+const MATCH_KEYS = Object.keys(CATEGORY_BY_ID_PART).sort((a, b) => b.length - a.length);
+
+export interface TemplateVisual {
+  category: TemplateCategory;
+  meta: TemplateCategoryMeta;
+  /** 2-letter monogram, set only for uncategorised templates (the tile has no glyph to show instead). */
+  mono: string | null;
+}
 
 export function visualFor(id: string): TemplateVisual {
-  const key = MATCH_KEYS.find((k) => id.includes(k));
+  const key = MATCH_KEYS.find((k) => id.toLowerCase().includes(k));
   if (key) {
-    return VISUALS[key];
+    const category = CATEGORY_BY_ID_PART[key];
+    return { category, meta: CATEGORY_META[category], mono: null };
   }
   const mono = id.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
-  return { cat: 'llm', label: 'App', accent: 'ink', mono: mono || '??' };
+  return { category: 'app', meta: CATEGORY_META.app, mono: mono || '??' };
 }
 
 export interface TemplateHardware {
   /** True when the template declares a GPU resource — the main GPU-vs-CPU signal on the card. */
   gpu: boolean;
+  /** GPU units the template asks for (0 when it declares none). */
+  gpuUnits: number;
   /** Recommended (else min) RAM in GB, if the template declares it. */
   ram?: number;
   /** Recommended (else min) disk in GB, if the template declares it. */
@@ -81,9 +153,35 @@ export function templateHardware(tpl: AppTemplate): TemplateHardware {
     const entry = reqs.find((r) => r.id === id);
     return entry ? (entry.recommended ?? entry.min) : undefined;
   };
+  const gpuEntry = reqs.find((r) => r.type === 'gpu' || r.id === 'gpu');
   return {
-    gpu: reqs.some((r) => r.type === 'gpu' || r.id === 'gpu'),
+    gpu: !!gpuEntry,
+    gpuUnits: gpuEntry ? (gpuEntry.recommended ?? gpuEntry.min ?? 0) : 0,
     ram: amount('ram'),
     disk: amount('disk'),
   };
+}
+
+/**
+ * Who publishes the image, for the card's subtitle: the registry namespace (the path segment before
+ * the image name), with bare registry hosts collapsed to "registry" since they name no one. An image
+ * with no namespace at all (`nginx`) is shown as-is.
+ */
+export function templateVendor(image: string): string {
+  if (!image.includes('/')) {
+    return image;
+  }
+  const namespace = image.split('/').slice(-2)[0];
+  return /^(ghcr\.io|docker\.io|quay\.io|registry\.[^/]+|.*\..*:\d+)$/.test(namespace) ? 'registry' : namespace;
+}
+
+/** `image:tag` (or `image@checksum`) as published by the node — shown verbatim in the details modal. */
+export function templateImageRef(tpl: AppTemplate): string {
+  if (tpl.tag) {
+    return `${tpl.image}:${tpl.tag}`;
+  }
+  if (tpl.checksum) {
+    return `${tpl.image}@${tpl.checksum}`;
+  }
+  return tpl.image;
 }

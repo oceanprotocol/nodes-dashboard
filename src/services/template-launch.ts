@@ -1,4 +1,4 @@
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildGpuRequests, resourceId } from '@/services/inference-launch';
@@ -101,6 +101,34 @@ export function buildTemplateRestartParams(
     ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
     userData: buildTemplateUserData(template, envValues),
   };
+}
+
+/**
+ * Pin the template's recommended CPU/RAM/disk so the payment step books that sized allocation (the same
+ * `pinned` sizing quick start uses), floored at the template's required per-resource min — the effective
+ * lower bound is max(envMin, templateMin), so a constraint ceiling can't trim the booked amount below
+ * what the app needs. Prefer `recommendedResources`, else `requiredResources`; per resource use
+ * `recommended`, falling back to `min`. Undefined when any of cpu/ram/disk is absent — then the launch
+ * falls back to the GPU-fraction slice rather than silently booking the environment's bare minimum.
+ * GPU is handled separately by the gpu selection. Clamped to the env's real limits downstream.
+ */
+export function templatePinnedSizing(template: AppTemplate): ResourceSizing | undefined {
+  const reqs = template.recommendedResources ?? template.requiredResources;
+  if (!reqs) {
+    return undefined;
+  }
+  const amount = (id: string): number | undefined => {
+    const entry = reqs.find((r) => r.id === id);
+    return entry ? (entry.recommended ?? entry.min) : undefined;
+  };
+  const cpu = amount('cpu');
+  const ram = amount('ram');
+  const disk = amount('disk');
+  if (cpu == null || ram == null || disk == null) {
+    return undefined;
+  }
+  const min = (id: string): number => template.requiredResources?.find((r) => r.id === id)?.min ?? 0;
+  return { mode: 'pinned', cpu, ram, disk, floor: { cpu: min('cpu'), ram: min('ram'), disk: min('disk') } };
 }
 
 /** The port serving the template's primary web UI (first exposed port) — for the "Open" link. */
