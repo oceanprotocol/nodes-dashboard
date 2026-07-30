@@ -69,8 +69,6 @@ const ensureAppChain = async (provider: Eip1193Provider) => {
   }
 };
 
-const LEGACY_RDNS = 'injected';
-
 /** @param canAutoAdopt false until the caller knows no smart account will claim this render. */
 export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
   const [wallets, setWallets] = useState<DiscoveredWallet[]>([]);
@@ -95,7 +93,6 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
       if (!info?.rdns || !provider) return;
       setWallets((current) => {
         const next = new Map(current.map((wallet) => [wallet.rdns, wallet]));
-        next.delete(LEGACY_RDNS); // a late announcement supersedes the legacy placeholder
         next.set(info.rdns, { icon: info.icon, name: info.name, provider, rdns: info.rdns });
         // Sorted, or the chooser reshuffles between loads — announcement order is a race.
         return [...next.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -104,24 +101,7 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
 
     window.addEventListener('eip6963:announceProvider', onAnnounce);
     window.dispatchEvent(new Event('eip6963:requestProvider'));
-
-    // Wallets that announce once before hydration are only reachable via the legacy global.
-    // Only used when discovery found nothing: with several wallets installed one of them
-    // proxies window.ethereum, so object identity can't tell it from an announced entry.
-    // Deferred a macrotask so every announcement has landed first.
-    const injected = (window as any).ethereum;
-    const timer = injected
-      ? setTimeout(() => {
-          setWallets((current) =>
-            current.length > 0 ? current : [{ name: 'Browser wallet', provider: injected, rdns: LEGACY_RDNS }]
-          );
-        }, 0)
-      : undefined;
-
-    return () => {
-      window.removeEventListener('eip6963:announceProvider', onAnnounce);
-      clearTimeout(timer);
-    };
+    return () => window.removeEventListener('eip6963:announceProvider', onAnnounce);
   }, []);
 
   // Silent boot reconnect. Never prompts, and never adopts an address on the wrong chain.
@@ -133,12 +113,8 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
     const stored = readAuth();
     if (stored === 'disconnected') return;
 
-    // Remembered wallet first, else whichever holds window.ethereum — deterministic, and what
-    // the app used before EIP-6963 discovery existed.
-    const injected = (window as any).ethereum;
-    const candidates = stored
-      ? wallets.filter((wallet) => wallet.rdns === stored.rdns)
-      : [...wallets].sort((a, b) => Number(b.provider === injected) - Number(a.provider === injected));
+    // Only the remembered wallet, or every discovered one in the list's stable (name) order.
+    const candidates = stored ? wallets.filter((wallet) => wallet.rdns === stored.rdns) : wallets;
 
     let cancelled = false;
     (async () => {
