@@ -76,11 +76,10 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
   const [wallets, setWallets] = useState<DiscoveredWallet[]>([]);
   const [selected, setSelected] = useState<DiscoveredWallet | null>(null);
   const [address, setAddress] = useState<string | undefined>();
-  // Starts true when a silent reconnect is coming, so `isConnecting` means "auth is settling"
-  // from the first frame. Consumers gate their login prompts on it, and discovery has not even
-  // produced a wallet to probe yet on the mount commit.
-  const [isConnecting, setIsConnecting] = useState(canAutoAdopt);
-  const [discovered, setDiscovered] = useState(false);
+  // Explicit connect() only. The silent reconnect deliberately does not report through this:
+  // making it a cross-component "auth is settling" signal meant getting effect ordering right,
+  // which it never was. AuthRequiredPage waits for a click instead.
+  const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   // Separate from `error` because it is toasted: it happens with every modal closed, whereas
   // connect errors already render inline in the wallet list.
@@ -111,14 +110,13 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
     // proxies window.ethereum, so object identity can't tell it from an announced entry.
     // Deferred a macrotask so every announcement has landed first.
     const injected = (window as any).ethereum;
-    const timer = setTimeout(() => {
-      if (injected) {
-        setWallets((current) =>
-          current.length > 0 ? current : [{ name: 'Browser wallet', provider: injected, rdns: LEGACY_RDNS }]
-        );
-      }
-      setDiscovered(true);
-    }, 0);
+    const timer = injected
+      ? setTimeout(() => {
+          setWallets((current) =>
+            current.length > 0 ? current : [{ name: 'Browser wallet', provider: injected, rdns: LEGACY_RDNS }]
+          );
+        }, 0)
+      : undefined;
 
     return () => {
       window.removeEventListener('eip6963:announceProvider', onAnnounce);
@@ -128,21 +126,12 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
 
   // Silent boot reconnect. Never prompts, and never adopts an address on the wrong chain.
   useEffect(() => {
-    if (selected) return;
-    // Nothing will be probed, so stop reporting as settling.
-    if (!canAutoAdopt || (discovered && wallets.length === 0)) {
-      setIsConnecting(false);
-      return;
-    }
-    if (wallets.length === 0) return; // still discovering
+    if (selected || wallets.length === 0 || !canAutoAdopt) return;
 
     // Read here rather than trust a prop: disconnect() persists this before clearing
     // `selected`, so it holds even for the render in between.
     const stored = readAuth();
-    if (stored === 'disconnected') {
-      setIsConnecting(false);
-      return;
-    }
+    if (stored === 'disconnected') return;
 
     // Remembered wallet first, else whichever holds window.ethereum — deterministic, and what
     // the app used before EIP-6963 discovery existed.
@@ -152,33 +141,23 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
       : [...wallets].sort((a, b) => Number(b.provider === injected) - Number(a.provider === injected));
 
     let cancelled = false;
-    // Reported as connecting: this window is async, and without it callers see
-    // "not connected, not connecting" and prompt for a login that is already resolving.
-    setIsConnecting(true);
     (async () => {
-      try {
-        for (const wallet of candidates) {
-          try {
-            const found = await getAccounts(wallet.provider, false);
-            if (!found || !(await isOnAppChain(wallet.provider))) continue;
-            if (cancelled) return;
-            setSelected(wallet);
-            setAddress(found);
-            return;
-          } catch {} // wallet locked or unreachable — try the next one
-        }
-      } finally {
-        // Only the current attempt owns the flag. A superseded probe clearing it would report
-        // "not connecting" while its replacement is still running — the premature-prompt
-        // window this flag exists to close. `cancelled` is already the per-attempt marker.
-        if (!cancelled) setIsConnecting(false);
+      for (const wallet of candidates) {
+        try {
+          const found = await getAccounts(wallet.provider, false);
+          if (!found || !(await isOnAppChain(wallet.provider))) continue;
+          if (cancelled) return;
+          setSelected(wallet);
+          setAddress(found);
+          return;
+        } catch {} // wallet locked or unreachable — try the next one
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [canAutoAdopt, discovered, selected, wallets]);
+  }, [canAutoAdopt, selected, wallets]);
 
   useEffect(() => {
     const provider = selected?.provider;
