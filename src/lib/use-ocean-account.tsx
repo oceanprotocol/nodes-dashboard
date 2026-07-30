@@ -6,7 +6,7 @@ import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
-import { forgetAuth, readAuth, useInjectedWallet, writeAuth, type StoredAuth } from '@/lib/use-injected-wallet';
+import { readAuth, useInjectedWallet, writeAuth, type StoredAuth } from '@/lib/use-injected-wallet';
 import { CircularProgress } from '@mui/material';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { ethers } from 'ethers';
@@ -198,10 +198,11 @@ const EOAHandler = ({
     }
     if (!privyReady) return; // still starting — keep the request pending
     setLoginRequested(false);
-    // A fresh explicit choice, so forget the remembered wallet — this is what stops the
-    // native path being a dead end. Cleared, not marked, so cancelling still reconnects.
-    forgetAuth();
-    onAuthChange(undefined);
+    // Drop the remembered wallet so the native path isn't a dead end, but record an explicit
+    // disconnect rather than clearing: an empty record reads as "don't know yet", which
+    // re-enables the silent adopt and would connect the unlocked wallet behind Privy's modal.
+    writeAuth('disconnected');
+    onAuthChange('disconnected');
     (async () => {
       // Privy's login() no-ops on a stale session until it is cleared — but clearing a
       // migrating user's session aborts their migration.

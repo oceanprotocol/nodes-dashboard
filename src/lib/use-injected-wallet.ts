@@ -30,12 +30,6 @@ export const writeAuth = (value: StoredAuth) => {
   } catch {} // private mode / storage disabled — degrade to no persistence
 };
 
-export const forgetAuth = () => {
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch {}
-};
-
 type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<any>;
   on?: (event: string, listener: (...args: any[]) => void) => void;
@@ -144,16 +138,23 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
       : [...wallets].sort((a, b) => Number(b.provider === injected) - Number(a.provider === injected));
 
     let cancelled = false;
+    // Reported as connecting: this window is async, and without it callers see
+    // "not connected, not connecting" and prompt for a login that is already resolving.
+    setIsConnecting(true);
     (async () => {
-      for (const wallet of candidates) {
-        try {
-          const found = await getAccounts(wallet.provider, false);
-          if (!found || !(await isOnAppChain(wallet.provider))) continue;
-          if (cancelled) return;
-          setSelected(wallet);
-          setAddress(found);
-          return;
-        } catch {} // wallet locked or unreachable — try the next one
+      try {
+        for (const wallet of candidates) {
+          try {
+            const found = await getAccounts(wallet.provider, false);
+            if (!found || !(await isOnAppChain(wallet.provider))) continue;
+            if (cancelled) return;
+            setSelected(wallet);
+            setAddress(found);
+            return;
+          } catch {} // wallet locked or unreachable — try the next one
+        }
+      } finally {
+        setIsConnecting(false);
       }
     })();
 

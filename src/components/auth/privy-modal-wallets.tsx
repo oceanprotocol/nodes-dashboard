@@ -8,8 +8,9 @@ import WalletList, { type WalletListProps } from './wallet-list';
 // 3.22.2, laid out as #privy-dialog > [backdrop, wrapper > [id^=headlessui-dialog-panel] >
 // #privy-modal-content]. We attach to the panel: #privy-modal-content is a fixed-height
 // `overflow: hidden auto` box that would clip us, and <body> is click-blocked by the backdrop.
-// If Privy renames these the section stops rendering and EOAHandler's modal is the fallback.
-// Re-check on every @privy-io/react-auth upgrade.
+// If Privy renames these the section silently stops rendering, and there is no automatic
+// fallback — @privy-io/react-auth is pinned (see resolutions in package.json) so this cannot
+// change on its own, but re-check on every upgrade of it.
 const CONTENT_ID = 'privy-modal-content';
 const PANEL_SELECTOR = '[id^="headlessui-dialog-panel"]';
 

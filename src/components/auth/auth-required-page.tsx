@@ -13,7 +13,7 @@ type AuthRequiredPage = {
  * If the user is not authenticated, it will open the auth modal.
  */
 const AuthRequiredPage: React.FC<AuthRequiredPage> = ({ children }) => {
-  const { account, login } = useOceanAccount();
+  const { account, isConnecting, login } = useOceanAccount();
   // Fires once per disconnected visit, so no second modal stacks on the first.
   const promptedRef = useRef(false);
 
@@ -22,10 +22,16 @@ const AuthRequiredPage: React.FC<AuthRequiredPage> = ({ children }) => {
       promptedRef.current = false;
       return;
     }
-    if (promptedRef.current) return;
+    // Deep-linking here mounts before the silent reconnect resolves; prompting now would
+    // open a modal over a wallet that is about to connect on its own.
+    if (isConnecting || promptedRef.current) return;
     promptedRef.current = true;
     login();
-  }, [account.isConnected, login]);
+  }, [account.isConnected, isConnecting, login]);
+
+  if (isConnecting) {
+    return null;
+  }
 
   if (!account.isConnected) {
     return (
