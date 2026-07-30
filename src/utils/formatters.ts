@@ -42,12 +42,39 @@ export const roundTokenAmount = (
 };
 
 /**
+ * How many decimals a token amount actually uses, after rounding to the token's precision.
+ * `1.5` -> 1, `1` -> 0, `0.004` -> 3.
+ */
+export const tokenAmountDecimals = (amount: number, tokenAddress: string): number => {
+  const rounded = Number(amount.toFixed(getTokenDecimals(tokenAddress)));
+  const [, fraction = ''] = String(rounded).split('.');
+  return fraction.length;
+};
+
+/**
+ * The decimals needed to render a group of amounts with the same precision: the most any single
+ * value actually uses. Use for a column of amounts that should line up on the decimal point.
+ */
+export const sharedTokenAmountDecimals = (amounts: number[], tokenAddress: string): number =>
+  amounts.reduce((max, amount) => Math.max(max, tokenAmountDecimals(amount, tokenAddress)), 0);
+
+/**
  * Format a token amount for display, showing up to the token's decimal precision
  * without trailing zeros.
+ *
+ * Pass `fractionDigits` to always render exactly that many decimals (no K/M
+ * abbreviation), so a column of values lines up on the decimal point.
  */
-export const formatTokenAmount = (amount: number, tokenAddress: string): string => {
+export const formatTokenAmount = (amount: number, tokenAddress: string, fractionDigits?: number): string => {
   const decimals = getTokenDecimals(tokenAddress);
   const rounded = Number(amount.toFixed(decimals));
+
+  if (fractionDigits !== undefined) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }).format(rounded);
+  }
 
   if (rounded >= 1000 && rounded < 1000000) {
     return `${(rounded / 1000).toFixed(1)}K`;

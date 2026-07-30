@@ -1,9 +1,10 @@
 import Card from '@/components/card/card';
 import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
-import TokenAmount from '@/components/token-amount/token-amount';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
 import { Authorizations } from '@/types/payment';
+import { formatTokenAmount, sharedTokenAmountDecimals } from '@/utils/formatters';
+import classNames from 'classnames';
 import { useState } from 'react';
 import styles from './payment-summary.module.css';
 
@@ -15,6 +16,38 @@ type PaymentSummaryProps = {
   totalCost: number;
   walletBalance: number;
 };
+
+// One label/value line in the ledger below the hero. `action` renders after the value (the
+// "Get more COMPY" link); `chip` renders before it, so warnings sit next to what they qualify.
+const SummaryRow = ({
+  action,
+  chip,
+  error,
+  label,
+  muted,
+  symbol,
+  value,
+}: {
+  action?: React.ReactNode;
+  chip?: React.ReactNode;
+  error?: boolean;
+  label: string;
+  muted?: boolean;
+  symbol: string;
+  value: string;
+}) => (
+  <div className={classNames(styles.row, { [styles.rowMuted]: muted })}>
+    <span className={styles.rowLabel}>{label}</span>
+    <div className={styles.rowValue}>
+      <span className={styles.rowAmountGroup}>
+        <span className={classNames(styles.rowAmount, { textErrorDarker: error })}>{value}</span>
+        <span className={styles.rowSymbol}>{symbol}</span>
+      </span>
+      {chip}
+    </div>
+    {action}
+  </div>
+);
 
 const PaymentSummary = ({
   authorizations,
@@ -28,64 +61,79 @@ const PaymentSummary = ({
 
   const tokenSymbol = selectedToken.symbol;
 
+  const currentLocked = Number(authorizations?.currentLockedAmount ?? 0);
+  const maxLocked = Number(authorizations?.maxLockedAmount ?? 0);
+  const escrow = escrowBalance ?? 0;
+
   const insufficientAutorized = (Number(authorizations?.maxLockedAmount) ?? 0) < totalCost;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < totalCost;
 
+  // Every amount renders with as many decimals as the most precise one, so the column lines up
+  // without padding values to a fixed width they don't need.
+  const decimals = sharedTokenAmountDecimals(
+    [totalCost, escrow, currentLocked, maxLocked, walletBalance],
+    selectedToken.address
+  );
+  const format = (amount: number) => formatTokenAmount(amount, selectedToken.address, decimals);
+
+  const isCompy = selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase();
+
+  // No `padding` prop on the Card: the hero band spans the full width, so this component owns its
+  // own insets rather than cancelling the card's with negative margins.
   return (
-    <Card className={styles.cost} radius="md" variant="accent1-outline">
-      {/* Estimated total cost */}
-      <h3>Estimated total cost</h3>
-      <div className={styles.valueWithChip}>
-        <TokenAmount amount={totalCost} tokenAddress={selectedToken.address} tokenSymbol={tokenSymbol} />
+    <Card className={styles.summary} radius="sm" variant="accent1-outline">
+      {/* Hero: the number the user is actually deciding on. Spans the full card width so it reads
+          as its own zone rather than the first row of the ledger. */}
+      <div className={styles.hero}>
+        <div className={styles.heroText}>
+          <span className={styles.heroLabel}>Estimated total cost</span>
+          {insufficientEscrow ? <span className={styles.heroHint}>Top up escrow to authorize this job</span> : null}
+        </div>
+        <div className={styles.heroAmount}>
+          <span className={styles.heroValue}>{format(totalCost)}</span>
+          <span className={styles.heroSymbol}>{tokenSymbol}</span>
+        </div>
       </div>
-      {/* Available in escrow */}
-      <h3>Available in escrow</h3>
-      <div className={styles.valueWithChip}>
-        <TokenAmount
-          amount={escrowBalance ?? 0}
+
+      {/* Ledger: the balances and limits that explain whether the cost above can be covered. */}
+      <div className={styles.rows}>
+        <SummaryRow
+          chip={insufficientEscrow ? <span className="chip chipError">Insufficient funds</span> : null}
           error={insufficientEscrow}
-          tokenAddress={selectedToken.address}
-          tokenSymbol={tokenSymbol}
+          label="Available in escrow"
+          symbol={tokenSymbol}
+          value={format(escrow)}
         />
-        {insufficientEscrow ? <div className="chip chipError">Insufficient funds</div> : null}
-      </div>
-      {/* Locked now */}
-      <h3>Locked now</h3>
-      <div className={styles.valueWithChip}>
-        <TokenAmount
-          amount={Number(authorizations?.currentLockedAmount ?? 0)}
-          tokenAddress={selectedToken.address}
-          tokenSymbol={tokenSymbol}
-        />
-      </div>
-      {/* Max locked */}
-      <h3>Max locked</h3>
-      <div className={styles.valueWithChip}>
-        <TokenAmount
-          amount={Number(authorizations?.maxLockedAmount ?? 0)}
+        <SummaryRow label="Locked now" symbol={tokenSymbol} value={format(currentLocked)} />
+        <SummaryRow
+          chip={insufficientAutorized ? <span className="chip chipError">Insufficient authorization</span> : null}
           error={insufficientAutorized}
-          tokenAddress={selectedToken.address}
-          tokenSymbol={tokenSymbol}
+          label="Max locked"
+          symbol={tokenSymbol}
+          value={format(maxLocked)}
         />
-        {insufficientAutorized ? <div className="chip chipError">Insufficient authorization</div> : null}
+        <SummaryRow
+          action={
+            isCompy ? (
+              <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
+                Get more COMPY
+              </button>
+            ) : null
+          }
+          label="Available in wallet"
+          muted
+          symbol={tokenSymbol}
+          value={format(walletBalance)}
+        />
       </div>
-      {/* Available in wallet */}
-      <h3 className={styles.sm}>Available in wallet</h3>
-      <div className={styles.values}>
-        <TokenAmount amount={walletBalance} size="sm" tokenAddress={selectedToken.address} tokenSymbol={tokenSymbol} />
-        {selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ? (
-          <>
-            <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
-              Get more COMPY
-            </button>
-            <SwapTokensModal
-              isOpen={isSwapModalOpen}
-              onClose={() => setIsSwapModalOpen(false)}
-              onSuccess={loadPaymentInfo}
-            />
-          </>
-        ) : null}
-      </div>
+
+      {isCompy ? (
+        <SwapTokensModal
+          isOpen={isSwapModalOpen}
+          onClose={() => setIsSwapModalOpen(false)}
+          onSuccess={loadPaymentInfo}
+        />
+      ) : null}
     </Card>
   );
 };
