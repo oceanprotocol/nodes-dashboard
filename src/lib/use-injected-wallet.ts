@@ -76,7 +76,11 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
   const [wallets, setWallets] = useState<DiscoveredWallet[]>([]);
   const [selected, setSelected] = useState<DiscoveredWallet | null>(null);
   const [address, setAddress] = useState<string | undefined>();
-  const [isConnecting, setIsConnecting] = useState(false);
+  // Starts true when a silent reconnect is coming, so `isConnecting` means "auth is settling"
+  // from the first frame. Consumers gate their login prompts on it, and discovery has not even
+  // produced a wallet to probe yet on the mount commit.
+  const [isConnecting, setIsConnecting] = useState(canAutoAdopt);
+  const [discovered, setDiscovered] = useState(false);
   const [error, setError] = useState<string | undefined>();
   // Separate from `error` because it is toasted: it happens with every modal closed, whereas
   // connect errors already render inline in the wallet list.
@@ -107,13 +111,14 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
     // proxies window.ethereum, so object identity can't tell it from an announced entry.
     // Deferred a macrotask so every announcement has landed first.
     const injected = (window as any).ethereum;
-    const timer = injected
-      ? setTimeout(() => {
-          setWallets((current) =>
-            current.length > 0 ? current : [{ name: 'Browser wallet', provider: injected, rdns: LEGACY_RDNS }]
-          );
-        }, 0)
-      : undefined;
+    const timer = setTimeout(() => {
+      if (injected) {
+        setWallets((current) =>
+          current.length > 0 ? current : [{ name: 'Browser wallet', provider: injected, rdns: LEGACY_RDNS }]
+        );
+      }
+      setDiscovered(true);
+    }, 0);
 
     return () => {
       window.removeEventListener('eip6963:announceProvider', onAnnounce);
@@ -123,12 +128,21 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
 
   // Silent boot reconnect. Never prompts, and never adopts an address on the wrong chain.
   useEffect(() => {
-    if (selected || wallets.length === 0 || !canAutoAdopt) return;
+    if (selected) return;
+    // Nothing will be probed, so stop reporting as settling.
+    if (!canAutoAdopt || (discovered && wallets.length === 0)) {
+      setIsConnecting(false);
+      return;
+    }
+    if (wallets.length === 0) return; // still discovering
 
     // Read here rather than trust a prop: disconnect() persists this before clearing
     // `selected`, so it holds even for the render in between.
     const stored = readAuth();
-    if (stored === 'disconnected') return;
+    if (stored === 'disconnected') {
+      setIsConnecting(false);
+      return;
+    }
 
     // Remembered wallet first, else whichever holds window.ethereum — deterministic, and what
     // the app used before EIP-6963 discovery existed.
@@ -154,14 +168,17 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
           } catch {} // wallet locked or unreachable — try the next one
         }
       } finally {
-        setIsConnecting(false);
+        // Only the current attempt owns the flag. A superseded probe clearing it would report
+        // "not connecting" while its replacement is still running — the premature-prompt
+        // window this flag exists to close. `cancelled` is already the per-attempt marker.
+        if (!cancelled) setIsConnecting(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [canAutoAdopt, selected, wallets]);
+  }, [canAutoAdopt, discovered, selected, wallets]);
 
   useEffect(() => {
     const provider = selected?.provider;
