@@ -122,8 +122,8 @@ function validateParams(
     if (v.contextLength != null && v.contextLength < contextFloor) {
       errors.contextLength = `Must be at least ${contextFloor} (or leave blank to use the model default).`;
     }
-    if (v.gpuLayers < 0) {
-      errors.gpuLayers = 'Must be 0 or more (0 runs on CPU).';
+    if (!Number.isInteger(v.gpuLayers) || v.gpuLayers < -1) {
+      errors.gpuLayers = 'Must be -1 (all layers), 0 (CPU only), or a positive layer count.';
     }
   } else {
     // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and (when
@@ -738,11 +738,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="-ngl"
             label={labelWithInfo(
               'GPU layers',
-              'How many model layers to offload to the GPU. 0 runs entirely on CPU (works everywhere). Higher moves more of the model onto the GPU for speed — needs a CUDA host/build and enough VRAM.'
+              'How many model layers to offload to the GPU. -1 offloads every layer that fits (the usual choice on a GPU node). 0 runs entirely on CPU (works everywhere). A positive number offloads exactly that many. Anything other than 0 launches the CUDA-built llama.cpp image and needs enough VRAM.'
             )}
+            min={-1}
             name="gpuLayers"
             onBlur={formik.handleBlur}
-            onChange={(e) => formik.setFieldValue('gpuLayers', Number(e.target.value))}
+            onChange={(e) => {
+              // Empty input (or a stray '-' mid-typing) → NaN; keep it at 0 rather than writing NaN
+              // into the form, which would stringify to a broken `-ngl NaN` flag.
+              const parsed = Number(e.target.value.trim());
+              formik.setFieldValue('gpuLayers', Number.isFinite(parsed) ? parsed : 0);
+            }}
             placeholder="0"
             type="number"
             value={v.gpuLayers}

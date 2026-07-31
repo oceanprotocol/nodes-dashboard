@@ -20,9 +20,14 @@ export const VLLM_PORT = 8000;
  * The container image + port for the llama.cpp service. Mirrors ocean-node's
  * `docs/serviceTemplates/llamacpp-phi4-cpu.json`: the OpenAI-compatible llama.cpp server serving a
  * GGUF quantization off the Hub, listening on port 8080. CPU-capable (vLLM's image is CUDA-only).
+ *
+ * llama.cpp publishes the CPU and CUDA builds under DIFFERENT tags — `:server` has no CUDA backend
+ * compiled in, so `-ngl` on it is silently ignored ("no usable GPU found") and the model runs on CPU
+ * even when the container holds GPUs. engineRuntime() picks the tag from the requested GPU layers.
  */
 export const LLAMACPP_IMAGE = 'ghcr.io/ggml-org/llama.cpp';
 export const LLAMACPP_TAG = process.env.NEXT_PUBLIC_LLAMACPP_TAG ?? 'server';
+export const LLAMACPP_TAG_CUDA = process.env.NEXT_PUBLIC_LLAMACPP_TAG_CUDA ?? 'server-cuda';
 export const LLAMACPP_PORT = 8080;
 
 /** Per-engine container image/tag/port. The launch command differs too — see buildEngineCommand. */
@@ -30,6 +35,20 @@ export const ENGINE_RUNTIME: Record<InferenceEngine, { image: string; tag: strin
   vllm: { image: VLLM_IMAGE, tag: VLLM_TAG, port: VLLM_PORT },
   llamacpp: { image: LLAMACPP_IMAGE, tag: LLAMACPP_TAG, port: LLAMACPP_PORT },
 };
+
+/** True when llama.cpp is asked to offload to the GPU: N > 0 layers, or -1 = "all layers". */
+function wantsGpuOffload(params: ModelParameters): boolean {
+  return params.engine === 'llamacpp' && Number.isFinite(params.gpuLayers) && params.gpuLayers !== 0;
+}
+
+/**
+ * The image/tag/port to launch these params with. Same as ENGINE_RUNTIME except llama.cpp with GPU
+ * offload requested, which needs the CUDA-built tag — the CPU tag would ignore `-ngl` at runtime.
+ */
+export function engineRuntime(params: ModelParameters): { image: string; tag: string; port: number } {
+  const runtime = ENGINE_RUNTIME[params.engine];
+  return wantsGpuOffload(params) ? { ...runtime, tag: LLAMACPP_TAG_CUDA } : runtime;
+}
 
 /** The container port an engine's OpenAI-compatible server listens on (for endpoint lookup on manage). */
 export function enginePort(engine: InferenceEngine): number {
@@ -129,8 +148,10 @@ function buildLlamaCppCommand(params: Extract<ModelParameters, { engine: 'llamac
   if (params.contextLength != null && Number.isFinite(params.contextLength) && params.contextLength > 0) {
     cmd.push('-c', String(Math.floor(params.contextLength)));
   }
-  if (Number.isFinite(params.gpuLayers) && params.gpuLayers > 0) {
-    cmd.push('-ngl', String(Math.floor(params.gpuLayers)));
+  // -1 is llama.cpp's "use the default", which offloads every layer it can fit; 0 means pure CPU and
+  // is the flag's own default, so it's left off the command.
+  if (Number.isFinite(params.gpuLayers) && params.gpuLayers !== 0) {
+    cmd.push('-ngl', String(Math.trunc(params.gpuLayers)));
   }
   if (params.servedModelName) {
     cmd.push('--alias', params.servedModelName);
@@ -294,7 +315,9 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
         ggufRepo: ggufRepo || defaults.ggufRepo,
         ggufQuant: ggufQuant || defaults.ggufQuant,
         contextLength: Number.isFinite(contextRaw) && contextRaw > 0 ? contextRaw : null,
-        gpuLayers: Number.isFinite(nglRaw) && nglRaw > 0 ? nglRaw : defaults.gpuLayers,
+        // Absent flag → Number(undefined) = NaN → the default (0, CPU). -1 ("all layers") is a real
+        // value and must survive the round-trip, so only non-finite falls back.
+        gpuLayers: Number.isFinite(nglRaw) ? nglRaw : defaults.gpuLayers,
         jinja: has('--jinja'),
       },
     };
@@ -489,7 +512,7 @@ export function buildInferenceRestartSpec({
   params: ModelParameters;
   hfToken: string;
 }): ServiceRestartParams {
-  const runtime = ENGINE_RUNTIME[params.engine];
+  const runtime = engineRuntime(params);
   return {
     image: runtime.image,
     tag: runtime.tag,
@@ -528,7 +551,7 @@ export function buildInferenceStartParams({
   hfToken: string;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
-  const runtime = ENGINE_RUNTIME[params.engine];
+  const runtime = engineRuntime(params);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },

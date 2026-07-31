@@ -50,7 +50,7 @@ const ModelRow: React.FC<{ entry: ServiceModel }> = ({ entry }) => {
     specs = [
       params.contextLength != null && `${params.contextLength.toLocaleString()} ctx`,
       params.ggufQuant || undefined,
-      params.gpuLayers > 0 && `${params.gpuLayers} gpu layers`,
+      params.gpuLayers === -1 ? 'all gpu layers' : params.gpuLayers > 0 && `${params.gpuLayers} gpu layers`,
     ].filter(Boolean) as string[];
   } else if (params?.engine === 'vllm') {
     specs = [
