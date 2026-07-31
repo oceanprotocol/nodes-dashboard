@@ -24,8 +24,12 @@ export const VLLM_PORT = 8000;
  * llama.cpp publishes the CPU and CUDA builds under DIFFERENT tags — `:server` has no CUDA backend
  * compiled in, so `-ngl` on it is silently ignored ("no usable GPU found") and the model runs on CPU
  * even when the container holds GPUs. engineRuntime() picks the tag from the requested GPU layers.
+ *
+ * NEXT_PUBLIC_LLAMACPP_IMAGE repoints all of it at a custom build — needed for architectures the
+ * upstream release doesn't carry yet (a GGUF whose arch is unknown to the binary fails to load with
+ * `unknown model architecture: '<arch>'`). Set the tag vars to match your build's tags.
  */
-export const LLAMACPP_IMAGE = 'ghcr.io/ggml-org/llama.cpp';
+export const LLAMACPP_IMAGE = process.env.NEXT_PUBLIC_LLAMACPP_IMAGE ?? 'ghcr.io/ggml-org/llama.cpp';
 export const LLAMACPP_TAG = process.env.NEXT_PUBLIC_LLAMACPP_TAG ?? 'server';
 export const LLAMACPP_TAG_CUDA = process.env.NEXT_PUBLIC_LLAMACPP_TAG_CUDA ?? 'server-cuda';
 export const LLAMACPP_PORT = 8080;
