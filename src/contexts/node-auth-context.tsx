@@ -9,6 +9,9 @@ type NodeAuthContextType = {
   getNodeToken: (nodeId: string, nodeUri: NodeUri) => Promise<string>;
   clearNodeToken: (nodeId: string) => void;
   withNodeAuth: <T>(nodeId: string, nodeUri: NodeUri, fn: (token: string) => Promise<T>) => Promise<T>;
+  // True when a non-expired token is already cached for the node — i.e. calling withNodeAuth would
+  // NOT trigger a fresh signature prompt. Lets callers auto-fetch only when it's free of a signature.
+  hasValidNodeToken: (nodeId: string) => boolean;
 };
 
 const NodeAuthContext = createContext<NodeAuthContextType | undefined>(undefined);
@@ -98,6 +101,20 @@ export function NodeAuthProvider({ children }: { children: ReactNode }) {
     delete tokensRef.current[nodeId];
   }, []);
 
+  // Mirrors getNodeToken's cache-freshness check, but never mints — so a caller can decide to
+  // auto-fetch (no signature prompt) vs. wait for an explicit user action. Requires a connected
+  // wallet, since tokens are bound to the signer's address.
+  const hasValidNodeToken = useCallback(
+    (nodeId: string): boolean => {
+      if (!account.address) {
+        return false;
+      }
+      const cached = tokensRef.current[nodeId];
+      return !!cached && cached.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now();
+    },
+    [account.address]
+  );
+
   /**
    * Gets a node token for the given node ID and node URI and executes a function with it.
    * If the token is not cached, it will be created and cached.
@@ -124,7 +141,7 @@ export function NodeAuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <NodeAuthContext.Provider value={{ getNodeToken, clearNodeToken, withNodeAuth }}>
+    <NodeAuthContext.Provider value={{ getNodeToken, clearNodeToken, withNodeAuth, hasValidNodeToken }}>
       {children}
     </NodeAuthContext.Provider>
   );

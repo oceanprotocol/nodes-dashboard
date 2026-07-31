@@ -1,78 +1,156 @@
-.cost {
+/* Inset used by the hero and every ledger row, so labels and values share one edge. */
+.summary {
+  --gutter: 16px;
+
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px 24px;
 
-  h3 {
-    justify-self: flex-start;
-    font-size: 16px;
+  /* The Card is passed no `padding` prop — the hero band needs the full width, so padding lives
+     on the children instead. Clip so the band's corners follow the card's radius. */
+  overflow: hidden;
+
+  /* The card is rendered at different widths on the same viewport (full-width in the run-job step,
+     narrower in the inference page), so the hero splits on the card's own width, not the screen's. */
+  container: paymentSummary / inline-size;
+}
+
+/* Roomier inset once the card itself is wide. Set on the children, not `.summary` — an element
+   can't respond to a container query it establishes itself. */
+@container paymentSummary (min-width: 576px) {
+  .hero,
+  .row {
+    --gutter: 22px;
   }
+}
 
-  .valueWithChip {
-    align-items: flex-start;
-    display: flex;
-    flex-direction: column;
+/* ── Hero: estimated total cost ── */
+.hero {
+  background: var(--background-glass-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 14px var(--gutter);
+
+  /* Text over amount by default; side by side once the card is wide enough for both. */
+  display: grid;
+  gap: 6px 20px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @container paymentSummary (min-width: 576px) {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 16px var(--gutter);
   }
+}
 
-  .values {
-    .token {
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
-    .amount {
-      font-size: 32px;
-      font-weight: 700;
-    }
+.heroLabel {
+  font-size: 16px;
+  font-weight: 700;
+}
 
-    @media (max-width: 576px) {
-      text-align: left;
+.heroHint {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.35;
+}
 
-      .token {
-        font-size: 12px;
-      }
+.heroAmount {
+  align-items: baseline;
+  display: flex;
+  gap: 6px;
 
-      .amount {
-        font-size: 24px;
-      }
-    }
-  }
+  /* Right-aligned in both layouts: its own row on mobile, the second column above that. */
+  justify-content: flex-end;
+}
+
+.heroValue {
+  color: var(--accent1);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -1.5px;
+  line-height: 1;
 
   @media (min-width: 576px) {
-    justify-content: flex-end;
-
-    .valueWithChip {
-      align-items: flex-end;
-    }
-
-    .values {
-      text-align: right;
-    }
-
-    h3 {
-      font-size: 20px;
-    }
+    font-size: 32px;
   }
+}
 
-  @media (min-width: 768px) {
-    align-items: center;
-    display: grid;
-    grid-template-columns: 1fr auto;
+.heroSymbol {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* ── Ledger rows ── */
+.rows {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px var(--gutter);
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--border);
   }
+}
 
-  .sm {
+/* Wallet balance is context, not a constraint on this payment: it recedes to secondary text and
+   sits on a tinted strip that closes the card, separating it from the three escrow constraints. */
+.rowMuted {
+  .rowLabel {
     color: var(--text-secondary);
-    font-size: 16px;
-
-    .token {
-      font-size: 12px;
-    }
-
-    .amount {
-      font-size: 20px;
-    }
+    font-weight: 400;
   }
+
+  .rowAmount,
+  .rowSymbol {
+    color: var(--text-secondary);
+  }
+}
+
+/* The escrow constraints above read at full strength — they decide whether the job can start. */
+.rowLabel {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.rowValue {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row-reverse;
+  gap: 2px 12px;
+  justify-content: flex-start;
+  margin-left: auto;
+}
+
+.rowAmountGroup {
+  align-items: baseline;
+  display: flex;
+  gap: 5px;
+}
+
+.rowAmount {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.rowSymbol {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .linkButton {
@@ -80,9 +158,20 @@
   border: none;
   color: var(--accent1);
   cursor: pointer;
-  padding: 0;
+  font-size: 12px;
+  padding: 0 0 2px;
+
+  /* Own line under the wallet row, right-aligned with the values above it. */
+  flex-basis: 100%;
+  text-align: right;
 
   &:hover {
     text-decoration: underline;
+  }
+
+  &:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid var(--accent1);
+    outline-offset: 2px;
   }
 }

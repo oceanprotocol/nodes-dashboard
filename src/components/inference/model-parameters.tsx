@@ -23,6 +23,7 @@ import {
   ModelDtype,
   ModelParameters as ModelParametersType,
   ModelQuantization,
+  TOOL_CALL_PARSERS,
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
@@ -56,19 +57,12 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
   { label: 'fp8', value: 'fp8' },
 ];
 
-const toolParserOptions: { label: string; value: ToolCallParser }[] = [
-  { label: 'hermes', value: 'hermes' },
-  { label: 'llama3_json', value: 'llama3_json' },
-  { label: 'llama4_json', value: 'llama4_json' },
-  { label: 'mistral', value: 'mistral' },
-  { label: 'granite', value: 'granite' },
-  { label: 'granite-20b-fc', value: 'granite-20b-fc' },
-  { label: 'internlm', value: 'internlm' },
-  { label: 'jamba', value: 'jamba' },
-  { label: 'deepseek_v3', value: 'deepseek_v3' },
-  { label: 'qwen3_coder', value: 'qwen3_coder' },
-  { label: 'pythonic', value: 'pythonic' },
-];
+// Options come from the shared registry subset in @/types/huggingface — kept there so the type and
+// the picker can't drift apart. Widened from the readonly `as const` tuple to what Select expects.
+const toolParserOptions: { label: string; value: ToolCallParser }[] = TOOL_CALL_PARSERS.map(({ label, value }) => ({
+  label,
+  value,
+}));
 
 /** Field label with an info-icon tooltip describing what the flag does. */
 function labelWithInfo(label: string, tooltip: string, bold = false): React.ReactNode {
@@ -86,13 +80,14 @@ function labelWithInfo(label: string, tooltip: string, bold = false): React.Reac
 // renders `errors.customParams[i].key`). Typed loosely so both can coexist on one errors object.
 type ParamErrors = Record<string, unknown>;
 
-// Custom params (env-var style): the only rule is non-empty, unique keys. Values are free-form.
-// Shared by both engines. Writes onto the passed errors object.
+// Custom params (extra launch flags): the only rule is non-empty, unique keys. Values are free-form.
+// Uniqueness is checked on the flag the key normalizes to, so `dtype` and `--dtype` collide — they'd
+// otherwise emit the same flag twice. Shared by both engines. Writes onto the passed errors object.
 function validateCustomParams(v: ModelParametersType, errors: ParamErrors): void {
   const seen = new Map<string, number>();
   const paramErrors: { key?: string }[] = [];
   v.customParams.forEach((param, index) => {
-    const trimmed = param.key.trim();
+    const trimmed = param.key.trim().replace(/^-+/, '');
     if (!trimmed) {
       paramErrors[index] = { key: 'Key is required.' };
     } else if (seen.has(trimmed)) {
@@ -127,8 +122,8 @@ function validateParams(
     if (v.contextLength != null && v.contextLength < contextFloor) {
       errors.contextLength = `Must be at least ${contextFloor} (or leave blank to use the model default).`;
     }
-    if (v.gpuLayers < 0) {
-      errors.gpuLayers = 'Must be 0 or more (0 runs on CPU).';
+    if (!Number.isInteger(v.gpuLayers) || v.gpuLayers < -1) {
+      errors.gpuLayers = 'Must be -1 (all layers), 0 (CPU only), or a positive layer count.';
     }
   } else {
     // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and (when
@@ -295,7 +290,10 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // is BELOW the floor lowers it to that max — so the range collapses to the single value the model
   // accepts (see MODEL_PARAM_BOUNDS). No ceiling → nominal floor applies to a pinned value.
   const contextFloor = useMemo(
-    () => (contextCeiling != null ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling) : MODEL_PARAM_BOUNDS.maxContext.min),
+    () =>
+      contextCeiling != null
+        ? Math.min(MODEL_PARAM_BOUNDS.maxContext.min, contextCeiling)
+        : MODEL_PARAM_BOUNDS.maxContext.min,
     [contextCeiling]
   );
   const lockedQuant = useMemo(() => mapQuantization(config?.quantizationMethod ?? null), [config?.quantizationMethod]);
@@ -740,11 +738,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="-ngl"
             label={labelWithInfo(
               'GPU layers',
-              'How many model layers to offload to the GPU. 0 runs entirely on CPU (works everywhere). Higher moves more of the model onto the GPU for speed — needs a CUDA host/build and enough VRAM.'
+              'How many model layers to offload to the GPU. -1 offloads every layer that fits (the usual choice on a GPU node). 0 runs entirely on CPU (works everywhere). A positive number offloads exactly that many. Anything other than 0 launches the CUDA-built llama.cpp image and needs enough VRAM.'
             )}
+            min={-1}
             name="gpuLayers"
             onBlur={formik.handleBlur}
-            onChange={(e) => formik.setFieldValue('gpuLayers', Number(e.target.value))}
+            onChange={(e) => {
+              // Empty input (or a stray '-' mid-typing) → NaN; keep it at 0 rather than writing NaN
+              // into the form, which would stringify to a broken `-ngl NaN` flag.
+              const parsed = Number(e.target.value.trim());
+              formik.setFieldValue('gpuLayers', Number.isFinite(parsed) ? parsed : 0);
+            }}
             placeholder="0"
             type="number"
             value={v.gpuLayers}
@@ -838,12 +842,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
 
           <div className={styles.divider} />
 
-          {/* Custom parameters — arbitrary key/value pairs (env-var style). Only rule: non-empty, unique keys. */}
+          {/* Custom parameters — extra launch flags as key/value pairs. Only rule: non-empty, unique keys. */}
           <div className={styles.subsection}>
             <div className={styles.subsectionHead}>
               <div>
                 <h4>Model parameters</h4>
-                <div className="textSecondary">Custom key/value pairs passed to the model at launch</div>
+                <div className="textSecondary">
+                  Extra launch flags, appended to the engine command as <code>--key value</code>. You don&apos;t need to
+                  add the leading <code>--</code>.
+                  <br />
+                  Leave the value empty for an on/off flag. Flags added here override the same flags set below.
+                </div>
               </div>
               <Button
                 color="accent2"
@@ -866,7 +875,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                       name={`customParams.${index}.key`}
                       onBlur={formik.handleBlur}
                       onChange={formik.handleChange}
-                      startAdornment="Key"
+                      startAdornment={<div style={{ whiteSpace: 'nowrap' }}>Key: --</div>}
                       type="text"
                       value={param.key}
                     />
@@ -876,7 +885,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                       name={`customParams.${index}.value`}
                       onBlur={formik.handleBlur}
                       onChange={formik.handleChange}
-                      startAdornment="Val"
+                      startAdornment="Val:"
                       type="text"
                       value={param.value}
                     />

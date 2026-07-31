@@ -88,6 +88,10 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                     gpuSelection={selectedEnv.gpuSelection}
                     nodeInfo={selectedEnv.nodeInfo}
                     selected={false}
+                    // Without this the summary re-derives a proportional slice and disagrees with the
+                    // step it summarizes: a quick-start package's pinned amounts, or the `exact`
+                    // resources a running service already booked on an edit re-entry.
+                    sizing={selectedEnv.sizing}
                   />
                 </div>
               )}

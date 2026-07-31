@@ -1,7 +1,10 @@
 import {
   actionsColumnProps,
   benchmarkJobsColumns,
+  existingServicesColumns,
   jobsColumns,
+  nodeJobsColumns,
+  nodeServicesColumns,
   nodesLeaderboardColumns,
   NodesLeaderboardColumnsVisibility,
   nodesLeaderboardHomeColumns,
@@ -232,6 +235,15 @@ export const Table = <T extends GridValidRowModel>({
       }
       case TableTypeEnum.NODE_STORAGE_SHARED_BUCKETS: {
         return withActions(nodeStorageSharedBucketsColumns);
+      }
+      case TableTypeEnum.NODE_SERVICES: {
+        return withActions(nodeServicesColumns);
+      }
+      case TableTypeEnum.NODE_JOBS: {
+        return withActions(nodeJobsColumns);
+      }
+      case TableTypeEnum.EXISTING_SERVICES: {
+        return withActions(existingServicesColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {

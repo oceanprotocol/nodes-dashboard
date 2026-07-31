@@ -1,9 +1,9 @@
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
 import { ComputeResource } from '@/types/environments';
-import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
+import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
@@ -20,9 +20,18 @@ export const VLLM_PORT = 8000;
  * The container image + port for the llama.cpp service. Mirrors ocean-node's
  * `docs/serviceTemplates/llamacpp-phi4-cpu.json`: the OpenAI-compatible llama.cpp server serving a
  * GGUF quantization off the Hub, listening on port 8080. CPU-capable (vLLM's image is CUDA-only).
+ *
+ * llama.cpp publishes the CPU and CUDA builds under DIFFERENT tags — `:server` has no CUDA backend
+ * compiled in, so `-ngl` on it is silently ignored ("no usable GPU found") and the model runs on CPU
+ * even when the container holds GPUs. engineRuntime() picks the tag from the requested GPU layers.
+ *
+ * NEXT_PUBLIC_LLAMACPP_IMAGE repoints all of it at a custom build — needed for architectures the
+ * upstream release doesn't carry yet (a GGUF whose arch is unknown to the binary fails to load with
+ * `unknown model architecture: '<arch>'`). Set the tag vars to match your build's tags.
  */
-export const LLAMACPP_IMAGE = 'ghcr.io/ggml-org/llama.cpp';
+export const LLAMACPP_IMAGE = process.env.NEXT_PUBLIC_LLAMACPP_IMAGE ?? 'ghcr.io/ggml-org/llama.cpp';
 export const LLAMACPP_TAG = process.env.NEXT_PUBLIC_LLAMACPP_TAG ?? 'server';
+export const LLAMACPP_TAG_CUDA = process.env.NEXT_PUBLIC_LLAMACPP_TAG_CUDA ?? 'server-cuda';
 export const LLAMACPP_PORT = 8080;
 
 /** Per-engine container image/tag/port. The launch command differs too — see buildEngineCommand. */
@@ -30,6 +39,20 @@ export const ENGINE_RUNTIME: Record<InferenceEngine, { image: string; tag: strin
   vllm: { image: VLLM_IMAGE, tag: VLLM_TAG, port: VLLM_PORT },
   llamacpp: { image: LLAMACPP_IMAGE, tag: LLAMACPP_TAG, port: LLAMACPP_PORT },
 };
+
+/** True when llama.cpp is asked to offload to the GPU: N > 0 layers, or -1 = "all layers". */
+function wantsGpuOffload(params: ModelParameters): boolean {
+  return params.engine === 'llamacpp' && Number.isFinite(params.gpuLayers) && params.gpuLayers !== 0;
+}
+
+/**
+ * The image/tag/port to launch these params with. Same as ENGINE_RUNTIME except llama.cpp with GPU
+ * offload requested, which needs the CUDA-built tag — the CPU tag would ignore `-ngl` at runtime.
+ */
+export function engineRuntime(params: ModelParameters): { image: string; tag: string; port: number } {
+  const runtime = ENGINE_RUNTIME[params.engine];
+  return wantsGpuOffload(params) ? { ...runtime, tag: LLAMACPP_TAG_CUDA } : runtime;
+}
 
 /** The container port an engine's OpenAI-compatible server listens on (for endpoint lookup on manage). */
 export function enginePort(engine: InferenceEngine): number {
@@ -80,7 +103,11 @@ function buildVllmCommand(model: HuggingFaceModel, params: Extract<ModelParamete
   }
   // Only emitted for a genuine multi-GPU shard — vLLM's default is 1, and passing it explicitly adds
   // nothing. Guarded like the numeric flags above so a NaN can't produce `--tensor-parallel-size NaN`.
-  if (params.tensorParallelSize != null && Number.isFinite(params.tensorParallelSize) && params.tensorParallelSize > 1) {
+  if (
+    params.tensorParallelSize != null &&
+    Number.isFinite(params.tensorParallelSize) &&
+    params.tensorParallelSize > 1
+  ) {
     cmd.push('--tensor-parallel-size', String(Math.floor(params.tensorParallelSize)));
   }
 
@@ -125,8 +152,10 @@ function buildLlamaCppCommand(params: Extract<ModelParameters, { engine: 'llamac
   if (params.contextLength != null && Number.isFinite(params.contextLength) && params.contextLength > 0) {
     cmd.push('-c', String(Math.floor(params.contextLength)));
   }
-  if (Number.isFinite(params.gpuLayers) && params.gpuLayers > 0) {
-    cmd.push('-ngl', String(Math.floor(params.gpuLayers)));
+  // -1 is llama.cpp's "use the default", which offloads every layer it can fit; 0 means pure CPU and
+  // is the flag's own default, so it's left off the command.
+  if (Number.isFinite(params.gpuLayers) && params.gpuLayers !== 0) {
+    cmd.push('-ngl', String(Math.trunc(params.gpuLayers)));
   }
   if (params.servedModelName) {
     cmd.push('--alias', params.servedModelName);
@@ -139,9 +168,43 @@ function buildLlamaCppCommand(params: Extract<ModelParameters, { engine: 'llamac
   return cmd;
 }
 
+/**
+ * Normalize a custom-param key into a CLI flag: `tensor-parallel-size` → `--tensor-parallel-size`.
+ * Keys already written with their dashes (`--dtype`, `-tp`) are kept verbatim, so both styles work.
+ */
+function toFlag(key: string): string {
+  return key.startsWith('-') ? key : `--${key}`;
+}
+
+/**
+ * The user's custom key/value params, as extra CLI args for the launch command. Emitted verbatim as
+ * `--<key> <value>` — no type coercion — with a bare `--<key>` when the value is empty (store_true
+ * style flags). Keys are trimmed (an untrimmed key would produce a `-- dtype`-ish broken flag), empty
+ * ones skipped.
+ *
+ * Appended LAST so a custom param naming a flag the form also emits wins: both vLLM's and llama.cpp's
+ * argparse keep the last occurrence of a repeated flag.
+ */
+function buildCustomArgs(params: ModelParameters): string[] {
+  const args: string[] = [];
+  for (const { key, value } of params.customParams) {
+    const trimmedKey = key.trim();
+    if (!trimmedKey) {
+      continue;
+    }
+    args.push(toFlag(trimmedKey));
+    const trimmedValue = value.trim();
+    if (trimmedValue) {
+      args.push(trimmedValue);
+    }
+  }
+  return args;
+}
+
 /** Build the launch command for whichever engine the params carry. Dispatches on `params.engine`. */
 export function buildEngineCommand(model: HuggingFaceModel, params: ModelParameters): string[] {
-  return params.engine === 'llamacpp' ? buildLlamaCppCommand(params) : buildVllmCommand(model, params);
+  const cmd = params.engine === 'llamacpp' ? buildLlamaCppCommand(params) : buildVllmCommand(model, params);
+  return [...cmd, ...buildCustomArgs(params)];
 }
 
 /** Detect the engine a running service uses from its dockerCmd: `-hf` is llama.cpp, else vLLM. */
@@ -150,15 +213,90 @@ export function detectEngine(cmd: string[]): InferenceEngine {
 }
 
 /**
+ * The flags each engine's own builder emits. Anything else in a command came from a custom param —
+ * that's how parseCustomArgs tells them apart. `valued` flags consume the next token, `boolean` ones
+ * stand alone.
+ */
+const KNOWN_FLAGS: Record<InferenceEngine, { valued: string[]; boolean: string[] }> = {
+  vllm: {
+    valued: [
+      '--model',
+      '--host',
+      '--port',
+      '--max-model-len',
+      '--gpu-memory-utilization',
+      '--tensor-parallel-size',
+      '--served-model-name',
+      '--dtype',
+      '--quantization',
+      '--kv-cache-dtype',
+      '--revision',
+      '--tool-call-parser',
+    ],
+    boolean: ['--trust-remote-code', '--enforce-eager', '--enable-auto-tool-choice'],
+  },
+  llamacpp: {
+    valued: ['-hf', '--host', '--port', '-c', '-ngl', '--alias'],
+    boolean: ['--jinja'],
+  },
+};
+
+/**
+ * Recover the custom params from a command: every flag the engine's builder doesn't emit itself,
+ * paired with the token after it (bare flags come back with an empty value). Keys keep the `--`
+ * prefix they're re-emitted with, so a parse → relaunch round-trip reproduces the same command.
+ *
+ * A REPEATED known flag is a custom param too: buildCustomArgs appends custom params after the
+ * builder's flags precisely so a custom param can override one (argparse keeps the last occurrence),
+ * and only the first occurrence of each known flag came from the builder. Dropping the repeat here
+ * would push the override into the typed form field — which can't hold a value outside its union
+ * (`--dtype` etc.) — and the next relaunch would emit something else. Tracked per flag so the
+ * override survives as what it is.
+ *
+ * A value starting with `-` is read as the next flag rather than a value, so a genuinely negative
+ * numeric value (`--seed -1`) comes back as two bare params. Rare enough to accept over guessing.
+ */
+function parseCustomArgs(cmd: string[], engine: InferenceEngine): CustomParam[] {
+  const known = KNOWN_FLAGS[engine];
+  const custom: CustomParam[] = [];
+  const seenKnown = new Set<string>();
+  for (let i = 0; i < cmd.length; i++) {
+    const token = cmd[i];
+    if (!token.startsWith('-')) {
+      continue;
+    }
+    const isKnown = known.valued.includes(token) || known.boolean.includes(token);
+    // First occurrence of a known flag is the builder's own — not a custom param.
+    if (isKnown && !seenKnown.has(token)) {
+      seenKnown.add(token);
+      if (known.valued.includes(token)) {
+        i++;
+      }
+      continue;
+    }
+    const next = cmd[i + 1];
+    const value = next && !next.startsWith('-') ? next : '';
+    if (value) {
+      i++;
+    }
+    custom.push({ key: token, value });
+  }
+  return custom;
+}
+
+/**
  * Reverse of buildEngineCommand: recover the model id + launch params from a running service's
  * dockerCmd (the node returns the command, not the original ModelParameters). Used by the manage
  * page to rebuild the params for a service opened without them in the URL. The engine is detected
  * from the command shape; flags absent from the command fall back to buildModelDefaults' neutral
- * values; customParams can't be recovered from the command (they live in the encrypted userData), so
- * they come back empty.
+ * values; unrecognized flags come back as customParams so an Edit relaunch doesn't silently drop them.
  */
 export function parseEngineCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
-  // Read the value following a flag, or undefined when the flag is absent / has no value.
+  // Read the value following a flag, or undefined when the flag is absent / has no value. FIRST
+  // occurrence: buildCustomArgs appends custom params after the builder's own flags, so a repeated
+  // known flag is a custom override — the first occurrence is the one the typed form field emitted.
+  // parseCustomArgs recovers the repeat as a customParam, which is re-emitted last and wins again
+  // (argparse keeps the last occurrence), so the override survives without being counted twice.
   const valueOf = (flag: string): string | undefined => {
     const idx = cmd.indexOf(flag);
     return idx >= 0 && idx + 1 < cmd.length ? cmd[idx + 1] : undefined;
@@ -176,11 +314,14 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
       modelId: ggufRepo || null,
       params: {
         ...defaults,
+        customParams: parseCustomArgs(cmd, 'llamacpp'),
         servedModelName: valueOf('--alias') || defaults.servedModelName,
         ggufRepo: ggufRepo || defaults.ggufRepo,
         ggufQuant: ggufQuant || defaults.ggufQuant,
         contextLength: Number.isFinite(contextRaw) && contextRaw > 0 ? contextRaw : null,
-        gpuLayers: Number.isFinite(nglRaw) && nglRaw > 0 ? nglRaw : defaults.gpuLayers,
+        // Absent flag → Number(undefined) = NaN → the default (0, CPU). -1 ("all layers") is a real
+        // value and must survive the round-trip, so only non-finite falls back.
+        gpuLayers: Number.isFinite(nglRaw) ? nglRaw : defaults.gpuLayers,
         jinja: has('--jinja'),
       },
     };
@@ -200,6 +341,7 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
     modelId,
     params: {
       ...defaults,
+      customParams: parseCustomArgs(cmd, 'vllm'),
       servedModelName: valueOf('--served-model-name') || defaults.servedModelName,
       // Flag absent (or garbage) → null: the service launched without a pinned length, so vLLM
       // derived it. Keep that as null rather than inventing a number.
@@ -220,26 +362,12 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
 }
 
 /**
- * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit).
- * HF_TOKEN unlocks gated/private repos; the user's custom key/value params are passed through as-is.
+ * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit). Only
+ * HF_TOKEN, which unlocks gated/private repos — the user's custom key/value params are launch flags
+ * on the command (see buildCustomArgs), not env vars.
  */
-export function buildUserData(params: ModelParameters, hfToken: string): Record<string, string> {
-  const userData: Record<string, string> = {};
-  for (const { key, value } of params.customParams) {
-    // Trim the key — the form validates uniqueness/non-emptiness on the trimmed key, so a stray
-    // leading/trailing space would otherwise reach the container as a distinct env-var name (e.g.
-    // "HF_TOKEN ") that silently never sets the intended variable.
-    const trimmedKey = key.trim();
-    if (trimmedKey) {
-      userData[trimmedKey] = value;
-    }
-  }
-  // Assign the dedicated HF token LAST so a stray custom param keyed HF_TOKEN can't shadow the
-  // real credential and lock the launch out of gated/private repos.
-  if (hfToken) {
-    userData.HF_TOKEN = hfToken;
-  }
-  return userData;
+export function buildUserData(hfToken: string): Record<string, string> {
+  return hfToken ? { HF_TOKEN: hfToken } : {};
 }
 
 /**
@@ -260,7 +388,7 @@ export function buildUserData(params: ModelParameters, hfToken: string): Record<
  * (e.g. a restored/booked pick whose units were taken by another tenant since) instead.
  */
 export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
-  const gpus = resources.filter((r) => r.type === 'gpu' || r.id.toLowerCase().includes('gpu'));
+  const gpus = resources.filter((r) => isGpuId(r.id, r.type));
   if (gpus.length === 0) {
     return [];
   }
@@ -303,6 +431,75 @@ export function resourceId(resources: ComputeResource[], type: 'cpu' | 'ram' | '
   return resources.find((r) => r.type === type || r.id === type)?.id ?? type;
 }
 
+/** Same GPU test buildGpuRequests uses, so parse and build agree on which ids are GPUs. */
+function isGpuId(id: string, type?: string): boolean {
+  return type === 'gpu' || id.toLowerCase().includes('gpu');
+}
+
+/** What a running service actually holds, in the shapes the flow already speaks. */
+export type BookedServiceResources = {
+  /** Per-GPU-type unit counts, keyed the way useInferenceAllocation merges types (by description). */
+  gpuSelection: GpuSelection;
+  /** The booked CPU/RAM/disk as `exact` sizing — shown/priced verbatim, never re-clamped. */
+  sizing: ResourceSizing;
+};
+
+/**
+ * Reverse of the `resources` array buildInferenceStartParams sends: recover what a RUNNING service
+ * booked from the node's own job record (`ServiceJob.resources`, `[{ id, amount }]`) — the
+ * authoritative figures, as opposed to re-deriving a proportional slice that the service may not
+ * match (and which a service opened from the services table has no `gpus`/`res` params to restore).
+ *
+ * Returns null when the job carries no usable resource record, so callers can fall back to whatever
+ * the URL-hydrated selection holds.
+ */
+export function parseServiceResources(
+  envResources: ComputeResource[],
+  jobResources: { id?: string; amount?: number }[] | undefined
+): BookedServiceResources | null {
+  const booked = new Map<string, number>();
+  (jobResources ?? []).forEach((entry) => {
+    const amount = Number(entry?.amount);
+    if (typeof entry?.id !== 'string' || !Number.isFinite(amount)) {
+      return;
+    }
+    // Summed per id: the node may record a resource in more than one entry (as buildGpuRequests can
+    // emit for a pooled id).
+    booked.set(entry.id, (booked.get(entry.id) ?? 0) + amount);
+  });
+  if (booked.size === 0) {
+    return null;
+  }
+
+  // The env's own id for the type, with the bare type name as a fallback — a record written against a
+  // differently-named id than the env currently advertises still resolves.
+  const amountOf = (type: 'cpu' | 'ram' | 'disk'): number =>
+    booked.get(resourceId(envResources, type)) ?? booked.get(type) ?? 0;
+
+  const gpuSelection: GpuSelection = {};
+  // Seed EVERY GPU type the env advertises, including types this service booked none of: a missing key
+  // makes useInferenceAllocation fall back to its whole-env default for that type, which would report
+  // an untouched type as fully selected.
+  const envGpus = envResources.filter((r) => isGpuId(r.id, r.type));
+  envGpus.forEach((gpu) => {
+    const key = gpu.description || 'GPU';
+    gpuSelection[key] = (gpuSelection[key] ?? 0) + (booked.get(gpu.id) ?? 0);
+  });
+  // A booked GPU id the env no longer advertises can't be mapped to a type — attribute it to the
+  // description-less fallback key (the same one the merge uses) so its units aren't silently dropped.
+  const envGpuIds = new Set(envGpus.map((r) => r.id));
+  booked.forEach((amount, id) => {
+    if (isGpuId(id) && !envGpuIds.has(id)) {
+      gpuSelection.GPU = (gpuSelection.GPU ?? 0) + amount;
+    }
+  });
+
+  return {
+    gpuSelection,
+    sizing: { mode: 'exact', cpu: amountOf('cpu'), ram: amountOf('ram'), disk: amountOf('disk') },
+  };
+}
+
 /**
  * Build the container spec for an Edit relaunch (serviceRestart). Sending image/tag puts the node in
  * RESPEC mode, where the container is rebuilt from this spec alone — so `image` is mandatory (a
@@ -319,12 +516,12 @@ export function buildInferenceRestartSpec({
   params: ModelParameters;
   hfToken: string;
 }): ServiceRestartParams {
-  const runtime = ENGINE_RUNTIME[params.engine];
+  const runtime = engineRuntime(params);
   return {
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(params, hfToken),
+    userData: buildUserData(hfToken),
   };
 }
 
@@ -358,7 +555,7 @@ export function buildInferenceStartParams({
   hfToken: string;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
-  const runtime = ENGINE_RUNTIME[params.engine];
+  const runtime = engineRuntime(params);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
@@ -373,30 +570,9 @@ export function buildInferenceStartParams({
     tag: runtime.tag,
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(params, hfToken),
+    userData: buildUserData(hfToken),
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },
-  };
-}
-
-/**
- * Build the ServiceRestartParams to relaunch a running inference service in place with new launch
- * params (RESPEC mode). The node's serviceRestart is all-old-or-all-new: sending any container field
- * requires `image`, and re-supplies the WHOLE spec (see ocean-node restartService). So this carries
- * the engine image/tag + the (possibly changed) launch command + env — the node reuses the running
- * service's allocated ports and resources, so only the model/params/env change, not the hardware.
- */
-export function buildInferenceRestartParams(
-  model: HuggingFaceModel,
-  params: ModelParameters,
-  hfToken: string
-): ServiceRestartParams {
-  const runtime = ENGINE_RUNTIME[params.engine];
-  return {
-    image: runtime.image,
-    tag: runtime.tag,
-    dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(params, hfToken),
   };
 }

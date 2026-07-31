@@ -16,8 +16,14 @@ import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
 import { getModelShortName } from '@/services/huggingface-service';
-import { detectEngine, enginePort, parseEngineCommand, toNodeUri } from '@/services/inference-launch';
-import { getServiceStatusView } from '@/services/service-status';
+import {
+  detectEngine,
+  enginePort,
+  parseEngineCommand,
+  parseServiceResources,
+  toNodeUri,
+} from '@/services/inference-launch';
+import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { templatePrimaryPort } from '@/services/template-launch';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
@@ -185,10 +191,6 @@ const ManageServicePage: React.FC = () => {
   const [pollEpoch, setPollEpoch] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
 
-  // Model/env display comes from the URL-hydrated selection — the node returns the launch command,
-  // not HF metadata, so the rich model cards can't be rebuilt from the job alone.
-  const hasSelection = hydrateFromUrlFinished && selectedModels.length > 0;
-
   const nodeUri = useMemo(() => (selectedEnv ? toNodeUri(selectedEnv.nodeInfo) : null), [selectedEnv]);
   const nodePeerId = selectedEnv?.nodeInfo.id;
 
@@ -261,22 +263,24 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
+  // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
+  // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
+  const jobCommand = useMemo(() => (job?.dockerCmd ? parseEngineCommand(job.dockerCmd) : null), [job?.dockerCmd]);
+
   // Seed model launch params from the job's dockerCmd when the URL didn't carry them (e.g. opened from
   // the services table, which only puts models/env/duration on the query). Keeps the Model card and
   // prolong summary from rendering N/A, and gives an Edit relaunch its params. Only fills a model that
   // has none yet — a full config committed earlier in-flow always wins.
   useEffect(() => {
-    const cmd = job?.dockerCmd;
-    if (!cmd || selectedModels.length === 0) {
+    if (!jobCommand || selectedModels.length === 0) {
       return;
     }
-    const parsed = parseEngineCommand(cmd);
-    const target = parsed.modelId ? selectedModels.find((m) => m.id === parsed.modelId) : selectedModels[0];
+    const target = jobCommand.modelId ? selectedModels.find((m) => m.id === jobCommand.modelId) : selectedModels[0];
     if (!target || modelParamsByModel[target.id]) {
       return;
     }
-    setParamsForModel(target.id, parsed.params);
-  }, [job?.dockerCmd, selectedModels, modelParamsByModel, setParamsForModel]);
+    setParamsForModel(target.id, jobCommand.params);
+  }, [jobCommand, selectedModels, modelParamsByModel, setParamsForModel]);
 
   /** Restart the container in place, then re-kick the poll to track Running → Starting → Running. */
   const runServiceAction = useCallback(
@@ -300,14 +304,76 @@ const ManageServicePage: React.FC = () => {
     [nodeUri, nodePeerId, account.address, id, withNodeAuth, serviceRestart]
   );
 
-  const models: ServiceModel[] = useMemo(
-    () => selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] })),
-    [selectedModels, modelParamsByModel]
-  );
+  /**
+   * Which model this page shows, in order of authority:
+   *   1. the P2P job record's `--model` — what the container is actually running. Wins because an Edit
+   *      relaunch swaps the model in place (serviceRestart + dockerCmd, same serviceId), so the link
+   *      that got us here can name a model this service no longer serves.
+   *   2. the backend session record's model, which reaches us as the `models` query param,
+   *   3. neither → the card says "Unknown model".
+   * When both name the same model, the hydrated entry is used: same id, but with HF metadata (avatar,
+   * author) the job record doesn't carry. A node-only model renders off its id alone, with launch params
+   * parsed from the same dockerCmd. One container serves one model, so it replaces the list, not joins.
+   *
+   * Empty for a template app: it serves no model, and its dockerCmd is the template's own command —
+   * a `--model`-looking flag in there is the app's argument, not an HF model to name or relaunch.
+   */
+  const models: ServiceModel[] = useMemo(() => {
+    if (selectedTemplate) {
+      return [];
+    }
+    const jobModelId = jobCommand?.modelId;
+    if (jobModelId) {
+      const hydrated = selectedModels.find((m) => m.id === jobModelId);
+      return [{ model: hydrated ?? { id: jobModelId }, params: modelParamsByModel[jobModelId] ?? jobCommand.params }];
+    }
+    return selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] }));
+  }, [selectedModels, modelParamsByModel, jobCommand, selectedTemplate]);
 
   const environment = selectedEnv?.environment ?? null;
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
-  const gpuSelection = selectedEnv?.gpuSelection;
+
+  // Resources the service ACTUALLY holds, from the node's own job record — authoritative, and the only
+  // source when the service was opened from the services table (whose Manage link carries no
+  // `gpus`/`res` params, leaving the hydrated selection to re-derive a whole-env slice that has nothing
+  // to do with what was booked). Falls back to the hydrated selection when the job record is unusable.
+  const bookedResources = useMemo(
+    () => (job && environment ? parseServiceResources(environment.resources ?? [], job.resources) : null),
+    [job, environment]
+  );
+  const gpuSelection = bookedResources?.gpuSelection ?? selectedEnv?.gpuSelection;
+  const sizing = bookedResources?.sizing ?? selectedEnv?.sizing;
+  // Nothing to size the environment card with yet: arrived from the services table (no `gpus`/`res` on
+  // the query) and the node's job record hasn't landed. Rendering the card now would show a whole-env
+  // allocation and price that aren't what the service holds, so wait out the first poll instead.
+  const awaitingBookedResources = !job && !sizing && Object.keys(gpuSelection ?? {}).length === 0;
+  /**
+   * What the flow steps an Edit / Prolong re-enters must be told, carried on the query — the running
+   * service's own facts, not the context selection this page never rewrites.
+   *
+   * Resources: without them the config step would ceiling tensor-parallelism at the wrong GPU count and
+   * a prolong would price (and escrow) the extra runtime off a whole-env slice instead of what the
+   * service holds. Model: the P2P-resolved one (with its launch params, parsed from the same dockerCmd)
+   * whenever it isn't already the context selection — otherwise an Edit would relaunch the model the
+   * link happened to name rather than the one actually running.
+   */
+  const selectionOverrides = useMemo(() => {
+    const nodeOnlyModel = models.find((entry) => !selectedModels.some((m) => m.id === entry.model.id));
+    return {
+      ...(bookedResources ? { gpuSelection: bookedResources.gpuSelection, sizing: bookedResources.sizing } : {}),
+      ...(nodeOnlyModel
+        ? {
+            models: [nodeOnlyModel.model],
+            ...(nodeOnlyModel.params
+              ? {
+                  modelParamsByModel: { [nodeOnlyModel.model.id]: nodeOnlyModel.params },
+                  engine: nodeOnlyModel.params.engine,
+                }
+              : {}),
+          }
+        : {}),
+    };
+  }, [models, selectedModels, bookedResources]);
   const nowSeconds = Math.floor(Date.now() / 1000);
   // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both track the ACTUAL
   // window — including after a Prolong, which pushes expiresAt forward while leaving job.duration at the
@@ -322,10 +388,12 @@ const ManageServicePage: React.FC = () => {
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
   const isTemplate = !!selectedTemplate;
+  // A template app is named after the template; a model service after whichever model won in `models`
+  // (the raw serviceId when there's no model at all).
   const serviceName = selectedTemplate
     ? (selectedTemplate.name ?? selectedTemplate.id)
-    : hasSelection
-      ? models.map((m) => getModelShortName(m.model.id)).join(' + ') || 'Custom selection'
+    : models.length > 0
+      ? models.map((m) => getModelShortName(m.model.id)).join(' + ')
       : id;
   // Template services serve a web UI (not an OpenAI API) — the URL on the template's primary port.
   const templateUiUrl = useMemo(() => {
@@ -346,8 +414,23 @@ const ManageServicePage: React.FC = () => {
   // expiresAt while still reading Running). Mirror it so Edit/Restart aren't offered when doomed to
   // fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
-  const canEdit = !!job && !isExpired;
-  const canRestart = !!job && !isExpired;
+  // The statuses the node refuses a restart under — Expired, plus everything that holds its
+  // per-service lifecycle lock (mid-start / restarting / stopping), which comes back as
+  // "has a start/stop/restart operation in progress — retry shortly". See `isRestartBlocked`.
+  const restartBlocked = isRestartBlocked(job?.status);
+  // The node also refuses to restart a service whose payment was never claimed (escrow lock failed,
+  // or it was refunded — `cancelTx` set): restarting would run it for free, so it says "start a new
+  // service instead". claimTx is set before the first container start, so every legitimately
+  // restartable job (Running / crashed Error / Stopped) has it.
+  const isUnpaid = !!job && !job.payment?.claimTx;
+  // Edit relaunches through the same SERVICE_RESTART (with a new dockerCmd), so it shares the gate.
+  const canEdit = !!job && !isExpired && !restartBlocked && !isUnpaid;
+  const canRestart = !!job && !isExpired && !restartBlocked && !isUnpaid;
+  // Prolong's own status gate (Expired / Locking / Claiming — see `isProlongBlocked`), plus our
+  // expiry check: extend does `expiresAt += additionalDuration` with no past-expiry guard of its own,
+  // so a service still reading Running while past expiresAt (expiry-cron lag) would charge the user
+  // and land on a new expiresAt that is still in the past — paying for zero runtime.
+  const canProlong = !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken;
   const baseUrl = serviceBaseUrl(job);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
 
@@ -365,13 +448,13 @@ const ManageServicePage: React.FC = () => {
     if (selectedTemplate) {
       router.push({
         pathname: `/inference/templates/${encodeURIComponent(selectedTemplate.id)}/config`,
-        query: { ...buildSelectionQuery(), edit: '1', serviceId: id },
+        query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
       });
       return;
     }
     router.push({
       pathname: '/inference/custom-models',
-      query: { ...buildSelectionQuery(), edit: '1', serviceId: id },
+      query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
     });
   };
 
@@ -387,17 +470,27 @@ const ManageServicePage: React.FC = () => {
    * price formula. See payment-page.
    */
   const onProlong = (extraSeconds: number) => {
-    // Prolong payment needs the token in the query to rehydrate on a hard reload; it's seeded from the
-    // running job, so wait until that's in (button is also gated).
-    if (!selectedToken) {
-      setJobError('Loading service details — try again in a moment.');
+    // Button is gated on the same flag, but guard so a stale render (or a status flip while the modal is
+    // open) can't send an expired/dead service to payment. The token half of canProlong is seeded from
+    // the running job, hence the separate "still loading" message.
+    if (!canProlong) {
+      // Close the modal too — the error renders in the page header, hidden behind an open modal.
+      setProlongOpen(false);
+      setJobError(
+        selectedToken ? 'This service can no longer be extended.' : 'Loading service details — try again in a moment.'
+      );
       return;
     }
     setProlongOpen(false);
     // Provider persists across client-side nav, so URL hydration won't re-run — push duration straight
     // into context (query keeps it for a hard reload).
     setJobDurationSeconds(extraSeconds);
-    const query = { ...buildSelectionQuery(), duration: String(extraSeconds), prolong: '1', serviceId: id };
+    const query = {
+      ...buildSelectionQuery(selectionOverrides),
+      duration: String(extraSeconds),
+      prolong: '1',
+      serviceId: id,
+    };
     // A template service has no models, so the custom-models payment page would bounce back to the model
     // picker — route template prolong into the template payment page (flowType=Template) instead.
     if (selectedTemplate) {
@@ -442,8 +535,20 @@ const ManageServicePage: React.FC = () => {
 
             {jobError && <div className="textAccent1">{jobError}</div>}
 
-            {/* Countdown only meaningful once the service is running with a known expiry. */}
-            {isRunning && (
+            {/* Say WHY Restart/Edit are greyed out — a disabled button with no reason reads as a broken
+                page. The status case clears itself on the next poll; unpaid never does. */}
+            {job && !isExpired && (restartBlocked || isUnpaid) && (
+              <div className="textSecondary">
+                {isUnpaid
+                  ? 'This service’s payment was never claimed (unpaid or refunded) — it can’t be restarted or edited. Start a new service instead.'
+                  : `Service is ${status.label.toLowerCase()} — Restart and Edit become available once the node finishes this operation.`}
+              </div>
+            )}
+
+            {/* Countdown tracks the PAID window, not the container's health — a crashed (Error/Stopped)
+                service still holds its slot until expiresAt, and Restart/Prolong stay available until
+                then, so keep the bar up alongside the status chip. Only hidden once actually expired. */}
+            {job && !isExpired && durationTotalSeconds > 0 && (
               <DurationProgress
                 elapsedSeconds={durationElapsedSeconds}
                 onExpired={onLocalExpiry}
@@ -479,7 +584,7 @@ const ManageServicePage: React.FC = () => {
                 <Button
                   color="accent1"
                   contentBefore={<BoltOutlinedIcon />}
-                  disabled={!job || !selectedToken}
+                  disabled={!canProlong}
                   onClick={() => setProlongOpen(true)}
                   size="md"
                   variant="filled"
@@ -490,14 +595,25 @@ const ManageServicePage: React.FC = () => {
             </div>
           </Card>
 
-          {/* Models */}
-          {models.length > 0 && (
+          {/* Model. Rendered even when there's no model to name: the card is the only place the model
+              appears, so "unknown" must be stated rather than the card silently vanishing — otherwise
+              the previous service's card is the last thing the user saw here. Skipped entirely for a
+              template app, which serves no model at all (its whole config rides in the template). */}
+          {!isTemplate && (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div className={styles.howToHead}>
                 <h3>Model</h3>
-                <span className="textSecondary">Expand for launch parameters</span>
+                {models.length > 0 && <span className="textSecondary">Expand for launch parameters</span>}
               </div>
-              <InferenceModelList models={models} />
+              {models.length > 0 ? (
+                <InferenceModelList models={models} />
+              ) : (
+                <div className="textSecondary">
+                  {jobLoading
+                    ? 'Loading model…'
+                    : 'Unknown model — neither the node nor this service’s record names one.'}
+                </div>
+              )}
             </Card>
           )}
 
@@ -508,13 +624,18 @@ const ManageServicePage: React.FC = () => {
                 <h3>Environment</h3>
                 <span className="textSecondary">Running for {formatDuration(durationTotalSeconds)}</span>
               </div>
-              <InferenceEnvironmentCard
-                defaultToken={defaultToken}
-                durationSeconds={durationTotalSeconds}
-                environment={environment}
-                gpuSelection={gpuSelection}
-                nodeInfo={nodeInfo}
-              />
+              {awaitingBookedResources ? (
+                <div className="textSecondary">Loading booked resources…</div>
+              ) : (
+                <InferenceEnvironmentCard
+                  defaultToken={defaultToken}
+                  durationSeconds={durationTotalSeconds}
+                  environment={environment}
+                  gpuSelection={gpuSelection}
+                  nodeInfo={nodeInfo}
+                  sizing={sizing}
+                />
+              )}
             </Card>
           )}
 

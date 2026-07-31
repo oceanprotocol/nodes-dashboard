@@ -20,7 +20,7 @@ export const getInferenceSteps = (flowType: InferenceFlowType, edit = false): St
     // service — reconfiguring the env vars is the whole point of a template edit.
     hidden: flowType === InferenceFlowType.DefaultModel || (flowType === InferenceFlowType.Template && !edit),
   },
-  { key: 'payment', label: 'Payment' },
+  { key: 'payment', label: edit ? 'Relaunch' : 'Payment' },
 ];
 
 export type GrantStep = 'details' | 'verify' | 'claim';

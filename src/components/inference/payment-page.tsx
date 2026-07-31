@@ -78,8 +78,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     tokenAddress: selectedToken?.address ?? '',
     gpuSelection: selectedEnv?.gpuSelection,
     // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
-    // slice at the package min; undefined for a plain custom-flow slice. Keeps the priced/escrowed
-    // allocation matching what the resources step showed.
+    // slice at the package min; an edit/prolong re-entry carries the running service's `exact` booked
+    // amounts (see parseServiceResources); undefined for a plain custom-flow slice. Keeps the
+    // priced/escrowed allocation matching what the resources step — or the running service — showed.
     sizing: selectedEnv?.sizing,
     durationSeconds: jobDurationSeconds,
   });

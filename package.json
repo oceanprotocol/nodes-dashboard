@@ -28,7 +28,7 @@
     "@mui/x-data-grid": "^8.14.1",
     "@multiformats/multiaddr": "^13.0.1",
     "@oceanprotocol/contracts": "^2.9.0",
-    "@oceanprotocol/lib": "9.0.0-next.6",
+    "@oceanprotocol/lib": "9.0.0-next.7",
     "@privy-io/alchemy-migration": "^0.0.5",
     "@privy-io/react-auth": "^3.22.2",
     "@ramp-network/ramp-instant-sdk": "^6.2.0",
@@ -89,7 +89,7 @@
     "@solana/codecs-core": "5.5.1",
     "uuid": "^8.3.2",
     "@reown/appkit-wallet": "1.7.8",
-    "@solana/errors": "6.9.0",
+    "@solana/errors": "6.10.0",
     "@privy-io/react-auth": "3.22.2"
   }
 }

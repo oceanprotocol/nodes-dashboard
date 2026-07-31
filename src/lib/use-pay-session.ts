@@ -132,7 +132,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           posthog.capture('payment_authorize');
         }
 
-        toast.success(paySuccessMessage(spender, peerId));
+        toast.success(paySuccessMessage(
+          // spender, peerId
+        ));
         onSuccess?.();
         return true;
       } catch (err) {
@@ -151,9 +153,13 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
   return { isPaying, handlePay, error };
 };
 
-const paySuccessMessage = (consumerAddress: string, peerId?: string) => {
-  const target = peerId
-    ? `node ${formatWalletAddress(peerId)} (consumer ${formatWalletAddress(consumerAddress)})`
-    : `consumer ${formatWalletAddress(consumerAddress)}`;
-  return `Payment authorized for ${target}. Your updated service will be available shortly.`;
+const paySuccessMessage = (
+  // consumerAddress: string, 
+  // peerId?: string
+) => {
+  return "Payment authorized. Your updated service will be available shortly.";
+  // const target = peerId
+  // ? `node ${formatWalletAddress(peerId)} (consumer ${formatWalletAddress(consumerAddress)})`
+  // : `consumer ${formatWalletAddress(consumerAddress)}`;
+  // return `Payment authorized for ${target}. Your updated service will be available shortly.`;
 };

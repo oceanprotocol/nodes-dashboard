@@ -10,7 +10,9 @@ import useInferenceAllocation, {
 import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
+import { checkEnvAccess } from '@/utils/check-env-access';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -44,8 +46,9 @@ type InferenceEnvironmentCardProps = {
   /** Seeds the chips when the card is uncontrolled (e.g. restoring a prior pick for this env). Defaults to all units. */
   initialSelection?: GpuSelection;
   /**
-   * How to size/display/price the shared CPU/RAM/disk: `pinned` fixed amounts (quick start) or a `floor`
-   * under the GPU-fraction slice (advanced handoff). Omit for the proportional slice. See {@link ResourceSizing}.
+   * How to size/display/price the shared CPU/RAM/disk: `pinned` fixed amounts (quick start), a `floor`
+   * under the GPU-fraction slice (advanced handoff), or the `exact` amounts a running service booked
+   * (manage page). Omit for the proportional slice. See {@link ResourceSizing}.
    */
   sizing?: ResourceSizing;
 };
@@ -71,6 +74,17 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   initialSelection,
   sizing,
 }) => {
+  const { account, provider } = useOceanAccount();
+
+  // Inference is always paid (never the env's `free` tier), so only the paid access list applies.
+  // null = wallet not connected yet (or an access-list read that needs a provider) — distinct from
+  // false (connected, but not allowed), which the node would reject at serviceStart with 403.
+  const [paidAccess, setPaidAccess] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkEnvAccess(environment.access, account.address, provider).then(setPaidAccess);
+  }, [environment.access, account.address, provider]);
+
   const supportedTokens = useMemo(() => getEnvSupportedTokens(environment, true), [environment]);
   const supportedTokensSymbols = useTokensSymbols(supportedTokens);
 
@@ -169,8 +183,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,
-    allocation.ram > 0 && formatGb(allocation.ram),
-    allocation.disk > 0 && formatGb(allocation.disk),
+    allocation.ram > 0 && `${formatGb(allocation.ram)} RAM`,
+    allocation.disk > 0 && `${formatGb(allocation.disk)} disk`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -236,11 +250,19 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   };
 
   // Reason the env can't be selected right now: a caller-supplied block (e.g. duration out of bounds)
-  // wins, then GPU-only cases — fully busy, or the user zeroed every type — then a cross-resource
-  // constraint the built request would violate (the node would reject it). Null → selectable. Drives
-  // the disabled state + tooltip on the select button.
+  // wins, then the wallet/access gate — the node enforces the env's access list at serviceStart (403
+  // 'Access denied'), so block here rather than after the user has paid escrow — then GPU-only cases
+  // — fully busy, or the user zeroed every type — then a cross-resource constraint the built request
+  // would violate (the node would reject it). Null → selectable. Drives the disabled state + tooltip.
+  const accessBlockedReason =
+    paidAccess === null
+      ? 'You need to log in to continue.'
+      : paidAccess
+        ? null
+        : "Your wallet address is not in this environment's access list.";
   const selectBlockedReason =
     disabledReason ??
+    accessBlockedReason ??
     (hasGpus
       ? gpuExhausted
         ? 'All GPU units in this environment are currently in use.'

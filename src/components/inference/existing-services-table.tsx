@@ -1,19 +1,21 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import { Table } from '@/components/table/table';
+import { TableTypeEnum } from '@/components/table/table-type';
 import { getApiRoute } from '@/config';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { encodeModelIds, getModelShortName } from '@/services/huggingface-service';
-import { getServiceStatusView } from '@/services/service-status';
+import { encodeModelIds } from '@/services/huggingface-service';
 import { fetchTemplates, findTemplateByImage } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
-import { formatDateTime, formatDuration } from '@/utils/formatters';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { CircularProgress, Collapse } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { CircularProgress, Collapse, Tooltip } from '@mui/material';
+import { ServiceJob } from '@oceanprotocol/lib';
 import axios from 'axios';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './existing-services-table.module.css';
 
 type ServiceSession = {
@@ -32,6 +34,12 @@ type ServiceSession = {
   payment?: { token?: string };
 };
 
+// Rows are ServiceJob-shaped so the shared existingServicesColumns can render them, but the
+// backend's session records are looser than the node's own ServiceJob (no clusterHash/etc, and
+// peerId is ours). Keep the session alongside for routing, and the matched template's name so the
+// Model column can name the app instead of a model that doesn't exist for a template launch.
+type ServiceRow = Partial<ServiceJob> & { serviceId: string; session: ServiceSession; templateName?: string };
+
 function modelIdFromSession(session: ServiceSession): string | null {
   if (session.model) {
     return session.model;
@@ -39,6 +47,25 @@ function modelIdFromSession(session: ServiceSession): string | null {
   const cmd = session.dockerCmd ?? [];
   const idx = cmd.indexOf('--model');
   return idx >= 0 && idx + 1 < cmd.length ? cmd[idx + 1] : null;
+}
+
+// The shared columns expect the node's own field shapes: an ISO `dateCreated` (they do
+// `new Date(value)`) and a model recoverable from `dockerCmd` via `--model`. The backend instead
+// sends a numeric epoch — in seconds or ms depending on the record — and may name the model
+// directly, so normalize both here rather than teaching the columns a second shape.
+//
+// A template-launched service has no HF model at all — the whole app rides in the template's own
+// image/command — so when one matched, the row names the template and carries no model id.
+function toRow(session: ServiceSession, template?: AppTemplate): ServiceRow {
+  const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
+  const modelId = template ? null : modelIdFromSession(session);
+  return {
+    ...session,
+    dateCreated: new Date(createdMs).toISOString(),
+    dockerCmd: modelId ? ['--model', modelId] : template ? [] : session.dockerCmd,
+    session,
+    templateName: template ? (template.name ?? template.id) : undefined,
+  };
 }
 
 const ExistingServicesTable: React.FC = () => {
@@ -51,9 +78,17 @@ const ExistingServicesTable: React.FC = () => {
   const [templateByService, setTemplateByService] = useState<Record<string, AppTemplate>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Services aren't fetched on mount — the collapsible only opens (and loads) once "Load" is pressed.
   const [open, setOpen] = useState(false);
 
   const requestRef = useRef<AbortController>();
+
+  // Template matching resolves after the services themselves (a second, node-side fetch), so rows are
+  // derived rather than stored — they re-render with the app name once the match lands.
+  const rows = useMemo(
+    () => sessions.map((session) => toRow(session, templateByService[session.serviceId])),
+    [sessions, templateByService]
+  );
 
   useEffect(() => {
     requestRef.current?.abort();
@@ -115,6 +150,7 @@ const ExistingServicesTable: React.FC = () => {
     }
   }, [account.address, p2pReady, getServiceTemplates]);
 
+  // Open the collapsible and (re)fetch. Toggles closed again if already open.
   const handleLoad = useCallback(() => {
     if (open) {
       setOpen(false);
@@ -124,6 +160,10 @@ const ExistingServicesTable: React.FC = () => {
     load();
   }, [open, load]);
 
+  // Route to the manage page. It hydrates its model/env display from the query params (peerId/env/
+  // models) — the record alone can't rebuild the rich model card, so seed what we recovered from it.
+  // Carry the payment token too: the manage page needs it in context for a Prolong re-entry, and
+  // hydrating it from the URL avoids waiting on the async job-token seed effect (see manage page).
   const openService = (session: ServiceSession) => {
     if (!session.peerId || !session.environment) {
       setError('This service is missing node info and cannot be managed from here.');
@@ -161,81 +201,44 @@ const ExistingServicesTable: React.FC = () => {
       </div>
 
       <Collapse in={open} mountOnEnter unmountOnExit>
-        {error && <div className="textErrorDarker">{error}</div>}
+        {error && (
+          <p className="textErrorDarker flexRow alignItemsCenter gapXs">
+            <span className="textBold">Failed to load services</span>
+            <Tooltip title={error}>
+              <InfoOutlinedIcon fontSize="small" />
+            </Tooltip>
+          </p>
+        )}
 
-        {loading && sessions.length === 0 ? (
+        {loading && rows.length === 0 ? (
           <div className={styles.centered}>
             <CircularProgress size={18} />
           </div>
-        ) : sessions.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className={cx('textSecondary', styles.centered)}>No services yet.</div>
         ) : (
           <>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Model</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Duration</th>
-                    <th>End time</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.map((session) => {
-                    const template = templateByService[session.serviceId];
-                    const modelId = template ? null : modelIdFromSession(session);
-                    const name = template
-                      ? (template.name ?? template.id)
-                      : modelId
-                        ? getModelShortName(modelId)
-                        : session.serviceId.slice(0, 10);
-                    const status = getServiceStatusView(session.status, session.statusText);
-                    const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
-                    return (
-                      <tr key={session.serviceId}>
-                        <td>
-                          <span className={styles.model}>{name}</span>
-                        </td>
-                        <td>
-                          <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
-                            {status.kind === 'pending' ? (
-                              <CircularProgress size={10} />
-                            ) : (
-                              <span className={styles.statusDot} />
-                            )}
-                            {status.label}
-                          </span>
-                        </td>
-                        <td className="textSecondary">{formatDateTime(Math.floor(createdMs / 1000))}</td>
-                        <td className="textSecondary">
-                          {session.duration != null ? formatDuration(session.duration) : '—'}
-                        </td>
-                        <td className="textSecondary">
-                          {session.expiresAt != null ? formatDateTime(session.expiresAt / 1000) : '—'}
-                        </td>
-                        <td className={styles.actionCell}>
-                          <Button
-                            color="accent1"
-                            contentAfter={<ArrowForwardIcon />}
-                            onClick={() => openService(session)}
-                            size="sm"
-                            variant="outlined"
-                          >
-                            Manage
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {total > sessions.length && (
+            <Table<ServiceRow>
+              autoHeight
+              actionsColumn={({ row }) => (
+                <Button
+                  color="accent1"
+                  contentAfter={<ArrowForwardIcon />}
+                  onClick={() => openService(row.session)}
+                  size="sm"
+                  variant="outlined"
+                >
+                  Manage
+                </Button>
+              )}
+              data={rows}
+              getRowId={(row) => row.serviceId}
+              paginationType="none"
+              tableType={TableTypeEnum.EXISTING_SERVICES}
+            />
+            {total > rows.length && (
               <span className="textSecondary">
-                Showing newest {sessions.length} of {total}
+                Showing newest {rows.length} of {total}
               </span>
             )}
           </>

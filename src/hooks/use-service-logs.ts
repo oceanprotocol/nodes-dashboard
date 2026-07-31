@@ -46,6 +46,8 @@ interface UseServiceLogsResult {
   status: ServiceLogViewStatus;
   error: string | null;
   stop: () => void;
+  /** Re-open the stream after stop() / an error / a terminal fetch. Re-tails from scratch. */
+  resume: () => void;
 }
 
 /**
@@ -69,8 +71,13 @@ export function useServiceLogs({
   const [lines, setLines] = useState<string[]>([]);
   const [status, setStatus] = useState<ServiceLogViewStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Bumped by resume() to re-run the stream effect after it settled (stopped / errored / terminal).
+  const [runEpoch, setRunEpoch] = useState(0);
 
-  const cancelledRef = useRef(false);
+  // Generation counter rather than a boolean cancel flag: stop() and every effect re-run bump it, so
+  // a loop from an earlier run can still tell it was superseded after a resume. A shared boolean
+  // flipped back to false would let the stopped loop carry on next to the new one.
+  const runIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   // Faithful identity of nodeUri for the effect deps. A bare-string nodeUri (toNodeUri's fallback
   // when a node advertises no dialable ws/wss addrs) must key on its actual value — collapsing every
@@ -78,9 +85,13 @@ export function useServiceLogs({
   const nodeUriKey = Array.isArray(nodeUri) ? nodeUri.join('|') : nodeUri ? String(nodeUri) : '';
 
   const stop = useCallback(() => {
-    cancelledRef.current = true;
+    runIdRef.current += 1;
     abortRef.current?.abort();
     setStatus((prev) => (prev === 'ended' || prev === 'error' ? prev : 'ended'));
+  }, []);
+
+  const resume = useCallback(() => {
+    setRunEpoch((epoch) => epoch + 1);
   }, []);
 
   useEffect(() => {
@@ -88,7 +99,11 @@ export function useServiceLogs({
       return;
     }
 
-    cancelledRef.current = false;
+    runIdRef.current += 1;
+    const runId = runIdRef.current;
+    /** True once stop(), a resume, or unmount superseded this run. */
+    const cancelled = () => runIdRef.current !== runId;
+
     setLines([]);
     setError(null);
     setStatus('connecting');
@@ -113,7 +128,7 @@ export function useServiceLogs({
       try {
         token = await getToken();
       } catch (e) {
-        if (!cancelledRef.current) {
+        if (!cancelled()) {
           setStatus('error');
           setError(e instanceof Error ? e.message : 'Failed to authenticate with node');
         }
@@ -122,7 +137,7 @@ export function useServiceLogs({
 
       let failures = 0;
 
-      while (!cancelledRef.current) {
+      while (!cancelled()) {
         let job: ServiceJob | null = null;
         try {
           const jobs = await withTimeout(
@@ -133,7 +148,7 @@ export function useServiceLogs({
           job = jobs.find((j) => j.serviceId === serviceId) ?? jobs[0] ?? null;
           failures = 0;
         } catch (e) {
-          if (cancelledRef.current) {
+          if (cancelled()) {
             return;
           }
           // Node rejected the (cached) token — drop it and re-mint on the next attempt.
@@ -142,7 +157,7 @@ export function useServiceLogs({
             try {
               token = await getToken();
             } catch (authErr) {
-              if (!cancelledRef.current) {
+              if (!cancelled()) {
                 setStatus('error');
                 setError(authErr instanceof Error ? authErr.message : 'Failed to authenticate with node');
               }
@@ -151,13 +166,13 @@ export function useServiceLogs({
           }
           failures += 1;
           if (failures >= MAX_CONSECUTIVE_FAILURES) {
-            if (!cancelledRef.current) {
+            if (!cancelled()) {
               setStatus('error');
               setError('Lost connection to the node.');
             }
             return;
           }
-          if (!cancelledRef.current) {
+          if (!cancelled()) {
             setStatus('reconnecting');
           }
           await delay(RECONNECT_DELAY_MS);
@@ -170,13 +185,13 @@ export function useServiceLogs({
           // No live container to tail — grab the stored/final output once and stop.
           try {
             const text = await getServiceLogs(nodeUri, token, serviceId);
-            if (!cancelledRef.current) {
+            if (!cancelled()) {
               const cleaned = cleanLogText(text);
               setLines(cleaned ? cleaned.split('\n') : ['No logs available for this service.']);
               setStatus('ended');
             }
           } catch (e) {
-            if (!cancelledRef.current) {
+            if (!cancelled()) {
               setStatus('error');
               setError(e instanceof Error ? e.message : 'Failed to load logs');
             }
@@ -192,7 +207,7 @@ export function useServiceLogs({
           const buffer: Uint8Array[] = [];
           let started = false;
           for await (const chunk of streamServiceLogs(nodeUri, token, serviceId, controller.signal)) {
-            if (cancelledRef.current) {
+            if (cancelled()) {
               return;
             }
             if (!started) {
@@ -209,12 +224,12 @@ export function useServiceLogs({
             }
             setLines(toLines(merged));
           }
-          if (!started && !cancelledRef.current) {
+          if (!started && !cancelled()) {
             // Stream produced nothing (node has no live output yet) — show a waiting state.
             setStatus('live');
           }
         } catch (e) {
-          if (cancelledRef.current) {
+          if (cancelled()) {
             return;
           }
           // ocean.js puts a fixed timeout on the streaming fetch, so a quiet follow-stream (container
@@ -226,7 +241,7 @@ export function useServiceLogs({
           }
         }
 
-        if (cancelledRef.current) {
+        if (cancelled()) {
           return;
         }
         await delay(RECONNECT_DELAY_MS);
@@ -236,12 +251,12 @@ export function useServiceLogs({
     run();
 
     return () => {
-      cancelledRef.current = true;
+      runIdRef.current += 1;
       abortRef.current?.abort();
     };
     // getToken/clearToken come from the node-auth context (stable useCallback refs).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isReady, serviceId, nodeUriKey, consumerAddress]);
+  }, [open, isReady, serviceId, nodeUriKey, consumerAddress, runEpoch]);
 
-  return { lines, status, error, stop };
+  return { lines, status, error, stop, resume };
 }

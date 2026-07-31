@@ -1,8 +1,14 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
 import { SelectedToken } from '@/context/run-job-context';
+import { useP2P } from '@/contexts/P2PContext';
 import { getTokenSymbol } from '@/lib/token-symbol';
-import { decodeModelIds, encodeModelIds, fetchHuggingFaceModel } from '@/services/huggingface-service';
+import {
+  decodeModelIds,
+  DEFAULT_INFERENCE_ENGINE,
+  encodeModelIds,
+  fetchHuggingFaceModel,
+} from '@/services/huggingface-service';
 import {
   decodeGpuSelection,
   decodeModelParams,
@@ -12,9 +18,7 @@ import {
   encodeResourceSizing,
   firstQueryValue,
 } from '@/services/inference-url';
-import { DEFAULT_INFERENCE_ENGINE } from '@/services/huggingface-service';
 import { fetchTemplates, findTemplateById } from '@/services/service-templates';
-import { useP2P } from '@/contexts/P2PContext';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
 import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { AppTemplate } from '@/types/templates';
@@ -338,6 +342,11 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     const restoreModels = async (): Promise<boolean> => {
       const modelIds = decodeModelIds(q.models);
       if (modelIds.length === 0) {
+        // Same reset rule as the params above: the Provider never remounts, so a nav whose URL carries
+        // no models must CLEAR the selection, not keep the previous one. Otherwise opening a service
+        // whose record has no recoverable model id (e.g. a malformed session) would show the
+        // previously-managed service's model as if it were its own.
+        setSelectedModels([]);
         return true;
       }
       const results = await Promise.allSettled(modelIds.map((id) => fetchHuggingFaceModel(id)));
