@@ -18,7 +18,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { firstQueryValue } from '@/services/inference-url';
-import { templatePinnedSizing, templatePrimaryPort } from '@/services/template-launch';
+import { templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
 import AppsIcon from '@mui/icons-material/Apps';
@@ -27,7 +27,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import DeveloperBoardIcon from '@mui/icons-material/DeveloperBoard';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
-import LanIcon from '@mui/icons-material/Lan';
 import MemoryIcon from '@mui/icons-material/Memory';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SdCardIcon from '@mui/icons-material/SdCard';
@@ -69,7 +68,8 @@ type DecoratedTemplate = {
   name: string;
   vendor: string;
   gpu: boolean;
-  port?: number;
+  /** How the running app is used — "Web UI" / "API" / "Endpoint". See TemplateCategoryMeta.interaction. */
+  interaction: string;
   meta: { key: string; Icon: typeof MemoryIcon; label: string }[];
   /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
@@ -78,7 +78,6 @@ type DecoratedTemplate = {
 function decorate(tpl: AppTemplate): DecoratedTemplate {
   const visual = visualFor(tpl.id);
   const hw = templateHardware(tpl);
-  const port = templatePrimaryPort(tpl);
   const meta: DecoratedTemplate['meta'] = [
     {
       key: 'hw',
@@ -92,9 +91,8 @@ function decorate(tpl: AppTemplate): DecoratedTemplate {
   if (hw.disk != null) {
     meta.push({ key: 'disk', Icon: StorageIcon, label: `${hw.disk} GB disk` });
   }
-  if (port != null) {
-    meta.push({ key: 'port', Icon: LanIcon, label: `port ${port}` });
-  }
+  // No container port here: pre-launch it's not actionable — the reachable host port and URL are only
+  // assigned when the service starts, and the manage-service page shows those.
   return {
     tpl,
     category: visual.category,
@@ -106,7 +104,7 @@ function decorate(tpl: AppTemplate): DecoratedTemplate {
     name: tpl.name ?? tpl.id,
     vendor: templateVendor(tpl.image),
     gpu: hw.gpu,
-    port,
+    interaction: visual.meta.interaction,
     meta,
     metaFallback: hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
   };
@@ -255,13 +253,13 @@ const TemplatesPage: React.FC = () => {
       return `Nothing matches “${filters.query}”${inCategory}${onHardware}. Try a broader term, or clear the category.`;
     }
     if (filters.category !== 'all' && filters.hardware !== 'all') {
-      return `This node publishes no ${CATEGORY_META[filters.category].label} template that runs on ${HARDWARE_LABEL[filters.hardware]}.`;
+      return `No ${CATEGORY_META[filters.category].label} template that runs on ${HARDWARE_LABEL[filters.hardware]} is available right now.`;
     }
     if (filters.category !== 'all') {
-      return `This node publishes no ${CATEGORY_META[filters.category].label} template right now.`;
+      return `No ${CATEGORY_META[filters.category].label} template is available right now.`;
     }
     if (filters.hardware !== 'all') {
-      return `This node publishes no template that runs on ${HARDWARE_LABEL[filters.hardware]}.`;
+      return `No template that runs on ${HARDWARE_LABEL[filters.hardware]} is available right now.`;
     }
     return 'Clear the filters to see the full catalogue.';
   }, [filters]);
@@ -465,7 +463,7 @@ const TemplatesPage: React.FC = () => {
 
   const renderCard = (item: DecoratedTemplate) => (
     <button
-      aria-label={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}`}
+      aria-label={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}`}
       className={styles.card}
       key={item.tpl.id}
       onClick={() => openDetails(item.tpl)}
@@ -498,7 +496,7 @@ const TemplatesPage: React.FC = () => {
       <div className={styles.chips}>
         <span className={styles.cardChip}>{item.categoryLabel}</span>
         <span className={styles.cardChip}>{item.gpu ? 'GPU' : 'CPU'}</span>
-        {item.port != null && <span className={cx(styles.cardChip, styles.cardChipHighlight)}>Web UI</span>}
+        <span className={cx(styles.cardChip, styles.cardChipHighlight)}>{item.interaction}</span>
       </div>
 
       <div className={styles.metaRow}>

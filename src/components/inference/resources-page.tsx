@@ -116,7 +116,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
             ) : (
               hasSelectionForFlow && (
                 <>
-                  <SelectInferenceEnvironment onEnvSelected={goToNextStep} />
+                  <SelectInferenceEnvironment flowType={flowType} onEnvSelected={goToNextStep} />
                   <InferenceNavigation
                     nextLabel="Skip"
                     onNext={selectedEnv ? () => goToNextStep() : undefined}

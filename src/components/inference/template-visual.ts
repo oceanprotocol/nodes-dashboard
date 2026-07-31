@@ -25,6 +25,14 @@ export interface TemplateCategoryMeta {
   Icon: SvgIconComponent;
   /** "What you get" lead line in the details modal — the node publishes no such field per template. */
   purpose: string;
+  /**
+   * How you interact with the running app, for the card's highlighted chip. Every template exposes at
+   * least one port (the node's schema enforces `exposedPorts.min(1)`), so "has a port" says nothing —
+   * what differs is whether that port serves a browser app or an HTTP API, which only the category knows.
+   */
+  interaction: string;
+  /** Trailing hint next to the port row in the details modal — what to do with that port. */
+  interactionHint: string;
 }
 
 /**
@@ -39,37 +47,57 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
     accent: '#d54335',
     Icon: ImageOutlined,
     purpose: 'For generating and editing images.',
+    interaction: 'Web UI',
+    interactionHint: 'opens in your browser once the session is running',
   },
-  video: { label: 'Video gen', accent: '#7b3fe4', Icon: MovieOutlined, purpose: 'For generating short video clips.' },
+  video: {
+    label: 'Video gen',
+    accent: '#7b3fe4',
+    Icon: MovieOutlined,
+    purpose: 'For generating short video clips.',
+    interaction: 'Web UI',
+    interactionHint: 'opens in your browser once the session is running',
+  },
   llm: {
     label: 'LLM chat',
     accent: '#4f9a10',
     Icon: ChatBubbleOutline,
     purpose: 'For chatting with a model in your browser.',
+    interaction: 'Web UI',
+    interactionHint: 'opens in your browser once the session is running',
   },
   serving: {
     label: 'LLM serving',
     accent: '#0f7b6c',
     Icon: DnsOutlined,
     purpose: 'For serving an OpenAI-compatible model endpoint.',
+    interaction: 'API',
+    interactionHint: 'call it from your code once the session is running',
   },
   notebook: {
     label: 'Notebook',
     accent: '#000000',
     Icon: MenuBook,
     purpose: 'For notebooks, scripting and data exploration.',
+    interaction: 'Web UI',
+    interactionHint: 'opens in your browser once the session is running',
   },
   embeddings: {
     label: 'Embeddings',
     accent: '#c96b00',
     Icon: GrainOutlined,
     purpose: 'For building a vector index or a RAG pipeline.',
+    interaction: 'API',
+    interactionHint: 'call it from your code once the session is running',
   },
   app: {
     label: 'App',
     accent: '#5a6b7a',
     Icon: AppsOutlined,
     purpose: 'This node published the image without a recognised category.',
+    // Uncategorised: an exposed port is all that's known, so promise nothing about what serves it.
+    interaction: 'Endpoint',
+    interactionHint: 'reachable once the session is running',
   },
 };
 

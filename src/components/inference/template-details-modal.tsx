@@ -7,7 +7,6 @@ import { templateHardware, templateImageRef, visualFor } from '@/components/infe
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { SelectedToken } from '@/context/run-job-context';
-import { templatePrimaryPort } from '@/services/template-launch';
 import { ComputeEnvironment } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
@@ -91,9 +90,9 @@ function resourceRows(template: AppTemplate): ResourceRow[] {
 }
 
 /**
- * "What's included" details for a picked app template: what the app is, the web-UI port, its
- * configurable env vars, the resources it asks for, the session length, and the environments that can
- * currently run it. Each env is a read-only card with its own Continue → payment (the resources step is
+ * "What's included" details for a picked app template: what the app is, how it's used (browser UI vs
+ * HTTP API), its configurable env vars, the resources it asks for, the session length, and the
+ * environments that can currently run it. Each env is a read-only card with its own Continue → payment (the resources step is
  * skipped); "Advanced setup" hands off to the full env picker instead. Selection lives in the parent —
  * closing this commits nothing.
  */
@@ -110,7 +109,6 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   const visual = template ? visualFor(template.id) : null;
   const hw = template ? templateHardware(template) : null;
   const logo = template ? templateLogoSrc(template.id) : null;
-  const port = template ? templatePrimaryPort(template) : undefined;
 
   // The shared duration must land inside EVERY env's own window — validated per card so a card whose
   // env can't fit the current duration disables its Continue (with a reason). Same rule as quick start.
@@ -251,15 +249,16 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               <p className={cx(styles.description, { [styles.descriptionEmpty]: !template.description })}>
                 {template.description || 'No description published for this image.'}
               </p>
-              {port != null && (
-                <div className={styles.portRow}>
-                  <span className={styles.portChip}>
-                    <PublicIcon className={styles.chipIcon} />
-                    Web UI on port {port}
-                  </span>
-                  <span className="textSecondary text12">opens in your browser once the session is running</span>
-                </div>
-              )}
+              {/* No port number: the container port isn't what the user gets. The node allocates a host
+                  port from 30000-32767 at launch and the URL carries that one, so naming the container
+                  port here would show a number that appears nowhere in the endpoint they're given. */}
+              <div className={styles.portRow}>
+                <span className={styles.portChip}>
+                  <PublicIcon className={styles.chipIcon} />
+                  {visual.meta.interaction}
+                </span>
+                <span className="textSecondary text12">{visual.meta.interactionHint}</span>
+              </div>
               <div className={styles.envVars}>
                 <div className={styles.envVarsHead}>
                   <span className={styles.overline}>Configurable env vars</span>
