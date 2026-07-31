@@ -213,7 +213,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   };
 
   return (
-    <Modal isOpen={!!template} onClose={onClose} width="md">
+    <Modal isOpen={!!template} onClose={onClose} title="What's included" width="md">
       {template && visual && hw && (
         <>
           <div className={styles.header} style={{ '--accent': visual.meta.accent } as CSSProperties}>
@@ -230,7 +230,11 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               <div className={styles.headerChips}>
                 <span className={styles.categoryChip}>{visual.meta.label}</span>
                 <span className={cx(styles.hwChip, hw.gpu ? styles.hwChipGpu : styles.hwChipCpu)}>
-                  {hw.gpu ? <MemoryIcon className={styles.chipIcon} /> : <DeveloperBoardIcon className={styles.chipIcon} />}
+                  {hw.gpu ? (
+                    <MemoryIcon className={styles.chipIcon} />
+                  ) : (
+                    <DeveloperBoardIcon className={styles.chipIcon} />
+                  )}
                   {hw.gpu ? 'GPU' : 'CPU'}
                 </span>
               </div>
