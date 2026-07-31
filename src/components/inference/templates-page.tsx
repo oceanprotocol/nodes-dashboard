@@ -4,16 +4,9 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import useServiceTemplates from '@/components/hooks/use-service-templates';
 import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-template-envs';
 import InferenceStepper from '@/components/inference/inference-stepper';
+import TemplateCard, { DecoratedTemplate, decorate } from '@/components/inference/template-card';
 import TemplateDetailsModal from '@/components/inference/template-details-modal';
-import { templateLogoSrc } from '@/components/inference/template-logos';
-import {
-  CATEGORY_META,
-  CATEGORY_ORDER,
-  TemplateCategory,
-  templateHardware,
-  templateVendor,
-  visualFor,
-} from '@/components/inference/template-visual';
+import { CATEGORY_META, CATEGORY_ORDER, TemplateCategory } from '@/components/inference/template-visual';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
@@ -22,16 +15,13 @@ import { templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
 import AppsIcon from '@mui/icons-material/Apps';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CloseIcon from '@mui/icons-material/Close';
 import DeveloperBoardIcon from '@mui/icons-material/DeveloperBoard';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import MemoryIcon from '@mui/icons-material/Memory';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import SdCardIcon from '@mui/icons-material/SdCard';
 import SearchIcon from '@mui/icons-material/Search';
-import StorageIcon from '@mui/icons-material/Storage';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
 import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
@@ -55,60 +45,6 @@ const HARDWARE_SEGMENTS: { key: HardwareFilter; label: string; Icon: typeof Memo
 ];
 
 const HARDWARE_LABEL: Record<Exclude<HardwareFilter, 'all'>, string> = { gpu: 'GPU', cpu: 'CPU' };
-
-/** A template decorated with everything the card renders — all of it derived from the template alone. */
-type DecoratedTemplate = {
-  tpl: AppTemplate;
-  category: TemplateCategory;
-  accent: string;
-  categoryLabel: string;
-  CategoryIcon: (typeof CATEGORY_META)[TemplateCategory]['Icon'];
-  mono: string | null;
-  logo: string | null;
-  name: string;
-  vendor: string;
-  gpu: boolean;
-  /** How the running app is used — "Web UI" / "API" / "Endpoint". See TemplateCategoryMeta.interaction. */
-  interaction: string;
-  meta: { key: string; Icon: typeof MemoryIcon; label: string }[];
-  /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
-  metaFallback: string | null;
-};
-
-function decorate(tpl: AppTemplate): DecoratedTemplate {
-  const visual = visualFor(tpl.id);
-  const hw = templateHardware(tpl);
-  const meta: DecoratedTemplate['meta'] = [
-    {
-      key: 'hw',
-      Icon: hw.gpu ? MemoryIcon : DeveloperBoardIcon,
-      label: hw.gpu ? `${hw.gpuUnits || 1}× GPU` : 'CPU only',
-    },
-  ];
-  if (hw.ram != null) {
-    meta.push({ key: 'ram', Icon: SdCardIcon, label: `${hw.ram} GB RAM` });
-  }
-  if (hw.disk != null) {
-    meta.push({ key: 'disk', Icon: StorageIcon, label: `${hw.disk} GB disk` });
-  }
-  // No container port here: pre-launch it's not actionable — the reachable host port and URL are only
-  // assigned when the service starts, and the manage-service page shows those.
-  return {
-    tpl,
-    category: visual.category,
-    accent: visual.meta.accent,
-    categoryLabel: visual.meta.label,
-    CategoryIcon: visual.meta.Icon,
-    mono: visual.mono,
-    logo: templateLogoSrc(tpl.id),
-    name: tpl.name ?? tpl.id,
-    vendor: templateVendor(tpl.image),
-    gpu: hw.gpu,
-    interaction: visual.meta.interaction,
-    meta,
-    metaFallback: hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
-  };
-}
 
 function matchesQuery(item: DecoratedTemplate, query: string): boolean {
   if (!query) {
@@ -203,7 +139,10 @@ const TemplatesPage: React.FC = () => {
 
   // Each axis counts against the OTHER axis's current result, so a count always answers "how many would
   // I get if I clicked this" rather than "how many exist in total".
-  const textPool = useMemo(() => decorated.filter((item) => matchesQuery(item, filters.query)), [decorated, filters.query]);
+  const textPool = useMemo(
+    () => decorated.filter((item) => matchesQuery(item, filters.query)),
+    [decorated, filters.query]
+  );
   const categoryPool = useMemo(
     () => textPool.filter((item) => matchesHardware(item, filters.hardware)),
     [textPool, filters.hardware]
@@ -213,7 +152,8 @@ const TemplatesPage: React.FC = () => {
     [textPool, filters.category]
   );
   const visible = useMemo(
-    () => (filters.category === 'all' ? categoryPool : categoryPool.filter((item) => item.category === filters.category)),
+    () =>
+      filters.category === 'all' ? categoryPool : categoryPool.filter((item) => item.category === filters.category),
     [categoryPool, filters.category]
   );
 
@@ -453,62 +393,15 @@ const TemplatesPage: React.FC = () => {
             <div className={cx(styles.shimmer, styles.shimmerSoft)} style={{ height: 9, width: second }} />
             <div className={styles.skeletonChips}>
               <div className={styles.shimmer} style={{ height: 22, width: 58, borderRadius: 16 }} />
-              <div className={cx(styles.shimmer, styles.shimmerSoft)} style={{ height: 22, width: 78, borderRadius: 16 }} />
+              <div
+                className={cx(styles.shimmer, styles.shimmerSoft)}
+                style={{ height: 22, width: 78, borderRadius: 16 }}
+              />
             </div>
           </div>
         ))}
       </div>
     </>
-  );
-
-  const renderCard = (item: DecoratedTemplate) => (
-    <button
-      aria-label={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}`}
-      className={styles.card}
-      key={item.tpl.id}
-      onClick={() => openDetails(item.tpl)}
-      style={{ '--accent': item.accent } as CSSProperties}
-      type="button"
-    >
-      <div className={styles.cardTop}>
-        <span className={styles.tile}>
-          {item.mono ? <span className={styles.tileMono}>{item.mono}</span> : <item.CategoryIcon className={styles.tileIcon} />}
-          {item.logo && <img alt="" className={styles.tileLogo} src={item.logo} />}
-        </span>
-        <span className={styles.titleWrap}>
-          <span className={styles.name} title={item.name}>
-            {item.name}
-          </span>
-          <span className={styles.vendor} title={item.tpl.image}>
-            {item.vendor}
-          </span>
-        </span>
-        <span className={styles.cta}>
-          Details
-          <ArrowForwardIcon className={styles.ctaIcon} />
-        </span>
-      </div>
-
-      <p className={cx(styles.desc, { [styles.descEmpty]: !item.tpl.description })}>
-        {item.tpl.description || 'No description published for this image.'}
-      </p>
-
-      <div className={styles.chips}>
-        <span className={styles.cardChip}>{item.categoryLabel}</span>
-        <span className={styles.cardChip}>{item.gpu ? 'GPU' : 'CPU'}</span>
-        <span className={cx(styles.cardChip, styles.cardChipHighlight)}>{item.interaction}</span>
-      </div>
-
-      <div className={styles.metaRow}>
-        {item.meta.map(({ key, Icon, label }) => (
-          <span className={styles.meta} key={key}>
-            <Icon className={styles.metaIcon} />
-            {label}
-          </span>
-        ))}
-        {item.metaFallback && <span className={styles.metaFallback}>{item.metaFallback}</span>}
-      </div>
-    </button>
   );
 
   return (
@@ -531,7 +424,11 @@ const TemplatesPage: React.FC = () => {
             <>
               {renderToolbar()}
               {visible.length > 0 ? (
-                <div className={styles.grid}>{visible.map(renderCard)}</div>
+                <div className={styles.grid}>
+                  {visible.map((item) => (
+                    <TemplateCard item={item} key={item.tpl.id} onOpen={openDetails} />
+                  ))}
+                </div>
               ) : (
                 <div className={styles.emptyState}>
                   <FilterAltOffIcon className={styles.emptyIcon} />
