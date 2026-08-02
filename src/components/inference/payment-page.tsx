@@ -6,6 +6,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
+import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
@@ -685,12 +686,16 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                   <InferenceModelList models={models} />
                 </>
               )}
-              {/* Template (app flow) */}
+              {/* Template (app flow) — same treatment as the Models section above: a summary row with
+                  the full container spec + configured env vars behind a toggle. */}
               {selectedTemplate && (
-                <div className={styles.sectionHead}>
-                  <h3>Template</h3>
-                  <span className="textSecondary">{selectedTemplate.name ?? selectedTemplate.id}</span>
-                </div>
+                <>
+                  <div className={styles.sectionHead}>
+                    <h3>Template</h3>
+                    <span className="textSecondary">Expand for container details</span>
+                  </div>
+                  <TemplateSummary envValues={templateEnvValues} template={selectedTemplate} />
+                </>
               )}
               {/* Environment */}
               {selectedEnv && (

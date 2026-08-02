@@ -1,3 +1,4 @@
+import GpuIcon from '@/assets/icons/gpu.svg';
 import Button from '@/components/button/button';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { ResolvedTemplateEnv, TemplateEnvsState } from '@/components/hooks/use-template-envs';
@@ -12,15 +13,15 @@ import { AppTemplate } from '@/types/templates';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
-import DeveloperBoardIcon from '@mui/icons-material/DeveloperBoard';
+import DnsIcon from '@mui/icons-material/Dns';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import LockIcon from '@mui/icons-material/Lock';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PublicIcon from '@mui/icons-material/Public';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import SdCardIcon from '@mui/icons-material/SdCard';
-import StorageIcon from '@mui/icons-material/Storage';
+import SdStorageIcon from '@mui/icons-material/SdStorage';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
 import { CSSProperties, Fragment } from 'react';
 import styles from './template-details-modal.module.css';
@@ -45,7 +46,7 @@ function durationBounds(environment: ComputeEnvironment): { min: number; max: nu
 /** One row of the required-vs-recommended resources table. */
 type ResourceRow = {
   label: string;
-  Icon: typeof MemoryIcon;
+  Icon: React.ComponentType<{ className?: string }>;
   required: string;
   recommended: string;
 };
@@ -75,13 +76,15 @@ function resourceRows(template: AppTemplate): ResourceRow[] {
   const gpuRequired = required.find((r) => r.type === 'gpu' || r.id === 'gpu');
   const gpuRecommended = recommended.find((r) => r.type === 'gpu' || r.id === 'gpu');
   const gpuUnits = gpuRecommended?.recommended ?? gpuRecommended?.min ?? gpuRequired?.recommended;
+  // Icons match the environment cards: chip/memory glyph for CPU, SD-storage for RAM, DNS for disk,
+  // generic GPU glyph for an unspecified GPU.
   return [
-    { label: 'CPU', Icon: DeveloperBoardIcon, ...declared('cpu', ' cores') },
-    { label: 'RAM', Icon: SdCardIcon, ...declared('ram', ' GB') },
-    { label: 'Disk', Icon: StorageIcon, ...declared('disk', ' GB') },
+    { label: 'CPU', Icon: MemoryIcon, ...declared('cpu', ' cores') },
+    { label: 'RAM', Icon: SdStorageIcon, ...declared('ram', ' GB') },
+    { label: 'Disk', Icon: DnsIcon, ...declared('disk', ' GB') },
     {
       label: 'GPU',
-      Icon: MemoryIcon,
+      Icon: GpuIcon,
       required: gpuRequired ? `${gpuRequired.min}× GPU` : 'None',
       recommended: gpuRequired ? `${gpuUnits ?? gpuRequired.min}× GPU` : 'None',
     },
@@ -144,19 +147,19 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
       return (
         <div className={styles.skeletonList}>
           <div className={styles.skeletonCard}>
-            <div className={styles.shimmer} style={{ height: 12, width: 190 }} />
+            <div className="shimmer" style={{ height: 12, width: 190 }} />
             <div className={styles.skeletonRow}>
-              <div className={styles.shimmer} style={{ height: 26, width: 150, borderRadius: 100 }} />
+              <div className="shimmer" style={{ height: 26, width: 150, borderRadius: 100 }} />
               <div className={styles.spacer} />
-              <div className={styles.shimmer} style={{ height: 34, width: 120, borderRadius: 100 }} />
+              <div className="shimmer" style={{ height: 34, width: 120, borderRadius: 100 }} />
             </div>
           </div>
           <div className={cx(styles.skeletonCard, styles.skeletonCardFaded)}>
-            <div className={styles.shimmer} style={{ height: 12, width: 150 }} />
-            <div className={cx(styles.shimmer, styles.shimmerSoft)} style={{ height: 34, borderRadius: 12 }} />
+            <div className="shimmer" style={{ height: 12, width: 150 }} />
+            <div className="shimmer shimmerSoft" style={{ height: 34, borderRadius: 12 }} />
           </div>
           <div className={styles.loadingNote}>
-            <span className={styles.spinner} />
+            <CircularProgress className={styles.spinner} size={13} />
             Resolving environments that can run this image…
           </div>
         </div>
@@ -216,13 +219,13 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             </span>
             <div className={styles.headerText}>
               <h2 className={styles.name}>{template.name ?? template.id}</h2>
-              <div className={styles.headerChips}>
-                <span className={styles.categoryChip}>{visual.meta.label}</span>
-                <span className={cx(styles.hwChip, hw.gpu ? styles.hwChipGpu : styles.hwChipCpu)}>
+              <div className={cx(styles.headerChips, 'gapSm')}>
+                <span className={cx('chip', styles.chip, styles.categoryChip)}>{visual.meta.label}</span>
+                <span className={cx('chip', styles.chip, hw.gpu ? 'chipAccent2' : 'chipGlass')}>
                   {hw.gpu ? (
-                    <MemoryIcon className={styles.chipIcon} />
+                    <GpuIcon className={styles.chipIcon} />
                   ) : (
-                    <DeveloperBoardIcon className={styles.chipIcon} />
+                    <MemoryIcon className={styles.chipIcon} fontSize="small" />
                   )}
                   {hw.gpu ? 'GPU' : 'CPU'}
                 </span>
@@ -235,8 +238,8 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
 
           <div className={styles.section}>
             <div className={styles.sectionHead}>
-              <h3 className={styles.sectionTitle}>What you get</h3>
-              <div className="textSecondary">{visual.meta.purpose}</div>
+              <h4>What you get</h4>
+              <div>{visual.meta.purpose}</div>
             </div>
             <div className={styles.panel}>
               <p className={cx(styles.description, { [styles.descriptionEmpty]: !template.description })}>
@@ -246,7 +249,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
                   port from 30000-32767 at launch and the URL carries that one, so naming the container
                   port here would show a number that appears nowhere in the endpoint they're given. */}
               <div className={styles.portRow}>
-                <span className={styles.portChip}>
+                <span className={cx('chip chipAccent2', styles.chip)}>
                   <PublicIcon className={styles.chipIcon} />
                   {visual.meta.interaction}
                 </span>
@@ -260,7 +263,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
                 {template.userConfigurableEnvVars && template.userConfigurableEnvVars.length > 0 ? (
                   <div className={styles.envVarList}>
                     {template.userConfigurableEnvVars.map((spec) => (
-                      <span className={styles.envVarChip} key={spec.key}>
+                      <span className={cx('chip', 'chipGlass', styles.chip, styles.envVarChip)} key={spec.key}>
                         {spec.sensitive && <LockIcon className={styles.envVarLock} />}
                         {spec.key}
                         {spec.sensitive && <span className={styles.envVarMask}>••••••</span>}
@@ -276,10 +279,8 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
 
           <div className={styles.section}>
             <div className={styles.sectionHead}>
-              <h3 className={styles.sectionTitle}>Resources</h3>
-              <div className="textSecondary">
-                What the template asks for. The environment you pick must meet the required column.
-              </div>
+              <h4>Resources</h4>
+              <div>What the template asks for. The environment you pick must meet the required column.</div>
             </div>
             <div className={styles.resourceTable}>
               <div className={styles.resourceHeadCell}>Resource</div>
@@ -311,31 +312,30 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
 
           <div className={styles.section}>
             <div className={styles.sectionHead}>
-              <h3 className={styles.sectionTitle}>Runtime</h3>
-              <div className="textSecondary">You can prolong a running session later from its manage page.</div>
+              <h4>Runtime</h4>
+              <div>
+                You can prolong a running session later from its manage page.
+                <br />
+                Prices below are shown for this <strong>selected duration</strong>
+              </div>
             </div>
-            <div className={styles.durationRow}>
-              <DurationInput
-                availableUnits={DURATION_UNIT_OPTIONS}
-                className={styles.durationInput}
-                defaultUnit="hours"
-                label="Session length"
-                min={1}
-                onChange={onDurationChange}
-                size="md"
-                value={durationSeconds}
-              />
-              <span className={styles.durationHint}>Prices below are shown for this session length.</span>
-            </div>
+            <DurationInput
+              availableUnits={DURATION_UNIT_OPTIONS}
+              className={styles.durationInput}
+              defaultUnit="hours"
+              label="Session length"
+              min={1}
+              onChange={onDurationChange}
+              size="sm"
+              value={durationSeconds}
+            />
           </div>
 
           <div className={styles.section}>
             <div className={styles.sectionHeadRow}>
               <div className={styles.sectionHead}>
-                <h3 className={styles.sectionTitle}>Environment</h3>
-                <div className="textSecondary">
-                  Pick an environment to launch on. Continue takes you straight to payment.
-                </div>
+                <h4>Environment</h4>
+                <div>Pick an environment to launch on. Continue takes you straight to payment.</div>
               </div>
             </div>
             {renderEnvsSection()}

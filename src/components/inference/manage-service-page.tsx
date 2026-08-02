@@ -7,6 +7,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
@@ -388,6 +389,9 @@ const ManageServicePage: React.FC = () => {
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
   const isTemplate = !!selectedTemplate;
+  // What the container actually runs, per the node's job record — outranks the template the link
+  // names, which an Edit relaunch may have swapped away from. Null until the first poll lands.
+  const runningImageRef = job ? (job.tag ? `${job.image}:${job.tag}` : job.image) : null;
   // A template app is named after the template; a model service after whichever model won in `models`
   // (the raw serviceId when there's no model at all).
   const serviceName = selectedTemplate
@@ -617,6 +621,20 @@ const ManageServicePage: React.FC = () => {
             </Card>
           )}
 
+          {/* Template (app service) — the counterpart of the Model card above. `envValues` is
+              deliberately not passed: the values a service was started with live in the container's
+              userData and come back on neither the job record nor the URL, so claiming a set here
+              would be guesswork (TemplateSummary says as much instead). */}
+          {isTemplate && selectedTemplate && (
+            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+              <div className={styles.howToHead}>
+                <h3>Template</h3>
+                <span className="textSecondary">Expand for container details</span>
+              </div>
+              <TemplateSummary runningImageRef={runningImageRef ?? undefined} template={selectedTemplate} />
+            </Card>
+          )}
+
           {/* Environment */}
           {environment && nodeInfo && (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -662,7 +680,12 @@ const ManageServicePage: React.FC = () => {
                     <span className={styles.endpointPath}>{templateUiUrl}</span>
                     <span className={styles.endpointDescription}>Open this app&apos;s web UI in a new tab</span>
                     <a href={templateUiUrl} rel="noreferrer" target="_blank">
-                      <Button color="accent1" contentAfter={<OpenInNewIcon fontSize="inherit" />} size="sm" variant="filled">
+                      <Button
+                        color="accent1"
+                        contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                        size="sm"
+                        variant="filled"
+                      >
                         Open UI
                       </Button>
                     </a>

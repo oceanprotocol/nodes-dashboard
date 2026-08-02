@@ -1,3 +1,4 @@
+import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
 import { templateLogoSrc } from '@/components/inference/template-logos';
 import {
@@ -8,10 +9,9 @@ import {
   visualFor,
 } from '@/components/inference/template-visual';
 import { AppTemplate } from '@/types/templates';
-import DeveloperBoardIcon from '@mui/icons-material/DeveloperBoard';
+import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
-import SdCardIcon from '@mui/icons-material/SdCard';
-import StorageIcon from '@mui/icons-material/Storage';
+import SdStorageIcon from '@mui/icons-material/SdStorage';
 import cx from 'classnames';
 import { CSSProperties } from 'react';
 import styles from './template-card.module.css';
@@ -30,7 +30,7 @@ export type DecoratedTemplate = {
   gpu: boolean;
   /** How the running app is used — "Web UI" / "API" / "Endpoint". See TemplateCategoryMeta.interaction. */
   interaction: string;
-  meta: { key: string; Icon: typeof MemoryIcon; label: string }[];
+  meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
   /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
 };
@@ -38,18 +38,20 @@ export type DecoratedTemplate = {
 export function decorate(tpl: AppTemplate): DecoratedTemplate {
   const visual = visualFor(tpl.id);
   const hw = templateHardware(tpl);
+  // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
+  // SD-storage for RAM, DNS for disk.
   const meta: DecoratedTemplate['meta'] = [
     {
       key: 'hw',
-      Icon: hw.gpu ? MemoryIcon : DeveloperBoardIcon,
+      Icon: hw.gpu ? GpuIcon : MemoryIcon,
       label: hw.gpu ? `${hw.gpuUnits || 1}× GPU` : 'CPU only',
     },
   ];
   if (hw.ram != null) {
-    meta.push({ key: 'ram', Icon: SdCardIcon, label: `${hw.ram} GB RAM` });
+    meta.push({ key: 'ram', Icon: SdStorageIcon, label: `${hw.ram} GB RAM` });
   }
   if (hw.disk != null) {
-    meta.push({ key: 'disk', Icon: StorageIcon, label: `${hw.disk} GB disk` });
+    meta.push({ key: 'disk', Icon: DnsIcon, label: `${hw.disk} GB disk` });
   }
   // No container port here: pre-launch it's not actionable — the reachable host port and URL are only
   // assigned when the service starts, and the manage-service page shows those.
@@ -113,10 +115,10 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
       {item.tpl.description || 'No description published for this image.'}
     </p>
 
-    <div className={styles.chips}>
-      <span className={styles.cardChip}>{item.categoryLabel}</span>
-      <span className={styles.cardChip}>{item.gpu ? 'GPU' : 'CPU'}</span>
-      <span className={cx(styles.cardChip, styles.cardChipHighlight)}>{item.interaction}</span>
+    <div className={cx(styles.chips, 'gapSm')}>
+      <span className={cx('chip', 'chipGlass', styles.chip)}>{item.categoryLabel}</span>
+      <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
+      <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
     </div>
 
     <div className={styles.metaRow}>

@@ -1,9 +1,12 @@
+import GpuIcon from '@/assets/icons/gpu.svg';
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import useServiceTemplates from '@/components/hooks/use-service-templates';
 import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-template-envs';
 import InferenceStepper from '@/components/inference/inference-stepper';
+import Input from '@/components/input/input';
 import TemplateCard, { DecoratedTemplate, decorate } from '@/components/inference/template-card';
 import TemplateDetailsModal from '@/components/inference/template-details-modal';
 import { CATEGORY_META, CATEGORY_ORDER, TemplateCategory } from '@/components/inference/template-visual';
@@ -16,7 +19,6 @@ import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
 import AppsIcon from '@mui/icons-material/Apps';
 import CloseIcon from '@mui/icons-material/Close';
-import DeveloperBoardIcon from '@mui/icons-material/DeveloperBoard';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -38,10 +40,15 @@ type Filters = {
 
 const DEFAULT_FILTERS: Filters = { category: 'all', hardware: 'all', query: '' };
 
-const HARDWARE_SEGMENTS: { key: HardwareFilter; label: string; Icon: typeof MemoryIcon }[] = [
+// Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU.
+const HARDWARE_SEGMENTS: {
+  key: HardwareFilter;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}[] = [
   { key: 'all', label: 'All', Icon: AppsIcon },
-  { key: 'gpu', label: 'GPU', Icon: MemoryIcon },
-  { key: 'cpu', label: 'CPU', Icon: DeveloperBoardIcon },
+  { key: 'gpu', label: 'GPU', Icon: GpuIcon },
+  { key: 'cpu', label: 'CPU', Icon: MemoryIcon },
 ];
 
 const HARDWARE_LABEL: Record<Exclude<HardwareFilter, 'all'>, string> = { gpu: 'GPU', cpu: 'CPU' };
@@ -262,27 +269,27 @@ const TemplatesPage: React.FC = () => {
           </div>
         </div>
         <div className={styles.toolbarControls}>
-          <div className={styles.search}>
-            <SearchIcon className={styles.searchIcon} />
-            <input
-              aria-label="Search templates"
-              className={styles.searchInput}
-              onChange={(e) => setFilters((f) => ({ ...f, query: e.target.value }))}
-              placeholder="Search templates"
-              type="search"
-              value={filters.query}
-            />
-            {filters.query && (
-              <button
-                aria-label="Clear search"
-                className={styles.searchClear}
-                onClick={() => setFilters((f) => ({ ...f, query: '' }))}
-                type="button"
-              >
-                <CloseIcon className={styles.searchClearIcon} />
-              </button>
-            )}
-          </div>
+          <Input
+            className={styles.search}
+            endAdornment={
+              filters.query ? (
+                <Button
+                  color="primary"
+                  onClick={() => setFilters((f) => ({ ...f, query: '' }))}
+                  size="sm-const"
+                  variant="transparent"
+                >
+                  <CloseIcon aria-label="Clear search" className={styles.searchClearIcon} role="img" />
+                </Button>
+              ) : null
+            }
+            onChange={(e) => setFilters((f) => ({ ...f, query: e.target.value }))}
+            placeholder="Search templates"
+            size="sm"
+            startAdornment={<SearchIcon className={styles.searchIcon} />}
+            type="text"
+            value={filters.query}
+          />
           <div aria-label="Filter templates by hardware" className={styles.segmented} role="group">
             {HARDWARE_SEGMENTS.map(({ key, label, Icon }) => {
               const active = filters.hardware === key;
@@ -342,10 +349,15 @@ const TemplatesPage: React.FC = () => {
           {summary}
         </div>
         {isFiltered && (
-          <button className={styles.resetButton} onClick={resetFilters} type="button">
-            <RestartAltIcon className={styles.resetIcon} />
+          <Button
+            color="accent1"
+            contentBefore={<RestartAltIcon fontSize="small" />}
+            onClick={resetFilters}
+            size="xs"
+            variant="outlined"
+          >
             Reset filters
-          </button>
+          </Button>
         )}
       </div>
     </>
@@ -363,13 +375,13 @@ const TemplatesPage: React.FC = () => {
           </div>
         </div>
         <div className={styles.skeletonToolbar}>
-          <div className={styles.shimmer} style={{ height: 36, width: 210, borderRadius: 24 }} />
-          <div className={styles.shimmer} style={{ height: 36, width: 200, borderRadius: 100 }} />
+          <div className="shimmer" style={{ height: 36, width: 210, borderRadius: 24 }} />
+          <div className="shimmer" style={{ height: 36, width: 200, borderRadius: 100 }} />
         </div>
       </div>
       <div className={styles.skeletonPills}>
         {[92, 118, 104, 112, 96, 108].map((width) => (
-          <div className={styles.shimmer} key={width} style={{ height: 32, width, borderRadius: 100 }} />
+          <div className="shimmer" key={width} style={{ height: 32, width, borderRadius: 100 }} />
         ))}
       </div>
       <div className={styles.grid}>
@@ -383,18 +395,18 @@ const TemplatesPage: React.FC = () => {
         ].map(([first, second]) => (
           <div className={styles.skeletonCard} key={`${first}-${second}`}>
             <div className={styles.skeletonCardTop}>
-              <div className={styles.shimmer} style={{ height: 38, width: 38, flex: '0 0 38px', borderRadius: 12 }} />
+              <div className="shimmer" style={{ height: 38, width: 38, flex: '0 0 38px', borderRadius: 12 }} />
               <div className={styles.skeletonLines}>
-                <div className={styles.shimmer} style={{ height: 12, width: first }} />
-                <div className={cx(styles.shimmer, styles.shimmerSoft)} style={{ height: 9, width: 64 }} />
+                <div className="shimmer" style={{ height: 12, width: first }} />
+                <div className="shimmer shimmerSoft" style={{ height: 9, width: 64 }} />
               </div>
             </div>
-            <div className={cx(styles.shimmer, styles.shimmerSoft)} style={{ height: 9 }} />
-            <div className={cx(styles.shimmer, styles.shimmerSoft)} style={{ height: 9, width: second }} />
+            <div className="shimmer shimmerSoft" style={{ height: 9 }} />
+            <div className="shimmer shimmerSoft" style={{ height: 9, width: second }} />
             <div className={styles.skeletonChips}>
-              <div className={styles.shimmer} style={{ height: 22, width: 58, borderRadius: 16 }} />
+              <div className="shimmer" style={{ height: 22, width: 58, borderRadius: 16 }} />
               <div
-                className={cx(styles.shimmer, styles.shimmerSoft)}
+                className="shimmer shimmerSoft"
                 style={{ height: 22, width: 78, borderRadius: 16 }}
               />
             </div>
@@ -434,14 +446,15 @@ const TemplatesPage: React.FC = () => {
                   <FilterAltOffIcon className={styles.emptyIcon} />
                   <div className={styles.emptyTitle}>No templates match these filters</div>
                   <div className={styles.emptyHint}>{emptyHint}</div>
-                  <button
-                    className={cx(styles.resetButton, styles.resetButtonPrimary)}
+                  <Button
+                    className={styles.emptyReset}
+                    color="accent1"
+                    contentBefore={<RestartAltIcon fontSize="small" />}
                     onClick={resetFilters}
-                    type="button"
+                    size="sm"
                   >
-                    <RestartAltIcon className={styles.resetIcon} />
                     Reset filters
-                  </button>
+                  </Button>
                 </div>
               )}
             </>

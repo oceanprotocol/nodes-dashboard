@@ -209,8 +209,10 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
         <div className={styles.durationRow}>
           <div>
             <h3>{showEngine ? 'Engine & duration' : 'Duration'}</h3>
-            <div className="textSecondary">
-              Prices below are shown for <strong>selected duration</strong>
+            <div>
+              You can prolong a running session later from its manage page.
+              <br />
+              Prices below are shown for this <strong>selected duration</strong>
             </div>
           </div>
           <div className={styles.controls}>

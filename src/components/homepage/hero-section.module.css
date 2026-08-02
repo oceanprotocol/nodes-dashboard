@@ -25,7 +25,7 @@
 }
 
 .title span {
-  color: #d54335;
+  color: var(--accent1);
 }
 
 .relative {
@@ -66,7 +66,7 @@
 }
 
 .textBadge span {
-  color: #d54335;
+  color: var(--accent1);
 }
 
 .legacyEscrowBanner {
