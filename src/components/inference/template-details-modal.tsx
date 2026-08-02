@@ -14,7 +14,6 @@ import { formatDuration } from '@/utils/formatters';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import DeveloperBoardIcon from '@mui/icons-material/DeveloperBoard';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LockIcon from '@mui/icons-material/Lock';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PublicIcon from '@mui/icons-material/Public';
@@ -179,29 +178,19 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
       <div className={styles.envList}>
         {/* Controlled gpuSelection → static chips (read-only, auto recommended). onSelect drives its own
             play/price button; disabledReason force-disables it (with a tooltip reason) when the shared
-            duration is out of this env's bounds — spelled out below the card as well. */}
-        {resolved.map((entry) => {
-          const reason = durationErrorFor(entry.env.environment);
-          return (
-            <div className={styles.envEntry} key={`${entry.env.nodeInfo.id}-${entry.env.environment.id}`}>
-              <InferenceEnvironmentCard
-                disabledReason={reason}
-                durationSeconds={durationSeconds}
-                environment={entry.env.environment}
-                gpuSelection={entry.env.gpuSelection}
-                nodeInfo={entry.env.nodeInfo}
-                onSelect={(address, symbol, gpuSelection) => onContinue(entry, { address, symbol }, gpuSelection)}
-                sizing={entry.env.sizing}
-              />
-              {reason && (
-                <div className={styles.envReason}>
-                  <InfoOutlinedIcon className={styles.envReasonIcon} />
-                  {reason} Adjust the session length to continue here.
-                </div>
-              )}
-            </div>
-          );
-        })}
+            duration is out of this env's bounds. */}
+        {resolved.map((entry) => (
+          <InferenceEnvironmentCard
+            disabledReason={durationErrorFor(entry.env.environment)}
+            durationSeconds={durationSeconds}
+            environment={entry.env.environment}
+            gpuSelection={entry.env.gpuSelection}
+            key={`${entry.env.nodeInfo.id}-${entry.env.environment.id}`}
+            nodeInfo={entry.env.nodeInfo}
+            onSelect={(address, symbol, gpuSelection) => onContinue(entry, { address, symbol }, gpuSelection)}
+            sizing={entry.env.sizing}
+          />
+        ))}
         {totalMatched > resolved.length && (
           <div className={styles.envCapNote}>
             Showing the {resolved.length} best-scoring of {totalMatched} matching environments — Advanced setup lists
