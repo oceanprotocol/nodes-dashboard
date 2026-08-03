@@ -1,4 +1,4 @@
-import { CHAIN_ID } from '@/constants/chains';
+import { BASE_CHAIN_ID, CHAIN_ID, ETH_SEPOLIA_CHAIN_ID } from '@/constants/chains';
 import { getAddress } from 'ethers';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -59,10 +59,36 @@ const isOnAppChain = async (provider: Eip1193Provider) => {
   return Number(chainId) === CHAIN_ID;
 };
 
+// EIP-3085, used only when a wallet doesn't already know our chain. Public RPCs on purpose:
+// the app's own getRpc() is a same-origin, method-allowlisted proxy a wallet cannot use.
+const ADD_CHAIN_PARAMS: Record<number, { blockExplorerUrls: string[]; chainName: string; rpcUrls: string[] }> = {
+  [BASE_CHAIN_ID]: {
+    blockExplorerUrls: ['https://basescan.org'],
+    chainName: 'Base',
+    rpcUrls: ['https://mainnet.base.org'],
+  },
+  [ETH_SEPOLIA_CHAIN_ID]: {
+    blockExplorerUrls: ['https://sepolia.etherscan.io'],
+    chainName: 'Sepolia',
+    rpcUrls: ['https://sepolia.drpc.org'],
+  },
+};
+
 /** Throws if the wallet does not end up on CHAIN_ID. */
 const ensureAppChain = async (provider: Eip1193Provider) => {
   if (await isOnAppChain(provider)) return;
-  await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] });
+  try {
+    await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_HEX }] });
+  } catch (err: any) {
+    // 4902 = wallet doesn't have this chain. Without the add step the user is stuck: they see
+    // a raw RPC error inline and have no way to connect at all.
+    const params = ADD_CHAIN_PARAMS[CHAIN_ID];
+    if (err?.code !== 4902 || !params) throw err;
+    await provider.request({
+      method: 'wallet_addEthereumChain',
+      params: [{ chainId: CHAIN_ID_HEX, nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' }, ...params }],
+    });
+  }
   // Some wallets resolve the switch optimistically, or before the user confirms.
   if (!(await isOnAppChain(provider))) {
     throw new Error(`Wallet is not on chain ${CHAIN_ID}`);

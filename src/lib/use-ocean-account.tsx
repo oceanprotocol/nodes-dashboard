@@ -197,20 +197,24 @@ const EOAHandler = ({
       return;
     }
     if (!privyReady) return; // still starting — keep the request pending
+
+    // Privy's login() no-ops on a stale session, and awaiting logout is not enough: it
+    // resolves a render before `authenticated` actually flips, so calling login() in the same
+    // tick silently does nothing and the user has to click twice. Keep the request pending
+    // instead and let this effect re-run on the flip. Never log out a migrating user —
+    // clearing their session aborts the migration.
+    if (authenticated && !isMigrating) {
+      privyLogout().catch(() => setLoginRequested(false));
+      return;
+    }
+
     setLoginRequested(false);
     // Drop the remembered wallet so the native path isn't a dead end, but record an explicit
     // disconnect rather than clearing: an empty record reads as "don't know yet", which
     // re-enables the silent adopt and would connect the unlocked wallet behind Privy's modal.
     writeAuth('disconnected');
     onAuthChange('disconnected');
-    (async () => {
-      // Privy's login() no-ops on a stale session until it is cleared — but clearing a
-      // migrating user's session aborts their migration.
-      if (authenticated && !isMigrating) {
-        await privyLogout();
-      }
-      privyLogin();
-    })();
+    privyLogin();
   }, [authenticated, isMigrating, loginRequested, onAuthChange, privyLogin, privyLogout, privyReady, privyUnavailable]);
 
   // Mirror what the hook persisted, or the branch above keeps answering with page-load state.

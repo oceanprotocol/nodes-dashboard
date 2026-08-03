@@ -75,6 +75,9 @@ const PrivyModalWallets = (props: WalletListProps) => {
   if (!host) return null;
 
   // Privy exposes no close method, but it is a HeadlessUI Dialog and closes on Escape.
+  // Synthetic events carry `isTrusted: false`; HeadlessUI does not check that today, but if it
+  // ever does this silently stops closing and leaves the modal up over a connected wallet.
+  // Symptom would be cosmetic, not a broken connection. Re-check on HeadlessUI/Privy upgrades.
   const closePrivyModal = () => document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
 
   return createPortal(
