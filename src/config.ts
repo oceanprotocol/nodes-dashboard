@@ -22,13 +22,16 @@ export const API_ROOTS: {
     ? {
       analytics: 'https://analytics.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
-      incentive: 'https://api.oncompute.ai',
+      // incentive: 'https://api.oncompute.ai',
+      incentive: 'https://api-dev.oncompute.ai/',
       incentive_old: 'https://api.oncompute.ai',
     }
     : {
-      analytics: 'https://analytics.nodes.oceanprotocol.io',
+      // analytics: 'https://analytics.nodes.oceanprotocol.io',
+      analytics: 'https://analytics.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
-      incentive: 'https://incentive-backend.oceanprotocol.io',
+      // incentive: 'https://incentive-backend.oceanprotocol.io',
+      incentive: 'https://api-dev.oncompute.ai/',
       incentive_old: 'https://incentive-backend.oceanprotocol.com',
     };
 
@@ -69,6 +72,10 @@ const config: Config = {
     runJob: {
       path: '/run-job/environments',
       name: 'Run a job',
+    },
+    inference: {
+      path: '/inference',
+      name: 'Inference',
     },
     stats: {
       path: '/stats',

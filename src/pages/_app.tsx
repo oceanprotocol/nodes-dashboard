@@ -1,6 +1,7 @@
 import RootLayout from '@/components/Layout';
 import config from '@/config';
 import { GrantProvider } from '@/context/grant-context';
+import { InferenceProvider } from '@/context/inference-context';
 import { NodeTokensProvider } from '@/context/node-tokens';
 import { NodesProvider } from '@/context/nodes-context';
 import { ProfileProvider } from '@/context/profile-context';
@@ -101,11 +102,13 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
                                   <RunJobEnvsProvider>
                                     <RunJobProvider>
                                       <RunNodeProvider>
-                                        <RootLayout>
-                                          <PHProvider>
-                                            <Component {...pageProps} />
-                                          </PHProvider>
-                                        </RootLayout>
+                                        <InferenceProvider>
+                                          <RootLayout>
+                                            <PHProvider>
+                                              <Component {...pageProps} />
+                                            </PHProvider>
+                                          </RootLayout>
+                                        </InferenceProvider>
                                       </RunNodeProvider>
                                     </RunJobProvider>
                                   </RunJobEnvsProvider>
@@ -120,7 +123,7 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
                 </GrantProvider>
               </OceanAccountProvider>
             </AlchemyProvider>
-        <ToastContainer hideProgressBar theme="colored" />
+            <ToastContainer hideProgressBar theme="colored" />
           </QueryClientProvider>
         </GitBookProvider>
       </ThemeProvider>

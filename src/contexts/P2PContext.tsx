@@ -8,42 +8,54 @@ import {
   getComputeStatus,
   getNodeBuckets as getNodeBucketsService,
   getNodeEnvs,
+  getNodeJobs as getNodeJobsFromService,
   getNodeLogs as getNodeLogsService,
   getPeerMultiaddr as getPeerMultiaddrFromService,
+  getServiceLogs as getServiceLogsFromService,
+  getServices as getServicesFromService,
+  getServiceStatus as getServiceStatusFromService,
+  getServiceTemplates as getServiceTemplatesFromService,
   initializeCompute as initializeComputeFromService,
   initializeP2P,
   listBucketFiles as listBucketFilesService,
+  normalizeNodeUri,
   pushNodeConfig,
   renameNodeBucket as renameNodeBucketService,
+  serviceExtend as serviceExtendFromService,
+  serviceRestart as serviceRestartFromService,
+  serviceStart as serviceStartFromService,
+  serviceStop as serviceStopFromService,
+  streamComputeLogs as streamComputeLogsService,
   streamComputeResult as streamComputeResultService,
+  streamServiceLogs as streamServiceLogsFromService,
   uploadBucketFile as uploadBucketFileService,
 } from '@/services/nodeService';
 import { OCEAN_BOOTSTRAP_NODES } from '@/shared/consts/bootstrapNodes';
 import { ComputeEnvironment } from '@/types/environments';
-import { multiaddr } from '@multiformats/multiaddr';
 import {
   ComputeResourceRequest,
+  type NodeComputeJob,
   type NodeLogEntry,
   type NodeLogsParams,
-  type NodeP2P,
-  type OceanNode,
+  OceanNode,
   type PersistentStorageAccessList,
   type PersistentStorageBucket,
   type PersistentStorageDeleteFileResponse,
   type PersistentStorageFileEntry,
   ProviderInstance,
+  type ServiceJob,
+  type ServiceJobListed,
+  type ServiceListFilters,
+  type ServicePayment,
+  type ServiceRestartParams,
+  type ServiceStartParams,
+  type ServiceTemplatePublic,
+  type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type NodeUri = OceanNode | string[];
-
-function normalizeNodeUri(input: NodeUri): OceanNode {
-  if (Array.isArray(input)) {
-    return { multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
-  }
-  return input;
-}
 
 interface P2PContextType {
   computeLogs: any;
@@ -148,6 +160,91 @@ interface P2PContextType {
     jobId: string,
     index: number
   ) => Promise<AsyncIterable<Uint8Array>>;
+  streamComputeLogs: (
+    nodeUri: NodeUri,
+    authToken: string,
+    jobId: string,
+    signal?: AbortSignal
+  ) => Promise<AsyncIterable<Uint8Array>>;
+  /**
+   * Start a service-on-demand container (e.g. vLLM inference). Resolves to the created job in
+   * `Starting` state — endpoints are empty until it reaches `Running` (poll getServiceStatus).
+   * `params.userData` is passed plaintext; ocean.js ECIES-encrypts it before sending.
+   */
+  serviceStart: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    params: ServiceStartParams
+  ) => Promise<ServiceJob[]>;
+  /** Fetch the caller's service jobs; pass a serviceId to scope to one, omit to list all. `signal` aborts the dial. */
+  getServiceStatus: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    serviceId?: string,
+    signal?: AbortSignal
+  ) => Promise<ServiceJob[]>;
+  /**
+   * List every service running on the node across all owners (node-wide, not owner-scoped like
+   * getServiceStatus) — for a node owner to see what's actually running on their hardware. Defaults
+   * to services holding a reservation; pass `filters.includeAllStatuses` for every status.
+   */
+  getServices: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    filters?: ServiceListFilters,
+    signal?: AbortSignal
+  ) => Promise<ServiceJobListed[]>;
+  /**
+   * List all compute jobs on the node (node-wide, every owner — not scoped to the caller).
+   * Unauthenticated. `fromTimestamp` (Unix seconds) optionally bounds to recent jobs.
+   */
+  getNodeJobs: (nodeUri: NodeUri, fromTimestamp?: number, signal?: AbortSignal) => Promise<NodeComputeJob[]>;
+  /** Extend a running service's lifetime by `additionalDuration` seconds (paid like the start). */
+  serviceExtend: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    serviceId: string,
+    additionalDuration: number,
+    payment: ServicePayment
+  ) => Promise<ServiceJob[]>;
+  /** Stop a running service; resolves to the updated job(s) in `Stopped` state. */
+  serviceStop: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    serviceId: string
+  ) => Promise<ServiceJob[]>;
+  /**
+   * Restart a running service's container in place — same serviceId, host port and expiry (paid
+   * runtime is preserved). Pass no `spec` to relaunch the stored container unchanged, or the COMPLETE
+   * new spec (image + tag + dockerCmd + userData) to swap the model/launch args without minting a new
+   * service — used by Edit to keep port + elapsed time instead of stop+start. A partial spec is
+   * rejected by the node; see `serviceRestart` in services/nodeService.
+   */
+  serviceRestart: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    serviceId: string,
+    spec?: ServiceRestartParams
+  ) => Promise<ServiceJob[]>;
+  /**
+   * Fetch a node's advertised service templates (image + launch command + resource requirements),
+   * scoped to `chainId`. Seeds the quick-start packages on the default-models page.
+   */
+  getServiceTemplates: (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => Promise<ServiceTemplatePublic[]>;
+  /** Fetch the service container's logs (stdout/stderr) — includes the crash reason on exit. */
+  getServiceLogs: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    serviceId: string
+  ) => Promise<string>;
+  /** Live-tail the service container's logs — yields raw Docker-muxed byte chunks until aborted. */
+  streamServiceLogs: (
+    nodeUri: NodeUri,
+    signerOrAuthToken: SignerOrAuthTokenOrSignature,
+    serviceId: string,
+    signal?: AbortSignal,
+    since?: string
+  ) => AsyncGenerator<Uint8Array>;
 }
 
 const P2PContext = createContext<P2PContextType | undefined>(undefined);
@@ -382,6 +479,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  const streamComputeLogs = useCallback(
+    async (nodeUri: NodeUri, authToken: string, jobId: string, signal?: AbortSignal) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return streamComputeLogsService(nodeUri, authToken, jobId, signal);
+    },
+    [isReady]
+  );
+
   const createNodeBucket = useCallback(
     async ({
       accessLists,
@@ -482,6 +589,128 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  const serviceStart = useCallback(
+    async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, params: ServiceStartParams) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return serviceStartFromService(nodeUri, signerOrAuthToken, params);
+    },
+    [isReady]
+  );
+
+  const getServiceStatus = useCallback(
+    async (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      serviceId?: string,
+      signal?: AbortSignal
+    ) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getServiceStatusFromService(nodeUri, signerOrAuthToken, serviceId, signal);
+    },
+    [isReady]
+  );
+
+  const getServices = useCallback(
+    async (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      filters?: ServiceListFilters,
+      signal?: AbortSignal
+    ) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getServicesFromService(nodeUri, signerOrAuthToken, filters, signal);
+    },
+    [isReady]
+  );
+
+  const getNodeJobs = useCallback(
+    async (nodeUri: NodeUri, fromTimestamp?: number, signal?: AbortSignal) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getNodeJobsFromService(nodeUri, fromTimestamp, signal);
+    },
+    [isReady]
+  );
+
+  const serviceExtend = useCallback(
+    async (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      serviceId: string,
+      additionalDuration: number,
+      payment: ServicePayment
+    ) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return serviceExtendFromService(nodeUri, signerOrAuthToken, serviceId, additionalDuration, payment);
+    },
+    [isReady]
+  );
+
+  const serviceStop = useCallback(
+    async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, serviceId: string) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return serviceStopFromService(nodeUri, signerOrAuthToken, serviceId);
+    },
+    [isReady]
+  );
+
+  const serviceRestart = useCallback(
+    async (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      serviceId: string,
+      spec?: ServiceRestartParams
+    ) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return serviceRestartFromService(nodeUri, signerOrAuthToken, serviceId, spec);
+    },
+    [isReady]
+  );
+
+  const getServiceLogs = useCallback(
+    async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, serviceId: string) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getServiceLogsFromService(nodeUri, signerOrAuthToken, serviceId);
+    },
+    [isReady]
+  );
+
+  const getServiceTemplates = useCallback(
+    async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return getServiceTemplatesFromService(nodeUri, chainId, signal);
+    },
+    [isReady]
+  );
+
+  const streamServiceLogs = useCallback(
+    (
+      nodeUri: NodeUri,
+      signerOrAuthToken: SignerOrAuthTokenOrSignature,
+      serviceId: string,
+      signal?: AbortSignal,
+      since?: string
+    ) => streamServiceLogsFromService(nodeUri, signerOrAuthToken, serviceId, signal, since),
+    []
+  );
+
   return (
     <P2PContext.Provider
       value={{
@@ -505,7 +734,18 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         pushConfig: pushConfigCtx,
         getPeerMultiaddr,
         sendCommand,
+        serviceStart,
+        getServiceStatus,
+        getServices,
+        getNodeJobs,
+        serviceExtend,
+        serviceRestart,
+        serviceStop,
+        getServiceLogs,
+        getServiceTemplates,
+        streamServiceLogs,
         streamComputeResult,
+        streamComputeLogs,
         uploadBucketFile,
       }}
     >

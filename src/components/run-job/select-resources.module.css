@@ -1,69 +1,315 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .form {
   display: flex;
   flex-direction: column;
+  gap: 20px;
+}
+
+/* ---- Title row ---- */
+.titleRow {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
   gap: 24px;
+  justify-content: space-between;
+}
 
-  .selectRow {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+.titleText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.modeToggle {
+  background: var(--background-glass);
+  border-radius: 100px;
+  box-shadow: var(--inner-shadow-glass);
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 4px;
+}
+
+.modeButton {
+  background: transparent;
+  border: none;
+  border-radius: 100px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 20px;
+  transition: all 0.3s ease;
+}
+
+.modeButtonActive {
+  background: var(--accent1);
+  color: var(--text-primary-inverse);
+}
+
+/* ---- Hero card body ---- */
+.heroBody {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.divider {
+  background: var(--border-glass);
+  height: 1px;
+}
+
+.overline {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- GPU section ---- */
+.gpuSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gpuRow {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gpuHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.gpuInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gpuName {
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.gpuFee {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.gpuAvail {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.gpuAvailOk {
+  color: var(--success-darker);
+}
+
+.gpuAvailNone {
+  color: var(--error-darker);
+}
+
+.units {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  width: 100%;
+}
+
+.unitsLabel {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  background: transparent;
+  border: none;
+  border-radius: 100px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  height: 42px;
+  min-width: 42px;
+  padding: 0 16px;
+  transition: all 0.2s ease;
+}
+
+.pill:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--accent1);
+}
+
+.pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.pillSelected {
+  background: var(--accent1);
+  box-shadow: none;
+  color: var(--text-primary-inverse);
+}
+
+.gpuError {
+  color: var(--error-darker);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ---- Allocation (default) ---- */
+.alloc {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wholeEnvNote {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.allocGrid,
+.customGrid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .allocGrid {
+    gap: 32px;
+    grid-template-columns: repeat(3, 1fr);
   }
 
-  .inputsGrid {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  @media (min-width: 768px) {
-    .selectRow {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .inputsGrid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  @media (min-width: 992px) {
-    .selectRow {
-      grid-template-columns: 2fr 1fr;
-    }
-  }
-
-  @media (min-width: 1200px) {
-    .selectRow {
-      grid-template-columns: 3fr 1fr;
-    }
+  .customGrid {
+    gap: 32px;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-.costCard {
-  .costEstimation {
-    align-items: center;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 32px;
-    justify-content: space-between;
+.allocItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
-    .token {
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
+.allocValue {
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
 
-    .amount {
-      font-size: 32px;
-      font-weight: 700;
-    }
+.allocLabel {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 4px;
+}
 
-    .estimationMessage {
-      align-items: center;
-      display: flex;
-      gap: 8px;
-      line-height: 48px;
-    }
-  }
+/* ---- Cost card ---- */
+.costBody {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.costInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.costTitle {
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.costNote {
+  color: var(--success-darker);
+  font-size: 12px;
+}
+
+.costAmount {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+}
+
+.token {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.amount {
+  font-family: var(--font-plus-jakarta-sans), sans-serif;
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.estimationMessage {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 10px;
+  margin: 0;
+}
+
+/* ---- Footer ---- */
+.footer {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
 }

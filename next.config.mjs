@@ -61,6 +61,9 @@ const nextConfig = {
     ];
     return config;
   },
+  env: {
+    INCENTIVE_BACKEND_URL: process.env.INCENTIVE_BACKEND_URL,
+  },
   transpilePackages: [
     '@mui/x-data-grid',
     '@mui/x-data-grid-pro',

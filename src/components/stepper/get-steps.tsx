@@ -1,4 +1,21 @@
 import { Step } from '@/components/stepper/stepper';
+import { InferenceFlowType } from '@/types/inference';
+
+export type InferenceStep = 'model' | 'template' | 'resources' | 'config' | 'payment';
+// `edit` re-entry keeps the same environment, so the resources step is skipped entirely.
+// The quick-start (DefaultModel) flow picks a whole package — model + hardware + engine preset —
+// so its env auto-matches on the package step and both Resources and Config are skipped.
+export const getInferenceSteps = (flowType: InferenceFlowType, edit = false): Step<InferenceStep>[] => [
+  {
+    key: 'model',
+    label: flowType === InferenceFlowType.DefaultModel ? 'Package' : 'Model',
+    hidden: flowType === InferenceFlowType.Template,
+  },
+  { key: 'template', label: 'Template', hidden: flowType !== InferenceFlowType.Template },
+  { key: 'resources', label: 'Resources', hidden: edit || flowType === InferenceFlowType.DefaultModel },
+  { key: 'config', label: 'Config', hidden: flowType === InferenceFlowType.DefaultModel },
+  { key: 'payment', label: edit ? 'Relaunch' : 'Payment' },
+];
 
 export type GrantStep = 'details' | 'verify' | 'claim';
 export const getGrantSteps = (): Step<GrantStep>[] => [

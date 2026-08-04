@@ -44,6 +44,7 @@ export interface ComputeJobHistory {
 export interface ComputeJob {
   owner: string;
   peerId: string;
+  multiaddrs?: string[];
   nodeFriendlyName: string;
   epoch: number;
   errorMessage?: string;
@@ -79,6 +80,7 @@ export interface ComputeJob {
   algoStopTimestamp?: number;
   algoDuration?: number;
   maxJobDuration: number;
+  metadata?: { name?: string; [key: string]: string | number | boolean | undefined };
   payment: {
     token: string;
     cost: number;

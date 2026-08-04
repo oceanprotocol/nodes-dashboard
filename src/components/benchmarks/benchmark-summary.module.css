@@ -1,10 +1,16 @@
 .root {
   align-items: flex-start;
+  background: var(--background-glass);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
   display: flex;
   flex-wrap: wrap;
   flex-direction: column;
+  font-weight: 500;
   font-size: 12px;
   gap: 8px;
+  padding: 2px 16px;
 
   .label {
     color: var(--text-secondary);

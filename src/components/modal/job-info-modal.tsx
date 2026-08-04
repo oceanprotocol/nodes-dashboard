@@ -1,14 +1,16 @@
 import { DownloadLogsButton } from '@/components/button/download-logs-button';
 import { DownloadResultButton } from '@/components/button/download-result-button';
 import EnvironmentCard from '@/components/environment-card/environment-card';
+import { JobLogsPanel } from '@/components/modal/job-logs-panel';
 import Modal from '@/components/modal/modal';
 import { getApiRoute } from '@/config';
+import { resolveNodeUri } from '@/lib/resolve-node-uri';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { ComputeJob } from '@/types/jobs';
 import { formatDuration, getJobDurationSeconds } from '@/utils/formatters';
 import { Stack } from '@mui/material';
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface JobInfoModalProps {
   job: ComputeJob | null;
@@ -29,8 +31,14 @@ const formatResourceRow = (id: string, amount: number): string => {
 export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
   const [environment, setEnvironment] = useState<ComputeEnvironment | null>(null);
   const [nodeInfo, setNodeInfo] = useState<EnvNodeInfo | null>(null);
+  const [nodeAddrs, setNodeAddrs] = useState<string[] | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const nodeUri = useMemo(
+    () => resolveNodeUri(job?.peerId ?? '', job?.multiaddrs?.length ? job.multiaddrs : nodeAddrs),
+    [job?.peerId, job?.multiaddrs, nodeAddrs]
+  );
 
   useEffect(() => {
     const fetchNodeEnv = async () => {
@@ -42,6 +50,7 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
       setError(null);
       setEnvironment(null);
       setNodeInfo(null);
+      setNodeAddrs(null);
 
       try {
         const response = await axios.get(`${getApiRoute('nodes')}?filters[id][value]=${job.peerId}`);
@@ -67,6 +76,7 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
 
         setEnvironment(env);
         setNodeInfo({ id: sanitizedData.id, friendlyName: sanitizedData.friendlyName });
+        setNodeAddrs(Array.isArray(sanitizedData.currentAddrs) ? sanitizedData.currentAddrs : null);
       } catch (err) {
         console.error('Error fetching node env:', err);
         setError('Failed to fetch environment data');
@@ -76,7 +86,7 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
     };
 
     fetchNodeEnv();
-  }, [open, job]);
+  }, [open, job?.peerId, job?.environment]);
 
   if (!job) return null;
 
@@ -123,14 +133,24 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
           )}
         </div>
 
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}
-        >
-          <DownloadResultButton job={job} />
-          <DownloadLogsButton job={job} />
-        </Stack>
+        {!loading && !error && !nodeUri && (
+          <div style={{ marginTop: '24px', color: 'var(--error)' }}>
+            This node has no reachable addresses, so its logs and results can&apos;t be retrieved.
+          </div>
+        )}
+
+        {nodeUri && (
+          <>
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-glass)' }}>
+              <JobLogsPanel job={job} open={open} nodeUri={nodeUri} />
+            </div>
+
+            <Stack direction="row" spacing={1} sx={{ marginTop: '16px' }}>
+              <DownloadResultButton job={job} nodeUri={nodeUri} />
+              <DownloadLogsButton job={job} nodeUri={nodeUri} />
+            </Stack>
+          </>
+        )}
       </Stack>
     </Modal>
   );

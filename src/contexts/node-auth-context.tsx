@@ -9,17 +9,30 @@ type NodeAuthContextType = {
   getNodeToken: (nodeId: string, nodeUri: NodeUri) => Promise<string>;
   clearNodeToken: (nodeId: string) => void;
   withNodeAuth: <T>(nodeId: string, nodeUri: NodeUri, fn: (token: string) => Promise<T>) => Promise<T>;
+  // True when a non-expired token is already cached for the node — i.e. calling withNodeAuth would
+  // NOT trigger a fresh signature prompt. Lets callers auto-fetch only when it's free of a signature.
+  hasValidNodeToken: (nodeId: string) => boolean;
 };
 
 const NodeAuthContext = createContext<NodeAuthContextType | undefined>(undefined);
+
+// Lifetime we pin on cached node tokens. The node treats a token with no validUntil as valid forever
+// (sqliteAuthToken: null = never expires), so a leaked cached token would stay usable indefinitely.
+// Bound it: cached tokens are re-minted on demand, so a short life costs nothing and caps exposure.
+const CACHED_TOKEN_LIFETIME_MS = 30 * 60 * 1000; // 30 minutes
+// Refresh a cached token this long before its node-side expiry, so an in-flight request never lands
+// after the node has already invalidated it. Must stay well under CACHED_TOKEN_LIFETIME_MS.
+const TOKEN_REFRESH_MARGIN_MS = 60 * 1000; // 1 minute
 
 export function NodeAuthProvider({ children }: { children: ReactNode }) {
   const { account, signMessage } = useOceanAccount();
 
   /**
-   * Tokens are cached by node ID.
+   * Tokens are cached by node ID, together with the epoch-ms instant they expire (the `validUntil`
+   * the node was told). A cached token is only reused while comfortably before that instant — see
+   * TOKEN_REFRESH_MARGIN_MS — so we never hand out a token the node is about to reject.
    */
-  const tokensRef = useRef<Record<string, string>>({});
+  const tokensRef = useRef<Record<string, { token: string; expiresAt: number }>>({});
 
   /**
    * Used for preventing duplicate token requests for the same node.
@@ -32,7 +45,9 @@ export function NodeAuthProvider({ children }: { children: ReactNode }) {
   const prevAddress = useRef<string | undefined>(account.address);
 
   useEffect(() => {
-    if (prevAddress.current && !account.address) {
+    // Tokens are bound to the signer's address — drop them on ANY address change (disconnect OR a
+    // switch to a different wallet), otherwise the new address would reuse a token the node rejects.
+    if (prevAddress.current && prevAddress.current !== account.address) {
       tokensRef.current = {};
       inflightRef.current = {};
     }
@@ -49,15 +64,25 @@ export function NodeAuthProvider({ children }: { children: ReactNode }) {
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
-      if (tokensRef.current[nodeId]) {
-        return tokensRef.current[nodeId];
+      const cached = tokensRef.current[nodeId];
+      if (cached && cached.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now()) {
+        return cached.token;
       }
+      // Near-expiry or missing: fall through to mint a fresh one (deduped by inflightRef so
+      // concurrent callers share one createAuthToken — a single nonce increment on the node).
       if (nodeId in inflightRef.current) {
         return inflightRef.current[nodeId];
       }
-      const promise = createAuthToken({ consumerAddress: account.address, nodeUri, signMessage }).then(
+      const validUntil = Date.now() + CACHED_TOKEN_LIFETIME_MS;
+      const promise = createAuthToken({
+        consumerAddress: account.address,
+        nodeUri,
+        signMessage,
+        issuerPeerId: nodeId,
+        validUntil,
+      }).then(
         ({ token }) => {
-          tokensRef.current[nodeId] = token;
+          tokensRef.current[nodeId] = { token, expiresAt: validUntil };
           delete inflightRef.current[nodeId];
           return token;
         },
@@ -75,6 +100,20 @@ export function NodeAuthProvider({ children }: { children: ReactNode }) {
   const clearNodeToken = useCallback((nodeId: string) => {
     delete tokensRef.current[nodeId];
   }, []);
+
+  // Mirrors getNodeToken's cache-freshness check, but never mints — so a caller can decide to
+  // auto-fetch (no signature prompt) vs. wait for an explicit user action. Requires a connected
+  // wallet, since tokens are bound to the signer's address.
+  const hasValidNodeToken = useCallback(
+    (nodeId: string): boolean => {
+      if (!account.address) {
+        return false;
+      }
+      const cached = tokensRef.current[nodeId];
+      return !!cached && cached.expiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now();
+    },
+    [account.address]
+  );
 
   /**
    * Gets a node token for the given node ID and node URI and executes a function with it.
@@ -102,7 +141,7 @@ export function NodeAuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <NodeAuthContext.Provider value={{ getNodeToken, clearNodeToken, withNodeAuth }}>
+    <NodeAuthContext.Provider value={{ getNodeToken, clearNodeToken, withNodeAuth, hasValidNodeToken }}>
       {children}
     </NodeAuthContext.Provider>
   );

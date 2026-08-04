@@ -1,0 +1,175 @@
+/* Header */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 768px) {
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.meta {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+
+  .statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentcolor;
+  }
+}
+
+/* Chip colour (text + dot via currentColor) and background tint by status kind. */
+.status_running {
+  background: var(--success);
+  /* color: var(--success-darker); */
+}
+
+.status_pending {
+  color: var(--text-secondary);
+}
+
+.status_dead {
+  color: var(--text-secondary);
+}
+
+.status_failed {
+  background: var(--error);
+  /* color: var(--error-darker); */
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.actionHint {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Duration — the page's pulse: elapsed vs total, live countdown. */
+.duration {
+  &.durationExpired :global(.MuiLinearProgress-bar) {
+    background: var(--error);
+  }
+}
+
+.durationLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+
+  .countdown {
+    font-family: var(--font-mono, monospace);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.durationRatio {
+  font-family: var(--font-mono, monospace);
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section headers */
+.howToHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.docsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent1);
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  /* How to use — endpoint list */
+  .endpoint {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .endpointPath {
+      flex-shrink: 0;
+      font-family: var(--font-mono, monospace);
+      font-weight: 600;
+    }
+
+    .endpointDescription {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+  }
+}
+
+/* Quick test — console-styled snippet with a fake terminal title bar. */
+.quickTestHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Matches the logs console below. */
+.terminal {
+  margin: 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--terminal-bg);
+  color: var(--terminal-text);
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+}

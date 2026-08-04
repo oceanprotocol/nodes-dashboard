@@ -1,6 +1,8 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
+import ModelCell from '@/components/inference/model-cell';
+import ServiceStatusChip, { JobStatusChip } from '@/components/service-status-chip/service-status-chip';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
@@ -22,7 +24,13 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
+import {
+  NodeComputeJob,
+  PersistentStorageBucket,
+  PersistentStorageFileEntry,
+  ServiceJob,
+  ServiceJobListed,
+} from '@oceanprotocol/lib';
 import classNames from 'classnames';
 
 function getUnbanAttemptResult(result: any) {
@@ -81,7 +89,7 @@ function renderGpuList(gpus: GPUPopularity[]) {
           <span className="flexRow alignItemsCenter gapXs" key={index}>
             {index > 0 && <span className="textSecondary">, </span>}
             <strong className="textSecondary">{count > 1 ? `${count}x ` : ''}</strong>
-            <GpuLabel gpu={gpuLabel} />
+            <HardwareLabel type="gpu" value={gpuLabel} />
           </span>
         ))}
       </div>
@@ -692,6 +700,224 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
         {getUnbanAttemptResult(params.row.benchmarkResult)}
       </div>
     ),
+  },
+];
+
+// The node returns the launch command, not HF metadata — recover the model id from `--model`.
+export function modelIdFromJob(job: ServiceJob): string | null {
+  const cmd = job.dockerCmd ?? [];
+  const idx = cmd.indexOf('--model');
+  if (idx >= 0 && idx + 1 < cmd.length) {
+    return cmd[idx + 1];
+  }
+  return null;
+}
+
+// The caller's own inference services (getServiceStatus keeps dockerCmd, so the model id is
+// recoverable). Actions column (Manage) is supplied by the consumer via the Table `actionsColumn`.
+export const existingServicesColumns: GridColDef<ServiceJob>[] = [
+  {
+    field: 'model',
+    filterable: false,
+    flex: 1.5,
+    headerName: 'Model',
+    sortable: false,
+    renderCell: ({ row }) => {
+      const modelId = modelIdFromJob(row);
+      if (modelId) {
+        return <ModelCell modelId={modelId} />;
+      }
+      // No `--model` in the launch command (e.g. a malformed record from an earlier run) — there's no
+      // model to name, so say so rather than showing a serviceId fragment that reads like a model id.
+      return (
+        <span className="textSecondary" title={`Service ${row.serviceId}`}>
+          Unknown model
+        </span>
+      );
+    },
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Created',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'duration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+  },
+  {
+    field: 'expiresAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'End time',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+];
+
+// An env id is a hyphen-joined list of addresses; render each shortened, joined with ' - '.
+function renderEnvironment(value?: string) {
+  if (!value) {
+    return <span className="textSecondary">-</span>;
+  }
+  return (
+    <span title={value}>
+      {value
+        .split('-')
+        .map((v) => formatWalletAddress(v))
+        .join(' - ')}
+    </span>
+  );
+}
+
+// Services running on a node, listed node-wide across all owners (ProviderInstance.getServices).
+// The listed shape strips dockerCmd/dockerfile, so identity is the container image, not the model.
+export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
+  {
+    field: 'image',
+    filterable: true,
+    flex: 1,
+    headerName: 'Image',
+    sortable: true,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
+    ),
+    valueGetter: (_value, row) => (row.tag ? `${row.image}:${row.tag}` : row.image),
+    renderCell: ({ value }) => <span title={value}>{value || '-'}</span>,
+  },
+  {
+    field: 'owner',
+    filterable: true,
+    flex: 1,
+    headerName: 'Owner',
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'equals'
+    ),
+    renderCell: ({ value }) => (value ? <span title={value}>{formatWalletAddress(value)}</span> : '-'),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => renderEnvironment(value),
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Start time',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'duration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+  },
+  {
+    field: 'expiresAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'End time',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+];
+
+// Compute jobs running on a node, listed node-wide across all owners (ProviderInstance.getNodeJobs).
+export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
+  {
+    field: 'name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return value;
+    },
+  },
+  {
+    field: 'owner',
+    filterable: true,
+    flex: 1,
+    headerName: 'Owner',
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'equals'
+    ),
+    renderCell: ({ value }) => (value ? <span title={value}>{formatWalletAddress(value)}</span> : '-'),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => renderEnvironment(value),
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ row }) => <JobStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Start time',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'algoDuration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
   },
 ];
 
