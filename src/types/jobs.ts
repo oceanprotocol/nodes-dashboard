@@ -49,9 +49,6 @@ export interface ComputeJob {
   epoch: number;
   errorMessage?: string;
   did: string;
-  metadata?: {
-    name?: string;
-  };
   jobId: string;
   dateCreated: number;
   dateFinished: number;
