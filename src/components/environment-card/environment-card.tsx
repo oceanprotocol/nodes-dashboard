@@ -183,9 +183,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           <ProgressBar
             value={percentage}
             topLeftContent={
-              <span className={classNames(styles.label, styles.em)}>
-                <MemoryIcon className={styles.icon} /> {cpu?.description || 'CPU'}
-              </span>
+              <HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />
             }
             bottomLeftContent={
               <span className={styles.label}>
@@ -267,7 +265,11 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             <ProgressBar
               value={percentage}
               topLeftContent={
-                <GpuLabel className={classNames(styles.heading, styles.label)} gpu={envGpu?.description || 'GPU'} />
+                <HardwareLabel
+                  className={classNames(styles.heading, styles.label)}
+                  type="gpu"
+                  value={envGpu?.description || 'GPU'}
+                />
               }
               bottomLeftContent={
                 <span className={styles.label}>
