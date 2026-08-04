@@ -19,7 +19,6 @@ import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from 
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
-import { usePrivy } from '@privy-io/react-auth';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -44,8 +43,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hydrationFailed,
     buildSelectionQuery,
   } = useInferenceContext();
-  const { account } = useOceanAccount();
-  const { login } = usePrivy();
+  const { account, login } = useOceanAccount();
   const { isReady, serviceExtend, serviceStart, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeAuth();
   const { handlePay } = usePaySession();

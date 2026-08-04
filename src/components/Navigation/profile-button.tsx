@@ -7,7 +7,6 @@ import { formatWalletAddress } from '@/utils/formatters';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import KeyIcon from '@mui/icons-material/Key';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import { usePrivy } from '@privy-io/react-auth';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
@@ -22,9 +21,7 @@ import styles from './navigation.module.css';
 const ProfileButton: React.FC = () => {
   const router = useRouter();
 
-  const { login, logout: privyLogout, authenticated } = usePrivy();
-
-  const { account, logout, provider } = useOceanAccount();
+  const { account, authenticated, isConnecting, login, logout, provider } = useOceanAccount();
 
   const { ensName, ensProfile, grantStatus } = useProfileContext();
 
@@ -196,16 +193,12 @@ const ProfileButton: React.FC = () => {
         </MenuItem>
       </Menu>
     </>
-  ) : authenticated && !authSettled ? (
+  ) : (authenticated && !authSettled) || isConnecting ? (
     <Button className={styles.loginButton} color="accent1" disabled>
       <CircularProgress size={16} color="inherit" />
     </Button>
   ) : (
-    <Button
-      className={styles.loginButton}
-      color="accent1"
-      onClick={() => (authenticated ? privyLogout() : login())}
-    >
+    <Button className={styles.loginButton} color="accent1" onClick={login}>
       Log in
     </Button>
   );

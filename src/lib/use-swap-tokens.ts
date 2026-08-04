@@ -1,8 +1,8 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { getTokenDecimals } from '@/lib/token-symbol';
-import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import CompySwapArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsSwap.sol/GrantsSwap.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
@@ -28,7 +28,7 @@ export interface UseSwapTokensReturn {
 }
 
 export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}): UseSwapTokensReturn => {
-  const { user, account } = useOceanAccount();
+  const { user, account, provider } = useOceanAccount();
   const { sendTransaction } = useAlchemySendTransaction();
 
   const [isSwapping, setIsSwapping] = useState(false);
@@ -71,11 +71,12 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
         const amountBigInt = ethers.parseUnits(amount, Number(usdcDecimals));
 
         if (user?.type === 'eoa') {
-          if (!(window as any).ethereum) {
+          // The connected wallet's provider: with EIP-6963 that is not necessarily
+          // whichever extension won window.ethereum.
+          if (!provider) {
             throw new Error('No crypto wallet found');
           }
-          const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
-          const signer = await browserProvider.getSigner();
+          const signer = await provider.getSigner();
 
           const usdcWithSigner = new ethers.Contract(usdcAddress, ERC20Template.abi, signer);
           const compySwapWithSigner = new ethers.Contract(compySwapAddress, CompySwapArtifact.abi, signer);
@@ -100,7 +101,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
           throw new Error('Account address not found');
         }
 
-        const provider = new ethers.JsonRpcProvider((await import('@/lib/constants')).getRpc());
+        // Already the RPC provider on the SCA path.
         const usdcContract = new ethers.Contract(usdcAddress, ERC20Template.abi, provider);
         const currentAllowance = await usdcContract.allowance(account.address, compySwapAddress);
 
@@ -137,7 +138,7 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
         onError?.(err);
       }
     },
-    [user?.type, account.address, sendTransaction, onSuccess, onError]
+    [user?.type, account.address, provider, sendTransaction, onSuccess, onError]
   );
 
   return {
