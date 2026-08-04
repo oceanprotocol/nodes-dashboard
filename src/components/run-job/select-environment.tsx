@@ -41,10 +41,10 @@ type FilterFormValues = {
 
 const SelectEnvironment = () => {
   const {
-    // fetchGpus,
+    fetchGpus,
     filters,
     filtersUnmetFallback,
-    // gpus,
+    gpus,
     loading,
     loadMoreEnvs,
     nodeEnvs,
@@ -56,12 +56,20 @@ const SelectEnvironment = () => {
 
   const [expanded, setExpanded] = useState(!!filters);
 
-  // useEffect(() => {
-  //   fetchGpus();
-  // }, [fetchGpus]);
+  useEffect(() => {
+    fetchGpus();
+  }, [fetchGpus]);
 
-  // const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
-  const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
+  const gpuOptions = useMemo(() => {
+    if (gpus.length > 0) {
+      // Keep the full "vendor name" string as both value and label:
+      // the /envs gpuName filter matches the full name, and GpuLabel shortens
+      // it for display while using the vendor prefix to pick the right logo.
+      return gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName }));
+    }
+    // Fallback to the static env list when the popularity endpoint returns nothing.
+    return process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
+  }, [gpus]);
 
   const feeTokenOptions = useMemo(() => {
     const tokens = getSupportedTokens();
