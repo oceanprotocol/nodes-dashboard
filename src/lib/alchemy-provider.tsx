@@ -27,7 +27,6 @@ const migrationConfig = createMigrationConfig(
           { type: 'passkey' },
           { type: 'social', authProviderId: 'google', mode: 'redirect', redirectUrl: process.env.NEXT_PUBLIC_APP_URL! },
         ],
-        [{ type: 'external_wallets' }],
       ],
       addPasskeyOnSignup: true,
     },
@@ -46,7 +45,8 @@ export function AlchemyProvider({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
       config={{
-        loginMethods: ['email', 'google', 'passkey', 'wallet'],
+        // No 'wallet': native wallets run on their own stack (src/lib/use-injected-wallet.ts).
+        loginMethods: ['email', 'google', 'passkey'],
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
         plugins: [walletCreationPlugin],
       }}

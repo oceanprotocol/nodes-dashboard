@@ -11,7 +11,6 @@ import {
   GRANT_ROLE_CHOICES,
   SubmitGrantDetailsResponse,
 } from '@/types/grant';
-import { usePrivy } from '@privy-io/react-auth';
 import axios from 'axios';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
@@ -34,8 +33,7 @@ type DetailsFormValues = {
 };
 
 const Details: React.FC = () => {
-  const { login } = usePrivy();
-  const { account } = useOceanAccount();
+  const { account, login } = useOceanAccount();
   const router = useRouter();
 
   const { clearGrantSelection, grantDetails, setGrantDetails } = useGrantContext();

@@ -9,13 +9,19 @@ import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
-import { BoundsMap, constraintError, deriveBounds, isSelectionValid, resolveConstraints, ResourceRequest } from '@/utils/constraints';
+import {
+  BoundsMap,
+  constraintError,
+  deriveBounds,
+  isSelectionValid,
+  resolveConstraints,
+  ResourceRequest,
+} from '@/utils/constraints';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { capacityOf, getAvailableAmount } from '@/utils/resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
-import { usePrivy } from '@privy-io/react-auth';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -51,12 +57,11 @@ const unitsThatFit = (available: number, per: number) =>
   per > 0 ? Math.floor(Math.max(0, available) / per) : Number.POSITIVE_INFINITY;
 
 const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
-  const { login } = usePrivy();
   const router = useRouter();
 
   const { getEnvs, isReady: p2pReady } = useP2P();
 
-  const { account } = useOceanAccount();
+  const { account, login } = useOceanAccount();
 
   const {
     estimatedTotalCost,
@@ -400,7 +405,17 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
         },
         baseBounds
       ),
-    [availResources, baseBounds, cpuId, ramId, diskId, formik.values.cpuCores, formik.values.ram, formik.values.diskSpace, gpuRequests]
+    [
+      availResources,
+      baseBounds,
+      cpuId,
+      ramId,
+      diskId,
+      formik.values.cpuCores,
+      formik.values.ram,
+      formik.values.diskSpace,
+      gpuRequests,
+    ]
   );
 
   const cpuMin = bounds[cpuId]?.min ?? minAllowedCpuCores;
@@ -421,7 +436,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     // proportional slice is clamped into what the node will accept — not just floor-raised.
     const pkgBounds = deriveBounds(
       availResources,
-      { [cpuId]: rawCpu, [ramId]: rawRam, [diskId]: rawDisk, ...Object.fromEntries(gpuRequests.map((g) => [g.id, g.amount])) },
+      {
+        [cpuId]: rawCpu,
+        [ramId]: rawRam,
+        [diskId]: rawDisk,
+        ...Object.fromEntries(gpuRequests.map((g) => [g.id, g.amount])),
+      },
       baseBounds
     );
     const cb = pkgBounds[cpuId] ?? { min: minAllowedCpuCores, max: maxAllowedCpuCores };
@@ -446,7 +466,24 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       derivedRam: clamp(amt(ramId, rawRam), rb.min, rb.max),
       derivedDisk: clamp(amt(diskId, rawDisk), db.min, db.max),
     };
-  }, [perUnitCpu, perUnitRam, perUnitDisk, unitCount, cpuId, ramId, diskId, gpuRequests, availResources, baseBounds, minAllowedCpuCores, maxAllowedCpuCores, minAllowedRam, maxAllowedRam, minAllowedDiskSpace, maxAllowedDiskSpace]);
+  }, [
+    perUnitCpu,
+    perUnitRam,
+    perUnitDisk,
+    unitCount,
+    cpuId,
+    ramId,
+    diskId,
+    gpuRequests,
+    availResources,
+    baseBounds,
+    minAllowedCpuCores,
+    maxAllowedCpuCores,
+    minAllowedRam,
+    maxAllowedRam,
+    minAllowedDiskSpace,
+    maxAllowedDiskSpace,
+  ]);
 
   // What the job actually requests: hand-set values in custom mode, the derived slice otherwise.
   const effectiveCpu = isCustom ? formik.values.cpuCores : derivedCpu;
@@ -468,7 +505,12 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       const rawDisk = Math.round(perUnitDisk * u);
       const b = deriveBounds(
         availResources,
-        { [cpuId]: rawCpu, [ramId]: rawRam, [diskId]: rawDisk, ...Object.fromEntries(gpuSel.map((g) => [g.id, g.amount])) },
+        {
+          [cpuId]: rawCpu,
+          [ramId]: rawRam,
+          [diskId]: rawDisk,
+          ...Object.fromEntries(gpuSel.map((g) => [g.id, g.amount])),
+        },
         baseBounds
       );
       const cb = b[cpuId] ?? { min: minAllowedCpuCores, max: maxAllowedCpuCores };
@@ -484,7 +526,24 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       feasible = u;
     }
     return feasible;
-  }, [hasGpu, gpuGroups, cpuId, ramId, diskId, perUnitCpu, perUnitRam, perUnitDisk, availResources, baseBounds, minAllowedCpuCores, maxAllowedCpuCores, minAllowedRam, maxAllowedRam, minAllowedDiskSpace, maxAllowedDiskSpace]);
+  }, [
+    hasGpu,
+    gpuGroups,
+    cpuId,
+    ramId,
+    diskId,
+    perUnitCpu,
+    perUnitRam,
+    perUnitDisk,
+    availResources,
+    baseBounds,
+    minAllowedCpuCores,
+    maxAllowedCpuCores,
+    minAllowedRam,
+    maxAllowedRam,
+    minAllowedDiskSpace,
+    maxAllowedDiskSpace,
+  ]);
 
   // Cap on total GPU units the pills allow. Package mode additionally caps by the shared resources
   // left behind by other jobs and by constraint feasibility; custom mode caps only by physically free GPUs.
@@ -525,7 +584,18 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       if (nextDisk !== curDisk) formik.setFieldValue('diskSpace', nextDisk);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cpuMin, cpuMax, ramMin, ramMax, diskMin, diskMax, formik.values.mode, formik.values.cpuCores, formik.values.ram, formik.values.diskSpace]);
+  }, [
+    cpuMin,
+    cpuMax,
+    ramMin,
+    ramMax,
+    diskMin,
+    diskMax,
+    formik.values.mode,
+    formik.values.cpuCores,
+    formik.values.ram,
+    formik.values.diskSpace,
+  ]);
 
   const estimateCost = useCallback(async () => {
     setIsLoadingCost(true);
