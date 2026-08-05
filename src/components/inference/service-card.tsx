@@ -1,5 +1,6 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
+import TemplateIncludes, { includesSummary } from '@/components/inference/template-includes';
 import { templateLogoSrc } from '@/components/inference/template-logos';
 import {
   CATEGORY_META,
@@ -33,6 +34,8 @@ export type DecoratedService = {
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
   /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
+  /** "2 models · 5.0 GB" for a template that pre-downloads things; null for a bare service. */
+  included: string | null;
 };
 
 export function decorate(tpl: AppTemplate): DecoratedService {
@@ -69,6 +72,7 @@ export function decorate(tpl: AppTemplate): DecoratedService {
     interaction: visual.meta.interaction,
     meta,
     metaFallback: hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
+    included: includesSummary(tpl),
   };
 }
 
@@ -77,10 +81,18 @@ type ServiceCardProps = {
   onOpen: (tpl: AppTemplate) => void;
 };
 
-/** Catalogue tile for one service: category-accented, opens the details modal (it never launches). */
+/** How many included items a card lists before collapsing the rest into "+N more". */
+const VISIBLE_INCLUDES = 3;
+
+/**
+ * Catalogue tile for one catalogue entry, used by BOTH catalogues: category-accented, opens the
+ * details modal (it never launches). A template — a service whose `command` pre-downloads a curated
+ * model set — renders one extra block listing what it brings; a bare service simply has nothing to
+ * list, so the same card covers both and the two pages read as one system.
+ */
 const ServiceCard: React.FC<ServiceCardProps> = ({ item, onOpen }) => (
   <Card
-    ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}`}
+    ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}${item.included ? `, ${item.included} included` : ''}`}
     className={styles.card}
     direction="column"
     innerShadow="black"
@@ -120,6 +132,13 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ item, onOpen }) => (
       <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
       <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
     </div>
+
+    {item.included && (
+      <div className={styles.included}>
+        <span className={styles.includedHead}>{item.included} included</span>
+        <TemplateIncludes compact max={VISIBLE_INCLUDES} template={item.tpl} />
+      </div>
+    )}
 
     <div className={styles.metaRow}>
       {item.meta.map(({ key, Icon, label }) => (

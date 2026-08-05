@@ -58,6 +58,14 @@
   overflow-wrap: anywhere;
 }
 
+/* Templates only: the outcome, read as a lead under the app's name. */
+.outcome {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .headerChips {
   display: flex;
   flex-wrap: wrap;

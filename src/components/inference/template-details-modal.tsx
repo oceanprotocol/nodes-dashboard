@@ -221,6 +221,9 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             </span>
             <div className={styles.headerText}>
               <h2 className={styles.name}>{template.name ?? template.id}</h2>
+              {/* Templates only: the one concrete thing this gets done. The catalogue card leads with
+                  the app's name (same tile as a service), so this is where the outcome is read. */}
+              {template.outcome && <div className={styles.outcome}>{template.outcome}</div>}
               <div className={cx(styles.headerChips, 'gapSm')}>
                 <span className={cx('chip', styles.chip, styles.categoryChip)}>{visual.meta.label}</span>
                 <span className={cx('chip', styles.chip, hw.gpu ? 'chipAccent2' : 'chipGlass')}>

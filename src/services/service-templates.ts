@@ -112,37 +112,3 @@ export function selectBundles(templates: AppTemplate[]): AppBundle[] {
   return templates.filter(isBundle);
 }
 
-/** One section of the bundles page: a parent service and the bundles that target it. */
-export type BundleGroup = {
-  /** The parent service's template id — the grouping key. */
-  serviceId: string;
-  /** The parent's display name when it is published by this node, else its bare id. */
-  serviceName: string;
-  /** The parent template, when this node publishes it (it may publish only the bundle). */
-  service: AppTemplate | null;
-  bundles: AppBundle[];
-};
-
-/**
- * Group bundles under their parent service, ordered by the parent's position in the catalogue so the
- * sections are stable across reloads. A bundle whose parent this node doesn't publish still gets its
- * own section, headed by the raw service id — the node's schema deliberately allows that.
- */
-export function groupBundlesByService(templates: AppTemplate[]): BundleGroup[] {
-  const groups = new Map<string, BundleGroup>();
-  for (const bundle of selectBundles(templates)) {
-    let group = groups.get(bundle.service);
-    if (!group) {
-      const service = templates.find((t) => t.id === bundle.service && isService(t)) ?? null;
-      group = {
-        serviceId: bundle.service,
-        serviceName: service?.name ?? bundle.service,
-        service,
-        bundles: [],
-      };
-      groups.set(bundle.service, group);
-    }
-    group.bundles.push(bundle);
-  }
-  return [...groups.values()];
-}
