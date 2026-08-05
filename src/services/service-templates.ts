@@ -22,9 +22,9 @@ export type GetServiceTemplatesFn = (
  * `useP2P().getServiceTemplates` (it throws until the P2P node is ready, so gate on `isReady`).
  *
  * This is the single choke point every caller goes through (the catalogue hook, the URL hydration in
- * inference-context, the running-services table), which is why the bundle mock is merged here: with
- * `NEXT_PUBLIC_MOCK_BUNDLES=1` the whole flow — browse, launch, manage — sees the same catalogue.
- * The merge is a no-op when the flag is off. See src/mock/bundles.ts.
+ * inference-context, the running-services table), which is why the bundle mock is merged here: the
+ * whole flow — browse, launch, manage — sees the same catalogue. The mock is on unless
+ * `NEXT_PUBLIC_MOCK_BUNDLES=0`, and the merge is a no-op when it's off. See src/mock/bundles.ts.
  */
 export async function fetchTemplates(
   getServiceTemplates: GetServiceTemplatesFn,

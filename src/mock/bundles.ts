@@ -3,8 +3,8 @@ import { AppTemplate } from '@/types/templates';
 /**
  * Local stand-in for bundles a node hasn't been updated to publish yet.
  *
- * MOCK DATA, opt-in: set `NEXT_PUBLIC_MOCK_BUNDLES=1` in `.env.local` to have `fetchTemplates` merge
- * these into whatever the node returns, so the bundles catalogue can be exercised end to end before
+ * MOCK DATA, on by default (opt out with `NEXT_PUBLIC_MOCK_BUNDLES=0`): `fetchTemplates` merges these
+ * into whatever the node returns, so the bundles catalogue works end to end — on Vercel too — before
  * `ocean-node` ships the `kind`/`service`/`outcome`/`category`/`includes` fields. Delete this file
  * (and the merge in `services/service-templates.ts`) once the node serves them for real.
  *
@@ -187,16 +187,15 @@ export const MOCK_BUNDLES: AppTemplate[] = [
 /**
  * Whether the mock catalogue is switched on.
  *
- * **On by default in development**, so `yarn dev` shows Templates with no setup, and **never on in a
- * production build** — the flag is the only way to enable it there, and shipping fake catalogue
- * entries to users would be worse than an empty page. Opt out locally with
- * `NEXT_PUBLIC_MOCK_BUNDLES=0`; force it on anywhere with `=1`.
+ * **On by default everywhere, including production builds** — no node publishes bundle-kind templates
+ * yet, so without the mock the Templates page is empty on every deployment. Turn it off with
+ * `NEXT_PUBLIC_MOCK_BUNDLES=0` once the node serves the real catalogue, and flip this default back at
+ * that point.
  *
- * NEXT_PUBLIC_* values are inlined at build time, so changing this needs a dev-server restart.
+ * NEXT_PUBLIC_* values are inlined at build time, so changing this needs a rebuild (dev-server
+ * restart locally, redeploy on Vercel).
  */
-export const MOCK_BUNDLES_ENABLED =
-  process.env.NEXT_PUBLIC_MOCK_BUNDLES === '1' ||
-  (process.env.NEXT_PUBLIC_MOCK_BUNDLES !== '0' && process.env.NODE_ENV === 'development');
+export const MOCK_BUNDLES_ENABLED = process.env.NEXT_PUBLIC_MOCK_BUNDLES !== '0';
 
 /**
  * Overlay the mocks onto the node's catalogue: an entry with the same id is replaced (so a node that
