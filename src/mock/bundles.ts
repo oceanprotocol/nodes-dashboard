@@ -9,9 +9,13 @@ import { AppTemplate } from '@/types/templates';
  * (and the merge in `services/service-templates.ts`) once the node serves them for real.
  *
  * These are NOT invented: every entry mirrors a template that already exists in
- * `ocean-node/docs/serviceTemplates/` — same image, tag, ports, command and resources — with only the
- * classification fields added. So a launch from a mocked bundle is a real launch: `SERVICE_START`
- * carries the image and command directly and the node needs no template of its own to honour it.
+ * `ocean-node/docs/serviceTemplates/` — same image, tag, ports and resources — with the classification
+ * fields added. So a launch from a mocked bundle is a real launch: `SERVICE_START` carries the image
+ * and command directly and the node needs no template of its own to honour it.
+ *
+ * One exception: `open-webui-llama31` has no node JSON yet. Its image and resources come from
+ * `open-webui.json`, but its provisioning `command` is written here — copy it into a node template
+ * when the bundle ships for real.
  */
 
 /** Shared by every ComfyUI entry: same image, same optional token vars. */
@@ -54,6 +58,38 @@ ${fetches}
   echo "[models] bundle complete — refresh the ComfyUI tab to see the checkpoints"
 ) &
 exec bash /runner-scripts/entrypoint.sh`,
+  ];
+}
+
+/** Shared by every Open WebUI entry: the `:ollama` tag is the one that ships a runtime in-container. */
+const OPEN_WEBUI_IMAGE = { image: 'ghcr.io/open-webui/open-webui', tag: 'ollama' } as const;
+
+/**
+ * Open WebUI's provisioning script. Same shape as the ComfyUI one — background subshell, `[models]`
+ * markers, UI up immediately — but the models come from Ollama's registry, not a URL: the `:ollama`
+ * image runs `ollama serve` from its own `start.sh`, so the subshell waits for the local API on 11434
+ * before pulling, then hands control back to that script.
+ *
+ * `cd /app/backend` is not optional: `start.sh` lives there and resolves its paths relative to the
+ * working directory, which the image sets and our `entrypoint` override drops.
+ */
+function openWebuiCommand(models: string[]): string[] {
+  return [
+    `MODELS="${models.join(' ')}"
+(
+  for i in $(seq 1 180); do
+    curl -sf http://127.0.0.1:11434/api/version >/dev/null 2>&1 && break
+    sleep 5
+  done
+  for m in $MODELS; do
+    if ollama list 2>/dev/null | grep -q "^$m"; then echo "[models] already present: $m"; continue; fi
+    echo "[models] downloading $m"
+    if ollama pull "$m"; then echo "[models] ready: $m"; else echo "[models] WARNING: could not download $m — pull it from the Open WebUI model manager instead"; fi
+  done
+  echo "[models] bundle complete — reload the Open WebUI tab to see the models"
+) &
+cd /app/backend
+exec bash start.sh`,
   ];
 }
 
@@ -179,6 +215,78 @@ export const MOCK_BUNDLES: AppTemplate[] = [
         recommended: 1,
         unit: 'count',
         description: 'CUDA GPU; ~16 GB VRAM recommended (12 GB works with weight offloading)',
+      },
+    ],
+  },
+  // Parent of the Open WebUI bundle below — mirrors ocean-node/docs/serviceTemplates/open-webui.json
+  // field for field, so it collapses into the node's own entry the moment that node publishes it.
+  {
+    id: 'open-webui',
+    kind: 'service',
+    category: 'llm',
+    name: 'Open WebUI — chat UI + local LLMs (Ollama)',
+    description:
+      'ChatGPT-style web UI wired to a bundled Ollama runtime (the `:ollama` image ships Ollama in-container), so it runs local LLMs out of the box — pull a model (e.g. llama3.1:8b, mistral) from the model dropdown. Binds 0.0.0.0 on port 8080 by default. First visit prompts you to create an admin account. Needs a CUDA GPU for usable token speed.',
+    ...OPEN_WEBUI_IMAGE,
+    exposedPorts: [8080],
+    requiredResources: [
+      { id: 'cpu', min: 4, recommended: 8, unit: 'cores' },
+      { id: 'ram', min: 8, recommended: 16, unit: 'GB' },
+      { id: 'disk', min: 20, recommended: 40, unit: 'GB' },
+      {
+        kind: 'discrete',
+        type: 'gpu',
+        min: 1,
+        recommended: 1,
+        unit: 'count',
+        description: 'CUDA GPU for local LLM inference',
+      },
+    ],
+  },
+  {
+    id: 'open-webui-llama31',
+    kind: 'bundle',
+    service: 'open-webui',
+    category: 'llm',
+    outcome: 'Chat with a private LLM, and with your own documents',
+    name: 'Open WebUI + Llama 3.1 8B — private chat, models included',
+    description:
+      "Same Open WebUI, with the models pulled in for you: Llama 3.1 8B for chat and nomic-embed-text so document upload (RAG) works without a second setup step. The UI is up on port 8080 in seconds — create the admin account while the models download in the background, then reload and they're in the model dropdown. Nothing leaves the container: inference runs on the node's GPU, not on a third-party API.",
+    ...OPEN_WEBUI_IMAGE,
+    exposedPorts: [8080],
+    entrypoint: ['/bin/bash', '-c'],
+    command: openWebuiCommand(['llama3.1:8b', 'nomic-embed-text']),
+    includes: [
+      {
+        name: 'Llama 3.1 8B Instruct (Q4_0)',
+        kind: 'model',
+        sizeGb: 4.7,
+        url: 'https://ollama.com/library/llama3.1',
+      },
+      {
+        name: 'nomic-embed-text (embeddings for document chat)',
+        kind: 'model',
+        sizeGb: 0.3,
+        url: 'https://ollama.com/library/nomic-embed-text',
+      },
+    ],
+    requiredResources: [
+      { id: 'cpu', min: 4, recommended: 8, unit: 'cores' },
+      { id: 'ram', min: 8, recommended: 16, unit: 'GB' },
+      {
+        id: 'disk',
+        min: 25,
+        recommended: 50,
+        unit: 'GB',
+        description: '~15 GB image + 5 GB bundled models + room for chats, uploads and extra models',
+      },
+      {
+        kind: 'discrete',
+        type: 'gpu',
+        min: 1,
+        recommended: 1,
+        unit: 'count',
+        description: 'CUDA GPU; ~6 GB VRAM for Llama 3.1 8B at Q4',
       },
     ],
   },
