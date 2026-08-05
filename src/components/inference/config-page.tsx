@@ -10,7 +10,8 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
-import { validateEnvValue } from '@/types/templates';
+import { estimatedSetupMinutes } from '@/components/inference/template-includes';
+import { includedSizeGb, isBundle, validateEnvValue } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
@@ -49,6 +50,20 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   const envSpecs = useMemo(() => selectedTemplate?.userConfigurableEnvVars ?? [], [selectedTemplate]);
   const [envInputs, setEnvInputs] = useState<Record<string, string>>({});
   const [envErrors, setEnvErrors] = useState<Record<string, string>>({});
+  // Cost of relaunching a bundle: every model it ships with is fetched again inside the paid window.
+  const bundleReloadNote = useMemo(() => {
+    if (!selectedTemplate || !isBundle(selectedTemplate)) {
+      return null;
+    }
+    const count = selectedTemplate.includes?.length ?? 0;
+    if (count === 0) {
+      return null;
+    }
+    const size = includedSizeGb(selectedTemplate);
+    const minutes = estimatedSetupMinutes(selectedTemplate);
+    const amount = size != null ? ` (~${size.toFixed(1)} GB${minutes != null ? `, ≈${minutes} min` : ''})` : '';
+    return `Relaunching re-downloads all ${count} included ${count === 1 ? 'model' : 'models'}${amount} — inside the session you have already paid for.`;
+  }, [selectedTemplate]);
   useEffect(() => {
     if (isTemplateFlow) {
       setEnvInputs(templateEnvValues);
@@ -71,7 +86,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       }
     } else if (isTemplateFlow && !selectedTemplate) {
       // No template restored (deep link / refresh with a bad id) — back to the picker.
-      router.replace({ pathname: '/inference/templates', query: router.query });
+      router.replace({ pathname: '/inference/services', query: router.query });
     }
   }, [
     isCustomModelFlow,
@@ -98,10 +113,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         // to the manage page instead of the resources picker.
         const serviceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;
         if (isEditMode && serviceId) {
-          router.replace(`/inference/services/${encodeURIComponent(serviceId)}`);
+          router.replace(`/inference/instances/${encodeURIComponent(serviceId)}`);
         } else {
           router.replace({
-            pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
             query: router.query,
           });
         }
@@ -124,7 +139,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         // Carry the whole query (edit / serviceId / template) so payment relaunches the right running
         // service. Template env values live in context (secrets — never in the URL).
         router.push({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/payment`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/payment`,
           query: { ...router.query, ...buildSelectionQuery() },
         });
         break;
@@ -163,10 +178,14 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       return;
     }
     if (isTemplateFlow) {
-      // Validate each configurable env var against its regex; empty is allowed (fields are optional).
+      // Validate each configurable env var against its regex. Empty is allowed unless the template
+      // marks the var `required` — those are the ones the app can't start usefully without.
       const errors: Record<string, string> = {};
       for (const spec of envSpecs) {
-        if (!validateEnvValue(spec, envInputs[spec.key] ?? '')) {
+        const value = (envInputs[spec.key] ?? '').trim();
+        if (spec.required && !value) {
+          errors[spec.key] = `${spec.key} is required for this template.`;
+        } else if (!validateEnvValue(spec, value)) {
           errors[spec.key] = `Invalid ${spec.key} format.`;
         }
       }
@@ -193,7 +212,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         moreReadable
         title="Inference"
         subTitle="Launch a model on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="config" edit={isEditMode} flowType={flowType} />}
+        contentBetween={
+          <InferenceStepper currentStep="config" edit={isEditMode} flowType={flowType} template={selectedTemplate} />
+        }
       />
       {resolvingModels || hydrationFailed ? (
         <div className="pageContentWrapper">
@@ -267,7 +288,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   <Input
                     errorText={envErrors[spec.key]}
                     key={spec.key}
-                    label={spec.key}
+                    label={spec.required ? `${spec.key} (required)` : spec.key}
                     name={spec.key}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -291,6 +312,12 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                 <div className="textSecondary">
                   Secrets you entered on the original launch aren&apos;t stored — re-enter any tokens you need.
                 </div>
+              )}
+              {/* A relaunch recreates the container from the image, and service containers get no
+                  volume — so a bundle re-downloads everything it ships with, on the session the user
+                  has already paid for. Say the cost before they commit to it. */}
+              {isEditMode && selectedTemplate && isBundle(selectedTemplate) && bundleReloadNote && (
+                <div className="textAccent1">{bundleReloadNote}</div>
               )}
             </Card>
           )}

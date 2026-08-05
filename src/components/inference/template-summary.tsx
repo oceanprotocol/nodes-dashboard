@@ -1,5 +1,5 @@
 import Card from '@/components/card/card';
-import { decorate } from '@/components/inference/template-card';
+import { decorate } from '@/components/inference/service-card';
 import { templateImageRef, visualFor } from '@/components/inference/template-visual';
 import { AppTemplate } from '@/types/templates';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -75,7 +75,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
     // What to do with that port once the service is up — the category's hint, same wording as the
     // details modal ("opens in your browser" vs "call it from your code").
     ...(port != null
-      ? [{ label: 'Port', value: String(port), hint: visualFor(template.id).meta.interactionHint }]
+      ? [{ label: 'Port', value: String(port), hint: visualFor(template.id, template.category).meta.interactionHint }]
       : []),
   ];
 

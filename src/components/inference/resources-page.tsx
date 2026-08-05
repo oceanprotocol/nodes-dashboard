@@ -9,6 +9,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
+import { requiredEnvVars } from '@/types/templates';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
@@ -33,7 +34,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     if (isCustomModelFlow && selectedModels.length === 0) {
       router.replace({ pathname: '/inference/custom-models', query: router.query });
     } else if (isTemplateFlow && !selectedTemplate) {
-      router.replace({ pathname: '/inference/templates', query: router.query });
+      router.replace({ pathname: '/inference/services', query: router.query });
     }
   }, [
     isCustomModelFlow,
@@ -55,7 +56,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        router.replace('/inference/templates');
+        router.replace('/inference/services');
         break;
       }
     }
@@ -78,12 +79,15 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        // Config is skipped on a fresh template launch (env vars optional) → straight to payment. Pin
-        // the template's recommended CPU/RAM/disk into the URL so payment books them (env + sizing are
-        // re-hydrated from the query on arrival, so no setState-timing dependency here).
+        // Config is skipped on a fresh launch when every env var is optional → straight to payment; a
+        // template that declares a `required` one gets the step, because without it the container
+        // starts and fails. Pin the template's recommended CPU/RAM/disk into the URL either way so
+        // payment books them (env + sizing are re-hydrated from the query on arrival, so no
+        // setState-timing dependency here).
         const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
+        const next = selectedTemplate && requiredEnvVars(selectedTemplate).length > 0 ? 'config' : 'payment';
         router.push({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/payment`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${next}`,
           query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
         });
         break;
@@ -102,7 +106,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         moreReadable
         title="Inference"
         subTitle="Launch on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="resources" flowType={flowType} />}
+        contentBetween={<InferenceStepper currentStep="resources" flowType={flowType} template={selectedTemplate} />}
       />
       <div className="pageContentWrapper">
         {isEnvPickerFlow ? (

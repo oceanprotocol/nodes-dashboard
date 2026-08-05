@@ -1,0 +1,311 @@
+/* Toolbar */
+
+.headerRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 260px;
+}
+
+.toolbarControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Search */
+
+.search {
+  width: 240px;
+}
+
+.searchIcon {
+  color: var(--text-secondary);
+  font-size: 20px;
+  margin-right: 4px;
+}
+
+.searchClearIcon {
+  font-size: 18px;
+}
+
+/* Hardware axis — a compact segmented control, deliberately subordinate to the category pills. */
+
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 100px;
+  background: var(--background-glass-secondary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 100px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-secondary);
+  transition:
+    background 0.3s ease,
+    color 0.3s ease;
+}
+
+.segment:hover {
+  color: var(--text-primary);
+}
+
+.segmentActive,
+.segmentActive:hover {
+  font-weight: 700;
+  background: var(--background-primary);
+  color: var(--accent1);
+  box-shadow: var(--drop-shadow-black);
+}
+
+.segmentIcon {
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
+  fill: currentColor;
+}
+
+.segmentCount {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.segmentCountActive {
+  color: color-mix(in srgb, var(--accent1) 70%, transparent);
+}
+
+/* Category axis — one wrapping row of pills, every bucket and its count visible without a click. */
+
+.categoryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+/* --accent is set inline per pill from the category meta. */
+.categoryPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 100px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1.5px var(--border-glass);
+  transition:
+    background 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.categoryPill:hover {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.categoryPillActive,
+.categoryPillActive:hover {
+  font-weight: 700;
+  background: var(--accent);
+  color: var(--text-primary-inverse);
+  box-shadow: 0 6px 20px -10px color-mix(in srgb, var(--accent) 67%, transparent);
+}
+
+/* An empty bucket stays visible (the catalogue's shape is information) but recedes. */
+.categoryPillEmpty {
+  opacity: 0.42;
+}
+
+.categoryDot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 100px;
+  background: var(--accent);
+}
+
+.categoryDotAll {
+  background: linear-gradient(135deg, var(--accent1) 50%, var(--success-darker) 50%);
+}
+
+.categoryDotActive {
+  background: var(--background-primary);
+}
+
+.categoryCount {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 16px;
+  background: var(--background-glass-secondary);
+  color: var(--text-secondary);
+}
+
+.categoryCountActive {
+  background: color-mix(in srgb, var(--background-primary) 18%, transparent);
+  color: var(--text-primary-inverse);
+}
+
+/* Summary line — the plain-language receipt of both axes, mirroring the URL query. */
+
+.summaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.summaryIcon {
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
+  fill: currentColor;
+}
+
+/* The empty state's reset is the only action on screen, so it gets a little breathing room. */
+.emptyReset {
+  margin-top: 6px;
+}
+
+/* Grid — the cards themselves live in template-card. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* States */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 24px;
+  border-radius: 20px;
+  border: 1.5px dashed var(--border);
+  background: var(--background-glass);
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 30px;
+  height: 30px;
+  font-size: 30px;
+  fill: currentColor;
+  color: var(--accent1);
+}
+
+.emptyTitle {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.emptyHint {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  max-width: 380px;
+}
+
+.stateBox {
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* Loading skeletons — same grid rhythm as the real cards, so nothing jumps on arrival. */
+
+.skeletonToolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skeletonPills {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-glass);
+  border-radius: 20px;
+  background: var(--background-glass);
+}
+
+.skeletonCardTop {
+  display: flex;
+  gap: 12px;
+}
+
+.skeletonLines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.skeletonChips {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* .shimmer / .shimmerSoft come from globals.css. */

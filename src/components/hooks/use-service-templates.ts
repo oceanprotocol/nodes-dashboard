@@ -1,4 +1,5 @@
 import { useP2P } from '@/contexts/P2PContext';
+import { MOCK_BUNDLES_ENABLED } from '@/mock/bundles';
 import { fetchTemplates } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import { useEffect, useState } from 'react';
@@ -22,7 +23,9 @@ const useServiceTemplates = (): ServiceTemplatesState => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isReady) {
+    // With the bundle mock on, don't wait for the P2P node: fetchTemplates falls back to the mock
+    // catalogue when the node call fails, so the flow is browsable with no node running at all.
+    if (!isReady && !MOCK_BUNDLES_ENABLED) {
       return;
     }
     let cancelled = false;

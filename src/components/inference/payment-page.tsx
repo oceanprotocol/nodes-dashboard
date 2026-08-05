@@ -184,10 +184,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // service (the resources step is skipped), so don't bounce to resources — the env comes from URL
         // hydration. Mirrors the CustomModel case, which excludes both modes for the same reason.
         if (!selectedTemplate) {
-          router.replace({ pathname: '/inference/templates', query: router.query });
+          router.replace({ pathname: '/inference/services', query: router.query });
         } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({
-            pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
             query: router.query,
           });
         }
@@ -228,7 +228,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       case InferenceFlowType.Template: {
         // Fresh launch skips config → back to resources. Edit shows config (reconfigure step) → back there.
         router.replace({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/${isEditMode ? 'config' : 'resources'}`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${isEditMode ? 'config' : 'resources'}`,
           query: router.query,
         });
         break;
@@ -282,7 +282,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         })
       );
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(targetServiceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(targetServiceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -340,7 +340,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -429,7 +429,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -502,7 +502,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -556,7 +556,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -637,7 +637,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               : 'Launch a model on an Ocean Node'
         }
         contentBetween={
-          isProlongMode ? undefined : <InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} />
+          isProlongMode ? undefined : (
+            <InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} template={selectedTemplate} />
+          )
         }
       />
       <div className="pageContentWrapper">

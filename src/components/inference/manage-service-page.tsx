@@ -6,6 +6,7 @@ import InferenceEnvironmentCard from '@/components/inference/inference-environme
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
+import ProvisioningProgress from '@/components/inference/provisioning-progress';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
 import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
@@ -26,6 +27,7 @@ import {
 } from '@/services/inference-launch';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { templatePrimaryPort } from '@/services/template-launch';
+import { isBundle } from '@/types/templates';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -389,6 +391,12 @@ const ManageServicePage: React.FC = () => {
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
   const isTemplate = !!selectedTemplate;
+  const isBundleService = !!selectedTemplate && isBundle(selectedTemplate);
+  // Edit relaunches the SAME bundle through serviceRestart, which recreates the container from the
+  // image — service containers get no volume, so every relaunch re-downloads every bundled model on
+  // the clock the user already paid for. Worth it to fix a wrong token; pure loss when there is
+  // nothing to change, so a bundle that declares no configurable env vars doesn't offer Edit at all.
+  const bundleHasConfig = (selectedTemplate?.userConfigurableEnvVars?.length ?? 0) > 0;
   // What the container actually runs, per the node's job record — outranks the template the link
   // names, which an Edit relaunch may have swapped away from. Null until the first poll lands.
   const runningImageRef = job ? (job.tag ? `${job.image}:${job.tag}` : job.image) : null;
@@ -428,7 +436,7 @@ const ManageServicePage: React.FC = () => {
   // restartable job (Running / crashed Error / Stopped) has it.
   const isUnpaid = !!job && !job.payment?.claimTx;
   // Edit relaunches through the same SERVICE_RESTART (with a new dockerCmd), so it shares the gate.
-  const canEdit = !!job && !isExpired && !restartBlocked && !isUnpaid;
+  const canEdit = !!job && !isExpired && !restartBlocked && !isUnpaid && (!isBundleService || bundleHasConfig);
   const canRestart = !!job && !isExpired && !restartBlocked && !isUnpaid;
   // Prolong's own status gate (Expired / Locking / Claiming — see `isProlongBlocked`), plus our
   // expiry check: extend does `expiresAt += additionalDuration` with no past-expiry guard of its own,
@@ -451,7 +459,7 @@ const ManageServicePage: React.FC = () => {
     // re-enters the model picker. buildSelectionQuery already carries the template/model selection.
     if (selectedTemplate) {
       router.push({
-        pathname: `/inference/templates/${encodeURIComponent(selectedTemplate.id)}/config`,
+        pathname: `/inference/services/${encodeURIComponent(selectedTemplate.id)}/config`,
         query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
       });
       return;
@@ -499,7 +507,7 @@ const ManageServicePage: React.FC = () => {
     // picker — route template prolong into the template payment page (flowType=Template) instead.
     if (selectedTemplate) {
       router.push({
-        pathname: `/inference/templates/${encodeURIComponent(selectedTemplate.id)}/payment`,
+        pathname: `/inference/services/${encodeURIComponent(selectedTemplate.id)}/payment`,
         query,
       });
       return;
@@ -599,6 +607,21 @@ const ManageServicePage: React.FC = () => {
             </div>
           </Card>
 
+          {/* A bundle's weights land minutes after the container reports Running, so say so here
+              rather than letting the user open an app with empty model pickers. Advisory only —
+              derived from the container log, gated on the container actually being up, and gone the
+              moment the script reports completion. */}
+          {isBundleService && selectedTemplate && isRunning && (
+            <ProvisioningProgress
+              active={isRunning}
+              consumerAddress={account.address ?? undefined}
+              nodePeerId={nodePeerId}
+              nodeUri={nodeUri}
+              serviceId={id}
+              template={selectedTemplate}
+            />
+          )}
+
           {/* Model. Rendered even when there's no model to name: the card is the only place the model
               appears, so "unknown" must be stated rather than the card silently vanishing — otherwise
               the previous service's card is the last thing the user saw here. Skipped entirely for a
@@ -628,7 +651,7 @@ const ManageServicePage: React.FC = () => {
           {isTemplate && selectedTemplate && (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div className={styles.howToHead}>
-                <h3>Template</h3>
+                <h3>{isBundleService ? 'Template' : 'Service'}</h3>
                 <span className="textSecondary">Expand for container details</span>
               </div>
               <TemplateSummary runningImageRef={runningImageRef ?? undefined} template={selectedTemplate} />

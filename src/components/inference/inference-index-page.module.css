@@ -18,9 +18,11 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  @media (min-width: 992px) {
+  /* Four entry points now (quick start, custom, services, bundles) — 2×2 on tablets, one row on
+     wide screens. A 3-column grid would leave the fourth card orphaned on its own row. */
+  @media (min-width: 1200px) {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .card {

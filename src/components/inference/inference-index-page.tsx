@@ -6,6 +6,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import classNames from 'classnames';
 import styles from './inference-index-page.module.css';
@@ -81,8 +82,37 @@ const InferenceIndexPage: React.FC = () => {
               <DashboardCustomizeOutlinedIcon />
             </div>
             <div className={styles.cardContent}>
+              <h3>Services</h3>
+              <div className="textSecondary">
+                Start a ready-made app — ComfyUI, Open WebUI, JupyterLab — and add your own models
+              </div>
+            </div>
+            <Button
+              contentAfter={<ArrowForwardIcon />}
+              color="accent1"
+              href="/inference/services"
+              variant="outlined"
+            >
+              Browse services
+            </Button>
+          </Card>
+          <Card
+            className={styles.card}
+            direction="column"
+            padding="md"
+            radius="lg"
+            shadow="black"
+            spacing="md"
+            variant="glass-shaded"
+          >
+            <div className={styles.iconBox}>
+              <Inventory2OutlinedIcon />
+            </div>
+            <div className={styles.cardContent}>
               <h3>Templates</h3>
-              <div className="textSecondary">Start your workflow with our ready-made templates</div>
+              <div className="textSecondary">
+                The same apps with their models already included — pick an outcome, skip the setup
+              </div>
             </div>
             <Button
               contentAfter={<ArrowForwardIcon />}
