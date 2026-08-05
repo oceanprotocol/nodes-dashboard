@@ -4,7 +4,7 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { ResolvedTemplateEnv, TemplateEnvsState } from '@/components/hooks/use-template-envs';
 import TemplateIncludes, { estimatedSetupMinutes, includesSummary } from '@/components/inference/template-includes';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
-import { templateLogoSrc } from '@/components/inference/template-logos';
+import { templateLogo } from '@/components/inference/template-logos';
 import { templateHardware, templateImageRef, visualFor } from '@/components/inference/template-visual';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
@@ -111,7 +111,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   const { resolved, totalMatched, loading, loadError, retry } = envs;
   const visual = template ? visualFor(template.id, template.category) : null;
   const hw = template ? templateHardware(template) : null;
-  const logo = template ? templateLogoSrc(template.id) : null;
+  const logo = template ? templateLogo(template) : null;
   const setupMinutes = template ? estimatedSetupMinutes(template) : null;
 
   // The shared duration must land inside EVERY env's own window — validated per card so a card whose
@@ -211,13 +211,15 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
       {template && visual && hw && (
         <>
           <div className={styles.header} style={{ '--accent': visual.meta.accent } as CSSProperties}>
+            {/* The brand mark REPLACES the category glyph — see the same note in service-card. */}
             <span className={styles.tile}>
-              {visual.mono ? (
+              {logo ? (
+                <img alt="" className={styles.tileLogo} src={logo} />
+              ) : visual.mono ? (
                 <span className={styles.tileMono}>{visual.mono}</span>
               ) : (
                 <visual.meta.Icon className={styles.tileIcon} />
               )}
-              {logo && <img alt="" className={styles.tileLogo} src={logo} />}
             </span>
             <div className={styles.headerText}>
               <h2 className={styles.name}>{template.name ?? template.id}</h2>

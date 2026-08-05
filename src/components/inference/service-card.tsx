@@ -1,7 +1,7 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
 import TemplateIncludes, { includesSummary } from '@/components/inference/template-includes';
-import { templateLogoSrc } from '@/components/inference/template-logos';
+import { templateLogo } from '@/components/inference/template-logos';
 import {
   CATEGORY_META,
   TemplateCategory,
@@ -65,7 +65,7 @@ export function decorate(tpl: AppTemplate): DecoratedService {
     categoryLabel: visual.meta.label,
     CategoryIcon: visual.meta.Icon,
     mono: visual.mono,
-    logo: templateLogoSrc(tpl.id),
+    logo: templateLogo(tpl),
     name: tpl.name ?? tpl.id,
     vendor: templateVendor(tpl.image),
     gpu: hw.gpu,
@@ -104,14 +104,17 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ item, onOpen }) => (
     variant="glass"
   >
     <div className={styles.cardTop}>
+      {/* The brand mark REPLACES the category glyph rather than covering it — the marks are
+          transparent artwork, so anything drawn underneath shows through the shape. */}
       <span className={styles.tile}>
-        {item.mono ? (
+        {item.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt="" className={styles.tileLogo} src={item.logo} />
+        ) : item.mono ? (
           <span className={styles.tileMono}>{item.mono}</span>
         ) : (
           <item.CategoryIcon className={styles.tileIcon} />
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {item.logo && <img alt="" className={styles.tileLogo} src={item.logo} />}
       </span>
       <span className={styles.titleWrap}>
         <span className={styles.name} title={item.name}>
