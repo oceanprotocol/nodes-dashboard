@@ -10,24 +10,14 @@ import type { ServiceTemplatePublic } from '@oceanprotocol/lib';
 /**
  * How an entry presents itself. Absent means `service` — every entry published before this field.
  *
- * NAMING, once, because the two vocabularies cross: the node calls **every** catalogue entry a
- * *template* (`ServiceTemplate`, `getServiceTemplates`), and discriminates the model-carrying ones
- * with `kind: 'bundle'`. The product calls the bare apps **Services** and the model-carrying ones
- * **Templates**. So in this codebase `kind: 'bundle'` / `isBundle()` / `AppBundle` are the wire-level
- * names, and what the user reads for exactly those entries is "Template" (see /inference/templates).
- * Identifiers follow the wire; copy follows the product.
+ * Identifiers in this codebase follow the WIRE (`template` = any entry, `service` / `bundle` = the two
+ * kinds); the product words the user reads ("Service" / "Template") live only in the catalogue copy,
+ * see components/inference/catalogue-config.tsx.
  */
 export type AppTemplateKind = 'service' | 'bundle';
 
 /** Filter axis of the catalogue. Closed set, so buckets stay consistent across nodes. */
-export type AppTemplateCategory =
-  | 'image'
-  | 'video'
-  | 'llm'
-  | 'serving'
-  | 'notebook'
-  | 'embeddings'
-  | 'app';
+export type AppTemplateCategory = 'image' | 'video' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
 
 /** One thing a bundle pre-downloads. Display metadata: the template's own `command` does the fetching. */
 export type TemplateIncludedItem = {
@@ -84,6 +74,34 @@ export function isService(tpl: AppTemplate): boolean {
 export function includedSizeGb(tpl: AppTemplate): number | undefined {
   const sizes = (tpl.includes ?? []).map((i) => i.sizeGb).filter((s): s is number => typeof s === 'number');
   return sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) : undefined;
+}
+
+/** "3 models · 11.5 GB" — one-line summary of what a bundle brings, for cards and section heads. */
+export function includesSummary(tpl: AppTemplate): string | null {
+  const items = tpl.includes ?? [];
+  if (items.length === 0) {
+    return null;
+  }
+  const models = items.filter((i) => i.kind === 'model').length;
+  const noun = models > 0 ? (models === 1 ? 'model' : 'models') : items.length === 1 ? 'item' : 'items';
+  const count = models > 0 ? models : items.length;
+  const size = includedSizeGb(tpl);
+  return size != null ? `${count} ${noun} · ${size.toFixed(1)} GB` : `${count} ${noun}`;
+}
+
+/** Assumed sustained download rate, in MB/s — what the compute nodes we measured hold with aria2c. */
+const DOWNLOAD_MB_PER_SECOND = 25;
+
+/**
+ * Rough download time for a bundle's contents. An estimate, not a promise: the real rate depends on
+ * the node's uplink and Hugging Face's CDN, so callers should word it as one ("roughly N min").
+ */
+export function estimatedSetupMinutes(tpl: AppTemplate): number | null {
+  const size = includedSizeGb(tpl);
+  if (size == null || size <= 0) {
+    return null;
+  }
+  return Math.max(1, Math.round((size * 1024) / DOWNLOAD_MB_PER_SECOND / 60));
 }
 
 /**

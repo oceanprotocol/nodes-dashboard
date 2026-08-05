@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import CopyButton from '@/components/button/copy-button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import useJobTemplate from '@/components/hooks/use-job-template';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
@@ -25,10 +26,9 @@ import {
   parseServiceResources,
   toNodeUri,
 } from '@/services/inference-launch';
-import { fetchTemplates, findTemplateForService } from '@/services/service-templates';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { templatePrimaryPort } from '@/services/template-launch';
-import { AppTemplate, isBundle } from '@/types/templates';
+import { isBundle } from '@/types/templates';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -183,7 +183,7 @@ const ManageServicePage: React.FC = () => {
     buildSelectionQuery,
   } = useInferenceContext();
   const { account } = useOceanAccount();
-  const { getServiceStatus, serviceRestart, getServiceTemplates, isReady: p2pReady } = useP2P();
+  const { getServiceStatus, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeAuth();
 
   // The real service job, polled from the node until terminal.
@@ -267,57 +267,10 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
-  /**
-   * The template this service was launched from, when the URL didn't say. `selectedTemplate` only
-   * exists if the link carried `template=`, which the services table can only add when the BACKEND
-   * session record held enough to match (its listing strips `dockerCmd`, and a record with no `image`
-   * matches nothing) — and an in-flow redirect can drop the query altogether. Without it the page
-   * falls through to the Model card and claims "Unknown model" for an app that serves no model at all.
-   *
-   * The node's own job record always names image + dockerCmd, so match on that instead — the same
-   * image+command rule the table uses, which is what distinguishes a bundle from its parent service.
-   */
-  const [jobTemplate, setJobTemplate] = useState<AppTemplate | null>(null);
-  // The match is a second, node-side fetch — the Model card waits it out rather than flashing
-  // "Unknown model" at an app service for the half-second before the catalogue lands.
-  const [matchingTemplate, setMatchingTemplate] = useState(false);
-  // Container facts already looked up — the poll hands us a fresh `job` object every tick, and the
-  // catalogue fetch must not be repeated for facts that haven't changed.
-  const matchedKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (selectedTemplate || !job || !p2pReady) {
-      return;
-    }
-    const key = `${job.image ?? ''} ${(job.dockerCmd ?? []).join(' ')}`;
-    if (matchedKeyRef.current === key) {
-      return;
-    }
-    matchedKeyRef.current = key;
-    let cancelled = false;
-    setMatchingTemplate(true);
-    (async () => {
-      try {
-        const templates = await fetchTemplates(getServiceTemplates);
-        const match = findTemplateForService(templates, { image: job.image, dockerCmd: job.dockerCmd });
-        if (!cancelled) {
-          setJobTemplate(match);
-        }
-      } catch (error) {
-        // Let the next poll retry: a transient catalogue failure shouldn't permanently strand the page
-        // on the model card.
-        matchedKeyRef.current = null;
-        console.error('Failed to match this service back to a template:', error);
-      } finally {
-        if (!cancelled) {
-          setMatchingTemplate(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedTemplate, job, p2pReady, getServiceTemplates]);
-
+  // The template this service was launched from, when the URL didn't carry one (see useJobTemplate).
+  // The Model card waits the match out rather than flashing "Unknown model" at an app service for the
+  // half-second before the catalogue lands.
+  const { template: jobTemplate, matching: matchingTemplate } = useJobTemplate(job, !!selectedTemplate);
   // The URL-named template wins where it exists (it's the in-flow selection, and an Edit re-entry is
   // built from it); the job-matched one is the fallback above.
   const template = selectedTemplate ?? jobTemplate;

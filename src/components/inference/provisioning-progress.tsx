@@ -1,6 +1,7 @@
 import { NodeUri } from '@/contexts/P2PContext';
 import { useNodeAuth } from '@/contexts/node-auth-context';
 import { useServiceLogs } from '@/hooks/use-service-logs';
+import { parseProvisioning } from '@/services/provisioning-log';
 import { AppTemplate } from '@/types/templates';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -8,72 +9,6 @@ import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
 import { useCallback, useMemo } from 'react';
 import styles from './provisioning-progress.module.css';
-
-/**
- * Markers a bundle's provisioning script prints (documented in ocean-node's
- * docs/serviceTemplates/README.md). This is a convention, not a protocol — a bundle whose script
- * doesn't print them simply shows no progress, which is why the UI never blocks on it.
- */
-const RE_DOWNLOADING = /^\[models\] downloading (.+)$/;
-const RE_READY = /^\[models\] ready: (.+)$/;
-const RE_PRESENT = /^\[models\] already present: (.+)$/;
-const RE_FAILED = /^\[models\] WARNING: could not download (.+?)(?: —.*)?$/;
-const RE_COMPLETE = /^\[models\] bundle complete/;
-
-export type ProvisioningState = {
-  /** Names that finished downloading (or were already on disk). */
-  done: string[];
-  failed: string[];
-  /** What is downloading right now, if anything has been announced and hasn't finished. */
-  current: string | null;
-  /** The script printed its completion marker. */
-  complete: boolean;
-  /** Any marker at all was seen — until then we can't tell "not started" from "doesn't emit markers". */
-  seen: boolean;
-};
-
-export function parseProvisioning(lines: string[]): ProvisioningState {
-  const done = new Set<string>();
-  const failed = new Set<string>();
-  let current: string | null = null;
-  let complete = false;
-  let seen = false;
-
-  for (const raw of lines) {
-    // Docker multiplexes stdout/stderr with an 8-byte header per frame; the hook already splits on
-    // newlines, so just trim whatever control bytes survive at the edges.
-    const line = raw.replace(/^[\x00-\x08\x0b-\x1f]+/, '').trim();
-    if (!line.startsWith('[models]')) {
-      continue;
-    }
-    seen = true;
-    let match = RE_READY.exec(line) ?? RE_PRESENT.exec(line);
-    if (match) {
-      done.add(match[1]);
-      if (current === match[1]) {
-        current = null;
-      }
-      continue;
-    }
-    match = RE_FAILED.exec(line);
-    if (match) {
-      failed.add(match[1]);
-      if (current === match[1]) {
-        current = null;
-      }
-      continue;
-    }
-    match = RE_DOWNLOADING.exec(line);
-    if (match) {
-      current = match[1];
-      continue;
-    }
-    if (RE_COMPLETE.test(line)) {
-      complete = true;
-    }
-  }
-  return { done: [...done], failed: [...failed], current, complete, seen };
-}
 
 type ProvisioningProgressProps = {
   serviceId: string;
@@ -157,8 +92,7 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
         {state.current ? `Downloading ${state.current}…` : 'Waiting for the next download to start…'}
       </div>
       <div className={styles.note}>
-        The app is already reachable — refresh its tab once the models land and they&apos;ll appear in its
-        pickers.
+        The app is already reachable — refresh its tab once the models land and they&apos;ll appear in its pickers.
       </div>
       {(state.done.length > 0 || state.failed.length > 0) && (
         <ul className={styles.items}>

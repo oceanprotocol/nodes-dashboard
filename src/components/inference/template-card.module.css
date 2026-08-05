@@ -111,7 +111,7 @@
   font-size: 12px;
 }
 
-/* Templates only: what the bundle pre-downloads. Boxed off so a card that has it still reads as the
+/* Bundles only: what the bundle pre-downloads. Boxed off so a card that has it still reads as the
    same card, with one extra block, rather than as a different kind of tile. */
 
 .included {

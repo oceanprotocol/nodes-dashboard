@@ -1,6 +1,6 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
-import TemplateIncludes, { includesSummary } from '@/components/inference/template-includes';
+import BundleIncludes from '@/components/inference/bundle-includes';
 import { templateLogo } from '@/components/inference/template-logos';
 import {
   CATEGORY_META,
@@ -9,16 +9,16 @@ import {
   templateVendor,
   visualFor,
 } from '@/components/inference/template-visual';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, includesSummary } from '@/types/templates';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import cx from 'classnames';
 import { CSSProperties } from 'react';
-import styles from './service-card.module.css';
+import styles from './template-card.module.css';
 
-/** A service decorated with everything the card renders — all of it derived from the template alone. */
-export type DecoratedService = {
+/** A catalogue entry decorated with everything the card renders — all derived from the template alone. */
+export type DecoratedTemplate = {
   tpl: AppTemplate;
   category: TemplateCategory;
   accent: string;
@@ -34,16 +34,16 @@ export type DecoratedService = {
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
   /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
-  /** "2 models · 5.0 GB" for a template that pre-downloads things; null for a bare service. */
+  /** "2 models · 5.0 GB" for a bundle; null for a bare service. */
   included: string | null;
 };
 
-export function decorate(tpl: AppTemplate): DecoratedService {
+export function decorate(tpl: AppTemplate): DecoratedTemplate {
   const visual = visualFor(tpl.id, tpl.category);
   const hw = templateHardware(tpl);
   // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
   // SD-storage for RAM, DNS for disk.
-  const meta: DecoratedService['meta'] = [
+  const meta: DecoratedTemplate['meta'] = [
     {
       key: 'hw',
       Icon: hw.gpu ? GpuIcon : MemoryIcon,
@@ -76,8 +76,8 @@ export function decorate(tpl: AppTemplate): DecoratedService {
   };
 }
 
-type ServiceCardProps = {
-  item: DecoratedService;
+type TemplateCardProps = {
+  item: DecoratedTemplate;
   onOpen: (tpl: AppTemplate) => void;
 };
 
@@ -85,12 +85,11 @@ type ServiceCardProps = {
 const VISIBLE_INCLUDES = 3;
 
 /**
- * Catalogue tile for one catalogue entry, used by BOTH catalogues: category-accented, opens the
- * details modal (it never launches). A template — a service whose `command` pre-downloads a curated
- * model set — renders one extra block listing what it brings; a bare service simply has nothing to
- * list, so the same card covers both and the two pages read as one system.
+ * Catalogue tile for one entry, used by BOTH catalogues: category-accented, opens the details modal
+ * (it never launches). A bundle renders one extra block listing the models it brings; a bare service
+ * has nothing to list, so the same card covers both and the two pages read as one system.
  */
-const ServiceCard: React.FC<ServiceCardProps> = ({ item, onOpen }) => (
+const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
   <Card
     ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}${item.included ? `, ${item.included} included` : ''}`}
     className={styles.card}
@@ -139,7 +138,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ item, onOpen }) => (
     {item.included && (
       <div className={styles.included}>
         <span className={styles.includedHead}>{item.included} included</span>
-        <TemplateIncludes compact max={VISIBLE_INCLUDES} template={item.tpl} />
+        <BundleIncludes compact max={VISIBLE_INCLUDES} template={item.tpl} />
       </div>
     )}
 
@@ -155,4 +154,4 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ item, onOpen }) => (
   </Card>
 );
 
-export default ServiceCard;
+export default TemplateCard;

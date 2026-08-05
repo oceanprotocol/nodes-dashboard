@@ -2,7 +2,7 @@ import GpuIcon from '@/assets/icons/gpu.svg';
 import Button from '@/components/button/button';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { ResolvedTemplateEnv, TemplateEnvsState } from '@/components/hooks/use-template-envs';
-import TemplateIncludes, { estimatedSetupMinutes, includesSummary } from '@/components/inference/template-includes';
+import BundleIncludes from '@/components/inference/bundle-includes';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import { templateLogo } from '@/components/inference/template-logos';
 import { templateHardware, templateImageRef, visualFor } from '@/components/inference/template-visual';
@@ -10,7 +10,7 @@ import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { SelectedToken } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
-import { AppTemplate, isBundle } from '@/types/templates';
+import { AppTemplate, estimatedSetupMinutes, includesSummary, isBundle } from '@/types/templates';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
@@ -211,9 +211,10 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
       {template && visual && hw && (
         <>
           <div className={styles.header} style={{ '--accent': visual.meta.accent } as CSSProperties}>
-            {/* The brand mark REPLACES the category glyph — see the same note in service-card. */}
+            {/* The brand mark REPLACES the category glyph — see the same note in template-card. */}
             <span className={styles.tile}>
               {logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img alt="" className={styles.tileLogo} src={logo} />
               ) : visual.mono ? (
                 <span className={styles.tileMono}>{visual.mono}</span>
@@ -289,12 +290,12 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               <div className={styles.sectionHead}>
                 <h4>Included</h4>
                 <div>
-                  Downloaded into the app on first launch — nothing to install by hand. What you build with them
-                  inside the app is up to you.
+                  Downloaded into the app on first launch — nothing to install by hand. What you build with them inside
+                  the app is up to you.
                 </div>
               </div>
               <div className={styles.panel}>
-                <TemplateIncludes template={template} />
+                <BundleIncludes template={template} />
                 <div className={styles.includesNote}>
                   {includesSummary(template)}
                   {setupMinutes != null && ` · ready in roughly ${setupMinutes} min after launch`}

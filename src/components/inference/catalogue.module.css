@@ -1,7 +1,7 @@
 /* Shared by both catalogues — /inference/services and /inference/templates. They browse the same kind
    of thing (a launchable app) on the same two axes, so they get one stylesheet rather than two that
    drift: same toolbar, same pills, same grid, same states. What differs is only what the cards carry
-   (a template lists the models it brings) and the copy. Cards live in service-card.module.css. */
+   (a bundle lists the models it brings) and the copy. Cards live in template-card.module.css. */
 
 /* Toolbar */
 

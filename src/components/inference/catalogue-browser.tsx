@@ -1,7 +1,10 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import Button from '@/components/button/button';
-import ServiceCard, { DecoratedService, decorate } from '@/components/inference/service-card';
+import { CatalogueCopy } from '@/components/inference/catalogue-config';
+import CatalogueSkeleton from '@/components/inference/catalogue-skeleton';
+import TemplateCard, { DecoratedTemplate, decorate } from '@/components/inference/template-card';
 import { CATEGORY_META, CATEGORY_ORDER, TemplateCategory } from '@/components/inference/template-visual';
+import Input from '@/components/input/input';
 import { firstQueryValue } from '@/services/inference-url';
 import { AppTemplate } from '@/types/templates';
 import AppsIcon from '@mui/icons-material/Apps';
@@ -11,10 +14,9 @@ import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import MemoryIcon from '@mui/icons-material/Memory';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SearchIcon from '@mui/icons-material/Search';
-import Input from '@/components/input/input';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './catalogue.module.css';
 
 type HardwareFilter = 'all' | 'gpu' | 'cpu';
@@ -43,9 +45,9 @@ const HARDWARE_LABEL: Record<Exclude<HardwareFilter, 'all'>, string> = { gpu: 'G
 
 /**
  * Free text matches everything an entry is browsed by. `outcome` and the included models are only set
- * on templates, so a service simply matches on fewer fields — no separate search per catalogue.
+ * on bundles, so a bare service simply matches on fewer fields — no separate search per catalogue.
  */
-function matchesQuery(item: DecoratedService, query: string): boolean {
+function matchesQuery(item: DecoratedTemplate, query: string): boolean {
   if (!query) {
     return true;
   }
@@ -62,53 +64,31 @@ function matchesQuery(item: DecoratedService, query: string): boolean {
   return haystack.includes(query.toLowerCase());
 }
 
-function matchesHardware(item: DecoratedService, hardware: HardwareFilter): boolean {
+function matchesHardware(item: DecoratedTemplate, hardware: HardwareFilter): boolean {
   return hardware === 'all' || (hardware === 'gpu' ? item.gpu : !item.gpu);
 }
 
 type CatalogueBrowserProps = {
-  /** Entries to browse — already narrowed to one catalogue (services or templates). */
+  /** Entries to browse — already narrowed to one catalogue (see CatalogueConfig.select). */
   items: AppTemplate[];
   loading: boolean;
   error: string | null;
   onOpen: (tpl: AppTemplate) => void;
-  /** Heading and lead of the toolbar. */
-  heading: string;
-  lead: ReactNode;
-  /** Noun used throughout the counts, summary and empty hints ("service" / "template"). */
-  noun: string;
-  nounPlural: string;
-  searchPlaceholder: string;
-  /** Route the filter state is mirrored into, so a refresh or a shared link restores it. */
-  pathname: string;
-  /** Shown instead of the toolbar when this catalogue has no entries at all — the two pages differ. */
-  emptyCatalogue: ReactNode;
+  /** Everything this catalogue is called, plus the route the filters are mirrored into. */
+  copy: CatalogueCopy;
 };
 
 /**
- * The catalogue UI shared by /inference/services and /inference/templates: two-axis filtering —
- * category (the primary, data-driven axis, as a wrapping pill row) narrowed by hardware (a fixed
- * triple, as a compact segmented control) plus free text — over a grid of cards, with the active
- * combination mirrored into the URL. Each axis counts against the OTHER axis's current result, so a
- * count always answers "how many would I get if I clicked this" rather than "how many exist".
+ * The catalogue UI shared by both catalogue pages: two-axis filtering — category (the primary,
+ * data-driven axis, as a wrapping pill row) narrowed by hardware (a fixed triple, as a compact
+ * segmented control) plus free text — over a grid of cards, with the active combination mirrored into
+ * the URL. Each axis counts against the OTHER axis's current result, so a count always answers "how
+ * many would I get if I clicked this" rather than "how many exist".
  *
- * Both catalogues browse the same kind of thing (a launchable app the node published) and differ only
- * in which entries they list and what the cards carry, so they share this component rather than two
- * copies that drift. Selecting a card commits nothing — the page owns the details modal and launch.
+ * Selecting a card commits nothing — the page owns the details modal and launch.
  */
-const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({
-  items,
-  loading,
-  error,
-  onOpen,
-  heading,
-  lead,
-  noun,
-  nounPlural,
-  searchPlaceholder,
-  pathname,
-  emptyCatalogue,
-}) => {
+const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, error, onOpen, copy }) => {
+  const { heading, lead, noun, nounPlural, searchPlaceholder, pathname, empty } = copy;
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
@@ -330,59 +310,14 @@ const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({
     </>
   );
 
-  // Toolbar counts are meaningless before the catalogue lands, so the loading state renders the header
-  // with shimmering stand-ins for the controls and keeps the grid's rhythm with skeleton cards.
-  const renderLoading = () => (
-    <>
-      <div className={styles.headerRow}>
-        {renderHeaderText()}
-        <div className={styles.skeletonToolbar}>
-          <div className="shimmer" style={{ height: 36, width: 210, borderRadius: 24 }} />
-          <div className="shimmer" style={{ height: 36, width: 200, borderRadius: 100 }} />
-        </div>
-      </div>
-      <div className={styles.skeletonPills}>
-        {[92, 118, 104, 112, 96, 108].map((width) => (
-          <div className="shimmer" key={width} style={{ height: 32, width, borderRadius: 100 }} />
-        ))}
-      </div>
-      <div className={styles.grid}>
-        {[
-          ['70%', '80%'],
-          ['86%', '58%'],
-          ['62%', '74%'],
-          ['78%', '66%'],
-          ['66%', '84%'],
-          ['82%', '60%'],
-        ].map(([first, second]) => (
-          <div className={styles.skeletonCard} key={`${first}-${second}`}>
-            <div className={styles.skeletonCardTop}>
-              <div className="shimmer" style={{ height: 38, width: 38, flex: '0 0 38px', borderRadius: 12 }} />
-              <div className={styles.skeletonLines}>
-                <div className="shimmer" style={{ height: 12, width: first }} />
-                <div className="shimmer shimmerSoft" style={{ height: 9, width: 64 }} />
-              </div>
-            </div>
-            <div className="shimmer shimmerSoft" style={{ height: 9 }} />
-            <div className="shimmer shimmerSoft" style={{ height: 9, width: second }} />
-            <div className={styles.skeletonChips}>
-              <div className="shimmer" style={{ height: 22, width: 58, borderRadius: 16 }} />
-              <div className="shimmer shimmerSoft" style={{ height: 22, width: 78, borderRadius: 16 }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-
   if (loading) {
-    return renderLoading();
+    return <CatalogueSkeleton header={renderHeaderText()} />;
   }
   if (error) {
     return <div className={cx(styles.stateBox, 'textErrorDarker')}>{error}</div>;
   }
   if (decorated.length === 0) {
-    return <>{emptyCatalogue}</>;
+    return <>{empty}</>;
   }
 
   return (
@@ -391,7 +326,7 @@ const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({
       {visible.length > 0 ? (
         <div className={styles.grid}>
           {visible.map((item) => (
-            <ServiceCard item={item} key={item.tpl.id} onOpen={onOpen} />
+            <TemplateCard item={item} key={item.tpl.id} onOpen={onOpen} />
           ))}
         </div>
       ) : (

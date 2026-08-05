@@ -1,8 +1,8 @@
 import Card from '@/components/card/card';
-import { decorate } from '@/components/inference/service-card';
-import TemplateIncludes, { includesSummary } from '@/components/inference/template-includes';
+import BundleIncludes from '@/components/inference/bundle-includes';
+import { decorate } from '@/components/inference/template-card';
 import { templateImageRef } from '@/components/inference/template-visual';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, includesSummary } from '@/types/templates';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
@@ -127,7 +127,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
             // image actually matching the template.
             <div className={styles.group}>
               <span className={styles.eyebrow}>Included</span>
-              <TemplateIncludes template={template} />
+              <BundleIncludes template={template} />
               {includesLine && <span className={styles.includesNote}>{includesLine}</span>}
             </div>
           )}

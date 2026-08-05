@@ -4,29 +4,30 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import useServiceTemplates from '@/components/hooks/use-service-templates';
 import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-template-envs';
 import CatalogueBrowser from '@/components/inference/catalogue-browser';
+import { CatalogueConfig } from '@/components/inference/catalogue-config';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import TemplateDetailsModal from '@/components/inference/template-details-modal';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
-import { selectServices } from '@/services/service-templates';
 import { templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, requiredEnvVars } from '@/types/templates';
-import cx from 'classnames';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
-import styles from './catalogue.module.css';
 
 /**
- * Services catalogue: pick a ready-made containerized app (ComfyUI, JupyterLab, …), review it in the
- * details modal, then launch straight onto one of the environments that can run it — or hand off to the
- * full env picker ("Advanced setup"). Browsing (filters, grid, states) is CatalogueBrowser, shared with
- * the templates catalogue. Templates are served by the node (getServiceTemplates); see
- * useServiceTemplates. Templates (the same apps with models pre-loaded — `kind: 'bundle'` on the wire)
- * are filtered out here; they have their own catalogue at /inference/templates.
+ * Both catalogue pages: /inference/services (bare apps) and /inference/templates (the same apps with
+ * models pre-loaded — `kind: 'bundle'` on the wire). Pick an entry, review it in the details modal,
+ * then launch straight onto one of the environments that can run it — or hand off to the full env
+ * picker ("Advanced setup").
+ *
+ * The two pages differ only in which entries they list and what they're called, so that lives in
+ * `catalogue-config.tsx` and everything else is shared: one catalogue is fetched from the node
+ * (useServiceTemplates), one browser renders it, and one launch path serves both — a bundle is a
+ * template on the wire, so the wizard is `/inference/services/[templateId]/…` either way.
  */
-const ServicesPage: React.FC = () => {
+const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) => {
   const router = useRouter();
   const {
     setSelectedTemplate,
@@ -37,10 +38,9 @@ const ServicesPage: React.FC = () => {
     buildSelectionQuery,
   } = useInferenceContext();
 
-  const { templates: catalogue, loading, error } = useServiceTemplates();
-  // Templates live on their own page (/inference/templates) — one listed here too would appear twice.
-  const templates = useMemo(() => selectServices(catalogue), [catalogue]);
-  // The template whose details are open. Picking one commits nothing — only a Continue/Advanced does.
+  const { templates, loading, error } = useServiceTemplates();
+  const entries = useMemo(() => catalogue.select(templates), [catalogue, templates]);
+  // The entry whose details are open. Picking one commits nothing — only a Continue/Advanced does.
   const [openTemplate, setOpenTemplate] = useState<AppTemplate | null>(null);
   // Session length edited in the modal but kept local until a Continue/Advanced handoff.
   const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
@@ -58,10 +58,13 @@ const ServicesPage: React.FC = () => {
     setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
   };
 
-  // Continue from an env card: commit template + env + token + duration, then go straight to payment.
-  // The resources step is skipped (this modal already picked the env) and so is config — a fresh
-  // template launch needs no env vars. The query is built from overrides so it doesn't depend on
-  // setState timing, and carries the template's pinned CPU/RAM/disk so payment books that allocation.
+  /**
+   * Continue from an env card: commit template + env + token + duration, then step forward. The
+   * resources step is skipped (this modal already picked the env), and so is config unless the template
+   * declares a required env var — without that one the container starts and fails. The query is built
+   * from overrides so it doesn't depend on setState timing, and carries the template's pinned
+   * CPU/RAM/disk so payment books that allocation (a bundle's disk floor covers its weights).
+   */
   const continueToPayment = (entry: ResolvedTemplateEnv, token: SelectedToken, gpuSelection: GpuSelection) => {
     if (!openTemplate) {
       return;
@@ -71,8 +74,6 @@ const ServicesPage: React.FC = () => {
     setSelectedEnv(env);
     setSelectedToken(token);
     setJobDurationSeconds(durationSeconds);
-    // A template that declares a required env var gets the config step first; otherwise straight to
-    // payment (the modal already picked the env, so resources is skipped either way).
     const next = requiredEnvVars(openTemplate).length > 0 ? 'config' : 'payment';
     router.push({
       pathname: `/inference/services/${encodeURIComponent(openTemplate.id)}/${next}`,
@@ -109,24 +110,16 @@ const ServicesPage: React.FC = () => {
         title="Inference"
         subTitle="Launch an app on an Ocean Node"
         contentBetween={
-          <InferenceStepper currentStep="template" flowType={InferenceFlowType.Template} kindLabel="Service" />
+          <InferenceStepper
+            currentStep="template"
+            flowType={InferenceFlowType.Template}
+            kindLabel={catalogue.kindLabel}
+          />
         }
       />
       <div className="pageContentWrapper">
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-          <CatalogueBrowser
-            emptyCatalogue={<div className={cx(styles.stateBox, 'textSecondary')}>No services available.</div>}
-            error={error}
-            heading="Pick a service"
-            items={templates}
-            lead="Ready-made containerized apps — pick one, review what’s inside, choose an environment, pay and launch. Models are yours to add from the app once it’s running."
-            loading={loading}
-            noun="service"
-            nounPlural="services"
-            onOpen={openDetails}
-            pathname="/inference/services"
-            searchPlaceholder="Search services"
-          />
+          <CatalogueBrowser copy={catalogue} error={error} items={entries} loading={loading} onOpen={openDetails} />
         </Card>
       </div>
 
@@ -143,4 +136,4 @@ const ServicesPage: React.FC = () => {
   );
 };
 
-export default ServicesPage;
+export default CataloguePage;
