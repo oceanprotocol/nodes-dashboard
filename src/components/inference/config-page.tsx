@@ -5,9 +5,11 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import ModelParameters, { ModelParametersHandle } from '@/components/inference/model-parameters';
+import TemplateBucketPicker from '@/components/inference/template-bucket-picker';
 import Input from '@/components/input/input';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
+import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import { validateEnvValue } from '@/types/templates';
@@ -31,6 +33,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     selectedModels,
     selectedEnv,
     selectedTemplate,
+    selectedBucketId,
+    setSelectedBucketId,
     templateEnvValues,
     setTemplateEnvValues,
     hydrateFromUrlFinished,
@@ -44,9 +48,20 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Surfaced when submit can't proceed for a reason that isn't a per-field validation error.
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Computed once — reused by the bounce guard, the stepper and the picker/message render below.
+  const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
+  // Whether the bucket picker is actually shown on this page (edit re-entry never shows it — see the
+  // guard on TemplateBucketPicker below).
+  const showsPicker = !isEditMode && needsBucketPicker;
+
   // Template flow: live values for the template's userConfigurableEnvVars, seeded from context (so a
   // back-nav keeps what was typed) and per-field validation errors. Secrets — never leave the client.
-  const envSpecs = useMemo(() => selectedTemplate?.userConfigurableEnvVars ?? [], [selectedTemplate]);
+  // Excludes the workflow env vars (COMFY_WORKFLOW_ID / COMFY_WORKFLOW) — those are set automatically
+  // from the template's single workflow at launch, so a free-text box for them would just be overwritten.
+  const envSpecs = useMemo(
+    () => (selectedTemplate?.userConfigurableEnvVars ?? []).filter((spec) => !WORKFLOW_ENV_VAR_KEYS.includes(spec.key)),
+    [selectedTemplate]
+  );
   const [envInputs, setEnvInputs] = useState<Record<string, string>>({});
   const [envErrors, setEnvErrors] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -69,9 +84,19 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         // In edit mode the env is inherited from the running service and the resources step is skipped.
         router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
       }
-    } else if (isTemplateFlow && !selectedTemplate) {
-      // No template restored (deep link / refresh with a bad id) — back to the picker.
-      router.replace({ pathname: '/inference/templates', query: router.query });
+    } else if (isTemplateFlow) {
+      if (!selectedTemplate) {
+        // No template restored (deep link / refresh with a bad id) — back to the picker.
+        router.replace({ pathname: '/inference/templates', query: router.query });
+      } else if (!selectedEnv && !isEditMode && needsBucketPicker) {
+        // A template needing the bucket picker requires selectedEnv (its nodeInfo) to render one —
+        // without it (deep link / refresh with no peerId/env) this page would show an empty card that
+        // still lets Next through to payment with no bucket. Back to resources to pick an env first.
+        router.replace({
+          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+          query: router.query,
+        });
+      }
     }
   }, [
     isCustomModelFlow,
@@ -81,7 +106,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     selectedModels.length,
     selectedEnv,
     selectedTemplate,
+    needsBucketPicker,
     isEditMode,
+    params.templateId,
     router,
   ]);
 
@@ -193,7 +220,14 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         moreReadable
         title="Inference"
         subTitle="Launch a model on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="config" edit={isEditMode} flowType={flowType} />}
+        contentBetween={
+          <InferenceStepper
+            currentStep="config"
+            edit={isEditMode}
+            flowType={flowType}
+            showTemplateConfig={needsBucketPicker}
+          />
+        }
       />
       {resolvingModels || hydrationFailed ? (
         <div className="pageContentWrapper">
@@ -257,12 +291,19 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                     : 'Optional settings for this app.'}
                 </div>
               </div>
-              {envSpecs.length === 0 ? (
-                <div className="textSecondary">
-                  This template has no configurable settings.
-                  {isEditMode ? ' Relaunching restarts the container fresh.' : ''}
-                </div>
-              ) : (
+              {/* Edit restarts the same container (serviceRestart has no outputBucketId, keeps whatever
+                  bucket is already mounted) — nothing to pick here, so skip the picker. */}
+              {selectedEnv && showsPicker && (
+                <TemplateBucketPicker
+                  nodeInfo={selectedEnv.nodeInfo}
+                  onSelect={setSelectedBucketId}
+                  selectedBucketId={selectedBucketId}
+                />
+              )}
+              {isEditMode && needsBucketPicker && (
+                <div className="textSecondary">The original persistent-storage bucket stays mounted.</div>
+              )}
+              {envSpecs.length > 0 ? (
                 envSpecs.map((spec) => (
                   <Input
                     errorText={envErrors[spec.key]}
@@ -286,7 +327,12 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                     value={envInputs[spec.key] ?? ''}
                   />
                 ))
-              )}
+              ) : !showsPicker ? (
+                <div className="textSecondary">
+                  This template has no configurable settings.
+                  {isEditMode ? ' Relaunching restarts the container fresh.' : ''}
+                </div>
+              ) : null}
               {isEditMode && (
                 <div className="textSecondary">
                   Secrets you entered on the original launch aren&apos;t stored — re-enter any tokens you need.

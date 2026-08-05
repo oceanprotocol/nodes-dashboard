@@ -41,6 +41,8 @@ export type InferenceSelectionQuery = Partial<{
   params: string;
   /** Selected app-template id (Templates flow) — the `[templateId]` route param, restored on reload. */
   template: string;
+  /** Persistent-storage bucket the service mounts at /data/outputs (model cache + outputs). */
+  bucket: string;
   /** '1' when re-entering the flow to edit a running service — skips env selection & payment. */
   edit: string;
   /** Running service being edited/prolonged — target of serviceExtend / stop-on-relaunch. */
@@ -88,6 +90,9 @@ type InferenceContextType = {
   /** Selected app template (Templates flow) — an APP to launch, distinct from the HF-model flows. */
   selectedTemplate: AppTemplate | null;
   setSelectedTemplate: (template: AppTemplate | null) => void;
+  /** Persistent-storage bucket the service mounts at /data/outputs (model cache + outputs). */
+  selectedBucketId: string | null;
+  setSelectedBucketId: (id: string | null) => void;
   /**
    * User-supplied values for the selected template's `userConfigurableEnvVars` (e.g. HF_TOKEN),
    * committed on the template config step. Kept in memory only — these are secrets, never put in the
@@ -123,6 +128,7 @@ type SelectionOverrides = {
   engine?: InferenceEngine;
   modelParamsByModel?: Record<string, ModelParameters>;
   templateId?: string;
+  bucketId?: string;
 };
 
 export const DEFAULT_JOB_DURATION_SECONDS = 3600;
@@ -156,6 +162,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [engine, setEngine] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
+  const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
   const [templateEnvValues, setTemplateEnvValues] = useState<Record<string, string>>({});
   const [hydrateFromUrlFinished, setHydrateFromUrlFinished] = useState(false);
   // True when the URL described a selection we couldn't fully rebuild (HF/env fetch failed or a
@@ -246,6 +253,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const duration = overrides?.durationSeconds ?? jobDurationSeconds;
       const selectedEngine = overrides?.engine ?? engine;
       const templateId = overrides?.templateId ?? selectedTemplate?.id;
+      const bucketId = overrides?.bucketId ?? selectedBucketId;
 
       const query: InferenceSelectionQuery = {};
       const modelIds = models.map((m) => m.id);
@@ -277,6 +285,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (templateId) {
         query.template = templateId;
       }
+      if (bucketId) {
+        query.bucket = bucketId;
+      }
       const encodedParams = encodeModelParams(params);
       if (encodedParams) {
         query.params = encodedParams;
@@ -302,6 +313,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       engine,
       modelParamsByModel,
       selectedTemplate,
+      selectedBucketId,
       router.query.edit,
       router.query.serviceId,
     ]
@@ -336,6 +348,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     const restoredEngine: InferenceEngine =
       engineParam === 'vllm' || engineParam === 'llamacpp' ? engineParam : (paramEngine ?? DEFAULT_INFERENCE_ENGINE);
     setEngine(restoredEngine);
+    // Plain id, not a secret (unlike templateEnvValues), and no async fetch needed (unlike
+    // restoreTemplate) — restored synchronously so a template-restore failure can't discard it.
+    setSelectedBucketId(firstQueryValue(q.bucket) ?? null);
 
     // Each restore reports whether it fully succeeded, so we can tell "URL carried a selection we
     // failed to rebuild" (a real error — don't bounce the user) from "URL had nothing to restore".
@@ -518,6 +533,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setParamsForModel,
       selectedTemplate,
       setSelectedTemplate,
+      selectedBucketId,
+      setSelectedBucketId,
       templateEnvValues,
       setTemplateEnvValues,
       clearSelection: () => {
@@ -529,6 +546,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setEngine(DEFAULT_INFERENCE_ENGINE);
         setModelParamsByModel({});
         setSelectedTemplate(null);
+        setSelectedBucketId(null);
         setTemplateEnvValues({});
       },
       hydrateFromUrlFinished,
@@ -550,6 +568,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       modelParamsByModel,
       setParamsForModel,
       selectedTemplate,
+      selectedBucketId,
       templateEnvValues,
       hydrateFromUrlFinished,
       hydrationFailed,

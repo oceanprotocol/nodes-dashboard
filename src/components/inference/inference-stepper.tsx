@@ -7,10 +7,12 @@ type InferenceStepperProps = {
   flowType: InferenceFlowType;
   /** Edit re-entry: hides the (skipped) Resources step. */
   edit?: boolean;
+  /** Fresh template launch that needs the Config step — see templateNeedsBucketPicker. */
+  showTemplateConfig?: boolean;
 };
 
-const InferenceStepper: React.FC<InferenceStepperProps> = ({ currentStep, flowType, edit }) => {
-  return <Stepper currentStep={currentStep} steps={getInferenceSteps(flowType, edit)} />;
+const InferenceStepper: React.FC<InferenceStepperProps> = ({ currentStep, flowType, edit, showTemplateConfig }) => {
+  return <Stepper currentStep={currentStep} steps={getInferenceSteps(flowType, edit, showTemplateConfig)} />;
 };
 
 export default InferenceStepper;

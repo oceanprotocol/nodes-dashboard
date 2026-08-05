@@ -5,7 +5,12 @@ export type InferenceStep = 'model' | 'template' | 'resources' | 'config' | 'pay
 // `edit` re-entry keeps the same environment, so the resources step is skipped entirely.
 // The quick-start (DefaultModel) flow picks a whole package — model + hardware + engine preset —
 // so its env auto-matches on the package step and both Resources and Config are skipped.
-export const getInferenceSteps = (flowType: InferenceFlowType, edit = false): Step<InferenceStep>[] => [
+export const getInferenceSteps = (
+  flowType: InferenceFlowType,
+  edit = false,
+  /** Fresh template launch that ships workflows/needs a bucket — see templateNeedsBucketPicker. */
+  showTemplateConfig = false
+): Step<InferenceStep>[] => [
   {
     key: 'model',
     label: flowType === InferenceFlowType.DefaultModel ? 'Package' : 'Model',
@@ -17,8 +22,11 @@ export const getInferenceSteps = (flowType: InferenceFlowType, edit = false): St
     key: 'config',
     label: 'Config',
     // Templates skip config on a fresh launch (env vars optional) but show it when editing a running
-    // service — reconfiguring the env vars is the whole point of a template edit.
-    hidden: flowType === InferenceFlowType.DefaultModel || (flowType === InferenceFlowType.Template && !edit),
+    // service — reconfiguring the env vars is the whole point of a template edit — or when
+    // templateNeedsBucketPicker (that pick must happen before payment).
+    hidden:
+      flowType === InferenceFlowType.DefaultModel ||
+      (flowType === InferenceFlowType.Template && !edit && !showTemplateConfig),
   },
   { key: 'payment', label: edit ? 'Relaunch' : 'Payment' },
 ];

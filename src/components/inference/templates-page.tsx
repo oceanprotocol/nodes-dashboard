@@ -14,7 +14,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { firstQueryValue } from '@/services/inference-url';
-import { templatePinnedSizing } from '@/services/template-launch';
+import { templateNeedsBucketPicker, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
 import AppsIcon from '@mui/icons-material/Apps';
@@ -76,6 +76,7 @@ function matchesHardware(item: DecoratedTemplate, hardware: HardwareFilter): boo
 const TemplatesPage: React.FC = () => {
   const router = useRouter();
   const {
+    selectedTemplate,
     setSelectedTemplate,
     setSelectedEnv,
     setSelectedToken,
@@ -218,9 +219,10 @@ const TemplatesPage: React.FC = () => {
     setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
   };
 
-  // Continue from an env card: commit template + env + token + duration, then go straight to payment.
-  // The resources step is skipped (this modal already picked the env) and so is config — a fresh
-  // template launch needs no env vars. The query is built from overrides so it doesn't depend on
+  // Continue from an env card: commit template + env + token + duration, then go to payment. The
+  // resources step is skipped (this modal already picked the env), and so is config — unless the
+  // template needs a bucket pick, which must happen before payment (a bad bucket costs the escrow
+  // claim, not just a failed page). The query is built from overrides so it doesn't depend on
   // setState timing, and carries the template's pinned CPU/RAM/disk so payment books that allocation.
   const continueToPayment = (entry: ResolvedTemplateEnv, token: SelectedToken, gpuSelection: GpuSelection) => {
     if (!openTemplate) {
@@ -231,8 +233,9 @@ const TemplatesPage: React.FC = () => {
     setSelectedEnv(env);
     setSelectedToken(token);
     setJobDurationSeconds(durationSeconds);
+    const nextStep = templateNeedsBucketPicker(openTemplate) ? 'config' : 'payment';
     router.push({
-      pathname: `/inference/templates/${encodeURIComponent(openTemplate.id)}/payment`,
+      pathname: `/inference/templates/${encodeURIComponent(openTemplate.id)}/${nextStep}`,
       query: buildSelectionQuery({
         templateId: openTemplate.id,
         peerId: env.nodeInfo.id,
@@ -422,7 +425,13 @@ const TemplatesPage: React.FC = () => {
         moreReadable
         title="Inference"
         subTitle="Launch an app on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="template" flowType={InferenceFlowType.Template} />}
+        contentBetween={
+          <InferenceStepper
+            currentStep="template"
+            flowType={InferenceFlowType.Template}
+            showTemplateConfig={templateNeedsBucketPicker(selectedTemplate)}
+          />
+        }
       />
       <div className="pageContentWrapper">
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
