@@ -1,5 +1,6 @@
 import Card from '@/components/card/card';
 import { decorate } from '@/components/inference/service-card';
+import TemplateIncludes, { includesSummary } from '@/components/inference/template-includes';
 import { templateImageRef, visualFor } from '@/components/inference/template-visual';
 import { AppTemplate } from '@/types/templates';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -60,6 +61,12 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
       value: spec.sensitive ? '••••••••' : (envValues?.[spec.key] ?? ''),
     }));
 
+  // What the bundle pre-downloaded, straight from the node's `includes[]`. Gated on the list being
+  // non-empty rather than on isBundle: a node that publishes includes without the `kind` field still
+  // has something worth showing, and a bare service simply has no list.
+  const includes = template.includes ?? [];
+  const includesLine = includesSummary(template);
+
   const port = template.exposedPorts?.[0];
   const templateRef = templateImageRef(template);
   // The running image wins where it's known; flag a divergence so a link naming a since-swapped
@@ -107,6 +114,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
           </span>
         </span>
         <span className={styles.chips}>
+          {includesLine && <span className={cx('chip', 'chipAccent1', styles.chip)}>{includesLine}</span>}
           <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
           <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
         </span>
@@ -123,6 +131,17 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
             </p>
           )}
           {template.description && <p className={styles.desc}>{template.description}</p>}
+
+          {includes.length > 0 && (
+            // First group in the panel: on a running service this is what the user most often wants to
+            // check ("which weights are in there?"), and unlike the rows below it doesn't depend on the
+            // image actually matching the template.
+            <div className={styles.group}>
+              <span className={styles.eyebrow}>Included</span>
+              <TemplateIncludes template={template} />
+              {includesLine && <span className={styles.includesNote}>{includesLine}</span>}
+            </div>
+          )}
 
           <div className={styles.group}>
             <span className={styles.eyebrow}>Container</span>

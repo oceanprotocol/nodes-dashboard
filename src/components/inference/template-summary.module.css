@@ -193,6 +193,12 @@
   }
 }
 
+.includesNote {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
 .hardwareFallback {
   font-size: 13px;
   color: var(--text-secondary);

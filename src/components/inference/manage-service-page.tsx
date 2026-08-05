@@ -652,7 +652,9 @@ const ManageServicePage: React.FC = () => {
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div className={styles.howToHead}>
                 <h3>{isBundleService ? 'Template' : 'Service'}</h3>
-                <span className="textSecondary">Expand for container details</span>
+                <span className="textSecondary">
+                  {isBundleService ? 'Expand for models and container details' : 'Expand for container details'}
+                </span>
               </div>
               <TemplateSummary runningImageRef={runningImageRef ?? undefined} template={selectedTemplate} />
             </Card>
