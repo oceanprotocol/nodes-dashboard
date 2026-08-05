@@ -62,18 +62,25 @@
   font-size: 12px;
 }
 
+/* The name doubles as the link to the item's source (HF repo / download URL). Underlined only on
+   hover so a list of five models doesn't read as a wall of links. */
+.nameLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.nameLink:hover,
+.nameLink:focus-visible {
+  color: var(--accent1);
+  text-decoration: underline;
+}
+
 .repo {
   overflow: hidden;
   color: var(--text-secondary);
   font-size: 11px;
   white-space: nowrap;
-  text-decoration: none;
   text-overflow: ellipsis;
-}
-
-.repo:hover {
-  color: var(--accent1);
-  text-decoration: underline;
 }
 
 .size {

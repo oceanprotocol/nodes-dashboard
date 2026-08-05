@@ -85,23 +85,37 @@ const TemplateIncludes: React.FC<TemplateIncludesProps> = ({ template, compact =
     <ul className={cx(styles.list, { [styles.listCompact]: compact })}>
       {shown.map((item) => {
         const repoId = includedRepoId(item);
+        // Where this item can be inspected: its Hugging Face repo page, else the raw download URL
+        // (CivitAI, a mirror, a workflow JSON) — so a non-HF item is reachable too rather than being
+        // a name the user can't look up. Compact rows stay plain text: they're inside a clickable
+        // catalogue card, where a nested link would fight the card's own click target.
+        const href = repoId ? `https://huggingface.co/${repoId}` : item.url;
+        const linked = !compact && !!href;
         return (
           <li className={styles.item} key={`${item.kind}-${item.name}`}>
             <ItemAvatar item={item} />
             <span className={styles.text}>
-              <span className={styles.name} title={item.name}>
-                {item.name}
-              </span>
-              {!compact && repoId && (
+              {linked ? (
                 <a
-                  className={styles.repo}
-                  href={`https://huggingface.co/${repoId}`}
+                  className={cx(styles.name, styles.nameLink)}
+                  href={href}
                   rel="noreferrer noopener"
                   target="_blank"
-                  title={repoId}
+                  title={repoId ? `${item.name} — ${repoId}` : item.name}
                 >
-                  {repoId}
+                  {item.name}
                 </a>
+              ) : (
+                <span className={styles.name} title={item.name}>
+                  {item.name}
+                </span>
+              )}
+              {/* The repo id stays as plain sub-text — the name above is the link now, and two links
+                  to the same page in one row is just noise. */}
+              {!compact && repoId && (
+                <span className={styles.repo} title={repoId}>
+                  {repoId}
+                </span>
               )}
             </span>
             {!compact && item.sizeGb != null && <span className={styles.size}>{item.sizeGb} GB</span>}

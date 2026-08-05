@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import { decorate } from '@/components/inference/service-card';
 import TemplateIncludes, { includesSummary } from '@/components/inference/template-includes';
-import { templateImageRef, visualFor } from '@/components/inference/template-visual';
+import { templateImageRef } from '@/components/inference/template-visual';
 import { AppTemplate } from '@/types/templates';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
@@ -12,7 +12,6 @@ import styles from './template-summary.module.css';
 type DetailRow = {
   label: string;
   value: React.ReactNode;
-  hint?: string;
 };
 
 type TemplateSummaryProps = {
@@ -67,24 +66,14 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
   const includes = template.includes ?? [];
   const includesLine = includesSummary(template);
 
-  const port = template.exposedPorts?.[0];
   const templateRef = templateImageRef(template);
   // The running image wins where it's known; flag a divergence so a link naming a since-swapped
   // template doesn't read as the truth (see the runningImageRef prop docs).
   const imageMismatch = !!runningImageRef && runningImageRef !== templateRef;
-  const specRows: DetailRow[] = [
-    {
-      label: 'Image',
-      value: runningImageRef ?? templateRef,
-      hint: imageMismatch ? `This template publishes ${templateRef}` : undefined,
-    },
-    { label: 'Template id', value: template.id },
-    // What to do with that port once the service is up — the category's hint, same wording as the
-    // details modal ("opens in your browser" vs "call it from your code").
-    ...(port != null
-      ? [{ label: 'Port', value: String(port), hint: visualFor(template.id, template.category).meta.interactionHint }]
-      : []),
-  ];
+  // No Container section at all: image ref, port and template id are all machine-facing. The name and
+  // logo above identify the app, the reachable URL is what a running service is used through, and the
+  // image ref only ever mattered as the thing an Edit relaunch could swap — which the mismatch note
+  // below states outright, refs included.
 
   return (
     <Card
@@ -123,11 +112,11 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
       <Collapse in={open} unmountOnExit>
         <div className={styles.panel}>
           {imageMismatch && (
-            // Everything below except the Image row describes the NAMED template, so say so once
-            // rather than annotating each row.
+            // Everything else in the panel describes the NAMED template, so say so once rather than
+            // annotating each section. Both refs are named here — it's the only place they appear.
             <p className={cx(styles.desc, 'textAccent1')}>
-              The container runs a different image than this template publishes — the details below describe the
-              template, not what is running.
+              The container runs {runningImageRef}, not the {templateRef} this template publishes — everything below
+              describes the template, not what is running.
             </p>
           )}
           {template.description && <p className={styles.desc}>{template.description}</p>}
@@ -142,19 +131,6 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
               {includesLine && <span className={styles.includesNote}>{includesLine}</span>}
             </div>
           )}
-
-          <div className={styles.group}>
-            <span className={styles.eyebrow}>Container</span>
-            <dl className={styles.grid}>
-              {specRows.map((row) => (
-                <div className={styles.item} key={row.label}>
-                  <dt className={styles.label}>{row.label}</dt>
-                  <dd className={styles.value}>{row.value}</dd>
-                  {row.hint && <span className={styles.hint}>{row.hint}</span>}
-                </div>
-              ))}
-            </dl>
-          </div>
 
           <div className={styles.group}>
             <span className={styles.eyebrow}>Template asks for</span>

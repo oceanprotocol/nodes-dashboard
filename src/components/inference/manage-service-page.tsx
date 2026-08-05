@@ -25,9 +25,10 @@ import {
   parseServiceResources,
   toNodeUri,
 } from '@/services/inference-launch';
+import { fetchTemplates, findTemplateForService } from '@/services/service-templates';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { templatePrimaryPort } from '@/services/template-launch';
-import { isBundle } from '@/types/templates';
+import { AppTemplate, isBundle } from '@/types/templates';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -182,7 +183,7 @@ const ManageServicePage: React.FC = () => {
     buildSelectionQuery,
   } = useInferenceContext();
   const { account } = useOceanAccount();
-  const { getServiceStatus, serviceRestart } = useP2P();
+  const { getServiceStatus, serviceRestart, getServiceTemplates, isReady: p2pReady } = useP2P();
   const { withNodeAuth } = useNodeAuth();
 
   // The real service job, polled from the node until terminal.
@@ -266,6 +267,61 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
+  /**
+   * The template this service was launched from, when the URL didn't say. `selectedTemplate` only
+   * exists if the link carried `template=`, which the services table can only add when the BACKEND
+   * session record held enough to match (its listing strips `dockerCmd`, and a record with no `image`
+   * matches nothing) — and an in-flow redirect can drop the query altogether. Without it the page
+   * falls through to the Model card and claims "Unknown model" for an app that serves no model at all.
+   *
+   * The node's own job record always names image + dockerCmd, so match on that instead — the same
+   * image+command rule the table uses, which is what distinguishes a bundle from its parent service.
+   */
+  const [jobTemplate, setJobTemplate] = useState<AppTemplate | null>(null);
+  // The match is a second, node-side fetch — the Model card waits it out rather than flashing
+  // "Unknown model" at an app service for the half-second before the catalogue lands.
+  const [matchingTemplate, setMatchingTemplate] = useState(false);
+  // Container facts already looked up — the poll hands us a fresh `job` object every tick, and the
+  // catalogue fetch must not be repeated for facts that haven't changed.
+  const matchedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedTemplate || !job || !p2pReady) {
+      return;
+    }
+    const key = `${job.image ?? ''} ${(job.dockerCmd ?? []).join(' ')}`;
+    if (matchedKeyRef.current === key) {
+      return;
+    }
+    matchedKeyRef.current = key;
+    let cancelled = false;
+    setMatchingTemplate(true);
+    (async () => {
+      try {
+        const templates = await fetchTemplates(getServiceTemplates);
+        const match = findTemplateForService(templates, { image: job.image, dockerCmd: job.dockerCmd });
+        if (!cancelled) {
+          setJobTemplate(match);
+        }
+      } catch (error) {
+        // Let the next poll retry: a transient catalogue failure shouldn't permanently strand the page
+        // on the model card.
+        matchedKeyRef.current = null;
+        console.error('Failed to match this service back to a template:', error);
+      } finally {
+        if (!cancelled) {
+          setMatchingTemplate(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTemplate, job, p2pReady, getServiceTemplates]);
+
+  // The URL-named template wins where it exists (it's the in-flow selection, and an Edit re-entry is
+  // built from it); the job-matched one is the fallback above.
+  const template = selectedTemplate ?? jobTemplate;
+
   // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
   // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
   const jobCommand = useMemo(() => (job?.dockerCmd ? parseEngineCommand(job.dockerCmd) : null), [job?.dockerCmd]);
@@ -322,7 +378,7 @@ const ManageServicePage: React.FC = () => {
    * a `--model`-looking flag in there is the app's argument, not an HF model to name or relaunch.
    */
   const models: ServiceModel[] = useMemo(() => {
-    if (selectedTemplate) {
+    if (template) {
       return [];
     }
     const jobModelId = jobCommand?.modelId;
@@ -331,7 +387,7 @@ const ManageServicePage: React.FC = () => {
       return [{ model: hydrated ?? { id: jobModelId }, params: modelParamsByModel[jobModelId] ?? jobCommand.params }];
     }
     return selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] }));
-  }, [selectedModels, modelParamsByModel, jobCommand, selectedTemplate]);
+  }, [selectedModels, modelParamsByModel, jobCommand, template]);
 
   const environment = selectedEnv?.environment ?? null;
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
@@ -364,6 +420,10 @@ const ManageServicePage: React.FC = () => {
     const nodeOnlyModel = models.find((entry) => !selectedModels.some((m) => m.id === entry.model.id));
     return {
       ...(bookedResources ? { gpuSelection: bookedResources.gpuSelection, sizing: bookedResources.sizing } : {}),
+      // Context has no template when the link carried none and we matched it off the job record —
+      // without this, an Edit / Prolong re-entry would navigate to the template flow with no
+      // `template=` on the query and bounce straight back out.
+      ...(jobTemplate && !selectedTemplate ? { templateId: jobTemplate.id } : {}),
       ...(nodeOnlyModel
         ? {
             models: [nodeOnlyModel.model],
@@ -376,7 +436,7 @@ const ManageServicePage: React.FC = () => {
           }
         : {}),
     };
-  }, [models, selectedModels, bookedResources]);
+  }, [models, selectedModels, bookedResources, jobTemplate, selectedTemplate]);
   const nowSeconds = Math.floor(Date.now() / 1000);
   // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both track the ACTUAL
   // window — including after a Prolong, which pushes expiresAt forward while leaving job.duration at the
@@ -390,32 +450,32 @@ const ManageServicePage: React.FC = () => {
       : jobDurationSeconds;
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
-  const isTemplate = !!selectedTemplate;
-  const isBundleService = !!selectedTemplate && isBundle(selectedTemplate);
+  const isTemplate = !!template;
+  const isBundleService = !!template && isBundle(template);
   // Edit relaunches the SAME bundle through serviceRestart, which recreates the container from the
   // image — service containers get no volume, so every relaunch re-downloads every bundled model on
   // the clock the user already paid for. Worth it to fix a wrong token; pure loss when there is
   // nothing to change, so a bundle that declares no configurable env vars doesn't offer Edit at all.
-  const bundleHasConfig = (selectedTemplate?.userConfigurableEnvVars?.length ?? 0) > 0;
+  const bundleHasConfig = (template?.userConfigurableEnvVars?.length ?? 0) > 0;
   // What the container actually runs, per the node's job record — outranks the template the link
   // names, which an Edit relaunch may have swapped away from. Null until the first poll lands.
   const runningImageRef = job ? (job.tag ? `${job.image}:${job.tag}` : job.image) : null;
   // A template app is named after the template; a model service after whichever model won in `models`
   // (the raw serviceId when there's no model at all).
-  const serviceName = selectedTemplate
-    ? (selectedTemplate.name ?? selectedTemplate.id)
+  const serviceName = template
+    ? (template.name ?? template.id)
     : models.length > 0
       ? models.map((m) => getModelShortName(m.model.id)).join(' + ')
       : id;
   // Template services serve a web UI (not an OpenAI API) — the URL on the template's primary port.
   const templateUiUrl = useMemo(() => {
-    if (!selectedTemplate || !job) {
+    if (!template || !job) {
       return null;
     }
-    const port = templatePrimaryPort(selectedTemplate);
+    const port = templatePrimaryPort(template);
     const match = job.endpoints.find((ep) => ep.containerPort === port);
     return (match ?? job.endpoints[0])?.url ?? null;
-  }, [selectedTemplate, job]);
+  }, [template, job]);
 
   const status = job
     ? getServiceStatusView(job.status, job.statusText)
@@ -457,9 +517,9 @@ const ManageServicePage: React.FC = () => {
     }
     // A template service re-enters the template flow at the config (reconfigure) step; a model service
     // re-enters the model picker. buildSelectionQuery already carries the template/model selection.
-    if (selectedTemplate) {
+    if (template) {
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(selectedTemplate.id)}/config`,
+        pathname: `/inference/services/${encodeURIComponent(template.id)}/config`,
         query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
       });
       return;
@@ -505,9 +565,9 @@ const ManageServicePage: React.FC = () => {
     };
     // A template service has no models, so the custom-models payment page would bounce back to the model
     // picker — route template prolong into the template payment page (flowType=Template) instead.
-    if (selectedTemplate) {
+    if (template) {
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(selectedTemplate.id)}/payment`,
+        pathname: `/inference/services/${encodeURIComponent(template.id)}/payment`,
         query,
       });
       return;
@@ -611,14 +671,14 @@ const ManageServicePage: React.FC = () => {
               rather than letting the user open an app with empty model pickers. Advisory only —
               derived from the container log, gated on the container actually being up, and gone the
               moment the script reports completion. */}
-          {isBundleService && selectedTemplate && isRunning && (
+          {isBundleService && template && isRunning && (
             <ProvisioningProgress
               active={isRunning}
               consumerAddress={account.address ?? undefined}
               nodePeerId={nodePeerId}
               nodeUri={nodeUri}
               serviceId={id}
-              template={selectedTemplate}
+              template={template}
             />
           )}
 
@@ -636,7 +696,7 @@ const ManageServicePage: React.FC = () => {
                 <InferenceModelList models={models} />
               ) : (
                 <div className="textSecondary">
-                  {jobLoading
+                  {jobLoading || matchingTemplate
                     ? 'Loading model…'
                     : 'Unknown model — neither the node nor this service’s record names one.'}
                 </div>
@@ -648,7 +708,7 @@ const ManageServicePage: React.FC = () => {
               deliberately not passed: the values a service was started with live in the container's
               userData and come back on neither the job record nor the URL, so claiming a set here
               would be guesswork (TemplateSummary says as much instead). */}
-          {isTemplate && selectedTemplate && (
+          {isTemplate && template && (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div className={styles.howToHead}>
                 <h3>{isBundleService ? 'Template' : 'Service'}</h3>
@@ -656,7 +716,7 @@ const ManageServicePage: React.FC = () => {
                   {isBundleService ? 'Expand for models and container details' : 'Expand for container details'}
                 </span>
               </div>
-              <TemplateSummary runningImageRef={runningImageRef ?? undefined} template={selectedTemplate} />
+              <TemplateSummary runningImageRef={runningImageRef ?? undefined} template={template} />
             </Card>
           )}
 
