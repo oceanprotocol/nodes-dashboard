@@ -27,7 +27,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
-import { templatePrimaryPort } from '@/services/template-launch';
+import { templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
 import { isBundle } from '@/types/templates';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
@@ -420,14 +420,22 @@ const ManageServicePage: React.FC = () => {
     : models.length > 0
       ? models.map((m) => getModelShortName(m.model.id)).join(' + ')
       : id;
-  // Template services serve a web UI (not an OpenAI API) — the URL on the template's primary port.
+  // Template services serve a web UI (not an OpenAI API) — the URL on the template's primary port,
+  // deep-linked to the installed workflow (see templateOpenUrl) so Open loads it, not a blank canvas.
   const templateUiUrl = useMemo(() => {
     if (!template || !job) {
       return null;
     }
     const port = templatePrimaryPort(template);
     const match = job.endpoints.find((ep) => ep.containerPort === port);
-    return (match ?? job.endpoints[0])?.url ?? null;
+    const url = (match ?? job.endpoints[0])?.url;
+    if (!url) {
+      return null;
+    }
+    // Only a workflow template has a graph to deep-link to; this URL is also displayed as the
+    // endpoint to copy, so a non-workflow app must get it unadorned.
+    const workflow = template.workflows?.[0];
+    return workflow ? templateOpenUrl(url, workflow.id) : url;
   }, [template, job]);
 
   const status = job

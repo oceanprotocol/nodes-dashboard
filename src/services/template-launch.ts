@@ -2,7 +2,7 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildGpuRequests, resourceId } from '@/services/inference-launch';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, TemplateWorkflow } from '@/types/templates';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
@@ -11,6 +11,70 @@ type Allocation = {
   ram: number;
   disk: number;
 };
+
+// ponytail: local shim — @oceanprotocol/lib 9.0.0-next.7 predates this field. Delete the
+// intersection once the pin moves to next.8, which ships it natively.
+type StartParamsWithBucket = ServiceStartParams & { outputBucketId?: string };
+
+/** gzip + base64, so a ~130 KB workflow graph rides in a container env var as ~25 KB. */
+export async function gzipBase64(value: string): Promise<string> {
+  // The DOM lib's CompressionStream/pipeThrough generics disagree on ArrayBuffer vs ArrayBufferLike
+  // in this TS version — a type-only mismatch (Blob.stream().pipeThrough(new CompressionStream(...))
+  // is standard, well-supported browser API usage at runtime).
+  const stream = new Blob([value]).stream().pipeThrough(new CompressionStream('gzip') as unknown as ReadableWritablePair);
+  const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  let binary = '';
+  // Chunked: String.fromCharCode(...bytes) blows the argument limit on large graphs.
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+/**
+ * A template needs the persistent-storage bucket picker when it ships a workflow (it loads a large
+ * model graph the bucket caches). Also gates whether a fresh (non-edit) launch must stop at the
+ * config step instead of its usual skip-straight-to-payment: skipping would make the picker — and the
+ * bucket-mount cost warning — unreachable before the escrow claim. Accepts a possibly-absent template
+ * so callers don't need to guard first.
+ */
+export function templateNeedsBucketPicker(template: AppTemplate | null | undefined): boolean {
+  if (!template) {
+    return false;
+  }
+  return (template.workflows?.length ?? 0) > 0;
+}
+
+const COMFY_WORKFLOW_ID_KEY = 'COMFY_WORKFLOW_ID';
+const COMFY_WORKFLOW_KEY = 'COMFY_WORKFLOW';
+
+/**
+ * Env var keys set automatically from the template's single workflow (by withWorkflowUserData) — the
+ * config page's free-text env inputs must exclude these, since whatever's typed there is silently
+ * overwritten at launch. A single constant so the writer and the filter can't drift apart.
+ */
+export const WORKFLOW_ENV_VAR_KEYS: readonly string[] = [COMFY_WORKFLOW_ID_KEY, COMFY_WORKFLOW_KEY];
+
+/**
+ * Add the template's workflow userData, when one is picked — mutates and returns `userData`. Skipped
+ * entirely (both keys) when the workflow has no graph: a node that served workflow metadata without
+ * the body would otherwise ship `JSON.stringify(undefined)` → the literal string "undefined" as the
+ * container's installed workflow.
+ */
+async function withWorkflowUserData(
+  userData: Record<string, string>,
+  workflow?: TemplateWorkflow
+): Promise<Record<string, string>> {
+  if (workflow) {
+    if (workflow.graph == null) {
+      console.error(`Workflow "${workflow.id}" has no graph — skipping its userData.`);
+    } else {
+      userData[COMFY_WORKFLOW_ID_KEY] = workflow.id;
+      userData[COMFY_WORKFLOW_KEY] = await gzipBase64(JSON.stringify(workflow.graph));
+    }
+  }
+  return userData;
+}
 
 /**
  * Container env vars for a template launch, sent as plaintext userData (ocean.js ECIES-encrypts before
@@ -35,7 +99,7 @@ export function buildTemplateUserData(template: AppTemplate, envValues: Record<s
  * engine map, and userData from the template's env vars instead of vLLM/llama.cpp params. The env's
  * cpu/ram/disk/gpu request comes from the resolved allocation + gpu selection (same as inference).
  */
-export function buildTemplateStartParams({
+export async function buildTemplateStartParams({
   template,
   selectedEnv,
   gpuSelection,
@@ -43,6 +107,8 @@ export function buildTemplateStartParams({
   durationSeconds,
   tokenAddress,
   envValues,
+  workflow,
+  bucketId,
 }: {
   template: AppTemplate;
   selectedEnv: SelectedInferenceEnv;
@@ -52,7 +118,11 @@ export function buildTemplateStartParams({
   durationSeconds: number;
   tokenAddress: string;
   envValues: Record<string, string>;
-}): ServiceStartParams {
+  /** Selected workflow graph (Templates flow) — sent as userData and deep-linked on Open. */
+  workflow?: TemplateWorkflow;
+  /** Persistent-storage bucket id to mount at /data/outputs — picked on the config step. */
+  bucketId?: string;
+}): Promise<StartParamsWithBucket> {
   const envResources = selectedEnv.environment.resources ?? [];
 
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
@@ -65,6 +135,8 @@ export function buildTemplateStartParams({
     ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
   ];
 
+  const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), workflow);
+
   return {
     environment: selectedEnv.environment.id,
     image: template.image,
@@ -72,10 +144,11 @@ export function buildTemplateStartParams({
     exposedPorts: template.exposedPorts,
     ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
     ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
-    userData: buildTemplateUserData(template, envValues),
+    userData,
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },
+    ...(bucketId ? { outputBucketId: bucketId } : {}),
   };
 }
 
@@ -88,18 +161,21 @@ export function buildTemplateStartParams({
  * allocation and never re-allocates ports on restart (a template needing different ports/hardware
  * needs a fresh start instead).
  */
-export function buildTemplateRestartParams(
+export async function buildTemplateRestartParams(
   template: AppTemplate,
-  envValues: Record<string, string>
-): ServiceRestartParams {
+  envValues: Record<string, string>,
+  /** Selected workflow graph (Templates flow) — sent as userData and deep-linked on Open. */
+  workflow?: TemplateWorkflow
+): Promise<ServiceRestartParams> {
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
+  const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), workflow);
   return {
     image: template.image,
     ...imageRef,
     ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
     ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
-    userData: buildTemplateUserData(template, envValues),
+    userData,
   };
 }
 
@@ -134,4 +210,15 @@ export function templatePinnedSizing(template: AppTemplate): ResourceSizing | un
 /** The port serving the template's primary web UI (first exposed port) — for the "Open" link. */
 export function templatePrimaryPort(template: AppTemplate): number | undefined {
   return template.exposedPorts?.[0];
+}
+
+/**
+ * The running app's URL with the installed workflow deep-linked. The bootstrap installs the graph at
+ * `custom_nodes/<workflow.id>/example_workflows/<workflow.id>.json`, so the id is both halves of the
+ * link. `source` must be that module name — ComfyUI resolves `source=all` only against its own core
+ * templates and never finds a custom-node pack, failing silently.
+ */
+export function templateOpenUrl(baseUrl: string, workflowId: string): string {
+  const id = encodeURIComponent(workflowId);
+  return `${baseUrl}/?template=${id}&source=${id}`;
 }

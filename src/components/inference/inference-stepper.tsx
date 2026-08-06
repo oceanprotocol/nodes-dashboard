@@ -16,6 +16,8 @@ type InferenceStepperProps = {
   template?: AppTemplate | null;
   /** Catalogue pages know which kind they list before anything is picked — they pass it directly. */
   kindLabel?: 'Service' | 'Template';
+  /** Fresh template launch that needs the Config step — see templateNeedsBucketPicker. */
+  showTemplateConfig?: boolean;
 };
 
 const InferenceStepper: React.FC<InferenceStepperProps> = ({
@@ -24,10 +26,13 @@ const InferenceStepper: React.FC<InferenceStepperProps> = ({
   edit,
   template,
   kindLabel,
+  showTemplateConfig,
 }) => {
   const steps = getInferenceSteps(flowType, edit, {
     kindLabel: kindLabel ?? (template && isBundle(template) ? 'Template' : 'Service'),
-    needsConfig: !!template && requiredEnvVars(template).length > 0,
+    // Either reason forces the Config step on a fresh launch: a required env var to collect, or a
+    // bucket to pick. Both are collected on that page, so they share one flag.
+    needsConfig: (!!template && requiredEnvVars(template).length > 0) || !!showTemplateConfig,
   });
   return <Stepper currentStep={currentStep} steps={steps} />;
 };

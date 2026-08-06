@@ -4,10 +4,10 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import BucketAccess from '@/components/node-storage/bucket-access';
+import { NodeUri } from '@/contexts/P2PContext';
 import { MAX_BUCKET_NAME_LENGTH, useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
-import { Node } from '@/types/nodes';
 import { formatError } from '@/utils/formatters';
 import { isAddress } from 'ethers';
 import { useFormik } from 'formik';
@@ -18,9 +18,11 @@ import styles from './create-bucket-modal.module.css';
 
 type CreateBucketModalProps = {
   isOpen: boolean;
-  node: Node;
+  nodeId: string;
+  nodeUri: NodeUri;
+  friendlyName?: string;
   onClose: () => void;
-  onSave?: () => void;
+  onSave?: (bucket: { bucketId: string }) => void;
 };
 
 type CreateBucketFormValues = {
@@ -28,13 +30,9 @@ type CreateBucketFormValues = {
   label: string;
 };
 
-const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClose, onSave }) => {
+const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ nodeId, nodeUri, friendlyName, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();
   const { createBucket } = useNodeStorage();
-
-  const nodeId = node.id ?? node.nodeId ?? '';
-  const friendlyName = node.friendlyName ?? nodeId;
-  const nodeUri = node.currentAddrs?.length ? node.currentAddrs : nodeId;
 
   const formik = useFormik<CreateBucketFormValues>({
     initialValues: {
@@ -99,10 +97,15 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
     validateOnChange: false,
     onSubmit: async (values) => {
       try {
-        await createBucket({ nodeId, nodeUri, access: values.access, label: values.label.trim() || undefined });
+        const bucket = await createBucket({
+          nodeId,
+          nodeUri,
+          access: values.access,
+          label: values.label.trim() || undefined,
+        });
         toast.success('Bucket created');
         onClose();
-        onSave?.();
+        onSave?.(bucket);
       } catch (e: any) {
         toast.error(formatError({ error: e, fallback: 'Your bucket could not be created.' }));
       }
@@ -163,10 +166,17 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
   );
 };
 
-const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, node, onClose, onSave }) => {
+const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, nodeId, nodeUri, friendlyName, onClose, onSave }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create bucket" width="md" fullWidth>
-      <CreateBucketModalInner isOpen={isOpen} node={node} onClose={onClose} onSave={onSave} />
+      <CreateBucketModalInner
+        isOpen={isOpen}
+        nodeId={nodeId}
+        nodeUri={nodeUri}
+        friendlyName={friendlyName}
+        onClose={onClose}
+        onSave={onSave}
+      />
     </Modal>
   );
 };

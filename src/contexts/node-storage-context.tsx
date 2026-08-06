@@ -7,8 +7,10 @@ import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
 import { rowsToAccessLists } from '@/utils/access-list';
+import { formatError } from '@/utils/formatters';
 import { PersistentStorageAccessList, PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 
 type NodeStorageContextType = {
   /** Buckets by node ID */
@@ -31,13 +33,13 @@ type NodeStorageContextType = {
   uploadFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; file: File }) => Promise<void>;
   /** Delete file from a bucket */
   deleteFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; fileName: string }) => Promise<void>;
-  /** Create a bucket on a node */
+  /** Create a bucket on a node. Resolves with the created bucket (so a caller can e.g. auto-select it). */
   createBucket: (args: {
     access: BucketAccessState;
     label?: string;
     nodeId: string;
     nodeUri: NodeUri;
-  }) => Promise<void>;
+  }) => Promise<{ bucketId: string }>;
   /** Rename a bucket (set its human-readable name) */
   renameBucket: (args: { bucketId: string; label: string | null; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Get wallet addresses in an access list contract */
@@ -156,7 +158,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       label?: string;
       nodeId: string;
       nodeUri: NodeUri;
-    }) => {
+    }): Promise<{ bucketId: string }> => {
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
@@ -181,10 +183,11 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      await withNodeAuth(nodeId, nodeUri, (token) =>
+      const bucket = await withNodeAuth(nodeId, nodeUri, (token) =>
         createNodeBucket({ accessLists, authToken: token, label, nodeUri })
       );
       await fetchBuckets({ nodeId, nodeUri });
+      return bucket;
     },
     [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, withNodeAuth]
   );
@@ -270,4 +273,41 @@ export function useNodeStorage() {
   const ctx = useContext(NodeStorageContext);
   if (!ctx) throw new Error('useNodeStorage must be used within NodeStorageProvider');
   return ctx;
+}
+
+/**
+ * Load a node's persistent-storage buckets once, toasting on failure — shared by every bucket list UI
+ * (my-buckets, the template launch picker) so the wallet guard and the "already attempted" tracking
+ * can't drift between copies. Skipped while the wallet isn't connected or there's no node yet. The
+ * attempted node is tracked by id (not a plain mount-scoped flag), so switching to a different node
+ * without unmounting still gets its own load attempt instead of being blocked by the previous node's.
+ */
+export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUri: NodeUri }) {
+  const { account } = useOceanAccount();
+  const { buckets, fetchingBuckets, fetchBuckets } = useNodeStorage();
+  const attemptedNodeIdRef = useRef<string | null>(null);
+
+  const loadBuckets = useCallback(async () => {
+    try {
+      await fetchBuckets({ nodeId, nodeUri });
+    } catch (e: any) {
+      toast.error(formatError({ error: e, fallback: 'The buckets could not be loaded.' }));
+    }
+  }, [nodeId, nodeUri, fetchBuckets]);
+
+  useEffect(() => {
+    if (!account.address || !nodeId || nodeId in buckets || attemptedNodeIdRef.current === nodeId) {
+      return;
+    }
+    attemptedNodeIdRef.current = nodeId;
+    loadBuckets();
+  }, [account.address, nodeId, buckets, loadBuckets]);
+
+  return {
+    buckets: buckets[nodeId] ?? [],
+    /** True once this node's list has landed (success or failure) — vs. still loading for the first time. */
+    loaded: nodeId in buckets,
+    loading: fetchingBuckets[nodeId] ?? false,
+    loadBuckets,
+  };
 }

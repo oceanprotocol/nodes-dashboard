@@ -8,9 +8,11 @@ export type TemplateStepOptions = {
   /** Which catalogue the pick came from, for the first step's label. */
   kindLabel?: 'Service' | 'Template';
   /**
-   * The template declares a `required` env var, so a fresh launch must collect it before payment —
-   * without it the container starts and fails (a gated model 404s, an API key is missing). Templates
-   * whose vars are all optional keep skipping the step, which is the friction they exist to remove.
+   * A fresh launch must stop at Config before payment, for either of the two reasons that page
+   * exists: the template declares a `required` env var (without it the container starts and fails —
+   * a gated model 404s, an API key is missing), or it needs a storage bucket picked
+   * (templateNeedsBucketPicker). Templates needing neither keep skipping the step, which is the
+   * friction they exist to remove.
    */
   needsConfig?: boolean;
 };

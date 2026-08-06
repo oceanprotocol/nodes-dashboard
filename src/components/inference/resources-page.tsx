@@ -7,9 +7,8 @@ import InferenceStepper from '@/components/inference/inference-stepper';
 import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
-import { templatePinnedSizing } from '@/services/template-launch';
+import { templateNeedsBucketPicker, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
-import { requiredEnvVars } from '@/types/templates';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
@@ -22,8 +21,16 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
   const isTemplateFlow = flowType === InferenceFlowType.Template;
   const isEnvPickerFlow = isCustomModelFlow || isTemplateFlow;
 
-  const { selectedModels, selectedEnv, selectedTemplate, hydrateFromUrlFinished, hydrationFailed, buildSelectionQuery } =
-    useInferenceContext();
+  const {
+    selectedModels,
+    selectedEnv,
+    selectedTemplate,
+    hydrateFromUrlFinished,
+    hydrationFailed,
+    buildSelectionQuery,
+  } = useInferenceContext();
+  // Computed once — reused by the stepper and the next-step routing below.
+  const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
 
   // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
   // when hydration outright failed, where we show a retry instead of discarding the URL.
@@ -79,15 +86,13 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        // Config is skipped on a fresh launch when every env var is optional → straight to payment; a
-        // template that declares a `required` one gets the step, because without it the container
-        // starts and fails. Pin the template's recommended CPU/RAM/disk into the URL either way so
-        // payment books them (env + sizing are re-hydrated from the query on arrival, so no
-        // setState-timing dependency here).
+        // Config is skipped on a fresh launch unless templateNeedsBucketPicker — that pick must happen
+        // before payment, since a bad bucket id costs the escrow claim, not just a failed page load.
+        // Pin recommended CPU/RAM/disk into the URL either way (re-hydrated from the query on arrival).
         const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
-        const next = selectedTemplate && requiredEnvVars(selectedTemplate).length > 0 ? 'config' : 'payment';
+        const nextStep = needsBucketPicker ? 'config' : 'payment';
         router.push({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${next}`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${nextStep}`,
           query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
         });
         break;
@@ -106,7 +111,14 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         moreReadable
         title="Inference"
         subTitle="Launch on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="resources" flowType={flowType} template={selectedTemplate} />}
+        contentBetween={
+          <InferenceStepper
+            currentStep="resources"
+            flowType={flowType}
+            template={selectedTemplate}
+            showTemplateConfig={needsBucketPicker}
+          />
+        }
       />
       <div className="pageContentWrapper">
         {isEnvPickerFlow ? (

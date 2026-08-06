@@ -6,17 +6,15 @@ import EditBucketAccessModal from '@/components/node-storage/edit-bucket-access-
 import EditBucketNameModal from '@/components/node-storage/edit-bucket-name-modal';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { useNodeStorage } from '@/contexts/node-storage-context';
+import { useLoadNodeBuckets } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
-import { formatError } from '@/utils/formatters';
 import CachedIcon from '@mui/icons-material/Cached';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
 import { PersistentStorageBucket } from '@oceanprotocol/lib';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
+import { useMemo, useState } from 'react';
 import styles from './my-buckets.module.css';
 
 type MyBucketsProps = {
@@ -28,49 +26,26 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
 
   const { account } = useOceanAccount();
 
-  const { buckets, fetchingBuckets, fetchBuckets } = useNodeStorage();
-
   const nodeId = node.id ?? node.nodeId ?? '';
   const nodeUri = node.currentAddrs?.length ? node.currentAddrs : nodeId;
 
-  const [alreadyLoaded, setAlreadyLoaded] = useState(false);
+  const { buckets, loading, loadBuckets } = useLoadNodeBuckets({ nodeId, nodeUri });
+
   const [createOpen, setCreateOpen] = useState(false);
   const [editBucket, setEditBucket] = useState<PersistentStorageBucket | null>(null);
   const [renameBucket, setRenameBucket] = useState<PersistentStorageBucket | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const loading = fetchingBuckets[nodeId] ?? false;
-
-  const loadBuckets = useCallback(async () => {
-    try {
-      await fetchBuckets({ nodeId, nodeUri });
-    } catch (e: any) {
-      toast.error(formatError({ error: e, fallback: 'The buckets could not be loaded.' }));
-    }
-  }, [nodeId, nodeUri, fetchBuckets]);
-
-  useEffect(() => {
-    if (!account.address || !nodeId) {
-      return;
-    }
-    if (!(nodeId in buckets) && !alreadyLoaded) {
-      setAlreadyLoaded(true);
-      loadBuckets();
-    }
-  }, [nodeId, buckets, loadBuckets, alreadyLoaded, account.address]);
-
   const filteredBuckets = useMemo(() => {
-    const myBuckets = buckets[nodeId] ?? [];
     const term = searchTerm.trim();
     if (!term) {
-      return myBuckets;
+      return buckets;
     }
     const lowerTerm = term.toLowerCase();
-    return myBuckets.filter(
-      (b) =>
-        b.bucketId.toLowerCase().includes(lowerTerm) || (b.label ?? '').toLowerCase().includes(lowerTerm)
+    return buckets.filter(
+      (b) => b.bucketId.toLowerCase().includes(lowerTerm) || (b.label ?? '').toLowerCase().includes(lowerTerm)
     );
-  }, [buckets, nodeId, searchTerm]);
+  }, [buckets, searchTerm]);
 
   return (
     <Card direction="column" padding="md" radius="lg" spacing="md" shadow="black" variant="glass-shaded">
@@ -138,7 +113,14 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
       >
         Refresh
       </Button>
-      <CreateBucketModal isOpen={createOpen} node={node} onClose={() => setCreateOpen(false)} onSave={loadBuckets} />
+      <CreateBucketModal
+        isOpen={createOpen}
+        nodeId={nodeId}
+        nodeUri={nodeUri}
+        friendlyName={node.friendlyName}
+        onClose={() => setCreateOpen(false)}
+        onSave={loadBuckets}
+      />
       {editBucket && account?.address && (
         <EditBucketAccessModal
           bucket={editBucket}

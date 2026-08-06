@@ -1,5 +1,13 @@
 import type { ServiceTemplatePublic } from '@oceanprotocol/lib';
 
+/** The workflow graph shipped by a template — each template ships exactly one. */
+export interface TemplateWorkflow {
+  id: string; // [A-Za-z0-9_.-]+ — also the ?template= value ComfyUI deep-links to
+  name: string;
+  description?: string;
+  graph?: unknown;
+}
+
 /**
  * Catalogue classification the node publishes alongside a template. These fields exist in
  * ocean-node's `ServiceTemplateSchema` but not (yet) in ocean.js's `ServiceTemplatePublic`, so they
@@ -56,6 +64,8 @@ export type AppEnvVarSpec = NonNullable<ServiceTemplatePublic['userConfigurableE
 export type AppTemplate = Omit<ServiceTemplatePublic, 'userConfigurableEnvVars'> &
   BundleFields & {
     userConfigurableEnvVars?: AppEnvVarSpec[];
+    /** The workflow graphs the template installs — reaches us through the node's sanitizer spread. */
+    workflows?: TemplateWorkflow[];
   };
 
 /** A bundle — narrowed so `service` is known present (the node's schema requires it on bundles). */
