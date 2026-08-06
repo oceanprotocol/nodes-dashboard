@@ -126,7 +126,11 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
           <div className={styles.section}>
             <div>
               <h4>Runtime</h4>
-              <div>You can prolong a running session later from its manage page.</div>
+              <div>
+                You can prolong a running session later from its manage page.
+                <br />
+                Prices below are shown for this <strong>selected duration</strong>
+              </div>
             </div>
             <div className={styles.durationRow}>
               <DurationInput
@@ -135,7 +139,7 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
                 label="Session length"
                 min={1}
                 onChange={onDurationChange}
-                size="md"
+                size="sm"
                 value={durationSeconds}
               />
             </div>

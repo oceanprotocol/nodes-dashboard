@@ -10,6 +10,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
+import { validateEnvValue } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
@@ -20,6 +21,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
+  const isTemplateFlow = flowType === InferenceFlowType.Template;
   // Editing a running service: env step was skipped, so prev goes back to the model picker.
   const isEditMode = router.query.edit === '1';
   const {
@@ -28,6 +30,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     setParamsForModel,
     selectedModels,
     selectedEnv,
+    selectedTemplate,
+    templateEnvValues,
+    setTemplateEnvValues,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -39,20 +44,46 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Surfaced when submit can't proceed for a reason that isn't a per-field validation error.
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Template flow: live values for the template's userConfigurableEnvVars, seeded from context (so a
+  // back-nav keeps what was typed) and per-field validation errors. Secrets — never leave the client.
+  const envSpecs = useMemo(() => selectedTemplate?.userConfigurableEnvVars ?? [], [selectedTemplate]);
+  const [envInputs, setEnvInputs] = useState<Record<string, string>>({});
+  const [envErrors, setEnvErrors] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (isTemplateFlow) {
+      setEnvInputs(templateEnvValues);
+    }
+  }, [isTemplateFlow, templateEnvValues]);
+
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
   // without a complete selection: no models → picker, models but no env → resources. Skipped when
   // hydration failed — we show a retry instead of discarding the URL selection.
   useEffect(() => {
-    if (!isCustomModelFlow || !hydrateFromUrlFinished || hydrationFailed) {
+    if (!hydrateFromUrlFinished || hydrationFailed) {
       return;
     }
-    if (selectedModels.length === 0) {
-      router.replace({ pathname: '/inference/custom-models', query: router.query });
-    } else if (!selectedEnv && !isEditMode) {
-      // In edit mode the env is inherited from the running service and the resources step is skipped.
-      router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
+    if (isCustomModelFlow) {
+      if (selectedModels.length === 0) {
+        router.replace({ pathname: '/inference/custom-models', query: router.query });
+      } else if (!selectedEnv && !isEditMode) {
+        // In edit mode the env is inherited from the running service and the resources step is skipped.
+        router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
+      }
+    } else if (isTemplateFlow && !selectedTemplate) {
+      // No template restored (deep link / refresh with a bad id) — back to the picker.
+      router.replace({ pathname: '/inference/templates', query: router.query });
     }
-  }, [isCustomModelFlow, hydrateFromUrlFinished, hydrationFailed, selectedModels.length, selectedEnv, isEditMode, router]);
+  }, [
+    isCustomModelFlow,
+    isTemplateFlow,
+    hydrateFromUrlFinished,
+    hydrationFailed,
+    selectedModels.length,
+    selectedEnv,
+    selectedTemplate,
+    isEditMode,
+    router,
+  ]);
 
   const goToPrevStep = () => {
     switch (flowType) {
@@ -63,7 +94,17 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         break;
       }
       case InferenceFlowType.Template: {
-        router.replace(`/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`);
+        // Edit re-entry skipped the resources step (env inherited from the running service) → step back
+        // to the manage page instead of the resources picker.
+        const serviceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;
+        if (isEditMode && serviceId) {
+          router.replace(`/inference/services/${encodeURIComponent(serviceId)}`);
+        } else {
+          router.replace({
+            pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            query: router.query,
+          });
+        }
         break;
       }
     }
@@ -80,7 +121,12 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         break;
       }
       case InferenceFlowType.Template: {
-        router.push(`/inference/templates/${encodeURIComponent(params.templateId ?? '')}/payment`);
+        // Carry the whole query (edit / serviceId / template) so payment relaunches the right running
+        // service. Template env values live in context (secrets — never in the URL).
+        router.push({
+          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/payment`,
+          query: { ...router.query, ...buildSelectionQuery() },
+        });
         break;
       }
     }
@@ -114,6 +160,28 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         paramsByModel[id] = results[index]!;
       });
       goToNextStep(paramsByModel);
+      return;
+    }
+    if (isTemplateFlow) {
+      // Validate each configurable env var against its regex; empty is allowed (fields are optional).
+      const errors: Record<string, string> = {};
+      for (const spec of envSpecs) {
+        if (!validateEnvValue(spec, envInputs[spec.key] ?? '')) {
+          errors[spec.key] = `Invalid ${spec.key} format.`;
+        }
+      }
+      if (Object.keys(errors).length > 0) {
+        setEnvErrors(errors);
+        setSubmitError('Fix the highlighted fields before continuing.');
+        return;
+      }
+      // Commit only non-empty values — an empty optional field must not overwrite a fixed var or ship
+      // an empty string to the container.
+      const committed = Object.fromEntries(
+        envSpecs.map((spec) => [spec.key, (envInputs[spec.key] ?? '').trim()]).filter(([, value]) => value)
+      );
+      setTemplateEnvValues(committed);
+      goToNextStep();
       return;
     }
     goToNextStep();
@@ -181,7 +249,49 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
             </>
           ) : (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-              <h3>{flowType} - Config</h3>
+              <div>
+                <h3>{selectedTemplate?.name ?? 'Template'} — settings</h3>
+                <div className="textSecondary">
+                  {isEditMode
+                    ? 'Update the settings and relaunch. The container restarts on the same environment with the same paid session — the endpoint URL is unchanged.'
+                    : 'Optional settings for this app.'}
+                </div>
+              </div>
+              {envSpecs.length === 0 ? (
+                <div className="textSecondary">
+                  This template has no configurable settings.
+                  {isEditMode ? ' Relaunching restarts the container fresh.' : ''}
+                </div>
+              ) : (
+                envSpecs.map((spec) => (
+                  <Input
+                    errorText={envErrors[spec.key]}
+                    key={spec.key}
+                    label={spec.key}
+                    name={spec.key}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEnvInputs((prev) => ({ ...prev, [spec.key]: value }));
+                      setEnvErrors((prev) => {
+                        if (!prev[spec.key]) {
+                          return prev;
+                        }
+                        const { [spec.key]: _removed, ...rest } = prev;
+                        return rest;
+                      });
+                    }}
+                    placeholder={spec.sensitive ? '••••••••' : ''}
+                    size="md"
+                    type={spec.sensitive ? 'password' : 'text'}
+                    value={envInputs[spec.key] ?? ''}
+                  />
+                ))
+              )}
+              {isEditMode && (
+                <div className="textSecondary">
+                  Secrets you entered on the original launch aren&apos;t stored — re-enter any tokens you need.
+                </div>
+              )}
             </Card>
           )}
 

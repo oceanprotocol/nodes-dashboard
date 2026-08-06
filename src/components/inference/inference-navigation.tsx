@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import ModelCard from '@/components/inference/model-card';
+import TemplateSummary from '@/components/inference/template-summary';
 import { useInferenceContext } from '@/context/inference-context';
 import { HuggingFaceModel } from '@/types/huggingface';
 import { formatDuration } from '@/utils/formatters';
@@ -42,9 +43,11 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   onRemoveModel,
 }) => {
   const [selectionOpen, setSelectionOpen] = useState(false);
-  const { selectedModels, selectedEnv, selectedToken, jobDurationSeconds } = useInferenceContext();
+  const { selectedModels, selectedEnv, selectedToken, jobDurationSeconds, selectedTemplate, templateEnvValues } =
+    useInferenceContext();
 
-  const hasSelection = selectedModels.length > 0 || !!selectedEnv;
+  // The templates flow selects a template instead of models, so it counts the same way for the panel.
+  const hasSelection = selectedModels.length > 0 || !!selectedTemplate || !!selectedEnv;
 
   return (
     <div className={styles.root}>
@@ -72,6 +75,16 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                       <ModelCard key={model.id} model={model} onToggle={onRemoveModel} />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {selectedTemplate && (
+                <div className={styles.section}>
+                  <div>
+                    <h4>Template</h4>
+                    <span className="textSecondary">Expand the row for container details</span>
+                  </div>
+                  <TemplateSummary envValues={templateEnvValues} template={selectedTemplate} />
                 </div>
               )}
 

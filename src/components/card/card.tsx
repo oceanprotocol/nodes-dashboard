@@ -20,6 +20,7 @@ type Variant =
 type Shadow = 'black' | 'accent1' | 'accent2' | 'success' | 'warning' | 'error';
 
 type CardProps = {
+  ariaLabel?: string;
   ariaPressed?: boolean;
   children: ReactNode;
   className?: string;
@@ -39,6 +40,7 @@ type CardProps = {
 };
 
 const Card: React.FC<CardProps> = ({
+  ariaLabel,
   ariaPressed,
   children,
   className,
@@ -80,6 +82,7 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <div
+      aria-label={ariaLabel}
       aria-pressed={ariaPressed}
       className={cx(
         styles.root,

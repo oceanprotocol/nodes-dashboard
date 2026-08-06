@@ -15,6 +15,8 @@
   --background-glass-secondary: #aaaaaa28;
   --background-modal: #ffffffc9;
   --background-modal-overlay: #00000035;
+  --background-shimmer-gradient: linear-gradient(90deg, #00000008, #0000001a, #00000008);
+  --background-shimmer-gradient-soft: linear-gradient(90deg, #00000008, #00000014, #00000008);
   --background-table-header: #f5f5f5;
   --border: #00000025;
   --border-glass: #00000012;
@@ -25,6 +27,7 @@
   --drop-shadow-warning: 0 8px 80px -20px var(--warning);
   --error: #ff9886;
   --error-darker: #d85548;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --inner-shadow-accent1: inset 0 8px 48px -32px var(--accent1);
   --inner-shadow-accent2: inset 0 8px 48px -32px var(--accent2);
   --inner-shadow-black: inset 0 8px 32px -12px #00000025;
@@ -198,6 +201,35 @@ a {
       flex-direction: row;
       justify-content: flex-end;
     }
+  }
+}
+
+/* Loading placeholder — a shimmering block sized by the caller (height/width/radius). */
+
+.shimmer {
+  border-radius: 6px;
+  background-image: var(--background-shimmer-gradient);
+  background-size: 320px 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* A softer pass for secondary lines, so a skeleton reads as a hierarchy rather than a slab. */
+.shimmerSoft {
+  background-image: var(--background-shimmer-gradient-soft);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -320px 0;
+  }
+  100% {
+    background-position: 320px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
   }
 }
 

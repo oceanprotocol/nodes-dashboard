@@ -3,8 +3,11 @@ import Card from '@/components/card/card';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { getApiRoute } from '@/config';
+import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
+import { fetchTemplates, findTemplateByImage } from '@/services/service-templates';
+import { AppTemplate } from '@/types/templates';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
@@ -12,7 +15,7 @@ import { ServiceJob } from '@oceanprotocol/lib';
 import axios from 'axios';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './existing-services-table.module.css';
 
 type ServiceSession = {
@@ -22,6 +25,8 @@ type ServiceSession = {
   statusText?: string;
   environment?: string;
   dockerCmd?: string[];
+  /** Container image the service was launched from — matched back to a template (see findTemplateByImage). */
+  image?: string;
   model?: string;
   duration?: number;
   expiresAt?: number;
@@ -30,9 +35,10 @@ type ServiceSession = {
 };
 
 // Rows are ServiceJob-shaped so the shared existingServicesColumns can render them, but the
-// backend's session records are looser than the node's own ServiceJob (no clusterHash/image/etc,
-// and peerId is ours). Keep the session alongside for routing.
-type ServiceRow = Partial<ServiceJob> & { serviceId: string; session: ServiceSession };
+// backend's session records are looser than the node's own ServiceJob (no clusterHash/etc, and
+// peerId is ours). Keep the session alongside for routing, and the matched template's name so the
+// Model column can name the app instead of a model that doesn't exist for a template launch.
+type ServiceRow = Partial<ServiceJob> & { serviceId: string; session: ServiceSession; templateName?: string };
 
 function modelIdFromSession(session: ServiceSession): string | null {
   if (session.model) {
@@ -47,23 +53,29 @@ function modelIdFromSession(session: ServiceSession): string | null {
 // `new Date(value)`) and a model recoverable from `dockerCmd` via `--model`. The backend instead
 // sends a numeric epoch — in seconds or ms depending on the record — and may name the model
 // directly, so normalize both here rather than teaching the columns a second shape.
-function toRow(session: ServiceSession): ServiceRow {
+//
+// A template-launched service has no HF model at all — the whole app rides in the template's own
+// image/command — so when one matched, the row names the template and carries no model id.
+function toRow(session: ServiceSession, template?: AppTemplate): ServiceRow {
   const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
-  const modelId = modelIdFromSession(session);
+  const modelId = template ? null : modelIdFromSession(session);
   return {
     ...session,
     dateCreated: new Date(createdMs).toISOString(),
-    dockerCmd: modelId ? ['--model', modelId] : session.dockerCmd,
+    dockerCmd: modelId ? ['--model', modelId] : template ? [] : session.dockerCmd,
     session,
+    templateName: template ? (template.name ?? template.id) : undefined,
   };
 }
 
 const ExistingServicesTable: React.FC = () => {
   const router = useRouter();
   const { account } = useOceanAccount();
+  const { isReady: p2pReady, getServiceTemplates } = useP2P();
 
-  const [rows, setRows] = useState<ServiceRow[]>([]);
+  const [sessions, setSessions] = useState<ServiceSession[]>([]);
   const [total, setTotal] = useState(0);
+  const [templateByService, setTemplateByService] = useState<Record<string, AppTemplate>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Services aren't fetched on mount — the collapsible only opens (and loads) once "Load" is pressed.
@@ -71,10 +83,18 @@ const ExistingServicesTable: React.FC = () => {
 
   const requestRef = useRef<AbortController>();
 
+  // Template matching resolves after the services themselves (a second, node-side fetch), so rows are
+  // derived rather than stored — they re-render with the app name once the match lands.
+  const rows = useMemo(
+    () => sessions.map((session) => toRow(session, templateByService[session.serviceId])),
+    [sessions, templateByService]
+  );
+
   useEffect(() => {
     requestRef.current?.abort();
-    setRows([]);
+    setSessions([]);
     setTotal(0);
+    setTemplateByService({});
     setOpen(false);
     setLoading(false);
   }, [account.address]);
@@ -94,8 +114,26 @@ const ExistingServicesTable: React.FC = () => {
         params: { page: 1, size: 100, sort: JSON.stringify({ dateCreated: 'desc' }) },
         signal: request.signal,
       });
-      setRows(((data.services ?? []) as ServiceSession[]).map(toRow));
+      const services: ServiceSession[] = data.services ?? [];
+      setSessions(services);
       setTotal(data.pagination?.totalItems ?? 0);
+      if (p2pReady) {
+        try {
+          const templates = await fetchTemplates(getServiceTemplates, request.signal);
+          const matched: Record<string, AppTemplate> = {};
+          for (const service of services) {
+            const tpl = findTemplateByImage(templates, service.image);
+            if (tpl) {
+              matched[service.serviceId] = tpl;
+            }
+          }
+          if (!request.signal.aborted) {
+            setTemplateByService(matched);
+          }
+        } catch (templateErr) {
+          console.error('Failed to match services to templates:', templateErr);
+        }
+      }
     } catch (err) {
       if (axios.isCancel(err)) {
         return;
@@ -110,7 +148,7 @@ const ExistingServicesTable: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [account.address]);
+  }, [account.address, p2pReady, getServiceTemplates]);
 
   // Open the collapsible and (re)fetch. Toggles closed again if already open.
   const handleLoad = useCallback(() => {
@@ -131,14 +169,15 @@ const ExistingServicesTable: React.FC = () => {
       setError('This service is missing node info and cannot be managed from here.');
       return;
     }
-    const modelId = modelIdFromSession(session);
+    const template = templateByService[session.serviceId];
+    const modelId = template ? null : modelIdFromSession(session);
     const token = session.payment?.token;
     router.push({
       pathname: `/inference/services/${encodeURIComponent(session.serviceId)}`,
       query: {
         peerId: session.peerId,
         env: session.environment,
-        ...(modelId ? { models: encodeModelIds([modelId]) } : {}),
+        ...(template ? { template: template.id } : modelId ? { models: encodeModelIds([modelId]) } : {}),
         ...(token ? { token } : {}),
         ...(session.duration != null ? { duration: String(session.duration) } : {}),
       },

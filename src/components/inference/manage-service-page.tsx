@@ -7,6 +7,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
@@ -24,6 +25,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
+import { templatePrimaryPort } from '@/services/template-launch';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -170,6 +172,7 @@ const ManageServicePage: React.FC = () => {
     selectedEnv,
     selectedToken,
     setSelectedToken,
+    selectedTemplate,
     jobDurationSeconds,
     setJobDurationSeconds,
     hydrateFromUrlFinished,
@@ -312,15 +315,21 @@ const ManageServicePage: React.FC = () => {
    * When both name the same model, the hydrated entry is used: same id, but with HF metadata (avatar,
    * author) the job record doesn't carry. A node-only model renders off its id alone, with launch params
    * parsed from the same dockerCmd. One container serves one model, so it replaces the list, not joins.
+   *
+   * Empty for a template app: it serves no model, and its dockerCmd is the template's own command —
+   * a `--model`-looking flag in there is the app's argument, not an HF model to name or relaunch.
    */
   const models: ServiceModel[] = useMemo(() => {
+    if (selectedTemplate) {
+      return [];
+    }
     const jobModelId = jobCommand?.modelId;
     if (jobModelId) {
       const hydrated = selectedModels.find((m) => m.id === jobModelId);
       return [{ model: hydrated ?? { id: jobModelId }, params: modelParamsByModel[jobModelId] ?? jobCommand.params }];
     }
     return selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] }));
-  }, [selectedModels, modelParamsByModel, jobCommand]);
+  }, [selectedModels, modelParamsByModel, jobCommand, selectedTemplate]);
 
   const environment = selectedEnv?.environment ?? null;
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
@@ -379,8 +388,26 @@ const ManageServicePage: React.FC = () => {
       : jobDurationSeconds;
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
-  // Named after whichever model won in `models`; the raw serviceId when there's no model at all.
-  const serviceName = models.length > 0 ? models.map((m) => getModelShortName(m.model.id)).join(' + ') : id;
+  const isTemplate = !!selectedTemplate;
+  // What the container actually runs, per the node's job record — outranks the template the link
+  // names, which an Edit relaunch may have swapped away from. Null until the first poll lands.
+  const runningImageRef = job ? (job.tag ? `${job.image}:${job.tag}` : job.image) : null;
+  // A template app is named after the template; a model service after whichever model won in `models`
+  // (the raw serviceId when there's no model at all).
+  const serviceName = selectedTemplate
+    ? (selectedTemplate.name ?? selectedTemplate.id)
+    : models.length > 0
+      ? models.map((m) => getModelShortName(m.model.id)).join(' + ')
+      : id;
+  // Template services serve a web UI (not an OpenAI API) — the URL on the template's primary port.
+  const templateUiUrl = useMemo(() => {
+    if (!selectedTemplate || !job) {
+      return null;
+    }
+    const port = templatePrimaryPort(selectedTemplate);
+    const match = job.endpoints.find((ep) => ep.containerPort === port);
+    return (match ?? job.endpoints[0])?.url ?? null;
+  }, [selectedTemplate, job]);
 
   const status = job
     ? getServiceStatusView(job.status, job.statusText)
@@ -420,6 +447,15 @@ const ManageServicePage: React.FC = () => {
     if (!canEdit) {
       return;
     }
+    // A template service re-enters the template flow at the config (reconfigure) step; a model service
+    // re-enters the model picker. buildSelectionQuery already carries the template/model selection.
+    if (selectedTemplate) {
+      router.push({
+        pathname: `/inference/templates/${encodeURIComponent(selectedTemplate.id)}/config`,
+        query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
+      });
+      return;
+    }
     router.push({
       pathname: '/inference/custom-models',
       query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
@@ -453,15 +489,22 @@ const ManageServicePage: React.FC = () => {
     // Provider persists across client-side nav, so URL hydration won't re-run — push duration straight
     // into context (query keeps it for a hard reload).
     setJobDurationSeconds(extraSeconds);
-    router.push({
-      pathname: '/inference/custom-models/payment',
-      query: {
-        ...buildSelectionQuery(selectionOverrides),
-        duration: String(extraSeconds),
-        prolong: '1',
-        serviceId: id,
-      },
-    });
+    const query = {
+      ...buildSelectionQuery(selectionOverrides),
+      duration: String(extraSeconds),
+      prolong: '1',
+      serviceId: id,
+    };
+    // A template service has no models, so the custom-models payment page would bounce back to the model
+    // picker — route template prolong into the template payment page (flowType=Template) instead.
+    if (selectedTemplate) {
+      router.push({
+        pathname: `/inference/templates/${encodeURIComponent(selectedTemplate.id)}/payment`,
+        query,
+      });
+      return;
+    }
+    router.push({ pathname: '/inference/custom-models/payment', query });
   };
 
   // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.
@@ -486,7 +529,7 @@ const ManageServicePage: React.FC = () => {
             <div className={styles.header}>
               <div>
                 <h3>{serviceName}</h3>
-                <div className={styles.meta}>Custom selection</div>
+                <div className={styles.meta}>{isTemplate ? 'Template app' : 'Custom selection'}</div>
               </div>
               <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
                 {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
@@ -558,22 +601,39 @@ const ManageServicePage: React.FC = () => {
 
           {/* Model. Rendered even when there's no model to name: the card is the only place the model
               appears, so "unknown" must be stated rather than the card silently vanishing — otherwise
-              the previous service's card is the last thing the user saw here. */}
-          <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-            <div className={styles.howToHead}>
-              <h3>Model</h3>
-              {models.length > 0 && <span className="textSecondary">Expand for launch parameters</span>}
-            </div>
-            {models.length > 0 ? (
-              <InferenceModelList models={models} />
-            ) : (
-              <div className="textSecondary">
-                {jobLoading
-                  ? 'Loading model…'
-                  : 'Unknown model — neither the node nor this service’s record names one.'}
+              the previous service's card is the last thing the user saw here. Skipped entirely for a
+              template app, which serves no model at all (its whole config rides in the template). */}
+          {!isTemplate && (
+            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+              <div className={styles.howToHead}>
+                <h3>Model</h3>
+                {models.length > 0 && <span className="textSecondary">Expand for launch parameters</span>}
               </div>
-            )}
-          </Card>
+              {models.length > 0 ? (
+                <InferenceModelList models={models} />
+              ) : (
+                <div className="textSecondary">
+                  {jobLoading
+                    ? 'Loading model…'
+                    : 'Unknown model — neither the node nor this service’s record names one.'}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Template (app service) — the counterpart of the Model card above. `envValues` is
+              deliberately not passed: the values a service was started with live in the container's
+              userData and come back on neither the job record nor the URL, so claiming a set here
+              would be guesswork (TemplateSummary says as much instead). */}
+          {isTemplate && selectedTemplate && (
+            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+              <div className={styles.howToHead}>
+                <h3>Template</h3>
+                <span className="textSecondary">Expand for container details</span>
+              </div>
+              <TemplateSummary runningImageRef={runningImageRef ?? undefined} template={selectedTemplate} />
+            </Card>
+          )}
 
           {/* Environment */}
           {environment && nodeInfo && (
@@ -602,7 +662,7 @@ const ManageServicePage: React.FC = () => {
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <div className={styles.howToHead}>
               <h3>How to use</h3>
-              {baseUrl && !isExpired ? (
+              {!isTemplate && baseUrl && !isExpired ? (
                 // vLLM (FastAPI) serves interactive Swagger docs at /docs — live source of truth for
                 // every route this container exposes.
                 <a className={styles.docsLink} href={`${baseUrl}/docs`} rel="noreferrer" target="_blank">
@@ -612,7 +672,35 @@ const ManageServicePage: React.FC = () => {
               ) : null}
             </div>
 
-            {baseUrl && !isExpired ? (
+            {isTemplate ? (
+              templateUiUrl && !isExpired ? (
+                <div className={styles.endpoints}>
+                  <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
+                    <div className="chip chipGlass">App URL</div>
+                    <span className={styles.endpointPath}>{templateUiUrl}</span>
+                    <span className={styles.endpointDescription}>Open this app&apos;s web UI in a new tab</span>
+                    <a href={templateUiUrl} rel="noreferrer" target="_blank">
+                      <Button
+                        color="accent1"
+                        contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                        size="sm"
+                        variant="filled"
+                      >
+                        Open UI
+                      </Button>
+                    </a>
+                  </Card>
+                </div>
+              ) : (
+                <div className="textSecondary">
+                  {isExpired
+                    ? 'This session has ended — the app is no longer available.'
+                    : isRunning
+                      ? 'App is running but exposed no endpoint.'
+                      : 'The app URL becomes available once the service is running…'}
+                </div>
+              )
+            ) : baseUrl && !isExpired ? (
               <>
                 <div className={styles.endpoints}>
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">

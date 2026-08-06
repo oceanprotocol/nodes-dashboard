@@ -11,6 +11,7 @@ import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run
 import { INFERENCE_ENGINE_OPTIONS } from '@/services/huggingface-service';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { InferenceEngine } from '@/types/huggingface';
+import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
@@ -53,9 +54,11 @@ type SelectInferenceEnvironmentProps = {
   /** Fired after an environment/token/gpu pick is committed to context. Receives the freshly-picked
    *  values so the caller can navigate with them without waiting for context state to settle. */
   onEnvSelected: (picked: { peerId: string; envId: string; tokenAddress: string; gpuSelection: GpuSelection }) => void;
+  /** Which flow is using the picker — decides whether the engine selector is shown (see below). */
+  flowType: InferenceFlowType;
 };
 
-const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({ onEnvSelected }) => {
+const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({ onEnvSelected, flowType }) => {
   const { loading, loadMoreEnvs, nodeEnvs, paginationResponse, filters, setFilters, setSort, sort } =
     useRunJobEnvsContext();
   const {
@@ -71,6 +74,11 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
   // min/max job-duration window. Cleared on the next valid pick or duration change.
   const [durationError, setDurationError] = useState<string | null>(null);
+
+  // The engine (vLLM / llama.cpp) picks the container image, port and command for a custom-model
+  // launch. A template ships its own image and command, so there is nothing for the user to choose —
+  // showing the selector here would imply the pick affects the launch, which it doesn't.
+  const showEngine = flowType !== InferenceFlowType.Template;
 
   // Duration changed: clear the stale error, and if the already-picked env no longer fits the new
   // duration, drop the selection so the "Skip" nav can't carry an out-of-window pick forward.
@@ -200,20 +208,24 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
         <div className={styles.durationRow}>
           <div>
-            <h3>Engine &amp; duration</h3>
-            <div className="textSecondary">
-              Prices below are shown for <strong>selected duration</strong>
+            <h3>{showEngine ? 'Engine & duration' : 'Duration'}</h3>
+            <div>
+              You can prolong a running session later from its manage page.
+              <br />
+              Prices below are shown for this <strong>selected duration</strong>
             </div>
           </div>
           <div className={styles.controls}>
-            <Select<InferenceEngine>
-              className={styles.input}
-              label="Engine"
-              onChange={(e) => setEngine(e.target.value as InferenceEngine)}
-              options={INFERENCE_ENGINE_OPTIONS}
-              size="sm"
-              value={engine}
-            />
+            {showEngine && (
+              <Select<InferenceEngine>
+                className={styles.input}
+                label="Engine"
+                onChange={(e) => setEngine(e.target.value as InferenceEngine)}
+                options={INFERENCE_ENGINE_OPTIONS}
+                size="sm"
+                value={engine}
+              />
+            )}
             <DurationInput
               availableUnits={DURATION_UNIT_OPTIONS}
               className={styles.input}

@@ -7,6 +7,7 @@ import InferenceStepper from '@/components/inference/inference-stepper';
 import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
+import { templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -17,17 +18,32 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
   const params = useParams<{ modelId?: string; templateId?: string }>();
 
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel;
+  const isTemplateFlow = flowType === InferenceFlowType.Template;
+  const isEnvPickerFlow = isCustomModelFlow || isTemplateFlow;
 
-  const { selectedModels, selectedEnv, hydrateFromUrlFinished, hydrationFailed, buildSelectionQuery } =
+  const { selectedModels, selectedEnv, selectedTemplate, hydrateFromUrlFinished, hydrationFailed, buildSelectionQuery } =
     useInferenceContext();
 
-  // Bounce back to the model picker if we landed here (deep link / refresh) with no models selected —
-  // but not when hydration outright failed, where we show a retry instead of discarding the URL.
+  // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
+  // when hydration outright failed, where we show a retry instead of discarding the URL.
   useEffect(() => {
-    if (isCustomModelFlow && hydrateFromUrlFinished && !hydrationFailed && selectedModels.length === 0) {
-      router.replace({ pathname: '/inference/custom-models', query: router.query });
+    if (!hydrateFromUrlFinished || hydrationFailed) {
+      return;
     }
-  }, [isCustomModelFlow, hydrateFromUrlFinished, hydrationFailed, selectedModels.length, router]);
+    if (isCustomModelFlow && selectedModels.length === 0) {
+      router.replace({ pathname: '/inference/custom-models', query: router.query });
+    } else if (isTemplateFlow && !selectedTemplate) {
+      router.replace({ pathname: '/inference/templates', query: router.query });
+    }
+  }, [
+    isCustomModelFlow,
+    isTemplateFlow,
+    hydrateFromUrlFinished,
+    hydrationFailed,
+    selectedModels.length,
+    selectedTemplate,
+    router,
+  ]);
 
   // The quick-start (DefaultModel) flow has no resources step — its package bundles the hardware
   // and the env auto-matches on the package step — so only the custom & template flows route here.
@@ -62,36 +78,45 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        router.push(`/inference/templates/${encodeURIComponent(params.templateId ?? '')}/config`);
+        // Config is skipped on a fresh template launch (env vars optional) → straight to payment. Pin
+        // the template's recommended CPU/RAM/disk into the URL so payment books them (env + sizing are
+        // re-hydrated from the query on arrival, so no setState-timing dependency here).
+        const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
+        router.push({
+          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/payment`,
+          query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
+        });
         break;
       }
     }
   };
 
   const resolving = !hydrateFromUrlFinished;
-  const hasModels = selectedModels.length > 0;
+  // Both env-picker flows need something selected before the picker is meaningful: the custom flow a
+  // model, the template flow a template.
+  const hasSelectionForFlow = isCustomModelFlow ? selectedModels.length > 0 : !!selectedTemplate;
 
   return (
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
         title="Inference"
-        subTitle="Launch a model on an Ocean Node"
+        subTitle="Launch on an Ocean Node"
         contentBetween={<InferenceStepper currentStep="resources" flowType={flowType} />}
       />
       <div className="pageContentWrapper">
-        {isCustomModelFlow ? (
+        {isEnvPickerFlow ? (
           <>
             {resolving ? (
               <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-                <div className="textSecondary">Loading selected models…</div>
+                <div className="textSecondary">Loading selection…</div>
               </Card>
             ) : hydrationFailed ? (
               <InferenceHydrationError />
             ) : (
-              hasModels && (
+              hasSelectionForFlow && (
                 <>
-                  <SelectInferenceEnvironment onEnvSelected={goToNextStep} />
+                  <SelectInferenceEnvironment flowType={flowType} onEnvSelected={goToNextStep} />
                   <InferenceNavigation
                     nextLabel="Skip"
                     onNext={selectedEnv ? () => goToNextStep() : undefined}

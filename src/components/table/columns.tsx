@@ -715,7 +715,9 @@ export function modelIdFromJob(job: ServiceJob): string | null {
 
 // The caller's own inference services (getServiceStatus keeps dockerCmd, so the model id is
 // recoverable). Actions column (Manage) is supplied by the consumer via the Table `actionsColumn`.
-export const existingServicesColumns: GridColDef<ServiceJob>[] = [
+// `templateName` is set by the consumer for a service launched from an app template: those carry no
+// HF model (the app rides in the template's own image/command), so the row names the app instead.
+export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: string }>[] = [
   {
     field: 'model',
     filterable: false,
@@ -723,6 +725,9 @@ export const existingServicesColumns: GridColDef<ServiceJob>[] = [
     headerName: 'Model',
     sortable: false,
     renderCell: ({ row }) => {
+      if (row.templateName) {
+        return <span title={`Service ${row.serviceId}`}>{row.templateName}</span>;
+      }
       const modelId = modelIdFromJob(row);
       if (modelId) {
         return <ModelCell modelId={modelId} />;

@@ -6,6 +6,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
+import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
@@ -16,6 +17,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
+import { buildTemplateRestartParams, buildTemplateStartParams } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
@@ -38,6 +40,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     jobDurationSeconds,
     selectedModels,
     modelParamsByModel,
+    selectedTemplate,
+    templateEnvValues,
     hfToken,
     hydrateFromUrlFinished,
     hydrationFailed,
@@ -175,6 +179,20 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         }
         break;
       }
+      case InferenceFlowType.Template: {
+        // Template + env are required here. On edit AND prolong the env is inherited from the running
+        // service (the resources step is skipped), so don't bounce to resources — the env comes from URL
+        // hydration. Mirrors the CustomModel case, which excludes both modes for the same reason.
+        if (!selectedTemplate) {
+          router.replace({ pathname: '/inference/templates', query: router.query });
+        } else if (!selectedEnv && !isEditMode && !isProlongMode) {
+          router.replace({
+            pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            query: router.query,
+          });
+        }
+        break;
+      }
     }
   }, [
     flowType,
@@ -182,9 +200,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hydrationFailed,
     selectedModels,
     selectedEnv,
+    selectedTemplate,
     modelParamsByModel,
     isEditMode,
     isProlongMode,
+    params.templateId,
     router,
   ]);
 
@@ -206,7 +226,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         break;
       }
       case InferenceFlowType.Template: {
-        router.replace(`/inference/templates/${encodeURIComponent(params.templateId ?? '')}/config`);
+        // Fresh launch skips config → back to resources. Edit shows config (reconfigure step) → back there.
+        router.replace({
+          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/${isEditMode ? 'config' : 'resources'}`,
+          query: router.query,
+        });
         break;
       }
     }
@@ -431,6 +455,128 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     buildManageQuery,
   ]);
 
+  // Fresh launch of a template app (ComfyUI, …). Mirrors runFreshLaunch but sources the container spec
+  // from the selected template (image/ports/command/env) instead of an HF model + engine params.
+  const runTemplateLaunch = useCallback(async () => {
+    if (!selectedTemplate || !selectedEnv || !selectedToken || !account.address) {
+      const missing = [
+        !selectedTemplate && 'template',
+        !selectedEnv && 'environment',
+        !selectedToken && 'payment token',
+        !account.address && 'wallet',
+      ].filter(Boolean);
+      setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      return;
+    }
+    if (jobDurationSeconds <= 0) {
+      setLaunchError('Pick a duration greater than zero.');
+      return;
+    }
+    const envMax = selectedEnv.environment.maxJobDuration;
+    if (envMax && jobDurationSeconds > envMax) {
+      setLaunchError(
+        `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
+      );
+      return;
+    }
+
+    setLaunching(true);
+    setLaunchError(null);
+    try {
+      await ensureEscrowForSelection();
+      const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      const startParams = buildTemplateStartParams({
+        template: selectedTemplate,
+        selectedEnv,
+        // Launch the exact per-type unit count that was priced/escrowed (see runFreshLaunch note).
+        gpuSelection: selectedByKey,
+        allocation,
+        durationSeconds: jobDurationSeconds,
+        tokenAddress: selectedToken.address,
+        envValues: templateEnvValues,
+      });
+      const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+        serviceStart(nodeUri, token, startParams)
+      );
+      if (!job?.serviceId) {
+        throw new Error('Node did not return a service id.');
+      }
+      router.push({
+        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        query: buildManageQuery(),
+      });
+    } catch (error) {
+      console.error('Failed to launch template service:', error);
+      setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
+    } finally {
+      setLaunching(false);
+    }
+  }, [
+    selectedTemplate,
+    selectedEnv,
+    selectedToken,
+    account.address,
+    withNodeAuth,
+    ensureEscrowForSelection,
+    allocation,
+    selectedByKey,
+    jobDurationSeconds,
+    templateEnvValues,
+    serviceStart,
+    router,
+    buildManageQuery,
+  ]);
+
+  // Edit relaunch for a template service: apply the selected template to the SAME running service via
+  // serviceRestart — same serviceId, host port and expiry (no re-pay, endpoint unchanged). As of
+  // next.6 serviceRestart pulls the new image/tag, so `selectedTemplate` may be a DIFFERENT template
+  // than the one running — this swaps the app in place. buildTemplateRestartParams carries the new
+  // image + command/entrypoint + configured env (userData). Ports/resources are NOT re-allocated on
+  // restart, so an app needing different ports/hardware needs a fresh start instead.
+  const relaunchTemplateService = useCallback(async () => {
+    if (!selectedTemplate || !selectedEnv || !account.address || !targetServiceId) {
+      const missing = [
+        !selectedTemplate && 'template',
+        !selectedEnv && 'environment',
+        !account.address && 'wallet',
+        !targetServiceId && 'service id',
+      ].filter(Boolean);
+      setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      return;
+    }
+
+    setLaunching(true);
+    setLaunchError(null);
+    try {
+      const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+        serviceRestart(nodeUri, token, targetServiceId, buildTemplateRestartParams(selectedTemplate, templateEnvValues))
+      );
+      if (!job?.serviceId) {
+        throw new Error('Node did not return a service id.');
+      }
+      router.push({
+        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        query: buildManageQuery(),
+      });
+    } catch (error) {
+      console.error('Failed to relaunch template service:', error);
+      setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
+    } finally {
+      setLaunching(false);
+    }
+  }, [
+    selectedTemplate,
+    selectedEnv,
+    account.address,
+    targetServiceId,
+    withNodeAuth,
+    templateEnvValues,
+    serviceRestart,
+    router,
+    buildManageQuery,
+  ]);
+
   const goToNextStep = useCallback(async () => {
     // Bail synchronously if a launch is already running — the disabled button only guards the NEXT
     // render, so a double-click before that commit would otherwise fire two escrow txs / launches.
@@ -439,8 +585,23 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     launchInFlightRef.current = true;
     try {
+      // Prolong just extends the running service's paid window (serviceExtend reuses the job's stored
+      // resources — same GPU/session, no re-allocation). It's flow-agnostic, so check it before the
+      // template branch: otherwise a template prolong falls into runTemplateLaunch and mints a fresh
+      // service, which re-checks GPU availability and fails ("Not enough available gpu globally") since
+      // the running service already holds the GPU.
       if (isProlongMode) {
         await prolongService();
+        return;
+      }
+      // Template flow: edit re-entry reconfigures the running service in place (serviceRestart, same
+      // image + paid window); otherwise mint a fresh service.
+      if (flowType === InferenceFlowType.Template) {
+        if (isEditMode) {
+          await relaunchTemplateService();
+        } else {
+          await runTemplateLaunch();
+        }
         return;
       }
       // Edit → restart the existing service in place (keeps port + elapsed time); never a fresh start.
@@ -452,14 +613,29 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     } finally {
       launchInFlightRef.current = false;
     }
-  }, [isProlongMode, prolongService, isEditMode, relaunchService, runFreshLaunch]);
+  }, [
+    flowType,
+    runTemplateLaunch,
+    relaunchTemplateService,
+    isProlongMode,
+    prolongService,
+    isEditMode,
+    relaunchService,
+    runFreshLaunch,
+  ]);
 
   return (
     <Container className="pageRoot">
       <SectionTitle
         moreReadable
         title="Inference"
-        subTitle={isProlongMode ? 'Prolong your running service' : 'Launch a model on an Ocean Node'}
+        subTitle={
+          isProlongMode
+            ? 'Prolong your running service'
+            : flowType === InferenceFlowType.Template
+              ? 'Launch an app on an Ocean Node'
+              : 'Launch a model on an Ocean Node'
+        }
         contentBetween={
           isProlongMode ? undefined : <InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} />
         }
@@ -506,6 +682,17 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     <span className="textSecondary">Expand for launch parameters</span>
                   </div>
                   <InferenceModelList models={models} />
+                </>
+              )}
+              {/* Template (app flow) — same treatment as the Models section above: a summary row with
+                  the full container spec + configured env vars behind a toggle. */}
+              {selectedTemplate && (
+                <>
+                  <div className={styles.sectionHead}>
+                    <h3>Template</h3>
+                    <span className="textSecondary">Expand for container details</span>
+                  </div>
+                  <TemplateSummary envValues={templateEnvValues} template={selectedTemplate} />
                 </>
               )}
               {/* Environment */}
