@@ -1,7 +1,6 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { DEFAULT_NODE_URI } from '@/constants/default-node';
 import { NodeUri } from '@/contexts/P2PContext';
-import { mergeMockBundles, MOCK_BUNDLES_ENABLED } from '@/mock/bundles';
 import { AppBundle, AppTemplate, isBundle, isService } from '@/types/templates';
 import { ServiceTemplatePublic } from '@oceanprotocol/lib';
 
@@ -21,28 +20,16 @@ export type GetServiceTemplatesFn = (
  * sanitizer's spread. Array-guarded so a malformed response can't throw. Pass the caller's
  * `useP2P().getServiceTemplates` (it throws until the P2P node is ready, so gate on `isReady`).
  *
- * This is the single choke point every caller goes through (the catalogue hook, the URL hydration in
- * inference-context, the running-services table), which is why the bundle mock is merged here: the
- * whole flow — browse, launch, manage — sees the same catalogue. The mock is on unless
- * `NEXT_PUBLIC_MOCK_BUNDLES=0`, and the merge is a no-op when it's off. See src/mock/bundles.ts.
+ * This is the single choke point every caller goes through — the catalogue hook, the URL hydration in
+ * inference-context, the running-services table — so the whole flow (browse, launch, manage) sees the
+ * same catalogue. An unreachable node is the caller's error to render.
  */
 export async function fetchTemplates(
   getServiceTemplates: GetServiceTemplatesFn,
   signal?: AbortSignal
 ): Promise<AppTemplate[]> {
-  try {
-    const result = await getServiceTemplates(DEFAULT_NODE_URI, CHAIN_ID, signal);
-    return mergeMockBundles(Array.isArray(result) ? result : []);
-  } catch (err) {
-    // With the mock on, an unreachable node still yields a browsable catalogue — that's the point of
-    // the flag, and it makes the flow testable with no node at all. Without it, the error is the
-    // caller's to render. An aborted fetch always rethrows: it means the caller went away.
-    if (!MOCK_BUNDLES_ENABLED || signal?.aborted) {
-      throw err;
-    }
-    console.warn('Node templates unavailable — falling back to the bundle mock:', err);
-    return mergeMockBundles([]);
-  }
+  const result = await getServiceTemplates(DEFAULT_NODE_URI, CHAIN_ID, signal);
+  return Array.isArray(result) ? result : [];
 }
 
 /** Look up one template by id (the `[templateId]` route param / URL hydration). */
