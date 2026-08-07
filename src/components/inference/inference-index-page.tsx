@@ -6,7 +6,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import WidgetsOutlinedIcon from '@mui/icons-material/WidgetsOutlined';
 import classNames from 'classnames';
 import styles from './inference-index-page.module.css';
 
@@ -29,19 +29,19 @@ const InferenceIndexPage: React.FC = () => {
               <AutoAwesomeOutlinedIcon />
             </div>
             <div className={styles.cardContent}>
-              <h3>Quick start</h3>
+              <h3>Models</h3>
               <div className="textSecondary">
-                Choose from a list of curated models, preconfigured for optimal performance
+                Run a curated model, or bring any model from Hugging Face with your own settings
               </div>
             </div>
-            <Button
-              contentAfter={<ArrowForwardIcon />}
-              color="accent1"
-              href="/inference/default-models"
-              variant="filled"
-            >
-              Select a model
-            </Button>
+            <div className={styles.cardActions}>
+              <Button color="accent1" href="/inference/custom-models" variant="outlined">
+                Custom
+              </Button>
+              <Button color="accent1" href="/inference/default-models" variant="filled">
+                Curated
+              </Button>
+            </div>
           </Card>
           <Card
             className={styles.card}
@@ -53,20 +53,17 @@ const InferenceIndexPage: React.FC = () => {
             variant="glass-shaded"
           >
             <div className={styles.iconBox}>
-              <TuneOutlinedIcon />
+              <WidgetsOutlinedIcon />
             </div>
             <div className={styles.cardContent}>
-              <h3>Custom model</h3>
-              <div className="textSecondary">Pull any model from Hugging Face, set your own parameters & resources</div>
+              <h3>Services</h3>
+              <div className="textSecondary">Launch a ready-to-use app that runs on top of a model you choose</div>
             </div>
-            <Button
-              contentAfter={<ArrowForwardIcon />}
-              color="accent1"
-              href="/inference/custom-models"
-              variant="outlined"
-            >
-              Start custom
-            </Button>
+            <div className={styles.cardActions}>
+              <Button color="accent1" disabled variant="outlined">
+                Coming soon
+              </Button>
+            </div>
           </Card>
           <Card
             className={styles.card}
@@ -82,16 +79,20 @@ const InferenceIndexPage: React.FC = () => {
             </div>
             <div className={styles.cardContent}>
               <h3>Templates</h3>
-              <div className="textSecondary">Start your workflow with our ready-made templates</div>
+              <div className="textSecondary">
+                Start your workflow with our ready-made bundles of models and services
+              </div>
             </div>
-            <Button
-              contentAfter={<ArrowForwardIcon />}
-              color="accent1"
-              href="/inference/templates"
-              variant="outlined"
-            >
-              Browse templates
-            </Button>
+            <div className={styles.cardActions}>
+              <Button
+                contentAfter={<ArrowForwardIcon />}
+                color="accent1"
+                href="/inference/templates"
+                variant="outlined"
+              >
+                Browse templates
+              </Button>
+            </div>
           </Card>
         </div>
         <ExistingServicesTable />
