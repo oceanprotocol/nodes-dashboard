@@ -700,10 +700,10 @@ const ManageServicePage: React.FC = () => {
               templateUiUrl && !isExpired ? (
                 <div className={styles.endpoints}>
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
-                    <div className="chip chipGlass">App URL</div>
+                    <div className={`chip chipGlass ${styles.endpointChip}`}>App URL</div>
                     <span className={styles.endpointPath}>{templateUiUrl}</span>
                     <span className={styles.endpointDescription}>Open this app&apos;s web UI in a new tab</span>
-                    <a href={templateUiUrl} rel="noreferrer" target="_blank">
+                    <a className={styles.endpointAction} href={templateUiUrl} rel="noreferrer" target="_blank">
                       <Button
                         color="accent1"
                         contentAfter={<OpenInNewIcon fontSize="inherit" />}
@@ -728,12 +728,17 @@ const ManageServicePage: React.FC = () => {
               <>
                 <div className={styles.endpoints}>
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
-                    <div className="chip chipGlass">Base URL</div>
+                    <div className={`chip chipGlass ${styles.endpointChip}`}>Base URL</div>
                     <span className={styles.endpointPath}>{baseUrl}</span>
                     <span className={styles.endpointDescription}>
                       OpenAI-compatible — append a route from the references above
                     </span>
-                    <CopyButton color="accent2" contentToCopy={baseUrl} variant="filled" />
+                    <CopyButton
+                      className={styles.endpointAction}
+                      color="accent2"
+                      contentToCopy={baseUrl}
+                      variant="filled"
+                    />
                   </Card>
                 </div>
                 <div className={styles.quickTestHead}>
