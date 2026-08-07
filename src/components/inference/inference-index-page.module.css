@@ -49,7 +49,7 @@
 
       /* Equal-width actions so the merged Models card matches the single-action cards */
       > * {
-        flex-grow: 1;
+        flex: 1 1 0;
         white-space: nowrap;
       }
     }
