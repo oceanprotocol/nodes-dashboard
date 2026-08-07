@@ -94,6 +94,13 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
    */
   const inflightRef = useRef<Record<string, Promise<string>>>({});
 
+  /**
+   * Bumped whenever the signer changes (login, logout, account switch). A mint captures the
+   * generation it started in; when it settles under a newer one its result belongs to a different
+   * address, so it must not be stored or left in inflightRef.
+   */
+  const generationRef = useRef<number>(0);
+
   const saveToLocalStorage = useCallback((nodeTokens: NodeTokens) => {
     if (!addressRef.current) {
       return;
@@ -126,6 +133,14 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
   );
 
   const hydrateFromLocalStorage = useCallback(() => {
+    // Drop whatever the previous signer left behind BEFORE reading storage: with no stored entry
+    // (or a corrupt one) the tokens below would otherwise survive into the new account and be
+    // handed out by getNodeToken. Also invalidates any mint still in flight for the old address.
+    generationRef.current += 1;
+    nodeTokensRef.current = {};
+    setNodeTokens({});
+    inflightRef.current = {};
+
     const stored = localStorage.getItem(`${LOCAL_STORAGE_KEY_PREFIX}-${account.address}`);
     if (stored) {
       try {
@@ -156,15 +171,14 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
       // user logged out -> clear node tokens
       // Tokens are bound to the signer's address, so drop the inflight mints too: their results
       // belong to the previous address and the node would reject them for the next one.
+      generationRef.current += 1;
       updateNodeTokens(() => ({}));
       inflightRef.current = {};
     }
     if (account.address && (addressRef.current !== account.address || !isHydrated)) {
       // user logged into new account -> hydrate node tokens from local storage
       // app opened, user already logged in -> hydrate node tokens from local storage
-      if (addressRef.current && addressRef.current !== account.address) {
-        inflightRef.current = {};
-      }
+      // hydrateFromLocalStorage bumps the generation and clears tokens/inflight for us.
       hydrateFromLocalStorage();
     }
     addressRef.current = account.address;
@@ -199,7 +213,18 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
         return inflightRef.current[nodeId];
       }
       const validUntil = Date.now() + AUTO_TOKEN_LIFETIME_MS;
-      const promise = createAuthToken({
+      const generation = generationRef.current;
+      // eslint-disable-next-line prefer-const
+      let promise: Promise<string>;
+      // Only the promise still registered for this node may clear the slot: a late mint from an
+      // older generation would otherwise delete the entry a newer mint just installed, and the
+      // next caller would mint a duplicate (extra signature prompt + node nonce).
+      const clearInflight = () => {
+        if (inflightRef.current[nodeId] === promise) {
+          delete inflightRef.current[nodeId];
+        }
+      };
+      promise = createAuthToken({
         consumerAddress: account.address,
         nodeUri,
         signMessage,
@@ -207,6 +232,13 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
         validUntil,
       }).then(
         ({ token }) => {
+          clearInflight();
+          // Signer changed while this mint was in flight: the token is bound to the previous
+          // address, so storing it would poison the new account's map (and its storage key).
+          // Still returned to the caller that asked for it under the old generation.
+          if (generation !== generationRef.current) {
+            return token;
+          }
           const storableUri = toStorableNodeUri(nodeUri);
           if (storableUri !== undefined) {
             addNodeToken({
@@ -217,11 +249,10 @@ export const NodeTokensProvider = ({ children }: { children: React.ReactNode }) 
               token,
             });
           }
-          delete inflightRef.current[nodeId];
           return token;
         },
         (err) => {
-          delete inflightRef.current[nodeId];
+          clearInflight();
           throw err;
         }
       );
