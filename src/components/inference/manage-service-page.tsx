@@ -12,7 +12,7 @@ import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { useP2P } from '@/contexts/P2PContext';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { useNodeTokensContext } from '@/context/node-tokens';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -181,7 +181,7 @@ const ManageServicePage: React.FC = () => {
   } = useInferenceContext();
   const { account } = useOceanAccount();
   const { getServiceStatus, serviceRestart } = useP2P();
-  const { withNodeAuth } = useNodeAuth();
+  const { withNodeAuth } = useNodeTokensContext();
 
   // The real service job, polled from the node until terminal.
   const [job, setJob] = useState<ServiceJob | null>(null);
