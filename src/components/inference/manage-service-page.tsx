@@ -11,8 +11,8 @@ import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
-import { useP2P } from '@/contexts/P2PContext';
 import { useNodeTokensContext } from '@/context/node-tokens';
+import { useP2P } from '@/contexts/P2PContext';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -39,23 +39,28 @@ import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './manage-service-page.module.css';
 
-type Endpoint = {
-  method: 'GET' | 'POST';
-  path: string;
-  description: string;
-};
+/**
+ * Generic OpenAI API reference. Always reachable, never service-specific — the request/response shape
+ * for the OpenAI-compatible surface both engines we launch expose.
+ */
+const OPENAI_API_SPEC_URL = 'https://platform.openai.com/docs/api-reference/chat';
 
-// OpenAI-compatible paths served by the vLLM container (appended to the running service's base URL).
-const ENDPOINTS: Endpoint[] = [
-  { method: 'GET', path: '/v1/models', description: 'List loaded models and status' },
-  { method: 'POST', path: '/v1/chat/completions', description: 'Chat completions · SSE streaming' },
-  { method: 'POST', path: '/v1/completions', description: 'Legacy text completions' },
-  { method: 'POST', path: '/v1/embeddings', description: 'Embeddings (if supported)' },
-  { method: 'POST', path: '/tokenize', description: 'Count / inspect prompt tokens' },
-  { method: 'POST', path: '/detokenize', description: 'Token ids back to text' },
-  { method: 'GET', path: '/health', description: 'Liveness probe (200 = ready)' },
-  { method: 'GET', path: '/version', description: 'Running vLLM version' },
-];
+/**
+ * The container's own interactive spec, when the engine serves one: vLLM is FastAPI, so it publishes
+ * Swagger at /docs; llama.cpp's server publishes nothing. Null means "offer only the generic reference".
+ *
+ * Whether the URL actually answers can't be verified from here — /docs is cross-origin and vLLM ships
+ * no CORS headers by default, so a probe fails identically whether the route is missing or merely
+ * unreadable. Hence the pairing below: this link is the specific one, and the OpenAI reference stands
+ * beside it permanently rather than as a fallback we'd have to detect our way into.
+ */
+function serviceDocsUrl(job: ServiceJob | null, baseUrl: string | null): string | null {
+  if (!baseUrl || !job) {
+    return null;
+  }
+  const engine = job.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm';
+  return engine === 'vllm' ? `${baseUrl}/docs` : null;
+}
 
 /**
  * Prefer the endpoint on the engine's OpenAI-compatible port (vLLM 8000, llama.cpp 8080), detected
@@ -436,6 +441,7 @@ const ManageServicePage: React.FC = () => {
   // and land on a new expiresAt that is still in the past — paying for zero runtime.
   const canProlong = !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken;
   const baseUrl = serviceBaseUrl(job);
+  const docsUrl = serviceDocsUrl(job, baseUrl);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
 
   /**
@@ -663,12 +669,30 @@ const ManageServicePage: React.FC = () => {
             <div className={styles.howToHead}>
               <h3>How to use</h3>
               {!isTemplate && baseUrl && !isExpired ? (
-                // vLLM (FastAPI) serves interactive Swagger docs at /docs — live source of truth for
-                // every route this container exposes.
-                <a className={styles.docsLink} href={`${baseUrl}/docs`} rel="noreferrer" target="_blank">
-                  Service API docs
-                  <OpenInNewIcon fontSize="inherit" />
-                </a>
+                <div className={styles.docsActions}>
+                  {docsUrl && (
+                    <Button
+                      color="accent1"
+                      contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                      href={docsUrl}
+                      size="sm"
+                      target="_blank"
+                      variant="filled"
+                    >
+                      Service API docs
+                    </Button>
+                  )}
+                  <Button
+                    color="accent1"
+                    contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                    href={OPENAI_API_SPEC_URL}
+                    size="sm"
+                    target="_blank"
+                    variant="outlined"
+                  >
+                    OpenAI API reference
+                  </Button>
+                </div>
               ) : null}
             </div>
 
@@ -706,27 +730,11 @@ const ManageServicePage: React.FC = () => {
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
                     <div className="chip chipGlass">Base URL</div>
                     <span className={styles.endpointPath}>{baseUrl}</span>
-                    <span className={styles.endpointDescription}></span>
+                    <span className={styles.endpointDescription}>
+                      OpenAI-compatible — append a route from the references above
+                    </span>
                     <CopyButton color="accent2" contentToCopy={baseUrl} variant="filled" />
                   </Card>
-
-                  {ENDPOINTS.map((endpoint) => (
-                    <Card
-                      className={styles.endpoint}
-                      innerShadow="black"
-                      key={`${endpoint.method}-${endpoint.path}`}
-                      padding="xs"
-                      radius="lg"
-                      variant="glass"
-                    >
-                      <span className={cx('chip', endpoint.method === 'GET' ? 'chipAccent2' : 'chipAccent1')}>
-                        {endpoint.method}
-                      </span>
-                      <span className={styles.endpointPath}>{endpoint.path}</span>
-                      <span className={styles.endpointDescription}>{endpoint.description}</span>
-                      <CopyButton color="accent2" contentToCopy={`${baseUrl}${endpoint.path}`} variant="filled" />
-                    </Card>
-                  ))}
                 </div>
                 <div className={styles.quickTestHead}>
                   <h4>Quick test</h4>

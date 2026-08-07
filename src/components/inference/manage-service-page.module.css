@@ -109,17 +109,13 @@
   gap: 8px;
 }
 
-.docsLink {
-  display: inline-flex;
+/* Paired API references in the "How to use" header. Wraps under the heading on narrow screens rather
+   than squeezing both buttons onto one line. */
+.docsActions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--accent1);
-
-  &:hover {
-    text-decoration: underline;
-  }
+  gap: 8px;
 }
 
 .endpoints {
