@@ -670,6 +670,16 @@ const ManageServicePage: React.FC = () => {
               <h3>How to use</h3>
               {!isTemplate && baseUrl && !isExpired ? (
                 <div className={styles.docsActions}>
+                  <Button
+                    color="accent1"
+                    contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                    href={OPENAI_API_SPEC_URL}
+                    size="sm"
+                    target="_blank"
+                    variant="transparent"
+                  >
+                    OpenAI API reference
+                  </Button>
                   {docsUrl && (
                     <Button
                       color="accent1"
@@ -682,16 +692,6 @@ const ManageServicePage: React.FC = () => {
                       Service API docs
                     </Button>
                   )}
-                  <Button
-                    color="accent1"
-                    contentAfter={<OpenInNewIcon fontSize="inherit" />}
-                    href={OPENAI_API_SPEC_URL}
-                    size="sm"
-                    target="_blank"
-                    variant="outlined"
-                  >
-                    OpenAI API reference
-                  </Button>
                 </div>
               ) : null}
             </div>
