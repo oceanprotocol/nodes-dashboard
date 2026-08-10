@@ -1,15 +1,17 @@
-import OwnerProfilePage from '@/components/profile/owner-profile-page';
+import OwnerNodes from '@/components/profile/owner-nodes';
+import OwnerStats from '@/components/profile/owner-stats';
 import { MyNodesTableContextProvider } from '@/context/table/my-nodes-table-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 
-const OwnerProfilePageWrapper: React.FC = () => {
+const OwnerSection = () => {
   const { account } = useOceanAccount();
 
   return (
     <MyNodesTableContextProvider ownerId={account.address}>
-      <OwnerProfilePage />
+      <OwnerStats />
+      <OwnerNodes />
     </MyNodesTableContextProvider>
   );
 };
 
-export default OwnerProfilePageWrapper;
+export default OwnerSection;

@@ -184,7 +184,7 @@ const Summary = ({
       wallet_type: user?.type,
       chainId: CHAIN_ID,
     });
-    router.push('/profile/consumer');
+    router.push('/account/consumer');
   };
 
   const handleOpenIdeMenu = () => {
