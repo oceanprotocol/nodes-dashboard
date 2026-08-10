@@ -1,7 +1,7 @@
 .root {
   align-self: start;
 
-  @media (min-width: 940px) {
+  @media (min-width: 768px) {
     max-height: calc(100dvh - 140px);
     overflow-y: auto;
     position: sticky;
@@ -9,10 +9,31 @@
   }
 }
 
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .nav {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.toggle {
+  background-color: var(--background-glass-secondary);
+}
+
+.toggleIcon {
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+  font-size: 20px;
+  transition: transform 0.2s ease;
+}
+
+.toggleIconOpen {
+  transform: rotate(180deg);
 }
 
 .item {
