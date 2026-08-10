@@ -36,7 +36,7 @@ export default function LeaderboardPreviewTable() {
       });
       const sanitizedData = response.data.nodes.map((element: any) => element._source);
 
-      const results = await Promise.all(sanitizedData.map((node: Node) => fetchNodeJobStats(node.id)));
+      const results = await Promise.all(sanitizedData.map((node: Node) => fetchNodeJobStats(node.id || node.nodeId)));
       results.forEach((result) => {
         const currentNodeIndex = sanitizedData.findIndex((item: Node) => item.id === result.nodeId);
         sanitizedData[currentNodeIndex] = {
