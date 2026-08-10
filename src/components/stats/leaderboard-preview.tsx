@@ -7,7 +7,7 @@ const LeaderboardPreview = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Leaderboard preview</h3>
       <LeaderboardPreviewTable />
-      <Button className="alignSelfCenter" color="accent2" href="/leaderboard" size="lg" variant="filled">
+      <Button className="alignSelfCenter" color="accent2" href="/leaderboard" size="md" variant="filled">
         View full leaderboard
       </Button>
     </Card>
