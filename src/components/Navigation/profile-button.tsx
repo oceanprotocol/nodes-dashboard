@@ -1,7 +1,5 @@
-import Avatar from '@/components/avatar/avatar';
-import { useProfileContext } from '@/context/profile-context';
+import ProfileMenu from '@/components/Navigation/profile-menu';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import WalletIcon from '@mui/icons-material/Wallet';
 import { CircularProgress } from '@mui/material';
 import { useEffect, useState } from 'react';
 import Button from '../button/button';
@@ -9,8 +7,6 @@ import styles from './navigation.module.css';
 
 const ProfileButton: React.FC = () => {
   const { account, authenticated, isConnecting, login } = useOceanAccount();
-
-  const { ensProfile } = useProfileContext();
 
   const [isClient, setIsClient] = useState(false);
   const [authSettled, setAuthSettled] = useState(false);
@@ -31,17 +27,7 @@ const ProfileButton: React.FC = () => {
   }, [authenticated, account.isConnected]);
 
   return isClient && account?.isConnected ? (
-    <Button
-      className={styles.loginButton}
-      color="accent1"
-      contentBefore={
-        account.address ? <Avatar accountId={account.address} size="sm" src={ensProfile?.avatar} /> : <WalletIcon />
-      }
-      href="/account"
-      id="profile-button"
-    >
-      My profile
-    </Button>
+    <ProfileMenu className={styles.loginButton} />
   ) : (authenticated && !authSettled) || isConnecting ? (
     <Button className={styles.loginButton} color="accent1" disabled>
       <CircularProgress size={16} color="inherit" />

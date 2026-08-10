@@ -5,7 +5,9 @@ import { forwardRef, MouseEventHandler, ReactNode, useState } from 'react';
 import styles from './button.module.css';
 
 export type ButtonProps = {
+  'aria-controls'?: string;
   'aria-expanded'?: boolean;
+  'aria-haspopup'?: boolean | 'dialog' | 'menu';
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
@@ -27,7 +29,9 @@ export type ButtonProps = {
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
+      'aria-controls': ariaControls,
       'aria-expanded': ariaExpanded,
+      'aria-haspopup': ariaHasPopup,
       autoLoading,
       children,
       className,
@@ -92,7 +96,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     return (
       <button
+        aria-controls={ariaControls}
         aria-expanded={ariaExpanded}
+        aria-haspopup={ariaHasPopup}
         className={classes}
         disabled={isDisabled}
         id={id}
