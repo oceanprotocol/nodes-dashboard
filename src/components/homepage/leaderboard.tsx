@@ -102,7 +102,7 @@ export default function LeaderboardSection() {
           />
         </Card>
         <div className={styles.leaderboardFooter}>
-          <Button color="accent2" href={routes.leaderboard.path} size="lg" variant="filled">
+          <Button color="accent2" href="/leaderboard" size="lg" variant="filled">
             View full leaderboard
           </Button>
         </div>
