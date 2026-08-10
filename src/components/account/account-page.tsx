@@ -43,9 +43,14 @@ const AccountPage = ({ section }: AccountPageProps) => {
   return (
     <AuthRequiredPage>
       <Container className="pageRoot">
-        <SectionTitle moreReadable title={activeSection.title} subTitle={activeSection.description} />
         <div className={styles.layout}>
-          <AccountNav activeKey={section} />
+          <AccountNav activeKey={section} className={styles.nav} />
+          <SectionTitle
+            className={styles.title}
+            moreReadable
+            title={activeSection.title}
+            subTitle={activeSection.description}
+          />
           <div className={classNames('pageContentWrapper', styles.content)}>{renderSection(section)}</div>
         </div>
       </Container>

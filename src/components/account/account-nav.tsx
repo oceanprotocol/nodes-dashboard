@@ -19,9 +19,10 @@ const DESKTOP_QUERY = '(min-width: 768px)';
 
 type AccountNavProps = {
   activeKey: AccountSectionKey;
+  className?: string;
 };
 
-const AccountNav = ({ activeKey }: AccountNavProps) => {
+const AccountNav = ({ activeKey, className }: AccountNavProps) => {
   const { logout, provider } = useOceanAccount();
   const { grantStatus } = useProfileContext();
 
@@ -45,7 +46,7 @@ const AccountNav = ({ activeKey }: AccountNavProps) => {
 
   return (
     <Card
-      className={styles.root}
+      className={classNames(styles.root, className)}
       direction="column"
       padding="xs"
       radius="lg"

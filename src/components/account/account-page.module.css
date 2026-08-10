@@ -1,14 +1,32 @@
 .layout {
   display: grid;
-  gap: 8px;
+  gap: 48px 8px;
   grid-template-columns: minmax(0, 1fr);
-
-  @media (min-width: 940px) {
-    align-items: start;
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
 }
 
 .content {
   min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .layout {
+    align-items: start;
+    grid-template-columns: 220px minmax(0, 1fr);
+    /* Title spans both columns and sits above the nav/content row. */
+    grid-template-areas:
+      'title title'
+      'nav content';
+  }
+
+  .nav {
+    grid-area: nav;
+  }
+
+  .title {
+    grid-area: title;
+  }
+
+  .content {
+    grid-area: content;
+  }
 }
