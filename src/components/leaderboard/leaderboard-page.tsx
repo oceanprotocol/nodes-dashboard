@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import SectionTitle from '@/components/section-title/section-title';
-import JobsRevenueStats from '@/components/stats/jobs-revenue-stats';
+// import JobsRevenueStats from '@/components/stats/jobs-revenue-stats';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useLeaderboardTableContext } from '@/context/table/leaderboard-table-context';
@@ -14,7 +14,7 @@ const LeaderboardPage = () => {
     <Container className="pageRoot">
       <SectionTitle moreReadable title="Leaderboard" subTitle="Explore the most powerful nodes in the Ocean Network" />
       <div className="pageContentWrapper">
-        <JobsRevenueStats />
+        {/* <JobsRevenueStats /> */}
         <Card padding="md" radius="lg" shadow="black" variant="glass-shaded">
           <Table<AnyNode>
             context={leaderboardTableContext}
