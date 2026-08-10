@@ -1,4 +1,5 @@
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
+import cx from 'classnames';
 import { useState } from 'react';
 import styles from './model-cell.module.css';
 
@@ -9,17 +10,32 @@ type ModelCellProps = {
   // over `modelId` when both are given, and the avatar falls back to the title's initial.
   title?: string;
   subtitle?: string;
+  // The name isn't known yet (e.g. a service whose template match is still in flight) — shimmer in
+  // the cell's own shape so nothing jumps when the real name lands.
+  loading?: boolean;
 };
 
 // Compact table-cell version of ModelCard's header: org avatar + model name with the author/org
 // underneath. Falls back to the author's initial when the avatar image is missing.
-const ModelCell: React.FC<ModelCellProps> = ({ modelId, title, subtitle }) => {
+const ModelCell: React.FC<ModelCellProps> = ({ modelId, title, subtitle, loading }) => {
   const [avatarFailed, setAvatarFailed] = useState(false);
   const author = modelId?.includes('/') ? modelId.split('/')[0] : undefined;
   const name = title ?? (modelId ? getModelShortName(modelId) : '-');
   const caption = title ? subtitle : author;
   const avatarUrl = !title && author && modelId ? getModelAvatarUrl({ id: modelId, author }) : undefined;
   const initial = (title ?? author ?? modelId ?? '?').charAt(0).toUpperCase();
+
+  if (loading) {
+    return (
+      <div className={styles.cell}>
+        <div className={cx(styles.avatar, styles.skeletonAvatar, 'shimmer')} />
+        <div className={cx(styles.titleBox, styles.skeletonBox)}>
+          <span className={cx(styles.skeletonName, 'shimmer')} />
+          <span className={cx(styles.skeletonAuthor, 'shimmer', 'shimmerSoft')} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.cell}>
