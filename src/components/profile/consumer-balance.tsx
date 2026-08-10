@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import TransferModal from '@/components/profile/transfer-modal';
-import { BASE_CHAIN_ID, CHAIN_ID, ETH_SEPOLIA_CHAIN_ID } from '@/constants/chains';
+import { getExplorerUrl } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useTransferHistory } from '@/lib/use-transfer-history';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
@@ -29,12 +29,6 @@ const BALANCE_VISIBLE_COUNT = 5;
 const TOKEN_SORT_ORDER: Record<string, number> = {
   COMPY: 0,
   USDC: 1,
-};
-
-const getExplorerUrl = () => {
-  if (CHAIN_ID === BASE_CHAIN_ID) return 'https://basescan.org';
-  if (CHAIN_ID === ETH_SEPOLIA_CHAIN_ID) return 'https://sepolia.etherscan.io';
-  return 'https://etherscan.io';
 };
 
 const ConsumerBalance = () => {

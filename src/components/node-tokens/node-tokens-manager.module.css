@@ -9,7 +9,7 @@
 .listItems {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 
 .nodeSection {
@@ -25,27 +25,62 @@
   color: inherit;
   cursor: pointer;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 12px 14px;
   text-align: left;
   width: 100%;
-  word-break: break-word;
+
+  &:hover {
+    background: color-mix(in srgb, var(--accent1) 6%, transparent);
+
+    .peerId {
+      color: var(--text-primary);
+    }
+  }
 }
 
-.sectionHeader:hover {
-  background: color-mix(in srgb, var(--accent1) 6%, transparent);
+/* Two lines: name is the identity, peer ID is metadata beneath it. */
+.nodeIdentity {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
 }
 
 .nodeName {
-  flex: 1;
-  word-break: break-word;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.peerId {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 150ms ease;
+  white-space: nowrap;
+}
+
+.tokenCount {
+  flex-shrink: 0;
 }
 
 .expandIcon {
   color: var(--text-secondary);
   flex-shrink: 0;
   transition: transform 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expandIcon,
+  .peerId {
+    transition: none;
+  }
 }
 
 .sectionBody {

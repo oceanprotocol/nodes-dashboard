@@ -7,3 +7,15 @@ export const CHAIN_LABELS: Record<number, string> = {
   [BASE_CHAIN_ID]: 'Base',
   [ETH_SEPOLIA_CHAIN_ID]: 'Sepolia',
 };
+
+export const getExplorerUrl = () => {
+  if (CHAIN_ID === BASE_CHAIN_ID) {
+    return 'https://basescan.org';
+  }
+  if (CHAIN_ID === ETH_SEPOLIA_CHAIN_ID) {
+    return 'https://sepolia.etherscan.io';
+  }
+  return 'https://etherscan.io';
+};
+
+export const getExplorerAddressUrl = (address: string) => `${getExplorerUrl()}/address/${address}`;

@@ -11,6 +11,7 @@ import { NodeToken } from '@/types/node-tokens';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
+import classNames from 'classnames';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './node-tokens-manager.module.css';
@@ -88,17 +89,13 @@ const NodeTokensManager: React.FC = () => {
                       className={styles.expandIcon}
                       style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
                     />
-                    <div className={styles.nodeName}>
-                      Node&nbsp;
-                      {nodeFriendlyName ? (
-                        <>
-                          <strong>{nodeFriendlyName}</strong>&nbsp;<span className="textSecondary">{nodeId}</span>
-                        </>
-                      ) : (
-                        <>{nodeId}</>
-                      )}
+                    <div className={styles.nodeIdentity}>
+                      {nodeFriendlyName && <span className={styles.nodeName}>{nodeFriendlyName}</span>}
+                      <span className={styles.peerId} title={nodeId}>
+                        {nodeId}
+                      </span>
                     </div>
-                    <span className="chip chipPrimaryOutlined">
+                    <span className={classNames('chip chipPrimaryOutlined', styles.tokenCount)}>
                       {tokenCount} token{tokenCount !== 1 ? 's' : ''}
                     </span>
                   </button>

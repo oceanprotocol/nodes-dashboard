@@ -7,13 +7,13 @@
 .head {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
 .name {
   font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   min-width: 0;
   overflow: hidden;
@@ -21,29 +21,40 @@
   white-space: nowrap;
 }
 
-/*
- * The whole address block is the copy target: the full hex stays readable so it can be
- * verified against a wallet, and clicking anywhere on it copies.
- */
-.copy {
-  background: none;
-  border: 1px solid var(--border-glass);
-  border-radius: 14px;
-  color: inherit;
-  cursor: pointer;
+.identity {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.addressRow {
+  align-items: center;
+  display: flex;
   gap: 6px;
-  padding: 10px 12px;
-  text-align: left;
+  min-width: 0;
+}
+
+.actionButton {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+  padding: 2px 4px;
+  text-decoration: none;
   transition:
     background-color 0.2s ease,
-    border-color 0.2s ease;
-  width: 100%;
+    color 0.2s ease;
 
   &:hover {
     background-color: var(--background-glass-secondary);
-    border-color: var(--border);
+    color: var(--text-primary);
   }
 
   &:focus-visible {
@@ -52,23 +63,6 @@
   }
 }
 
-.address {
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  line-height: 1.45;
-  word-break: break-all;
-}
-
-.copyAction {
-  align-items: center;
-  display: flex;
-  font-size: 12px;
-  font-weight: 600;
-  gap: 6px;
-}
-
-.copyIcon {
-  font-size: 14px;
+.icon {
+  font-size: 13px;
 }

@@ -53,7 +53,7 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     href: '/account/owner',
     icon: <HubIcon />,
     key: 'owner',
-    label: 'Node owner',
+    label: 'Node owner profile',
     title: 'Node owner',
   },
   {
@@ -62,7 +62,7 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     href: '/account/consumer',
     icon: <PersonIcon />,
     key: 'consumer',
-    label: 'Compute consumer',
+    label: 'Consumer profile',
     title: 'Compute consumer',
   },
   {

@@ -9,56 +9,25 @@
   }
 }
 
-.eyebrow {
-  color: var(--accent1);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.groupLabel {
-  color: var(--text-secondary);
-  font-family: var(--font-inter), sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  padding: 0 10px;
-  text-transform: uppercase;
-}
-
-.items {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  list-style: none;
+  gap: 4px;
 }
 
 .item {
   align-items: center;
   background: none;
   border: none;
-  border-radius: 14px;
+  border-radius: 24px;
   color: inherit;
   cursor: pointer;
   display: flex;
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  gap: 10px;
-  padding: 9px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   text-align: left;
   transition: background-color 0.2s ease;
   width: 100%;
@@ -116,15 +85,11 @@
 }
 
 /*
- * Below the navigation breakpoint the rail sits above the content. The groups keep their
- * labels and scroll sideways, so the grouping still reads on a phone.
+ * Below the navigation breakpoint the rail sits above the content, so the items scroll
+ * sideways in a single row instead of stacking.
  */
 @media (max-width: 939px) {
   .nav {
-    gap: 12px;
-  }
-
-  .items {
     flex-direction: row;
     gap: 8px;
     overflow-x: auto;
