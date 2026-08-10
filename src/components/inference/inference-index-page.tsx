@@ -60,8 +60,8 @@ const InferenceIndexPage: React.FC = () => {
               <div className="textSecondary">Launch a ready-to-use app that runs on top of a model you choose</div>
             </div>
             <div className={styles.cardActions}>
-              <Button color="accent1" disabled variant="outlined">
-                Coming soon
+              <Button contentAfter={<ArrowForwardIcon />} color="accent1" href="/inference/services" variant="outlined">
+                Browse services
               </Button>
             </div>
           </Card>
