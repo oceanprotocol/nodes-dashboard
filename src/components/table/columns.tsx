@@ -726,7 +726,10 @@ export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: s
     sortable: false,
     renderCell: ({ row }) => {
       if (row.templateName) {
-        return <span title={`Service ${row.serviceId}`}>{row.templateName}</span>;
+        // Template names read as "vLLM — two lite models on one small GPU": headline before the dash,
+        // the rest as the caption, so the cell keeps the same two-line shape as a model row.
+        const [headline, ...rest] = row.templateName.split(/\s+[—–-]\s+/);
+        return <ModelCell subtitle={rest.join(' — ') || undefined} title={headline} />;
       }
       const modelId = modelIdFromJob(row);
       if (modelId) {

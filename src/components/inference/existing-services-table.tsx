@@ -122,6 +122,11 @@ const ExistingServicesTable: React.FC = () => {
           const templates = await fetchTemplates(getServiceTemplates, request.signal);
           const matched: Record<string, AppTemplate> = {};
           for (const service of services) {
+            // A plain model launch shares its image with the vLLM template, so image alone would
+            // relabel real model rows as the app. Only services with no model id are template runs.
+            if (modelIdFromSession(service)) {
+              continue;
+            }
             const tpl = findTemplateByImage(templates, service.image);
             if (tpl) {
               matched[service.serviceId] = tpl;
