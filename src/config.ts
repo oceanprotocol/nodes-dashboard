@@ -86,10 +86,10 @@ const config: Config = {
     //   name: 'Docs',
     //   hideFromNavbar: true,
     // },
-    leaderboard: {
-      path: '/leaderboard',
-      name: 'Leaderboard',
-    },
+    // leaderboard: {
+    // path: '/leaderboard',
+    // name: 'Leaderboard',
+    // },
     runNode: {
       path: '/run-node/setup',
       name: 'Run a node',
