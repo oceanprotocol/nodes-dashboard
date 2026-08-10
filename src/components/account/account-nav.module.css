@@ -83,26 +83,3 @@
     color: var(--error-darker);
   }
 }
-
-/*
- * Below the navigation breakpoint the rail sits above the content, so the items scroll
- * sideways in a single row instead of stacking.
- */
-@media (max-width: 939px) {
-  .nav {
-    flex-direction: row;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: thin;
-  }
-
-  .item {
-    flex: 0 0 auto;
-    width: auto;
-  }
-
-  .itemLabel {
-    white-space: nowrap;
-  }
-}

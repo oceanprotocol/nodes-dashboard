@@ -48,15 +48,6 @@ export const ACCOUNT_GROUPS: { key: AccountGroupKey; label: string }[] = [
 
 export const ACCOUNT_SECTIONS: AccountItem[] = [
   {
-    description: 'The nodes you run, what they earned, and how many are eligible for rewards.',
-    group: 'activity',
-    href: '/account/owner',
-    icon: <HubIcon />,
-    key: 'owner',
-    label: 'Node owner profile',
-    title: 'Node owner',
-  },
-  {
     description: 'Your token balance, transfers, and the compute jobs you have run.',
     group: 'activity',
     href: '/account/consumer',
@@ -64,6 +55,15 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     key: 'consumer',
     label: 'Consumer profile',
     title: 'Compute consumer',
+  },
+  {
+    description: 'The nodes you run, what they earned, and how many are eligible for rewards.',
+    group: 'activity',
+    href: '/account/owner',
+    icon: <HubIcon />,
+    key: 'owner',
+    label: 'Node owner profile',
+    title: 'Node owner',
   },
   {
     description: 'Deposit and withdraw escrow funds, and manage the spending authorizations that pay for compute jobs.',
@@ -84,17 +84,6 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     title: 'Get COMPY',
   },
   {
-    description: '',
-    group: 'funds',
-    href: '/grant/details',
-    icon: <RedeemIcon />,
-    key: 'claim',
-    label: 'Claim credits',
-    linksOut: true,
-    requires: 'grant-unclaimed',
-    title: '',
-  },
-  {
     description: `Create and manage AccessList contracts on ${formatChainLabel(CHAIN_ID)}.`,
     group: 'access',
     href: '/account/access-lists',
@@ -112,6 +101,17 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     key: 'tokens',
     label: 'Node auth tokens',
     title: 'Node auth tokens',
+  },
+  {
+    description: '',
+    group: 'funds',
+    href: '/grant/details',
+    icon: <RedeemIcon />,
+    key: 'claim',
+    label: 'Claim credits',
+    linksOut: true,
+    requires: 'grant-unclaimed',
+    title: '',
   },
 ];
 

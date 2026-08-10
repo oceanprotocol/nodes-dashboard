@@ -42,7 +42,7 @@ const AccountNav = ({ activeKey }: AccountNavProps) => {
     >
       <AccountIdentity />
       <nav aria-label="My account" className={styles.nav}>
-        {ACCOUNT_SECTIONS.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = item.key === activeKey;
           return (
             <Link
