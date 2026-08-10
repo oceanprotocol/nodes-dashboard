@@ -67,7 +67,7 @@ const AccountNav = ({ activeKey }: AccountNavProps) => {
           <span className={styles.itemIcon}>
             <MenuIcon />
           </span>
-          <span className={styles.itemLabel}>Menu</span>
+          <span className={styles.itemLabel}>Account menu</span>
           <ExpandMoreIcon className={classNames(styles.toggleIcon, { [styles.toggleIconOpen]: isMobileOpen })} />
         </button>
       ) : null}
