@@ -94,7 +94,7 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     title: 'Access lists',
   },
   {
-    description: 'Auth tokens generated during this session for the nodes you ran jobs on.',
+    description: 'Auth tokens for the nodes you ran jobs on. Stored on this device for your connected wallet.',
     group: 'access',
     href: '/account/tokens',
     icon: <KeyIcon />,

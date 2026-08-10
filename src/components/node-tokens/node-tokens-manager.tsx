@@ -69,7 +69,7 @@ const NodeTokensManager: React.FC = () => {
           </Button>
         </div>
         {nodeIds.length === 0 ? (
-          <span className="textSecondary">No auth tokens generated during this session.</span>
+          <span className="textSecondary">No auth tokens yet.</span>
         ) : (
           <div className={styles.listItems}>
             {nodeIds.map((nodeId) => {

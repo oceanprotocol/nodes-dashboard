@@ -1,5 +1,5 @@
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { useNodeTokensContext } from '@/context/node-tokens';
 import { buildNodeJobId } from '@/lib/build-node-job-id';
 import { cleanLogText } from '@/lib/strip-ansi';
 import { ComputeJob } from '@/types/jobs';
@@ -68,7 +68,7 @@ interface UseJobLogsResult {
 // rejection is now treated as a transient backoff, never fatal. See docs/adr/0004.
 export function useJobLogs(job: ComputeJob | null, open: boolean, nodeUri: NodeUri): UseJobLogsResult {
   const { isReady, streamComputeLogs, streamComputeResult, getComputeJobStatus } = useP2P();
-  const { getNodeToken, clearNodeToken } = useNodeAuth();
+  const { getNodeToken, clearNodeToken } = useNodeTokensContext();
 
   const [lines, setLines] = useState<string[]>([]);
   const [status, setStatus] = useState<LogViewStatus>('idle');
