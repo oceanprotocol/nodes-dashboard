@@ -54,3 +54,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Loading state — same two-line shape as a real cell, so the row doesn't jump when the name lands. */
+
+.skeletonAvatar {
+  background: none;
+}
+
+.skeletonBox {
+  flex: 1;
+  gap: 4px;
+}
+
+.skeletonName {
+  border-radius: 4px;
+  height: 11px;
+  max-width: 160px;
+  width: 70%;
+}
+
+.skeletonAuthor {
+  border-radius: 4px;
+  height: 9px;
+  max-width: 110px;
+  width: 45%;
+}

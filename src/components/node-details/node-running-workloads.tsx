@@ -2,7 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { useNodeTokensContext } from '@/context/node-tokens';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { isComputeJobInFlight, isServiceInFlight } from '@/services/service-status';
@@ -24,7 +24,7 @@ type NodeRunningWorkloadsProps = {
 const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
   const { account } = useOceanAccount();
   const { getServices, getNodeJobs, isReady } = useP2P();
-  const { withNodeAuth, hasValidNodeToken } = useNodeAuth();
+  const { withNodeAuth, hasValidNodeToken } = useNodeTokensContext();
 
   const nodeId = node.id ?? node.nodeId;
 

@@ -145,7 +145,7 @@ export async function createAuthToken({
   signMessage: SignMessageFn;
   // Epoch-ms instant the token expires. Omitted (or undefined) means the node stores it with no
   // expiry — valid forever until explicitly invalidated (a deliberate choice for the user-facing
-  // token generator). Callers that cache tokens should pass a bounded value (see node-auth-context).
+  // token generator). Callers that cache tokens should pass a bounded value (see node-tokens context).
   validUntil?: number;
 }): Promise<{ token: string; validUntil?: number }> {
   const resolvedNode = normalizeNodeUri(nodeUri);

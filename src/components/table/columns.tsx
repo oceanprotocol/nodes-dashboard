@@ -717,7 +717,11 @@ export function modelIdFromJob(job: ServiceJob): string | null {
 // recoverable). Actions column (Manage) is supplied by the consumer via the Table `actionsColumn`.
 // `templateName` is set by the consumer for a service launched from an app template: those carry no
 // HF model (the app rides in the template's own image/command), so the row names the app instead.
-export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: string }>[] = [
+// `templatePending` marks a modelless row whose template lookup is still in flight — it shimmers
+// rather than claiming "Unknown model" for a name that's about to arrive.
+export const existingServicesColumns: GridColDef<
+  ServiceJob & { templateName?: string; templatePending?: boolean }
+>[] = [
   {
     field: 'model',
     filterable: false,
@@ -726,11 +730,17 @@ export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: s
     sortable: false,
     renderCell: ({ row }) => {
       if (row.templateName) {
-        return <span title={`Service ${row.serviceId}`}>{row.templateName}</span>;
+        // Template names read as "vLLM — two lite models on one small GPU": headline before the dash,
+        // the rest as the caption, so the cell keeps the same two-line shape as a model row.
+        const [headline, ...rest] = row.templateName.split(/\s+[—–-]\s+/);
+        return <ModelCell subtitle={rest.join(' — ') || undefined} title={headline} />;
       }
       const modelId = modelIdFromJob(row);
       if (modelId) {
         return <ModelCell modelId={modelId} />;
+      }
+      if (row.templatePending) {
+        return <ModelCell loading />;
       }
       // No `--model` in the launch command (e.g. a malformed record from an earlier run) — there's no
       // model to name, so say so rather than showing a serviceId fragment that reads like a model id.

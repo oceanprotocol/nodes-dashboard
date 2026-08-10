@@ -12,7 +12,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
 import { useInferenceContext } from '@/context/inference-context';
 import { useP2P } from '@/contexts/P2PContext';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { useNodeTokensContext } from '@/context/node-tokens';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
@@ -49,7 +49,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   } = useInferenceContext();
   const { account, login } = useOceanAccount();
   const { isReady, serviceExtend, serviceStart, serviceRestart } = useP2P();
-  const { withNodeAuth } = useNodeAuth();
+  const { withNodeAuth } = useNodeTokensContext();
   const { handlePay } = usePaySession();
   // The running service targeted by edit/prolong — set by the manage page when re-entering the flow.
   const targetServiceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;

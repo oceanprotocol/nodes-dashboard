@@ -1,9 +1,12 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
 import { Authorizations } from '@/types/payment';
 import { formatTokenAmount, sharedTokenAmountDecimals } from '@/utils/formatters';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useState } from 'react';
 import styles from './payment-summary.module.css';
@@ -68,6 +71,16 @@ const PaymentSummary = ({
   const insufficientAutorized = (Number(authorizations?.maxLockedAmount) ?? 0) < totalCost;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < totalCost;
 
+  // The collapsed rows are limits — irrelevant while they're comfortably satisfied, worth seeing
+  // up front when they aren't, or when funds are already locked from an earlier session.
+  const detailsRelevant = insufficientAutorized || currentLocked > 0;
+
+  // `null` until the user clicks the toggle, so open-ness follows `detailsRelevant` as `authorizations`
+  // loads in — deriving it avoids latching the pre-load value the way a useState initializer would.
+  // Once clicked, the explicit choice wins and stops tracking.
+  const [detailsOpenByUser, setDetailsOpenByUser] = useState<boolean | null>(null);
+  const isDetailsOpen = detailsOpenByUser ?? detailsRelevant;
+
   // Every amount renders with as many decimals as the most precise one, so the column lines up
   // without padding values to a fixed width they don't need.
   const decimals = sharedTokenAmountDecimals(
@@ -95,7 +108,9 @@ const PaymentSummary = ({
         </div>
       </div>
 
-      {/* Ledger: the balances and limits that explain whether the cost above can be covered. */}
+      {/* Ledger: the balances and limits that explain whether the cost above can be covered. Only the
+          escrow and wallet rows show by default; the limits sit behind the details toggle, which
+          closes the card. */}
       <div className={styles.rows}>
         <SummaryRow
           chip={insufficientEscrow ? <span className="chip chipError">Insufficient funds</span> : null}
@@ -104,14 +119,19 @@ const PaymentSummary = ({
           symbol={tokenSymbol}
           value={format(escrow)}
         />
-        <SummaryRow label="Locked now" symbol={tokenSymbol} value={format(currentLocked)} />
-        <SummaryRow
-          chip={insufficientAutorized ? <span className="chip chipError">Insufficient authorization</span> : null}
-          error={insufficientAutorized}
-          label="Max locked"
-          symbol={tokenSymbol}
-          value={format(maxLocked)}
-        />
+
+        <Collapse in={isDetailsOpen}>
+          <SummaryRow label="Locked now" symbol={tokenSymbol} value={format(currentLocked)} />
+          <SummaryRow
+            chip={insufficientAutorized ? <span className="chip chipError">Insufficient authorization</span> : null}
+            error={insufficientAutorized}
+            label="Max locked"
+            symbol={tokenSymbol}
+            value={format(maxLocked)}
+          />
+        </Collapse>
+
+        {/* Wallet balance closes the ledger in both states — the limits above it expand in place. */}
         <SummaryRow
           action={
             isCompy ? (
@@ -125,6 +145,25 @@ const PaymentSummary = ({
           symbol={tokenSymbol}
           value={format(walletBalance)}
         />
+
+        <div className={styles.detailsRow}>
+          <Button
+            aria-expanded={isDetailsOpen}
+            color="accent1"
+            contentBefore={
+              <ExpandMoreIcon
+                fontSize="small"
+                style={{ transform: isDetailsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              />
+            }
+            onClick={() => setDetailsOpenByUser(!isDetailsOpen)}
+            size="sm"
+            type="button"
+            variant="transparent"
+          >
+            {isDetailsOpen ? 'Less info' : 'More info'}
+          </Button>
+        </div>
       </div>
 
       {isCompy ? (

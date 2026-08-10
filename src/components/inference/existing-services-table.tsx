@@ -38,7 +38,12 @@ type ServiceSession = {
 // backend's session records are looser than the node's own ServiceJob (no clusterHash/etc, and
 // peerId is ours). Keep the session alongside for routing, and the matched template's name so the
 // Model column can name the app instead of a model that doesn't exist for a template launch.
-type ServiceRow = Partial<ServiceJob> & { serviceId: string; session: ServiceSession; templateName?: string };
+type ServiceRow = Partial<ServiceJob> & {
+  serviceId: string;
+  session: ServiceSession;
+  templateName?: string;
+  templatePending?: boolean;
+};
 
 function modelIdFromSession(session: ServiceSession): string | null {
   if (session.model) {
@@ -56,7 +61,7 @@ function modelIdFromSession(session: ServiceSession): string | null {
 //
 // A template-launched service has no HF model at all — the whole app rides in the template's own
 // image/command — so when one matched, the row names the template and carries no model id.
-function toRow(session: ServiceSession, template?: AppTemplate): ServiceRow {
+function toRow(session: ServiceSession, template: AppTemplate | undefined, templatesLoading: boolean): ServiceRow {
   const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
   const modelId = template ? null : modelIdFromSession(session);
   return {
@@ -65,6 +70,7 @@ function toRow(session: ServiceSession, template?: AppTemplate): ServiceRow {
     dockerCmd: modelId ? ['--model', modelId] : template ? [] : session.dockerCmd,
     session,
     templateName: template ? (template.name ?? template.id) : undefined,
+    templatePending: !template && !modelId && templatesLoading,
   };
 }
 
@@ -76,6 +82,9 @@ const ExistingServicesTable: React.FC = () => {
   const [sessions, setSessions] = useState<ServiceSession[]>([]);
   const [total, setTotal] = useState(0);
   const [templateByService, setTemplateByService] = useState<Record<string, AppTemplate>>({});
+  // Template matching is a second, node-side fetch that resolves after the services land. Tracked
+  // separately so modelless rows can shimmer instead of flashing "Unknown model" in the meantime.
+  const [templatesLoading, setTemplatesLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Services aren't fetched on mount — the collapsible only opens (and loads) once "Load" is pressed.
@@ -86,8 +95,8 @@ const ExistingServicesTable: React.FC = () => {
   // Template matching resolves after the services themselves (a second, node-side fetch), so rows are
   // derived rather than stored — they re-render with the app name once the match lands.
   const rows = useMemo(
-    () => sessions.map((session) => toRow(session, templateByService[session.serviceId])),
-    [sessions, templateByService]
+    () => sessions.map((session) => toRow(session, templateByService[session.serviceId], templatesLoading)),
+    [sessions, templateByService, templatesLoading]
   );
 
   useEffect(() => {
@@ -95,6 +104,7 @@ const ExistingServicesTable: React.FC = () => {
     setSessions([]);
     setTotal(0);
     setTemplateByService({});
+    setTemplatesLoading(false);
     setOpen(false);
     setLoading(false);
   }, [account.address]);
@@ -108,6 +118,7 @@ const ExistingServicesTable: React.FC = () => {
     requestRef.current = request;
 
     setLoading(true);
+    setTemplatesLoading(p2pReady);
     setError(null);
     try {
       const { data } = await axios.get(`${getApiRoute('owners')}/${account.address.toLowerCase()}/services`, {
@@ -117,11 +128,19 @@ const ExistingServicesTable: React.FC = () => {
       const services: ServiceSession[] = data.services ?? [];
       setSessions(services);
       setTotal(data.pagination?.totalItems ?? 0);
+      // The rows are renderable now — drop the whole-table spinner and let the slower template match
+      // resolve underneath it, shimmering only the cells whose name depends on it.
+      setLoading(false);
       if (p2pReady) {
         try {
           const templates = await fetchTemplates(getServiceTemplates, request.signal);
           const matched: Record<string, AppTemplate> = {};
           for (const service of services) {
+            // A plain model launch shares its image with the vLLM template, so image alone would
+            // relabel real model rows as the app. Only services with no model id are template runs.
+            if (modelIdFromSession(service)) {
+              continue;
+            }
             const tpl = findTemplateByImage(templates, service.image);
             if (tpl) {
               matched[service.serviceId] = tpl;
@@ -132,6 +151,10 @@ const ExistingServicesTable: React.FC = () => {
           }
         } catch (templateErr) {
           console.error('Failed to match services to templates:', templateErr);
+        } finally {
+          if (!request.signal.aborted) {
+            setTemplatesLoading(false);
+          }
         }
       }
     } catch (err) {
@@ -146,6 +169,7 @@ const ExistingServicesTable: React.FC = () => {
     } finally {
       if (!request.signal.aborted) {
         setLoading(false);
+        setTemplatesLoading(false);
       }
     }
   }, [account.address, p2pReady, getServiceTemplates]);
