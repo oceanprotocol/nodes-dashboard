@@ -440,7 +440,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
         language: algorithmLanguage,
       });
       toast.success('Job submitted');
-      router.push('/profile/consumer');
+      router.push('/account/consumer');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start the job. Please try again.';
       toast.error(message);

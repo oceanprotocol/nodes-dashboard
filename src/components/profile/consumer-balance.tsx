@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import TransferModal from '@/components/profile/transfer-modal';
-import { BASE_CHAIN_ID, CHAIN_ID, ETH_SEPOLIA_CHAIN_ID } from '@/constants/chains';
+import { getExplorerUrl } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useTransferHistory } from '@/lib/use-transfer-history';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
@@ -11,8 +11,6 @@ import { formatNumber, formatWalletAddress } from '@/utils/formatters';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SendIcon from '@mui/icons-material/Send';
 import { CircularProgress } from '@mui/material';
 import { toast } from 'react-toastify';
@@ -24,18 +22,7 @@ const copyToClipboard = (text: string) => {
 };
 
 const PAGE_SIZE = 5;
-const BALANCE_VISIBLE_COUNT = 5;
-
-const TOKEN_SORT_ORDER: Record<string, number> = {
-  COMPY: 0,
-  USDC: 1,
-};
-
-const getExplorerUrl = () => {
-  if (CHAIN_ID === BASE_CHAIN_ID) return 'https://basescan.org';
-  if (CHAIN_ID === ETH_SEPOLIA_CHAIN_ID) return 'https://sepolia.etherscan.io';
-  return 'https://etherscan.io';
-};
+const NON_TRANSFERABLE_TOKENS = ['COMPY'];
 
 const ConsumerBalance = () => {
   const { account, ocean } = useOceanAccount();
@@ -44,19 +31,12 @@ const ConsumerBalance = () => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [page, setPage] = useState(0);
-  const [showAllBalances, setShowAllBalances] = useState(false);
 
-  const sortedBalances = useMemo(() => {
-    return [...balances].sort((a, b) => {
-      const orderA = TOKEN_SORT_ORDER[a.token] ?? Number.MAX_SAFE_INTEGER;
-      const orderB = TOKEN_SORT_ORDER[b.token] ?? Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.token.localeCompare(b.token);
-    });
-  }, [balances]);
-
-  const visibleBalances = showAllBalances ? sortedBalances : sortedBalances.slice(0, BALANCE_VISIBLE_COUNT);
-  const hasMoreBalances = sortedBalances.length > BALANCE_VISIBLE_COUNT;
+  // COMPY is not transferable between wallets.
+  const transferableBalances = useMemo(
+    () => balances.filter((balance) => !NON_TRANSFERABLE_TOKENS.includes(balance.token)),
+    [balances]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -70,7 +50,7 @@ const ConsumerBalance = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Account balance</h3>
-        {isConnected && (
+        {isConnected && transferableBalances.length > 0 && (
           <Button
             color="accent1"
             contentBefore={<SendIcon />}
@@ -88,35 +68,13 @@ const ConsumerBalance = () => {
           <div className={styles.emptyState}>Log in to see your balance</div>
         ) : loadingBalances ? (
           <CircularProgress className="alignSelfCenter" size={27} />
-        ) : sortedBalances.length > 0 ? (
-          <>
-            {visibleBalances.map((balance, index) => (
-              <div className={styles.balanceItem} key={`${balance.token}-${index}`}>
-                <div>{balance.token}</div>
-                <strong>{formatNumber(balance.amount)}</strong>
-              </div>
-            ))}
-            {hasMoreBalances && (
-              <button
-                className={styles.showMoreButton}
-                onClick={() => setShowAllBalances((prev) => !prev)}
-                type="button"
-              >
-                {showAllBalances ? (
-                  <>
-                    <ExpandLessIcon className={styles.showMoreIcon} />
-                    Show less
-                  </>
-                ) : (
-                  <>
-                    <ExpandMoreIcon className={styles.showMoreIcon} />
-                    Show {sortedBalances.length - BALANCE_VISIBLE_COUNT} more token
-                    {sortedBalances.length - BALANCE_VISIBLE_COUNT > 1 ? 's' : ''}
-                  </>
-                )}
-              </button>
-            )}
-          </>
+        ) : balances.length > 0 ? (
+          balances.map((balance) => (
+            <div className={styles.balanceItem} key={balance.token}>
+              <div>{balance.token}</div>
+              <strong>{formatNumber(balance.amount)}</strong>
+            </div>
+          ))
         ) : (
           <div className={styles.emptyState}>No tokens found</div>
         )}
@@ -214,7 +172,7 @@ const ConsumerBalance = () => {
 
       {isConnected && (
         <TransferModal
-          balances={balances}
+          balances={transferableBalances}
           isOpen={isTransferModalOpen}
           onClose={() => {
             setIsTransferModalOpen(false);

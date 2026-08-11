@@ -76,6 +76,14 @@ html {
 body {
   min-height: 100lvh;
   overflow-x: clip;
+
+  /* MUI's scroll lock sets `overflow: hidden` inline on body, which makes body a scroll container
+     sitting at scrollTop 0 — the sticky navbar then anchors to the top of the document and scrolls
+     out of view. The rule above already locks scrolling on html, so body only has to keep clipping:
+     `clip` clips without creating a scrollport, leaving sticky positioned against the viewport. */
+  &[style*='overflow: hidden'] {
+    overflow: clip !important;
+  }
 }
 
 h1,

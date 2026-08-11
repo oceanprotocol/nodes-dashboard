@@ -1,0 +1,106 @@
+.root {
+  align-self: start;
+
+  @media (min-width: 768px) {
+    max-height: calc(100dvh - 140px);
+    overflow-y: auto;
+    position: sticky;
+    top: 116px;
+  }
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toggle {
+  background-color: var(--background-glass-secondary);
+}
+
+.toggleIcon {
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+  font-size: 20px;
+  transition: transform 0.2s ease;
+}
+
+.toggleIconOpen {
+  transform: rotate(180deg);
+}
+
+.item {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 24px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  padding: 8px 12px;
+  text-align: left;
+  transition: background-color 0.2s ease;
+  width: 100%;
+
+  &:hover {
+    background-color: var(--background-glass-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: 2px;
+  }
+}
+
+.itemActive {
+  background-color: var(--accent2);
+
+  &:hover {
+    background-color: var(--accent2);
+  }
+}
+
+.itemIcon {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex: 0 0 auto;
+
+  svg {
+    font-size: 19px;
+  }
+}
+
+.itemActive .itemIcon {
+  color: var(--text-primary);
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemLinksOut {
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.logout {
+  color: var(--error-darker);
+
+  .itemIcon {
+    color: var(--error-darker);
+  }
+}

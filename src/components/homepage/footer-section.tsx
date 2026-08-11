@@ -1,14 +1,40 @@
 import Button from '@/components/button/button';
 import Container from '@/components/container/container';
 import config, { getLinks, getRoutes } from '@/config';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useEffect, useState } from 'react';
 import styles from './footer-section.module.css';
+
+/** Account link only after mount, so server and client markup agree. */
+const AccountLink = () => {
+  const { account, login } = useOceanAccount();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (isMounted && account?.isConnected) {
+    return (
+      <Button color="primary-inverse" href="/account" size="link" variant="transparent">
+        MY ACCOUNT
+      </Button>
+    );
+  }
+
+  return (
+    <Button color="primary-inverse" onClick={login} size="link" variant="transparent">
+      LOG IN
+    </Button>
+  );
+};
 
 const FooterSection = () => {
   const currentYear = new Date().getFullYear();
   const links = getLinks();
   const routes = getRoutes();
 
-  const pageKeys = ['runJob', 'stats', 'docs', 'leaderboard', 'runNode'] as const;
+  const pageKeys = ['runJob', 'inference'] as const;
 
   return (
     <section className={styles.root}>
@@ -55,7 +81,7 @@ const FooterSection = () => {
             </p>
           </div>
           <div className={styles.pagesColumn}>
-            <span className={styles.columnTitle}>Pages</span>
+            {/* <span className={styles.columnTitle}>Pages</span> */}
             <ul className={styles.pagesList}>
               {pageKeys.map((key) => {
                 const route = routes[key];
@@ -71,6 +97,14 @@ const FooterSection = () => {
                   </li>
                 );
               })}
+              <li>
+                <Button color="primary-inverse" href={links.docs} size="link" target="_blank" variant="transparent">
+                  Docs
+                </Button>
+              </li>
+              <li>
+                <AccountLink />
+              </li>
             </ul>
           </div>
         </div>

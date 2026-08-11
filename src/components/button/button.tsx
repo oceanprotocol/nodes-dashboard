@@ -5,7 +5,9 @@ import { forwardRef, MouseEventHandler, ReactNode, useState } from 'react';
 import styles from './button.module.css';
 
 export type ButtonProps = {
+  'aria-controls'?: string;
   'aria-expanded'?: boolean;
+  'aria-haspopup'?: boolean | 'dialog' | 'menu';
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
@@ -17,7 +19,8 @@ export type ButtonProps = {
   id?: string;
   /** Loading state; Shows spinner inside the button and disables it */
   loading?: boolean;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
+  /** Fires on both render paths: the `<button>`, and the `<Link>` when `href` is set. */
+  onClick?: MouseEventHandler<HTMLButtonElement | HTMLAnchorElement>;
   target?: '_blank' | '_self';
   size?: 'link' | 'xs' | 'sm' | 'sm-const' | 'md' | 'md-const' | 'lg' | 'lg-const';
   type?: 'button' | 'submit' | 'reset';
@@ -27,7 +30,9 @@ export type ButtonProps = {
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
+      'aria-controls': ariaControls,
       'aria-expanded': ariaExpanded,
+      'aria-haspopup': ariaHasPopup,
       autoLoading,
       children,
       className,
@@ -67,7 +72,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       />
     ) : null;
 
-    const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    const handleClick = async (event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
       if (onClick) {
         if (autoLoading) {
           setInnerLoading(true);
@@ -81,7 +86,13 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     if (href) {
       return (
-        <Link className={classes} href={isDisabled ? '' : href} id={id} target={target}>
+        <Link
+          className={classes}
+          href={isDisabled ? '' : href}
+          id={id}
+          onClick={onClick}
+          target={target}
+        >
           {spinner}
           {contentBefore}
           {children}
@@ -92,7 +103,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     return (
       <button
+        aria-controls={ariaControls}
         aria-expanded={ariaExpanded}
+        aria-haspopup={ariaHasPopup}
         className={classes}
         disabled={isDisabled}
         id={id}
