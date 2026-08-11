@@ -1,12 +1,6 @@
-import type { ServiceTemplatePublic } from '@oceanprotocol/lib';
+import type { ServiceTemplatePublic, ServiceTemplateWorkflow } from '@oceanprotocol/lib';
 
-/** The workflow graph shipped by a template — each template ships exactly one. */
-export interface TemplateWorkflow {
-  id: string; // [A-Za-z0-9_.-]+ — also the ?template= value ComfyUI deep-links to
-  name: string;
-  description?: string;
-  graph?: unknown;
-}
+export type TemplateWorkflow = ServiceTemplateWorkflow;
 
 /**
  * Catalogue classification the node publishes alongside a template. These fields exist in
@@ -58,12 +52,12 @@ export type AppEnvVarSpec = NonNullable<ServiceTemplatePublic['userConfigurableE
  * A launchable app as served by the node's getServiceTemplates — a bare **service** or a **bundle**
  * (the same app whose `command` pre-downloads a curated model set). Launch flags live in the
  * template's `command`, which the node forwards to the container; the web-UI port is `exposedPorts[0]`.
+ * `workflows` comes from `ServiceTemplatePublic` itself as of @oceanprotocol/lib 9.0.0-next.9 — only
+ * the fields the lib still lacks are declared here.
  */
 export type AppTemplate = Omit<ServiceTemplatePublic, 'userConfigurableEnvVars'> &
   BundleFields & {
     userConfigurableEnvVars?: AppEnvVarSpec[];
-    /** The workflow graphs the template installs — reaches us through the node's sanitizer spread. */
-    workflows?: TemplateWorkflow[];
   };
 
 /** A bundle — narrowed so `service` is known present (the node's schema requires it on bundles). */

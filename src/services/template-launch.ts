@@ -12,10 +12,6 @@ type Allocation = {
   disk: number;
 };
 
-// ponytail: local shim — @oceanprotocol/lib 9.0.0-next.7 predates this field. Delete the
-// intersection once the pin moves to next.8, which ships it natively.
-type StartParamsWithBucket = ServiceStartParams & { outputBucketId?: string };
-
 /** gzip + base64, so a ~130 KB workflow graph rides in a container env var as ~25 KB. */
 export async function gzipBase64(value: string): Promise<string> {
   // The DOM lib's CompressionStream/pipeThrough generics disagree on ArrayBuffer vs ArrayBufferLike
@@ -49,29 +45,46 @@ const COMFY_WORKFLOW_ID_KEY = 'COMFY_WORKFLOW_ID';
 const COMFY_WORKFLOW_KEY = 'COMFY_WORKFLOW';
 
 /**
- * Env var keys set automatically from the template's single workflow (by withWorkflowUserData) — the
+ * Env var keys set automatically from the template's workflows (by withWorkflowUserData) — the
  * config page's free-text env inputs must exclude these, since whatever's typed there is silently
  * overwritten at launch. A single constant so the writer and the filter can't drift apart.
  */
 export const WORKFLOW_ENV_VAR_KEYS: readonly string[] = [COMFY_WORKFLOW_ID_KEY, COMFY_WORKFLOW_KEY];
 
 /**
- * Add the template's workflow userData, when one is picked — mutates and returns `userData`. Skipped
- * entirely (both keys) when the workflow has no graph: a node that served workflow metadata without
- * the body would otherwise ship `JSON.stringify(undefined)` → the literal string "undefined" as the
- * container's installed workflow.
+ * The workflow COMFY_WORKFLOW_ID names and Open deep-links to: the first one that actually carries
+ * a graph. Both call sites go through here so they can't drift — the bootstrap names the workflow
+ * pack after this id and resolves `example_workflows/<id>.json` from it, so a deep link to an id
+ * the userData never installed opens a blank canvas.
+ */
+export function deepLinkWorkflow(workflows?: TemplateWorkflow[]): TemplateWorkflow | undefined {
+  return workflows?.find((workflow) => workflow.graph != null);
+}
+
+/**
+ * Add the template's workflow userData — mutates and returns `userData`. Installs every workflow
+ * the template ships (not just the one launched with) as gzip+base64 of `{ "<id>": <graph>, ... }`,
+ * so the container's Workflows sidebar has all of them, and names `deepLinkWorkflow` as the one to
+ * open. A workflow with no graph is skipped (logged); both keys are omitted when none has one — a
+ * node that served metadata without a body would otherwise ship `JSON.stringify(undefined)` → the
+ * literal string "undefined" as installed workflow content.
  */
 async function withWorkflowUserData(
   userData: Record<string, string>,
-  workflow?: TemplateWorkflow
+  workflows?: TemplateWorkflow[]
 ): Promise<Record<string, string>> {
-  if (workflow) {
+  const graphs: Record<string, unknown> = {};
+  for (const workflow of workflows ?? []) {
     if (workflow.graph == null) {
       console.error(`Workflow "${workflow.id}" has no graph — skipping its userData.`);
     } else {
-      userData[COMFY_WORKFLOW_ID_KEY] = workflow.id;
-      userData[COMFY_WORKFLOW_KEY] = await gzipBase64(JSON.stringify(workflow.graph));
+      graphs[workflow.id] = workflow.graph;
     }
+  }
+  const deepLink = deepLinkWorkflow(workflows);
+  if (deepLink) {
+    userData[COMFY_WORKFLOW_ID_KEY] = deepLink.id;
+    userData[COMFY_WORKFLOW_KEY] = await gzipBase64(JSON.stringify(graphs));
   }
   return userData;
 }
@@ -107,7 +120,6 @@ export async function buildTemplateStartParams({
   durationSeconds,
   tokenAddress,
   envValues,
-  workflow,
   bucketId,
 }: {
   template: AppTemplate;
@@ -118,11 +130,9 @@ export async function buildTemplateStartParams({
   durationSeconds: number;
   tokenAddress: string;
   envValues: Record<string, string>;
-  /** Selected workflow graph (Templates flow) — sent as userData and deep-linked on Open. */
-  workflow?: TemplateWorkflow;
   /** Persistent-storage bucket id to mount at /data/outputs — picked on the config step. */
   bucketId?: string;
-}): Promise<StartParamsWithBucket> {
+}): Promise<ServiceStartParams> {
   const envResources = selectedEnv.environment.resources ?? [];
 
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
@@ -135,7 +145,7 @@ export async function buildTemplateStartParams({
     ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
   ];
 
-  const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), workflow);
+  const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
 
   return {
     environment: selectedEnv.environment.id,
@@ -163,13 +173,11 @@ export async function buildTemplateStartParams({
  */
 export async function buildTemplateRestartParams(
   template: AppTemplate,
-  envValues: Record<string, string>,
-  /** Selected workflow graph (Templates flow) — sent as userData and deep-linked on Open. */
-  workflow?: TemplateWorkflow
+  envValues: Record<string, string>
 ): Promise<ServiceRestartParams> {
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
-  const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), workflow);
+  const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
   return {
     image: template.image,
     ...imageRef,
