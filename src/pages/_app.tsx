@@ -11,7 +11,6 @@ import { RunNodeProvider } from '@/context/run-node-context';
 import { StatsProvider } from '@/context/stats-context';
 import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
-import { NodeAuthProvider } from '@/contexts/node-auth-context';
 import { NodeStorageProvider } from '@/contexts/node-storage-context';
 import { AlchemyProvider } from '@/lib/alchemy-provider';
 import { OceanAccountProvider } from '@/lib/use-ocean-account';
@@ -97,23 +96,21 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
                         <ProfileProvider>
                           <StatsProvider>
                             <P2PProvider>
-                              <NodeAuthProvider>
-                                <NodeStorageProvider>
-                                  <RunJobEnvsProvider>
-                                    <RunJobProvider>
-                                      <RunNodeProvider>
-                                        <InferenceProvider>
-                                          <RootLayout>
-                                            <PHProvider>
-                                              <Component {...pageProps} />
-                                            </PHProvider>
-                                          </RootLayout>
-                                        </InferenceProvider>
-                                      </RunNodeProvider>
-                                    </RunJobProvider>
-                                  </RunJobEnvsProvider>
-                                </NodeStorageProvider>
-                              </NodeAuthProvider>
+                              <NodeStorageProvider>
+                                <RunJobEnvsProvider>
+                                  <RunJobProvider>
+                                    <RunNodeProvider>
+                                      <InferenceProvider>
+                                        <RootLayout>
+                                          <PHProvider>
+                                            <Component {...pageProps} />
+                                          </PHProvider>
+                                        </RootLayout>
+                                      </InferenceProvider>
+                                    </RunNodeProvider>
+                                  </RunJobProvider>
+                                </RunJobEnvsProvider>
+                              </NodeStorageProvider>
                             </P2PProvider>
                           </StatsProvider>
                         </ProfileProvider>

@@ -5,9 +5,8 @@ import ExistingServicesTable from '@/components/inference/existing-services-tabl
 import SectionTitle from '@/components/section-title/section-title';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
-import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import WidgetsOutlinedIcon from '@mui/icons-material/WidgetsOutlined';
 import classNames from 'classnames';
 import styles from './inference-index-page.module.css';
 
@@ -30,19 +29,19 @@ const InferenceIndexPage: React.FC = () => {
               <AutoAwesomeOutlinedIcon />
             </div>
             <div className={styles.cardContent}>
-              <h3>Quick start</h3>
+              <h3>Models</h3>
               <div className="textSecondary">
-                Choose from a list of curated models, preconfigured for optimal performance
+                Run a curated model, or bring any model from Hugging Face with your own settings
               </div>
             </div>
-            <Button
-              contentAfter={<ArrowForwardIcon />}
-              color="accent1"
-              href="/inference/default-models"
-              variant="filled"
-            >
-              Select a model
-            </Button>
+            <div className={styles.cardActions}>
+              <Button color="accent1" href="/inference/custom-models" variant="outlined">
+                Custom
+              </Button>
+              <Button color="accent1" href="/inference/default-models" variant="filled">
+                Curated
+              </Button>
+            </div>
           </Card>
           <Card
             className={styles.card}
@@ -54,32 +53,7 @@ const InferenceIndexPage: React.FC = () => {
             variant="glass-shaded"
           >
             <div className={styles.iconBox}>
-              <TuneOutlinedIcon />
-            </div>
-            <div className={styles.cardContent}>
-              <h3>Custom model</h3>
-              <div className="textSecondary">Pull any model from Hugging Face, set your own parameters & resources</div>
-            </div>
-            <Button
-              contentAfter={<ArrowForwardIcon />}
-              color="accent1"
-              href="/inference/custom-models"
-              variant="outlined"
-            >
-              Start custom
-            </Button>
-          </Card>
-          <Card
-            className={styles.card}
-            direction="column"
-            padding="md"
-            radius="lg"
-            shadow="black"
-            spacing="md"
-            variant="glass-shaded"
-          >
-            <div className={styles.iconBox}>
-              <DashboardCustomizeOutlinedIcon />
+              <WidgetsOutlinedIcon />
             </div>
             <div className={styles.cardContent}>
               <h3>Services</h3>
@@ -87,14 +61,11 @@ const InferenceIndexPage: React.FC = () => {
                 Start a ready-made app — ComfyUI, Open WebUI, JupyterLab — and add your own models
               </div>
             </div>
-            <Button
-              contentAfter={<ArrowForwardIcon />}
-              color="accent1"
-              href="/inference/services"
-              variant="outlined"
-            >
-              Browse services
-            </Button>
+            <div className={styles.cardActions}>
+              <Button contentAfter={<ArrowForwardIcon />} color="accent1" href="/inference/services" variant="outlined">
+                Browse services
+              </Button>
+            </div>
           </Card>
           <Card
             className={styles.card}
@@ -111,17 +82,19 @@ const InferenceIndexPage: React.FC = () => {
             <div className={styles.cardContent}>
               <h3>Templates</h3>
               <div className="textSecondary">
-                The same apps with their models already included — pick an outcome, skip the setup
+                Start your workflow with our ready-made bundles of models and services
               </div>
             </div>
-            <Button
-              contentAfter={<ArrowForwardIcon />}
-              color="accent1"
-              href="/inference/templates"
-              variant="outlined"
-            >
-              Browse templates
-            </Button>
+            <div className={styles.cardActions}>
+              <Button
+                contentAfter={<ArrowForwardIcon />}
+                color="accent1"
+                href="/inference/templates"
+                variant="outlined"
+              >
+                Browse templates
+              </Button>
+            </div>
           </Card>
         </div>
         <ExistingServicesTable />

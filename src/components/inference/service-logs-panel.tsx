@@ -1,6 +1,6 @@
 import Button from '@/components/button/button';
 import { NodeUri } from '@/contexts/P2PContext';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { useNodeTokensContext } from '@/context/node-tokens';
 import { ServiceLogViewStatus, useServiceLogs } from '@/hooks/use-service-logs';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
@@ -33,7 +33,7 @@ const ServiceLogsPanel: React.FC<ServiceLogsPanelProps> = ({
   consumerAddress,
   open,
 }) => {
-  const { getNodeToken, clearNodeToken } = useNodeAuth();
+  const { getNodeToken, clearNodeToken } = useNodeTokensContext();
 
   // Share the node's cached auth token with the status poll & actions (one token per node, so the
   // log stream doesn't mint a second one and clash on the node's per-address nonce).

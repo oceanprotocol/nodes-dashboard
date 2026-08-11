@@ -2,7 +2,7 @@
 
 import { CHAIN_ID } from '@/constants/chains';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { useNodeTokensContext } from '@/context/node-tokens';
 import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
@@ -57,7 +57,7 @@ const NodeStorageContext = createContext<NodeStorageContextType | undefined>(und
 
 export function NodeStorageProvider({ children }: { children: ReactNode }) {
   const { account } = useOceanAccount();
-  const { withNodeAuth } = useNodeAuth();
+  const { withNodeAuth } = useNodeTokensContext();
 
   const {
     createNodeBucket,

@@ -100,14 +100,23 @@
   justify-content: space-between;
   padding: 12px var(--gutter);
 
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--border);
-  }
+  /* Every row divides from what follows it. `:last-child` can't drive this any more — the collapsed
+     rows are wrapped, so they read as last within their own wrapper rather than within the ledger;
+     the ledger's true final element is stripped of its divider by `.rows > :last-child` below. */
+  border-bottom: 1px solid var(--border);
 }
 
-/* Wallet balance is context, not a constraint on this payment: it recedes to secondary text and
-   sits on a tinted strip that closes the card, separating it from the three escrow constraints. */
+/* Whatever ends the ledger closes the card flush — the toggle strip, as things stand. */
+.rows > :last-child {
+  border-bottom: none;
+}
+
+/* Wallet balance is context, not a constraint on this payment, so it recedes to secondary text. */
 .rowMuted {
+  /* Ends the facts, so it closes them flush. With a divider here, the toggle strip below got framed
+     like one more row — which is what made that strip read as an empty row. */
+  border-bottom: none;
+
   .rowLabel {
     color: var(--text-secondary);
     font-weight: 400;
@@ -151,6 +160,12 @@
 .rowSymbol {
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.detailsRow {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 4px;
 }
 
 .linkButton {
