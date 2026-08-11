@@ -1,6 +1,16 @@
 import type { ServiceTemplatePublic, ServiceTemplateWorkflow } from '@oceanprotocol/lib';
 
-export type TemplateWorkflow = ServiceTemplateWorkflow;
+/**
+ * A workflow graph a template ships. `id`/`name`/`description`/`graph` come from ocean.js as of
+ * 9.0.0-next.9; the supply → output strip the modal renders is not in that type (nor yet in the
+ * node's strict schema), so it is declared here like the other node-side-only fields below.
+ */
+export type TemplateWorkflow = ServiceTemplateWorkflow & {
+  /** One line: what the user has to bring to a run ("a portrait image"). */
+  inputs?: string;
+  /** One line: what a run produces ("a 5s 720p clip"). */
+  output?: string;
+};
 
 /**
  * Catalogue classification the node publishes alongside a template. These fields exist in
@@ -29,6 +39,12 @@ export type TemplateIncludedItem = {
   repoId?: string;
   /** Direct download URL for anything that isn't a plain HF repo (CivitAI, mirrors). */
   url?: string;
+  /**
+   * What this item is for, one line. Only read when the manifest is the offer (a model pack, where
+   * "which of these is the text encoder?" is a real question) — inside a bundle that also ships
+   * workflows the list stays collapsed and unannotated.
+   */
+  role?: string;
 };
 
 type BundleFields = {
@@ -40,6 +56,12 @@ type BundleFields = {
   category?: AppTemplateCategory;
   /** Bundles only: manifest of what `command` downloads. */
   includes?: TemplateIncludedItem[];
+  /**
+   * Services only: what the bare app can do, as chips. Today these are buried in the description's
+   * comma list ("txt2img, img2img, inpainting…"); declared, they render as the quiet counterpart of a
+   * bundle's workflow cards. Absent, the prose alone carries the section.
+   */
+  capabilities?: string[];
 };
 
 /** One user-supplied env var, plus the node's `required` hint (also missing from the ocean.js type). */
@@ -55,9 +77,10 @@ export type AppEnvVarSpec = NonNullable<ServiceTemplatePublic['userConfigurableE
  * `workflows` comes from `ServiceTemplatePublic` itself as of @oceanprotocol/lib 9.0.0-next.9 — only
  * the fields the lib still lacks are declared here.
  */
-export type AppTemplate = Omit<ServiceTemplatePublic, 'userConfigurableEnvVars'> &
+export type AppTemplate = Omit<ServiceTemplatePublic, 'userConfigurableEnvVars' | 'workflows'> &
   BundleFields & {
     userConfigurableEnvVars?: AppEnvVarSpec[];
+    workflows?: TemplateWorkflow[];
   };
 
 /** A bundle — narrowed so `service` is known present (the node's schema requires it on bundles). */
@@ -71,6 +94,89 @@ export function isBundle(tpl: AppTemplate): tpl is AppBundle {
 export function isService(tpl: AppTemplate): boolean {
   return !isBundle(tpl);
 }
+
+/**
+ * What the details modal has to describe. Three tiers, because the honest answer to "what am I
+ * buying?" differs: a **recipe** (graphs it opens on), **ingredients** (weights, no graph), or an
+ * **empty app**. A buyer who expects a runnable recipe and gets three checkpoints asks for a refund,
+ * so `modelPack` is worth deriving even though the node's `kind` only knows service-vs-bundle.
+ */
+export type TemplateShape = 'recipe' | 'modelPack' | 'service';
+
+export function templateShape(tpl: AppTemplate): TemplateShape {
+  if ((tpl.workflows?.length ?? 0) > 0) {
+    return 'recipe';
+  }
+  return (tpl.includes?.length ?? 0) > 0 ? 'modelPack' : 'service';
+}
+
+/** The catalogue word for a shape — one per tier, so the card and the modal never disagree. */
+export const SHAPE_LABEL: Record<TemplateShape, string> = {
+  recipe: 'Template',
+  modelPack: 'Model pack',
+  service: 'Service',
+};
+
+/**
+ * "5 models and 1 custom node" — the collapsed manifest's own summary line. Kinds are counted
+ * separately (a custom node is not a model, and calling it one is the kind of small lie that costs
+ * trust), and, as everywhere else, counts only: no GB figure, no setup-time estimate.
+ */
+export function includesBreakdown(tpl: AppTemplate): string | null {
+  const items = tpl.includes ?? [];
+  if (items.length === 0) {
+    return null;
+  }
+  const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const parts: string[] = [];
+  const models = items.filter((i) => i.kind === 'model').length;
+  const nodes = items.filter((i) => i.kind === 'customnode').length;
+  const workflows = items.filter((i) => i.kind === 'workflow').length;
+  const other = items.length - models - nodes - workflows;
+  if (models > 0) {
+    parts.push(plural(models, 'model'));
+  }
+  if (nodes > 0) {
+    parts.push(plural(nodes, 'custom node'));
+  }
+  if (workflows > 0) {
+    parts.push(plural(workflows, 'workflow'));
+  }
+  if (other > 0) {
+    parts.push(plural(other, 'item'));
+  }
+  // "a and b", "a, b and c" — the manifest is read aloud in a sentence, not as a list.
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+}
+
+/**
+ * Who publishes the included items ("Lightricks and Comfy-Org") — the provenance signal that has to
+ * survive the manifest being collapsed. Capped at two names: past that it stops being a credential
+ * and starts being a list.
+ */
+export function includesPublishers(tpl: AppTemplate): string | null {
+  const owners = Array.from(
+    new Set(
+      (tpl.includes ?? [])
+        .map((item) => includedRepoId(item)?.split('/')[0])
+        .filter((owner): owner is string => !!owner)
+    )
+  );
+  if (owners.length === 0) {
+    return null;
+  }
+  if (owners.length === 1) {
+    return owners[0];
+  }
+  const [first, second] = owners;
+  return owners.length === 2 ? `${first} and ${second}` : `${first}, ${second} and others`;
+}
+
+/**
+ * Show the manifest open or behind a toggle. Three annotated items answer a real question when you're
+ * wiring your own graph; six near-identical checkpoint names are noise whichever way you cut them.
+ */
+export const INCLUDES_EXPAND_MAX = 3;
 
 /**
  * "3 models" — one-line summary of what a bundle brings, for cards and section heads. Counts only:

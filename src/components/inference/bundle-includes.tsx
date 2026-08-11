@@ -33,12 +33,34 @@ const ItemAvatar: React.FC<{ item: TemplateIncludedItem }> = ({ item }) => {
   );
 };
 
+export const IncludesAvatarCluster: React.FC<{ template: AppTemplate; max?: number }> = ({ template, max = 3 }) => {
+  const items = template.includes ?? [];
+  if (items.length === 0) {
+    return null;
+  }
+  const shown = items.slice(0, max);
+  const hidden = items.length - shown.length;
+  return (
+    <span className={styles.cluster}>
+      {shown.map((item) => (
+        <ItemAvatar item={item} key={`${item.kind}-${item.name}`} />
+      ))}
+      {hidden > 0 && <span className={cx(styles.avatar, styles.clusterMore)}>+{hidden}</span>}
+    </span>
+  );
+};
+
 type BundleIncludesProps = {
   template: AppTemplate;
   /** Compact mode drops sizes and links — for the catalogue card, where space is tight. */
   compact?: boolean;
   /** Cap the rows rendered; the remainder is summarised as "+N more". */
   max?: number;
+  /**
+   * Render each item's `role` line. Only for a model pack, where the manifest IS the offer — inside a
+   * bundle that also ships workflows the list is a footnote and an extra line per row is just weight.
+   */
+  showRoles?: boolean;
 };
 
 /**
@@ -46,7 +68,7 @@ type BundleIncludesProps = {
  * neither reads nor verifies this list, so it is only as accurate as the template's own `command`.
  * Items with a Hugging Face repo id link to it and show their publisher's avatar.
  */
-const BundleIncludes: React.FC<BundleIncludesProps> = ({ template, compact = false, max }) => {
+const BundleIncludes: React.FC<BundleIncludesProps> = ({ template, compact = false, max, showRoles = false }) => {
   const items = template.includes ?? [];
   if (items.length === 0) {
     return null;
@@ -65,7 +87,7 @@ const BundleIncludes: React.FC<BundleIncludesProps> = ({ template, compact = fal
         const href = repoId ? `https://huggingface.co/${repoId}` : item.url;
         const linked = !compact && !!href;
         return (
-          <li className={styles.item} key={`${item.kind}-${item.name}`}>
+          <li className={cx(styles.item, { [styles.itemRoomy]: showRoles })} key={`${item.kind}-${item.name}`}>
             <ItemAvatar item={item} />
             <span className={styles.text}>
               {linked ? (
@@ -83,6 +105,7 @@ const BundleIncludes: React.FC<BundleIncludesProps> = ({ template, compact = fal
                   {item.name}
                 </span>
               )}
+              {showRoles && item.role && <span className={styles.role}>{item.role}</span>}
               {/* The repo id stays as plain sub-text — the name above is the link now, and two links
                   to the same page in one row is just noise. */}
               {!compact && repoId && (

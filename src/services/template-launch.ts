@@ -17,7 +17,9 @@ export async function gzipBase64(value: string): Promise<string> {
   // The DOM lib's CompressionStream/pipeThrough generics disagree on ArrayBuffer vs ArrayBufferLike
   // in this TS version — a type-only mismatch (Blob.stream().pipeThrough(new CompressionStream(...))
   // is standard, well-supported browser API usage at runtime).
-  const stream = new Blob([value]).stream().pipeThrough(new CompressionStream('gzip') as unknown as ReadableWritablePair);
+  const stream = new Blob([value])
+    .stream()
+    .pipeThrough(new CompressionStream('gzip') as unknown as ReadableWritablePair);
   const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
   let binary = '';
   // Chunked: String.fromCharCode(...bytes) blows the argument limit on large graphs.
@@ -95,7 +97,10 @@ async function withWorkflowUserData(
  * user actually filled are emitted. Operator-fixed launch config is not env: it rides in the template's
  * `command`, which the node forwards to the container verbatim (dockerCmd), so nothing to merge here.
  */
-export function buildTemplateUserData(template: AppTemplate, envValues: Record<string, string>): Record<string, string> {
+export function buildTemplateUserData(
+  template: AppTemplate,
+  envValues: Record<string, string>
+): Record<string, string> {
   const userData: Record<string, string> = {};
   for (const spec of template.userConfigurableEnvVars ?? []) {
     const value = envValues[spec.key];

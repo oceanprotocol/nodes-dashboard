@@ -142,7 +142,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
     </p>
 
     <div className={cx(styles.chips, 'gapSm')}>
-      <span className={cx('chip', 'chipGlass', styles.chip)}>{item.categoryLabel}</span>
+      <span className={cx('chip', styles.chip, styles.categoryChip)}>{item.categoryLabel}</span>
       <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
     </div>
 
