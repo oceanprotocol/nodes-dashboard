@@ -175,6 +175,8 @@ export interface TemplateHardware {
   gpu: boolean;
   /** GPU units the template asks for (0 when it declares none). */
   gpuUnits: number;
+  /** Recommended (else min) CPU cores, if the template declares them. */
+  cpu?: number;
   /** Recommended (else min) RAM in GB, if the template declares it. */
   ram?: number;
   /** Recommended (else min) disk in GB, if the template declares it. */
@@ -195,6 +197,7 @@ export function templateHardware(tpl: AppTemplate): TemplateHardware {
   return {
     gpu: !!gpuEntry,
     gpuUnits: gpuEntry ? (gpuEntry.recommended ?? gpuEntry.min ?? 0) : 0,
+    cpu: amount('cpu'),
     ram: amount('ram'),
     disk: amount('disk'),
   };

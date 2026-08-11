@@ -32,9 +32,7 @@ export type DecoratedTemplate = {
   /** How the running app is used — "Web UI" / "API" / "Endpoint". See TemplateCategoryMeta.interaction. */
   interaction: string;
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
-  /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
-  /** "2 models · 5.0 GB" for a bundle; null for a bare service. */
   included: string | null;
 };
 
@@ -43,13 +41,15 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
   const hw = templateHardware(tpl);
   // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
   // SD-storage for RAM, DNS for disk.
+  const cores = hw.cpu != null ? `${hw.cpu} ${hw.cpu === 1 ? 'core' : 'cores'}` : null;
   const meta: DecoratedTemplate['meta'] = [
-    {
-      key: 'hw',
-      Icon: hw.gpu ? GpuIcon : MemoryIcon,
-      label: hw.gpu ? `${hw.gpuUnits || 1}× GPU` : 'CPU only',
-    },
+    hw.gpu
+      ? { key: 'hw', Icon: GpuIcon, label: `${hw.gpuUnits || 1}× GPU` }
+      : { key: 'hw', Icon: MemoryIcon, label: cores ? `CPU only · ${cores}` : 'CPU only' },
   ];
+  if (hw.gpu && cores) {
+    meta.push({ key: 'cpu', Icon: MemoryIcon, label: cores });
+  }
   if (hw.ram != null) {
     meta.push({ key: 'ram', Icon: SdStorageIcon, label: `${hw.ram} GB RAM` });
   }
@@ -71,7 +71,7 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
     gpu: hw.gpu,
     interaction: visual.meta.interaction,
     meta,
-    metaFallback: hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
+    metaFallback: hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
     included: includesSummary(tpl),
   };
 }
@@ -131,7 +131,6 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
 
     <div className={cx(styles.chips, 'gapSm')}>
       <span className={cx('chip', 'chipGlass', styles.chip)}>{item.categoryLabel}</span>
-      <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
       <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
     </div>
 
