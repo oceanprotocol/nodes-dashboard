@@ -34,6 +34,7 @@ export type DecoratedTemplate = {
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
   metaFallback: string | null;
   included: string | null;
+  ariaLabel: string;
 };
 
 export function decorate(tpl: AppTemplate): DecoratedTemplate {
@@ -56,6 +57,16 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
   if (hw.disk != null) {
     meta.push({ key: 'disk', Icon: DnsIcon, label: `${hw.disk} GB disk` });
   }
+  const metaFallback = hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null;
+  const name = tpl.name ?? tpl.id;
+  const included = includesSummary(tpl);
+  const spoken = [
+    visual.meta.label,
+    visual.meta.interaction,
+    ...meta.map((m) => m.label.replace(/ · /g, ', ')),
+    metaFallback,
+    included && `${included} included`,
+  ].filter(Boolean);
   // No container port here: pre-launch it's not actionable — the reachable host port and URL are only
   // assigned when the service starts, and the manage-service page shows those.
   return {
@@ -66,13 +77,14 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
     CategoryIcon: visual.meta.Icon,
     mono: visual.mono,
     logo: templateLogo(tpl),
-    name: tpl.name ?? tpl.id,
+    name,
     vendor: templateVendor(tpl.image),
     gpu: hw.gpu,
     interaction: visual.meta.interaction,
     meta,
-    metaFallback: hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
-    included: includesSummary(tpl),
+    metaFallback,
+    included,
+    ariaLabel: `Open details for ${name}. ${spoken.join(', ')}.`,
   };
 }
 
@@ -91,7 +103,7 @@ const VISIBLE_INCLUDES = 3;
  */
 const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
   <Card
-    ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}${item.included ? `, ${item.included} included` : ''}`}
+    ariaLabel={item.ariaLabel}
     className={styles.card}
     direction="column"
     innerShadow="black"
