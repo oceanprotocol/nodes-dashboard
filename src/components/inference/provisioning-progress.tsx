@@ -1,5 +1,5 @@
 import { NodeUri } from '@/contexts/P2PContext';
-import { useNodeAuth } from '@/contexts/node-auth-context';
+import { useNodeTokensContext } from '@/context/node-tokens';
 import { useServiceLogs } from '@/hooks/use-service-logs';
 import { parseProvisioning } from '@/services/provisioning-log';
 import { AppTemplate } from '@/types/templates';
@@ -40,7 +40,9 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
   template,
   active,
 }) => {
-  const { getNodeToken, clearNodeToken } = useNodeAuth();
+  // Same shared per-node token cache the status poll and the log panel use — one token per node, so
+  // this panel doesn't mint a second one and clash on the node's per-address nonce.
+  const { getNodeToken, clearNodeToken } = useNodeTokensContext();
 
   const getToken = useCallback(() => {
     if (!nodePeerId || !nodeUri) {

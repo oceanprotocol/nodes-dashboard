@@ -91,7 +91,6 @@ const BundleIncludes: React.FC<BundleIncludesProps> = ({ template, compact = fal
                 </span>
               )}
             </span>
-            {!compact && item.sizeGb != null && <span className={styles.size}>{item.sizeGb} GB</span>}
           </li>
         );
       })}

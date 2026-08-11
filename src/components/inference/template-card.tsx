@@ -32,10 +32,9 @@ export type DecoratedTemplate = {
   /** How the running app is used — "Web UI" / "API" / "Endpoint". See TemplateCategoryMeta.interaction. */
   interaction: string;
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
-  /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
-  /** "2 models · 5.0 GB" for a bundle; null for a bare service. */
   included: string | null;
+  ariaLabel: string;
 };
 
 export function decorate(tpl: AppTemplate): DecoratedTemplate {
@@ -43,19 +42,31 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
   const hw = templateHardware(tpl);
   // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
   // SD-storage for RAM, DNS for disk.
+  const cores = hw.cpu != null ? `${hw.cpu} ${hw.cpu === 1 ? 'core' : 'cores'}` : null;
   const meta: DecoratedTemplate['meta'] = [
-    {
-      key: 'hw',
-      Icon: hw.gpu ? GpuIcon : MemoryIcon,
-      label: hw.gpu ? `${hw.gpuUnits || 1}× GPU` : 'CPU only',
-    },
+    hw.gpu
+      ? { key: 'hw', Icon: GpuIcon, label: `${hw.gpuUnits || 1}× GPU` }
+      : { key: 'hw', Icon: MemoryIcon, label: cores ? `CPU only · ${cores}` : 'CPU only' },
   ];
+  if (hw.gpu && cores) {
+    meta.push({ key: 'cpu', Icon: MemoryIcon, label: cores });
+  }
   if (hw.ram != null) {
     meta.push({ key: 'ram', Icon: SdStorageIcon, label: `${hw.ram} GB RAM` });
   }
   if (hw.disk != null) {
     meta.push({ key: 'disk', Icon: DnsIcon, label: `${hw.disk} GB disk` });
   }
+  const metaFallback = hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null;
+  const name = tpl.name ?? tpl.id;
+  const included = includesSummary(tpl);
+  const spoken = [
+    visual.meta.label,
+    visual.meta.interaction,
+    ...meta.map((m) => m.label.replace(/ · /g, ', ')),
+    metaFallback,
+    included && `${included} included`,
+  ].filter(Boolean);
   // No container port here: pre-launch it's not actionable — the reachable host port and URL are only
   // assigned when the service starts, and the manage-service page shows those.
   return {
@@ -66,13 +77,14 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
     CategoryIcon: visual.meta.Icon,
     mono: visual.mono,
     logo: templateLogo(tpl),
-    name: tpl.name ?? tpl.id,
+    name,
     vendor: templateVendor(tpl.image),
     gpu: hw.gpu,
     interaction: visual.meta.interaction,
     meta,
-    metaFallback: hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
-    included: includesSummary(tpl),
+    metaFallback,
+    included,
+    ariaLabel: `Open details for ${name}. ${spoken.join(', ')}.`,
   };
 }
 
@@ -91,7 +103,7 @@ const VISIBLE_INCLUDES = 3;
  */
 const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
   <Card
-    ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}${item.included ? `, ${item.included} included` : ''}`}
+    ariaLabel={item.ariaLabel}
     className={styles.card}
     direction="column"
     innerShadow="black"
@@ -131,7 +143,6 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
 
     <div className={cx(styles.chips, 'gapSm')}>
       <span className={cx('chip', 'chipGlass', styles.chip)}>{item.categoryLabel}</span>
-      <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
       <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
     </div>
 

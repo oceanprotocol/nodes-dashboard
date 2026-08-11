@@ -109,17 +109,13 @@
   gap: 8px;
 }
 
-.docsLink {
-  display: inline-flex;
+/* Paired API references in the "How to use" header. Wraps under the heading on narrow screens rather
+   than squeezing both buttons onto one line. */
+.docsActions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--accent1);
-
-  &:hover {
-    text-decoration: underline;
-  }
+  gap: 8px;
 }
 
 .endpoints {
@@ -127,26 +123,56 @@
   flex-direction: column;
   gap: 12px;
 
-  /* How to use — endpoint list */
+  /* How to use — endpoint list.
+     Mobile: a stacked card — chip and action share the top line, the URL gets a full line of its own
+     (it is long and unbreakable at word boundaries), the description sits underneath.
+     From 768px it collapses back to a single row. */
   .endpoint {
-    display: flex;
+    display: grid;
+    grid-template-areas:
+      'chip action'
+      'path path'
+      'description description';
+    grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 12px;
+    gap: 8px 12px;
 
     .endpointPath {
-      flex-shrink: 0;
+      grid-area: path;
+      min-width: 0;
       font-family: var(--font-mono, monospace);
       font-weight: 600;
+      /* URLs have no spaces to break on — allow a mid-string break rather than overflowing. */
+      overflow-wrap: anywhere;
     }
 
     .endpointDescription {
-      flex: 1;
+      grid-area: description;
       min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
       color: var(--text-secondary);
       font-size: 14px;
+    }
+
+    .endpointChip {
+      grid-area: chip;
+      justify-self: start;
+    }
+
+    .endpointAction {
+      grid-area: action;
+      justify-self: end;
+    }
+
+    @media (min-width: 768px) {
+      grid-template-areas: 'chip path description action';
+      grid-template-columns: auto auto 1fr auto;
+      gap: 12px;
+
+      .endpointDescription {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
     }
   }
 }
@@ -154,6 +180,7 @@
 /* Quick test — console-styled snippet with a fake terminal title bar. */
 .quickTestHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;

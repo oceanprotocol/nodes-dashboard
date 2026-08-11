@@ -13,16 +13,10 @@
   flex-direction: column;
   gap: 16px;
 
-  @media (min-width: 768px) {
+  @media (min-width: 900px) {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  /* Four entry points now (quick start, custom, services, bundles) — 2×2 on tablets, one row on
-     wide screens. A 3-column grid would leave the fourth card orphaned on its own row. */
-  @media (min-width: 1200px) {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+    align-items: stretch;
   }
 
   .card {
@@ -41,6 +35,19 @@
       flex: 1;
       flex-direction: column;
       gap: 8px;
+    }
+
+    .cardActions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: auto;
+
+      /* Equal-width actions so the merged Models card matches the single-action cards */
+      > * {
+        flex: 1 1 0;
+        white-space: nowrap;
+      }
     }
   }
 }

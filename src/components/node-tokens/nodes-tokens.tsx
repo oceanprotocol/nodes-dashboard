@@ -72,7 +72,7 @@ const NodesTokens: React.FC = () => {
       <SectionTitle
         moreReadable
         title="Node auth tokens"
-        subTitle="Auth tokens generated during this session for the nodes you ran jobs on."
+        subTitle="Auth tokens for the nodes you ran jobs on. Stored on this device for your connected wallet."
       />
       <GenerateTokenModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
       <div className="pageContentWrapper">
@@ -84,7 +84,7 @@ const NodesTokens: React.FC = () => {
             </Button>
           </div>
           {nodeIds.length === 0 ? (
-            <span className="textSecondary">No auth tokens generated during this session.</span>
+            <span className="textSecondary">No auth tokens yet.</span>
           ) : (
             <div className={styles.listItems}>
               {nodeIds.map((nodeId) => {

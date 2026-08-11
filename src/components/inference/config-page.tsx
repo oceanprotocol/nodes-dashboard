@@ -12,7 +12,7 @@ import { useInferenceContext } from '@/context/inference-context';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
-import { estimatedSetupMinutes, includedSizeGb, isBundle, validateEnvValue } from '@/types/templates';
+import { isBundle, validateEnvValue } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
@@ -73,10 +73,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     if (count === 0) {
       return null;
     }
-    const size = includedSizeGb(selectedTemplate);
-    const minutes = estimatedSetupMinutes(selectedTemplate);
-    const amount = size != null ? ` (~${size.toFixed(1)} GB${minutes != null ? `, ≈${minutes} min` : ''})` : '';
-    return `Relaunching re-downloads all ${count} included ${count === 1 ? 'model' : 'models'}${amount} — inside the session you have already paid for.`;
+    return `Relaunching re-downloads all ${count} included ${count === 1 ? 'model' : 'models'} — inside the session you have already paid for.`;
   }, [selectedTemplate]);
   useEffect(() => {
     if (isTemplateFlow) {
