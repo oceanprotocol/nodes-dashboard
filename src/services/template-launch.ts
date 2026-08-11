@@ -45,38 +45,45 @@ const COMFY_WORKFLOW_ID_KEY = 'COMFY_WORKFLOW_ID';
 const COMFY_WORKFLOW_KEY = 'COMFY_WORKFLOW';
 
 /**
- * Env var keys set automatically from the template's single workflow (by withWorkflowUserData) — the
+ * Env var keys set automatically from the template's workflows (by withWorkflowUserData) — the
  * config page's free-text env inputs must exclude these, since whatever's typed there is silently
  * overwritten at launch. A single constant so the writer and the filter can't drift apart.
  */
 export const WORKFLOW_ENV_VAR_KEYS: readonly string[] = [COMFY_WORKFLOW_ID_KEY, COMFY_WORKFLOW_KEY];
 
 /**
+ * The workflow COMFY_WORKFLOW_ID names and Open deep-links to: the first one that actually carries
+ * a graph. Both call sites go through here so they can't drift — the bootstrap names the workflow
+ * pack after this id and resolves `example_workflows/<id>.json` from it, so a deep link to an id
+ * the userData never installed opens a blank canvas.
+ */
+export function deepLinkWorkflow(workflows?: TemplateWorkflow[]): TemplateWorkflow | undefined {
+  return workflows?.find((workflow) => workflow.graph != null);
+}
+
+/**
  * Add the template's workflow userData — mutates and returns `userData`. Installs every workflow
  * the template ships (not just the one launched with) as gzip+base64 of `{ "<id>": <graph>, ... }`,
- * so the container's Workflows sidebar has all of them. COMFY_WORKFLOW_ID stays the FIRST
- * workflow's id regardless — the bootstrap uses it for the pack name and it's what Open deep-links
- * to. A workflow with no graph is skipped (logged); skipped entirely (both keys) when none of the
- * template's workflows has one — a node that served metadata without a body would otherwise ship
- * `JSON.stringify(undefined)` → the literal string "undefined" as installed workflow content.
+ * so the container's Workflows sidebar has all of them, and names `deepLinkWorkflow` as the one to
+ * open. A workflow with no graph is skipped (logged); both keys are omitted when none has one — a
+ * node that served metadata without a body would otherwise ship `JSON.stringify(undefined)` → the
+ * literal string "undefined" as installed workflow content.
  */
 async function withWorkflowUserData(
   userData: Record<string, string>,
   workflows?: TemplateWorkflow[]
 ): Promise<Record<string, string>> {
-  if (!workflows || workflows.length === 0) {
-    return userData;
-  }
   const graphs: Record<string, unknown> = {};
-  for (const workflow of workflows) {
+  for (const workflow of workflows ?? []) {
     if (workflow.graph == null) {
       console.error(`Workflow "${workflow.id}" has no graph — skipping its userData.`);
     } else {
       graphs[workflow.id] = workflow.graph;
     }
   }
-  if (Object.keys(graphs).length > 0) {
-    userData[COMFY_WORKFLOW_ID_KEY] = workflows[0].id;
+  const deepLink = deepLinkWorkflow(workflows);
+  if (deepLink) {
+    userData[COMFY_WORKFLOW_ID_KEY] = deepLink.id;
     userData[COMFY_WORKFLOW_KEY] = await gzipBase64(JSON.stringify(graphs));
   }
   return userData;
@@ -123,12 +130,6 @@ export async function buildTemplateStartParams({
   durationSeconds: number;
   tokenAddress: string;
   envValues: Record<string, string>;
-  /**
-   * Unused: every workflow the template ships now installs regardless of which one is picked (see
-   * withWorkflowUserData) — kept in the type only so existing callers that still pass the picked
-   * workflow (Templates flow) don't need an unrelated edit.
-   */
-  workflow?: TemplateWorkflow;
   /** Persistent-storage bucket id to mount at /data/outputs — picked on the config step. */
   bucketId?: string;
 }): Promise<ServiceStartParams> {
@@ -172,13 +173,7 @@ export async function buildTemplateStartParams({
  */
 export async function buildTemplateRestartParams(
   template: AppTemplate,
-  envValues: Record<string, string>,
-  /**
-   * Unused: every workflow the template ships now installs regardless of which one is picked (see
-   * withWorkflowUserData) — kept in the signature only so existing callers that still pass the
-   * picked workflow (Templates flow) don't need an unrelated edit.
-   */
-  workflow?: TemplateWorkflow
+  envValues: Record<string, string>
 ): Promise<ServiceRestartParams> {
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};

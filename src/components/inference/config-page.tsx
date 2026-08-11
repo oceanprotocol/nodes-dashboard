@@ -57,7 +57,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Template flow: live values for the template's userConfigurableEnvVars, seeded from context (so a
   // back-nav keeps what was typed) and per-field validation errors. Secrets — never leave the client.
   // Excludes the workflow env vars (COMFY_WORKFLOW_ID / COMFY_WORKFLOW) — those are set automatically
-  // from the template's single workflow at launch, so a free-text box for them would just be overwritten.
+  // from the template's workflows at launch, so a free-text box for them would just be overwritten.
   const envSpecs = useMemo(
     () => (selectedTemplate?.userConfigurableEnvVars ?? []).filter((spec) => !WORKFLOW_ENV_VAR_KEYS.includes(spec.key)),
     [selectedTemplate]

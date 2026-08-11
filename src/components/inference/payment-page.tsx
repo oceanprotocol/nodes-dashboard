@@ -74,8 +74,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     [selectedModels, modelParamsByModel]
   );
 
-  // Workflow to launch/relaunch with — each template ships exactly one.
-  const selectedWorkflow = selectedTemplate?.workflows?.[0];
   // Computed once — reused by the prev-step routing and the stepper below.
   const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
 
@@ -495,7 +493,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunching(true);
     setLaunchError(null);
     try {
-      // Build the payload before touching escrow: buildTemplateStartParams gzips the workflow graph
+      // Build the payload before touching escrow: buildTemplateStartParams gzips the workflow graphs
       // and can throw (e.g. CompressionStream unavailable on older Safari/Firefox) — independent of
       // escrow, so build first and let a failure here cost nothing.
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
@@ -508,7 +506,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         durationSeconds: jobDurationSeconds,
         tokenAddress: selectedToken.address,
         envValues: templateEnvValues,
-        workflow: selectedWorkflow,
         bucketId: selectedBucketId ?? undefined,
       });
       await ensureEscrowForSelection();
@@ -539,7 +536,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedByKey,
     jobDurationSeconds,
     templateEnvValues,
-    selectedWorkflow,
     selectedBucketId,
     serviceStart,
     router,
@@ -568,7 +564,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      const restartParams = await buildTemplateRestartParams(selectedTemplate, templateEnvValues, selectedWorkflow);
+      const restartParams = await buildTemplateRestartParams(selectedTemplate, templateEnvValues);
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
         serviceRestart(nodeUri, token, targetServiceId, restartParams)
       );
@@ -592,7 +588,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     targetServiceId,
     withNodeAuth,
     templateEnvValues,
-    selectedWorkflow,
     serviceRestart,
     router,
     buildManageQuery,

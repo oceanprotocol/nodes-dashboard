@@ -27,7 +27,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
-import { templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
+import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
 import { isBundle } from '@/types/templates';
 import { formatDuration } from '@/utils/formatters';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
@@ -434,7 +434,7 @@ const ManageServicePage: React.FC = () => {
     }
     // Only a workflow template has a graph to deep-link to; this URL is also displayed as the
     // endpoint to copy, so a non-workflow app must get it unadorned.
-    const workflow = template.workflows?.[0];
+    const workflow = deepLinkWorkflow(template.workflows);
     return workflow ? templateOpenUrl(url, workflow.id) : url;
   }, [template, job]);
 
