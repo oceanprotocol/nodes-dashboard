@@ -32,13 +32,14 @@ async function deployAccount(client: SmartWalletClient, account: `0x${string}`):
 const deployments = new Map<string, Promise<void>>();
 
 function ensureAccountDeployed(client: SmartWalletClient, account: `0x${string}`): Promise<void> {
-  let pending = deployments.get(account);
+  const key = account.toLowerCase();
+  let pending = deployments.get(key);
   if (!pending) {
     pending = deployAccount(client, account).catch((error) => {
-      deployments.delete(account);
+      deployments.delete(key);
       throw error;
     });
-    deployments.set(account, pending);
+    deployments.set(key, pending);
   }
   return pending;
 }
