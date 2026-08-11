@@ -576,7 +576,15 @@ export function decodeModelIds(raw: string | string[] | undefined): string[] {
  * namespace, which is the author for every `namespace/repo` id.
  */
 export function getModelAvatarUrl(model: HuggingFaceModel): string | undefined {
-  const author = model.author || (model.id.includes('/') ? model.id.split('/')[0] : '');
+  return getAuthorAvatarUrl(model.author || (model.id.includes('/') ? model.id.split('/')[0] : ''));
+}
+
+/**
+ * Org avatar URL for a bare author/namespace. Callers that only have a repo id (a bundle's
+ * `includes[].repoId`, say) can pass its namespace directly instead of faking a HuggingFaceModel.
+ * Not every namespace has an avatar, so treat a 404 as "no logo" and render a fallback.
+ */
+export function getAuthorAvatarUrl(author: string | undefined): string | undefined {
   if (!author) {
     return undefined;
   }

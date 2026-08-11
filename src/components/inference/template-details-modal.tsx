@@ -2,14 +2,15 @@ import GpuIcon from '@/assets/icons/gpu.svg';
 import Button from '@/components/button/button';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { ResolvedTemplateEnv, TemplateEnvsState } from '@/components/hooks/use-template-envs';
+import BundleIncludes from '@/components/inference/bundle-includes';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
-import { templateLogoSrc } from '@/components/inference/template-logos';
+import { templateLogo } from '@/components/inference/template-logos';
 import { templateHardware, templateImageRef, visualFor } from '@/components/inference/template-visual';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { SelectedToken } from '@/context/run-job-context';
 import { ComputeEnvironment } from '@/types/environments';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, estimatedSetupMinutes, includesSummary, isBundle } from '@/types/templates';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
@@ -108,9 +109,10 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   onContinue,
 }) => {
   const { resolved, totalMatched, loading, loadError, retry } = envs;
-  const visual = template ? visualFor(template.id) : null;
+  const visual = template ? visualFor(template.id, template.category) : null;
   const hw = template ? templateHardware(template) : null;
-  const logo = template ? templateLogoSrc(template.id) : null;
+  const logo = template ? templateLogo(template) : null;
+  const setupMinutes = template ? estimatedSetupMinutes(template) : null;
 
   // The shared duration must land inside EVERY env's own window — validated per card so a card whose
   // env can't fit the current duration disables its Continue (with a reason). Same rule as quick start.
@@ -209,16 +211,22 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
       {template && visual && hw && (
         <>
           <div className={styles.header} style={{ '--accent': visual.meta.accent } as CSSProperties}>
+            {/* The brand mark REPLACES the category glyph — see the same note in template-card. */}
             <span className={styles.tile}>
-              {visual.mono ? (
+              {logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="" className={styles.tileLogo} src={logo} />
+              ) : visual.mono ? (
                 <span className={styles.tileMono}>{visual.mono}</span>
               ) : (
                 <visual.meta.Icon className={styles.tileIcon} />
               )}
-              {logo && <img alt="" className={styles.tileLogo} src={logo} />}
             </span>
             <div className={styles.headerText}>
               <h2 className={styles.name}>{template.name ?? template.id}</h2>
+              {/* Templates only: the one concrete thing this gets done. The catalogue card leads with
+                  the app's name (same tile as a service), so this is where the outcome is read. */}
+              {template.outcome && <div className={styles.outcome}>{template.outcome}</div>}
               <div className={cx(styles.headerChips, 'gapSm')}>
                 <span className={cx('chip', styles.chip, styles.categoryChip)}>{visual.meta.label}</span>
                 <span className={cx('chip', styles.chip, hw.gpu ? 'chipAccent2' : 'chipGlass')}>
@@ -276,6 +284,29 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               </div>
             </div>
           </div>
+
+          {isBundle(template) && (template.includes?.length ?? 0) > 0 && (
+            <div className={styles.section}>
+              <div className={styles.sectionHead}>
+                <h4>Included</h4>
+                <div>
+                  Downloaded into the app on first launch — nothing to install by hand. What you build with them inside
+                  the app is up to you.
+                </div>
+              </div>
+              <div className={styles.panel}>
+                <BundleIncludes template={template} />
+                <div className={styles.includesNote}>
+                  {includesSummary(template)}
+                  {setupMinutes != null && ` · ready in roughly ${setupMinutes} min after launch`}
+                  {/* The escrow lock is taken upfront for the whole session, so the download happens on
+                      the clock the user just paid for. Say so before they pick a session length. */}
+                  <br />
+                  The app opens within seconds; the weights land in the background, inside your paid session.
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className={styles.section}>
             <div className={styles.sectionHead}>

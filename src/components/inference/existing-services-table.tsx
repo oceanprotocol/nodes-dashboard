@@ -6,7 +6,7 @@ import { getApiRoute } from '@/config';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
-import { fetchTemplates, findTemplateByImage } from '@/services/service-templates';
+import { fetchTemplates, findTemplateForService } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -25,7 +25,7 @@ type ServiceSession = {
   statusText?: string;
   environment?: string;
   dockerCmd?: string[];
-  /** Container image the service was launched from — matched back to a template (see findTemplateByImage). */
+  /** Container image the service was launched from — matched back to a template with dockerCmd (see findTemplateForService). */
   image?: string;
   model?: string;
   duration?: number;
@@ -122,7 +122,8 @@ const ExistingServicesTable: React.FC = () => {
           const templates = await fetchTemplates(getServiceTemplates, request.signal);
           const matched: Record<string, AppTemplate> = {};
           for (const service of services) {
-            const tpl = findTemplateByImage(templates, service.image);
+            // image + command, not image alone: every bundle of a service shares that service's image.
+            const tpl = findTemplateForService(templates, service);
             if (tpl) {
               matched[service.serviceId] = tpl;
             }
@@ -173,7 +174,7 @@ const ExistingServicesTable: React.FC = () => {
     const modelId = template ? null : modelIdFromSession(session);
     const token = session.payment?.token;
     router.push({
-      pathname: `/inference/services/${encodeURIComponent(session.serviceId)}`,
+      pathname: `/inference/instances/${encodeURIComponent(session.serviceId)}`,
       query: {
         peerId: session.peerId,
         env: session.environment,

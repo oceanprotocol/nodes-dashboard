@@ -22,6 +22,7 @@ const useServiceTemplates = (): ServiceTemplatesState => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // getServiceTemplates throws until the P2P node is ready, so there is nothing to fetch yet.
     if (!isReady) {
       return;
     }

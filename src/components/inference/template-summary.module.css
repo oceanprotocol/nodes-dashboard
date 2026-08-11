@@ -163,12 +163,6 @@
       overflow-wrap: anywhere;
     }
 
-    .hint {
-      grid-column: 1 / -1;
-      font-size: 12px;
-      color: var(--text-secondary);
-      opacity: 0.7;
-    }
   }
 }
 
@@ -191,6 +185,12 @@
     font-size: 15px;
     fill: currentColor;
   }
+}
+
+.includesNote {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .hardwareFallback {

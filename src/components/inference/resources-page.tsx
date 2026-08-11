@@ -21,8 +21,14 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
   const isTemplateFlow = flowType === InferenceFlowType.Template;
   const isEnvPickerFlow = isCustomModelFlow || isTemplateFlow;
 
-  const { selectedModels, selectedEnv, selectedTemplate, hydrateFromUrlFinished, hydrationFailed, buildSelectionQuery } =
-    useInferenceContext();
+  const {
+    selectedModels,
+    selectedEnv,
+    selectedTemplate,
+    hydrateFromUrlFinished,
+    hydrationFailed,
+    buildSelectionQuery,
+  } = useInferenceContext();
   // Computed once — reused by the stepper and the next-step routing below.
   const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
 
@@ -35,7 +41,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     if (isCustomModelFlow && selectedModels.length === 0) {
       router.replace({ pathname: '/inference/custom-models', query: router.query });
     } else if (isTemplateFlow && !selectedTemplate) {
-      router.replace({ pathname: '/inference/templates', query: router.query });
+      router.replace({ pathname: '/inference/services', query: router.query });
     }
   }, [
     isCustomModelFlow,
@@ -57,7 +63,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        router.replace('/inference/templates');
+        router.replace('/inference/services');
         break;
       }
     }
@@ -86,7 +92,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
         const nextStep = needsBucketPicker ? 'config' : 'payment';
         router.push({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/${nextStep}`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${nextStep}`,
           query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
         });
         break;
@@ -106,7 +112,12 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         title="Inference"
         subTitle="Launch on an Ocean Node"
         contentBetween={
-          <InferenceStepper currentStep="resources" flowType={flowType} showTemplateConfig={needsBucketPicker} />
+          <InferenceStepper
+            currentStep="resources"
+            flowType={flowType}
+            template={selectedTemplate}
+            showTemplateConfig={needsBucketPicker}
+          />
         }
       />
       <div className="pageContentWrapper">

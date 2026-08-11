@@ -1,6 +1,7 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
-import { templateLogoSrc } from '@/components/inference/template-logos';
+import BundleIncludes from '@/components/inference/bundle-includes';
+import { templateLogo } from '@/components/inference/template-logos';
 import {
   CATEGORY_META,
   TemplateCategory,
@@ -8,7 +9,7 @@ import {
   templateVendor,
   visualFor,
 } from '@/components/inference/template-visual';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, includesSummary } from '@/types/templates';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
@@ -16,7 +17,7 @@ import cx from 'classnames';
 import { CSSProperties } from 'react';
 import styles from './template-card.module.css';
 
-/** A template decorated with everything the card renders — all of it derived from the template alone. */
+/** A catalogue entry decorated with everything the card renders — all derived from the template alone. */
 export type DecoratedTemplate = {
   tpl: AppTemplate;
   category: TemplateCategory;
@@ -33,10 +34,12 @@ export type DecoratedTemplate = {
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
   /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
+  /** "2 models · 5.0 GB" for a bundle; null for a bare service. */
+  included: string | null;
 };
 
 export function decorate(tpl: AppTemplate): DecoratedTemplate {
-  const visual = visualFor(tpl.id);
+  const visual = visualFor(tpl.id, tpl.category);
   const hw = templateHardware(tpl);
   // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
   // SD-storage for RAM, DNS for disk.
@@ -62,13 +65,14 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
     categoryLabel: visual.meta.label,
     CategoryIcon: visual.meta.Icon,
     mono: visual.mono,
-    logo: templateLogoSrc(tpl.id),
+    logo: templateLogo(tpl),
     name: tpl.name ?? tpl.id,
     vendor: templateVendor(tpl.image),
     gpu: hw.gpu,
     interaction: visual.meta.interaction,
     meta,
     metaFallback: hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
+    included: includesSummary(tpl),
   };
 }
 
@@ -77,10 +81,17 @@ type TemplateCardProps = {
   onOpen: (tpl: AppTemplate) => void;
 };
 
-/** Catalogue tile for one app template: category-accented, opens the details modal (it never launches). */
+/** How many included items a card lists before collapsing the rest into "+N more". */
+const VISIBLE_INCLUDES = 3;
+
+/**
+ * Catalogue tile for one entry, used by BOTH catalogues: category-accented, opens the details modal
+ * (it never launches). A bundle renders one extra block listing the models it brings; a bare service
+ * has nothing to list, so the same card covers both and the two pages read as one system.
+ */
 const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
   <Card
-    ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}`}
+    ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}${item.included ? `, ${item.included} included` : ''}`}
     className={styles.card}
     direction="column"
     innerShadow="black"
@@ -92,14 +103,17 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
     variant="glass"
   >
     <div className={styles.cardTop}>
+      {/* The brand mark REPLACES the category glyph rather than covering it — the marks are
+          transparent artwork, so anything drawn underneath shows through the shape. */}
       <span className={styles.tile}>
-        {item.mono ? (
+        {item.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt="" className={styles.tileLogo} src={item.logo} />
+        ) : item.mono ? (
           <span className={styles.tileMono}>{item.mono}</span>
         ) : (
           <item.CategoryIcon className={styles.tileIcon} />
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {item.logo && <img alt="" className={styles.tileLogo} src={item.logo} />}
       </span>
       <span className={styles.titleWrap}>
         <span className={styles.name} title={item.name}>
@@ -120,6 +134,13 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
       <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
       <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
     </div>
+
+    {item.included && (
+      <div className={styles.included}>
+        <span className={styles.includedHead}>{item.included} included</span>
+        <BundleIncludes compact max={VISIBLE_INCLUDES} template={item.tpl} />
+      </div>
+    )}
 
     <div className={styles.metaRow}>
       {item.meta.map(({ key, Icon, label }) => (

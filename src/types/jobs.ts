@@ -71,9 +71,11 @@ export interface ComputeJob {
   isRunning: boolean;
   isStarted: boolean;
   containerImage: string;
-  resources: any;
+  resources: { id: string; amount: number }[];
   isFree: boolean;
   algoStartTimestamp: number;
+  algoStopTimestamp?: number;
+  algoDuration?: number;
   maxJobDuration: number;
   metadata?: { name?: string; [key: string]: string | number | boolean | undefined };
   payment: {

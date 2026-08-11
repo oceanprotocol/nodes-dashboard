@@ -10258,7 +10258,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wagmi/core@npm:2.22.1, @wagmi/core@npm:^2.15.0":
+"@wagmi/core@npm:2.22.1":
   version: 2.22.1
   resolution: "@wagmi/core@npm:2.22.1"
   dependencies:
@@ -17676,7 +17676,6 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^6.21.0"
     "@typescript-eslint/parser": "npm:^6.21.0"
     "@vercel/functions": "npm:^3.6.0"
-    "@wagmi/core": "npm:^2.15.0"
     alchemy-sdk: "npm:3.6.5"
     axios: "npm:1.12.2"
     bignumber.js: "npm:^9.3.1"
@@ -17713,7 +17712,6 @@ __metadata:
     recharts: "npm:^3.3.0"
     typescript: "npm:^5"
     unique-names-generator: "npm:^4.7.1"
-    wagmi: "npm:^2.15.0"
     yup: "npm:^1.7.1"
   languageName: unknown
   linkType: soft
@@ -21753,7 +21751,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"wagmi@npm:^2.15.0, wagmi@npm:^2.15.6":
+"wagmi@npm:^2.15.6":
   version: 2.19.5
   resolution: "wagmi@npm:2.19.5"
   dependencies:

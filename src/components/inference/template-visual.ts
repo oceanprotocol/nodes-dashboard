@@ -150,11 +150,21 @@ export interface TemplateVisual {
   mono: string | null;
 }
 
-export function visualFor(id: string): TemplateVisual {
+/**
+ * Visual for a template. The node's own `category` wins when it publishes one — that is what lets a
+ * node ship a service we've never heard of and still have it land in the right filter pill. The
+ * id-substring map is the fallback for templates published before the field existed (or by a node
+ * that doesn't set it), and an id matching neither falls back to `app` + a monogram.
+ */
+export function visualFor(id: string, category?: string): TemplateVisual {
+  if (category && category in CATEGORY_META) {
+    const declared = category as TemplateCategory;
+    return { category: declared, meta: CATEGORY_META[declared], mono: null };
+  }
   const key = MATCH_KEYS.find((k) => id.toLowerCase().includes(k));
   if (key) {
-    const category = CATEGORY_BY_ID_PART[key];
-    return { category, meta: CATEGORY_META[category], mono: null };
+    const derived = CATEGORY_BY_ID_PART[key];
+    return { category: derived, meta: CATEGORY_META[derived], mono: null };
   }
   const mono = id.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
   return { category: 'app', meta: CATEGORY_META.app, mono: mono || '??' };

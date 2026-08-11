@@ -17,11 +17,14 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
-import { buildTemplateRestartParams, buildTemplateStartParams, templateNeedsBucketPicker } from '@/services/template-launch';
+import {
+  buildTemplateRestartParams,
+  buildTemplateStartParams,
+  templateNeedsBucketPicker,
+} from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
-import { usePrivy } from '@privy-io/react-auth';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -49,8 +52,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hydrationFailed,
     buildSelectionQuery,
   } = useInferenceContext();
-  const { account } = useOceanAccount();
-  const { login } = usePrivy();
+  const { account, login } = useOceanAccount();
   const { isReady, serviceExtend, serviceStart, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeAuth();
   const { handlePay } = usePaySession();
@@ -192,10 +194,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // service (the resources step is skipped), so don't bounce to resources — the env comes from URL
         // hydration. Mirrors the CustomModel case, which excludes both modes for the same reason.
         if (!selectedTemplate) {
-          router.replace({ pathname: '/inference/templates', query: router.query });
+          router.replace({ pathname: '/inference/services', query: router.query });
         } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({
-            pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
             query: router.query,
           });
         }
@@ -238,7 +240,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // otherwise config was skipped → back to resources.
         const showConfig = isEditMode || needsBucketPicker;
         router.replace({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/${showConfig ? 'config' : 'resources'}`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${isEditMode ? 'config' : 'resources'}`,
           query: router.query,
         });
         break;
@@ -292,7 +294,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         })
       );
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(targetServiceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(targetServiceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -350,7 +352,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -439,7 +441,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -517,7 +519,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -574,7 +576,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -661,6 +663,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               currentStep="payment"
               edit={isEditMode}
               flowType={flowType}
+              template={selectedTemplate}
               showTemplateConfig={needsBucketPicker}
             />
           )

@@ -16,6 +16,7 @@ import {
   formatDuration,
   formatNumber,
   formatWalletAddress,
+  getJobDurationSeconds,
 } from '@/utils/formatters';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
@@ -406,16 +407,13 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     sortable: false,
   },
   {
-    field: 'name',
+    field: 'metadata.name',
     filterable: false,
     flex: 1,
     headerName: 'Name',
     sortable: false,
     valueGetter: (_value, row) => row.metadata?.name,
-    renderCell: ({ value }) => {
-      if (!value) return '-';
-      return value;
-    },
+    renderCell: ({ value }) => <span title={value}>{value || '-'}</span>,
   },
   {
     field: 'statusText',
@@ -500,13 +498,8 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
-    renderCell: ({ value }) => {
-      if (!value) return '-';
-      if (value < 60) return `${value.toFixed(2)}s`;
-      const mins = Math.floor(value / 60);
-      const secs = (value % 60).toFixed(0);
-      return `${mins}m ${secs}s`;
-    },
+    valueGetter: (_value, row) => getJobDurationSeconds(row),
+    renderCell: ({ value }) => (value == null ? '-' : formatDuration(value, true)),
   },
   {
     align: 'right',

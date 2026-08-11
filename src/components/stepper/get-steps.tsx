@@ -2,31 +2,48 @@ import { Step } from '@/components/stepper/stepper';
 import { InferenceFlowType } from '@/types/inference';
 
 export type InferenceStep = 'model' | 'template' | 'resources' | 'config' | 'payment';
+
+/** Extra shape of the Template flow, which covers both catalogues: Services and Templates. */
+export type TemplateStepOptions = {
+  /** Which catalogue the pick came from, for the first step's label. */
+  kindLabel?: 'Service' | 'Template';
+  /**
+   * A fresh launch must stop at Config before payment, for either of the two reasons that page
+   * exists: the template declares a `required` env var (without it the container starts and fails —
+   * a gated model 404s, an API key is missing), or it needs a storage bucket picked
+   * (templateNeedsBucketPicker). Templates needing neither keep skipping the step, which is the
+   * friction they exist to remove.
+   */
+  needsConfig?: boolean;
+};
+
 // `edit` re-entry keeps the same environment, so the resources step is skipped entirely.
 // The quick-start (DefaultModel) flow picks a whole package — model + hardware + engine preset —
 // so its env auto-matches on the package step and both Resources and Config are skipped.
 export const getInferenceSteps = (
   flowType: InferenceFlowType,
   edit = false,
-  /** Fresh template launch that ships workflows/needs a bucket — see templateNeedsBucketPicker. */
-  showTemplateConfig = false
+  template: TemplateStepOptions = {}
 ): Step<InferenceStep>[] => [
   {
     key: 'model',
     label: flowType === InferenceFlowType.DefaultModel ? 'Package' : 'Model',
     hidden: flowType === InferenceFlowType.Template,
   },
-  { key: 'template', label: 'Template', hidden: flowType !== InferenceFlowType.Template },
+  {
+    key: 'template',
+    label: template.kindLabel ?? 'Service',
+    hidden: flowType !== InferenceFlowType.Template,
+  },
   { key: 'resources', label: 'Resources', hidden: edit || flowType === InferenceFlowType.DefaultModel },
   {
     key: 'config',
     label: 'Config',
-    // Templates skip config on a fresh launch (env vars optional) but show it when editing a running
-    // service — reconfiguring the env vars is the whole point of a template edit — or when
-    // templateNeedsBucketPicker (that pick must happen before payment).
+    // Templates skip config on a fresh launch unless the template declares a required var, but always
+    // show it when editing a running service — reconfiguring the env vars is the point of a template edit.
     hidden:
       flowType === InferenceFlowType.DefaultModel ||
-      (flowType === InferenceFlowType.Template && !edit && !showTemplateConfig),
+      (flowType === InferenceFlowType.Template && !edit && !template.needsConfig),
   },
   { key: 'payment', label: edit ? 'Relaunch' : 'Payment' },
 ];
