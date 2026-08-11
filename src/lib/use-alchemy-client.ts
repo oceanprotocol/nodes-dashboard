@@ -2,9 +2,8 @@ import { getRpc } from '@/lib/constants';
 import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { alchemyWalletTransport, createSmartWalletClient, type SmartWalletClient } from '@alchemy/wallet-apis';
 import { toViemAccount, useWallets } from '@privy-io/react-auth';
-import { ethers } from 'ethers';
 import { useEffect, useMemo, useState } from 'react';
-import type { LocalAccount } from 'viem';
+import { createPublicClient, http, type LocalAccount } from 'viem';
 import { base, sepolia } from 'viem/chains';
 
 type Call = { to: `0x${string}`; data?: `0x${string}`; value?: bigint };
@@ -18,8 +17,8 @@ const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
 // command. Any UserOp carries the account's initCode, so a sponsored self-call with no data is the
 // cheapest way to materialise it.
 async function deployAccount(client: SmartWalletClient, account: `0x${string}`): Promise<void> {
-  const code = await new ethers.JsonRpcProvider(getRpc()).getCode(account);
-  if (code !== '0x') return;
+  const code = await createPublicClient({ chain, transport: http(getRpc()) }).getCode({ address: account });
+  if (code) return;
   const { id } = await (client as any).sendCalls({ calls: [{ to: account, data: '0x' }], account });
   const result = await client.waitForCallsStatus({ id });
   if (result.status !== 'success') {
