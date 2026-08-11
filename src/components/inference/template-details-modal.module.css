@@ -406,13 +406,3 @@
 .spinner {
   color: var(--accent1);
 }
-
-/* Footnote under a bundle's contents: the size/time summary plus the "downloads on your paid
-   clock" warning. Sits inside .panel, so it inherits its padding. */
-.includesNote {
-  padding-top: 10px;
-  border-top: 1px solid var(--border-glass);
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}

@@ -31,8 +31,6 @@ export type AppTemplateCategory = 'image' | 'video' | 'llm' | 'serving' | 'noteb
 export type TemplateIncludedItem = {
   name: string;
   kind: 'model' | 'workflow' | 'customnode' | 'other';
-  /** Download size — drives the "N models, X GB" line and the session-length hint. */
-  sizeGb?: number;
   /** Hugging Face repo id, when the item is a plain HF repo — gives us the publisher avatar + a link. */
   repoId?: string;
   /** Direct download URL for anything that isn't a plain HF repo (CivitAI, mirrors). */
@@ -80,13 +78,11 @@ export function isService(tpl: AppTemplate): boolean {
   return !isBundle(tpl);
 }
 
-/** Total download size of a bundle's contents, or undefined when no entry declares one. */
-export function includedSizeGb(tpl: AppTemplate): number | undefined {
-  const sizes = (tpl.includes ?? []).map((i) => i.sizeGb).filter((s): s is number => typeof s === 'number');
-  return sizes.length > 0 ? sizes.reduce((a, b) => a + b, 0) : undefined;
-}
-
-/** "3 models · 11.5 GB" — one-line summary of what a bundle brings, for cards and section heads. */
+/**
+ * "3 models" — one-line summary of what a bundle brings, for cards and section heads. Counts only:
+ * download sizes are deliberately not part of the manifest (they can't be kept honest by hand, and
+ * the node never verifies them), so we don't quote a GB figure or a setup time anywhere.
+ */
 export function includesSummary(tpl: AppTemplate): string | null {
   const items = tpl.includes ?? [];
   if (items.length === 0) {
@@ -95,23 +91,7 @@ export function includesSummary(tpl: AppTemplate): string | null {
   const models = items.filter((i) => i.kind === 'model').length;
   const noun = models > 0 ? (models === 1 ? 'model' : 'models') : items.length === 1 ? 'item' : 'items';
   const count = models > 0 ? models : items.length;
-  const size = includedSizeGb(tpl);
-  return size != null ? `${count} ${noun} · ${size.toFixed(1)} GB` : `${count} ${noun}`;
-}
-
-/** Assumed sustained download rate, in MB/s — what the compute nodes we measured hold with aria2c. */
-const DOWNLOAD_MB_PER_SECOND = 25;
-
-/**
- * Rough download time for a bundle's contents. An estimate, not a promise: the real rate depends on
- * the node's uplink and Hugging Face's CDN, so callers should word it as one ("roughly N min").
- */
-export function estimatedSetupMinutes(tpl: AppTemplate): number | null {
-  const size = includedSizeGb(tpl);
-  if (size == null || size <= 0) {
-    return null;
-  }
-  return Math.max(1, Math.round((size * 1024) / DOWNLOAD_MB_PER_SECOND / 60));
+  return `${count} ${noun}`;
 }
 
 /**

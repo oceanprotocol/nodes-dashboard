@@ -83,13 +83,6 @@
   text-overflow: ellipsis;
 }
 
-.size {
-  flex: 0 0 auto;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
 .more {
   padding-left: 34px;
   color: var(--text-secondary);
