@@ -196,7 +196,8 @@ export function includesSummary(tpl: AppTemplate): string | null {
 
 /**
  * Hugging Face repo id of an included item — declared, else parsed from a huggingface.co URL
- * (`https://huggingface.co/<owner>/<repo>/resolve/...`). Used for the publisher avatar and the link.
+ * (`https://huggingface.co/<owner>/<repo>`, with or without a `/resolve/...` file path). Used for the
+ * publisher avatar and the link.
  */
 export function includedRepoId(item: TemplateIncludedItem): string | undefined {
   if (item.repoId) {
@@ -205,7 +206,9 @@ export function includedRepoId(item: TemplateIncludedItem): string | undefined {
   if (!item.url) {
     return undefined;
   }
-  const match = /^https:\/\/huggingface\.co\/([^/]+)\/([^/]+)\//.exec(item.url);
+  // Terminated by a path/query/fragment OR by end-of-string, so a bare repo url
+  // (`huggingface.co/owner/repo`) parses as well as a file url (`.../resolve/main/x.safetensors`).
+  const match = /^https:\/\/huggingface\.co\/([^/?#]+)\/([^/?#]+)(?:[/?#]|$)/.exec(item.url);
   return match ? `${match[1]}/${match[2]}` : undefined;
 }
 
