@@ -15,6 +15,23 @@ const KIND_ICON: Record<TemplateIncludedItem['kind'], React.ComponentType<{ clas
   other: InsertDriveFileOutlinedIcon,
 };
 
+/**
+ * A url only survives this if it parses and is http(s) — everything else (`javascript:`, `data:`,
+ * relative junk) comes back undefined so it never reaches an `href`. Parsing rather than prefix
+ * matching, so leading whitespace and odd casing can't smuggle a scheme through.
+ */
+const httpUrl = (raw?: string): string | undefined => {
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const { protocol } = new URL(raw);
+    return protocol === 'http:' || protocol === 'https:' ? raw : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 /** Publisher avatar for an included item, falling back to a kind glyph (non-HF items, missing orgs). */
 const ItemAvatar: React.FC<{ item: TemplateIncludedItem }> = ({ item }) => {
   const [failed, setFailed] = useState(false);
@@ -84,7 +101,9 @@ const BundleIncludes: React.FC<BundleIncludesProps> = ({ template, compact = fal
         // (CivitAI, a mirror, a workflow JSON) — so a non-HF item is reachable too rather than being
         // a name the user can't look up. Compact rows stay plain text: they're inside a clickable
         // catalogue card, where a nested link would fight the card's own click target.
-        const href = repoId ? `https://huggingface.co/${repoId}` : item.url;
+        // `item.url` is node-supplied over P2P, so it only becomes an href if it's plain http(s) —
+        // otherwise a malicious node could ship a `javascript:` url and get it run on click.
+        const href = repoId ? `https://huggingface.co/${repoId}` : httpUrl(item.url);
         const linked = !compact && !!href;
         return (
           <li className={cx(styles.item, { [styles.itemRoomy]: showRoles })} key={`${item.kind}-${item.name}`}>
