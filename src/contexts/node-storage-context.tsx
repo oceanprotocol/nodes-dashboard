@@ -1,8 +1,8 @@
 'use client';
 
 import { CHAIN_ID } from '@/constants/chains';
-import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useNodeTokensContext } from '@/context/node-tokens';
+import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
@@ -78,6 +78,22 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
 
   const prevAddress = useRef<string | undefined>(account.address);
 
+  /**
+   * Every node call dials over the one browser libp2p node. Firing several at once — the
+   * account-wide storage view lists a node per stored auth token — makes the dials compete for it
+   * and one loses, failing with "Cannot dial peer … Active connections: 1". Reads queue instead, so
+   * each dial gets the connection (and its own 10s window) to itself. Keeps concurrent callers from
+   * stacking wallet signature prompts too, since token minting happens inside these calls.
+   */
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const enqueue = useCallback(<T,>(run: () => Promise<T>): Promise<T> => {
+    // Runs on both settle paths: one node being unreachable must not stall the rest of the queue.
+    const result = queueRef.current.then(run, run);
+    queueRef.current = result.catch(() => undefined);
+    return result;
+  }, []);
+
   useEffect(() => {
     if (prevAddress.current && !account.address) {
       setBuckets({});
@@ -93,11 +109,13 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       }
       setFetchingBuckets((prev) => ({ ...prev, [nodeId]: true }));
       try {
-        const owned = await withNodeAuth(nodeId, nodeUri, async (token) => {
-          const all = await getNodeBuckets({ authToken: token, nodeUri, ownerAddress: account.address! });
-          const filtered = all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
-          return filtered;
-        });
+        const owned = await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, async (token) => {
+            const all = await getNodeBuckets({ authToken: token, nodeUri, ownerAddress: account.address! });
+            const filtered = all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
+            return filtered;
+          })
+        );
         setBuckets((prev) => ({ ...prev, [nodeId]: owned }));
       } catch (e) {
         setBuckets((prev) => ({ ...prev, [nodeId]: prev[nodeId] ?? [] }));
@@ -106,15 +124,15 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setFetchingBuckets((prev) => ({ ...prev, [nodeId]: false }));
       }
     },
-    [account.address, getNodeBuckets, withNodeAuth]
+    [account.address, enqueue, getNodeBuckets, withNodeAuth]
   );
 
   const fetchBucketFiles = useCallback(
     async ({ bucketId, nodeId, nodeUri }: { bucketId: string; nodeId: string; nodeUri: NodeUri }) => {
       setFetchingFiles((prev) => ({ ...prev, [bucketId]: true }));
       try {
-        const files = await withNodeAuth(nodeId, nodeUri, (token) =>
-          listBucketFiles({ authToken: token, bucketId, nodeUri })
+        const files = await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, (token) => listBucketFiles({ authToken: token, bucketId, nodeUri }))
         );
         setBucketFiles((prev) => ({ ...prev, [bucketId]: files }));
       } catch (e) {
@@ -124,7 +142,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setFetchingFiles((prev) => ({ ...prev, [bucketId]: false }));
       }
     },
-    [withNodeAuth, listBucketFiles]
+    [enqueue, withNodeAuth, listBucketFiles]
   );
 
   const uploadFile = useCallback(
@@ -181,12 +199,12 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      await withNodeAuth(nodeId, nodeUri, (token) =>
-        createNodeBucket({ accessLists, authToken: token, label, nodeUri })
+      await enqueue(() =>
+        withNodeAuth(nodeId, nodeUri, (token) => createNodeBucket({ accessLists, authToken: token, label, nodeUri }))
       );
       await fetchBuckets({ nodeId, nodeUri });
     },
-    [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, withNodeAuth]
+    [account.address, createNodeBucket, deployNewAccessList, enqueue, fetchBuckets, withNodeAuth]
   );
 
   const renameBucket = useCallback(
@@ -201,15 +219,15 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       nodeId: string;
       nodeUri: NodeUri;
     }) => {
-      const result = await withNodeAuth(nodeId, nodeUri, (token) =>
-        renameBucketP2P({ authToken: token, bucketId, label, nodeUri })
+      const result = await enqueue(() =>
+        withNodeAuth(nodeId, nodeUri, (token) => renameBucketP2P({ authToken: token, bucketId, label, nodeUri }))
       );
       setBuckets((prev) => ({
         ...prev,
         [nodeId]: (prev[nodeId] ?? []).map((b) => (b.bucketId === bucketId ? { ...b, label: result.label } : b)),
       }));
     },
-    [renameBucketP2P, withNodeAuth]
+    [enqueue, renameBucketP2P, withNodeAuth]
   );
 
   const deleteFile = useCallback(
@@ -227,8 +245,8 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       const key = `${bucketId}:${fileName}`;
       setDeletingFile((prev) => ({ ...prev, [key]: true }));
       try {
-        await withNodeAuth(nodeId, nodeUri, (token) =>
-          deleteBucketFile({ authToken: token, bucketId, fileName, nodeUri })
+        await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, (token) => deleteBucketFile({ authToken: token, bucketId, fileName, nodeUri }))
         );
         setBucketFiles((prev) => ({
           ...prev,
@@ -238,7 +256,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setDeletingFile((prev) => ({ ...prev, [key]: false }));
       }
     },
-    [deleteBucketFile, withNodeAuth]
+    [deleteBucketFile, enqueue, withNodeAuth]
   );
 
   return (

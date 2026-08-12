@@ -7,9 +7,10 @@ import ConfirmModal from '@/components/modal/confirm-modal';
 import EditBucketAccessModal from '@/components/node-storage/edit-bucket-access-modal';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
+import { useP2P } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { Node } from '@/types/nodes';
+import { StorageNode } from '@/types/node-storage';
 import { formatAccessLists, formatError } from '@/utils/formatters';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CachedIcon from '@mui/icons-material/Cached';
@@ -25,8 +26,21 @@ import styles from './bucket-files.module.css';
 
 type BucketFilesProps = {
   bucketId: string;
-  node: Node;
+  node: StorageNode;
 };
+
+/**
+ * Where the back button goes. Every bucket list sends its own page along in a `from` query param, so
+ * the user returns to the list they came from. Only internal paths are honoured; the node's storage
+ * page is the fallback for a URL that arrived without the param (typed, bookmarked, shared).
+ */
+function resolveBackTarget(from: string | string[] | undefined, nodeId: string) {
+  const path = typeof from === 'string' && /^\/[^/]/.test(from) ? from : null;
+  if (!path) {
+    return { href: `/nodes/${nodeId}/storage`, label: 'Buckets' };
+  }
+  return { href: path, label: path.startsWith('/account') ? 'Remote storage' : 'Buckets' };
+}
 
 const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
   const router = useRouter();
@@ -35,8 +49,12 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
 
   const { buckets, bucketFiles, fetchingFiles, uploadingFile, deletingFile, fetchBucketFiles, uploadFile, deleteFile } =
     useNodeStorage();
+  // Bucket calls go over the P2P node, which sets itself up after mount.
+  const { isReady: isP2PReady } = useP2P();
 
-  const nodeId = node.id ?? node.nodeId ?? '';
+  const { nodeId, nodeUri } = node;
+
+  const backTarget = resolveBackTarget(router.query.from, nodeId);
 
   const bucket = useMemo(
     () => (buckets[nodeId] ?? []).find((b) => b.bucketId === bucketId) ?? null,
@@ -58,11 +76,6 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const nodeUri = useMemo(
-    () => (node.currentAddrs?.length ? node.currentAddrs : (node.id ?? node.nodeId ?? '')),
-    [node]
-  );
-
   const loading = fetchingFiles[bucketId] ?? false;
   const uploading = uploadingFile[bucketId] ?? false;
 
@@ -75,11 +88,14 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
   }, [nodeId, bucketId, nodeUri, fetchBucketFiles]);
 
   useEffect(() => {
+    if (!isP2PReady) {
+      return;
+    }
     if (!(bucketId in bucketFiles) && !alreadyLoaded) {
       setAlreadyLoaded(true);
       loadFiles();
     }
-  }, [alreadyLoaded, bucketFiles, bucketId, loadFiles]);
+  }, [alreadyLoaded, bucketFiles, bucketId, isP2PReady, loadFiles]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
@@ -126,11 +142,11 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
         <Button
           color="accent1"
           contentBefore={<ArrowBackIcon />}
-          onClick={() => router.push(`/nodes/${nodeId}/storage`)}
+          onClick={() => router.push(backTarget.href)}
           size="md"
           variant="outlined"
         >
-          Buckets
+          {backTarget.label}
         </Button>
         <Button
           color="accent1"
@@ -149,7 +165,7 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
         {node.friendlyName ? (
           <div>
             <strong>{node.friendlyName}</strong>
-            <div className="textSecondary">{node.id}</div>
+            <div className="textSecondary">{nodeId}</div>
           </div>
         ) : (
           <div>{nodeId}</div>
