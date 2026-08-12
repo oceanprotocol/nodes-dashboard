@@ -12,7 +12,7 @@ import { useInferenceContext } from '@/context/inference-context';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
-import { isBundle, validateEnvValue } from '@/types/templates';
+import { includesSummary, isBundle, validateEnvValue } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
@@ -64,16 +64,17 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   );
   const [envInputs, setEnvInputs] = useState<Record<string, string>>({});
   const [envErrors, setEnvErrors] = useState<Record<string, string>>({});
-  // Cost of relaunching a bundle: every model it ships with is fetched again inside the paid window.
+  // Cost of relaunching a bundle: everything it ships with is fetched again inside the paid window.
+  // Counted by includesSummary, so the noun stays honest for a bundle that ships workflows or nodes.
   const bundleReloadNote = useMemo(() => {
     if (!selectedTemplate || !isBundle(selectedTemplate)) {
       return null;
     }
-    const count = selectedTemplate.includes?.length ?? 0;
-    if (count === 0) {
+    const included = includesSummary(selectedTemplate);
+    if (!included) {
       return null;
     }
-    return `Relaunching re-downloads all ${count} included ${count === 1 ? 'model' : 'models'} — inside the session you have already paid for.`;
+    return `Relaunching re-downloads all ${included} — inside the session you have already paid for.`;
   }, [selectedTemplate]);
   useEffect(() => {
     if (isTemplateFlow) {

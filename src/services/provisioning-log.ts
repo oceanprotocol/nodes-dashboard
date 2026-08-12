@@ -31,9 +31,9 @@ export function parseProvisioning(lines: string[]): ProvisioningState {
   let seen = false;
 
   for (const raw of lines) {
-    // Docker multiplexes stdout/stderr with an 8-byte header per frame; the log hook already splits on
-    // newlines, so just trim whatever control bytes survive at the edges.
-    const line = raw.replace(/^[\x00-\x08\x0b-\x1f]+/, '').trim();
+    // Lines arrive already demuxed (Docker's 8-byte frame headers) and stripped of control bytes by
+    // useServiceLogs, so a trim is all that's left.
+    const line = raw.trim();
     if (!line.startsWith('[models]')) {
       continue;
     }
