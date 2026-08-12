@@ -164,7 +164,7 @@ const ExistingServicesTable: React.FC = () => {
       console.error('Failed to load existing services:', err);
       setError(
         (axios.isAxiosError(err) && err.response?.data?.message) ||
-          (err instanceof Error ? err.message : 'Failed to load your services.')
+          (err instanceof Error ? err.message : 'Failed to load services.')
       );
     } finally {
       if (!request.signal.aborted) {
@@ -216,7 +216,7 @@ const ExistingServicesTable: React.FC = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.head}>
         <div>
-          <h3>Your services</h3>
+          <h3>My services</h3>
           <span className="textSecondary">Running & recent inference services</span>
         </div>
         <Button color="accent2" onClick={handleLoad} size="md" variant="filled">

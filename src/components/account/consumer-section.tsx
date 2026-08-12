@@ -1,3 +1,4 @@
+import ExistingServicesTable from '@/components/inference/existing-services-table';
 import ConsumerBalance from '@/components/profile/consumer-balance';
 import ConsumerJobs from '@/components/profile/consumer-jobs';
 import ConsumerStats from '@/components/profile/consumer-stats';
@@ -12,6 +13,7 @@ const ConsumerSection = () => {
       <ConsumerStats />
       <ConsumerBalance />
       <ConsumerJobs />
+      <ExistingServicesTable />
     </MyJobsTableProvider>
   );
 };
