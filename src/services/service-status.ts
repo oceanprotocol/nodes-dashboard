@@ -43,7 +43,7 @@ const LABELS: Record<ServiceStatusNumber, string> = {
   [ServiceStatusNumber.Locking]: 'Locking funds',
   [ServiceStatusNumber.Claiming]: 'Processing payment',
   [ServiceStatusNumber.Running]: 'Running',
-  [RESTARTING_STATUS]: 'Restarting',
+  [ServiceStatusNumber.Restarting]: 'Restarting',
   [ServiceStatusNumber.Stopping]: 'Stopping',
   [ServiceStatusNumber.Stopped]: 'Stopped',
   [ServiceStatusNumber.Expired]: 'Expired',
