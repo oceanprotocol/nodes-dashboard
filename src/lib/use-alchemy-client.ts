@@ -3,7 +3,7 @@ import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { alchemyWalletTransport, createSmartWalletClient, type SmartWalletClient } from '@alchemy/wallet-apis';
 import { toViemAccount, useWallets } from '@privy-io/react-auth';
 import { useEffect, useMemo, useState } from 'react';
-import { createPublicClient, http, type LocalAccount } from 'viem';
+import { createPublicClient, http, zeroAddress, type LocalAccount } from 'viem';
 import { base, sepolia } from 'viem/chains';
 
 type Call = { to: `0x${string}`; data?: `0x${string}`; value?: bigint };
@@ -14,12 +14,14 @@ const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
 // deployed at it. Ocean Node verifies our signatures by calling isValidSignature on that address
 // (nonceHandler.isERC1271Valid), which can only fail while there is no code there — so a user who
 // has never transacted gets "consumer address and nonce signature mismatch" on every signed
-// command. Any UserOp carries the account's initCode, so a sponsored self-call with no data is the
-// cheapest way to materialise it.
+// command. Any UserOp carries the account's initCode, so a sponsored no-op call is the cheapest way
+// to materialise it. The no-op targets the zero address, NOT the account: Modular Account v2 rejects
+// execute(target == address(this)) inside validateUserOp (SelfCallRecursionDepthExceeded), which the
+// EntryPoint reports as "AA23 reverted".
 async function deployAccount(client: SmartWalletClient, account: `0x${string}`): Promise<void> {
   const code = await createPublicClient({ chain, transport: http(getRpc()) }).getCode({ address: account });
   if (code) return;
-  const { id } = await (client as any).sendCalls({ calls: [{ to: account, data: '0x' }], account });
+  const { id } = await (client as any).sendCalls({ calls: [{ to: zeroAddress, data: '0x' }], account });
   const result = await client.waitForCallsStatus({ id });
   if (result.status !== 'success') {
     throw new Error(`Could not activate your wallet (status: ${result.status}). Please try again.`);
