@@ -51,6 +51,7 @@ const StyledActionsWrapper = styled('div')({
   flexDirection: 'row',
   gap: 4,
   height: '100%',
+  justifyContent: 'flex-end',
 });
 
 const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHeight }) => ({

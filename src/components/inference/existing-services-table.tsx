@@ -8,7 +8,6 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
 import { fetchTemplates, findTemplateByImage } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { ServiceJob } from '@oceanprotocol/lib';
@@ -31,7 +30,7 @@ type ServiceSession = {
   duration?: number;
   expiresAt?: number;
   dateCreated: number;
-  payment?: { token?: string };
+  payment?: { token?: string; cost?: string | number };
 };
 
 // Rows are ServiceJob-shaped so the shared existingServicesColumns can render them, but the
@@ -245,13 +244,7 @@ const ExistingServicesTable: React.FC = () => {
             <Table<ServiceRow>
               autoHeight
               actionsColumn={({ row }) => (
-                <Button
-                  color="accent1"
-                  contentAfter={<ArrowForwardIcon />}
-                  onClick={() => openService(row.session)}
-                  size="sm"
-                  variant="outlined"
-                >
+                <Button color="accent1" onClick={() => openService(row.session)} size="sm" variant="transparent">
                   Manage
                 </Button>
               )}

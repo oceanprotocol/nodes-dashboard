@@ -397,6 +397,22 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
   },
 ];
 
+// Amount paid, rendered as "<amount> <TOKEN>". The record stores the payment token by address, so the
+// symbol is recovered from the chain's token list; an unknown token falls back to the bare amount.
+function renderAmountPaid(cost?: string | number, token?: string) {
+  if (!cost) {
+    return '-';
+  }
+  const tokenEntry = Object.entries(tokenAddressesByChainId[CHAIN_ID]).find(
+    ([, t]) => t.address.toLowerCase() === token?.toLowerCase()
+  );
+  const formattedAmount = formatNumber(cost);
+  if (!tokenEntry) {
+    return formattedAmount;
+  }
+  return `${formattedAmount} ${tokenEntry[0]}`;
+}
+
 export const jobsColumns: GridColDef<ComputeJob>[] = [
   {
     align: 'center',
@@ -475,19 +491,7 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
-    renderCell: ({ value, row }) => {
-      if (!value) {
-        return '-';
-      }
-      const tokenEntry = Object.entries(tokenAddressesByChainId[CHAIN_ID]).find(
-        ([, t]) => t.address.toLowerCase() === row.payment?.token?.toLowerCase()
-      );
-      const formattedAmount = formatNumber(row.payment?.cost);
-      if (!tokenEntry) {
-        return formattedAmount;
-      }
-      return `${formattedAmount} ${tokenEntry[0]}`;
-    },
+    renderCell: ({ row }) => renderAmountPaid(row.payment?.cost, row.payment?.token),
   },
   {
     field: 'algoDuration',
@@ -785,6 +789,15 @@ export const existingServicesColumns: GridColDef<
     headerName: 'End time',
     sortable: true,
     renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+  {
+    field: 'payment.cost',
+    filterable: false,
+    flex: 1,
+    headerName: 'Amount paid',
+    sortable: true,
+    valueGetter: (_value, row) => row.payment?.cost,
+    renderCell: ({ row }) => renderAmountPaid(row.payment?.cost, row.payment?.token),
   },
 ];
 
