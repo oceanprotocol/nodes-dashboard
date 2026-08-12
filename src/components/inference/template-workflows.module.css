@@ -1,0 +1,106 @@
+/* The workflow cards — "What you can run". `--accent` is inherited from the modal. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  fill: currentColor;
+  color: var(--text-secondary);
+}
+
+.name {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.body {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  text-wrap: pretty;
+}
+
+/* Published descriptions run 4-6 lines and open with what goes in and what comes out, so the clamp
+   keeps the load-bearing half and the toggle takes the mechanism. */
+.bodyClamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.moreButton {
+  align-self: flex-start;
+  margin-top: -4px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent1);
+}
+
+.moreButton:hover {
+  text-decoration: underline;
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.stripCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 20px;
+}
+
+.stripCell + .stripCell {
+  padding-right: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--border-glass);
+}
+
+.stripLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.stripValue {
+  font-size: 12px;
+  max-width: 260px;
+}

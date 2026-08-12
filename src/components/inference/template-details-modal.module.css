@@ -58,6 +58,14 @@
   overflow-wrap: anywhere;
 }
 
+/* Templates only: the outcome, read as a lead under the app's name. */
+.outcome {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .headerChips {
   display: flex;
   flex-wrap: wrap;
@@ -83,6 +91,14 @@
   height: 14px;
   font-size: 14px;
   fill: currentColor;
+}
+
+/* The tier word (Service / Model pack / Template). Deliberately the quietest chip in the row: it
+   classifies, it doesn't sell. */
+.shapeChip {
+  color: var(--text-secondary);
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
 }
 
 .mono {
@@ -125,15 +141,89 @@
   box-shadow: var(--inner-shadow-glass);
 }
 
-.description {
+/**
+ * A service's description, as plain prose with no panel around it. The panel is this modal's way of
+ * saying "assets are included", so an empty app must not get one — and a slightly larger, unboxed
+ * paragraph stops a two-sentence service looking like a bundle whose panel happens to be short.
+ */
+.prose {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.6;
+  font-size: 13.5px;
+  line-height: 1.65;
+  text-wrap: pretty;
 }
 
 .descriptionEmpty {
   color: var(--text-secondary);
   font-style: italic;
+}
+
+/* What a bare app can do — the quiet counterpart of a bundle's workflow cards: same slot, outline
+   chips instead of bordered cards. */
+.capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capabilityChip {
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+}
+
+/* An overline heading, for sections whose content is a single collapsed row — the heading rhythm of
+   the modal survives, at a weight that doesn't compete with the offer. */
+.overlineHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/**
+ * A stated absence. Never render an empty section, but do say the absence out loud once, where the
+ * content would have been: silence reads as an oversight, one grey line reads as a choice.
+ */
+.absence {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--background-glass-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.absence strong {
+  color: var(--text-primary);
+}
+
+.absenceIcon {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  fill: currentColor;
+  margin-top: 1px;
+}
+
+/* The manifest's collapsed summary: avatar cluster, then the sentence it stands in for. */
+.clusterSummary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The published description, once it has stopped being the modal's opening move. */
+.notesProse {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
 }
 
 .portRow {

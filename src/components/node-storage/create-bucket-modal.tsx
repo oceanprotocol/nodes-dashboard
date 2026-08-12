@@ -21,7 +21,8 @@ type CreateBucketModalProps = {
   /** Omit to let the user type the node's peer ID — the account-wide storage view has no node in hand. */
   node?: StorageNode;
   onClose: () => void;
-  onSave?: (node: StorageNode) => void;
+  /** Both the node the bucket landed on and the bucket itself: callers need one or the other. */
+  onSave?: (node: StorageNode, bucket: { bucketId: string }) => void;
 };
 
 type CreateBucketFormValues = {
@@ -100,7 +101,7 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
     onSubmit: async (values) => {
       const target = node ?? peerIdToStorageNode(values.nodeId.trim());
       try {
-        await createBucket({
+        const bucket = await createBucket({
           nodeId: target.nodeId,
           nodeUri: target.nodeUri,
           access: values.access,
@@ -108,7 +109,7 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
         });
         toast.success('Bucket created');
         onClose();
-        onSave?.(target);
+        onSave?.(target, bucket);
       } catch (e: any) {
         toast.error(formatError({ error: e, fallback: 'Your bucket could not be created.' }));
       }

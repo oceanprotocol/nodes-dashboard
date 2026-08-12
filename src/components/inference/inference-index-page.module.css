@@ -13,14 +13,10 @@
   flex-direction: column;
   gap: 16px;
 
-  @media (min-width: 768px) {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (min-width: 992px) {
+  @media (min-width: 900px) {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    align-items: stretch;
   }
 
   .card {

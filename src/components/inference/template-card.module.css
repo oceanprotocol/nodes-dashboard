@@ -111,6 +111,32 @@
   font-size: 12px;
 }
 
+/* Same accent treatment as the details modal's category chip, so the card carries the category colour
+   before the modal is ever opened — and the tile and the pill read as one mark. */
+.categoryChip {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Bundles only: what the bundle pre-downloads. Boxed off so a card that has it still reads as the
+   same card, with one extra block, rather than as a different kind of tile. */
+
+.included {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--background-glass-secondary);
+}
+
+.includedHead {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .metaRow {
   display: flex;
   flex-wrap: wrap;

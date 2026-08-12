@@ -1,7 +1,8 @@
 import Card from '@/components/card/card';
+import BundleIncludes from '@/components/inference/bundle-includes';
 import { decorate } from '@/components/inference/template-card';
-import { templateImageRef, visualFor } from '@/components/inference/template-visual';
-import { AppTemplate } from '@/types/templates';
+import { templateImageRef } from '@/components/inference/template-visual';
+import { AppTemplate, includesSummary } from '@/types/templates';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
@@ -11,7 +12,6 @@ import styles from './template-summary.module.css';
 type DetailRow = {
   label: string;
   value: React.ReactNode;
-  hint?: string;
 };
 
 type TemplateSummaryProps = {
@@ -60,24 +60,20 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
       value: spec.sensitive ? '••••••••' : (envValues?.[spec.key] ?? ''),
     }));
 
-  const port = template.exposedPorts?.[0];
+  // What the bundle pre-downloaded, straight from the node's `includes[]`. Gated on the list being
+  // non-empty rather than on isBundle: a node that publishes includes without the `kind` field still
+  // has something worth showing, and a bare service simply has no list.
+  const includes = template.includes ?? [];
+  const includesLine = includesSummary(template);
+
   const templateRef = templateImageRef(template);
   // The running image wins where it's known; flag a divergence so a link naming a since-swapped
   // template doesn't read as the truth (see the runningImageRef prop docs).
   const imageMismatch = !!runningImageRef && runningImageRef !== templateRef;
-  const specRows: DetailRow[] = [
-    {
-      label: 'Image',
-      value: runningImageRef ?? templateRef,
-      hint: imageMismatch ? `This template publishes ${templateRef}` : undefined,
-    },
-    { label: 'Template id', value: template.id },
-    // What to do with that port once the service is up — the category's hint, same wording as the
-    // details modal ("opens in your browser" vs "call it from your code").
-    ...(port != null
-      ? [{ label: 'Port', value: String(port), hint: visualFor(template.id).meta.interactionHint }]
-      : []),
-  ];
+  // No Container section at all: image ref, port and template id are all machine-facing. The name and
+  // logo above identify the app, the reachable URL is what a running service is used through, and the
+  // image ref only ever mattered as the thing an Edit relaunch could swap — which the mismatch note
+  // below states outright, refs included.
 
   return (
     <Card
@@ -107,6 +103,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
           </span>
         </span>
         <span className={styles.chips}>
+          {includesLine && <span className={cx('chip', 'chipAccent1', styles.chip)}>{includesLine}</span>}
           <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
           <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
         </span>
@@ -115,27 +112,25 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
       <Collapse in={open} unmountOnExit>
         <div className={styles.panel}>
           {imageMismatch && (
-            // Everything below except the Image row describes the NAMED template, so say so once
-            // rather than annotating each row.
+            // Everything else in the panel describes the NAMED template, so say so once rather than
+            // annotating each section. Both refs are named here — it's the only place they appear.
             <p className={cx(styles.desc, 'textAccent1')}>
-              The container runs a different image than this template publishes — the details below describe the
-              template, not what is running.
+              The container runs {runningImageRef}, not the {templateRef} this template publishes — everything below
+              describes the template, not what is running.
             </p>
           )}
           {template.description && <p className={styles.desc}>{template.description}</p>}
 
-          <div className={styles.group}>
-            <span className={styles.eyebrow}>Container</span>
-            <dl className={styles.grid}>
-              {specRows.map((row) => (
-                <div className={styles.item} key={row.label}>
-                  <dt className={styles.label}>{row.label}</dt>
-                  <dd className={styles.value}>{row.value}</dd>
-                  {row.hint && <span className={styles.hint}>{row.hint}</span>}
-                </div>
-              ))}
-            </dl>
-          </div>
+          {includes.length > 0 && (
+            // First group in the panel: on a running service this is what the user most often wants to
+            // check ("which weights are in there?"), and unlike the rows below it doesn't depend on the
+            // image actually matching the template.
+            <div className={styles.group}>
+              <span className={styles.eyebrow}>Included</span>
+              <BundleIncludes template={template} />
+              {includesLine && <span className={styles.includesNote}>{includesLine}</span>}
+            </div>
+          )}
 
           <div className={styles.group}>
             <span className={styles.eyebrow}>Template asks for</span>

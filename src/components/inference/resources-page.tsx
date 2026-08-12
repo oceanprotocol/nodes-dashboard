@@ -7,7 +7,7 @@ import InferenceStepper from '@/components/inference/inference-stepper';
 import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
-import { templatePinnedSizing } from '@/services/template-launch';
+import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -21,8 +21,16 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
   const isTemplateFlow = flowType === InferenceFlowType.Template;
   const isEnvPickerFlow = isCustomModelFlow || isTemplateFlow;
 
-  const { selectedModels, selectedEnv, selectedTemplate, hydrateFromUrlFinished, hydrationFailed, buildSelectionQuery } =
-    useInferenceContext();
+  const {
+    selectedModels,
+    selectedEnv,
+    selectedTemplate,
+    hydrateFromUrlFinished,
+    hydrationFailed,
+    buildSelectionQuery,
+  } = useInferenceContext();
+  // Computed once — reused by the stepper and the next-step routing below.
+  const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
 
   // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
   // when hydration outright failed, where we show a retry instead of discarding the URL.
@@ -33,7 +41,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     if (isCustomModelFlow && selectedModels.length === 0) {
       router.replace({ pathname: '/inference/custom-models', query: router.query });
     } else if (isTemplateFlow && !selectedTemplate) {
-      router.replace({ pathname: '/inference/templates', query: router.query });
+      router.replace({ pathname: '/inference/services', query: router.query });
     }
   }, [
     isCustomModelFlow,
@@ -55,7 +63,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        router.replace('/inference/templates');
+        router.replace('/inference/services');
         break;
       }
     }
@@ -78,12 +86,14 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        // Config is skipped on a fresh template launch (env vars optional) → straight to payment. Pin
-        // the template's recommended CPU/RAM/disk into the URL so payment books them (env + sizing are
-        // re-hydrated from the query on arrival, so no setState-timing dependency here).
+        // Config is skipped on a fresh launch unless templateNeedsConfigStep — a required env var has
+        // to be filled or the container fails, and the bucket pick has to happen before payment, since
+        // a bad bucket id costs the escrow claim, not just a failed page load.
+        // Pin recommended CPU/RAM/disk into the URL either way (re-hydrated from the query on arrival).
         const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
+        const nextStep = needsConfigStep ? 'config' : 'payment';
         router.push({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/payment`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${nextStep}`,
           query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
         });
         break;
@@ -102,7 +112,14 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         moreReadable
         title="Inference"
         subTitle="Launch on an Ocean Node"
-        contentBetween={<InferenceStepper currentStep="resources" flowType={flowType} />}
+        contentBetween={
+          <InferenceStepper
+            currentStep="resources"
+            flowType={flowType}
+            template={selectedTemplate}
+            showTemplateConfig={needsConfigStep}
+          />
+        }
       />
       <div className="pageContentWrapper">
         {isEnvPickerFlow ? (

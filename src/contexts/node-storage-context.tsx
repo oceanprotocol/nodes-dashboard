@@ -7,8 +7,10 @@ import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
 import { rowsToAccessLists } from '@/utils/access-list';
+import { formatError } from '@/utils/formatters';
 import { PersistentStorageAccessList, PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 
 type NodeStorageContextType = {
   /** Buckets by node ID */
@@ -31,13 +33,13 @@ type NodeStorageContextType = {
   uploadFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; file: File }) => Promise<void>;
   /** Delete file from a bucket */
   deleteFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; fileName: string }) => Promise<void>;
-  /** Create a bucket on a node */
+  /** Create a bucket on a node. Resolves with the created bucket (so a caller can e.g. auto-select it). */
   createBucket: (args: {
     access: BucketAccessState;
     label?: string;
     nodeId: string;
     nodeUri: NodeUri;
-  }) => Promise<void>;
+  }) => Promise<{ bucketId: string }>;
   /** Rename a bucket (set its human-readable name) */
   renameBucket: (args: { bucketId: string; label: string | null; nodeId: string; nodeUri: NodeUri }) => Promise<void>;
   /** Get wallet addresses in an access list contract */
@@ -94,8 +96,13 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  // Every cache here is owner-scoped (fetchBuckets filters to account.address), so it can't outlive the
+  // wallet that filled it — on ANY address change, not just a disconnect. An injected wallet switching
+  // accounts goes straight from one address to the next without passing through undefined (see
+  // use-injected-wallet's accountsChanged), so a disconnect-only reset would show the new wallet the
+  // previous one's buckets.
   useEffect(() => {
-    if (prevAddress.current && !account.address) {
+    if (prevAddress.current !== account.address) {
       setBuckets({});
       setBucketFiles({});
     }
@@ -174,7 +181,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       label?: string;
       nodeId: string;
       nodeUri: NodeUri;
-    }) => {
+    }): Promise<{ bucketId: string }> => {
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
@@ -199,10 +206,19 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      await enqueue(() =>
+      const bucket = await enqueue(() =>
         withNodeAuth(nodeId, nodeUri, (token) => createNodeBucket({ accessLists, authToken: token, label, nodeUri }))
       );
-      await fetchBuckets({ nodeId, nodeUri });
+      // The bucket exists on the node from here on — and for a 'new' access list, a deploy has already
+      // been paid for. Refreshing the list is a convenience on top of that, so a failed refetch
+      // (fetchBuckets rethrows) must not surface as "your bucket could not be created" and swallow the
+      // id the caller needs to select it: report the bucket, leave the stale list to the next fetch.
+      try {
+        await fetchBuckets({ nodeId, nodeUri });
+      } catch (e) {
+        console.error('Bucket created, but refreshing the bucket list failed:', e);
+      }
+      return bucket;
     },
     [account.address, createNodeBucket, deployNewAccessList, enqueue, fetchBuckets, withNodeAuth]
   );
@@ -288,4 +304,54 @@ export function useNodeStorage() {
   const ctx = useContext(NodeStorageContext);
   if (!ctx) throw new Error('useNodeStorage must be used within NodeStorageProvider');
   return ctx;
+}
+
+/**
+ * Load a node's persistent-storage buckets once, toasting on failure — shared by every bucket list UI
+ * (my-buckets, the template launch picker) so the wallet guard and the "already attempted" tracking
+ * can't drift between copies. Skipped while the wallet isn't connected or there's no node yet. The
+ * attempt is tracked by wallet + node id (not a plain mount-scoped flag), so switching to a different
+ * node — or to a different wallet on the same node — still gets its own load attempt instead of being
+ * blocked by the previous one's.
+ */
+export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUri: NodeUri }) {
+  const { account } = useOceanAccount();
+  const { buckets, fetchingBuckets, fetchBuckets } = useNodeStorage();
+  // Bucket calls go over the P2P node, which sets itself up after mount. Loading before it's up throws
+  // "Node not ready" and nothing retries it — and the attempt below would already be spent — so wait
+  // for it. isReady is a dependency of the effect, so this runs again once the node comes up.
+  const { isReady: isP2PReady } = useP2P();
+  // Keyed by wallet AND node: the buckets are the wallet's, so a switch has to re-attempt this node
+  // rather than read as "already tried".
+  const attemptedRef = useRef<string | null>(null);
+
+  const loadBuckets = useCallback(async () => {
+    try {
+      await fetchBuckets({ nodeId, nodeUri });
+    } catch (e: any) {
+      toast.error(formatError({ error: e, fallback: 'The buckets could not be loaded.' }));
+    }
+  }, [nodeId, nodeUri, fetchBuckets]);
+
+  useEffect(() => {
+    if (!account.address || !nodeId || !isP2PReady) {
+      return;
+    }
+    const attempt = `${account.address}|${nodeId}`;
+    // `nodeId in buckets` still skips a node another consumer of this hook already loaded — the cache
+    // is cleared on a wallet switch, so anything left in it belongs to the current address.
+    if (nodeId in buckets || attemptedRef.current === attempt) {
+      return;
+    }
+    attemptedRef.current = attempt;
+    loadBuckets();
+  }, [account.address, nodeId, buckets, isP2PReady, loadBuckets]);
+
+  return {
+    buckets: buckets[nodeId] ?? [],
+    /** True once this node's list has landed (success or failure) — vs. still loading for the first time. */
+    loaded: nodeId in buckets,
+    loading: fetchingBuckets[nodeId] ?? false,
+    loadBuckets,
+  };
 }
