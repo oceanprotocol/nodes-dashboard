@@ -1,6 +1,7 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ApiPaginationResponse } from '@/types/api';
 import { NodeEnvironments } from '@/types/environments';
 import { EnvironmentsFilters } from '@/types/filters';
@@ -44,8 +45,39 @@ type RunJobEnvsContextType = {
 const RunJobEnvsContext = createContext<RunJobEnvsContextType | undefined>(undefined);
 
 export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
+  const { account, ocean } = useOceanAccount();
+
   const [crtPage, setCrtPage] = useState(INITIAL_PAGE);
   const [filters, setFilters] = useState<RawFilters>(DEFAULT_FILTERS);
+
+  useEffect(() => {
+    if (!ocean || !account.address) {
+      return;
+    }
+    let cancelled = false;
+    const tokens = getSupportedTokens();
+    const tokenEntries = Object.values(tokens);
+    Promise.all(
+      tokenEntries.map(async (token) => {
+        const [walletBalance, escrowBalance] = await Promise.all([
+          ocean.getBalance(token.address, account.address!),
+          ocean.getUserFunds(token.address, account.address!),
+        ]);
+        return { address: token.address, hasBalance: Number(walletBalance) > 0 || Number(escrowBalance) > 0 };
+      })
+    ).then((results) => {
+      if (cancelled) {
+        return;
+      }
+      const held = results.filter((r) => r.hasBalance);
+      const feeToken = held.length === 1 ? held[0].address : DEFAULT_FILTERS.feeToken;
+      setFilters({ ...DEFAULT_FILTERS, feeToken });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ocean, account.address]);
+
   const [filtersUnmetFallback, setFiltersUnmetFallback] = useState(false);
   const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
   const [loading, setLoading] = useState(false);
