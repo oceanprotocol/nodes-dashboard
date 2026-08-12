@@ -6,7 +6,7 @@ import { getApiRoute } from '@/config';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
-import { fetchTemplates, matchTemplateForService } from '@/services/service-templates';
+import { fetchTemplates, matchTemplateForService, TemplateMatch } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -61,8 +61,14 @@ function modelIdFromSession(session: ServiceSession): string | null {
 //
 // A template-launched service has no HF model at all — the whole app rides in the template's own
 // image/command — so when one matched, the row names the template and carries no model id.
-function toRow(session: ServiceSession, template: AppTemplate | undefined, templatesLoading: boolean): ServiceRow {
+//
+// The name comes from the match even when it's ambiguous (the listing strips `dockerCmd`, so every
+// bundle row is): an ambiguous match resolves to the bare service, whose name is the app's name for
+// every variant of it. Only the manage link is withheld in that case (see routeTemplate) — naming the
+// app beats a bare "Unknown model" for a service that has no model to name.
+function toRow(session: ServiceSession, match: TemplateMatch | undefined, templatesLoading: boolean): ServiceRow {
   const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
+  const template = match?.template ?? null;
   const modelId = template ? null : modelIdFromSession(session);
   return {
     ...session,
@@ -74,6 +80,13 @@ function toRow(session: ServiceSession, template: AppTemplate | undefined, templ
   };
 }
 
+// The template id worth putting on the manage link (`template=`), which the manage page would build an
+// Edit from: only an exact image+command match names the right variant. On an ambiguous one the manage
+// page re-matches off the node's own job record, which does carry `dockerCmd`.
+function routeTemplate(match: TemplateMatch | undefined): AppTemplate | null {
+  return match && !match.ambiguous ? match.template : null;
+}
+
 const ExistingServicesTable: React.FC = () => {
   const router = useRouter();
   const { account } = useOceanAccount();
@@ -81,7 +94,7 @@ const ExistingServicesTable: React.FC = () => {
 
   const [sessions, setSessions] = useState<ServiceSession[]>([]);
   const [total, setTotal] = useState(0);
-  const [templateByService, setTemplateByService] = useState<Record<string, AppTemplate>>({});
+  const [matchByService, setMatchByService] = useState<Record<string, TemplateMatch>>({});
   // Template matching is a second, node-side fetch that resolves after the services land. Tracked
   // separately so modelless rows can shimmer instead of flashing "Unknown model" in the meantime.
   const [templatesLoading, setTemplatesLoading] = useState(false);
@@ -95,15 +108,15 @@ const ExistingServicesTable: React.FC = () => {
   // Template matching resolves after the services themselves (a second, node-side fetch), so rows are
   // derived rather than stored — they re-render with the app name once the match lands.
   const rows = useMemo(
-    () => sessions.map((session) => toRow(session, templateByService[session.serviceId], templatesLoading)),
-    [sessions, templateByService, templatesLoading]
+    () => sessions.map((session) => toRow(session, matchByService[session.serviceId], templatesLoading)),
+    [sessions, matchByService, templatesLoading]
   );
 
   useEffect(() => {
     requestRef.current?.abort();
     setSessions([]);
     setTotal(0);
-    setTemplateByService({});
+    setMatchByService({});
     setTemplatesLoading(false);
     setOpen(false);
     setLoading(false);
@@ -134,26 +147,23 @@ const ExistingServicesTable: React.FC = () => {
       if (p2pReady) {
         try {
           const templates = await fetchTemplates(getServiceTemplates, request.signal);
-          const matched: Record<string, AppTemplate> = {};
+          const matched: Record<string, TemplateMatch> = {};
           for (const service of services) {
             // A plain model launch shares its image with the vLLM template, so image alone would
             // relabel real model rows as the app. Only services with no model id are template runs.
             if (modelIdFromSession(service)) {
               continue;
             }
-            // image + command, not image alone: every bundle of a service shares that service's image,
-            // and the backend's listing drops dockerCmd — so an image-only hit against an image with
-            // variants is a coin flip. Leave those unmatched rather than naming the wrong variant here
-            // and putting its id on the manage link (`template=`), which the manage page would then
-            // build an Edit from. The manage page re-matches off the node's own job record, which does
-            // carry dockerCmd.
-            const { template: tpl, ambiguous } = matchTemplateForService(templates, service);
-            if (tpl && !ambiguous) {
-              matched[service.serviceId] = tpl;
+            // The backend's listing drops dockerCmd, so a bundle row can only ever match by image —
+            // ambiguous whenever the image has variants. Keep the whole match, not just the confident
+            // ones: the row still names the app off it, while `ambiguous` gates the manage link.
+            const match = matchTemplateForService(templates, service);
+            if (match.template) {
+              matched[service.serviceId] = match;
             }
           }
           if (!request.signal.aborted) {
-            setTemplateByService(matched);
+            setMatchByService(matched);
           }
         } catch (templateErr) {
           console.error('Failed to match services to templates:', templateErr);
@@ -199,8 +209,10 @@ const ExistingServicesTable: React.FC = () => {
       setError('This service is missing node info and cannot be managed from here.');
       return;
     }
-    const template = templateByService[session.serviceId];
-    const modelId = template ? null : modelIdFromSession(session);
+    const match = matchByService[session.serviceId];
+    const template = routeTemplate(match);
+    // Matched at all (even ambiguously) ⇒ a template run, which has no HF model to seed.
+    const modelId = match?.template ? null : modelIdFromSession(session);
     const token = session.payment?.token;
     router.push({
       pathname: `/inference/instances/${encodeURIComponent(session.serviceId)}`,

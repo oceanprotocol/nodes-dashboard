@@ -78,7 +78,8 @@ export type TemplateMatch = {
  * two cases: the listing endpoint (SERVICE_LIST) strips `dockerCmd`, and an operator may have edited
  * the template's JSON since this service was launched. It's reported as `source: 'image'` (and
  * `ambiguous` when the image has variants) rather than passed off as a real match, so a caller that
- * would act on it — naming the app, seeding an Edit — can decline instead of guessing wrong.
+ * would act on it — seeding an Edit, sending a launch — can decline instead of guessing wrong. Naming
+ * is safe on an ambiguous match: it resolves to the bare service, whose name covers every variant.
  */
 export function matchTemplateForService(
   templates: AppTemplate[],
@@ -102,7 +103,10 @@ export function matchTemplateForService(
       return { template: exact, source: 'command', ambiguous: false };
     }
   }
-  return { template: sameImage[0], source: 'image', ambiguous: sameImage.length > 1 };
+  // Ambiguous fallback resolves to the bare SERVICE, not whichever variant happens to come first: the
+  // service is the one entry every candidate agrees on (a bundle is that same app with models
+  // pre-downloaded), so its name is right for the whole set even when the variant isn't known.
+  return { template: sameImage.find(isService) ?? sameImage[0], source: 'image', ambiguous: sameImage.length > 1 };
 }
 
 /** The matched template regardless of how confident the match is — see matchTemplateForService. */
