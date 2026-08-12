@@ -1,6 +1,7 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
-import { templateLogoSrc } from '@/components/inference/template-logos';
+import BundleIncludes from '@/components/inference/bundle-includes';
+import { templateLogo } from '@/components/inference/template-logos';
 import {
   CATEGORY_META,
   TemplateCategory,
@@ -8,7 +9,7 @@ import {
   templateVendor,
   visualFor,
 } from '@/components/inference/template-visual';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, includesSummary } from '@/types/templates';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
@@ -16,7 +17,7 @@ import cx from 'classnames';
 import { CSSProperties } from 'react';
 import styles from './template-card.module.css';
 
-/** A template decorated with everything the card renders — all of it derived from the template alone. */
+/** A catalogue entry decorated with everything the card renders — all derived from the template alone. */
 export type DecoratedTemplate = {
   tpl: AppTemplate;
   category: TemplateCategory;
@@ -31,28 +32,41 @@ export type DecoratedTemplate = {
   /** How the running app is used — "Web UI" / "API" / "Endpoint". See TemplateCategoryMeta.interaction. */
   interaction: string;
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
-  /** Shown instead of the resource meta when the template declares neither RAM nor disk. */
   metaFallback: string | null;
+  included: string | null;
+  ariaLabel: string;
 };
 
 export function decorate(tpl: AppTemplate): DecoratedTemplate {
-  const visual = visualFor(tpl.id);
+  const visual = visualFor(tpl.id, tpl.category);
   const hw = templateHardware(tpl);
   // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
   // SD-storage for RAM, DNS for disk.
+  const cores = hw.cpu != null ? `${hw.cpu} ${hw.cpu === 1 ? 'core' : 'cores'}` : null;
   const meta: DecoratedTemplate['meta'] = [
-    {
-      key: 'hw',
-      Icon: hw.gpu ? GpuIcon : MemoryIcon,
-      label: hw.gpu ? `${hw.gpuUnits || 1}× GPU` : 'CPU only',
-    },
+    hw.gpu
+      ? { key: 'hw', Icon: GpuIcon, label: `${hw.gpuUnits || 1}× GPU` }
+      : { key: 'hw', Icon: MemoryIcon, label: cores ? `CPU only · ${cores}` : 'CPU only' },
   ];
+  if (hw.gpu && cores) {
+    meta.push({ key: 'cpu', Icon: MemoryIcon, label: cores });
+  }
   if (hw.ram != null) {
     meta.push({ key: 'ram', Icon: SdStorageIcon, label: `${hw.ram} GB RAM` });
   }
   if (hw.disk != null) {
     meta.push({ key: 'disk', Icon: DnsIcon, label: `${hw.disk} GB disk` });
   }
+  const metaFallback = hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null;
+  const name = tpl.name ?? tpl.id;
+  const included = includesSummary(tpl);
+  const spoken = [
+    visual.meta.label,
+    visual.meta.interaction,
+    ...meta.map((m) => m.label.replace(/ · /g, ', ')),
+    metaFallback,
+    included && `${included} included`,
+  ].filter(Boolean);
   // No container port here: pre-launch it's not actionable — the reachable host port and URL are only
   // assigned when the service starts, and the manage-service page shows those.
   return {
@@ -62,13 +76,15 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
     categoryLabel: visual.meta.label,
     CategoryIcon: visual.meta.Icon,
     mono: visual.mono,
-    logo: templateLogoSrc(tpl.id),
-    name: tpl.name ?? tpl.id,
+    logo: templateLogo(tpl),
+    name,
     vendor: templateVendor(tpl.image),
     gpu: hw.gpu,
     interaction: visual.meta.interaction,
     meta,
-    metaFallback: hw.ram == null && hw.disk == null ? 'Resources at next step' : null,
+    metaFallback,
+    included,
+    ariaLabel: `Open details for ${name}. ${spoken.join(', ')}.`,
   };
 }
 
@@ -77,10 +93,17 @@ type TemplateCardProps = {
   onOpen: (tpl: AppTemplate) => void;
 };
 
-/** Catalogue tile for one app template: category-accented, opens the details modal (it never launches). */
+/** How many included items a card lists before collapsing the rest into "+N more". */
+const VISIBLE_INCLUDES = 3;
+
+/**
+ * Catalogue tile for one entry, used by BOTH catalogues: category-accented, opens the details modal
+ * (it never launches). A bundle renders one extra block listing the models it brings; a bare service
+ * has nothing to list, so the same card covers both and the two pages read as one system.
+ */
 const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
   <Card
-    ariaLabel={`Open details for ${item.name}, ${item.categoryLabel}, ${item.gpu ? 'GPU' : 'CPU'}, ${item.interaction}`}
+    ariaLabel={item.ariaLabel}
     className={styles.card}
     direction="column"
     innerShadow="black"
@@ -92,14 +115,17 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
     variant="glass"
   >
     <div className={styles.cardTop}>
+      {/* The brand mark REPLACES the category glyph rather than covering it — the marks are
+          transparent artwork, so anything drawn underneath shows through the shape. */}
       <span className={styles.tile}>
-        {item.mono ? (
+        {item.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt="" className={styles.tileLogo} src={item.logo} />
+        ) : item.mono ? (
           <span className={styles.tileMono}>{item.mono}</span>
         ) : (
           <item.CategoryIcon className={styles.tileIcon} />
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {item.logo && <img alt="" className={styles.tileLogo} src={item.logo} />}
       </span>
       <span className={styles.titleWrap}>
         <span className={styles.name} title={item.name}>
@@ -116,10 +142,16 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
     </p>
 
     <div className={cx(styles.chips, 'gapSm')}>
-      <span className={cx('chip', 'chipGlass', styles.chip)}>{item.categoryLabel}</span>
-      <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpu ? 'GPU' : 'CPU'}</span>
+      <span className={cx('chip', styles.chip, styles.categoryChip)}>{item.categoryLabel}</span>
       <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
     </div>
+
+    {item.included && (
+      <div className={styles.included}>
+        <span className={styles.includedHead}>{item.included} included</span>
+        <BundleIncludes compact max={VISIBLE_INCLUDES} template={item.tpl} />
+      </div>
+    )}
 
     <div className={styles.metaRow}>
       {item.meta.map(({ key, Icon, label }) => (

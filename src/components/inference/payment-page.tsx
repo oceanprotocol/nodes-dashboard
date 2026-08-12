@@ -11,13 +11,17 @@ import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
 import { useInferenceContext } from '@/context/inference-context';
-import { useP2P } from '@/contexts/P2PContext';
 import { useNodeTokensContext } from '@/context/node-tokens';
+import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
-import { buildTemplateRestartParams, buildTemplateStartParams } from '@/services/template-launch';
+import {
+  buildTemplateRestartParams,
+  buildTemplateStartParams,
+  templateNeedsConfigStep,
+} from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
@@ -41,6 +45,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedModels,
     modelParamsByModel,
     selectedTemplate,
+    selectedBucketId,
     templateEnvValues,
     hfToken,
     hydrateFromUrlFinished,
@@ -68,6 +73,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     () => selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] })),
     [selectedModels, modelParamsByModel]
   );
+
+  // Computed once — reused by the prev-step routing and the stepper below.
+  const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
 
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
@@ -184,10 +192,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // service (the resources step is skipped), so don't bounce to resources — the env comes from URL
         // hydration. Mirrors the CustomModel case, which excludes both modes for the same reason.
         if (!selectedTemplate) {
-          router.replace({ pathname: '/inference/templates', query: router.query });
+          router.replace({ pathname: '/inference/services', query: router.query });
         } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({
-            pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
             query: router.query,
           });
         }
@@ -226,9 +234,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         break;
       }
       case InferenceFlowType.Template: {
-        // Fresh launch skips config → back to resources. Edit shows config (reconfigure step) → back there.
+        // Edit always shows config. A fresh launch shows it too when templateNeedsConfigStep; only
+        // when config was genuinely skipped does Back belong on resources — otherwise Back skips the
+        // step the forward path just made the user fill in.
+        const showConfig = isEditMode || needsConfigStep;
         router.replace({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/${isEditMode ? 'config' : 'resources'}`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${showConfig ? 'config' : 'resources'}`,
           query: router.query,
         });
         break;
@@ -282,7 +293,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         })
       );
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(targetServiceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(targetServiceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -340,7 +351,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -429,7 +440,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -483,9 +494,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunching(true);
     setLaunchError(null);
     try {
-      await ensureEscrowForSelection();
+      // Build the payload before touching escrow: buildTemplateStartParams gzips the workflow graphs
+      // and can throw (e.g. CompressionStream unavailable on older Safari/Firefox) — independent of
+      // escrow, so build first and let a failure here cost nothing.
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      const startParams = buildTemplateStartParams({
+      const startParams = await buildTemplateStartParams({
         template: selectedTemplate,
         selectedEnv,
         // Launch the exact per-type unit count that was priced/escrowed (see runFreshLaunch note).
@@ -494,7 +507,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         durationSeconds: jobDurationSeconds,
         tokenAddress: selectedToken.address,
         envValues: templateEnvValues,
+        bucketId: selectedBucketId ?? undefined,
       });
+      await ensureEscrowForSelection();
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
         serviceStart(nodeUri, token, startParams)
       );
@@ -502,7 +517,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -522,6 +537,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedByKey,
     jobDurationSeconds,
     templateEnvValues,
+    selectedBucketId,
     serviceStart,
     router,
     buildManageQuery,
@@ -549,14 +565,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      const restartParams = await buildTemplateRestartParams(selectedTemplate, templateEnvValues);
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildTemplateRestartParams(selectedTemplate, templateEnvValues))
+        serviceRestart(nodeUri, token, targetServiceId, restartParams)
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
       }
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(job.serviceId)}`,
+        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
       });
     } catch (error) {
@@ -637,7 +654,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               : 'Launch a model on an Ocean Node'
         }
         contentBetween={
-          isProlongMode ? undefined : <InferenceStepper currentStep="payment" edit={isEditMode} flowType={flowType} />
+          isProlongMode ? undefined : (
+            <InferenceStepper
+              currentStep="payment"
+              edit={isEditMode}
+              flowType={flowType}
+              template={selectedTemplate}
+              showTemplateConfig={needsConfigStep}
+            />
+          )
         }
       />
       <div className="pageContentWrapper">

@@ -5,22 +5,12 @@ import { ServiceStatusNumber } from '@oceanprotocol/lib';
 // (dim/red dot) — plus a human label that reads better than the node's raw `statusText`.
 export type ServiceStatusKind = 'running' | 'pending' | 'dead' | 'failed';
 
-// ocean-node reports `Restarting = 45` (set by SERVICE_RESTART: teardown + re-pull + new container)
-// but the installed @oceanprotocol/lib enum doesn't declare it yet — reference it by literal so an
-// Edit relaunch shows "Restarting" instead of the raw "Status 45", and is treated as pending (not
-// terminal, not failed). Remove once the lib enum gains the member.
-const RESTARTING_STATUS = 45 as ServiceStatusNumber;
-
 export interface ServiceStatusView {
   kind: ServiceStatusKind;
   label: string;
 }
 
 // Restarting (SERVICE_RESTART accepted; teardown + re-pull/build + new container in progress). The
-// installed @oceanprotocol/lib enum predates this status (ocean-node ServiceOnDemand.ts adds it at
-// 45), so it isn't on ServiceStatusNumber — reference the raw code until the lib enum catches up.
-const SERVICE_STATUS_RESTARTING = 45;
-
 // Terminal failure states — rendered as an error, not just "dead/dim".
 const FAILED_STATUSES = new Set<ServiceStatusNumber>([
   ServiceStatusNumber.PullImageFailed,
@@ -43,7 +33,7 @@ const LABELS: Record<ServiceStatusNumber, string> = {
   [ServiceStatusNumber.Locking]: 'Locking funds',
   [ServiceStatusNumber.Claiming]: 'Processing payment',
   [ServiceStatusNumber.Running]: 'Running',
-  [RESTARTING_STATUS]: 'Restarting',
+  [ServiceStatusNumber.Restarting]: 'Restarting',
   [ServiceStatusNumber.Stopping]: 'Stopping',
   [ServiceStatusNumber.Stopped]: 'Stopped',
   [ServiceStatusNumber.Expired]: 'Expired',
@@ -55,9 +45,8 @@ export function getServiceStatusView(status: ServiceStatusNumber | undefined, st
   if (status === undefined) {
     return { kind: 'pending', label: statusText || 'Unknown' };
   }
-  // Restarting isn't in the installed lib enum; treat it as a live state (green) with its own label.
-  // Cast: the node can emit 45 at runtime even though the typed enum doesn't include it yet.
-  if ((status as number) === SERVICE_STATUS_RESTARTING) {
+  // A live state, not a terminal one: SERVICE_RESTART tears down and rebuilds the container.
+  if (status === ServiceStatusNumber.Restarting) {
     return { kind: 'running', label: 'Restarting' };
   }
   const label = LABELS[status] ?? statusText ?? `Status ${status}`;
@@ -106,7 +95,7 @@ const RESTART_BLOCKED_STATUSES = new Set<ServiceStatusNumber>([
   ServiceStatusNumber.PullImage,
   ServiceStatusNumber.BuildImage,
   ServiceStatusNumber.Claiming,
-  RESTARTING_STATUS,
+  ServiceStatusNumber.Restarting,
   ServiceStatusNumber.Stopping,
 ]);
 
