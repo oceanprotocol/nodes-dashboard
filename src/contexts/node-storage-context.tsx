@@ -149,8 +149,8 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     async ({ bucketId, nodeId, nodeUri, file }: { bucketId: string; nodeId: string; nodeUri: NodeUri; file: File }) => {
       setUploadingFile((prev) => ({ ...prev, [bucketId]: true }));
       try {
-        const entry = await withNodeAuth(nodeId, nodeUri, (token) =>
-          uploadBucketFile({ authToken: token, bucketId, file, nodeUri })
+        const entry = await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, (token) => uploadBucketFile({ authToken: token, bucketId, file, nodeUri }))
         );
         setBucketFiles((prev) => ({
           ...prev,
@@ -160,7 +160,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setUploadingFile((prev) => ({ ...prev, [bucketId]: false }));
       }
     },
-    [withNodeAuth, uploadBucketFile]
+    [enqueue, withNodeAuth, uploadBucketFile]
   );
 
   const createBucket = useCallback(

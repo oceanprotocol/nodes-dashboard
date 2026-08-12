@@ -35,11 +35,31 @@ type BucketFilesProps = {
  * page is the fallback for a URL that arrived without the param (typed, bookmarked, shared).
  */
 function resolveBackTarget(from: string | string[] | undefined, nodeId: string) {
-  const path = typeof from === 'string' && /^\/[^/]/.test(from) ? from : null;
+  const path = typeof from === 'string' ? parseInternalPath(from) : null;
   if (!path) {
     return { href: `/nodes/${nodeId}/storage`, label: 'Buckets' };
   }
   return { href: path, label: path.startsWith('/account') ? 'Remote storage' : 'Buckets' };
+}
+
+/**
+ * Resolves `from` against the current origin and keeps it only when it stays on that origin, so
+ * targets that browsers normalise into another host (`//host`, `/\host`) are rejected rather than
+ * followed. Returns the normalised path, never an absolute URL.
+ */
+function parseInternalPath(from: string) {
+  if (!from.startsWith('/') || typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const url = new URL(from, window.location.origin);
+    if (url.origin !== window.location.origin) {
+      return null;
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
 }
 
 const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {

@@ -27,6 +27,9 @@ const ListNodeBucketsModal: React.FC<ListNodeBucketsModalProps> = ({ isOpen, onC
   };
 
   const handleSubmit = async () => {
+    if (listing) {
+      return;
+    }
     const trimmedPeerId = peerId.trim();
     if (!trimmedPeerId) {
       setError('Node ID is required');
@@ -34,8 +37,14 @@ const ListNodeBucketsModal: React.FC<ListNodeBucketsModalProps> = ({ isOpen, onC
     }
     setError(null);
     setListing(true);
-    const submitError = await onSubmit(trimmedPeerId);
-    setListing(false);
+    let submitError: string | null;
+    try {
+      submitError = await onSubmit(trimmedPeerId);
+    } catch (err) {
+      submitError = err instanceof Error ? err.message : 'Failed to list node buckets';
+    } finally {
+      setListing(false);
+    }
     if (submitError) {
       setError(submitError);
       return;
@@ -68,7 +77,7 @@ const ListNodeBucketsModal: React.FC<ListNodeBucketsModalProps> = ({ isOpen, onC
           </Button>
           <Button
             color="accent1"
-            disabled={!peerId.trim()}
+            disabled={listing || !peerId.trim()}
             loading={listing}
             onClick={handleSubmit}
             size="md"

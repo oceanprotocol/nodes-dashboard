@@ -30,7 +30,7 @@ import styles from './remote-storage-manager.module.css';
  */
 const fetchNodeFriendlyName = async (nodeId: string): Promise<string | undefined> => {
   try {
-    const response = await axios.get(`${getApiRoute('nodes')}?page=0&size=1&nodeId=${nodeId}`);
+    const response = await axios.get(`${getApiRoute('nodes')}?page=0&size=1&nodeId=${encodeURIComponent(nodeId)}`);
     return response.data?.nodes?.[0]?._source?.friendlyName || undefined;
   } catch {
     // A missing name just leaves the peer ID as the node's only label.
