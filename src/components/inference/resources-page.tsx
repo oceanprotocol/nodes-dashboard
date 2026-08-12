@@ -7,7 +7,7 @@ import InferenceStepper from '@/components/inference/inference-stepper';
 import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
-import { templateNeedsBucketPicker, templatePinnedSizing } from '@/services/template-launch';
+import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -30,7 +30,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     buildSelectionQuery,
   } = useInferenceContext();
   // Computed once — reused by the stepper and the next-step routing below.
-  const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
+  const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
 
   // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
   // when hydration outright failed, where we show a retry instead of discarding the URL.
@@ -86,11 +86,12 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        // Config is skipped on a fresh launch unless templateNeedsBucketPicker — that pick must happen
-        // before payment, since a bad bucket id costs the escrow claim, not just a failed page load.
+        // Config is skipped on a fresh launch unless templateNeedsConfigStep — a required env var has
+        // to be filled or the container fails, and the bucket pick has to happen before payment, since
+        // a bad bucket id costs the escrow claim, not just a failed page load.
         // Pin recommended CPU/RAM/disk into the URL either way (re-hydrated from the query on arrival).
         const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
-        const nextStep = needsBucketPicker ? 'config' : 'payment';
+        const nextStep = needsConfigStep ? 'config' : 'payment';
         router.push({
           pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${nextStep}`,
           query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
@@ -116,7 +117,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
             currentStep="resources"
             flowType={flowType}
             template={selectedTemplate}
-            showTemplateConfig={needsBucketPicker}
+            showTemplateConfig={needsConfigStep}
           />
         }
       />

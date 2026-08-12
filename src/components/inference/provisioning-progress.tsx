@@ -7,7 +7,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './provisioning-progress.module.css';
 
 type ProvisioningProgressProps = {
@@ -56,23 +56,44 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
     }
   }, [clearNodeToken, nodePeerId]);
 
+  // Provisioning is a one-shot phase, but useServiceLogs tails for as long as it's open: every
+  // reconnect re-downloads the container's whole log history, and it reconnects every ~1.5s for the
+  // rest of the service's life. So close the stream for good once the completion marker lands, rather
+  // than only hiding the panel below and leaving the tail running behind it.
+  const [completed, setCompleted] = useState(false);
+
   const { lines } = useServiceLogs({
     serviceId,
     nodeUri,
     consumerAddress,
     getToken,
     clearToken,
-    open: active,
+    open: active && !completed,
   });
 
   const state = useMemo(() => parseProvisioning(lines), [lines]);
+
+  // A new provisioning run: the container went away and came back (an Edit relaunch re-downloads every
+  // bundled model), or this panel is watching a different service now. Re-open so its markers are read.
+  // Declared before the marker effect so that when both fire in one commit, "complete" is what sticks.
+  useEffect(() => {
+    setCompleted(false);
+  }, [serviceId, active]);
+
+  useEffect(() => {
+    if (state.complete) {
+      setCompleted(true);
+    }
+  }, [state.complete]);
   const expected = template.includes?.length ?? 0;
   const finished = state.done.length + state.failed.length;
   // Trust whichever count is larger: a template whose `includes` is out of date with its script
   // shouldn't produce "5/3 models".
   const total = Math.max(expected, finished);
 
-  if (!active || state.complete || !state.seen || total === 0) {
+  // `completed` keeps the panel hidden once the stream is closed, without depending on the last
+  // buffered lines still being around to re-derive state.complete from.
+  if (!active || completed || state.complete || !state.seen || total === 0) {
     return null;
   }
 

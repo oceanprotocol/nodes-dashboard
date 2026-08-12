@@ -80,8 +80,13 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
 
   const prevAddress = useRef<string | undefined>(account.address);
 
+  // Every cache here is owner-scoped (fetchBuckets filters to account.address), so it can't outlive the
+  // wallet that filled it — on ANY address change, not just a disconnect. An injected wallet switching
+  // accounts goes straight from one address to the next without passing through undefined (see
+  // use-injected-wallet's accountsChanged), so a disconnect-only reset would show the new wallet the
+  // previous one's buckets.
   useEffect(() => {
-    if (prevAddress.current && !account.address) {
+    if (prevAddress.current !== account.address) {
       setBuckets({});
       setBucketFiles({});
     }
@@ -186,7 +191,15 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       const bucket = await withNodeAuth(nodeId, nodeUri, (token) =>
         createNodeBucket({ accessLists, authToken: token, label, nodeUri })
       );
-      await fetchBuckets({ nodeId, nodeUri });
+      // The bucket exists on the node from here on — and for a 'new' access list, a deploy has already
+      // been paid for. Refreshing the list is a convenience on top of that, so a failed refetch
+      // (fetchBuckets rethrows) must not surface as "your bucket could not be created" and swallow the
+      // id the caller needs to select it: report the bucket, leave the stale list to the next fetch.
+      try {
+        await fetchBuckets({ nodeId, nodeUri });
+      } catch (e) {
+        console.error('Bucket created, but refreshing the bucket list failed:', e);
+      }
       return bucket;
     },
     [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, withNodeAuth]
@@ -279,13 +292,16 @@ export function useNodeStorage() {
  * Load a node's persistent-storage buckets once, toasting on failure — shared by every bucket list UI
  * (my-buckets, the template launch picker) so the wallet guard and the "already attempted" tracking
  * can't drift between copies. Skipped while the wallet isn't connected or there's no node yet. The
- * attempted node is tracked by id (not a plain mount-scoped flag), so switching to a different node
- * without unmounting still gets its own load attempt instead of being blocked by the previous node's.
+ * attempt is tracked by wallet + node id (not a plain mount-scoped flag), so switching to a different
+ * node — or to a different wallet on the same node — still gets its own load attempt instead of being
+ * blocked by the previous one's.
  */
 export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUri: NodeUri }) {
   const { account } = useOceanAccount();
   const { buckets, fetchingBuckets, fetchBuckets } = useNodeStorage();
-  const attemptedNodeIdRef = useRef<string | null>(null);
+  // Keyed by wallet AND node: the buckets are the wallet's, so a switch has to re-attempt this node
+  // rather than read as "already tried".
+  const attemptedRef = useRef<string | null>(null);
 
   const loadBuckets = useCallback(async () => {
     try {
@@ -296,10 +312,16 @@ export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUr
   }, [nodeId, nodeUri, fetchBuckets]);
 
   useEffect(() => {
-    if (!account.address || !nodeId || nodeId in buckets || attemptedNodeIdRef.current === nodeId) {
+    if (!account.address || !nodeId) {
       return;
     }
-    attemptedNodeIdRef.current = nodeId;
+    const attempt = `${account.address}|${nodeId}`;
+    // `nodeId in buckets` still skips a node another consumer of this hook already loaded — the cache
+    // is cleared on a wallet switch, so anything left in it belongs to the current address.
+    if (nodeId in buckets || attemptedRef.current === attempt) {
+      return;
+    }
+    attemptedRef.current = attempt;
     loadBuckets();
   }, [account.address, nodeId, buckets, loadBuckets]);
 

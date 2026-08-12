@@ -1,5 +1,5 @@
 import { useP2P } from '@/contexts/P2PContext';
-import { fetchTemplates, findTemplateForService } from '@/services/service-templates';
+import { fetchTemplates, matchTemplateForService } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import { useEffect, useRef, useState } from 'react';
 
@@ -14,6 +14,12 @@ type JobTemplateState = {
   template: AppTemplate | null;
   /** A match is in flight — callers wait it out rather than claiming "unknown" too early. */
   matching: boolean;
+  /**
+   * The match came from image AND command, so it names the exact variant the container runs. False for
+   * an image-only guess — a caller weighing this against a template the URL named should only outrank
+   * the URL when this is true.
+   */
+  exact: boolean;
 };
 
 /**
@@ -29,11 +35,14 @@ type JobTemplateState = {
  *
  * @param job    container facts from the polled job record — a fresh object every tick, so the lookup
  *               is keyed on the facts themselves and not repeated while they're unchanged.
- * @param skip   true when the caller already knows the template (the URL carried one).
+ * @param skip   true when the caller needs no match at all. A caller that already has a template from
+ *               the URL should still match: the link's template is only ever as good as whatever
+ *               matched it, and `exact` says whether this one outranks it.
  */
 const useJobTemplate = (job: JobContainer | null, skip = false): JobTemplateState => {
   const { isReady, getServiceTemplates } = useP2P();
   const [template, setTemplate] = useState<AppTemplate | null>(null);
+  const [exact, setExact] = useState(false);
   const [matching, setMatching] = useState(false);
   const matchedKeyRef = useRef<string | null>(null);
 
@@ -52,9 +61,10 @@ const useJobTemplate = (job: JobContainer | null, skip = false): JobTemplateStat
     (async () => {
       try {
         const templates = await fetchTemplates(getServiceTemplates);
-        const match = findTemplateForService(templates, { image: job.image, dockerCmd: job.dockerCmd });
+        const match = matchTemplateForService(templates, { image: job.image, dockerCmd: job.dockerCmd });
         if (!cancelled) {
-          setTemplate(match);
+          setTemplate(match.template);
+          setExact(match.source === 'command');
         }
       } catch (error) {
         // Let the next poll retry: a transient catalogue failure shouldn't permanently strand the
@@ -72,7 +82,7 @@ const useJobTemplate = (job: JobContainer | null, skip = false): JobTemplateStat
     };
   }, [skip, job, isReady, getServiceTemplates]);
 
-  return { template, matching };
+  return { template, matching, exact };
 };
 
 export default useJobTemplate;

@@ -20,7 +20,7 @@ import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from 
 import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
-  templateNeedsBucketPicker,
+  templateNeedsConfigStep,
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
@@ -75,7 +75,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   );
 
   // Computed once — reused by the prev-step routing and the stepper below.
-  const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
+  const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
 
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
@@ -234,11 +234,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         break;
       }
       case InferenceFlowType.Template: {
-        // Edit always shows config. A fresh launch shows it too when templateNeedsBucketPicker;
-        // otherwise config was skipped → back to resources.
-        const showConfig = isEditMode || needsBucketPicker;
+        // Edit always shows config. A fresh launch shows it too when templateNeedsConfigStep; only
+        // when config was genuinely skipped does Back belong on resources — otherwise Back skips the
+        // step the forward path just made the user fill in.
+        const showConfig = isEditMode || needsConfigStep;
         router.replace({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${isEditMode ? 'config' : 'resources'}`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${showConfig ? 'config' : 'resources'}`,
           query: router.query,
         });
         break;
@@ -659,7 +660,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               edit={isEditMode}
               flowType={flowType}
               template={selectedTemplate}
-              showTemplateConfig={needsBucketPicker}
+              showTemplateConfig={needsConfigStep}
             />
           )
         }

@@ -272,13 +272,16 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
-  // The template this service was launched from, when the URL didn't carry one (see useJobTemplate).
-  // The Model card waits the match out rather than flashing "Unknown model" at an app service for the
-  // half-second before the catalogue lands.
-  const { template: jobTemplate, matching: matchingTemplate } = useJobTemplate(job, !!selectedTemplate);
-  // The URL-named template wins where it exists (it's the in-flow selection, and an Edit re-entry is
-  // built from it); the job-matched one is the fallback above.
-  const template = selectedTemplate ?? jobTemplate;
+  // The template this service was launched from, matched off the node's own job record (see
+  // useJobTemplate). Matched even when the URL named one, because the link is only as good as whatever
+  // matched it: the services table matches against a listing that drops dockerCmd, which can't tell a
+  // bundle from the service it shares an image with. The Model card waits the match out rather than
+  // flashing "Unknown model" at an app service for the half-second before the catalogue lands.
+  const { template: jobTemplate, matching: matchingTemplate, exact: jobTemplateExact } = useJobTemplate(job);
+  // An exact (image + command) job match outranks the URL — it names the variant actually running, so
+  // Edit rebuilds THAT one. Otherwise the URL selection stands (it's the in-flow selection, and an Edit
+  // re-entry is built from it), with the inexact job match as the fallback when the URL carried none.
+  const template = (jobTemplateExact ? jobTemplate : null) ?? selectedTemplate ?? jobTemplate;
 
   // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
   // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
@@ -378,10 +381,11 @@ const ManageServicePage: React.FC = () => {
     const nodeOnlyModel = models.find((entry) => !selectedModels.some((m) => m.id === entry.model.id));
     return {
       ...(bookedResources ? { gpuSelection: bookedResources.gpuSelection, sizing: bookedResources.sizing } : {}),
-      // Context has no template when the link carried none and we matched it off the job record —
-      // without this, an Edit / Prolong re-entry would navigate to the template flow with no
-      // `template=` on the query and bounce straight back out.
-      ...(jobTemplate && !selectedTemplate ? { templateId: jobTemplate.id } : {}),
+      // Context's template is the link's, which may be missing (matched off the job record instead) or
+      // simply wrong (matched from a listing with no dockerCmd). Without this an Edit / Prolong
+      // re-entry would navigate to the template flow with no `template=` on the query and bounce
+      // straight back out — or carry the wrong variant's id into the config it rebuilds.
+      ...(template && template.id !== selectedTemplate?.id ? { templateId: template.id } : {}),
       ...(nodeOnlyModel
         ? {
             models: [nodeOnlyModel.model],
@@ -394,7 +398,7 @@ const ManageServicePage: React.FC = () => {
           }
         : {}),
     };
-  }, [models, selectedModels, bookedResources, jobTemplate, selectedTemplate]);
+  }, [models, selectedModels, bookedResources, template, selectedTemplate]);
   const nowSeconds = Math.floor(Date.now() / 1000);
   // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both track the ACTUAL
   // window — including after a Prolong, which pushes expiresAt forward while leaving job.duration at the

@@ -2,7 +2,7 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildGpuRequests, resourceId } from '@/services/inference-launch';
-import { AppTemplate, TemplateWorkflow } from '@/types/templates';
+import { AppTemplate, requiredEnvVars, TemplateWorkflow } from '@/types/templates';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
@@ -41,6 +41,20 @@ export function templateNeedsBucketPicker(template: AppTemplate | null | undefin
     return false;
   }
   return (template.workflows?.length ?? 0) > 0;
+}
+
+/**
+ * Whether a fresh (non-edit) template launch has to stop at the config step: the template declares a
+ * required env var (without it the container starts and fails), or it needs the bucket picker (see
+ * templateNeedsBucketPicker). Both routing directions and the stepper read this one predicate, so the
+ * steps a launch actually takes can't drift from the steps drawn for it — a skipped config step
+ * strands the user at a container that fails, or at payment with no bucket.
+ */
+export function templateNeedsConfigStep(template: AppTemplate | null | undefined): boolean {
+  if (!template) {
+    return false;
+  }
+  return templateNeedsBucketPicker(template) || requiredEnvVars(template).length > 0;
 }
 
 const COMFY_WORKFLOW_ID_KEY = 'COMFY_WORKFLOW_ID';

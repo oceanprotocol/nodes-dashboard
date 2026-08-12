@@ -57,6 +57,17 @@ function sameCommand(a: string[] | undefined, b: string[] | undefined): boolean 
   return left.length === right.length && left.every((value, i) => value === right[i]);
 }
 
+export type TemplateMatch = {
+  template: AppTemplate | null;
+  /**
+   * How it was matched: 'command' = image AND exact command, the only authoritative one. 'image' =
+   * image alone, a guess whenever the image has more than one template (see `ambiguous`).
+   */
+  source: 'command' | 'image' | null;
+  /** Image-only match against an image several templates share — the variant is a coin flip. */
+  ambiguous: boolean;
+};
+
 /**
  * Match a running service back to the template it was launched from. Every bundle of a service runs
  * the SAME image as that service (a bundle differs only in the `command` that pre-downloads its
@@ -64,29 +75,42 @@ function sameCommand(a: string[] | undefined, b: string[] | undefined): boolean 
  * how a running bundle used to show its parent's name and load its parent's config on Edit.
  *
  * So: match image AND command exactly first, and only fall back to image alone. The fallback covers
- * two cases, both of which degrade to "the right app, maybe not the right variant" rather than to
- * nothing: the listing endpoint (SERVICE_LIST) strips `dockerCmd`, and an operator may have edited the
- * template's JSON since this service was launched.
+ * two cases: the listing endpoint (SERVICE_LIST) strips `dockerCmd`, and an operator may have edited
+ * the template's JSON since this service was launched. It's reported as `source: 'image'` (and
+ * `ambiguous` when the image has variants) rather than passed off as a real match, so a caller that
+ * would act on it — naming the app, seeding an Edit — can decline instead of guessing wrong.
  */
+export function matchTemplateForService(
+  templates: AppTemplate[],
+  service: { image?: string; dockerCmd?: string[] }
+): TemplateMatch {
+  const unmatched: TemplateMatch = { template: null, source: null, ambiguous: false };
+  if (!service.image) {
+    return unmatched;
+  }
+  const sameImage = templates.filter((t) => t.image === service.image);
+  if (sameImage.length === 0) {
+    return unmatched;
+  }
+  // Only trust a command match when the running service actually reported its command — but an empty
+  // array IS a report ("no CMD override", which the node stores as an explicit value), and it's how a
+  // bare service is told apart from the bundles sharing its image. Absent (undefined) is the
+  // unknown case: a stripped listing, where anything below is a guess.
+  if (service.dockerCmd) {
+    const exact = sameImage.find((t) => sameCommand(t.command, service.dockerCmd));
+    if (exact) {
+      return { template: exact, source: 'command', ambiguous: false };
+    }
+  }
+  return { template: sameImage[0], source: 'image', ambiguous: sameImage.length > 1 };
+}
+
+/** The matched template regardless of how confident the match is — see matchTemplateForService. */
 export function findTemplateForService(
   templates: AppTemplate[],
   service: { image?: string; dockerCmd?: string[] }
 ): AppTemplate | null {
-  if (!service.image) {
-    return null;
-  }
-  const sameImage = templates.filter((t) => t.image === service.image);
-  if (sameImage.length === 0) {
-    return null;
-  }
-  // Only trust a command match when the running service actually reported one.
-  if (service.dockerCmd && service.dockerCmd.length > 0) {
-    const exact = sameImage.find((t) => sameCommand(t.command, service.dockerCmd));
-    if (exact) {
-      return exact;
-    }
-  }
-  return sameImage[0];
+  return matchTemplateForService(templates, service).template;
 }
 
 /** The bare services of a catalogue — bundles are shown on their own page, never twice. */

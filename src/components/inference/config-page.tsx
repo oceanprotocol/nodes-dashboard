@@ -104,7 +104,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         // without it (deep link / refresh with no peerId/env) this page would show an empty card that
         // still lets Next through to payment with no bucket. Back to resources to pick an env first.
         router.replace({
-          pathname: `/inference/templates/${encodeURIComponent(params.templateId ?? '')}/resources`,
+          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
           query: router.query,
         });
       }

@@ -6,7 +6,7 @@ import { getApiRoute } from '@/config';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
-import { fetchTemplates, findTemplateForService } from '@/services/service-templates';
+import { fetchTemplates, matchTemplateForService } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -141,9 +141,14 @@ const ExistingServicesTable: React.FC = () => {
             if (modelIdFromSession(service)) {
               continue;
             }
-            // image + command, not image alone: every bundle of a service shares that service's image.
-            const tpl = findTemplateForService(templates, service);
-            if (tpl) {
+            // image + command, not image alone: every bundle of a service shares that service's image,
+            // and the backend's listing drops dockerCmd — so an image-only hit against an image with
+            // variants is a coin flip. Leave those unmatched rather than naming the wrong variant here
+            // and putting its id on the manage link (`template=`), which the manage page would then
+            // build an Edit from. The manage page re-matches off the node's own job record, which does
+            // carry dockerCmd.
+            const { template: tpl, ambiguous } = matchTemplateForService(templates, service);
+            if (tpl && !ambiguous) {
               matched[service.serviceId] = tpl;
             }
           }

@@ -10,9 +10,9 @@ import TemplateDetailsModal from '@/components/inference/template-details-modal'
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
-import { templatePinnedSizing } from '@/services/template-launch';
+import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
-import { AppTemplate, requiredEnvVars } from '@/types/templates';
+import { AppTemplate } from '@/types/templates';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -61,7 +61,8 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
   /**
    * Continue from an env card: commit template + env + token + duration, then step forward. The
    * resources step is skipped (this modal already picked the env), and so is config unless the template
-   * declares a required env var — without that one the container starts and fails. The query is built
+   * declares a required env var (without it the container starts and fails) or needs the bucket picker
+   * (templateNeedsConfigStep — that pick must happen before the escrow claim). The query is built
    * from overrides so it doesn't depend on setState timing, and carries the template's pinned
    * CPU/RAM/disk so payment books that allocation (a bundle's disk floor covers its weights).
    */
@@ -74,7 +75,7 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
     setSelectedEnv(env);
     setSelectedToken(token);
     setJobDurationSeconds(durationSeconds);
-    const next = requiredEnvVars(openTemplate).length > 0 ? 'config' : 'payment';
+    const next = templateNeedsConfigStep(openTemplate) ? 'config' : 'payment';
     router.push({
       pathname: `/inference/services/${encodeURIComponent(openTemplate.id)}/${next}`,
       query: buildSelectionQuery({
