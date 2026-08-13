@@ -7,6 +7,7 @@ import OwnerSection from '@/components/account/owner-section';
 import AuthRequiredPage from '@/components/auth/auth-required-page';
 import Container from '@/components/container/container';
 import EscrowManager from '@/components/escrow/escrow-manager';
+import RemoteStorageManager from '@/components/node-storage/remote-storage-manager';
 import NodeTokensManager from '@/components/node-tokens/node-tokens-manager';
 import SectionTitle from '@/components/section-title/section-title';
 import classNames from 'classnames';
@@ -32,6 +33,8 @@ const renderSection = (section: AccountSectionKey) => {
       return <CompySection />;
     case 'access-lists':
       return <AccessListsManager />;
+    case 'storage':
+      return <RemoteStorageManager />;
     case 'tokens':
       return <NodeTokensManager />;
   }

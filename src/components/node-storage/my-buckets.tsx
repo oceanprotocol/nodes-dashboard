@@ -1,19 +1,13 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
+import BucketsTable from '@/components/node-storage/buckets-table';
 import CreateBucketModal from '@/components/node-storage/create-bucket-modal';
-import EditBucketAccessModal from '@/components/node-storage/edit-bucket-access-modal';
-import EditBucketNameModal from '@/components/node-storage/edit-bucket-name-modal';
-import { Table } from '@/components/table/table';
-import { TableTypeEnum } from '@/components/table/table-type';
 import { useLoadNodeBuckets } from '@/contexts/node-storage-context';
-import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
+import { toStorageNode } from '@/utils/node-storage';
 import CachedIcon from '@mui/icons-material/Cached';
-import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
-import { PersistentStorageBucket } from '@oceanprotocol/lib';
-import { useRouter } from 'next/router';
 import { useMemo, useState } from 'react';
 import styles from './my-buckets.module.css';
 
@@ -22,18 +16,12 @@ type MyBucketsProps = {
 };
 
 const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
-  const router = useRouter();
-
-  const { account } = useOceanAccount();
-
-  const nodeId = node.id ?? node.nodeId ?? '';
-  const nodeUri = node.currentAddrs?.length ? node.currentAddrs : nodeId;
+  const storageNode = useMemo(() => toStorageNode(node), [node]);
+  const { nodeId, nodeUri } = storageNode;
 
   const { buckets, loading, loadBuckets } = useLoadNodeBuckets({ nodeId, nodeUri });
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editBucket, setEditBucket] = useState<PersistentStorageBucket | null>(null);
-  const [renameBucket, setRenameBucket] = useState<PersistentStorageBucket | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredBuckets = useMemo(() => {
@@ -64,44 +52,11 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
         size="sm"
         value={searchTerm}
       />
-      <Table<PersistentStorageBucket>
-        autoHeight
-        actionsColumn={(params) => (
-          <>
-            <Button
-              color="accent1"
-              contentBefore={<EditIcon />}
-              onClick={(e) => {
-                e.stopPropagation();
-                setRenameBucket(params.row);
-              }}
-              size="sm"
-              variant="transparent"
-            >
-              Name
-            </Button>
-            {params.row.accessLists.length > 0 ? (
-              <Button
-                color="accent1"
-                contentBefore={<EditIcon />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditBucket(params.row);
-                }}
-                size="sm"
-                variant="transparent"
-              >
-                Access
-              </Button>
-            ) : null}
-          </>
-        )}
+      <BucketsTable
+        backHref={`/nodes/${nodeId}/storage`}
+        buckets={filteredBuckets}
         loading={loading}
-        onRowClick={({ row }) => router.push(`/nodes/${nodeId}/storage/${row.bucketId}/files`)}
-        paginationType="none"
-        tableType={TableTypeEnum.NODE_STORAGE_MY_BUCKETS}
-        data={filteredBuckets}
-        getRowId={(row) => row.bucketId}
+        node={storageNode}
       />
       <Button
         className="alignSelfEnd"
@@ -115,24 +70,10 @@ const MyBuckets: React.FC<MyBucketsProps> = ({ node }) => {
       </Button>
       <CreateBucketModal
         isOpen={createOpen}
-        nodeId={nodeId}
-        nodeUri={nodeUri}
-        friendlyName={node.friendlyName}
+        node={storageNode}
         onClose={() => setCreateOpen(false)}
         onSave={loadBuckets}
       />
-      {editBucket && account?.address && (
-        <EditBucketAccessModal
-          bucket={editBucket}
-          currentAccount={account.address}
-          isOpen
-          node={node}
-          onClose={() => setEditBucket(null)}
-        />
-      )}
-      {renameBucket && (
-        <EditBucketNameModal bucket={renameBucket} isOpen node={node} onClose={() => setRenameBucket(null)} />
-      )}
     </Card>
   );
 };

@@ -183,7 +183,15 @@ export async function revokeAuthToken({
   token: string;
 }): Promise<{ success: boolean }> {
   const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
-  const signature = await signMessage(`${consumerAddress}${incrementedNonce}`);
+  // ocean-node validates this against `address + nonce + command + issuerPeerId` (nonceHandler
+  // .verifyConsumerSignature), where issuerPeerId is empty for every command except
+  // CREATE_AUTH_TOKEN. Signing the bare `address + nonce` gets rejected with "Invalid signature".
+  const signature = await signNodeCommandMessage({
+    command: PROTOCOL_COMMANDS.INVALIDATE_AUTH_TOKEN,
+    consumerAddress,
+    incrementedNonce,
+    signMessage,
+  });
   return ProviderInstance.invalidateAuthToken(
     {
       getAddress: async () => consumerAddress,

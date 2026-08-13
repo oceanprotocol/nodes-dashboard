@@ -76,13 +76,11 @@ const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({ nodeInfo, s
       )}
       <CreateBucketModal
         isOpen={createOpen}
-        nodeId={nodeId}
-        nodeUri={nodeUri}
-        friendlyName={nodeInfo.friendlyName}
+        node={{ friendlyName: nodeInfo.friendlyName, nodeId, nodeUri }}
         onClose={() => setCreateOpen(false)}
         // createBucket already refetches internally — no need to reload here too. Auto-select the new
         // bucket instead: it's the only reason the user opened this modal.
-        onSave={(bucket) => onSelect(bucket.bucketId)}
+        onSave={(_node, bucket) => onSelect(bucket.bucketId)}
       />
     </div>
   );

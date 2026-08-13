@@ -8,7 +8,6 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
 import { fetchTemplates, matchTemplateForService, TemplateMatch } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { ServiceJob } from '@oceanprotocol/lib';
@@ -31,7 +30,7 @@ type ServiceSession = {
   duration?: number;
   expiresAt?: number;
   dateCreated: number;
-  payment?: { token?: string };
+  payment?: { token?: string; cost?: string | number };
 };
 
 // Rows are ServiceJob-shaped so the shared existingServicesColumns can render them, but the
@@ -180,7 +179,7 @@ const ExistingServicesTable: React.FC = () => {
       console.error('Failed to load existing services:', err);
       setError(
         (axios.isAxiosError(err) && err.response?.data?.message) ||
-          (err instanceof Error ? err.message : 'Failed to load your services.')
+          (err instanceof Error ? err.message : 'Failed to load services.')
       );
     } finally {
       if (!request.signal.aborted) {
@@ -234,7 +233,7 @@ const ExistingServicesTable: React.FC = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.head}>
         <div>
-          <h3>Your services</h3>
+          <h3>My services</h3>
           <span className="textSecondary">Running & recent inference services</span>
         </div>
         <Button color="accent2" onClick={handleLoad} size="md" variant="filled">
@@ -263,13 +262,7 @@ const ExistingServicesTable: React.FC = () => {
             <Table<ServiceRow>
               autoHeight
               actionsColumn={({ row }) => (
-                <Button
-                  color="accent1"
-                  contentAfter={<ArrowForwardIcon />}
-                  onClick={() => openService(row.session)}
-                  size="sm"
-                  variant="outlined"
-                >
+                <Button color="accent1" onClick={() => openService(row.session)} size="sm" variant="transparent">
                   Manage
                 </Button>
               )}

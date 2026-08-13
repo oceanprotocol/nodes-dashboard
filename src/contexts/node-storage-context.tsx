@@ -1,8 +1,8 @@
 'use client';
 
 import { CHAIN_ID } from '@/constants/chains';
-import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useNodeTokensContext } from '@/context/node-tokens';
+import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { BucketAccessState } from '@/types/node-storage';
@@ -80,6 +80,22 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
 
   const prevAddress = useRef<string | undefined>(account.address);
 
+  /**
+   * Every node call dials over the one browser libp2p node. Firing several at once — the
+   * account-wide storage view lists a node per stored auth token — makes the dials compete for it
+   * and one loses, failing with "Cannot dial peer … Active connections: 1". Reads queue instead, so
+   * each dial gets the connection (and its own 10s window) to itself. Keeps concurrent callers from
+   * stacking wallet signature prompts too, since token minting happens inside these calls.
+   */
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const enqueue = useCallback(<T,>(run: () => Promise<T>): Promise<T> => {
+    // Runs on both settle paths: one node being unreachable must not stall the rest of the queue.
+    const result = queueRef.current.then(run, run);
+    queueRef.current = result.catch(() => undefined);
+    return result;
+  }, []);
+
   // Every cache here is owner-scoped (fetchBuckets filters to account.address), so it can't outlive the
   // wallet that filled it — on ANY address change, not just a disconnect. An injected wallet switching
   // accounts goes straight from one address to the next without passing through undefined (see
@@ -100,11 +116,13 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       }
       setFetchingBuckets((prev) => ({ ...prev, [nodeId]: true }));
       try {
-        const owned = await withNodeAuth(nodeId, nodeUri, async (token) => {
-          const all = await getNodeBuckets({ authToken: token, nodeUri, ownerAddress: account.address! });
-          const filtered = all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
-          return filtered;
-        });
+        const owned = await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, async (token) => {
+            const all = await getNodeBuckets({ authToken: token, nodeUri, ownerAddress: account.address! });
+            const filtered = all.filter((b) => b.owner.toLowerCase() === account.address!.toLowerCase());
+            return filtered;
+          })
+        );
         setBuckets((prev) => ({ ...prev, [nodeId]: owned }));
       } catch (e) {
         setBuckets((prev) => ({ ...prev, [nodeId]: prev[nodeId] ?? [] }));
@@ -113,15 +131,15 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setFetchingBuckets((prev) => ({ ...prev, [nodeId]: false }));
       }
     },
-    [account.address, getNodeBuckets, withNodeAuth]
+    [account.address, enqueue, getNodeBuckets, withNodeAuth]
   );
 
   const fetchBucketFiles = useCallback(
     async ({ bucketId, nodeId, nodeUri }: { bucketId: string; nodeId: string; nodeUri: NodeUri }) => {
       setFetchingFiles((prev) => ({ ...prev, [bucketId]: true }));
       try {
-        const files = await withNodeAuth(nodeId, nodeUri, (token) =>
-          listBucketFiles({ authToken: token, bucketId, nodeUri })
+        const files = await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, (token) => listBucketFiles({ authToken: token, bucketId, nodeUri }))
         );
         setBucketFiles((prev) => ({ ...prev, [bucketId]: files }));
       } catch (e) {
@@ -131,15 +149,15 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setFetchingFiles((prev) => ({ ...prev, [bucketId]: false }));
       }
     },
-    [withNodeAuth, listBucketFiles]
+    [enqueue, withNodeAuth, listBucketFiles]
   );
 
   const uploadFile = useCallback(
     async ({ bucketId, nodeId, nodeUri, file }: { bucketId: string; nodeId: string; nodeUri: NodeUri; file: File }) => {
       setUploadingFile((prev) => ({ ...prev, [bucketId]: true }));
       try {
-        const entry = await withNodeAuth(nodeId, nodeUri, (token) =>
-          uploadBucketFile({ authToken: token, bucketId, file, nodeUri })
+        const entry = await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, (token) => uploadBucketFile({ authToken: token, bucketId, file, nodeUri }))
         );
         setBucketFiles((prev) => ({
           ...prev,
@@ -149,7 +167,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setUploadingFile((prev) => ({ ...prev, [bucketId]: false }));
       }
     },
-    [withNodeAuth, uploadBucketFile]
+    [enqueue, withNodeAuth, uploadBucketFile]
   );
 
   const createBucket = useCallback(
@@ -188,8 +206,8 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      const bucket = await withNodeAuth(nodeId, nodeUri, (token) =>
-        createNodeBucket({ accessLists, authToken: token, label, nodeUri })
+      const bucket = await enqueue(() =>
+        withNodeAuth(nodeId, nodeUri, (token) => createNodeBucket({ accessLists, authToken: token, label, nodeUri }))
       );
       // The bucket exists on the node from here on — and for a 'new' access list, a deploy has already
       // been paid for. Refreshing the list is a convenience on top of that, so a failed refetch
@@ -202,7 +220,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       }
       return bucket;
     },
-    [account.address, createNodeBucket, deployNewAccessList, fetchBuckets, withNodeAuth]
+    [account.address, createNodeBucket, deployNewAccessList, enqueue, fetchBuckets, withNodeAuth]
   );
 
   const renameBucket = useCallback(
@@ -217,15 +235,15 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       nodeId: string;
       nodeUri: NodeUri;
     }) => {
-      const result = await withNodeAuth(nodeId, nodeUri, (token) =>
-        renameBucketP2P({ authToken: token, bucketId, label, nodeUri })
+      const result = await enqueue(() =>
+        withNodeAuth(nodeId, nodeUri, (token) => renameBucketP2P({ authToken: token, bucketId, label, nodeUri }))
       );
       setBuckets((prev) => ({
         ...prev,
         [nodeId]: (prev[nodeId] ?? []).map((b) => (b.bucketId === bucketId ? { ...b, label: result.label } : b)),
       }));
     },
-    [renameBucketP2P, withNodeAuth]
+    [enqueue, renameBucketP2P, withNodeAuth]
   );
 
   const deleteFile = useCallback(
@@ -243,8 +261,8 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       const key = `${bucketId}:${fileName}`;
       setDeletingFile((prev) => ({ ...prev, [key]: true }));
       try {
-        await withNodeAuth(nodeId, nodeUri, (token) =>
-          deleteBucketFile({ authToken: token, bucketId, fileName, nodeUri })
+        await enqueue(() =>
+          withNodeAuth(nodeId, nodeUri, (token) => deleteBucketFile({ authToken: token, bucketId, fileName, nodeUri }))
         );
         setBucketFiles((prev) => ({
           ...prev,
@@ -254,7 +272,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         setDeletingFile((prev) => ({ ...prev, [key]: false }));
       }
     },
-    [deleteBucketFile, withNodeAuth]
+    [deleteBucketFile, enqueue, withNodeAuth]
   );
 
   return (
@@ -299,6 +317,10 @@ export function useNodeStorage() {
 export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUri: NodeUri }) {
   const { account } = useOceanAccount();
   const { buckets, fetchingBuckets, fetchBuckets } = useNodeStorage();
+  // Bucket calls go over the P2P node, which sets itself up after mount. Loading before it's up throws
+  // "Node not ready" and nothing retries it — and the attempt below would already be spent — so wait
+  // for it. isReady is a dependency of the effect, so this runs again once the node comes up.
+  const { isReady: isP2PReady } = useP2P();
   // Keyed by wallet AND node: the buckets are the wallet's, so a switch has to re-attempt this node
   // rather than read as "already tried".
   const attemptedRef = useRef<string | null>(null);
@@ -312,7 +334,7 @@ export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUr
   }, [nodeId, nodeUri, fetchBuckets]);
 
   useEffect(() => {
-    if (!account.address || !nodeId) {
+    if (!account.address || !nodeId || !isP2PReady) {
       return;
     }
     const attempt = `${account.address}|${nodeId}`;
@@ -323,7 +345,7 @@ export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUr
     }
     attemptedRef.current = attempt;
     loadBuckets();
-  }, [account.address, nodeId, buckets, loadBuckets]);
+  }, [account.address, nodeId, buckets, isP2PReady, loadBuckets]);
 
   return {
     buckets: buckets[nodeId] ?? [],

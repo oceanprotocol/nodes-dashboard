@@ -6,11 +6,12 @@ import KeyIcon from '@mui/icons-material/Key';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
+import StorageIcon from '@mui/icons-material/Storage';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ReactNode } from 'react';
 
 /** Sections rendered inside the account layout. */
-export type AccountSectionKey = 'owner' | 'consumer' | 'escrow' | 'compy' | 'access-lists' | 'tokens';
+export type AccountSectionKey = 'owner' | 'consumer' | 'escrow' | 'compy' | 'access-lists' | 'storage' | 'tokens';
 
 /** Every entry in the account menu, including the ones that link out of the layout. */
 export type AccountItemKey = AccountSectionKey | 'claim';
@@ -92,6 +93,15 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     label: 'Access lists',
     requires: 'provider',
     title: 'Access lists',
+  },
+  {
+    description: 'Storage buckets you own on Ocean nodes. Nodes you hold an auth token for are listed automatically.',
+    group: 'access',
+    href: '/account/storage',
+    icon: <StorageIcon />,
+    key: 'storage',
+    label: 'Remote storage',
+    title: 'Remote storage',
   },
   {
     description: 'Auth tokens for the nodes you ran jobs on. Stored on this device for your connected wallet.',

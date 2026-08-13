@@ -4,11 +4,11 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import BucketAccess from '@/components/node-storage/bucket-access';
-import { NodeUri } from '@/contexts/P2PContext';
 import { MAX_BUCKET_NAME_LENGTH, useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { BucketAccessState } from '@/types/node-storage';
+import { BucketAccessState, StorageNode } from '@/types/node-storage';
 import { formatError } from '@/utils/formatters';
+import { peerIdToStorageNode } from '@/utils/node-storage';
 import { isAddress } from 'ethers';
 import { useFormik } from 'formik';
 import React from 'react';
@@ -18,19 +18,20 @@ import styles from './create-bucket-modal.module.css';
 
 type CreateBucketModalProps = {
   isOpen: boolean;
-  nodeId: string;
-  nodeUri: NodeUri;
-  friendlyName?: string;
+  /** Omit to let the user type the node's peer ID — the account-wide storage view has no node in hand. */
+  node?: StorageNode;
   onClose: () => void;
-  onSave?: (bucket: { bucketId: string }) => void;
+  /** Both the node the bucket landed on and the bucket itself: callers need one or the other. */
+  onSave?: (node: StorageNode, bucket: { bucketId: string }) => void;
 };
 
 type CreateBucketFormValues = {
   access: BucketAccessState;
   label: string;
+  nodeId: string;
 };
 
-const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ nodeId, nodeUri, friendlyName, onClose, onSave }) => {
+const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();
   const { createBucket } = useNodeStorage();
 
@@ -38,9 +39,11 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ nodeId, node
     initialValues: {
       access: { mode: 'new', wallets: [account.address!] },
       label: '',
+      nodeId: '',
     },
     validationSchema: Yup.object({
       label: Yup.string().max(MAX_BUCKET_NAME_LENGTH, 'Name is too long'),
+      nodeId: node ? Yup.string() : Yup.string().trim().required('Node ID is required'),
       access: Yup.mixed<BucketAccessState>()
         .required()
         .test('access-valid', 'Access list contract address is required', (value) => {
@@ -96,16 +99,17 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ nodeId, node
     validateOnBlur: true,
     validateOnChange: false,
     onSubmit: async (values) => {
+      const target = node ?? peerIdToStorageNode(values.nodeId.trim());
       try {
         const bucket = await createBucket({
-          nodeId,
-          nodeUri,
+          nodeId: target.nodeId,
+          nodeUri: target.nodeUri,
           access: values.access,
           label: values.label.trim() || undefined,
         });
         toast.success('Bucket created');
         onClose();
-        onSave?.(bucket);
+        onSave?.(target, bucket);
       } catch (e: any) {
         toast.error(formatError({ error: e, fallback: 'Your bucket could not be created.' }));
       }
@@ -116,17 +120,31 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ nodeId, node
 
   return (
     <form className={styles.form} onSubmit={formik.handleSubmit}>
-      <div className={styles.infoRow}>
-        <div className="textSecondary">Node:</div>
-        {friendlyName ? (
-          <div>
-            <strong>{friendlyName}</strong>
-            <div className="textSecondary">{nodeId}</div>
-          </div>
-        ) : (
-          <div>{nodeId}</div>
-        )}
-      </div>
+      {node ? (
+        <div className={styles.infoRow}>
+          <div className="textSecondary">Node:</div>
+          {node.friendlyName ? (
+            <div>
+              <strong>{node.friendlyName}</strong>
+              <div className="textSecondary">{node.nodeId}</div>
+            </div>
+          ) : (
+            <div>{node.nodeId}</div>
+          )}
+        </div>
+      ) : (
+        <Input
+          type="text"
+          label="Node ID"
+          name="nodeId"
+          placeholder="Enter node peer ID"
+          size="md"
+          value={formik.values.nodeId}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          errorText={formik.touched.nodeId && formik.errors.nodeId ? (formik.errors.nodeId as string) : undefined}
+        />
+      )}
       <Input
         type="text"
         label="Name"
@@ -166,17 +184,10 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ nodeId, node
   );
 };
 
-const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, nodeId, nodeUri, friendlyName, onClose, onSave }) => {
+const CreateBucketModal: React.FC<CreateBucketModalProps> = ({ isOpen, node, onClose, onSave }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create bucket" width="md" fullWidth>
-      <CreateBucketModalInner
-        isOpen={isOpen}
-        nodeId={nodeId}
-        nodeUri={nodeUri}
-        friendlyName={friendlyName}
-        onClose={onClose}
-        onSave={onSave}
-      />
+      <CreateBucketModalInner isOpen={isOpen} node={node} onClose={onClose} onSave={onSave} />
     </Modal>
   );
 };

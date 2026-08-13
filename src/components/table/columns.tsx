@@ -397,6 +397,22 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
   },
 ];
 
+// Amount paid, rendered as "<amount> <TOKEN>". The record stores the payment token by address, so the
+// symbol is recovered from the chain's token list; an unknown token falls back to the bare amount.
+function renderAmountPaid(cost?: string | number, token?: string) {
+  if (cost === undefined || cost === null || cost === '') {
+    return '-';
+  }
+  const tokenEntry = Object.entries(tokenAddressesByChainId[CHAIN_ID]).find(
+    ([, t]) => t.address.toLowerCase() === token?.toLowerCase()
+  );
+  const formattedAmount = formatNumber(cost);
+  if (!tokenEntry) {
+    return formattedAmount;
+  }
+  return `${formattedAmount} ${tokenEntry[0]}`;
+}
+
 export const jobsColumns: GridColDef<ComputeJob>[] = [
   {
     align: 'center',
@@ -475,19 +491,7 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
-    renderCell: ({ value, row }) => {
-      if (!value) {
-        return '-';
-      }
-      const tokenEntry = Object.entries(tokenAddressesByChainId[CHAIN_ID]).find(
-        ([, t]) => t.address.toLowerCase() === row.payment?.token?.toLowerCase()
-      );
-      const formattedAmount = formatNumber(row.payment?.cost);
-      if (!tokenEntry) {
-        return formattedAmount;
-      }
-      return `${formattedAmount} ${tokenEntry[0]}`;
-    },
+    renderCell: ({ row }) => renderAmountPaid(row.payment?.cost, row.payment?.token),
   },
   {
     field: 'algoDuration',
@@ -719,74 +723,82 @@ export function modelIdFromJob(job: ServiceJob): string | null {
 // HF model (the app rides in the template's own image/command), so the row names the app instead.
 // `templatePending` marks a modelless row whose template lookup is still in flight — it shimmers
 // rather than claiming "Unknown model" for a name that's about to arrive.
-export const existingServicesColumns: GridColDef<
-  ServiceJob & { templateName?: string; templatePending?: boolean }
->[] = [
-  {
-    field: 'model',
-    filterable: false,
-    flex: 1.5,
-    headerName: 'Model',
-    sortable: false,
-    renderCell: ({ row }) => {
-      if (row.templateName) {
-        // Template names read as "vLLM — two lite models on one small GPU": headline before the dash,
-        // the rest as the caption, so the cell keeps the same two-line shape as a model row.
-        const [headline, ...rest] = row.templateName.split(/\s+[—–-]\s+/);
-        return <ModelCell subtitle={rest.join(' — ') || undefined} title={headline} />;
-      }
-      const modelId = modelIdFromJob(row);
-      if (modelId) {
-        return <ModelCell modelId={modelId} />;
-      }
-      if (row.templatePending) {
-        return <ModelCell loading />;
-      }
-      // No `--model` in the launch command (e.g. a malformed record from an earlier run) — there's no
-      // model to name, so say so rather than showing a serviceId fragment that reads like a model id.
-      return (
-        <span className="textSecondary" title={`Service ${row.serviceId}`}>
-          Unknown model
-        </span>
-      );
+export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: string; templatePending?: boolean }>[] =
+  [
+    {
+      field: 'model',
+      filterable: false,
+      flex: 1.5,
+      headerName: 'Model',
+      sortable: false,
+      renderCell: ({ row }) => {
+        if (row.templateName) {
+          // Template names read as "vLLM — two lite models on one small GPU": headline before the dash,
+          // the rest as the caption, so the cell keeps the same two-line shape as a model row.
+          const [headline, ...rest] = row.templateName.split(/\s+[—–-]\s+/);
+          return <ModelCell subtitle={rest.join(' — ') || undefined} title={headline} />;
+        }
+        const modelId = modelIdFromJob(row);
+        if (modelId) {
+          return <ModelCell modelId={modelId} />;
+        }
+        if (row.templatePending) {
+          return <ModelCell loading />;
+        }
+        // No `--model` in the launch command (e.g. a malformed record from an earlier run) — there's no
+        // model to name, so say so rather than showing a serviceId fragment that reads like a model id.
+        return (
+          <span className="textSecondary" title={`Service ${row.serviceId}`}>
+            Unknown model
+          </span>
+        );
+      },
     },
-  },
-  {
-    field: 'statusText',
-    filterable: false,
-    flex: 1,
-    headerName: 'Status',
-    sortable: false,
-    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
-  },
-  {
-    field: 'dateCreated',
-    filterable: false,
-    flex: 1,
-    headerName: 'Created',
-    sortable: true,
-    renderCell: ({ value }) => {
-      if (!value) return '-';
-      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    {
+      field: 'statusText',
+      filterable: false,
+      flex: 1,
+      headerName: 'Status',
+      sortable: false,
+      renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
     },
-  },
-  {
-    field: 'duration',
-    filterable: false,
-    flex: 1,
-    headerName: 'Duration',
-    sortable: true,
-    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
-  },
-  {
-    field: 'expiresAt',
-    filterable: false,
-    flex: 1,
-    headerName: 'End time',
-    sortable: true,
-    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
-  },
-];
+    {
+      field: 'dateCreated',
+      filterable: false,
+      flex: 1,
+      headerName: 'Created',
+      sortable: true,
+      renderCell: ({ value }) => {
+        if (!value) return '-';
+        return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+      },
+    },
+    {
+      field: 'duration',
+      filterable: false,
+      flex: 1,
+      headerName: 'Duration',
+      sortable: true,
+      renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+    },
+    {
+      field: 'expiresAt',
+      filterable: false,
+      flex: 1,
+      headerName: 'End time',
+      sortable: true,
+      renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+    },
+    {
+      field: 'payment.cost',
+      filterable: false,
+      flex: 1,
+      headerName: 'Amount paid',
+      sortable: true,
+      valueGetter: (_value, row) => row.payment?.cost,
+      renderCell: ({ row }) => renderAmountPaid(row.payment?.cost, row.payment?.token),
+    },
+  ];
 
 // An env id is a hyphen-joined list of addresses; render each shortened, joined with ' - '.
 function renderEnvironment(value?: string) {

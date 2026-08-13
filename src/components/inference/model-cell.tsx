@@ -1,3 +1,4 @@
+import { templateLogoForName } from '@/components/inference/template-logos';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import cx from 'classnames';
 import { useState } from 'react';
@@ -22,7 +23,10 @@ const ModelCell: React.FC<ModelCellProps> = ({ modelId, title, subtitle, loading
   const author = modelId?.includes('/') ? modelId.split('/')[0] : undefined;
   const name = title ?? (modelId ? getModelShortName(modelId) : '-');
   const caption = title ? subtitle : author;
-  const avatarUrl = !title && author && modelId ? getModelAvatarUrl({ id: modelId, author }) : undefined;
+  // A `title` names an app rather than an HF model, so its mark comes from the template logo manifest
+  // (null when no file was supplied for it — then the monogram stands in, as for an unknown model).
+  const logoSrc = title ? templateLogoForName(title) : null;
+  const avatarUrl = logoSrc ?? (!title && author && modelId ? getModelAvatarUrl({ id: modelId, author }) : undefined);
   const initial = (title ?? author ?? modelId ?? '?').charAt(0).toUpperCase();
 
   if (loading) {
@@ -42,7 +46,12 @@ const ModelCell: React.FC<ModelCellProps> = ({ modelId, title, subtitle, loading
       <div className={styles.avatar}>
         {avatarUrl && !avatarFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={author ?? name} onError={() => setAvatarFailed(true)} src={avatarUrl} />
+          <img
+            alt={author ?? name}
+            className={cx({ [styles.logo]: !!logoSrc })}
+            onError={() => setAvatarFailed(true)}
+            src={avatarUrl}
+          />
         ) : (
           <span>{initial}</span>
         )}
