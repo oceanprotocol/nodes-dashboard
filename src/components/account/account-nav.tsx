@@ -11,6 +11,7 @@ import NorthEastIcon from '@mui/icons-material/NorthEast';
 import { Collapse, useMediaQuery } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useState } from 'react';
 import styles from './account-nav.module.css';
 
@@ -25,6 +26,7 @@ type AccountNavProps = {
 const AccountNav = ({ activeKey, className }: AccountNavProps) => {
   const { logout, provider } = useOceanAccount();
   const { grantStatus } = useProfileContext();
+  const router = useRouter();
 
   // Defaults to true so the server render and the desktop layout both show the full menu;
   // on mobile the query resolves to false after mount and the menu collapses behind the toggle.
@@ -43,6 +45,12 @@ const AccountNav = ({ activeKey, className }: AccountNavProps) => {
   };
 
   const visibleItems = ACCOUNT_SECTIONS.filter(isAvailable);
+
+  // The account pages need a connected wallet, so leave for the homepage once the session is gone.
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
 
   return (
     <Card
@@ -93,7 +101,7 @@ const AccountNav = ({ activeKey, className }: AccountNavProps) => {
               );
             })}
           </nav>
-          <button className={classNames(styles.item, styles.logout)} onClick={logout} type="button">
+          <button className={classNames(styles.item, styles.logout)} onClick={handleLogout} type="button">
             <span className={styles.itemIcon}>
               <LogoutIcon />
             </span>
