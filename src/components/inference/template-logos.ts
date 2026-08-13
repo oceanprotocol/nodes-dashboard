@@ -41,6 +41,15 @@ export function templateLogoSrc(templateId: string): string | null {
 }
 
 /**
+ * Public path of a mark for a display NAME rather than an id — for places that only have the app's
+ * name to go on (e.g. a table cell naming a template-launched service). Slugified the same way ids
+ * are written, so "Open WebUI" reaches the `open-webui` entry and "vLLM" the `vllm` one.
+ */
+export function templateLogoForName(name: string): string | null {
+  return templateLogoSrc(name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+}
+
+/**
  * A template's mark, falling back to its parent service's. A bundle runs the parent's image under its
  * own id (`comfyui-sdxl` on `comfyui`), so it wears the same brand — and the substring match usually
  * resolves it directly; the parent lookup covers ids that don't contain the parent's own id.

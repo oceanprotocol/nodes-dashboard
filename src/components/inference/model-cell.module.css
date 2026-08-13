@@ -27,6 +27,11 @@
     object-fit: cover;
     width: 100%;
   }
+
+  /* Brand marks carry their own margins, so letterbox them inside the tile instead of cropping. */
+  img.logo {
+    object-fit: contain;
+  }
 }
 
 .titleBox {
