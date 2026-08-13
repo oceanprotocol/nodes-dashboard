@@ -95,6 +95,26 @@
     display: none;
   }
 
+  /* Avatar + stacked label, so the button keeps a single row with two lines of text on the right */
+  .accountButton {
+    align-items: center;
+    gap: 8px;
+
+    .accountLabel {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      line-height: 1.15;
+      text-align: left;
+
+      .accountAddress {
+        font-size: 10px;
+        font-weight: 400;
+        opacity: 0.75;
+      }
+    }
+  }
+
   .mobileMenu {
     position: fixed;
     top: 0;
