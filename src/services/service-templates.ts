@@ -60,11 +60,12 @@ function sameCommand(a: string[] | undefined, b: string[] | undefined): boolean 
 export type TemplateMatch = {
   template: AppTemplate | null;
   /**
-   * How it was matched: 'command' = image AND exact command, the only authoritative one. 'image' =
-   * image alone, a guess whenever the image has more than one template (see `ambiguous`).
+   * How it was matched: 'command' = image AND a command only ONE template has, the only
+   * authoritative one. 'image' = a guess — image alone, or a command several templates share (see
+   * `ambiguous`).
    */
   source: 'command' | 'image' | null;
-  /** Image-only match against an image several templates share — the variant is a coin flip. */
+  /** Match against an image (or image + command) several templates share — the variant is a coin flip. */
   ambiguous: boolean;
 };
 
@@ -98,9 +99,17 @@ export function matchTemplateForService(
   // bare service is told apart from the bundles sharing its image. Absent (undefined) is the
   // unknown case: a stripped listing, where anything below is a guess.
   if (service.dockerCmd) {
-    const exact = sameImage.find((t) => sameCommand(t.command, service.dockerCmd));
-    if (exact) {
-      return { template: exact, source: 'command', ambiguous: false };
+    // A command match only names the variant when it's UNIQUE. Bundles sharing an image can also
+    // share a command — the ComfyUI UGC bundles all inline the same `commandFile` bootstrap and
+    // differ only in their workflows — and picking the first of those is the same coin flip as an
+    // image-only match. Reporting it as 'command' would let a caller that outranks a known template
+    // on an exact match (the manage page) relabel a running service as its sibling.
+    const exact = sameImage.filter((t) => sameCommand(t.command, service.dockerCmd));
+    if (exact.length === 1) {
+      return { template: exact[0], source: 'command', ambiguous: false };
+    }
+    if (exact.length > 1) {
+      return { template: exact.find(isService) ?? exact[0], source: 'image', ambiguous: true };
     }
   }
   // Ambiguous fallback resolves to the bare SERVICE, not whichever variant happens to come first: the
