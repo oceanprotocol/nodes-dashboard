@@ -17,7 +17,9 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
 
 // Service-on-demand nodes these packages can run on — the modal lists their environments.
 // Add more peer ids here to offer the packages on more nodes.
-const NODE_IDS = ['16Uiu2HAmVa9jQFm4SKrNtYs1QXLzwmMa8YPBCAjEBf8aR8dbLgeE', '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'];
+// Order matters: use-package-env resolves these in sequence, so the first reachable node's
+// environments are the ones the modal offers first.
+const NODE_IDS = ['16Uiu2HAm94yL3Sjem2piKmGkiHCdJyTn3F3aWueZTXKT38ekjuzr', '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'];
 
 /**
  * Resource floors for a package, built from its VRAM footprint and GPU count. `vramGb` is the
