@@ -8,3 +8,10 @@
   position: relative;
   min-height: 100lvh;
 }
+
+/* The backdrop art is an accent-red gradient tuned to sit quietly on white. The same intensity
+   against a near-black ground reads as glare rather than texture, so ease it back. Dimming the
+   image itself (not the element) keeps page content at full strength. */
+:global(:root[data-theme='dark']) .main {
+  background-image: linear-gradient(#0d0e1040, #0d0e1040), url('/background.svg');
+}

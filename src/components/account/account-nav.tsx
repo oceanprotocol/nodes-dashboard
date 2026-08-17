@@ -3,11 +3,15 @@ import { ACCOUNT_SECTIONS, AccountItem, AccountSectionKey } from '@/components/a
 import Card from '@/components/card/card';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useTheme, type ThemePreference } from '@/lib/use-theme';
 import { GrantStatus } from '@/types/grant';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import NorthEastIcon from '@mui/icons-material/NorthEast';
+import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 import { Collapse, useMediaQuery } from '@mui/material';
 import classNames from 'classnames';
 import Link from 'next/link';
@@ -23,9 +27,16 @@ type AccountNavProps = {
   className?: string;
 };
 
+const THEME_OPTIONS: { icon: React.ReactNode; label: string; value: ThemePreference }[] = [
+  { icon: <LightModeIcon />, label: 'Light', value: 'light' },
+  { icon: <SettingsBrightnessIcon />, label: 'System', value: 'system' },
+  { icon: <DarkModeIcon />, label: 'Dark', value: 'dark' },
+];
+
 const AccountNav = ({ activeKey, className }: AccountNavProps) => {
   const { logout, provider } = useOceanAccount();
   const { grantStatus } = useProfileContext();
+  const { preference, setPreference } = useTheme();
   const router = useRouter();
 
   // Defaults to true so the server render and the desktop layout both show the full menu;
@@ -101,12 +112,33 @@ const AccountNav = ({ activeKey, className }: AccountNavProps) => {
               );
             })}
           </nav>
+
           <button className={classNames(styles.item, styles.logout)} onClick={handleLogout} type="button">
             <span className={styles.itemIcon}>
               <LogoutIcon />
             </span>
             <span className={styles.itemLabel}>Log out</span>
           </button>
+
+          <div aria-label="Theme" className={styles.theme} role="radiogroup">
+            {THEME_OPTIONS.map((option) => {
+              const isSelected = option.value === preference;
+              return (
+                <button
+                  aria-checked={isSelected}
+                  className={classNames(styles.themeOption, { [styles.themeOptionActive]: isSelected })}
+                  key={option.value}
+                  onClick={() => setPreference(option.value)}
+                  role="radio"
+                  title={option.label}
+                  type="button"
+                >
+                  {option.icon}
+                  <span className={styles.themeOptionLabel}>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </Collapse>
     </Card>

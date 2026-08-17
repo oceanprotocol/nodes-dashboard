@@ -2,11 +2,30 @@
 @import '@account-kit/react/styles.css';
 
 :root {
+  /* Declared explicitly (not just in the dark block) so it never falls through to the OS setting:
+     the app defaults to light regardless of OS, and `light-dark()` values elsewhere key off this. */
+  color-scheme: light;
+
   --accent1: #d54335;
   --accent1-light: #d85548;
   --accent1-lighter: #e06953;
   --accent1-lightest: #eaa39c;
   --accent2: #b7fd79;
+  /* Text/icon color to use ON an accent fill. The accents are brand colors and stay fixed in
+     both themes, so these are fixed too — using --text-primary here would flip to white in dark
+     and become unreadable on the light-green accent2. Not theme-dependent by design. */
+  --accent1-contrast: #ffffff;
+  --accent2-contrast: #000000;
+  /* Text on an arbitrary saturated category color (inference catalogue sets --accent inline
+     from category metadata). Those colors are fixed and all mid-to-dark, so this is fixed too. */
+  --on-color-contrast: #ffffff;
+  /* Accents as large full-bleed surfaces (footer, homepage bands). Identical to their ramp siblings
+     here; deepened in dark, where a full-width slab of raw brand colour glares. Separate tokens so
+     small accent elements (chips, buttons) keep the exact brand colour. */
+  --accent1-surface: #d54335;
+  --accent1-lighter-surface: #e06953;
+  --accent1-lightest-surface: #eaa39c;
+  --accent2-surface: #b7fd79;
   --backdrop-filter-overlay: blur(12px);
   --backdrop-filter-glass: blur(12px);
   --background-primary: #ffffff;
@@ -26,6 +45,10 @@
   --drop-shadow-success: 0 8px 80px -20px var(--success);
   --drop-shadow-warning: 0 8px 80px -20px var(--warning);
   --error: #ff9886;
+  /* Text/icon color to use ON a status fill. The fills are light pastels in BOTH themes (they
+     never invert — see the dark block below), so these are fixed too: --text-primary would flip
+     to white in dark and wash out on the pale background. */
+  --error-contrast: #000000;
   --error-darker: #d85548;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --inner-shadow-accent1: inset 0 8px 48px -32px var(--accent1);
@@ -39,6 +62,7 @@
   --input-shadow-error: 0 4px 32px -18px var(--error), inset 0 4px 32px -24px var(--error);
   --input-shadow-focus: inset 0 4px 32px -8px #00000025;
   --success: #b7fd79;
+  --success-contrast: #000000;
   --success-darker: #67c416;
   /* Terminal / console surfaces (logs & code snippets) — dark regardless of theme. */
   --terminal-bg: #1b1b1b;
@@ -49,8 +73,122 @@
   --text-primary-inverse: #ffffff;
   --text-secondary: #00000080;
   --warning: #ffc26c;
+  --warning-contrast: #000000;
   --warning-darker: #ff9225;
 }
+
+/* Dark theme — driven by `data-theme="dark"` on <html>, never by prefers-color-scheme directly.
+   The app defaults to light; the theme switch in the account menu offers light / system / dark, and
+   `system` is resolved against the OS in JS (see src/lib/use-theme.tsx and the pre-hydration script
+   in src/pages/_document.tsx) so the attribute always holds a concrete light or dark value.
+
+   Only tokens whose *role* changes are redefined here; anything derived from another
+   token (shadows built on --accent1, --error, etc.) inherits the new value for free.
+
+   Three things deliberately don't simply invert:
+   - Status fills (--error/--success/--warning) stay light pastels. They're backgrounds for
+     chips/toasts that pair with dark text in both themes, so flipping them would break that
+     pairing. Their `-darker` siblings are used as *text* and *do* brighten, since they now
+     sit on dark surfaces and have to clear contrast against them instead of against white.
+   - --inner-shadow-glass carries a near-white inner rim that reads as a light source catching
+     a panel edge. At full strength on a dark surface that becomes a hard glowing line, so the
+     rim drops to a low-alpha white and the inner darkening is dialled back.
+   - Drop shadows gain opacity. A 30%-black shadow is invisible against a dark background;
+     depth in dark comes from a heavier, tighter shadow plus the lighter surface itself. */
+/* The dark palette itself lives in the `--dark-*` tokens defined here on :root, so the values are
+   written exactly once. The two selectors below only *alias* the theme tokens onto them, which
+   keeps the "when is dark active" logic separate from the color values. */
+:root {
+  /* --accent1/--accent2 and the -contrast tokens are brand colors and stay fixed.
+     The light/lighter/lightest ramp is NOT brand — it exists to blend the accent toward the
+     page background, stepping toward white in the light theme. On a near-black ground that
+     intent inverts: each step now blends toward the dark background instead, keeping the same
+     "recedes into the page" relationship rather than the same literal hues. */
+  --dark-accent1-light: #b83a2e;
+  --dark-accent1-lighter: #8f2d24;
+  --dark-accent1-lightest: #5c2019;
+
+  /* Pitched far deeper than the ramp: these cover whole sections, so they read as grounds carrying
+     coral/lime ink rather than as slabs of brand colour. accent2 is deepest — the lime is the
+     brightest brand colour and glares hardest at full bleed. */
+  --dark-accent1-surface: #2a1210;
+  --dark-accent1-lighter-surface: #351613;
+  --dark-accent1-lightest-surface: #24100e;
+  --dark-accent2-surface: #101a0c;
+
+  /* Surfaces: near-black rather than pure black, so elevated glass panels have something
+     to sit above and shadows remain readable. */
+  --dark-background-primary: #0d0e10;
+  --dark-background-primary-inverse: #ffffff;
+  --dark-background-glass: #26282e90;
+  --dark-background-glass-secondary: #ffffff14;
+  --dark-background-modal: #16181cd0;
+  --dark-background-modal-overlay: #00000080;
+  --dark-background-shimmer-gradient: linear-gradient(90deg, #ffffff08, #ffffff1f, #ffffff08);
+  --dark-background-shimmer-gradient-soft: linear-gradient(90deg, #ffffff05, #ffffff12, #ffffff05);
+  --dark-background-table-header: #17191d;
+
+  --dark-border: #ffffff20;
+  --dark-border-glass: #ffffff10;
+
+  --dark-drop-shadow-black: 0 8px 32px -12px #00000090;
+  --dark-inner-shadow-black: inset 0 8px 32px -12px #00000060;
+  --dark-inner-shadow-glass:
+    inset 0 0 0 1px var(--border-glass), inset 0 0 1px 1px #ffffff18, inset 0 0 16px 1px #00000030;
+  --dark-input-shadow-focus: inset 0 4px 32px -8px #00000070;
+
+  /* Status text tones — brightened so they read on dark surfaces. */
+  --dark-error-darker: #ff8f7d;
+  --dark-success-darker: #9ae84f;
+  --dark-warning-darker: #ffb04d;
+
+  --dark-text-primary: #ffffff;
+  --dark-text-primary-inverse: #000000;
+  --dark-text-secondary: #ffffff80;
+}
+
+/* Explicit dark pick — wins over a light OS. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --accent1-light: var(--dark-accent1-light);
+  --accent1-lighter: var(--dark-accent1-lighter);
+  --accent1-lightest: var(--dark-accent1-lightest);
+  --accent1-surface: var(--dark-accent1-surface);
+  --accent1-lighter-surface: var(--dark-accent1-lighter-surface);
+  --accent1-lightest-surface: var(--dark-accent1-lightest-surface);
+  --accent2-surface: var(--dark-accent2-surface);
+
+  --background-primary: var(--dark-background-primary);
+  --background-primary-inverse: var(--dark-background-primary-inverse);
+  --background-glass: var(--dark-background-glass);
+  --background-glass-secondary: var(--dark-background-glass-secondary);
+  --background-modal: var(--dark-background-modal);
+  --background-modal-overlay: var(--dark-background-modal-overlay);
+  --background-shimmer-gradient: var(--dark-background-shimmer-gradient);
+  --background-shimmer-gradient-soft: var(--dark-background-shimmer-gradient-soft);
+  --background-table-header: var(--dark-background-table-header);
+
+  --border: var(--dark-border);
+  --border-glass: var(--dark-border-glass);
+
+  --drop-shadow-black: var(--dark-drop-shadow-black);
+  --inner-shadow-black: var(--dark-inner-shadow-black);
+  --inner-shadow-glass: var(--dark-inner-shadow-glass);
+  --input-shadow-focus: var(--dark-input-shadow-focus);
+
+  --error-darker: var(--dark-error-darker);
+  --success-darker: var(--dark-success-darker);
+  --warning-darker: var(--dark-warning-darker);
+
+  --text-primary: var(--dark-text-primary);
+  --text-primary-inverse: var(--dark-text-primary-inverse);
+  --text-secondary: var(--dark-text-secondary);
+}
+
+/* No `prefers-color-scheme` block here on purpose: the app defaults to light, so a dark OS alone
+   must not darken the page. Dark comes solely from [data-theme='dark'], set before first paint by
+   the script in _document.tsx. */
 
 * {
   box-sizing: border-box;
@@ -138,7 +276,7 @@ a {
   }
   &.chipAccent1 {
     background: var(--accent1);
-    color: var(--text-primary-inverse);
+    color: var(--accent1-contrast);
   }
   &.chipAccent1Outlined {
     background: var(--background-primary);
@@ -147,7 +285,7 @@ a {
   }
   &.chipAccent2 {
     background: var(--accent2);
-    color: var(--text-primary);
+    color: var(--accent2-contrast);
   }
   &.chipGlass {
     background: var(--background-glass-secondary);
@@ -155,15 +293,15 @@ a {
   }
   &.chipError {
     background: var(--error);
-    color: var(--text-primary);
+    color: var(--error-contrast);
   }
   &.chipSuccess {
     background: var(--success);
-    color: var(--text-primary);
+    color: var(--success-contrast);
   }
   &.chipWarning {
     background: var(--warning);
-    color: var(--text-primary);
+    color: var(--warning-contrast);
   }
 }
 
@@ -341,6 +479,9 @@ a {
 .textAccent1Lightest {
   color: var(--accent1-lightest);
 }
+.textAccent1Contrast {
+  color: var(--accent1-contrast);
+}
 .textAccent2 {
   color: var(--accent2);
 }
@@ -404,31 +545,41 @@ a {
         color: var(--accent1);
       }
     }
+    /* The status variants sit on light pastel fills in both themes, so their close button can't
+       use --text-secondary (which goes translucent-white in dark and vanishes on the pastel). */
+    &.Toastify__toast--error,
+    &.Toastify__toast--success,
+    &.Toastify__toast--warning {
+      & .Toastify__close-button {
+        color: #00000080;
+      }
+    }
+
     &.Toastify__toast--error {
       background: color-mix(in srgb, var(--error) 80%, transparent 20%);
       box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
-      color: var(--text-primary);
+      color: var(--error-contrast);
 
       & .Toastify__toast-icon {
-        color: var(--error-darker);
+        color: var(--error-contrast);
       }
     }
     &.Toastify__toast--success {
       background: color-mix(in srgb, var(--success) 80%, transparent 20%);
       box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
-      color: var(--text-primary);
+      color: var(--success-contrast);
 
       & .Toastify__toast-icon {
-        color: var(--success-darker);
+        color: var(--success-contrast);
       }
     }
     &.Toastify__toast--warning {
       background: color-mix(in srgb, var(--warning) 80%, transparent 20%);
       box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
-      color: var(--text-primary);
+      color: var(--warning-contrast);
 
       & .Toastify__toast-icon {
-        color: var(--warning-darker);
+        color: var(--warning-contrast);
       }
     }
   }

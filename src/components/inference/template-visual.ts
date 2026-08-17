@@ -1,3 +1,4 @@
+import type { ResolvedTheme } from '@/lib/use-theme';
 import { AppTemplate } from '@/types/templates';
 import type { SvgIconComponent } from '@mui/icons-material';
 import AppsOutlined from '@mui/icons-material/AppsOutlined';
@@ -20,8 +21,11 @@ export type TemplateCategory = 'image' | 'video' | 'llm' | 'serving' | 'notebook
 
 export interface TemplateCategoryMeta {
   label: string;
-  /** Accent colour (light theme — the dashboard is light-only). */
-  accent: string;
+  /**
+   * Accent per theme. `--accent` is used mostly as *text* on a 12%-alpha tint of itself, so the
+   * light values are mid-to-dark hues; dark takes lifted siblings of the same hue.
+   */
+  accent: { dark: string; light: string };
   Icon: SvgIconComponent;
   /** "What you get" lead line in the details modal — the node publishes no such field per template. */
   purpose: string;
@@ -39,12 +43,13 @@ export interface TemplateCategoryMeta {
  * Category → label / accent / glyph. `image` reuses --accent1 coral and `llm` the readable lime; video
  * takes a violet that sits opposite coral without competing with it, serving a deep teal-green sibling
  * of the lime (so the two model buckets read as related), and the `app` fallback a neutral slate —
- * deliberately the least eye-catching of the set.
+ * deliberately the least eye-catching of the set. The dark values keep those relationships at a
+ * lightness that survives the near-black page.
  */
 export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   image: {
     label: 'Image gen',
-    accent: '#d54335',
+    accent: { dark: '#f2776c', light: '#d54335' },
     Icon: ImageOutlined,
     purpose: 'For generating and editing images.',
     interaction: 'Web UI',
@@ -52,7 +57,7 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   },
   video: {
     label: 'Video gen',
-    accent: '#7b3fe4',
+    accent: { dark: '#b69bff', light: '#7b3fe4' },
     Icon: MovieOutlined,
     purpose: 'For generating short video clips.',
     interaction: 'Web UI',
@@ -60,7 +65,7 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   },
   llm: {
     label: 'LLM chat',
-    accent: '#4f9a10',
+    accent: { dark: '#9ae84f', light: '#4f9a10' },
     Icon: ChatBubbleOutline,
     purpose: 'For chatting with a model in your browser.',
     interaction: 'Web UI',
@@ -68,7 +73,7 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   },
   serving: {
     label: 'LLM serving',
-    accent: '#0f7b6c',
+    accent: { dark: '#4fd6bd', light: '#0f7b6c' },
     Icon: DnsOutlined,
     purpose: 'For serving an OpenAI-compatible model endpoint.',
     interaction: 'API',
@@ -76,7 +81,8 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   },
   notebook: {
     label: 'Notebook',
-    accent: '#000000',
+    // Black has no lifted sibling, so dark inverts to a warm near-white instead.
+    accent: { dark: '#ece7e2', light: '#000000' },
     Icon: MenuBook,
     purpose: 'For notebooks, scripting and data exploration.',
     interaction: 'Web UI',
@@ -84,7 +90,7 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   },
   embeddings: {
     label: 'Embeddings',
-    accent: '#c96b00',
+    accent: { dark: '#ffb04d', light: '#c96b00' },
     Icon: GrainOutlined,
     purpose: 'For building a vector index or a RAG pipeline.',
     interaction: 'API',
@@ -92,7 +98,7 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   },
   app: {
     label: 'App',
-    accent: '#5a6b7a',
+    accent: { dark: '#9aa9b8', light: '#5a6b7a' },
     Icon: AppsOutlined,
     purpose: 'This node published the image without a recognised category.',
     // Uncategorised: an exposed port is all that's known, so promise nothing about what serves it.
@@ -101,16 +107,19 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   },
 };
 
+/**
+ * Inline style setting `--accent` for a tile/pill/header — pass `resolvedTheme` from `useTheme()`.
+ *
+ * Don't replace this with CSS `light-dark()`: it resolves against `color-scheme`, and the CSS
+ * pipeline compiles it into `prefers-color-scheme` queries, so the accents would follow the OS even
+ * when the user has pinned a theme.
+ */
+export function accentVars(accent: TemplateCategoryMeta['accent'], theme: ResolvedTheme): Record<string, string> {
+  return { '--accent': theme === 'dark' ? accent.dark : accent.light };
+}
+
 /** Pill order in the filter toolbar (buckets with no templates are still rendered, dimmed, at 0). */
-export const CATEGORY_ORDER: TemplateCategory[] = [
-  'image',
-  'video',
-  'llm',
-  'serving',
-  'notebook',
-  'embeddings',
-  'app',
-];
+export const CATEGORY_ORDER: TemplateCategory[] = ['image', 'video', 'llm', 'serving', 'notebook', 'embeddings', 'app'];
 
 /** id-substring → category. Extend as new templates ship; unknown ids fall back to `app`. */
 const CATEGORY_BY_ID_PART: Record<string, TemplateCategory> = {
@@ -166,7 +175,10 @@ export function visualFor(id: string, category?: string): TemplateVisual {
     const derived = CATEGORY_BY_ID_PART[key];
     return { category: derived, meta: CATEGORY_META[derived], mono: null };
   }
-  const mono = id.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
+  const mono = id
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(0, 2)
+    .toUpperCase();
   return { category: 'app', meta: CATEGORY_META.app, mono: mono || '??' };
 }
 

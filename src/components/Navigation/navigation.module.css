@@ -46,6 +46,14 @@
   }
 }
 
+/* The mark ships with baked-in #000 fills, so it can't pick up currentColor. It's pure
+   black-and-white art, so inverting it in dark mode produces exactly the intended white logo.
+   Targeting the element covers the mobile-menu instance too, which carries no class. */
+:global(:root[data-theme='dark']) .logoWrapper svg,
+:global(:root[data-theme='dark']) .mobileMenuHeader svg {
+  filter: invert(1);
+}
+
 .root {
   position: sticky;
   top: 0;

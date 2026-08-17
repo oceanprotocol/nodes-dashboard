@@ -55,7 +55,7 @@
 
   &.filterActive {
     background: var(--accent1);
-    color: var(--text-primary-inverse);
+    color: var(--accent1-contrast);
   }
 }
 
@@ -97,7 +97,7 @@
 
   &:hover {
     background: var(--accent1);
-    color: var(--text-primary-inverse);
+    color: var(--accent1-contrast);
     border-color: var(--accent1);
   }
 }

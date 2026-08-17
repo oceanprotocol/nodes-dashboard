@@ -11,7 +11,10 @@ export type ButtonProps = {
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
-  color?: 'accent1' | 'accent2' | 'error' | 'primary' | 'primary-inverse';
+  /** `on-accent1`/`on-accent2`: for buttons sitting ON an accent-filled surface. Unlike
+   *  `primary-inverse` (which follows the theme) these track the fixed accent contrast tokens,
+   *  since the accents are brand colors and don't change between light and dark. */
+  color?: 'accent1' | 'accent2' | 'error' | 'primary' | 'primary-inverse' | 'on-accent1' | 'on-accent2';
   contentAfter?: React.ReactNode;
   contentBefore?: React.ReactNode;
   disabled?: boolean;

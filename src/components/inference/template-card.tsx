@@ -3,12 +3,15 @@ import Card from '@/components/card/card';
 import BundleIncludes from '@/components/inference/bundle-includes';
 import { templateLogo } from '@/components/inference/template-logos';
 import {
+  accentVars,
   CATEGORY_META,
   TemplateCategory,
+  TemplateCategoryMeta,
   templateHardware,
   templateVendor,
   visualFor,
 } from '@/components/inference/template-visual';
+import { useTheme } from '@/lib/use-theme';
 import { AppTemplate, includesSummary } from '@/types/templates';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -21,7 +24,8 @@ import styles from './template-card.module.css';
 export type DecoratedTemplate = {
   tpl: AppTemplate;
   category: TemplateCategory;
-  accent: string;
+  /** Both theme variants; the renderer resolves one via `accentVars` using the active theme. */
+  accent: TemplateCategoryMeta['accent'];
   categoryLabel: string;
   CategoryIcon: (typeof CATEGORY_META)[TemplateCategory]['Icon'];
   mono: string | null;
@@ -101,68 +105,72 @@ const VISIBLE_INCLUDES = 3;
  * (it never launches). A bundle renders one extra block listing the models it brings; a bare service
  * has nothing to list, so the same card covers both and the two pages read as one system.
  */
-const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => (
-  <Card
-    ariaLabel={item.ariaLabel}
-    className={styles.card}
-    direction="column"
-    innerShadow="black"
-    onClick={() => onOpen(item.tpl)}
-    padding="sm"
-    radius="md"
-    spacing="sm"
-    style={{ '--accent': item.accent } as CSSProperties}
-    variant="glass"
-  >
-    <div className={styles.cardTop}>
-      {/* The brand mark REPLACES the category glyph rather than covering it — the marks are
+const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
+  const { resolvedTheme } = useTheme();
+
+  return (
+    <Card
+      ariaLabel={item.ariaLabel}
+      className={styles.card}
+      direction="column"
+      innerShadow="black"
+      onClick={() => onOpen(item.tpl)}
+      padding="sm"
+      radius="md"
+      spacing="sm"
+      style={accentVars(item.accent, resolvedTheme) as CSSProperties}
+      variant="glass"
+    >
+      <div className={styles.cardTop}>
+        {/* The brand mark REPLACES the category glyph rather than covering it — the marks are
           transparent artwork, so anything drawn underneath shows through the shape. */}
-      <span className={styles.tile}>
-        {item.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img alt="" className={styles.tileLogo} src={item.logo} />
-        ) : item.mono ? (
-          <span className={styles.tileMono}>{item.mono}</span>
-        ) : (
-          <item.CategoryIcon className={styles.tileIcon} />
-        )}
-      </span>
-      <span className={styles.titleWrap}>
-        <span className={styles.name} title={item.name}>
-          {item.name}
+        <span className={styles.tile}>
+          {item.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="" className={styles.tileLogo} src={item.logo} />
+          ) : item.mono ? (
+            <span className={styles.tileMono}>{item.mono}</span>
+          ) : (
+            <item.CategoryIcon className={styles.tileIcon} />
+          )}
         </span>
-        <span className={styles.vendor} title={item.tpl.image}>
-          {item.vendor}
+        <span className={styles.titleWrap}>
+          <span className={styles.name} title={item.name}>
+            {item.name}
+          </span>
+          <span className={styles.vendor} title={item.tpl.image}>
+            {item.vendor}
+          </span>
         </span>
-      </span>
-    </div>
-
-    <p className={cx(styles.desc, { [styles.descEmpty]: !item.tpl.description })}>
-      {item.tpl.description || 'No description published for this image.'}
-    </p>
-
-    <div className={cx(styles.chips, 'gapSm')}>
-      <span className={cx('chip', styles.chip, styles.categoryChip)}>{item.categoryLabel}</span>
-      <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
-    </div>
-
-    {item.included && (
-      <div className={styles.included}>
-        <span className={styles.includedHead}>{item.included} included</span>
-        <BundleIncludes compact max={VISIBLE_INCLUDES} template={item.tpl} />
       </div>
-    )}
 
-    <div className={styles.metaRow}>
-      {item.meta.map(({ key, Icon, label }) => (
-        <span className={styles.meta} key={key}>
-          <Icon className={styles.metaIcon} />
-          {label}
-        </span>
-      ))}
-      {item.metaFallback && <span className={styles.metaFallback}>{item.metaFallback}</span>}
-    </div>
-  </Card>
-);
+      <p className={cx(styles.desc, { [styles.descEmpty]: !item.tpl.description })}>
+        {item.tpl.description || 'No description published for this image.'}
+      </p>
+
+      <div className={cx(styles.chips, 'gapSm')}>
+        <span className={cx('chip', styles.chip, styles.categoryChip)}>{item.categoryLabel}</span>
+        <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
+      </div>
+
+      {item.included && (
+        <div className={styles.included}>
+          <span className={styles.includedHead}>{item.included} included</span>
+          <BundleIncludes compact max={VISIBLE_INCLUDES} template={item.tpl} />
+        </div>
+      )}
+
+      <div className={styles.metaRow}>
+        {item.meta.map(({ key, Icon, label }) => (
+          <span className={styles.meta} key={key}>
+            <Icon className={styles.metaIcon} />
+            {label}
+          </span>
+        ))}
+        {item.metaFallback && <span className={styles.metaFallback}>{item.metaFallback}</span>}
+      </div>
+    </Card>
+  );
+};
 
 export default TemplateCard;

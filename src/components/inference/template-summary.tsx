@@ -1,7 +1,8 @@
 import Card from '@/components/card/card';
 import BundleIncludes from '@/components/inference/bundle-includes';
 import { decorate } from '@/components/inference/template-card';
-import { templateImageRef } from '@/components/inference/template-visual';
+import { accentVars, templateImageRef } from '@/components/inference/template-visual';
+import { useTheme } from '@/lib/use-theme';
 import { AppTemplate, includesSummary } from '@/types/templates';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
@@ -44,6 +45,7 @@ type TemplateSummaryProps = {
 const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, runningImageRef }) => {
   const [open, setOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
+  const { resolvedTheme } = useTheme();
   const item = decorate(template);
 
   // Hardware asks as icon+label pairs — same set the catalogue card shows, minus the fallback note
@@ -81,7 +83,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
       direction="column"
       innerShadow="black"
       radius="sm"
-      style={{ '--accent': item.accent } as CSSProperties}
+      style={accentVars(item.accent, resolvedTheme) as CSSProperties}
       variant="glass"
     >
       <button aria-expanded={open} className={styles.row} onClick={() => setOpen((prev) => !prev)} type="button">
