@@ -18,7 +18,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
-import { getModelShortName } from '@/services/huggingface-service';
+import { decodeModelIds, getModelShortName } from '@/services/huggingface-service';
 import {
   detectEngine,
   enginePort,
@@ -26,6 +26,7 @@ import {
   parseServiceResources,
   toNodeUri,
 } from '@/services/inference-launch';
+import { firstQueryValue } from '@/services/inference-url';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
 import { isBundle } from '@/types/templates';
@@ -272,16 +273,39 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
+  /**
+   * What the link itself says this service is — read straight off the query rather than the hydrated
+   * context, so it's known on the first render instead of after the async model/template restore.
+   *
+   * `models=` with no `template=` means a custom-model launch, and that claim is final: a custom launch
+   * runs the SAME image the node's own inference templates do (`vllm/vllm-openai` is published by
+   * vllm-hf-model / vllm-qwen-0-5b / vllm-nomic-embed, `ghcr.io/ggml-org/llama.cpp` by llamacpp-phi4),
+   * so matching the job record by image alone resolves every model service to one of those templates —
+   * and a launch that happens to reproduce a template's command (same model, default params) matches
+   * "exactly". Either way the page would drop the Model card, the base URL and the curl example, and
+   * offer an "Open UI" button for a web UI an inference server doesn't serve. The services table draws
+   * the same line for the same reason (see `modelIdFromSession` there): a service with a model id of
+   * its own is never a template run.
+   */
+  const isModelServiceByUrl = !firstQueryValue(router.query.template) && decodeModelIds(router.query.models).length > 0;
   // The template this service was launched from, matched off the node's own job record (see
   // useJobTemplate). Matched even when the URL named one, because the link is only as good as whatever
   // matched it: the services table matches against a listing that drops dockerCmd, which can't tell a
   // bundle from the service it shares an image with. The Model card waits the match out rather than
   // flashing "Unknown model" at an app service for the half-second before the catalogue lands.
-  const { template: jobTemplate, matching: matchingTemplate, exact: jobTemplateExact } = useJobTemplate(job);
+  const {
+    template: jobTemplate,
+    matching: matchingTemplate,
+    exact: jobTemplateExact,
+  } = useJobTemplate(job, isModelServiceByUrl);
   // An exact (image + command) job match outranks the URL — it names the variant actually running, so
   // Edit rebuilds THAT one. Otherwise the URL selection stands (it's the in-flow selection, and an Edit
   // re-entry is built from it), with the inexact job match as the fallback when the URL carried none.
-  const template = (jobTemplateExact ? jobTemplate : null) ?? selectedTemplate ?? jobTemplate;
+  // A URL that named a model outranks all of it (see above) — and is re-checked here, not only through
+  // the hook's `skip`, so a match that landed before the flag flipped can't linger in the hook's state.
+  const template = isModelServiceByUrl
+    ? null
+    : ((jobTemplateExact ? jobTemplate : null) ?? selectedTemplate ?? jobTemplate);
 
   // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
   // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
