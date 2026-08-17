@@ -24,7 +24,7 @@ import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './custom-models-page.module.css';
 
 const VISIBLE_TAG_COUNT = 9;
@@ -61,6 +61,9 @@ const CustomModelsPage: React.FC = () => {
   const isEditMode = router.query.edit === '1';
   // Fresh entry (no `models` in URL): clear leftover selection. Back-nav carries `models`, so preserved.
   const freshEntryHandledRef = useRef(false);
+  // Model the user arrived in edit mode with. Frozen once on entry: it stays pinned to the top of
+  // the grid, while any model picked afterwards keeps its natural position in the list.
+  const [pinnedModel, setPinnedModel] = useState<HuggingFaceModel | null>(null);
   useEffect(() => {
     if (freshEntryHandledRef.current || !router.isReady || !hydrateFromUrlFinished) {
       return;
@@ -68,8 +71,12 @@ const CustomModelsPage: React.FC = () => {
     freshEntryHandledRef.current = true;
     if (!router.query.models) {
       clearSelection();
+      return;
     }
-  }, [router.isReady, router.query.models, hydrateFromUrlFinished, clearSelection]);
+    if (isEditMode && selectedModels.length > 0) {
+      setPinnedModel(selectedModels[0]);
+    }
+  }, [router.isReady, router.query.models, hydrateFromUrlFinished, clearSelection, isEditMode, selectedModels]);
 
   const [models, setModels] = useState<HuggingFaceModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +184,15 @@ const CustomModelsPage: React.FC = () => {
     }
   };
 
+  // Only the model the user entered edit mode with is pinned first — it may sit on a later page (or
+  // outside the active filter) and would otherwise be unreachable. Later picks don't reorder.
+  const orderedModels = useMemo(() => {
+    if (!pinnedModel) {
+      return models;
+    }
+    return [pinnedModel, ...models.filter((model) => model.id !== pinnedModel.id)];
+  }, [models, pinnedModel]);
+
   return (
     <Container className="pageRoot">
       <SectionTitle
@@ -265,7 +281,7 @@ const CustomModelsPage: React.FC = () => {
           {!loading && !error && models.length > 0 && (
             <>
               <div className={styles.grid}>
-                {models.map((model) => (
+                {orderedModels.map((model) => (
                   <ModelCard
                     key={model.id}
                     model={model}
