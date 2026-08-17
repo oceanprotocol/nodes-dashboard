@@ -5,6 +5,7 @@ import ModelCell from '@/components/inference/model-cell';
 import ServiceStatusChip, { JobStatusChip } from '@/components/service-status-chip/service-status-chip';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
+import { modelIdFromCommand } from '@/services/inference-launch';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
@@ -707,14 +708,10 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
   },
 ];
 
-// The node returns the launch command, not HF metadata — recover the model id from `--model`.
+// The node returns the launch command, not HF metadata — recover the model id from it (`--model` on
+// vLLM, `-hf` on llama.cpp; see modelIdFromCommand).
 export function modelIdFromJob(job: ServiceJob): string | null {
-  const cmd = job.dockerCmd ?? [];
-  const idx = cmd.indexOf('--model');
-  if (idx >= 0 && idx + 1 < cmd.length) {
-    return cmd[idx + 1];
-  }
-  return null;
+  return modelIdFromCommand(job.dockerCmd);
 }
 
 // The caller's own inference services (getServiceStatus keeps dockerCmd, so the model id is

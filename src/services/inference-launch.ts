@@ -213,6 +213,32 @@ export function detectEngine(cmd: string[]): InferenceEngine {
 }
 
 /**
+ * The model a launch command serves, or null when it names none — the cheap read of what
+ * parseEngineCommand recovers in full, for callers that only need the id (a table cell, the
+ * "is this a model service at all?" question).
+ *
+ * BOTH engines: vLLM takes `--model <hf id>`, llama.cpp `-hf <repo>[:<quant>]` (the quant is dropped —
+ * the repo is the model). Reading only `--model` makes every llama.cpp service look modelless, which
+ * is how one ends up image-matched to the llamacpp template and displayed as the app instead of the
+ * model it serves.
+ */
+export function modelIdFromCommand(cmd: string[] | undefined): string | null {
+  if (!cmd || cmd.length === 0) {
+    return null;
+  }
+  const valueOf = (flag: string): string | null => {
+    const idx = cmd.indexOf(flag);
+    return idx >= 0 && idx + 1 < cmd.length ? cmd[idx + 1] : null;
+  };
+  if (detectEngine(cmd) === 'llamacpp') {
+    // `-hf repo:quant` — the served model is the GGUF repo (llama.cpp has no raw-weights id).
+    const hfRef = valueOf('-hf');
+    return hfRef ? hfRef.split(':')[0] || null : null;
+  }
+  return valueOf('--model');
+}
+
+/**
  * The flags each engine's own builder emits. Anything else in a command came from a custom param —
  * that's how parseCustomArgs tells them apart. `valued` flags consume the next token, `boolean` ones
  * stand alone.

@@ -6,6 +6,7 @@ import { getApiRoute } from '@/config';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
+import { detectEngine, modelIdFromCommand } from '@/services/inference-launch';
 import { fetchTemplates, matchTemplateForService, TemplateMatch } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -44,13 +45,17 @@ type ServiceRow = Partial<ServiceJob> & {
   templatePending?: boolean;
 };
 
+// The model a session serves: the backend's own field when it has one, else recovered from the launch
+// command — `--model` on vLLM, `-hf` on llama.cpp (see modelIdFromCommand). Reading only `--model`
+// made every llama.cpp service look modelless, so the template guard below let it through and the row
+// showed "llama.cpp" (the template that shares its image) instead of the model it serves.
 function modelIdFromSession(session: ServiceSession): string | null {
-  if (session.model) {
-    return session.model;
-  }
-  const cmd = session.dockerCmd ?? [];
-  const idx = cmd.indexOf('--model');
-  return idx >= 0 && idx + 1 < cmd.length ? cmd[idx + 1] : null;
+  return session.model || modelIdFromCommand(session.dockerCmd);
+}
+
+/** The flag this session's engine names its model with — see the dockerCmd note in toRow. */
+function modelFlag(session: ServiceSession): string {
+  return session.dockerCmd && detectEngine(session.dockerCmd) === 'llamacpp' ? '-hf' : '--model';
 }
 
 // The shared columns expect the node's own field shapes: an ISO `dateCreated` (they do
@@ -72,7 +77,11 @@ function toRow(session: ServiceSession, match: TemplateMatch | undefined, templa
   return {
     ...session,
     dateCreated: new Date(createdMs).toISOString(),
-    dockerCmd: modelId ? ['--model', modelId] : template ? [] : session.dockerCmd,
+    // A recovered model id is re-emitted under the flag its own engine uses, not always `--model`: the
+    // column reads either, but `--model <gguf repo>` would also make the row's command claim vLLM for a
+    // llama.cpp service. `-hf` keeps detectEngine right for anything else reading this row. A `model`
+    // field with no command to detect from is assumed vLLM — the default engine.
+    dockerCmd: modelId ? [modelFlag(session), modelId] : template ? [] : session.dockerCmd,
     session,
     templateName: template ? (template.name ?? template.id) : undefined,
     templatePending: !template && !modelId && templatesLoading,
@@ -148,8 +157,9 @@ const ExistingServicesTable: React.FC = () => {
           const templates = await fetchTemplates(getServiceTemplates, request.signal);
           const matched: Record<string, TemplateMatch> = {};
           for (const service of services) {
-            // A plain model launch shares its image with the vLLM template, so image alone would
-            // relabel real model rows as the app. Only services with no model id are template runs.
+            // A plain model launch shares its image with this node's own engine templates (vLLM's with
+            // vllm-hf-model, llama.cpp's with llamacpp-phi4-cpu), so image alone would relabel real
+            // model rows as the app. Only services with no model id are template runs.
             if (modelIdFromSession(service)) {
               continue;
             }
