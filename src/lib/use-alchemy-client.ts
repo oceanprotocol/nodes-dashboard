@@ -1,13 +1,50 @@
+import { getRpc } from '@/lib/constants';
 import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { alchemyWalletTransport, createSmartWalletClient, type SmartWalletClient } from '@alchemy/wallet-apis';
 import { toViemAccount, useWallets } from '@privy-io/react-auth';
 import { useEffect, useMemo, useState } from 'react';
-import type { LocalAccount } from 'viem';
+import { createPublicClient, http, zeroAddress, type LocalAccount } from 'viem';
 import { base, sepolia } from 'viem/chains';
 
 type Call = { to: `0x${string}`; data?: `0x${string}`; value?: bigint };
 
 const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
+
+// A smart account is counterfactual until its first UserOp: the address is known but nothing is
+// deployed at it. Ocean Node verifies our signatures by calling isValidSignature on that address
+// (nonceHandler.isERC1271Valid), which can only fail while there is no code there — so a user who
+// has never transacted gets "consumer address and nonce signature mismatch" on every signed
+// command. Any UserOp carries the account's initCode, so a sponsored no-op call is the cheapest way
+// to materialise it. The no-op targets the zero address, NOT the account: Modular Account v2 rejects
+// execute(target == address(this)) inside validateUserOp (SelfCallRecursionDepthExceeded), which the
+// EntryPoint reports as "AA23 reverted".
+async function deployAccount(client: SmartWalletClient, account: `0x${string}`): Promise<void> {
+  const code = await createPublicClient({ chain, transport: http(getRpc()) }).getCode({ address: account });
+  if (code) return;
+  const { id } = await (client as any).sendCalls({ calls: [{ to: zeroAddress, data: '0x' }], account });
+  const result = await client.waitForCallsStatus({ id });
+  if (result.status !== 'success') {
+    throw new Error(`Could not activate your wallet (status: ${result.status}). Please try again.`);
+  }
+}
+
+// One deploy per account per session: concurrent signers await the same promise instead of each
+// spending a sponsored UserOp (the later ones would revert as "sender already constructed").
+// A failure is evicted so the next signature retries.
+const deployments = new Map<string, Promise<void>>();
+
+function ensureAccountDeployed(client: SmartWalletClient, account: `0x${string}`): Promise<void> {
+  const key = account.toLowerCase();
+  let pending = deployments.get(key);
+  if (!pending) {
+    pending = deployAccount(client, account).catch((error) => {
+      deployments.delete(key);
+      throw error;
+    });
+    deployments.set(key, pending);
+  }
+  return pending;
+}
 
 function useAlchemyClient(): { client: SmartWalletClient | null; accountAddress?: `0x${string}` } {
   const { wallets } = useWallets();
@@ -92,6 +129,7 @@ export function useAlchemySendTransaction() {
   const signMessage = useMemo(() => {
     return async (message: string): Promise<string> => {
       if (!client || !accountAddress) throw new Error('Alchemy client not ready');
+      await ensureAccountDeployed(client, accountAddress);
       return await (client as any).signMessage({ message, account: accountAddress });
     };
   }, [client, accountAddress]);

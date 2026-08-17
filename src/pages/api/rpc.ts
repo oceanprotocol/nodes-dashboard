@@ -3,6 +3,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 const ALLOWED_METHODS = new Set([
   'eth_call',
   'eth_getBalance',
+  // Tells a deployed smart account from a counterfactual one before signing.
+  'eth_getCode',
   'eth_chainId',
   'eth_blockNumber',
   'eth_estimateGas',
