@@ -9,6 +9,8 @@ import TemplateBucketPicker from '@/components/inference/template-bucket-picker'
 import Input from '@/components/input/input';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
+import { captureError } from '@/lib/analytics';
+import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
@@ -17,6 +19,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
@@ -37,6 +40,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     setSelectedBucketId,
     templateEnvValues,
     setTemplateEnvValues,
+    engine,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -50,6 +54,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
 
   // Computed once — reused by the bounce guard, the stepper and the picker/message render below.
   const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
+  const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
   // Whether the bucket picker is actually shown on this page (edit re-entry never shows it — see the
   // guard on TemplateBucketPicker below).
   const showsPicker = !isEditMode && needsBucketPicker;
@@ -150,9 +155,19 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   };
 
   // Commit validated params (passed as override so the fresh values are in the URL immediately) and advance.
-  const goToNextStep = (modelParamsByModel?: Record<string, ModelParametersType>) => {
+  // `envVarCount` is passed explicitly for the template branch — `templateEnvValues` in context is
+  // stale in the same tick `setTemplateEnvValues` committed it, since state updates aren't synchronous.
+  const goToNextStep = (modelParamsByModel?: Record<string, ModelParametersType>, envVarCount?: number) => {
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
+        posthog.capture('inference_config_submitted', {
+          flowType,
+          modelCount: modelIds.length,
+          engine,
+          hasHfToken: !!hfToken,
+          isEditMode,
+          branch,
+        });
         router.push({
           pathname: '/inference/custom-models/payment',
           query: { ...router.query, ...buildSelectionQuery({ modelParamsByModel }) },
@@ -162,6 +177,16 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       case InferenceFlowType.Template: {
         // Carry the whole query (edit / serviceId / template) so payment relaunches the right running
         // service. Template env values live in context (secrets — never in the URL).
+        posthog.capture('inference_config_submitted', {
+          flowType,
+          modelCount: modelIds.length,
+          hasHfToken: !!hfToken,
+          templateId: selectedTemplate?.id,
+          bucketId: selectedBucketId ?? undefined,
+          envVarCount: envVarCount ?? Object.keys(templateEnvValues).length,
+          isEditMode,
+          branch,
+        });
         router.push({
           pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/payment`,
           query: { ...router.query, ...buildSelectionQuery() },
@@ -185,12 +210,22 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       // "not ready" and tell the user, rather than silently doing nothing when they click Next.
       if (modelIds.some((id) => !paramRefs.current[id])) {
         setSubmitError('Some models are still loading their defaults. Wait a moment, then try again.');
+        captureError('inference_config_failed', new Error('models_still_loading'), {
+          stage: 'models_loading',
+          model_count: modelIds.length,
+          branch,
+        });
         return;
       }
       const results = await Promise.all(modelIds.map((id) => paramRefs.current[id]!.validateAndGet()));
       // A null result here means a card failed its own validation and already highlighted its fields.
       if (results.some((params) => !params)) {
         setSubmitError('Fix the highlighted parameters before continuing.');
+        captureError('inference_config_failed', new Error('model_params_invalid'), {
+          stage: 'model_params_invalid',
+          model_count: modelIds.length,
+          branch,
+        });
         return;
       }
       const paramsByModel: Record<string, ModelParametersType> = {};
@@ -216,6 +251,13 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       if (Object.keys(errors).length > 0) {
         setEnvErrors(errors);
         setSubmitError('Fix the highlighted fields before continuing.');
+        captureError('inference_config_failed', new Error('template_env_invalid'), {
+          stage: 'template_env_invalid',
+          model_count: modelIds.length,
+          template_id: selectedTemplate?.id,
+          invalid_keys: Object.keys(errors),
+          branch,
+        });
         return;
       }
       // Commit only non-empty values — an empty optional field must not overwrite a fixed var or ship
@@ -224,7 +266,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         envSpecs.map((spec) => [spec.key, (envInputs[spec.key] ?? '').trim()]).filter(([, value]) => value)
       );
       setTemplateEnvValues(committed);
-      goToNextStep();
+      goToNextStep(undefined, Object.keys(committed).length);
       return;
     }
     goToNextStep();

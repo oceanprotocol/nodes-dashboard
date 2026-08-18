@@ -73,6 +73,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
   const handleSubmit = useCallback(
     () =>
       handlePay({
+        flow: 'run-job',
         tokenAddress: selectedToken.address,
         peerId: selectedEnv.nodeId,
         spender: selectedEnv.consumerAddress,

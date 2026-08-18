@@ -1,4 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { captureError } from '@/lib/analytics';
 import { buildEscrowBundleArgs, getEscrowAddressForChain } from '@/lib/escrow-bundle';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
@@ -15,6 +16,9 @@ import { encodeFunctionData } from 'viem';
 /** Lock slots granted when (re)authorizing — shared default for all payment flows. */
 export const DEFAULT_MAX_LOCK_COUNT = 10;
 
+/** Funnel a payment belongs to — tags every `payment_*` event so the two funnels stay separable. */
+export type PaymentFlow = 'run-job' | 'inference';
+
 export interface PaySessionParams {
   tokenAddress: string;
   peerId?: string;
@@ -24,6 +28,11 @@ export interface PaySessionParams {
   maxLockedAmount: string;
   maxLockSeconds: string;
   maxLockCount: string;
+  /**
+   * Which funnel is paying. Both run-job and inference authorize through this hook, so without it
+   * the `payment_*` events can't be attributed to a flow in PostHog.
+   */
+  flow?: PaymentFlow;
 }
 
 export interface UsePaySessionParams {
@@ -60,6 +69,7 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
       maxLockedAmount,
       maxLockSeconds,
       maxLockCount,
+      flow,
     }: PaySessionParams) => {
       if (!tokenAddress || !spender) {
         setError('Missing required parameters');
@@ -86,9 +96,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           });
           await bundleTx.wait();
           if (needsDeposit) {
-            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount });
+            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount, flow });
           }
-          posthog.capture('payment_authorize');
+          posthog.capture('payment_authorize', { flow });
         } else {
           const escrowAddress = getEscrowAddressForChain(chainId) as `0x${string}`;
           const tokenDecimals = await getTokenDecimals(tokenAddress);
@@ -127,9 +137,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           await sendTransaction(calls);
 
           if (needsDeposit) {
-            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount });
+            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount, flow });
           }
-          posthog.capture('payment_authorize');
+          posthog.capture('payment_authorize', { flow });
         }
 
         toast.success(paySuccessMessage(
@@ -139,6 +149,13 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
         return true;
       } catch (err) {
         console.error('Pay session error:', err);
+        captureError('payment_failed', err, {
+          stage: 'pay_session',
+          flow,
+          token_address: tokenAddress,
+          peer_id: peerId,
+          deposit_amount: depositAmount,
+        });
         const message = err instanceof Error && err.message ? err.message : 'Payment failed';
         setError(message);
         toast.error(`Payment failed: ${message}`);
