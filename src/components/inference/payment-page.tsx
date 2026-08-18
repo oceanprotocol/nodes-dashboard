@@ -17,6 +17,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
+import { decodeGpuSelection, decodeResourceSizing } from '@/services/inference-url';
 import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
@@ -77,18 +78,38 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Computed once — reused by the prev-step routing and the stepper below.
   const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
 
+  /**
+   * The allocation to price, URL first. The Provider mounts once and never remounts, so context's
+   * `selectedEnv` is only rewritten when the hydration signature (models/peerId/env/serviceId/template)
+   * changes — `gpus`/`res` are deliberately NOT in it. An edit/prolong re-entry changes only those two
+   * (the manage page puts the running service's BOOKED resources on the query, see selectionOverrides),
+   * so reading context here would price a prolong off whatever the manage page was hydrated with —
+   * `{}` when it was opened from the services table, which useInferenceAllocation reads as "no explicit
+   * request" and expands to a whole-env slice: every free GPU in the env, silently escrowed.
+   * The query is the fresher of the two whenever it carries a selection; context covers in-flow steps
+   * (resources → payment) that navigate without one.
+   */
+  const gpuSelection = useMemo(
+    () => decodeGpuSelection(router.query.gpus) ?? selectedEnv?.gpuSelection,
+    [router.query.gpus, selectedEnv?.gpuSelection]
+  );
+  const sizing = useMemo(
+    () => decodeResourceSizing(router.query.res) ?? selectedEnv?.sizing,
+    [router.query.res, selectedEnv?.sizing]
+  );
+
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
   // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv/token exist.
   const { allocation, price, selectedByKey } = useInferenceAllocation({
     environment: selectedEnv?.environment ?? ({ resources: [] } as any),
     tokenAddress: selectedToken?.address ?? '',
-    gpuSelection: selectedEnv?.gpuSelection,
+    gpuSelection,
     // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
     // slice at the package min; an edit/prolong re-entry carries the running service's `exact` booked
     // amounts (see parseServiceResources); undefined for a plain custom-flow slice. Keeps the
     // priced/escrowed allocation matching what the resources step — or the running service — showed.
-    sizing: selectedEnv?.sizing,
+    sizing,
     durationSeconds: jobDurationSeconds,
   });
 
@@ -734,8 +755,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     defaultToken={selectedToken?.address}
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
-                    gpuSelection={selectedEnv.gpuSelection}
-                    sizing={selectedEnv.sizing}
+                    gpuSelection={gpuSelection}
+                    sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}
                   />
                 </>
