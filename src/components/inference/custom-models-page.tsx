@@ -143,7 +143,7 @@ const CustomModelsPage: React.FC = () => {
           setNextCursor(cursor);
           if (query) {
             posthog.capture('inference_models_searched', {
-              query,
+              queryLength: query.length,
               resultCount: data.length,
               tag: activeTag ?? undefined,
               sort,

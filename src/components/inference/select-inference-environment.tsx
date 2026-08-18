@@ -43,15 +43,25 @@ function isBookableEnv(env: ComputeEnvironment): boolean {
   return getEnvSupportedTokens(env, true).length > 0;
 }
 
+/** Resource/GPU/price shape captured on the inference analytics events. */
+export type InferenceSelectionEstimate = {
+  cpu: number;
+  ram: number;
+  disk: number;
+  gpuCount: number;
+  gpuTypes: string[];
+  price: number;
+};
+
 /** Analytics-only approximation of the picked env's shared resources, GPU types, and price for the
  *  chosen GPU selection/duration. Not the constraint-aware allocation (@/components/hooks/use-
  *  inference-allocation) used to actually book the job — a rough estimate is fine for a capture prop. */
-function estimateSelectionForAnalytics(
+export function estimateSelectionForAnalytics(
   environment: ComputeEnvironment,
   tokenAddress: string,
   gpuSelection: GpuSelection,
   durationSeconds: number
-): { cpu: number; ram: number; disk: number; gpuCount: number; gpuTypes: string[]; price: number } {
+): InferenceSelectionEstimate {
   const resources = environment.resources ?? [];
   const cpu = resources.find((res) => res.type === 'cpu' || res.id === 'cpu');
   const ram = resources.find((res) => res.type === 'ram' || res.id === 'ram');
@@ -64,7 +74,11 @@ function estimateSelectionForAnalytics(
     gpuByDescription.set(key, [...(gpuByDescription.get(key) ?? []), gpu]);
   });
 
+  const prices = environment.fees?.[CHAIN_ID]?.find((fee) => fee.feeToken === tokenAddress)?.prices;
+  const priceFor = (id: string) => prices?.find((p) => p.id === id)?.price ?? 0;
+
   let gpuCount = 0;
+  let gpuPrice = 0;
   const gpuTypes: string[] = [];
   gpuByDescription.forEach((entries, key) => {
     const requested = gpuSelection[key];
@@ -74,16 +88,20 @@ function estimateSelectionForAnalytics(
       gpuCount += units;
       gpuTypes.push(key);
     }
+    // Price the same clamped quantity that `gpuCount` reports, spread over the group's entries in
+    // order — several entries can share a description, and each has its own price id.
+    let left = units;
+    entries.forEach((entry) => {
+      const take = Math.min(left, getAvailableAmount(entry));
+      gpuPrice += priceFor(entry.id) * take;
+      left -= take;
+    });
   });
-
-  const prices = environment.fees?.[CHAIN_ID]?.find((fee) => fee.feeToken === tokenAddress)?.prices;
-  const priceFor = (id: string) => prices?.find((p) => p.id === id)?.price ?? 0;
 
   const cpuAmount = getAvailableAmount(cpu);
   const ramAmount = getAvailableAmount(ram);
   const diskAmount = getAvailableAmount(disk);
   const minutes = durationSeconds / 60;
-  const gpuPrice = gpus.reduce((sum, gpu) => sum + priceFor(gpu.id) * (gpuSelection[gpu.description || 'GPU'] ?? 0), 0);
   const price =
     (priceFor('cpu') * cpuAmount + priceFor('ram') * ramAmount + priceFor('disk') * diskAmount + gpuPrice) * minutes;
 
@@ -105,7 +123,11 @@ type FilterFormValues = {
 type SelectInferenceEnvironmentProps = {
   /** Fired after an environment/token/gpu pick is committed to context. Receives the freshly-picked
    *  values so the caller can navigate with them without waiting for context state to settle. */
-  onEnvSelected: (picked: { peerId: string; envId: string; tokenAddress: string; gpuSelection: GpuSelection }) => void;
+  onEnvSelected: (
+    picked: { peerId: string; envId: string; tokenAddress: string; gpuSelection: GpuSelection },
+    /** Resources/GPU of the pick itself — context hasn't settled yet, so the caller cannot derive these. */
+    estimate: InferenceSelectionEstimate
+  ) => void;
   /** Which flow is using the picker — decides whether the engine selector is shown (see below). */
   flowType: InferenceFlowType;
 };
@@ -281,7 +303,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       flowType,
       branch,
     });
-    onEnvSelected({ peerId: node.id, envId, tokenAddress, gpuSelection });
+    onEnvSelected({ peerId: node.id, envId, tokenAddress, gpuSelection }, estimate);
   };
 
   return (

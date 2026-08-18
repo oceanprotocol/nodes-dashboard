@@ -4,7 +4,9 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
-import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
+import SelectInferenceEnvironment, {
+  InferenceSelectionEstimate,
+} from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
@@ -75,25 +77,31 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
 
   // `picked` carries the just-selected env/token/gpu when coming from an env card, because context
   // state hasn't settled yet in the same tick; the bottom-nav "Skip" path calls without it.
-  const goToNextStep = (picked?: {
-    peerId: string;
-    envId: string;
-    tokenAddress: string;
-    gpuSelection: GpuSelection;
-  }) => {
-    const gpuSelection = picked?.gpuSelection ?? selectedEnv?.gpuSelection ?? {};
-    const gpuCount = Object.values(gpuSelection).reduce((sum, n) => sum + n, 0);
-    const cpu = selectedEnv?.environment.resources?.find((res) => res.type === 'cpu' || res.id === 'cpu');
-    const ram = selectedEnv?.environment.resources?.find((res) => res.type === 'ram' || res.id === 'ram');
-    const disk = selectedEnv?.environment.resources?.find((res) => res.type === 'disk' || res.id === 'disk');
+  const goToNextStep = (
+    picked?: {
+      peerId: string;
+      envId: string;
+      tokenAddress: string;
+      gpuSelection: GpuSelection;
+    },
+    // Resources of the allocation just picked. Comes from the picker because `selectedEnv` still holds
+    // the previous env this tick — deriving from it would report the wrong (or no) hardware.
+    estimate?: InferenceSelectionEstimate
+  ) => {
+    // Skip path only: no pick to describe, so fall back to the settled env's capacity.
+    const envResources = selectedEnv?.environment.resources;
+    const capacityOf = (type: string) => envResources?.find((res) => res.type === type || res.id === type)?.max;
+    const gpuCount =
+      estimate?.gpuCount ?? Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, n) => sum + n, 0);
     const trackNextStep = (nextStep: 'config' | 'payment') => {
       posthog.capture('inference_resources_configured', {
         nodeId: picked?.peerId ?? selectedEnv?.nodeInfo.id,
         environmentId: picked?.envId ?? selectedEnv?.environment.id,
         gpuCount,
-        cpu: cpu?.max,
-        ram: ram?.max,
-        disk: disk?.max,
+        cpu: estimate?.cpu ?? capacityOf('cpu'),
+        ram: estimate?.ram ?? capacityOf('ram'),
+        disk: estimate?.disk ?? capacityOf('disk'),
+        gpuTypes: estimate?.gpuTypes,
         durationSeconds: jobDurationSeconds,
         flowType,
         nextStep,
