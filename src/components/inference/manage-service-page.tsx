@@ -496,7 +496,13 @@ const ManageServicePage: React.FC = () => {
   // expiry check: extend does `expiresAt += additionalDuration` with no past-expiry guard of its own,
   // so a service still reading Running while past expiresAt (expiry-cron lag) would charge the user
   // and land on a new expiresAt that is still in the past — paying for zero runtime.
-  const canProlong = !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken;
+  // Prolong prices the extra runtime off the resources the service HOLDS, which only `bookedResources`
+  // (the node's own job record) can tell us when the page was opened from the services table — its
+  // Manage link carries no `gpus`/`res`, so the hydrated selection is empty and would expand to a
+  // whole-env slice at payment. Without a resource record there is nothing correct to price against,
+  // so hold the action rather than quote (and escrow) every free GPU in the env.
+  const canProlong =
+    !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken && !!bookedResources;
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
