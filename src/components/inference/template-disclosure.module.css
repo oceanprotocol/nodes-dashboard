@@ -82,7 +82,7 @@
 
 /* Content that is itself a panel (the manifest list) provides its own padding. */
 .contentPanel {
-  padding: 6px 0;
+  padding: 8px 16px;
   border-radius: 12px;
   background: var(--background-primary);
   box-shadow: inset 0 0 0 1px var(--border-glass);
