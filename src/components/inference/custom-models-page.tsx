@@ -6,16 +6,20 @@ import InferenceStepper from '@/components/inference/inference-stepper';
 import ModelCard from '@/components/inference/model-card';
 import Input from '@/components/input/input';
 import Select, { SelectOption } from '@/components/input/select';
+import Modal from '@/components/modal/modal';
 import SectionTitle from '@/components/section-title/section-title';
+import config from '@/config';
 import { useInferenceContext } from '@/context/inference-context';
 import {
   DEFAULT_MODEL_SORT,
   FALLBACK_PIPELINE_TAGS,
   fetchHuggingFaceModels,
   fetchPipelineTags,
+  getModelShortName,
   ModelSort,
   PipelineTag,
 } from '@/services/huggingface-service';
+import { getModelCompatibility, IncompatibilityKind, ModelCompatibility } from '@/services/model-compatibility';
 import { HuggingFaceModel } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -28,6 +32,28 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './custom-models-page.module.css';
 
 const VISIBLE_TAG_COUNT = 9;
+
+/**
+ * What to tell the user per rejection kind — each ends mid-sentence, so the Discord link completes it.
+ * Split by kind because the useful next step genuinely differs: media models have somewhere else to
+ * go, embeddings/classifiers need a runtime we don't offer, and a packaging problem may be fixable by
+ * finding another copy of the same model.
+ */
+const REJECTION_HINTS: Record<IncompatibilityKind, string> = {
+  // Has a real destination — ComfyUI and friends are already published as services.
+  'generative-media':
+    'Image, audio and video models run on engines like ComfyUI instead — pick one, then add this model from its own UI. If none of them fit,',
+  // Servable in principle, but by TEI/Infinity-style runtimes we don't offer, and not over the
+  // chat/completions endpoint everything downstream of here assumes.
+  'non-generative':
+    'Embedding, ranking and classification models need a different kind of server than the ones we run. If you’d find that useful,',
+  // The weights, not the task: another publisher's copy of the same model may load fine, so point at
+  // that before treating it as unsupported.
+  'unsupported-library':
+    'The task may be fine — it’s the packaging vLLM and llama.cpp can’t load. A transformers-format copy of the same model usually works, so it is worth searching for one. If there isn’t any,',
+  // Neither servable nor clearly categorised — the honest answer is "tell us".
+  'unsupported-task': 'This isn’t a task we serve today. If it would be useful for your use case,',
+};
 
 const SORT_OPTIONS: SelectOption<ModelSort>[] = [
   { value: 'trendingScore', label: 'Trending' },
@@ -54,7 +80,18 @@ const CustomModelsPage: React.FC = () => {
    * deselects it. selectSingleModel also prunes the previous model's committed params, so
    * A → B → A can't restore A's stale launch settings.
    */
+  // Models the text engines can't serve are refused here rather than in the engine dropdown: the
+  // config step's launch flags are meaningless for a diffusion/embedding model, so blocking at
+  // selection avoids leading the user into a form that can never produce a working launch.
+  const [rejected, setRejected] = useState<{ model: HuggingFaceModel; compatibility: ModelCompatibility } | null>(null);
+
   const selectModel = (model: HuggingFaceModel) => {
+    const compatibility = getModelCompatibility(model);
+    if (!compatibility.supported) {
+      setRejected({ model, compatibility });
+      return;
+    }
+    setRejected(null);
     selectSingleModel(model);
   };
   // Edit mode skips env step (same env) → straight to config on Continue.
@@ -325,6 +362,33 @@ const CustomModelsPage: React.FC = () => {
           onRemoveModel={selectModel}
         />
       </div>
+
+      {/* Unsupported pick — explains why, and routes media models to the flow that can serve them. */}
+      <Modal isOpen={!!rejected} onClose={() => setRejected(null)} title="Model not supported" width="xs" fullWidth>
+        {rejected && !rejected.compatibility.supported && (
+          <>
+            <p className={styles.rejectedModel}>{getModelShortName(rejected.model.id)}</p>
+            <p className={styles.rejectedReason}>{rejected.compatibility.reason}</p>
+            <p className={cx(styles.rejectedHint, 'textSecondary')}>
+              {REJECTION_HINTS[rejected.compatibility.kind]}{' '}
+              <a className="textAccent1" href={config.socialMedia.discord} rel="noreferrer" target="_blank">
+                reach us on Discord
+              </a>
+              .
+            </p>
+            <div className="actionsGroupMdEnd">
+              {rejected.compatibility.kind === 'generative-media' && (
+                <Button color="accent1" href="/inference/services" size="md" variant="outlined">
+                  Browse services
+                </Button>
+              )}
+              <Button color="accent1" onClick={() => setRejected(null)} size="md" type="button" variant="filled">
+                Pick another model
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
     </Container>
   );
 };
