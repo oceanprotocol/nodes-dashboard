@@ -62,6 +62,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
           totalCost,
           tokenSymbol: selectedToken.symbol,
           tokenAddress: selectedToken.address,
+          flow: 'run-job',
         });
       }
       router.push({ pathname: '/run-job/summary', query: router.query });
@@ -73,6 +74,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
   const handleSubmit = useCallback(
     () =>
       handlePay({
+        flow: 'run-job',
         tokenAddress: selectedToken.address,
         peerId: selectedEnv.nodeId,
         spender: selectedEnv.consumerAddress,

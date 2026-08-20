@@ -8,13 +8,14 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
 import { detectEngine, modelIdFromCommand } from '@/services/inference-launch';
 import { fetchTemplates, matchTemplateForService, TemplateMatch } from '@/services/service-templates';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, isBundle } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import { ServiceJob } from '@oceanprotocol/lib';
 import axios from 'axios';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './existing-services-table.module.css';
 
@@ -223,6 +224,17 @@ const ExistingServicesTable: React.FC = () => {
     // Matched at all (even ambiguously) ⇒ a template run, which has no HF model to seed.
     const modelId = match?.template ? null : modelIdFromSession(session);
     const token = session.payment?.token;
+    // Re-entry to an already-running service: a matched template tells template vs service apart via
+    // isBundle, same as elsewhere. A plain model service (no match) can't be told apart from quickstart
+    // after the fact, so it's recorded as 'custom'.
+    const branch = template ? (isBundle(template) ? 'template' : 'service') : 'custom';
+    posthog.capture('inference_service_reopened', {
+      serviceId: session.serviceId,
+      nodeId: session.peerId,
+      ...(template ? { templateId: template.id } : {}),
+      ...(modelId ? { modelId } : {}),
+      branch,
+    });
     router.push({
       pathname: `/inference/instances/${encodeURIComponent(session.serviceId)}`,
       query: {

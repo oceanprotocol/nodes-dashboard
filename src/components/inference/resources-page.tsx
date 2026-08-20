@@ -4,14 +4,18 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
-import SelectInferenceEnvironment from '@/components/inference/select-inference-environment';
+import SelectInferenceEnvironment, {
+  InferenceSelectionEstimate,
+} from '@/components/inference/select-inference-environment';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
+import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import posthog from 'posthog-js';
+import { useEffect, useMemo } from 'react';
 
 const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const router = useRouter();
@@ -25,12 +29,14 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     selectedModels,
     selectedEnv,
     selectedTemplate,
+    jobDurationSeconds,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
   } = useInferenceContext();
   // Computed once — reused by the stepper and the next-step routing below.
   const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
+  const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
   // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
   // when hydration outright failed, where we show a retry instead of discarding the URL.
@@ -71,14 +77,41 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
 
   // `picked` carries the just-selected env/token/gpu when coming from an env card, because context
   // state hasn't settled yet in the same tick; the bottom-nav "Skip" path calls without it.
-  const goToNextStep = (picked?: {
-    peerId: string;
-    envId: string;
-    tokenAddress: string;
-    gpuSelection: GpuSelection;
-  }) => {
+  const goToNextStep = (
+    picked?: {
+      peerId: string;
+      envId: string;
+      tokenAddress: string;
+      gpuSelection: GpuSelection;
+    },
+    // Resources of the allocation just picked. Comes from the picker because `selectedEnv` still holds
+    // the previous env this tick — deriving from it would report the wrong (or no) hardware.
+    estimate?: InferenceSelectionEstimate
+  ) => {
+    // Skip path only: no pick to describe, so fall back to the settled env's capacity.
+    const envResources = selectedEnv?.environment.resources;
+    const capacityOf = (type: string) => envResources?.find((res) => res.type === type || res.id === type)?.max;
+    const gpuCount =
+      estimate?.gpuCount ?? Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, n) => sum + n, 0);
+    const trackNextStep = (nextStep: 'config' | 'payment') => {
+      posthog.capture('inference_resources_configured', {
+        nodeId: picked?.peerId ?? selectedEnv?.nodeInfo.id,
+        environmentId: picked?.envId ?? selectedEnv?.environment.id,
+        gpuCount,
+        cpu: estimate?.cpu ?? capacityOf('cpu'),
+        ram: estimate?.ram ?? capacityOf('ram'),
+        disk: estimate?.disk ?? capacityOf('disk'),
+        gpuTypes: estimate?.gpuTypes,
+        durationSeconds: jobDurationSeconds,
+        flowType,
+        nextStep,
+        skipped: !picked,
+        branch,
+      });
+    };
     switch (flowType) {
       case InferenceFlowType.CustomModel: {
+        trackNextStep('config');
         router.push({
           pathname: '/inference/custom-models/config',
           query: { ...router.query, ...buildSelectionQuery(picked) },
@@ -92,6 +125,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         // Pin recommended CPU/RAM/disk into the URL either way (re-hydrated from the query on arrival).
         const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
         const nextStep = needsConfigStep ? 'config' : 'payment';
+        trackNextStep(nextStep);
         router.push({
           pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${nextStep}`,
           query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },

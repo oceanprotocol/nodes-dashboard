@@ -5,17 +5,22 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
+import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
+import { captureError } from '@/lib/analytics';
+import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { INFERENCE_ENGINE_OPTIONS } from '@/services/huggingface-service';
-import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
+import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceEngine } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
+import { getAvailableAmount } from '@/utils/resources';
 import { useFormik } from 'formik';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
@@ -38,6 +43,71 @@ function isBookableEnv(env: ComputeEnvironment): boolean {
   return getEnvSupportedTokens(env, true).length > 0;
 }
 
+/** Resource/GPU/price shape captured on the inference analytics events. */
+export type InferenceSelectionEstimate = {
+  cpu: number;
+  ram: number;
+  disk: number;
+  gpuCount: number;
+  gpuTypes: string[];
+  price: number;
+};
+
+/** Analytics-only approximation of the picked env's shared resources, GPU types, and price for the
+ *  chosen GPU selection/duration. Not the constraint-aware allocation (@/components/hooks/use-
+ *  inference-allocation) used to actually book the job — a rough estimate is fine for a capture prop. */
+export function estimateSelectionForAnalytics(
+  environment: ComputeEnvironment,
+  tokenAddress: string,
+  gpuSelection: GpuSelection,
+  durationSeconds: number
+): InferenceSelectionEstimate {
+  const resources = environment.resources ?? [];
+  const cpu = resources.find((res) => res.type === 'cpu' || res.id === 'cpu');
+  const ram = resources.find((res) => res.type === 'ram' || res.id === 'ram');
+  const disk = resources.find((res) => res.type === 'disk' || res.id === 'disk');
+  const gpus = resources.filter((res) => res.type === 'gpu' || res.id === 'gpu');
+
+  const gpuByDescription = new Map<string, ComputeResource[]>();
+  gpus.forEach((gpu) => {
+    const key = gpu.description || 'GPU';
+    gpuByDescription.set(key, [...(gpuByDescription.get(key) ?? []), gpu]);
+  });
+
+  const prices = environment.fees?.[CHAIN_ID]?.find((fee) => fee.feeToken === tokenAddress)?.prices;
+  const priceFor = (id: string) => prices?.find((p) => p.id === id)?.price ?? 0;
+
+  let gpuCount = 0;
+  let gpuPrice = 0;
+  const gpuTypes: string[] = [];
+  gpuByDescription.forEach((entries, key) => {
+    const requested = gpuSelection[key];
+    const available = entries.reduce((sum, entry) => sum + getAvailableAmount(entry), 0);
+    const units = requested === undefined ? available : Math.min(Math.max(requested, 0), available);
+    if (units > 0) {
+      gpuCount += units;
+      gpuTypes.push(key);
+    }
+    // Price the same clamped quantity that `gpuCount` reports, spread over the group's entries in
+    // order — several entries can share a description, and each has its own price id.
+    let left = units;
+    entries.forEach((entry) => {
+      const take = Math.min(left, getAvailableAmount(entry));
+      gpuPrice += priceFor(entry.id) * take;
+      left -= take;
+    });
+  });
+
+  const cpuAmount = getAvailableAmount(cpu);
+  const ramAmount = getAvailableAmount(ram);
+  const diskAmount = getAvailableAmount(disk);
+  const minutes = durationSeconds / 60;
+  const price =
+    (priceFor('cpu') * cpuAmount + priceFor('ram') * ramAmount + priceFor('disk') * diskAmount + gpuPrice) * minutes;
+
+  return { cpu: cpuAmount, ram: ramAmount, disk: diskAmount, gpuCount, gpuTypes, price };
+}
+
 const sortOptions = [
   { label: 'Best score', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
   { label: 'Cheapest', value: JSON.stringify({ price: 'asc' }) },
@@ -53,7 +123,11 @@ type FilterFormValues = {
 type SelectInferenceEnvironmentProps = {
   /** Fired after an environment/token/gpu pick is committed to context. Receives the freshly-picked
    *  values so the caller can navigate with them without waiting for context state to settle. */
-  onEnvSelected: (picked: { peerId: string; envId: string; tokenAddress: string; gpuSelection: GpuSelection }) => void;
+  onEnvSelected: (
+    picked: { peerId: string; envId: string; tokenAddress: string; gpuSelection: GpuSelection },
+    /** Resources/GPU of the pick itself — context hasn't settled yet, so the caller cannot derive these. */
+    estimate: InferenceSelectionEstimate
+  ) => void;
   /** Which flow is using the picker — decides whether the engine selector is shown (see below). */
   flowType: InferenceFlowType;
 };
@@ -69,11 +143,14 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     setSelectedToken,
     engine,
     setEngine,
+    selectedTemplate,
   } = useInferenceContext();
 
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
   // min/max job-duration window. Cleared on the next valid pick or duration change.
   const [durationError, setDurationError] = useState<string | null>(null);
+
+  const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
   // The engine (vLLM / llama.cpp) picks the container image, port and command for a custom-model
   // launch. A template ships its own image and command, so there is nothing for the user to choose —
@@ -174,6 +251,15 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       toast.error(
         `The selected duration (${formatDuration(jobDurationSeconds)}) is outside the bounds for this environment (${rangeText}).`
       );
+      captureError('inference_environment_select_failed', new Error('duration_outside_env_bounds'), {
+        stage: 'duration_bounds',
+        duration_seconds: jobDurationSeconds,
+        min_seconds: min,
+        max_seconds: Number.isFinite(max) ? max : null,
+        environment_id: environment.id,
+        node_id: node.id,
+        branch,
+      });
       if (jobDurationSeconds < min) {
         setDurationError(`This environment needs at least ${formatDuration(min)}. Increase the duration above.`);
         return;
@@ -200,7 +286,24 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       },
     });
     setSelectedToken({ address: tokenAddress, symbol: tokenSymbol });
-    onEnvSelected({ peerId: node.id, envId, tokenAddress, gpuSelection });
+    const estimate = estimateSelectionForAnalytics(environment, tokenAddress, gpuSelection, jobDurationSeconds);
+    posthog.capture('inference_environment_selected', {
+      nodeId: node.id,
+      environmentId: envId,
+      tokenSymbol,
+      tokenAddress,
+      gpuCount: estimate.gpuCount,
+      gpuTypes: estimate.gpuTypes,
+      cpu: estimate.cpu,
+      ram: estimate.ram,
+      disk: estimate.disk,
+      price: estimate.price,
+      durationSeconds: jobDurationSeconds,
+      sizing: selectedEnv?.sizing,
+      flowType,
+      branch,
+    });
+    onEnvSelected({ peerId: node.id, envId, tokenAddress, gpuSelection }, estimate);
   };
 
   return (
