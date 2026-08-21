@@ -112,7 +112,12 @@ export const formatWalletAddress = (address: string): string => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-const formatHMS = (sec: number): string => {
+/**
+ * Seconds as HH:MM:SS. Clamped at zero so a live countdown that momentarily reads negative (the
+ * local tick can run a hair past the authoritative deadline) renders 00:00:00 rather than -00:00:01.
+ */
+export const formatHMS = (totalSeconds: number): string => {
+  const sec = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
