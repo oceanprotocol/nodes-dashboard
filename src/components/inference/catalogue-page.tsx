@@ -6,14 +6,17 @@ import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-tem
 import CatalogueBrowser from '@/components/inference/catalogue-browser';
 import { CatalogueConfig } from '@/components/inference/catalogue-config';
 import InferenceStepper from '@/components/inference/inference-stepper';
+import { templateHardware, templateVendor } from '@/components/inference/template-visual';
 import TemplateDetailsModal from '@/components/inference/template-details-modal';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
+import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, isBundle } from '@/types/templates';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 
 /**
@@ -56,6 +59,16 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
   const openDetails = (tpl: AppTemplate) => {
     setOpenTemplate(tpl);
     setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+    posthog.capture('inference_template_selected', {
+      templateId: tpl.id,
+      templateName: tpl.name ?? tpl.id,
+      category: tpl.category,
+      gpu: templateHardware(tpl).gpu,
+      vendor: templateVendor(tpl.image),
+      isBundle: isBundle(tpl),
+      durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
+      branch: resolveInferenceBranch(InferenceFlowType.Template, tpl),
+    });
   };
 
   /**

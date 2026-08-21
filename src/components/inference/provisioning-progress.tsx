@@ -1,13 +1,16 @@
-import { NodeUri } from '@/contexts/P2PContext';
 import { useNodeTokensContext } from '@/context/node-tokens';
+import { NodeUri } from '@/contexts/P2PContext';
 import { useServiceLogs } from '@/hooks/use-service-logs';
 import { parseProvisioning } from '@/services/provisioning-log';
+import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import posthog from 'posthog-js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './provisioning-progress.module.css';
 
 type ProvisioningProgressProps = {
@@ -80,6 +83,14 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
     setCompleted(false);
   }, [serviceId, active]);
 
+  // Guards inference_provisioning_completed against firing twice for the same run: reset whenever
+  // serviceId changes (a new run) so it can fire again, keyed off the ref rather than `completed`
+  // state so the reset above (same commit as a stale completion) can't race it.
+  const completedReportedRef = useRef<string | null>(null);
+  useEffect(() => {
+    completedReportedRef.current = null;
+  }, [serviceId]);
+
   useEffect(() => {
     if (state.complete) {
       setCompleted(true);
@@ -90,6 +101,22 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
   // Trust whichever count is larger: a template whose `includes` is out of date with its script
   // shouldn't produce "5/3 models".
   const total = Math.max(expected, finished);
+
+  useEffect(() => {
+    if (state.complete && completedReportedRef.current !== serviceId) {
+      completedReportedRef.current = serviceId;
+      posthog.capture('inference_provisioning_completed', {
+        // Only bundles provision, so this is always 'template' — resolved rather than hardcoded so
+        // it stays correct if a bare service ever gains a provisioning step.
+        branch: resolveInferenceBranch(InferenceFlowType.Template, template),
+        serviceId,
+        templateId: template.id,
+        doneCount: state.done.length,
+        failedCount: state.failed.length,
+        total,
+      });
+    }
+  }, [state.complete, serviceId, template, state.done.length, state.failed.length, total]);
 
   // `completed` keeps the panel hidden once the stream is closed, without depending on the last
   // buffered lines still being around to re-derive state.complete from.

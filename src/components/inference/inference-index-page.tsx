@@ -8,7 +8,14 @@ import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import WidgetsOutlinedIcon from '@mui/icons-material/WidgetsOutlined';
 import classNames from 'classnames';
+import posthog from 'posthog-js';
 import styles from './inference-index-page.module.css';
+
+type EntryBranch = 'custom' | 'default' | 'services' | 'templates';
+
+const trackEntry = (branch: EntryBranch) => {
+  posthog.capture('inference_flow_started', { branch });
+};
 
 const InferenceIndexPage: React.FC = () => {
   return (
@@ -35,10 +42,20 @@ const InferenceIndexPage: React.FC = () => {
               </div>
             </div>
             <div className={styles.cardActions}>
-              <Button color="accent1" href="/inference/custom-models" variant="outlined">
+              <Button
+                color="accent1"
+                href="/inference/custom-models"
+                onClick={() => trackEntry('custom')}
+                variant="outlined"
+              >
                 Custom
               </Button>
-              <Button color="accent1" href="/inference/default-models" variant="filled">
+              <Button
+                color="accent1"
+                href="/inference/default-models"
+                onClick={() => trackEntry('default')}
+                variant="filled"
+              >
                 Curated
               </Button>
             </div>
@@ -62,7 +79,13 @@ const InferenceIndexPage: React.FC = () => {
               </div>
             </div>
             <div className={styles.cardActions}>
-              <Button contentAfter={<ArrowForwardIcon />} color="accent1" href="/inference/services" variant="outlined">
+              <Button
+                contentAfter={<ArrowForwardIcon />}
+                color="accent1"
+                href="/inference/services"
+                onClick={() => trackEntry('services')}
+                variant="outlined"
+              >
                 Browse services
               </Button>
             </div>
@@ -90,6 +113,7 @@ const InferenceIndexPage: React.FC = () => {
                 contentAfter={<ArrowForwardIcon />}
                 color="accent1"
                 href="/inference/templates"
+                onClick={() => trackEntry('templates')}
                 variant="outlined"
               >
                 Browse templates

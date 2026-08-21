@@ -13,6 +13,7 @@ import { SelectedToken } from '@/context/run-job-context';
 import { InferenceFlowType, InferencePackage } from '@/types/inference';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import styles from './default-models-page.module.css';
 
@@ -61,6 +62,12 @@ const DefaultModelsPage: React.FC = () => {
   const selectPackage = (pkg: InferencePackage) => {
     setSelectedPackage(pkg);
     setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+    posthog.capture('inference_package_selected', {
+      packageId: pkg.id,
+      engine: pkg.params.engine,
+      durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
+      branch: 'quickstart',
+    });
   };
 
   const envs = usePackageEnvs(selectedPackage);

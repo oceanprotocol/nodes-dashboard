@@ -24,6 +24,7 @@ import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './custom-models-page.module.css';
 
@@ -49,16 +50,25 @@ const CustomModelsPage: React.FC = () => {
     hydrateFromUrlFinished,
   } = useInferenceContext();
 
+  // Edit mode skips env step (same env) → straight to config on Continue.
+  const isEditMode = router.query.edit === '1';
   /**
    * Single-model flow: selecting a model REPLACES the selection. Clicking the selected model
    * deselects it. selectSingleModel also prunes the previous model's committed params, so
    * A → B → A can't restore A's stale launch settings.
    */
   const selectModel = (model: HuggingFaceModel) => {
+    const deselected = isModelSelected(model.id);
     selectSingleModel(model);
+    posthog.capture('inference_model_selected', {
+      modelId: model.id,
+      pipelineTag: model.pipelineTag,
+      source: 'custom',
+      isEditMode,
+      deselected,
+      branch: 'custom',
+    });
   };
-  // Edit mode skips env step (same env) → straight to config on Continue.
-  const isEditMode = router.query.edit === '1';
   // Fresh entry (no `models` in URL): clear leftover selection. Back-nav carries `models`, so preserved.
   const freshEntryHandledRef = useRef(false);
   // Model the user arrived in edit mode with. Frozen once on entry: it stays pinned to the top of
@@ -131,6 +141,15 @@ const CustomModelsPage: React.FC = () => {
         if (!cancelled) {
           setModels(data);
           setNextCursor(cursor);
+          if (query) {
+            posthog.capture('inference_models_searched', {
+              queryLength: query.length,
+              resultCount: data.length,
+              tag: activeTag ?? undefined,
+              sort,
+              branch: 'custom',
+            });
+          }
         }
       } catch (err) {
         if (!cancelled) {
