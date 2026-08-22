@@ -1,0 +1,401 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  /* Section headings ride the global h5 scale on the page; inside a `width="md"` modal that outweighs
+     the readings underneath them. */
+  &.compactRoot h5 {
+    font-size: 13px;
+  }
+}
+
+/* Title on the left with the freshness line beneath it, the details toggle pinned right — so the
+   control sits on the same line as the heading it governs rather than trailing the card. */
+.header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  /* The heading arrives as JSX from the call site (h3, strong, …), so its own margins are whatever
+     that element carries — reset them here and let the flex gap set the rhythm. */
+  > :first-child {
+    margin: 0;
+  }
+}
+
+.toggle {
+  flex: 0 0 auto;
+}
+
+.toggleIcon {
+  font-size: 18px;
+  transition: transform 0.2s ease;
+
+  /* The chevron is the state indicator, so it turns with the region it opens. */
+  &.toggleIconOpen {
+    transform: rotate(180deg);
+  }
+}
+
+/* Both Collapse regions live here rather than as siblings of the header: a collapsed Collapse still
+   occupies a flex slot at height 0, so the root's `gap` was applied twice — doubling the space between
+   the title and the content. */
+.regions {
+  min-width: 0;
+}
+
+/* The collapsed region's own stack — Collapse owns the height animation, so the spacing lives here
+   rather than on the panel root (whose `gap` would otherwise apply to a zero-height wrapper). */
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  /* "General" labels the gauge grid immediately below it, so it hugs its own section rather than
+     sitting midway between two. */
+  > h5 {
+    margin-bottom: -8px;
+  }
+}
+
+/* Collapsed summary — four bars where the expanded view draws four arcs. No cards: at this density
+   the chrome would outweigh the readings, and the whole point is one glanceable row. */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: 24px;
+  row-gap: 12px;
+
+  &.compact {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    column-gap: 16px;
+  }
+}
+
+/* Resource icons — same vocabulary and accent as the environment card's, so a disk means a disk
+   across the page. */
+.resourceIcon {
+  color: var(--accent1);
+  flex: 0 0 auto;
+  font-size: 16px;
+  height: 16px;
+  width: 16px;
+}
+
+.gaugeTitle {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.freshness {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Tracks are `1fr`, NOT capped: a capped track leaves the row's leftover width unallocated, which
+   parked 3 cards on one row and stranded the 4th on its own with dead space beside it. Cards fill
+   their row at every width; what needs bounding is the artwork inside them, not the card. */
+.gaugesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* Equal-height cards per row — required for the bottom-aligned trends to share a baseline. */
+  align-items: stretch;
+  gap: 8px;
+
+  /* Compact (modal) variant — tighter columns and gap so a 2-3 up grid stays readable in a `width="md"` modal. */
+  &.compact {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    column-gap: 12px;
+    row-gap: 12px;
+  }
+}
+
+.gaugeItem {
+  align-items: center;
+  /* Card only sets display:flex when given a `direction`; this needs the column either way. */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+
+  /* The card fills its grid track, but the arc draws at 176px — so the trend beneath it is capped and
+     centred to the arc's width rather than stretched to the card's, and pinned to the card's bottom so
+     trends across a row share one baseline regardless of what sits above them (the CPU card carries a
+     HardwareLabel the others don't). Applied to the Collapse wrapper, which is the actual flex child. */
+  .sparklineWrap {
+    margin-top: auto;
+    max-width: 176px;
+  }
+}
+
+/* Per-device GPU detail — one card per device rather than one full-width row. Tracks are `1fr` so
+   cards always fill their row (a capped track stranded the last card with dead space beside it), and
+   the bars inside are capped instead: a bar stretched the width of the panel reads as a rule, since
+   the fill's end lands nowhere near the number it belongs to. `auto-fill` with a 260px floor holds
+   1 device or 8 without branching on the count. */
+.gpuSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--background-glass-secondary);
+  padding-top: 16px;
+
+  .gpuList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    /* Equal height, so a device carrying a Shared chip doesn't sit taller than the rest of its row. */
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .gpuCard {
+    min-width: 0;
+  }
+
+  .gpuId {
+    color: var(--text-secondary);
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gpuBars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    /* The Card's own edge separates devices now, so no internal rule is needed. */
+    padding-top: 2px;
+    /* Bounded so a card that stretched to fill a wide row doesn't stretch its bars with it. */
+    max-width: 320px;
+  }
+
+  .gpuCardFoot {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+
+    /* Bottom-pinned: a device with no chip and no thermal reading leaves the space empty rather than
+       pulling its bars out of line with the neighbouring cards. */
+    margin-top: auto;
+    padding-top: 2px;
+  }
+
+  .gpuThermal {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Dense modal variant: single column, tighter rhythm. */
+  &.compact {
+    padding-top: 12px;
+    gap: 8px;
+
+    .gpuList {
+      grid-template-columns: 1fr;
+      row-gap: 14px;
+    }
+
+    .gpuBars {
+      gap: 8px;
+    }
+  }
+}
+
+/* Phones: one card per row, full width — a capped track would leave dead space beside it. */
+@media (max-width: 600px) {
+  .gpuSection .gpuList,
+  .gaugesGrid {
+    grid-template-columns: 1fr;
+    row-gap: 16px;
+  }
+}
+
+.bar {
+  /* The peak tick is absolutely positioned against the ProgressBar's track. */
+  position: relative;
+
+  .barLabel {
+    align-items: center;
+    color: var(--text-secondary);
+    display: inline-flex;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .barValue {
+    font-size: 13px;
+    font-weight: 600;
+    /* Keeps the numbers in a column of rows from jittering as digits change. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  .barDetail {
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+  /* ProgressBar owns the track and the label rows; only the severity color is ours. It paints the MUI
+     fill by class, matching how the duration bar on the manage page recolors itself. */
+  .barProgress {
+    :global(.MuiLinearProgress-bar) {
+      background: var(--accent1);
+    }
+
+    &.barWarning :global(.MuiLinearProgress-bar) {
+      background: var(--warning);
+    }
+
+    &.barDanger :global(.MuiLinearProgress-bar) {
+      background: var(--error);
+    }
+  }
+
+  /* Highest value seen this session — same meaning as the gauges' peak tick. Positioned against the
+     bar as a whole, so it needs the track's own offset from the top of the component. */
+  .barPeak {
+    background: var(--text-secondary);
+    height: 16px;
+    position: absolute;
+    top: 20px;
+    transform: translateX(-1px);
+    width: 2px;
+  }
+}
+
+/* HardwareLabel is sized for table cells; under a gauge it needs to center and wrap. */
+.hardwareLabel {
+  font-size: 12px;
+  justify-content: center;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+/* On a GPU card the device name is the heading, so it carries heading weight. */
+.gpuCard .hardwareLabel {
+  font-size: 14px;
+  font-weight: 600;
+  justify-content: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.sparklineWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  /* The gauge's center value/label sits absolutely below its arc, so the trend needs its own clearance. */
+  padding-top: 16px;
+
+  .sparkline {
+    height: 24px;
+    width: 100%;
+  }
+
+  .sparklineLabel {
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-align: center;
+  }
+}
+
+.signalsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Steady-state counters. Same section rhythm as the gauges and the per-GPU list (rule + heading), and
+   the same column grid, so the readings line up under the arcs instead of trailing off the bottom of
+   the card as loose pills. */
+.statsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--background-glass-secondary);
+  padding-top: 16px;
+
+  .statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    column-gap: 32px;
+    row-gap: 16px;
+  }
+
+  &.compact {
+    padding-top: 12px;
+    gap: 8px;
+
+    .statsGrid {
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      column-gap: 16px;
+      row-gap: 12px;
+    }
+  }
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  .statLabel {
+    align-items: center;
+    color: var(--text-secondary);
+    display: flex;
+    font-size: 11px;
+    gap: 4px;
+    line-height: 1.2;
+  }
+
+  .statValue {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    /* A grid of readings that all change on the same poll can't be allowed to reflow column widths. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The denominator in "219 / 4.1K" — present, but not what the eye should land on. */
+  .statValueMuted {
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
+
+  /* in/out and read/write: the direction key sits in a fixed column so both values start together. */
+  .statPair {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .statPairRow {
+      align-items: baseline;
+      display: flex;
+      gap: 8px;
+    }
+
+    .statPairKey {
+      color: var(--text-secondary);
+      font-size: 11px;
+      flex: 0 0 34px;
+    }
+  }
+}
