@@ -13,10 +13,13 @@ import { CHAIN_ID } from '@/constants/chains';
 import { useInferenceContext } from '@/context/inference-context';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
+import { captureError } from '@/lib/analytics';
+import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
+import { decodeGpuSelection, decodeResourceSizing } from '@/services/inference-url';
 import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
@@ -27,6 +30,7 @@ import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './payment-page.module.css';
 
@@ -59,6 +63,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // The running service targeted by edit/prolong — set by the manage page when re-entering the flow.
   const targetServiceId = Array.isArray(router.query.serviceId) ? router.query.serviceId[0] : router.query.serviceId;
 
+  // Which of the four entry branches this session is in — carried on every inference event so each
+  // gets its own PostHog funnel. See resolveInferenceBranch for why it needs both flowType and template.
+  const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
+
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   // Synchronous re-entrancy guard for the launch handler. `launching`/the disabled button only take
@@ -77,18 +85,38 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Computed once — reused by the prev-step routing and the stepper below.
   const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
 
+  /**
+   * The allocation to price, URL first. The Provider mounts once and never remounts, so context's
+   * `selectedEnv` is only rewritten when the hydration signature (models/peerId/env/serviceId/template)
+   * changes — `gpus`/`res` are deliberately NOT in it. An edit/prolong re-entry changes only those two
+   * (the manage page puts the running service's BOOKED resources on the query, see selectionOverrides),
+   * so reading context here would price a prolong off whatever the manage page was hydrated with —
+   * `{}` when it was opened from the services table, which useInferenceAllocation reads as "no explicit
+   * request" and expands to a whole-env slice: every free GPU in the env, silently escrowed.
+   * The query is the fresher of the two whenever it carries a selection; context covers in-flow steps
+   * (resources → payment) that navigate without one.
+   */
+  const gpuSelection = useMemo(
+    () => decodeGpuSelection(router.query.gpus) ?? selectedEnv?.gpuSelection,
+    [router.query.gpus, selectedEnv?.gpuSelection]
+  );
+  const sizing = useMemo(
+    () => decodeResourceSizing(router.query.res) ?? selectedEnv?.sizing,
+    [router.query.res, selectedEnv?.sizing]
+  );
+
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
   // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv/token exist.
   const { allocation, price, selectedByKey } = useInferenceAllocation({
     environment: selectedEnv?.environment ?? ({ resources: [] } as any),
     tokenAddress: selectedToken?.address ?? '',
-    gpuSelection: selectedEnv?.gpuSelection,
+    gpuSelection,
     // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
     // slice at the package min; an edit/prolong re-entry carries the running service's `exact` booked
     // amounts (see parseServiceResources); undefined for a plain custom-flow slice. Keeps the
     // priced/escrowed allocation matching what the resources step — or the running service — showed.
-    sizing: selectedEnv?.sizing,
+    sizing,
     durationSeconds: jobDurationSeconds,
   });
 
@@ -122,13 +150,17 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // math as the run-job payment step, executed through the same Escrow.bundle path (usePaySession —
   // one bundle tx on EOAs, approve + bundle batched on smart accounts). No-op when the current
   // state already suffices; throws on failure so the launch is aborted.
-  const ensureEscrowForSelection = useCallback(async () => {
+  // Returns whether a deposit tx actually happened (false when escrow already covered the cost) —
+  // callers thread this into the launch success event as `escrowDeposited`.
+  const ensureEscrowForSelection = useCallback(async (): Promise<boolean> => {
     if (!selectedEnv || !selectedToken || totalCost <= 0) {
-      return;
+      return false;
     }
     const info = await loadPaymentInfo();
     if (!info) {
-      throw new Error('Failed to load payment info.');
+      const err = new Error('Failed to load payment info.') as Error & { stage?: string };
+      err.stage = 'escrow';
+      throw err;
     }
     const tokenAddress = selectedToken.address;
     const requirement = computeEscrowRequirement({
@@ -138,14 +170,17 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       requiredLockSeconds: escrowLockSeconds,
     });
     if (requirement.depositAmount <= 0 && requirement.sufficient) {
-      return;
+      return false;
     }
     if (requirement.insufficientWalletFunds) {
-      throw new Error(
+      const err = new Error(
         `Insufficient wallet balance: need ${requirement.depositAmount} more in escrow but only ${info.walletBalance} available.`
-      );
+      ) as Error & { stage?: string };
+      err.stage = 'escrow_balance';
+      throw err;
     }
     const paid = await handlePay({
+      flow: 'inference',
       tokenAddress,
       peerId: selectedEnv.nodeInfo.id,
       spender: selectedEnv.environment.consumerAddress,
@@ -155,8 +190,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       maxLockCount: requirement.maxLockCount.toString(),
     });
     if (!paid) {
-      throw new Error('Escrow payment was not completed.');
+      const err = new Error('Escrow payment was not completed.') as Error & { stage?: string };
+      err.stage = 'escrow';
+      throw err;
     }
+    return true;
   }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
@@ -261,10 +299,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const prolongService = useCallback(async () => {
     if (!targetServiceId || !selectedEnv || !selectedToken || !account.address) {
       setLaunchError('Selection incomplete — missing service, environment, token or wallet.');
+      captureError('inference_service_prolong_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
     if (jobDurationSeconds <= 0) {
       setLaunchError('Pick a duration greater than zero.');
+      captureError('inference_service_prolong_failed', new Error('duration_not_positive'), {
+        stage: 'duration_bounds',
+        branch,
+      });
       return;
     }
     // The node rejects an extension that pushes total runtime past its max (serviceExtend: 400
@@ -277,6 +320,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunchError(
         `The extra time exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter extension.`
       );
+      captureError('inference_service_prolong_failed', new Error('duration_exceeds_env_max'), {
+        stage: 'duration_bounds',
+        duration_seconds: jobDurationSeconds,
+        max_seconds: envMax,
+        branch,
+      });
       return;
     }
 
@@ -292,6 +341,14 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           token: selectedToken.address,
         })
       );
+      posthog.capture('inference_service_prolonged', {
+        serviceId: targetServiceId,
+        additionalSeconds: jobDurationSeconds,
+        totalCost,
+        tokenSymbol: selectedToken.symbol,
+        nodeId: selectedEnv.nodeInfo.id,
+        branch,
+      });
       router.push({
         pathname: `/inference/instances/${encodeURIComponent(targetServiceId)}`,
         query: buildManageQuery(),
@@ -299,6 +356,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     } catch (error) {
       console.error('Failed to prolong inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to prolong service.');
+      const stage = (error as Error & { stage?: string })?.stage ?? 'node_call';
+      captureError('inference_service_prolong_failed', error, { stage, branch });
     } finally {
       setLaunching(false);
     }
@@ -311,8 +370,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     jobDurationSeconds,
     ensureEscrowForSelection,
     serviceExtend,
+    totalCost,
     router,
     buildManageQuery,
+    branch,
   ]);
 
   // Edit relaunch: apply the new model/settings to the SAME running service via serviceRestart.
@@ -334,6 +395,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !targetServiceId && 'service id',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      captureError('inference_service_relaunch_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
 
@@ -350,6 +412,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
       }
+      posthog.capture('inference_service_relaunched', {
+        serviceId: job.serviceId,
+        mode: 'model_edit',
+        modelId: model.id,
+        engine: params.engine,
+        branch,
+      });
       router.push({
         pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
@@ -357,6 +426,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     } catch (error) {
       console.error('Failed to relaunch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
+      const stage = (error as Error & { stage?: string })?.stage ?? 'node_call';
+      captureError('inference_service_relaunch_failed', error, { stage, branch });
     } finally {
       setLaunching(false);
     }
@@ -371,6 +442,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     serviceRestart,
     router,
     buildManageQuery,
+    branch,
   ]);
 
   // Launch the service for real: single model on a vLLM instance. Escrow is prepared client-side
@@ -395,10 +467,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !account.address && 'wallet',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      captureError('inference_service_start_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
     if (jobDurationSeconds <= 0) {
       setLaunchError('Pick a duration greater than zero.');
+      captureError('inference_service_start_failed', new Error('duration_not_positive'), {
+        stage: 'duration_bounds',
+        branch,
+      });
       return;
     }
     // The node sets expiresAt = now + duration and rejects a window past the env's max.
@@ -409,6 +486,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunchError(
         `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
       );
+      captureError('inference_service_start_failed', new Error('duration_exceeds_env_max'), {
+        stage: 'duration_bounds',
+        duration_seconds: jobDurationSeconds,
+        max_seconds: envMax,
+        branch,
+      });
       return;
     }
 
@@ -417,7 +500,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     try {
       // The node locks the service cost in escrow right after start — deposit/authorize first if
       // the current escrow state can't cover it (one bundled tx on smart accounts).
-      await ensureEscrowForSelection();
+      const escrowDeposited = await ensureEscrowForSelection();
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
       const startParams = buildInferenceStartParams({
         model,
@@ -439,6 +522,24 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
       }
+      const gpuCount = Object.values(selectedByKey).reduce((sum, count) => sum + count, 0);
+      posthog.capture('inference_service_started', {
+        serviceId: job.serviceId,
+        mode: 'model_fresh',
+        modelId: model.id,
+        engine: params.engine,
+        nodeId: selectedEnv.nodeInfo.id,
+        environmentId: selectedEnv.environment.id,
+        branch,
+        gpuCount,
+        cpu: allocation.cpu,
+        ram: allocation.ram,
+        disk: allocation.disk,
+        durationSeconds: jobDurationSeconds,
+        totalCost,
+        tokenSymbol: selectedToken.symbol,
+        escrowDeposited,
+      });
       router.push({
         pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
@@ -446,6 +547,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     } catch (error) {
       console.error('Failed to launch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
+      const stage = (error as Error & { stage?: string })?.stage ?? 'node_call';
+      captureError('inference_service_start_failed', error, { stage, branch });
     } finally {
       setLaunching(false);
     }
@@ -462,8 +565,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     jobDurationSeconds,
     hfToken,
     serviceStart,
+    totalCost,
     router,
     buildManageQuery,
+    branch,
   ]);
 
   // Fresh launch of a template app (ComfyUI, …). Mirrors runFreshLaunch but sources the container spec
@@ -477,10 +582,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !account.address && 'wallet',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      captureError('inference_service_start_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
     if (jobDurationSeconds <= 0) {
       setLaunchError('Pick a duration greater than zero.');
+      captureError('inference_service_start_failed', new Error('duration_not_positive'), {
+        stage: 'duration_bounds',
+        branch,
+      });
       return;
     }
     const envMax = selectedEnv.environment.maxJobDuration;
@@ -488,6 +598,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunchError(
         `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
       );
+      captureError('inference_service_start_failed', new Error('duration_exceeds_env_max'), {
+        stage: 'duration_bounds',
+        duration_seconds: jobDurationSeconds,
+        max_seconds: envMax,
+        branch,
+      });
       return;
     }
 
@@ -498,24 +614,47 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // and can throw (e.g. CompressionStream unavailable on older Safari/Firefox) — independent of
       // escrow, so build first and let a failure here cost nothing.
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      const startParams = await buildTemplateStartParams({
-        template: selectedTemplate,
-        selectedEnv,
-        // Launch the exact per-type unit count that was priced/escrowed (see runFreshLaunch note).
-        gpuSelection: selectedByKey,
-        allocation,
-        durationSeconds: jobDurationSeconds,
-        tokenAddress: selectedToken.address,
-        envValues: templateEnvValues,
-        bucketId: selectedBucketId ?? undefined,
-      });
-      await ensureEscrowForSelection();
+      let startParams;
+      try {
+        startParams = await buildTemplateStartParams({
+          template: selectedTemplate,
+          selectedEnv,
+          // Launch the exact per-type unit count that was priced/escrowed (see runFreshLaunch note).
+          gpuSelection: selectedByKey,
+          allocation,
+          durationSeconds: jobDurationSeconds,
+          tokenAddress: selectedToken.address,
+          envValues: templateEnvValues,
+          bucketId: selectedBucketId ?? undefined,
+        });
+      } catch (buildError) {
+        (buildError as Error & { stage?: string }).stage = 'payload_build';
+        throw buildError;
+      }
+      const escrowDeposited = await ensureEscrowForSelection();
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
         serviceStart(nodeUri, token, startParams)
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
       }
+      const gpuCount = Object.values(selectedByKey).reduce((sum, count) => sum + count, 0);
+      posthog.capture('inference_service_started', {
+        serviceId: job.serviceId,
+        mode: 'template_fresh',
+        templateId: selectedTemplate.id,
+        nodeId: selectedEnv.nodeInfo.id,
+        environmentId: selectedEnv.environment.id,
+        gpuCount,
+        cpu: allocation.cpu,
+        ram: allocation.ram,
+        disk: allocation.disk,
+        durationSeconds: jobDurationSeconds,
+        totalCost,
+        tokenSymbol: selectedToken.symbol,
+        escrowDeposited,
+        branch,
+      });
       router.push({
         pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
@@ -523,6 +662,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     } catch (error) {
       console.error('Failed to launch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
+      const stage = (error as Error & { stage?: string })?.stage ?? 'node_call';
+      captureError('inference_service_start_failed', error, { stage, branch });
     } finally {
       setLaunching(false);
     }
@@ -539,8 +680,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     templateEnvValues,
     selectedBucketId,
     serviceStart,
+    totalCost,
     router,
     buildManageQuery,
+    branch,
   ]);
 
   // Edit relaunch for a template service: apply the selected template to the SAME running service via
@@ -558,6 +701,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !targetServiceId && 'service id',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      captureError('inference_service_relaunch_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
 
@@ -572,6 +716,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
       }
+      posthog.capture('inference_service_relaunched', {
+        serviceId: job.serviceId,
+        mode: 'template_edit',
+        templateId: selectedTemplate.id,
+        branch,
+      });
       router.push({
         pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
         query: buildManageQuery(),
@@ -579,6 +729,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     } catch (error) {
       console.error('Failed to relaunch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
+      const stage = (error as Error & { stage?: string })?.stage ?? 'node_call';
+      captureError('inference_service_relaunch_failed', error, { stage, branch });
     } finally {
       setLaunching(false);
     }
@@ -592,6 +744,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     serviceRestart,
     router,
     buildManageQuery,
+    branch,
   ]);
 
   const goToNextStep = useCallback(async () => {
@@ -601,6 +754,23 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       return;
     }
     launchInFlightRef.current = true;
+    const mode = isProlongMode
+      ? 'prolong'
+      : flowType === InferenceFlowType.Template
+        ? isEditMode
+          ? 'template_edit'
+          : 'template_fresh'
+        : isEditMode
+          ? 'model_edit'
+          : 'model_fresh';
+    posthog.capture('inference_launch_clicked', {
+      mode,
+      flowType,
+      totalCost,
+      tokenSymbol: selectedToken?.symbol,
+      durationSeconds: jobDurationSeconds,
+      branch,
+    });
     try {
       // Prolong just extends the running service's paid window (serviceExtend reuses the job's stored
       // resources — same GPU/session, no re-allocation). It's flow-agnostic, so check it before the
@@ -639,6 +809,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     isEditMode,
     relaunchService,
     runFreshLaunch,
+    totalCost,
+    selectedToken,
+    jobDurationSeconds,
+    branch,
   ]);
 
   return (
@@ -734,8 +908,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     defaultToken={selectedToken?.address}
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
-                    gpuSelection={selectedEnv.gpuSelection}
-                    sizing={selectedEnv.sizing}
+                    gpuSelection={gpuSelection}
+                    sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}
                   />
                 </>

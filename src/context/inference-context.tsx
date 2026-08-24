@@ -2,6 +2,7 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { getApiRoute } from '@/config';
 import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
+import { captureError } from '@/lib/analytics';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import {
   decodeModelIds,
@@ -174,6 +175,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   // instead of leaving stale/empty context. Same signature = no re-run, so StrictMode's double mount
   // and within-flow param tweaks (gpus/token/params, derived from context) don't refetch.
   const hydratedSignatureRef = useRef<string | null>(null);
+  // URL signature (see hydratedSignatureRef) for which `inference_hydration_failed` was already
+  // captured — prevents a retry against the same signature, or an unrelated re-render, from
+  // re-firing the same failure event.
+  const hydrationFailedTrackedRef = useRef<string | null>(null);
 
   // Persist the HF token to sessionStorage on change so a refresh mid-flow doesn't force the user to
   // re-enter it for gated models. The token stays out of the URL (it's a secret).
@@ -327,6 +332,11 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
    */
   const hydrateFromQueryParams = useCallback(async () => {
     const q = router.query;
+    // Pinned for the whole attempt: the restores below await, and a client-side nav can swap the URL
+    // (and `hydratedSignatureRef`) mid-flight. Reading either live after the await would attribute
+    // this attempt's outcome to the newer URL.
+    const initiatingSignature = hydratedSignatureRef.current;
+    const initiatingQueryKeys = Object.keys(q);
     // Synchronous restores first — these never fail and don't depend on the network.
     const duration = Number(firstQueryValue(q.duration));
     if (Number.isFinite(duration) && duration > 0) {
@@ -438,6 +448,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       return true;
     };
 
+    const restoreNames = ['models', 'env', 'template'] as const;
     const outcomes = await Promise.allSettled([restoreModels(), restoreEnv(), restoreTemplate()]);
     // A rejected restore (network throw) or a resolved-but-incomplete restore (missing model/env)
     // both mean the URL described a selection we couldn't rebuild — flag it so the step guards show
@@ -448,6 +459,30 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         console.error('Failed to hydrate part of the inference selection from URL:', o.reason);
       }
     });
+    // A nav landed while we were awaiting: this attempt describes a URL the user has already left.
+    // Drop it rather than stamping the tracking ref with the new signature (which would suppress the
+    // new URL's own capture) or writing its outcome over the in-flight attempt's state.
+    if (hydratedSignatureRef.current !== initiatingSignature) {
+      return;
+    }
+    if (failed) {
+      // Guard against spamming: only capture once per distinct URL signature (retries against the
+      // same signature, or unrelated re-renders, must not re-fire this).
+      if (hydrationFailedTrackedRef.current !== initiatingSignature) {
+        hydrationFailedTrackedRef.current = initiatingSignature;
+        const failedRestores = restoreNames.filter(
+          (_name, index) => outcomes[index].status === 'rejected' || outcomes[index].value === false
+        );
+        captureError('inference_hydration_failed', new Error('hydrate_from_query_params_failed'), {
+          stage: 'hydrate_from_query',
+          failed_restores: failedRestores,
+          // No `branch` here: hydration failing is exactly the case where the selection (and so the
+          // template that distinguishes template-from-service) couldn't be restored. The query keys
+          // present are the closest honest signal of which flow the dead link belonged to.
+          query_keys: initiatingQueryKeys,
+        });
+      }
+    }
     setHydrationFailed(failed);
     setHydrateFromUrlFinished(true);
   }, [router.query, getServiceTemplates]);

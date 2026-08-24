@@ -15,6 +15,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
+import { captureError } from '@/lib/analytics';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -40,6 +41,7 @@ import { ServiceJob, ServiceStatusNumber } from '@oceanprotocol/lib';
 import cx from 'classnames';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './manage-service-page.module.css';
 
@@ -204,6 +206,56 @@ const ManageServicePage: React.FC = () => {
   const nodeUri = useMemo(() => (selectedEnv ? toNodeUri(selectedEnv.nodeInfo) : null), [selectedEnv]);
   const nodePeerId = selectedEnv?.nodeInfo.id;
 
+  // Poll dedupe: fetchStatus runs every POLL_INTERVAL_MS, so both the status-changed and
+  // status-failed events need a "last seen" ref rather than firing per tick. Reset on `id`
+  // change so navigating between services doesn't suppress the first event of a new run.
+  const lastReportedStatusRef = useRef<ServiceStatusNumber | null>(null);
+  const lastStatusFailedRef = useRef(false);
+  useEffect(() => {
+    lastReportedStatusRef.current = null;
+    lastStatusFailedRef.current = false;
+  }, [id]);
+
+  /**
+   * What the link itself says this service is — read straight off the query rather than the hydrated
+   * context, so it's known on the first render instead of after the async model/template restore.
+   *
+   * `models=` with no `template=` means a custom-model launch, and that claim is final: a custom launch
+   * runs the SAME image the node's own inference templates do (`vllm/vllm-openai` is published by
+   * vllm-hf-model / vllm-qwen-0-5b / vllm-nomic-embed, `ghcr.io/ggml-org/llama.cpp` by llamacpp-phi4),
+   * so matching the job record by image alone resolves every model service to one of those templates —
+   * and a launch that happens to reproduce a template's command (same model, default params) matches
+   * "exactly". Either way the page would drop the Model card, the base URL and the curl example, and
+   * offer an "Open UI" button for a web UI an inference server doesn't serve. The services table draws
+   * the same line for the same reason (see `modelIdFromSession` there): a service with a model id of
+   * its own is never a template run.
+   */
+  const isModelServiceByUrl = !firstQueryValue(router.query.template) && decodeModelIds(router.query.models).length > 0;
+  // The template this service was launched from, matched off the node's own job record (see
+  // useJobTemplate). Matched even when the URL named one, because the link is only as good as whatever
+  // matched it: the services table matches against a listing that drops dockerCmd, which can't tell a
+  // bundle from the service it shares an image with. The Model card waits the match out rather than
+  // flashing "Unknown model" at an app service for the half-second before the catalogue lands.
+  const {
+    template: jobTemplate,
+    matching: matchingTemplate,
+    exact: jobTemplateExact,
+  } = useJobTemplate(job, isModelServiceByUrl);
+  // An exact (image + command) job match outranks the URL — it names the variant actually running, so
+  // Edit rebuilds THAT one. Otherwise the URL selection stands (it's the in-flow selection, and an Edit
+  // re-entry is built from it), with the inexact job match as the fallback when the URL carried none.
+  // A URL that named a model outranks all of it (see above) — and is re-checked here, not only through
+  // the hook's `skip`, so a match that landed before the flag flipped can't linger in the hook's state.
+  const template = isModelServiceByUrl
+    ? null
+    : ((jobTemplateExact ? jobTemplate : null) ?? selectedTemplate ?? jobTemplate);
+  const isBundleService = !!template && isBundle(template);
+  // Which of the four entry branches this service belongs to, for PostHog funnels — see
+  // resolveInferenceBranch. A managed service can't tell a custom launch from a quickstart one after
+  // the fact (both are plain model services with no template), so both report 'custom' here; this is
+  // a known, accepted limitation of reading branch off the running service rather than live flow state.
+  const branch = !template ? 'custom' : isBundleService ? 'template' : 'service';
+
   /** Fetch the service status once; returns true when terminal (stop polling). */
   const fetchStatus = useCallback(async (): Promise<boolean> => {
     if (!nodeUri || !nodePeerId || !account.address || !id) {
@@ -219,14 +271,33 @@ const ManageServicePage: React.FC = () => {
       setJob(found);
       setJobError(null);
       setJobLoading(false);
+      lastStatusFailedRef.current = false;
+      if (found && found.status !== lastReportedStatusRef.current) {
+        const previousStatus = lastReportedStatusRef.current;
+        lastReportedStatusRef.current = found.status;
+        posthog.capture('inference_service_status_changed', {
+          serviceId: id,
+          status: found.status,
+          previousStatus,
+          nodeId: nodePeerId,
+          isTerminal: TERMINAL_STATUSES.has(found.status),
+          branch,
+        });
+      }
       return !!found && TERMINAL_STATUSES.has(found.status);
     } catch (error) {
       console.error('Failed to fetch service status:', error);
       setJobError(error instanceof Error ? error.message : 'Failed to load service status.');
       setJobLoading(false);
+      // Only the first failure in a run of consecutive failures is reported — the poll retries
+      // every tick, so every failure would otherwise double-count.
+      if (!lastStatusFailedRef.current) {
+        lastStatusFailedRef.current = true;
+        captureError('inference_service_status_failed', error, { stage: 'status_poll', service_id: id, branch });
+      }
       return false; // keep polling — transient network errors shouldn't stop the watch
     }
-  }, [nodeUri, nodePeerId, account.address, id, withNodeAuth, getServiceStatus]);
+  }, [nodeUri, nodePeerId, account.address, id, withNodeAuth, getServiceStatus, branch]);
 
   // Poll until terminal. Wait for hydration so nodeUri is available.
   useEffect(() => {
@@ -273,40 +344,6 @@ const ManageServicePage: React.FC = () => {
     };
   }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
 
-  /**
-   * What the link itself says this service is — read straight off the query rather than the hydrated
-   * context, so it's known on the first render instead of after the async model/template restore.
-   *
-   * `models=` with no `template=` means a custom-model launch, and that claim is final: a custom launch
-   * runs the SAME image the node's own inference templates do (`vllm/vllm-openai` is published by
-   * vllm-hf-model / vllm-qwen-0-5b / vllm-nomic-embed, `ghcr.io/ggml-org/llama.cpp` by llamacpp-phi4),
-   * so matching the job record by image alone resolves every model service to one of those templates —
-   * and a launch that happens to reproduce a template's command (same model, default params) matches
-   * "exactly". Either way the page would drop the Model card, the base URL and the curl example, and
-   * offer an "Open UI" button for a web UI an inference server doesn't serve. The services table draws
-   * the same line for the same reason (see `modelIdFromSession` there): a service with a model id of
-   * its own is never a template run.
-   */
-  const isModelServiceByUrl = !firstQueryValue(router.query.template) && decodeModelIds(router.query.models).length > 0;
-  // The template this service was launched from, matched off the node's own job record (see
-  // useJobTemplate). Matched even when the URL named one, because the link is only as good as whatever
-  // matched it: the services table matches against a listing that drops dockerCmd, which can't tell a
-  // bundle from the service it shares an image with. The Model card waits the match out rather than
-  // flashing "Unknown model" at an app service for the half-second before the catalogue lands.
-  const {
-    template: jobTemplate,
-    matching: matchingTemplate,
-    exact: jobTemplateExact,
-  } = useJobTemplate(job, isModelServiceByUrl);
-  // An exact (image + command) job match outranks the URL — it names the variant actually running, so
-  // Edit rebuilds THAT one. Otherwise the URL selection stands (it's the in-flow selection, and an Edit
-  // re-entry is built from it), with the inexact job match as the fallback when the URL carried none.
-  // A URL that named a model outranks all of it (see above) — and is re-checked here, not only through
-  // the hook's `skip`, so a match that landed before the flag flipped can't linger in the hook's state.
-  const template = isModelServiceByUrl
-    ? null
-    : ((jobTemplateExact ? jobTemplate : null) ?? selectedTemplate ?? jobTemplate);
-
   // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
   // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
   const jobCommand = useMemo(() => (job?.dockerCmd ? parseEngineCommand(job.dockerCmd) : null), [job?.dockerCmd]);
@@ -338,14 +375,16 @@ const ManageServicePage: React.FC = () => {
         // Same cached token as the poll loop — avoids a concurrent createAuthToken (nonce clash).
         await withNodeAuth(nodePeerId, nodeUri, (token) => serviceRestart(nodeUri, token, id));
         setPollEpoch((epoch) => epoch + 1);
+        posthog.capture('inference_service_restarted', { serviceId: id, nodeId: nodePeerId, branch });
       } catch (error) {
         console.error(`Failed to ${action} service:`, error);
         setJobError(error instanceof Error ? error.message : `Failed to ${action} service.`);
+        captureError('inference_service_restart_failed', error, { stage: 'node_call', service_id: id, branch });
       } finally {
         setActionLoading(null);
       }
     },
-    [nodeUri, nodePeerId, account.address, id, withNodeAuth, serviceRestart]
+    [nodeUri, nodePeerId, account.address, id, withNodeAuth, serviceRestart, branch]
   );
 
   /**
@@ -437,7 +476,6 @@ const ManageServicePage: React.FC = () => {
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   const defaultToken = selectedToken?.address;
   const isTemplate = !!template;
-  const isBundleService = !!template && isBundle(template);
   // Edit relaunches the SAME bundle through serviceRestart, which recreates the container from the
   // image — service containers get no volume, so every relaunch re-downloads every bundled model on
   // the clock the user already paid for. Worth it to fix a wrong token; pure loss when there is
@@ -496,7 +534,12 @@ const ManageServicePage: React.FC = () => {
   // expiry check: extend does `expiresAt += additionalDuration` with no past-expiry guard of its own,
   // so a service still reading Running while past expiresAt (expiry-cron lag) would charge the user
   // and land on a new expiresAt that is still in the past — paying for zero runtime.
-  const canProlong = !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken;
+  // Prolong prices the extra runtime off the resources the service HOLDS, which only `bookedResources`
+  // (the node's own job record) can tell us when the page was opened from the services table — its
+  // Manage link carries no `gpus`/`res`, so the hydrated selection is empty and would expand to a
+  // whole-env slice at payment. Without a resource record there is nothing correct to price against,
+  // so hold the action rather than quote (and escrow) every free GPU in the env.
+  const canProlong = !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken && !!bookedResources;
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
@@ -513,12 +556,26 @@ const ManageServicePage: React.FC = () => {
     // A template service re-enters the template flow at the config (reconfigure) step; a model service
     // re-enters the model picker. buildSelectionQuery already carries the template/model selection.
     if (template) {
+      posthog.capture('inference_service_edit_clicked', {
+        serviceId: id,
+        templateId: template.id,
+        isTemplate,
+        isBundleService,
+        branch,
+      });
       router.push({
         pathname: `/inference/services/${encodeURIComponent(template.id)}/config`,
         query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
       });
       return;
     }
+    posthog.capture('inference_service_edit_clicked', {
+      serviceId: id,
+      templateId: undefined,
+      isTemplate,
+      isBundleService,
+      branch,
+    });
     router.push({
       pathname: '/inference/custom-models',
       query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
@@ -528,8 +585,9 @@ const ManageServicePage: React.FC = () => {
   // Local countdown hitting zero is only an estimate — bump pollEpoch for an immediate status re-check
   // (vs. waiting up to POLL_INTERVAL_MS) so Running → Expired is tracked promptly.
   const onLocalExpiry = useCallback(() => {
+    posthog.capture('inference_service_expired', { serviceId: id, durationTotalSeconds, branch });
     setPollEpoch((epoch) => epoch + 1);
-  }, []);
+  }, [id, durationTotalSeconds, branch]);
 
   /**
    * Prolong → straight to payment for the extra runtime only. Same selection (env/token/gpu/models),
@@ -652,7 +710,10 @@ const ManageServicePage: React.FC = () => {
                   color="accent1"
                   contentBefore={<BoltOutlinedIcon />}
                   disabled={!canProlong}
-                  onClick={() => setProlongOpen(true)}
+                  onClick={() => {
+                    posthog.capture('inference_prolong_opened', { serviceId: id, canProlong, branch });
+                    setProlongOpen(true);
+                  }}
                   size="md"
                   variant="filled"
                 >
@@ -777,7 +838,20 @@ const ManageServicePage: React.FC = () => {
                     <div className={`chip chipGlass ${styles.endpointChip}`}>App URL</div>
                     <span className={styles.endpointPath}>{templateUiUrl}</span>
                     <span className={styles.endpointDescription}>Open this app&apos;s web UI in a new tab</span>
-                    <a className={styles.endpointAction} href={templateUiUrl} rel="noreferrer" target="_blank">
+                    <a
+                      className={styles.endpointAction}
+                      href={templateUiUrl}
+                      onClick={() =>
+                        posthog.capture('inference_service_consumed', {
+                          serviceId: id,
+                          kind: 'open_ui',
+                          templateId: template?.id,
+                          branch,
+                        })
+                      }
+                      rel="noreferrer"
+                      target="_blank"
+                    >
                       <Button
                         color="accent1"
                         contentAfter={<OpenInNewIcon fontSize="inherit" />}
@@ -807,17 +881,41 @@ const ManageServicePage: React.FC = () => {
                     <span className={styles.endpointDescription}>
                       OpenAI-compatible — append a route from the references above
                     </span>
-                    <CopyButton
-                      className={styles.endpointAction}
-                      color="accent2"
-                      contentToCopy={baseUrl}
-                      variant="filled"
-                    />
+                    {/* CopyButton takes no click callback, so wrap it — analytics only, copy
+                        behaviour is unchanged. */}
+                    <span
+                      onClick={() =>
+                        posthog.capture('inference_service_consumed', {
+                          serviceId: id,
+                          kind: 'copy_base_url',
+                          templateId: undefined,
+                          branch,
+                        })
+                      }
+                    >
+                      <CopyButton
+                        className={styles.endpointAction}
+                        color="accent2"
+                        contentToCopy={baseUrl}
+                        variant="filled"
+                      />
+                    </span>
                   </Card>
                 </div>
                 <div className={styles.quickTestHead}>
                   <h4>Quick test</h4>
-                  <CopyButton color="accent2" contentToCopy={curlSnippet} variant="filled" />
+                  <span
+                    onClick={() =>
+                      posthog.capture('inference_service_consumed', {
+                        serviceId: id,
+                        kind: 'copy_curl',
+                        templateId: undefined,
+                        branch,
+                      })
+                    }
+                  >
+                    <CopyButton color="accent2" contentToCopy={curlSnippet} variant="filled" />
+                  </span>
                 </div>
                 <pre className={styles.terminal}>{curlSnippet}</pre>
               </>
@@ -845,7 +943,15 @@ const ManageServicePage: React.FC = () => {
               />
             ) : (
               <div className="actionsGroupMdEnd">
-                <Button color="accent1" onClick={() => setLogsOpen(true)} size="md" variant="outlined">
+                <Button
+                  color="accent1"
+                  onClick={() => {
+                    posthog.capture('inference_logs_opened', { serviceId: id, status: job?.status, branch });
+                    setLogsOpen(true);
+                  }}
+                  size="md"
+                  variant="outlined"
+                >
                   Show logs
                 </Button>
               </div>
