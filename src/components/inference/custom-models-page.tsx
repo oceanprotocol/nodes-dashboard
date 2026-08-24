@@ -19,7 +19,12 @@ import {
   ModelSort,
   PipelineTag,
 } from '@/services/huggingface-service';
-import { getModelCompatibility, IncompatibilityKind, ModelCompatibility } from '@/services/model-compatibility';
+import {
+  getModelCompatibility,
+  IncompatibilityKind,
+  ModelCompatibility,
+  SERVABLE_PIPELINE_TAGS,
+} from '@/services/model-compatibility';
 import { HuggingFaceModel } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -31,7 +36,13 @@ import { useRouter } from 'next/router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './custom-models-page.module.css';
 
-const VISIBLE_TAG_COUNT = 9;
+/**
+ * Pipeline tags that aren't in SERVABLE_PIPELINE_TAGS but whose models can still be launched, so they
+ * belong with the servable filters rather than behind "More filters". Both are conditionally
+ * servable: a `translation`/`summarization` repo runs when it's a causal chat finetune and not an
+ * encoder-decoder, which getModelCompatibility decides per model from its chat template.
+ */
+const CONDITIONALLY_SERVABLE_TAGS = ['translation', 'summarization'];
 
 /**
  * What to tell the user per rejection kind — each ends mid-sentence, so the Discord link completes it.
@@ -45,14 +56,24 @@ const REJECTION_HINTS: Record<IncompatibilityKind, string> = {
     'Image, audio and video models run on engines like ComfyUI instead — pick one, then add this model from its own UI. If none of them fit,',
   // Servable in principle, but by TEI/Infinity-style runtimes we don't offer, and not over the
   // chat/completions endpoint everything downstream of here assumes.
-  'non-generative':
-    'Embedding, ranking and classification models need a different kind of server than the ones we run. If you’d find that useful,',
+  // Deliberately not "embedding, ranking and classification": this kind also covers speech
+  // recognition, OCR, detection and segmentation, and naming the wrong family reads as a
+  // misclassification to anyone who picked a Whisper model.
+  'non-generative': 'Models like this need a different kind of server than the ones we run. If you’d find that useful,',
   // The weights, not the task: another publisher's copy of the same model may load fine, so point at
   // that before treating it as unsupported.
   'unsupported-library':
     'The task may be fine — it’s the packaging vLLM and llama.cpp can’t load. A transformers-format copy of the same model usually works, so it is worth searching for one. If there isn’t any,',
   // Neither servable nor clearly categorised — the honest answer is "tell us".
   'unsupported-task': 'This isn’t a task we serve today. If it would be useful for your use case,',
+  // Fully self-service: the base model is named on the adapter's own model card, and launching it
+  // works today — so this points at the fix rather than at us.
+  'adapter-only':
+    'The adapter’s model card names the base model it was trained on — search for that one here and launch it instead. If you need the adapter’s weights merged in,',
+  // Also self-service, and worth being concrete: the same model in a format we DO serve is usually
+  // one search away, since popular models get AWQ/GPTQ republishes within days.
+  'unsupported-quantization':
+    'Searching this model’s name with “AWQ”, “GPTQ” or “FP8” usually turns up a copy that runs here, and the full-precision original always does. If neither works for you,',
 };
 
 const SORT_OPTIONS: SelectOption<ModelSort>[] = [
@@ -73,6 +94,7 @@ const CustomModelsPage: React.FC = () => {
     buildSelectionQuery,
     clearSelection,
     hydrateFromUrlFinished,
+    setEngine,
   } = useInferenceContext();
 
   /**
@@ -92,6 +114,12 @@ const CustomModelsPage: React.FC = () => {
       return;
     }
     setRejected(null);
+    // A GGUF-only repo has no transformers weights for vLLM to load, so llama.cpp is the only engine
+    // that can serve it. Switch now, while we still have the model's metadata — the engine dropdown
+    // lives two steps later and can't see it. Not locked: the user can still switch back.
+    if (compatibility.engines === 'llamacpp-only') {
+      setEngine('llamacpp');
+    }
     selectSingleModel(model);
   };
   // Edit mode skips env step (same env) → straight to config on Continue.
@@ -127,6 +155,23 @@ const CustomModelsPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [pipelineTags, setPipelineTags] = useState<PipelineTag[]>(FALLBACK_PIPELINE_TAGS);
   const [showAllTags, setShowAllTags] = useState(false);
+
+  /**
+   * Split the task filters by whether this flow can actually serve the task. The servable ones lead;
+   * the rest sit behind "More filters" — still reachable, because a user searching for a known model
+   * may well want to filter by its task and find out from the rejection modal why it can't run, but
+   * no longer occupying the row the eye lands on first. HF's own ordering is by model count, which
+   * puts image and video tasks ahead of every text task this flow exists to launch.
+   */
+  const [servableTags, otherTags] = useMemo(() => {
+    const servable: PipelineTag[] = [];
+    const other: PipelineTag[] = [];
+    for (const tag of pipelineTags) {
+      const isServable = SERVABLE_PIPELINE_TAGS.has(tag.id) || CONDITIONALLY_SERVABLE_TAGS.includes(tag.id);
+      (isServable ? servable : other).push(tag);
+    }
+    return [servable, other];
+  }, [pipelineTags]);
 
   // Live filter values, read inside an in-flight loadMore to detect a mid-request filter change and
   // drop the now-stale page. Synced in an effect (not during render) to stay concurrent-safe.
@@ -277,7 +322,7 @@ const CustomModelsPage: React.FC = () => {
             >
               All
             </button>
-            {pipelineTags.slice(0, VISIBLE_TAG_COUNT).map((tag) => (
+            {servableTags.map((tag) => (
               <button
                 className={cx('chip', styles.filterChip, { [styles.filterActive]: activeTag === tag.id })}
                 key={tag.id}
@@ -287,18 +332,18 @@ const CustomModelsPage: React.FC = () => {
                 {tag.label}
               </button>
             ))}
-            {pipelineTags.length > VISIBLE_TAG_COUNT && (
+            {otherTags.length > 0 && (
               <button className="chip chipAccent2" onClick={() => setShowAllTags((prev) => !prev)} type="button">
-                {showAllTags ? 'Less filters' : 'More filters'}
+                {showAllTags ? 'Fewer tasks' : 'Other tasks'}
                 <ExpandMoreIcon className={cx(styles.moreChevron, { [styles.moreChevronOpen]: showAllTags })} />
               </button>
             )}
           </div>
 
-          {pipelineTags.length > VISIBLE_TAG_COUNT && (
+          {otherTags.length > 0 && (
             <Collapse in={showAllTags} unmountOnExit>
               <div className={styles.filters}>
-                {pipelineTags.slice(VISIBLE_TAG_COUNT).map((tag) => (
+                {otherTags.map((tag) => (
                   <button
                     className={cx('chip', styles.filterChip, { [styles.filterActive]: activeTag === tag.id })}
                     key={tag.id}

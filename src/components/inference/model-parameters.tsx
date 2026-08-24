@@ -15,6 +15,7 @@ import {
   mapQuantization,
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
+import { getArchitectureIncompatibility } from '@/services/model-compatibility';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -196,6 +197,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const [loadError, setLoadError] = useState<string | null>(null);
   // Feedback for the explicit "Reload defaults" action (initial load stays silent beyond the spinner).
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  // Derived, not state: it's a pure function of the loaded config, so it can't go stale against it.
+  const architectureWarning = getArchitectureIncompatibility(config?.architecture);
 
   const [open, setOpen] = useState(defaultOpen);
   // Guards the one-time initial load: loadConfig's identity changes with hfToken, so a [loadConfig]
@@ -813,6 +817,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           </div>
         ) : loadError ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>{loadError}</div>
+        ) : architectureWarning ? (
+          // Second-pass compatibility check. The grid's check only sees list metadata, so an untagged
+          // encoder repo reaches this step accepted — the architecture from config.json settles it.
+          // A warning, not a block: the user has already committed to this model, and the check is
+          // conservative enough that overriding it should stay possible.
+          <div className={cx(styles.notice, styles.noticeWarning)}>{architectureWarning}</div>
         ) : reloadStatus === 'success' ? (
           <div className={cx(styles.notice, styles.noticeSuccess)}>Defaults reloaded from Hugging Face.</div>
         ) : null}
