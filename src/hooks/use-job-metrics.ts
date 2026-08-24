@@ -64,13 +64,21 @@ export function useJobMetrics(
       }
 
       // Refresh once on a 401, same pattern as useJobLogs — the shared token can expire mid-poll.
+      // Bounded to a single refresh per poll attempt: a node that keeps rejecting a freshly minted
+      // token would otherwise spin this loop with no delay. The allowance resets after each poll
+      // that succeeds, so a later expiry mid-modal still gets its one refresh.
+      let mayRefreshToken = true;
       const reauthed = async (e: any): Promise<boolean> => {
+        if (!mayRefreshToken) {
+          return false;
+        }
         const msg = typeof e?.message === 'string' ? e.message.toLowerCase() : '';
         const authFailed =
           e?.status === 401 || e?.httpStatus === 401 || /unauthori[sz]ed|token.*expired|invalid token/.test(msg);
         if (!authFailed) {
           return false;
         }
+        mayRefreshToken = false;
         clearNodeToken(nodeId);
         try {
           token = await getNodeToken(nodeId, nodeUri);
@@ -83,6 +91,7 @@ export function useJobMetrics(
       while (!cancelled) {
         try {
           const result: any = await getComputeJobStatus(nodeUri, jobId, token);
+          mayRefreshToken = true;
           const entry = Array.isArray(result) ? result[0] : result;
           if (!cancelled) {
             setMetrics(getRuntimeMetrics(entry));
