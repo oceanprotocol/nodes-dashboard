@@ -23,7 +23,9 @@ import { HuggingFaceModel } from '@/types/huggingface';
  * - **A chat template overrides the tag.** It is the one positive signal strong enough to outrank a
  *   tag, because only a chat model has one. It rescues repos whose tag is wrong or unrecognised, and
  *   is what keeps a pipeline tag added by HF tomorrow from silently rejecting the models under it.
- *   Its absence proves nothing — base models have no chat template either.
+ *   It applies to seq2seq tags, unrecognised tags, and the perception tags a multimodal LLM gets
+ *   filed under — but never to the embedding and ranking tags, whose models are causal-backboned and
+ *   would all slip through. Its absence proves nothing: base models have no chat template either.
  * - **Weight-format tags need the repo id to agree.** Many repos publish a secondary ONNX or TFLite
  *   export next to the real weights, so the tag alone would reject them.
  *
@@ -138,6 +140,15 @@ const AMBIGUOUS_TEXT_TAGS = new Set(['summarization', 'translation', 'text2text-
 
 /** Set when the repo ships a chat template. Only a chat model has one; absence proves nothing. */
 const CHAT_TEMPLATE_TAG = 'conversational';
+
+/** NON_GENERATIVE_TAGS a multimodal LLM gets filed under, so a chat template outranks them. */
+const PERCEPTION_TAGS = new Set([
+  'image-to-text',
+  'visual-question-answering',
+  'document-question-answering',
+  'question-answering',
+  'automatic-speech-recognition',
+]);
 
 /** HF's marker for a repo served by TEI. Catches embedding repos whose pipeline tag is missing. */
 const EMBEDDINGS_MARKER_TAG = 'text-embeddings-inference';
@@ -352,7 +363,7 @@ export function getModelCompatibility(model: HuggingFaceModel): ModelCompatibili
     };
   }
 
-  if (tag && NON_GENERATIVE_TAGS.has(tag)) {
+  if (tag && NON_GENERATIVE_TAGS.has(tag) && !(PERCEPTION_TAGS.has(tag) && tags.includes(CHAT_TEMPLATE_TAG))) {
     return {
       supported: false,
       kind: 'non-generative',
