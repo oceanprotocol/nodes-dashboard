@@ -124,5 +124,5 @@
 /* Body of the "model not supported" modal (see model-compatibility for the classification). */
 .rejectedModel {
   font-weight: 600;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
