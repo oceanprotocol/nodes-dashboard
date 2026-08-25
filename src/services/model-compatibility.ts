@@ -70,10 +70,9 @@ export type ModelCompatibility =
   | { supported: true; engines: ServableEngines }
   | { supported: false; kind: IncompatibilityKind; reason: string };
 
-/** `*-text-to-text` are multimodal input with text output. `text2text-generation` is legacy. */
+/** `*-text-to-text` are multimodal input with text output. */
 export const SERVABLE_PIPELINE_TAGS = new Set([
   'text-generation',
-  'text2text-generation',
   'image-text-to-text',
   'audio-text-to-text',
   'video-text-to-text',
@@ -130,8 +129,12 @@ const NON_GENERATIVE_TAGS = new Set([
   'table-question-answering',
 ]);
 
-/** Encoder-decoder (t5, nllb, opus-mt) unless a chat template says otherwise. */
-const AMBIGUOUS_TEXT_TAGS = new Set(['summarization', 'translation']);
+/**
+ * Encoder-decoder (t5, nllb, opus-mt) unless a chat template says otherwise. `text2text-generation`
+ * is T5's own retired tag — HF returns no models under it now — kept here so a stale repo lands on
+ * the same verdict as the identical model tagged `translation`.
+ */
+const AMBIGUOUS_TEXT_TAGS = new Set(['summarization', 'translation', 'text2text-generation']);
 
 /** Set when the repo ships a chat template. Only a chat model has one; absence proves nothing. */
 const CHAT_TEMPLATE_TAG = 'conversational';

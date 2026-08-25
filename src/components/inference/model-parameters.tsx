@@ -210,9 +210,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const architectureWarning = getArchitectureIncompatibility(config?.architecture);
 
   const [open, setOpen] = useState(defaultOpen);
-  // Guards the one-time initial load: loadConfig's identity changes with hfToken, so a [loadConfig]
-  // dep can't fire it exactly once — this ref does.
-  const initialLoadStartedRef = useRef(false);
+  // Sequence number of the most recently STARTED config fetch. Only the two callers that keep the
+  // returned cleanup can cancel via it, and neither reloadDefaults nor handleRevisionBlur does — so
+  // without this a slow earlier request (revision blur) can resolve after a newer one (Reload
+  // defaults) and overwrite `config` with the wrong revision's facts, which architectureWarning and
+  // the locked ceiling/quant then read.
+  const requestSeqRef = useRef(0);
 
   const loadConfig = useCallback(
     ({
@@ -229,6 +232,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       resetDefaults: boolean;
     }) => {
       let cancelled = false;
+      const requestId = ++requestSeqRef.current;
+      // Unmounted, or a later fetch has already started — either way this result is no longer current.
+      const superseded = () => cancelled || requestId !== requestSeqRef.current;
       setLoading(true);
       setLoadError(null);
       if (isReload) {
@@ -236,7 +242,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       }
       fetchHuggingFaceModelConfig(modelId, hfToken, revision)
         .then((result) => {
-          if (cancelled) {
+          if (superseded()) {
             return;
           }
           setConfig(result);
@@ -248,7 +254,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           onLoaded?.(result);
         })
         .catch((error: unknown) => {
-          if (cancelled) {
+          if (superseded()) {
             return;
           }
           if (error instanceof HuggingFaceAuthError) {
@@ -266,7 +272,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           }
         })
         .finally(() => {
-          if (!cancelled) {
+          // A superseded request must not clear the spinner — the newer one is still in flight.
+          if (!superseded()) {
             setLoading(false);
           }
         });
@@ -277,16 +284,22 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     [hfToken, modelId]
   );
 
-  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a token
-  // edit). Reloads happen via the explicit "Reload defaults" button — typing the token must NOT
-  // auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  // Keeps the latest loadConfig reachable from the mount-only effect below without making it a
+  // dependency of it.
+  const loadConfigRef = useRef(loadConfig);
   useEffect(() => {
-    if (initialLoadStartedRef.current) {
-      return;
-    }
-    initialLoadStartedRef.current = true;
-    return loadConfig({ isReload: false, resetDefaults: true });
+    loadConfigRef.current = loadConfig;
   }, [loadConfig]);
+
+  // Initial load only. Reloads happen via the explicit "Reload defaults" button — typing the token
+  // must NOT auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  //
+  // Mount-only on purpose. Taking `loadConfig` as a dependency (its identity changes with hfToken)
+  // made a keystroke in the token field re-run this effect, which fires the previous run's cleanup
+  // and cancels the in-flight initial request — while the guard that used to sit here then blocked
+  // any replacement. The result was a card stuck on its spinner forever, because a cancelled request
+  // deliberately doesn't clear `loading`. With an empty dep array the cleanup only runs on unmount.
+  useEffect(() => loadConfigRef.current({ isReload: false, resetDefaults: true }), []);
 
   // Editing the token invalidates the last reload result — clear transient feedback so a stale
   // "reloaded"/"rejected" notice doesn't linger.
