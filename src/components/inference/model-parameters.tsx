@@ -837,7 +837,13 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       </div>
       <Collapse in={open} unmountOnExit>
         <section className={styles.section}>
-          {/* Engine picks the runtime (image/port/command) and which launch flags below are shown. */}
+          {/*
+            Engine picks the runtime (image/port/command) and which launch flags below are shown, so
+            it lives with those flags rather than on the resources step — the allocation there never
+            reads the engine, and a GPU is required either way, so nothing about booking depends on
+            this choice. Keeping it here also means the edit flow, which skips resources entirely,
+            has the same single control.
+          */}
           <div className={styles.subsection}>
             <div>
               <h4>Inference engine</h4>
