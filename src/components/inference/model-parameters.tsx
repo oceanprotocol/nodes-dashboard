@@ -380,13 +380,16 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // entered revision (vLLM only) is preserved — buildDefaults blanks it, but it's what we just
   // fetched against. Rebuilds defaults for the ACTIVE engine so a reload keeps the right branch.
   const reloadDefaults = () => {
-    const revision = formik.values.engine === 'vllm' ? formik.values.revision : undefined;
+    const requestEngine = formik.values.engine;
+    const revision = requestEngine === 'vllm' ? formik.values.revision : undefined;
     loadConfig({
       revision,
       onLoaded: (result) => {
         // Only reset the form when defaults actually loaded; on failure keep the user's values.
         if (result) {
-          const defaults = buildModelDefaults(result, modelId, formik.values.engine);
+          // requestEngine, not the live one: `revision` was captured for it, so building defaults for
+          // anything else would merge a vLLM field into a llama.cpp value set.
+          const defaults = buildModelDefaults(result, modelId, requestEngine);
           // `revision` is only set for vLLM, so `defaults` is the vLLM branch here — but TS can't
           // correlate the two, so re-assert the union type on the merged values.
           const values = (revision ? { ...defaults, revision } : defaults) as ModelParametersType;
@@ -849,7 +852,15 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         ) : null}
       </div>
       <Collapse in={open} unmountOnExit>
-        <section className={styles.section}>
+        {/*
+          Inert while a reload is in flight. Every edit made in that window is about to be thrown away
+          by the resetForm the reload ends with, and editing the engine mid-flight would apply defaults
+          built for the other branch. Scoped to the reload specifically: the initial load renders a
+          full-card spinner instead of these fields, and a revision-blur refresh never resets the form.
+          `fieldset[disabled]` covers the native inputs; the CSS also kills pointer events, since the
+          MUI selects are div-based and ignore it.
+        */}
+        <fieldset className={styles.section} disabled={reloadStatus === 'loading'}>
           {/*
             Engine picks the runtime (image/port/command) and which launch flags below are shown, so
             it lives with those flags rather than on the resources step — the allocation there never
@@ -944,7 +955,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           <div className={styles.divider} />
 
           {formik.values.engine === 'vllm' ? renderVllmFlags(formik.values) : renderLlamaCppFlags(formik.values)}
-        </section>
+        </fieldset>
       </Collapse>
     </Card>
   );

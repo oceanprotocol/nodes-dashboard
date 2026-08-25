@@ -117,9 +117,9 @@ const CustomModelsPage: React.FC = () => {
       return;
     }
     setRejected(null);
-    // A GGUF-only repo has no transformers weights for vLLM to load, so llama.cpp is the only engine
-    // that can serve it. Switch now, while we still have the model's metadata — the engine dropdown
-    // lives two steps later and can't see it. Not locked: the user can still switch back.
+    // A GGUF-only repo has no transformers weights for vLLM to load. Switching here is only the
+    // immediate effect — the context derives the same constraint from the selection and enforces it
+    // from then on, so a later switch back to vLLM is rejected rather than merely discouraged.
     if (compatibility.engines === 'llamacpp-only') {
       setEngine('llamacpp');
     }
