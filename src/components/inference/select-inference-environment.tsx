@@ -143,6 +143,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     setSelectedToken,
     engine,
     setEngine,
+    engineLockedToLlamaCpp,
     selectedTemplate,
   } = useInferenceContext();
 
@@ -324,7 +325,11 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 className={styles.input}
                 label="Engine"
                 onChange={(e) => setEngine(e.target.value as InferenceEngine)}
-                options={INFERENCE_ENGINE_OPTIONS}
+                options={
+                  engineLockedToLlamaCpp
+                    ? INFERENCE_ENGINE_OPTIONS.filter((o) => o.value === 'llamacpp')
+                    : INFERENCE_ENGINE_OPTIONS
+                }
                 size="sm"
                 value={engine}
               />

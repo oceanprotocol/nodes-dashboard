@@ -177,7 +177,15 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   { modelId, defaultOpen = false },
   ref
 ) {
-  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine, selectedEnv } = useInferenceContext();
+  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine, engineLockedToLlamaCpp, selectedEnv } =
+    useInferenceContext();
+
+  // A GGUF-only model has no weights vLLM can load, so offering it would only produce a failed
+  // launch. The context enforces this too; hiding the option is what makes the constraint visible.
+  const engineOptions = useMemo(
+    () => (engineLockedToLlamaCpp ? INFERENCE_ENGINE_OPTIONS.filter((o) => o.value === 'llamacpp') : INFERENCE_ENGINE_OPTIONS),
+    [engineLockedToLlamaCpp]
+  );
 
   // GPUs booked on the resources step (which runs before this one). This is the ceiling for tensor
   // parallelism — sharding across more GPUs than were booked makes vLLM exit at startup. 1 or fewer
@@ -845,7 +853,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               )}
               name="engine"
               onChange={(e) => setEngine(e.target.value as InferenceEngine)}
-              options={INFERENCE_ENGINE_OPTIONS}
+              options={engineOptions}
               value={engine}
             />
           </div>
