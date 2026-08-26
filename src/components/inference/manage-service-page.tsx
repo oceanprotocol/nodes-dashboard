@@ -474,6 +474,14 @@ const ManageServicePage: React.FC = () => {
       ? jobExpirySeconds - jobStartSeconds
       : jobDurationSeconds;
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
+  // Runtime still ahead of the service — what an extension is added TO. Note the node caps
+  // `remaining + additionalDuration`, NOT elapsed + additional: extending is bounded by the forward
+  // window, so a long-running service is no harder to extend than a fresh one.
+  const durationRemainingSeconds = Math.max(0, durationTotalSeconds - durationElapsedSeconds);
+  /** Headroom for a single extension: the env's `maxJobDuration` minus the runtime already ahead of us. */
+  const prolongMaxSeconds = environment?.maxJobDuration
+    ? Math.max(0, environment.maxJobDuration - durationRemainingSeconds)
+    : undefined;
   const defaultToken = selectedToken?.address;
   const isTemplate = !!template;
   // Edit relaunches the SAME bundle through serviceRestart, which recreates the container from the
@@ -960,7 +968,13 @@ const ManageServicePage: React.FC = () => {
         </div>
       )}
 
-      <ProlongSessionModal isOpen={prolongOpen} onClose={() => setProlongOpen(false)} onConfirm={onProlong} />
+      <ProlongSessionModal
+        isOpen={prolongOpen}
+        maxSeconds={prolongMaxSeconds}
+        minSeconds={environment?.minJobDuration}
+        onClose={() => setProlongOpen(false)}
+        onConfirm={onProlong}
+      />
     </Container>
   );
 };

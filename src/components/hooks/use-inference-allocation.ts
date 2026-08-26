@@ -8,6 +8,7 @@ import {
   resolveConstraints,
   ResourceRequest,
 } from '@/utils/constraints';
+import { billableMinutes } from '@/utils/duration';
 import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResource } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
@@ -185,12 +186,25 @@ const useInferenceAllocation = ({
   sizing?: ResourceSizing;
   durationSeconds: number;
 }) => {
-  const { cpu, cpuAvailable, cpuFee, disk, diskAvailable, diskFee, gpus, gpusAvailable, gpuFees, ram, ramAvailable, ramFee } =
-    useEnvResources({
-      environment,
-      freeCompute: false,
-      tokenAddress,
-    });
+  const {
+    cpu,
+    cpuAvailable,
+    cpuFee,
+    disk,
+    diskAvailable,
+    diskFee,
+    gpus,
+    gpusAvailable,
+    gpuFees,
+    minJobDurationSeconds,
+    ram,
+    ramAvailable,
+    ramFee,
+  } = useEnvResources({
+    environment,
+    freeCompute: false,
+    tokenAddress,
+  });
 
   /**
    * Merge units of the same description into one type, summing both the physical ceiling (max) and the
@@ -482,8 +496,23 @@ const useInferenceAllocation = ({
     const diskTotal = (diskFee ?? 0) * allocation.disk;
     // GPUs are priced by the exact units selected, not the blended fraction.
     const gpuTotal = mergedGpus.reduce((sum, g) => sum + g.fee * (selectedByKey[g.key] ?? 0), 0);
-    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * (durationSeconds / 60);
-  }, [cpuFee, allocation.cpu, allocation.ram, allocation.disk, ramFee, diskFee, mergedGpus, durationSeconds, selectedByKey]);
+    // Whole billable minutes, floored at the env's minJobDuration — the node's own formula. Pricing
+    // this as a plain `durationSeconds / 60` under-quotes any window below the env minimum (a short
+    // Prolong) or any non-whole-minute window, and the escrow deposit sized from that quote is then
+    // too small for the node's createLock ("does not have enough funds"). See billableMinutes.
+    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * billableMinutes(durationSeconds, minJobDurationSeconds);
+  }, [
+    cpuFee,
+    allocation.cpu,
+    allocation.ram,
+    allocation.disk,
+    ramFee,
+    diskFee,
+    mergedGpus,
+    durationSeconds,
+    minJobDurationSeconds,
+    selectedByKey,
+  ]);
 
   return {
     mergedGpus,

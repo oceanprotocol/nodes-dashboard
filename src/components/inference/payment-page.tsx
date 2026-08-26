@@ -310,6 +310,24 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       });
       return;
     }
+    // The node accepts an extension shorter than the env's minJobDuration but bills it at that
+    // minimum anyway (calculateResourcesCost re-applies the session minimum to the increment), so
+    // +1min on a 10min-minimum env costs the same as +10min and grants a tenth of it. The modal
+    // blocks that; this catches a deep-linked prolong URL carrying a smaller duration. Drop both
+    // once the node stops flooring extensions.
+    const envMin = selectedEnv.environment.minJobDuration;
+    if (envMin && jobDurationSeconds < envMin) {
+      setLaunchError(
+        `This environment charges a ${formatDuration(envMin)} minimum per top-up — a shorter extension costs the same. Pick a longer one.`
+      );
+      captureError('inference_service_prolong_failed', new Error('duration_below_env_min'), {
+        stage: 'duration_bounds',
+        duration_seconds: jobDurationSeconds,
+        min_seconds: envMin,
+        branch,
+      });
+      return;
+    }
     // The node rejects an extension that pushes total runtime past its max (serviceExtend: 400
     // "remaining + additionalDuration > maxDurationSeconds"). We can't see the node's exact cap or
     // the live remaining runtime here, but the env's advertised maxJobDuration bounds a single
