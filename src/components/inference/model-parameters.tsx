@@ -15,6 +15,7 @@ import {
   mapQuantization,
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
+import { VLLM_TAG_OPTIONS } from '@/services/vllm-model-presets';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -56,6 +57,8 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
   { label: 'auto', value: 'auto' },
   { label: 'fp8', value: 'fp8' },
 ];
+
+const vllmTagOptions: { label: string; value: string }[] = [...VLLM_TAG_OPTIONS];
 
 // Options come from the shared registry subset in @/types/huggingface — kept there so the type and
 // the picker can't drift apart. Widened from the readonly `as const` tuple to what Select expects.
@@ -539,6 +542,22 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         </div>
 
         <div className={styles.column}>
+          <Select<string>
+            size="sm"
+            hint="Docker image tag"
+            label={labelWithInfo(
+              'vLLM runtime',
+              'Docker tag used to run this model. Automatic selects the model-specific compatibility image when one exists, otherwise the configured stable fallback. An incompatible override makes the service fail during startup.'
+            )}
+            name="vllmTag"
+            onChange={formik.handleChange}
+            options={
+              v.vllmTag && !vllmTagOptions.some(({ value }) => value === v.vllmTag)
+                ? [{ label: `${v.vllmTag} (current)`, value: v.vllmTag }, ...vllmTagOptions]
+                : vllmTagOptions
+            }
+            value={v.vllmTag ?? ''}
+          />
           {showTools && (
             <>
               <div>

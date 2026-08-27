@@ -2,6 +2,7 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
+import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import { ComputeResource } from '@/types/environments';
 import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
@@ -13,7 +14,7 @@ import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from
  * serving a single HF model, listening on port 8000.
  */
 export const VLLM_IMAGE = 'vllm/vllm-openai';
-export const VLLM_TAG = process.env.NEXT_PUBLIC_VLLM_TAG ?? 'latest';
+export const VLLM_TAG = process.env.NEXT_PUBLIC_VLLM_TAG ?? 'v0.28.0';
 export const VLLM_PORT = 8000;
 
 /**
@@ -46,12 +47,19 @@ function wantsGpuOffload(params: ModelParameters): boolean {
 }
 
 /**
- * The image/tag/port to launch these params with. Same as ENGINE_RUNTIME except llama.cpp with GPU
- * offload requested, which needs the CUDA-built tag — the CPU tag would ignore `-ngl` at runtime.
+ * The image/tag/port to launch a model with. llama.cpp GPU offload selects its CUDA image; vLLM uses
+ * an explicit per-model override, then a compatibility preset, then the configured stable fallback.
  */
-export function engineRuntime(params: ModelParameters): { image: string; tag: string; port: number } {
+export function engineRuntime(modelId: string, params: ModelParameters): { image: string; tag: string; port: number } {
   const runtime = ENGINE_RUNTIME[params.engine];
-  return wantsGpuOffload(params) ? { ...runtime, tag: LLAMACPP_TAG_CUDA } : runtime;
+  if (wantsGpuOffload(params)) {
+    return { ...runtime, tag: LLAMACPP_TAG_CUDA };
+  }
+  if (params.engine === 'vllm') {
+    const preset = getVllmModelPreset(modelId);
+    return { ...runtime, tag: params.vllmTag || preset?.imageTag || runtime.tag };
+  }
+  return runtime;
 }
 
 /** The container port an engine's OpenAI-compatible server listens on (for endpoint lookup on manage). */
@@ -317,7 +325,10 @@ function parseCustomArgs(cmd: string[], engine: InferenceEngine): CustomParam[] 
  * from the command shape; flags absent from the command fall back to buildModelDefaults' neutral
  * values; unrecognized flags come back as customParams so an Edit relaunch doesn't silently drop them.
  */
-export function parseEngineCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
+export function parseEngineCommand(
+  cmd: string[],
+  runningVllmTag?: string
+): { modelId: string | null; params: ModelParameters } {
   // Read the value following a flag, or undefined when the flag is absent / has no value. FIRST
   // occurrence: buildCustomArgs appends custom params after the builder's own flags, so a repeated
   // known flag is a custom override — the first occurrence is the one the typed form field emitted.
@@ -367,6 +378,7 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
     modelId,
     params: {
       ...defaults,
+      vllmTag: runningVllmTag ?? defaults.vllmTag,
       customParams: parseCustomArgs(cmd, 'vllm'),
       servedModelName: valueOf('--served-model-name') || defaults.servedModelName,
       // Flag absent (or garbage) → null: the service launched without a pinned length, so vLLM
@@ -542,7 +554,7 @@ export function buildInferenceRestartSpec({
   params: ModelParameters;
   hfToken: string;
 }): ServiceRestartParams {
-  const runtime = engineRuntime(params);
+  const runtime = engineRuntime(model.id, params);
   return {
     image: runtime.image,
     tag: runtime.tag,
@@ -581,7 +593,7 @@ export function buildInferenceStartParams({
   hfToken: string;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
-  const runtime = engineRuntime(params);
+  const runtime = engineRuntime(model.id, params);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
