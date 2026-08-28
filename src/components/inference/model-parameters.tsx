@@ -15,6 +15,7 @@ import {
   mapQuantization,
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
+import { getArchitectureIncompatibility } from '@/services/model-compatibility';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -176,7 +177,15 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   { modelId, defaultOpen = false },
   ref
 ) {
-  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine, selectedEnv } = useInferenceContext();
+  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine, engineLockedToLlamaCpp, selectedEnv } =
+    useInferenceContext();
+
+  // A GGUF-only model has no weights vLLM can load, so offering it would only produce a failed
+  // launch. The context enforces this too; hiding the option is what makes the constraint visible.
+  const engineOptions = useMemo(
+    () => (engineLockedToLlamaCpp ? INFERENCE_ENGINE_OPTIONS.filter((o) => o.value === 'llamacpp') : INFERENCE_ENGINE_OPTIONS),
+    [engineLockedToLlamaCpp]
+  );
 
   // GPUs booked on the resources step (which runs before this one). This is the ceiling for tensor
   // parallelism — sharding across more GPUs than were booked makes vLLM exit at startup. 1 or fewer
@@ -197,10 +206,16 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // Feedback for the explicit "Reload defaults" action (initial load stays silent beyond the spinner).
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
+  // Derived, not state: it's a pure function of the loaded config, so it can't go stale against it.
+  const architectureWarning = getArchitectureIncompatibility(config?.architecture);
+
   const [open, setOpen] = useState(defaultOpen);
-  // Guards the one-time initial load: loadConfig's identity changes with hfToken, so a [loadConfig]
-  // dep can't fire it exactly once — this ref does.
-  const initialLoadStartedRef = useRef(false);
+  // Sequence number of the most recently STARTED config fetch. Only the two callers that keep the
+  // returned cleanup can cancel via it, and neither reloadDefaults nor handleRevisionBlur does — so
+  // without this a slow earlier request (revision blur) can resolve after a newer one (Reload
+  // defaults) and overwrite `config` with the wrong revision's facts, which architectureWarning and
+  // the locked ceiling/quant then read.
+  const requestSeqRef = useRef(0);
 
   const loadConfig = useCallback(
     ({
@@ -217,6 +232,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       resetDefaults: boolean;
     }) => {
       let cancelled = false;
+      const requestId = ++requestSeqRef.current;
+      // Unmounted, or a later fetch has already started — either way this result is no longer current.
+      const superseded = () => cancelled || requestId !== requestSeqRef.current;
       setLoading(true);
       setLoadError(null);
       if (isReload) {
@@ -224,7 +242,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       }
       fetchHuggingFaceModelConfig(modelId, hfToken, revision)
         .then((result) => {
-          if (cancelled) {
+          if (superseded()) {
             return;
           }
           setConfig(result);
@@ -236,7 +254,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           onLoaded?.(result);
         })
         .catch((error: unknown) => {
-          if (cancelled) {
+          if (superseded()) {
             return;
           }
           if (error instanceof HuggingFaceAuthError) {
@@ -254,7 +272,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           }
         })
         .finally(() => {
-          if (!cancelled) {
+          // A superseded request must not clear the spinner — the newer one is still in flight.
+          if (!superseded()) {
             setLoading(false);
           }
         });
@@ -265,16 +284,22 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     [hfToken, modelId]
   );
 
-  // Initial load only (ref-guarded so it never re-fires when loadConfig's identity changes on a token
-  // edit). Reloads happen via the explicit "Reload defaults" button — typing the token must NOT
-  // auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  // Keeps the latest loadConfig reachable from the mount-only effect below without making it a
+  // dependency of it.
+  const loadConfigRef = useRef(loadConfig);
   useEffect(() => {
-    if (initialLoadStartedRef.current) {
-      return;
-    }
-    initialLoadStartedRef.current = true;
-    return loadConfig({ isReload: false, resetDefaults: true });
+    loadConfigRef.current = loadConfig;
   }, [loadConfig]);
+
+  // Initial load only. Reloads happen via the explicit "Reload defaults" button — typing the token
+  // must NOT auto-refetch, which would reset the baseline and wipe uncommitted edits.
+  //
+  // Mount-only on purpose. Taking `loadConfig` as a dependency (its identity changes with hfToken)
+  // made a keystroke in the token field re-run this effect, which fires the previous run's cleanup
+  // and cancels the in-flight initial request — while the guard that used to sit here then blocked
+  // any replacement. The result was a card stuck on its spinner forever, because a cancelled request
+  // deliberately doesn't clear `loading`. With an empty dep array the cleanup only runs on unmount.
+  useEffect(() => loadConfigRef.current({ isReload: false, resetDefaults: true }), []);
 
   // Editing the token invalidates the last reload result — clear transient feedback so a stale
   // "reloaded"/"rejected" notice doesn't linger.
@@ -355,13 +380,16 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // entered revision (vLLM only) is preserved — buildDefaults blanks it, but it's what we just
   // fetched against. Rebuilds defaults for the ACTIVE engine so a reload keeps the right branch.
   const reloadDefaults = () => {
-    const revision = formik.values.engine === 'vllm' ? formik.values.revision : undefined;
+    const requestEngine = formik.values.engine;
+    const revision = requestEngine === 'vllm' ? formik.values.revision : undefined;
     loadConfig({
       revision,
       onLoaded: (result) => {
         // Only reset the form when defaults actually loaded; on failure keep the user's values.
         if (result) {
-          const defaults = buildModelDefaults(result, modelId, formik.values.engine);
+          // requestEngine, not the live one: `revision` was captured for it, so building defaults for
+          // anything else would merge a vLLM field into a llama.cpp value set.
+          const defaults = buildModelDefaults(result, modelId, requestEngine);
           // `revision` is only set for vLLM, so `defaults` is the vLLM branch here — but TS can't
           // correlate the two, so re-assert the union type on the merged values.
           const values = (revision ? { ...defaults, revision } : defaults) as ModelParametersType;
@@ -813,13 +841,33 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           </div>
         ) : loadError ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>{loadError}</div>
+        ) : architectureWarning ? (
+          // Second-pass compatibility check. The grid's check only sees list metadata, so an untagged
+          // encoder repo reaches this step accepted — the architecture from config.json settles it.
+          // A warning, not a block: the user has already committed to this model, and the check is
+          // conservative enough that overriding it should stay possible.
+          <div className={cx(styles.notice, styles.noticeWarning)}>{architectureWarning}</div>
         ) : reloadStatus === 'success' ? (
           <div className={cx(styles.notice, styles.noticeSuccess)}>Defaults reloaded from Hugging Face.</div>
         ) : null}
       </div>
       <Collapse in={open} unmountOnExit>
-        <section className={styles.section}>
-          {/* Engine picks the runtime (image/port/command) and which launch flags below are shown. */}
+        {/*
+          Inert while a reload is in flight. Every edit made in that window is about to be thrown away
+          by the resetForm the reload ends with, and editing the engine mid-flight would apply defaults
+          built for the other branch. Scoped to the reload specifically: the initial load renders a
+          full-card spinner instead of these fields, and a revision-blur refresh never resets the form.
+          `fieldset[disabled]` covers the native inputs; the CSS also kills pointer events, since the
+          MUI selects are div-based and ignore it.
+        */}
+        <fieldset className={styles.section} disabled={reloadStatus === 'loading'}>
+          {/*
+            Engine picks the runtime (image/port/command) and which launch flags below are shown, so
+            it lives with those flags rather than on the resources step — the allocation there never
+            reads the engine, and a GPU is required either way, so nothing about booking depends on
+            this choice. Keeping it here also means the edit flow, which skips resources entirely,
+            has the same single control.
+          */}
           <div className={styles.subsection}>
             <div>
               <h4>Inference engine</h4>
@@ -835,7 +883,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               )}
               name="engine"
               onChange={(e) => setEngine(e.target.value as InferenceEngine)}
-              options={INFERENCE_ENGINE_OPTIONS}
+              options={engineOptions}
               value={engine}
             />
           </div>
@@ -907,7 +955,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           <div className={styles.divider} />
 
           {formik.values.engine === 'vllm' ? renderVllmFlags(formik.values) : renderLlamaCppFlags(formik.values)}
-        </section>
+        </fieldset>
       </Collapse>
     </Card>
   );
