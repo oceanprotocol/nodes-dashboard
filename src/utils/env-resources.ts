@@ -51,27 +51,36 @@ export function meetsMinResources(environment: ComputeEnvironment, required: Dec
 /**
  * Auto GPU selection for a read-only card: book the recommended GPU count when the env has that many
  * units free, else fall back to the declared min (guaranteed by {@link meetsMinResources}). Keyed by
- * GPU `description` (what the allocation hook / buildGpuRequests match on). Empty when GPU-less.
+ * GPU `description` (what the allocation hook / buildGpuRequests match on).
+ *
+ * EVERY type in the env gets an explicit number, zero included. The allocation hook reads the
+ * selection per type and defaults a MISSING key to every free unit of that type, so any type left out
+ * of the record is silently booked in full — `{}` on an 8-GPU env books all eight and prices them.
+ *
+ * A package/template that declares no GPU (or a zero one) still takes ONE unit: a GPU env is sold in
+ * unit-sized slices and the card blocks a zero pick ('Select at least one GPU unit to continue').
  */
 export function autoGpuSelection(environment: ComputeEnvironment, required: DeclaredRequirement[]): GpuSelection {
-  const gpuReq = required.find((r) => r.type === 'gpu');
-  if (!gpuReq) {
-    return {};
-  }
+  const gpuResources = (environment.resources ?? []).filter((r) => r.type === 'gpu');
   const selection: GpuSelection = {};
-  let remaining = Math.min(gpuReq.recommended ?? gpuReq.min, grantableByType(environment, 'gpu'));
+  gpuResources.forEach((r) => {
+    selection[r.description || 'GPU'] = 0;
+  });
+
+  const gpuReq = required.find((r) => r.type === 'gpu');
+  const target = gpuReq ? Math.min(gpuReq.recommended ?? gpuReq.min, grantableByType(environment, 'gpu')) : 1;
   // Draw the target across GPU types in declared order (units free per type), each keyed by its
-  // description so units of one type merge under one key.
-  (environment.resources ?? [])
-    .filter((r) => r.type === 'gpu')
-    .forEach((r) => {
-      if (remaining <= 0) {
-        return;
-      }
-      const key = r.description || 'GPU';
-      const take = Math.min(grantable(r), remaining);
-      selection[key] = (selection[key] ?? 0) + take;
-      remaining -= take;
-    });
+  // description so units of one type merge under one key. A type with nothing free takes 0 and the
+  // draw moves on, so the single no-GPU unit lands on the first type that can actually give one.
+  let remaining = Math.max(target, 1);
+  gpuResources.forEach((r) => {
+    if (remaining <= 0) {
+      return;
+    }
+    const key = r.description || 'GPU';
+    const take = Math.min(grantable(r), remaining);
+    selection[key] += take;
+    remaining -= take;
+  });
   return selection;
 }

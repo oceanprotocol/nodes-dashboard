@@ -52,13 +52,25 @@
   align-items: center;
 }
 
+/* A <fieldset> so `disabled` reaches every control at once — hence the UA style reset. */
 .section {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 
   .sectionTitle {
     margin: 0 0 4px;
+  }
+
+  /* Reloading. `disabled` alone only stops the native inputs — the MUI selects are div-based and
+     stay clickable, so block pointer events too. */
+  &:disabled {
+    pointer-events: none;
+    opacity: 0.55;
   }
 }
 
