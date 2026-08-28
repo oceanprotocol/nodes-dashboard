@@ -1,6 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { DEFAULT_NODE_URI } from '@/constants/default-node';
 import { NodeUri } from '@/contexts/P2PContext';
+import { withTimeout } from '@/lib/with-timeout';
 import { AppBundle, AppTemplate, isBundle, isService } from '@/types/templates';
 import { ServiceTemplatePublic } from '@oceanprotocol/lib';
 
@@ -15,6 +16,30 @@ export type GetServiceTemplatesFn = (
 ) => Promise<ServiceTemplatePublic[]>;
 
 /**
+ * How long a fetched catalogue is reused before the node is asked again. The catalogue only changes
+ * when an operator edits the node's template directory, so a short window costs nothing in freshness
+ * and takes a whole libp2p round trip off every consumer that mounts within it.
+ */
+const CATALOGUE_TTL_MS = 60_000;
+
+/**
+ * Cap on one catalogue round trip. Shorter than the status poll's 30s: this one gates the manage
+ * page's Edit / Prolong buttons, so a hung dial has to fail fast enough for the retries above it to
+ * finish inside a user's patience.
+ */
+const CATALOGUE_TIMEOUT_MS = 15_000;
+
+/** Resolved catalogue plus when it landed — `null` until the first successful fetch. */
+let cachedCatalogue: { templates: AppTemplate[]; at: number } | null = null;
+/**
+ * The request currently in flight, shared by every caller that asks while it runs. Deliberately
+ * started WITHOUT any caller's `signal`: the manage page, the services table and the URL hydration
+ * all fetch the same catalogue at the same moment, and letting the first one to unmount abort the
+ * shared request would strand the others.
+ */
+let inFlightCatalogue: Promise<AppTemplate[]> | null = null;
+
+/**
  * Fetch the app templates advertised by the default node (getServiceTemplates), scoped to the active
  * chain. The payload is used as-is — `AppTemplate` only adds fields the node already sends through its
  * sanitizer's spread. Array-guarded so a malformed response can't throw. Pass the caller's
@@ -23,13 +48,59 @@ export type GetServiceTemplatesFn = (
  * This is the single choke point every caller goes through — the catalogue hook, the URL hydration in
  * inference-context, the running-services table — so the whole flow (browse, launch, manage) sees the
  * same catalogue. An unreachable node is the caller's error to render.
+ *
+ * Cached for CATALOGUE_TTL_MS and de-duplicated while in flight. Four independent consumers used to
+ * fetch the whole catalogue — every template's full workflow graph, re-read from disk node-side — on
+ * every mount; on the manage page that round trip is what the template match races, so collapsing it
+ * to one request is a correctness win as much as a latency one. A failed fetch caches nothing, so the
+ * next caller retries.
+ *
+ * `signal` aborts THIS caller's wait, not the shared request (see inFlightCatalogue).
  */
 export async function fetchTemplates(
   getServiceTemplates: GetServiceTemplatesFn,
   signal?: AbortSignal
 ): Promise<AppTemplate[]> {
-  const result = await getServiceTemplates(DEFAULT_NODE_URI, CHAIN_ID, signal);
-  return Array.isArray(result) ? result : [];
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+  if (cachedCatalogue && Date.now() - cachedCatalogue.at < CATALOGUE_TTL_MS) {
+    return cachedCatalogue.templates;
+  }
+  if (!inFlightCatalogue) {
+    const request = (async () => {
+      // A libp2p round trip has no timeout of its own: an unreachable node/relay leaves the promise
+      // pending forever. That used to cost nothing, but the manage page now holds Edit/Prolong until
+      // the match settles, so a hung dial would disable them indefinitely. Cap it and let the caller's
+      // retry decide what to do. `withTimeout` aborts the dial too, rather than leaving it running.
+      const result = await withTimeout(
+        (timeoutSignal) => getServiceTemplates(DEFAULT_NODE_URI, CHAIN_ID, timeoutSignal),
+        CATALOGUE_TIMEOUT_MS,
+        'Service templates'
+      );
+      const templates = Array.isArray(result) ? result : [];
+      cachedCatalogue = { templates, at: Date.now() };
+      return templates;
+    })().finally(() => {
+      inFlightCatalogue = null;
+    });
+    // Every caller may have gone away (each holds only its own aborted race, below) by the time this
+    // rejects, and a rejection nobody is attached to surfaces as an unhandled promise rejection.
+    request.catch(() => {});
+    inFlightCatalogue = request;
+  }
+  const request = inFlightCatalogue;
+  if (!signal) {
+    return request;
+  }
+  // Honour the caller's signal without touching the shared request: whichever settles first wins.
+  // The listener is removed once the request settles, so a caller reusing one long-lived signal
+  // across calls doesn't pile listeners onto it.
+  return new Promise<AppTemplate[]>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    request.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
 
 /** Look up one template by id (the `[templateId]` route param / URL hydration). */
@@ -135,4 +206,3 @@ export function selectServices(templates: AppTemplate[]): AppTemplate[] {
 export function selectBundles(templates: AppTemplate[]): AppBundle[] {
   return templates.filter(isBundle);
 }
-

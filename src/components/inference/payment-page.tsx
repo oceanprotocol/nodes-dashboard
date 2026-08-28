@@ -230,7 +230,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // service (the resources step is skipped), so don't bounce to resources — the env comes from URL
         // hydration. Mirrors the CustomModel case, which excludes both modes for the same reason.
         if (!selectedTemplate) {
-          router.replace({ pathname: '/inference/services', query: router.query });
+          // Reaching here means the URL named no template in EITHER place — not the query and not the
+          // `[templateId]` path segment (hydration reads both, and an id it can't resolve fails
+          // hydration instead, which this guard skips). So there is no id to classify: `/inference` is
+          // the only honest destination, and it offers both catalogues plus the running services.
+          // Sending an unknown id to `/inference/services` would be a guess that lists bare services
+          // only — never the bundle the user may have come from.
+          router.replace('/inference');
         } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({
             pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,

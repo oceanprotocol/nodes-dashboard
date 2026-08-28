@@ -20,7 +20,25 @@ type JobTemplateState = {
    * the URL when this is true.
    */
   exact: boolean;
+  /**
+   * The match ran to completion (successfully or not) for the container currently passed in, so
+   * `template` is this service's real answer rather than "not yet". `false` while there is nothing to
+   * match (no job) — callers that must not act on an unknown template gate on `settled`, not on
+   * `!matching`, which is also false before the first attempt starts.
+   */
+  settled: boolean;
+  /**
+   * The catalogue could not be reached after MAX_ATTEMPTS, so this service's identity is unknown —
+   * distinct from a completed match that found nothing. `settled` stays false, so a caller that
+   * branches on the template holds the action rather than taking the no-template branch by default.
+   */
+  failed: boolean;
 };
+
+/** How many times a failed catalogue fetch is retried before the match gives up for this container. */
+const MAX_ATTEMPTS = 3;
+/** Backoff before a retry — long enough not to hammer an unreachable node, short enough to beat a click. */
+const RETRY_DELAY_MS = 1500;
 
 /**
  * Match a running service back to the template it was launched from, using the node's own job record.
@@ -33,44 +51,92 @@ type JobTemplateState = {
  * The job record always names image + dockerCmd, which is what distinguishes a bundle from its parent
  * service (they share the image and differ only in `command`).
  *
+ * Always matched, even when the URL already names a template or claims a plain model service: the
+ * link is only ever as good as whatever generated it, and `exact` says whether this match outranks it.
+ *
  * @param job    container facts from the polled job record — a fresh object every tick, so the lookup
  *               is keyed on the facts themselves and not repeated while they're unchanged.
- * @param skip   true when the caller needs no match at all. A caller that already has a template from
- *               the URL should still match: the link's template is only ever as good as whatever
- *               matched it, and `exact` says whether this one outranks it.
  */
-const useJobTemplate = (job: JobContainer | null, skip = false): JobTemplateState => {
+const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
   const { isReady, getServiceTemplates } = useP2P();
-  const [template, setTemplate] = useState<AppTemplate | null>(null);
-  const [exact, setExact] = useState(false);
+  const [state, setState] = useState<{
+    key: string | null;
+    template: AppTemplate | null;
+    exact: boolean;
+    /** The catalogue itself was unreachable, so "no template" is an absence of an answer, not one. */
+    failed: boolean;
+  }>({
+    key: null,
+    template: null,
+    exact: false,
+    failed: false,
+  });
   const [matching, setMatching] = useState(false);
+  // Bumped to re-run the effect after a transient catalogue failure. Reset whenever the key changes.
+  const [attempt, setAttempt] = useState(0);
+
+  /**
+   * The container facts, NUL-joined (a delimiter no image ref or argv entry can itself contain).
+   * Computed during render and used as the effect's dependency in place of `job` itself: the status
+   * poll hands us a brand-new object — and a brand-new `dockerCmd` array — every tick, so depending
+   * on the object's identity re-ran this effect every POLL_INTERVAL_MS, and each re-run's cleanup
+   * cancelled the catalogue fetch still in flight from the previous one. A fetch slower than one poll
+   * interval could therefore never land, leaving `template` null for the life of the page.
+   */
+  const key = job ? [job.image ?? '', ...(job.dockerCmd ?? [])].join('\u0000') : null;
+  // Read the facts inside the effect without making the effect depend on their identity: `key`
+  // already changes whenever they do.
+  const jobRef = useRef(job);
+  jobRef.current = job;
+
+  // A different container is a different question — drop the previous service's answer rather than
+  // showing it against this one while the new match runs (the hook survives a serviceId change).
+  // Only a different REAL container counts: the status poll resolves to `null` on a tick whose listing
+  // comes back empty or mismatched, and treating that gap as a new identity would throw away a match
+  // already made and refetch the catalogue when the same job reappears a tick later.
   const matchedKeyRef = useRef<string | null>(null);
+  if (key !== null && matchedKeyRef.current !== key) {
+    matchedKeyRef.current = key;
+    if (state.key !== null && state.key !== key) {
+      setState({ key: null, template: null, exact: false, failed: false });
+      setAttempt(0);
+    }
+  }
 
   useEffect(() => {
-    if (skip || !job || !isReady) {
+    if (key === null || !isReady || attempt >= MAX_ATTEMPTS) {
+      // Nothing is in flight on any of these paths. Say so explicitly: an in-flight fetch that was
+      // cancelled (by `job` blinking to null, say) resolves behind `if (!cancelled)` and so never
+      // clears this itself, which would leave the Model card reading "Loading model…" forever.
+      setMatching(false);
       return;
     }
-    // NUL-joined: a delimiter no image ref or argv entry can itself contain.
-    const key = [job.image ?? '', ...(job.dockerCmd ?? [])].join('\u0000');
-    if (matchedKeyRef.current === key) {
-      return;
-    }
-    matchedKeyRef.current = key;
+    const { image, dockerCmd } = jobRef.current ?? {};
+    const controller = new AbortController();
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     setMatching(true);
     (async () => {
       try {
-        const templates = await fetchTemplates(getServiceTemplates);
-        const match = matchTemplateForService(templates, { image: job.image, dockerCmd: job.dockerCmd });
+        const templates = await fetchTemplates(getServiceTemplates, controller.signal);
+        const match = matchTemplateForService(templates, { image, dockerCmd });
         if (!cancelled) {
-          setTemplate(match.template);
-          setExact(match.source === 'command');
+          setState({ key, template: match.template, exact: match.source === 'command', failed: false });
         }
       } catch (error) {
-        // Let the next poll retry: a transient catalogue failure shouldn't permanently strand the
-        // caller on its no-template path.
-        matchedKeyRef.current = null;
-        console.error('Failed to match this service back to a template:', error);
+        // A transient catalogue failure shouldn't permanently strand the caller — retry a bounded
+        // number of times, then record the FAILURE rather than a null match. The two are not the
+        // same: a catalogue that answered "nothing matches this image" means the service is a plain
+        // model service, while a catalogue we never reached means we don't know what it is. Reporting
+        // the second as the first would send a template service's Edit into the model flow.
+        if (!cancelled) {
+          console.error('Failed to match this service back to a template:', error);
+          if (attempt + 1 >= MAX_ATTEMPTS) {
+            setState({ key, template: null, exact: false, failed: true });
+          } else {
+            retryTimer = setTimeout(() => setAttempt((n) => n + 1), RETRY_DELAY_MS);
+          }
+        }
       } finally {
         if (!cancelled) {
           setMatching(false);
@@ -79,10 +145,22 @@ const useJobTemplate = (job: JobContainer | null, skip = false): JobTemplateStat
     })();
     return () => {
       cancelled = true;
+      controller.abort();
+      clearTimeout(retryTimer);
     };
-  }, [skip, job, isReady, getServiceTemplates]);
+  }, [key, isReady, getServiceTemplates, attempt]);
 
-  return { template, matching, exact };
+  // Only ever report an answer that belongs to the container currently passed in.
+  const answered = key !== null && state.key === key;
+  return {
+    template: answered ? state.template : null,
+    matching,
+    exact: answered ? state.exact : false,
+    // Nothing to match is not a settled match, and a match that gave up has no answer to settle on
+    // (see `failed`).
+    settled: answered && !state.failed,
+    failed: answered && state.failed,
+  };
 };
 
 export default useJobTemplate;

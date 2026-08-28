@@ -184,6 +184,7 @@ const ManageServicePage: React.FC = () => {
     selectedToken,
     setSelectedToken,
     selectedTemplate,
+    setSelectedTemplate,
     jobDurationSeconds,
     setJobDurationSeconds,
     hydrateFromUrlFinished,
@@ -220,15 +221,20 @@ const ManageServicePage: React.FC = () => {
    * What the link itself says this service is — read straight off the query rather than the hydrated
    * context, so it's known on the first render instead of after the async model/template restore.
    *
-   * `models=` with no `template=` means a custom-model launch, and that claim is final: a custom launch
-   * runs the SAME image the node's own inference templates do (`vllm/vllm-openai` is published by
-   * vllm-hf-model / vllm-qwen-0-5b / vllm-nomic-embed, `ghcr.io/ggml-org/llama.cpp` by llamacpp-phi4),
-   * so matching the job record by image alone resolves every model service to one of those templates —
-   * and a launch that happens to reproduce a template's command (same model, default params) matches
-   * "exactly". Either way the page would drop the Model card, the base URL and the curl example, and
-   * offer an "Open UI" button for a web UI an inference server doesn't serve. The services table draws
-   * the same line for the same reason (see `modelIdFromSession` there): a service with a model id of
-   * its own is never a template run.
+   * `models=` with no `template=` claims a custom-model launch. It is a strong claim but NOT a final
+   * one, because it is generated from a record that cannot tell the two apart: several node templates
+   * pin their model with `--model` / `-hf` in the command (vllm-qwen-0-5b, vllm-nomic-embed,
+   * llamacpp-phi4-cpu), the incentive-backend derives a session's `model` from exactly that flag, and
+   * the services table then skips template matching for any session that has one — so a plain SERVICE
+   * launch of those templates gets a `models=` link and would be managed, edited and prolonged as if
+   * the user had brought the model themselves. Nothing in the stack records which template a service
+   * came from (neither the backend record nor the node's own ServiceJob), so only the running command
+   * can settle it — see `template` below, where a unique image+command match outranks this claim.
+   *
+   * It still stands on its own wherever the command DOESN'T uniquely name a template: a custom launch
+   * runs the same image the node's inference templates do, so image alone would resolve every model
+   * service to one of them, drop the Model card, the base URL and the curl example, and offer an
+   * "Open UI" button for a web UI an inference server doesn't serve.
    */
   const isModelServiceByUrl = !firstQueryValue(router.query.template) && decodeModelIds(router.query.models).length > 0;
   // The template this service was launched from, matched off the node's own job record (see
@@ -240,16 +246,46 @@ const ManageServicePage: React.FC = () => {
     template: jobTemplate,
     matching: matchingTemplate,
     exact: jobTemplateExact,
-  } = useJobTemplate(job, isModelServiceByUrl);
-  // An exact (image + command) job match outranks the URL — it names the variant actually running, so
-  // Edit rebuilds THAT one. Otherwise the URL selection stands (it's the in-flow selection, and an Edit
-  // re-entry is built from it), with the inexact job match as the fallback when the URL carried none.
-  // A URL that named a model outranks all of it (see above) — and is re-checked here, not only through
-  // the hook's `skip`, so a match that landed before the flag flipped can't linger in the hook's state.
-  const template = isModelServiceByUrl
-    ? null
-    : ((jobTemplateExact ? jobTemplate : null) ?? selectedTemplate ?? jobTemplate);
+    settled: templateSettled,
+    failed: templateMatchFailed,
+  } = useJobTemplate(job);
+  /**
+   * Which template this service runs, in order of authority:
+   *   1. an EXACT job match — image plus a command only ONE template in the catalogue has. That is the
+   *      running container identifying itself, so it outranks everything, including a `models=` link
+   *      that claims a custom launch (see isModelServiceByUrl: those links are generated for real
+   *      service launches too, and following them sent an Edit into the model picker every time).
+   *   2. the URL's claim of a custom-model launch — no unique command said otherwise, so a service
+   *      that names a model is taken at its word rather than image-matched onto a template it merely
+   *      shares an image with.
+   *   3. the template the link named (the in-flow selection an Edit re-entry is built from),
+   *   4. an inexact (image-only) job match, when the link named none.
+   *
+   * The one thing this cannot resolve is a custom launch whose command is byte-for-byte a template's —
+   * same model, same defaults, no extra flags. Nothing in the record distinguishes those two, so it is
+   * read as the template: the container is identical either way, so an Edit relaunches the same thing,
+   * and a user who wants different params can launch a new service. Preferring the other reading is
+   * what broke every real service launch, which is not a trade worth making for the rarer case.
+   */
+  const template =
+    (jobTemplateExact ? jobTemplate : null) ?? (isModelServiceByUrl ? null : (selectedTemplate ?? jobTemplate));
   const isBundleService = !!template && isBundle(template);
+  /**
+   * Publish the resolved template to context.
+   *
+   * This page is the only place that knows which template a running service belongs to when the link
+   * didn't say — it matches off the node's own job record. Every step page an Edit / Prolong re-entry
+   * lands on, however, tests CONTEXT's `selectedTemplate` in its bounce guard, and the manage link
+   * carries no `template=` for a bundle (the services table withholds it on an ambiguous match, which
+   * every bundle is: the backend listing drops `dockerCmd`, so it can only ever match by an image its
+   * variants share). Left unpublished, the re-entry navigated to the right URL and was bounced back
+   * out of the flow the moment it arrived.
+   */
+  useEffect(() => {
+    if (template && template.id !== selectedTemplate?.id) {
+      setSelectedTemplate(template);
+    }
+  }, [template, selectedTemplate?.id, setSelectedTemplate]);
   // Which of the four entry branches this service belongs to, for PostHog funnels — see
   // resolveInferenceBranch. A managed service can't tell a custom launch from a quickstart one after
   // the fact (both are plain model services with no template), so both report 'custom' here; this is
@@ -535,8 +571,19 @@ const ManageServicePage: React.FC = () => {
   // service instead". claimTx is set before the first container start, so every legitimately
   // restartable job (Running / crashed Error / Stopped) has it.
   const isUnpaid = !!job && !job.payment?.claimTx;
+  /**
+   * Whether this service's template identity is known yet — `settled` covers "matched", "matched to
+   * nothing" and "this is a model service, no match needed" alike.
+   *
+   * Edit and Prolong both branch on `template` to pick which flow they re-enter, and the match runs a
+   * libp2p round trip AFTER the first status poll lands. Without this gate the buttons went live a
+   * whole round trip early, and a click inside that window took the model-service branch for a
+   * template service — landing on the model picker, which then cleared the selection.
+   */
+  const templateKnown = templateSettled;
   // Edit relaunches through the same SERVICE_RESTART (with a new dockerCmd), so it shares the gate.
-  const canEdit = !!job && !isExpired && !restartBlocked && !isUnpaid && (!isBundleService || bundleHasConfig);
+  const canEdit =
+    !!job && templateKnown && !isExpired && !restartBlocked && !isUnpaid && (!isBundleService || bundleHasConfig);
   const canRestart = !!job && !isExpired && !restartBlocked && !isUnpaid;
   // Prolong's own status gate (Expired / Locking / Claiming — see `isProlongBlocked`), plus our
   // expiry check: extend does `expiresAt += additionalDuration` with no past-expiry guard of its own,
@@ -547,7 +594,11 @@ const ManageServicePage: React.FC = () => {
   // Manage link carries no `gpus`/`res`, so the hydrated selection is empty and would expand to a
   // whole-env slice at payment. Without a resource record there is nothing correct to price against,
   // so hold the action rather than quote (and escrow) every free GPU in the env.
-  const canProlong = !!job && !isExpired && !isProlongBlocked(job.status) && !!selectedToken && !!bookedResources;
+  // `templateKnown` for the same reason as Edit: prolong routes to the template payment page or the
+  // model one, and picking that branch before the match settles sends a template service to the model
+  // picker instead of to payment.
+  const canProlong =
+    !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!selectedToken && !!bookedResources;
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
@@ -610,7 +661,9 @@ const ManageServicePage: React.FC = () => {
       // Close the modal too — the error renders in the page header, hidden behind an open modal.
       setProlongOpen(false);
       setJobError(
-        selectedToken ? 'This service can no longer be extended.' : 'Loading service details — try again in a moment.'
+        !selectedToken || !templateKnown
+          ? 'Loading service details — try again in a moment.'
+          : 'This service can no longer be extended.'
       );
       return;
     }
@@ -624,8 +677,9 @@ const ManageServicePage: React.FC = () => {
       prolong: '1',
       serviceId: id,
     };
-    // A template service has no models, so the custom-models payment page would bounce back to the model
-    // picker — route template prolong into the template payment page (flowType=Template) instead.
+    // A template service prolongs through the template payment page (flowType=Template); a plain model
+    // service through the model one. `canProlong` waits for the template match to settle, so this is
+    // the service's real identity, not a not-yet-known one.
     if (template) {
       router.push({
         pathname: `/inference/services/${encodeURIComponent(template.id)}/payment`,
@@ -708,6 +762,9 @@ const ManageServicePage: React.FC = () => {
                   color="accent1"
                   contentBefore={<EditOutlinedIcon />}
                   disabled={!canEdit}
+                  // Both actions branch on the template match; until it settles they'd re-enter the
+                  // wrong flow, so show them working rather than inexplicably dead.
+                  loading={!!job && !templateKnown && !templateMatchFailed}
                   onClick={onEdit}
                   size="md"
                   variant="outlined"
@@ -718,6 +775,7 @@ const ManageServicePage: React.FC = () => {
                   color="accent1"
                   contentBefore={<BoltOutlinedIcon />}
                   disabled={!canProlong}
+                  loading={!!job && !templateKnown && !templateMatchFailed}
                   onClick={() => {
                     posthog.capture('inference_prolong_opened', { serviceId: id, canProlong, branch });
                     setProlongOpen(true);
@@ -729,6 +787,15 @@ const ManageServicePage: React.FC = () => {
                 </Button>
               </div>
             </div>
+            {/* Edit and Prolong both branch on which template this service runs, and the catalogue
+                that answers that is unreachable — so say why they're unavailable rather than sending
+                the user into the wrong flow on a guess. Restart is unaffected: it needs no identity. */}
+            {templateMatchFailed && (
+              <div className="textErrorDarker">
+                Couldn&apos;t reach the node&apos;s template catalogue, so this service&apos;s app is unknown — Edit and
+                Prolong are unavailable. Reload to try again.
+              </div>
+            )}
           </Card>
 
           {/* A bundle's weights land minutes after the container reports Running, so say so here

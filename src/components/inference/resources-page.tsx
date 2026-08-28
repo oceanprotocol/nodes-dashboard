@@ -12,6 +12,7 @@ import { useInferenceContext } from '@/context/inference-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
+import { isBundle } from '@/types/templates';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -47,7 +48,8 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     if (isCustomModelFlow && selectedModels.length === 0) {
       router.replace({ pathname: '/inference/custom-models', query: router.query });
     } else if (isTemplateFlow && !selectedTemplate) {
-      router.replace({ pathname: '/inference/services', query: router.query });
+      // No template named in the query OR the path — nothing to classify, so the hub (see payment-page).
+      router.replace('/inference');
     }
   }, [
     isCustomModelFlow,
@@ -69,7 +71,11 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        router.replace('/inference/services');
+        // Back to the catalogue this template actually belongs to: a bundle is listed on
+        // `/inference/templates` and never on `/inference/services` (see catalogue-config), so the
+        // fixed target used to strand a bundle launch on a grid without it. Here — unlike the bounce
+        // guard above — the template IS resolved, so `isBundle` can answer.
+        router.replace(selectedTemplate && isBundle(selectedTemplate) ? '/inference/templates' : '/inference/services');
         break;
       }
     }
