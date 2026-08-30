@@ -99,22 +99,33 @@
    written exactly once. The two selectors below only *alias* the theme tokens onto them, which
    keeps the "when is dark active" logic separate from the color values. */
 :root {
-  /* --accent1/--accent2 and the -contrast tokens are brand colors and stay fixed.
+  /* The -contrast tokens stay fixed; both accents are re-pitched for a dark ground. accent1 is
+     brightened (the coral goes muddy/brown when it sits unchanged on near-black) and accent2 is
+     dimmed (the lime is the brightest brand colour and glares) — see --dark-accent1/2 below.
      The light/lighter/lightest ramp is NOT brand — it exists to blend the accent toward the
      page background, stepping toward white in the light theme. On a near-black ground that
      intent inverts: each step now blends toward the dark background instead, keeping the same
      "recedes into the page" relationship rather than the same literal hues. */
-  --dark-accent1-light: #b83a2e;
-  --dark-accent1-lighter: #8f2d24;
-  --dark-accent1-lightest: #5c2019;
+  /* Cost of brightening accent1, accepted deliberately: white --accent1-contrast on it drops to
+     ~3.9:1, under AA for normal-size text, so accent1-filled buttons read slightly softer in dark. */
+  --dark-accent1: #e14c45;
+
+  --dark-accent1-light: #cd3d35;
+  --dark-accent1-lighter: #9d322c;
+  --dark-accent1-lightest: #6a231f;
+
+  /* The lime is the brightest brand colour; at full strength on a near-black ground it reads as a
+     neon glare rather than an accent. Dimmed and slightly desaturated in dark only — still clears
+     contrast for the black --accent2-contrast text that sits on it. */
+  --dark-accent2: #a3dd6b;
 
   /* Pitched far deeper than the ramp: these cover whole sections, so they read as grounds carrying
      coral/lime ink rather than as slabs of brand colour. accent2 is deepest — the lime is the
      brightest brand colour and glares hardest at full bleed. */
-  --dark-accent1-surface: #2a1210;
-  --dark-accent1-lighter-surface: #351613;
-  --dark-accent1-lightest-surface: #24100e;
-  --dark-accent2-surface: #101a0c;
+  --dark-accent1-surface: #461310;
+  --dark-accent1-lighter-surface: #591b18;
+  --dark-accent1-lightest-surface: #3c100e;
+  --dark-accent2-surface: #0e1a0a;
 
   /* Surfaces: near-black rather than pure black, so elevated glass panels have something
      to sit above and shadows remain readable. */
@@ -151,7 +162,9 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
+  --accent1: var(--dark-accent1);
   --accent1-light: var(--dark-accent1-light);
+  --accent2: var(--dark-accent2);
   --accent1-lighter: var(--dark-accent1-lighter);
   --accent1-lightest: var(--dark-accent1-lightest);
   --accent1-surface: var(--dark-accent1-surface);
