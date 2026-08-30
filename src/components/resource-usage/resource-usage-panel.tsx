@@ -506,10 +506,10 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
       {hasSignals && (
         <div className={styles.signalsRow}>
           {containerState.oomKilled && <span className="chip chipError">Out of memory</span>}
-          {cpu.throttledSeconds > 0 && (
+          {cpu.throttledSeconds >= 1 && (
             <span className="chip chipWarning">
               CPU throttled {formatNumber(Math.round(cpu.throttledSeconds))}s ({formatNumber(cpu.throttledPeriods)}{' '}
-              periods)
+              {cpu.throttledPeriods === 1 ? 'period' : 'periods'})
             </span>
           )}
           {containerState.restartCount > 0 && (
@@ -598,7 +598,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
                   <Gauge
                     centerLabel={`${formatBytes(memory.usageBytes)} / ${formatBytes(effectiveMemLimit as number)}`}
                     color="range"
-                  dangerAt={DANGER_AT}
+                    dangerAt={DANGER_AT}
                     max={100}
                     min={0}
                     peak={memPeak}
@@ -626,7 +626,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
                   <Gauge
                     centerLabel={`${formatBytes(disk.usedBytes)} / ${formatBytes(effectiveDiskQuota as number)}`}
                     color="range"
-                  dangerAt={DANGER_AT}
+                    dangerAt={DANGER_AT}
                     max={100}
                     min={0}
                     peak={diskPeak}
