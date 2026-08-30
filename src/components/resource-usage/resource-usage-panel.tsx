@@ -148,9 +148,9 @@ const Sparkline: React.FC<{ data: number[]; metric: string; span: string }> = ({
  * booked with eight devices, and sixteen arcs is a wall of charts; eight rows of bars stay scannable
  * because the fills line up on a shared axis.
  *
- * Built on the shared `ProgressBar` (which already owns the track, the label rows and the MUI wiring);
- * this adds only the two things it has no concept of — the severity color, applied to the MUI fill by
- * class, and the peak tick overlaid on the track.
+ * Built on the shared `ProgressBar`, which owns the track, the label rows, the MUI wiring and the
+ * marker tick; the peak is passed to it as a marker. Only the severity color is ours, applied to the
+ * MUI fill by class.
  */
 const UsageBar: React.FC<{
   label: string;
@@ -168,6 +168,7 @@ const UsageBar: React.FC<{
           [styles.barWarning]: value >= WARN_AT && value < DANGER_AT,
           [styles.barDanger]: value >= DANGER_AT,
         })}
+        marker={peak !== undefined ? { title: `peak: ${formatNumber(roundPercent(peak))}%`, value: peak } : undefined}
         topLeftContent={
           <span className={styles.barLabel}>
             {icon}
@@ -177,13 +178,6 @@ const UsageBar: React.FC<{
         topRightContent={<span className={styles.barValue}>{formatNumber(roundPercent(value))}%</span>}
         value={clamped}
       />
-      {peak !== undefined && (
-        <div
-          className={styles.barPeak}
-          style={{ left: `${Math.min(100, Math.max(0, peak))}%` }}
-          title={`peak ${formatNumber(roundPercent(peak))}%`}
-        />
-      )}
     </div>
   );
 };

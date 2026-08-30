@@ -227,9 +227,6 @@
 }
 
 .bar {
-  /* The peak tick is absolutely positioned against the ProgressBar's track. */
-  position: relative;
-
   .barLabel {
     align-items: center;
     color: var(--text-secondary);
@@ -266,16 +263,6 @@
     }
   }
 
-  /* Highest value seen this session — same meaning as the gauges' peak tick. Positioned against the
-     bar as a whole, so it needs the track's own offset from the top of the component. */
-  .barPeak {
-    background: var(--text-secondary);
-    height: 16px;
-    position: absolute;
-    top: 20px;
-    transform: translateX(-1px);
-    width: 2px;
-  }
 }
 
 /* HardwareLabel is sized for table cells; under a gauge it needs to center and wrap. */
