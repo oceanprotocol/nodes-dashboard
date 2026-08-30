@@ -7,10 +7,12 @@ import useInferenceAllocation, {
   GpuSelection,
   ResourceSizing,
 } from '@/components/hooks/use-inference-allocation';
+import useLiveEnv from '@/components/hooks/use-live-env';
 import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
@@ -20,6 +22,7 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './inference-environment-card.module.css';
 
 type InferenceEnvironmentCardProps = {
@@ -29,7 +32,17 @@ type InferenceEnvironmentCardProps = {
   /** Token address selected in the filters — when supported, it's forced and the token select is hidden. */
   defaultToken?: string;
   selected?: boolean;
-  onSelect?: (tokenAddress: string, tokenSymbol: string, gpuSelection: GpuSelection) => void;
+  /**
+   * Commit the pick. `environment` is the copy this card actually priced the selection against —
+   * the node's own, once a live read succeeded — so the caller stores (and later launches from)
+   * the same availability the user saw, not the cached list entry.
+   */
+  onSelect?: (
+    tokenAddress: string,
+    tokenSymbol: string,
+    gpuSelection: GpuSelection,
+    environment: ComputeEnvironment
+  ) => void;
   /** Reports the current fee token (address + symbol) on settle/switch — lets a read-only card (no
    * `onSelect`) still surface the user's token pick. */
   onTokenChange?: (tokenAddress: string, tokenSymbol: string) => void;
@@ -62,7 +75,7 @@ function formatGb(value: number): string {
 }
 
 const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
-  environment,
+  environment: listedEnvironment,
   nodeInfo,
   durationSeconds,
   defaultToken,
@@ -75,6 +88,13 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   sizing,
 }) => {
   const { account, provider } = useOceanAccount();
+
+  // The listed env comes from the cached `/envs` index, so its `inUse` — hence which GPU ids the
+  // chips offer and the launch will name — can already be wrong when the card renders. Re-read it
+  // from the node on the first chip click and again on Continue; everything below then works off
+  // the node's own copy (or the cached one, unchanged, when the node can't be reached).
+  const { env: liveEnvironment, refresh: refreshLiveEnv } = useLiveEnv(listedEnvironment, nodeInfo);
+  const environment = liveEnvironment ?? listedEnvironment;
 
   // Inference is always paid (never the env's `free` tier), so only the paid access list applies.
   // null = wallet not connected yet (or an access-list read that needs a provider) — distinct from
@@ -179,7 +199,31 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const setTypeCount = (key: string, count: number) => {
     setOwnSelection((prev) => ({ ...(prev ?? {}), [key]: count }));
+    // The user is committing to a count — make sure the units behind it are really free. Rate-limited
+    // and coalesced inside the hook, so a 1x → 2x → 4x burst costs one read.
+    void refreshLiveEnv();
   };
+
+  // A live read can shrink what's free (another tenant booked units since the list was cached). Trim
+  // the chips to it, or Continue would carry a count the node can no longer satisfy — `selectedByKey`
+  // deliberately clamps an explicit pick to the PHYSICAL max, not to availability, so nothing else does.
+  useEffect(() => {
+    setOwnSelection((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      let changed = false;
+      const next: GpuSelection = { ...prev };
+      Object.entries(prev).forEach(([key, count]) => {
+        const cap = maxByKey[key] ?? 0;
+        if (count > cap) {
+          next[key] = cap;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [maxByKey]);
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,
@@ -272,6 +316,29 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       : (constraintViolation ?? null));
   const selectDisabled = !tokenSymbol || !!selectBlockedReason;
 
+  /**
+   * Commit the pick against a freshly-read environment. The node is the only authority on which units
+   * are free, and it rejects a serviceStart naming a taken GPU outright — so re-read first, and when
+   * the pick no longer fits, say so and let the (now trimmed) chips be re-picked instead of carrying a
+   * doomed selection into the payment step.
+   */
+  const handleContinue = async () => {
+    if (selectDisabled || !tokenSymbol || !onSelect) {
+      return;
+    }
+    const fresh = (await refreshLiveEnv(true)) ?? environment;
+    try {
+      buildGpuRequests(fresh.resources ?? [], selectedByKey);
+    } catch (error) {
+      toast.error(
+        gpuSelectionMessage(error, 'in the meantime') ??
+          'This environment can no longer host that selection. Adjust it and try again.'
+      );
+      return;
+    }
+    onSelect(tokenAddress, tokenSymbol, selectedByKey, fresh);
+  };
+
   return (
     <Card
       className={classNames(styles.card, { [styles.selectable]: !!onSelect, [styles.selected]: selected })}
@@ -342,7 +409,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                   color="accent1"
                   contentBefore={<PlayArrowIcon />}
                   disabled={selectDisabled}
-                  onClick={() => !selectDisabled && tokenSymbol && onSelect(tokenAddress, tokenSymbol, selectedByKey)}
+                  onClick={handleContinue}
                   type="button"
                   variant="filled"
                 >

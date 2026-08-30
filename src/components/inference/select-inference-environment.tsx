@@ -220,15 +220,15 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   const handleSelect = (
     node: NodeEnvironments,
-    envId: string,
+    // The card's own copy of the environment — re-read from the node when it committed the pick, so
+    // the availability stored here (and the GPU ids the launch resolves from it) is the fresh one,
+    // not this list's cached entry.
+    environment: ComputeEnvironment,
     tokenAddress: string,
     tokenSymbol: string,
     gpuSelection: GpuSelection
   ) => {
-    const environment = node.computeEnvironments.environments.find((env) => env.id === envId);
-    if (!environment) {
-      return;
-    }
+    const envId = environment.id;
     // Block advancing when the duration is outside this env's paid window. The node doesn't reject
     // a too-short serviceStart — it just sets expiresAt = now + duration, so a job below the min
     // gets swept to Expired almost immediately. Catch it here instead.
@@ -386,8 +386,8 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                     sizing={selectedEnv?.sizing}
                     selected={isPriorSelection}
                     nodeInfo={node}
-                    onSelect={(tokenAddress, tokenSymbol, gpuSelection) =>
-                      handleSelect(node, env.id, tokenAddress, tokenSymbol, gpuSelection)
+                    onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv) =>
+                      handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection)
                     }
                   />
                 );

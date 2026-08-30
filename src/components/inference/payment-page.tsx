@@ -1,6 +1,7 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import useInferenceAllocation from '@/components/hooks/use-inference-allocation';
+import useLiveEnv from '@/components/hooks/use-live-env';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
@@ -10,7 +11,7 @@ import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
-import { useInferenceContext } from '@/context/inference-context';
+import { SelectedInferenceEnv, useInferenceContext } from '@/context/inference-context';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
@@ -18,7 +19,13 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
-import { buildInferenceRestartSpec, buildInferenceStartParams, toNodeUri } from '@/services/inference-launch';
+import {
+  buildInferenceRestartSpec,
+  buildInferenceStartParams,
+  gpuSelectionErrorCode,
+  gpuSelectionMessage,
+  toNodeUri,
+} from '@/services/inference-launch';
 import { decodeGpuSelection, decodeResourceSizing } from '@/services/inference-url';
 import {
   buildTemplateRestartParams,
@@ -32,6 +39,7 @@ import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './payment-page.module.css';
 
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
@@ -105,11 +113,25 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     [router.query.res, selectedEnv?.sizing]
   );
 
+  // The env carried into this step was read (at best) one step ago, and the GPU ids the launch names
+  // are resolved from its free list — a booking made in between makes the node reject the start after
+  // the escrow tx. Re-read it from the node on arrival, so what's shown/priced here is current, and
+  // again right before paying (runFreshLaunch / runTemplateLaunch), so what's sent is.
+  const { env: liveEnvironment, refresh: refreshLiveEnv } = useLiveEnv(selectedEnv?.environment, selectedEnv?.nodeInfo);
+  const environment = liveEnvironment ?? selectedEnv?.environment;
+
+  useEffect(() => {
+    if (selectedEnv && isReady) {
+      // Not forced: the hook's TTL keeps this to one read even as the callback identity changes.
+      void refreshLiveEnv();
+    }
+  }, [selectedEnv, isReady, refreshLiveEnv]);
+
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
   // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv/token exist.
   const { allocation, price, selectedByKey } = useInferenceAllocation({
-    environment: selectedEnv?.environment ?? ({ resources: [] } as any),
+    environment: environment ?? ({ resources: [] } as any),
     tokenAddress: selectedToken?.address ?? '',
     gpuSelection,
     // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
@@ -144,6 +166,41 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const totalCost = useMemo(
     () => (selectedToken ? roundTokenAmount(price, selectedToken.address, 'up') : 0),
     [price, selectedToken]
+  );
+
+  /**
+   * The env to launch from, re-read from the node. Both fresh-launch paths resolve GPU ids out of it,
+   * so this is the last chance to notice that the units this page priced were taken in the meantime.
+   */
+  const resolveLaunchEnv = useCallback(
+    async (env: SelectedInferenceEnv): Promise<SelectedInferenceEnv> => {
+      const fresh = (await refreshLiveEnv(true)) ?? env.environment;
+      return { ...env, environment: fresh };
+    },
+    [refreshLiveEnv]
+  );
+
+  /**
+   * Handle the launch failures the user can act on — the GPUs they picked were booked by someone else
+   * between picking and paying, or the environment stopped offering that GPU type. Reported before any
+   * tx runs, so nothing was spent. Returns false for every other error, which the caller rethrows to
+   * the generic handler.
+   */
+  const reportGpuSelectionFailure = useCallback(
+    (error: unknown): boolean => {
+      const message = gpuSelectionMessage(error, 'while you were setting this up');
+      if (!message) {
+        return false;
+      }
+      setLaunchError(message);
+      toast.error(message);
+      captureError('inference_service_start_failed', error, {
+        stage: gpuSelectionErrorCode(error) ?? undefined,
+        branch,
+      });
+      return true;
+    },
+    [branch]
   );
 
   // Make sure escrow can cover this payment before launching: same deposit-gap + re-authorization
@@ -522,24 +579,36 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunching(true);
     setLaunchError(null);
     try {
+      const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      // Build the payload BEFORE touching escrow, and off a freshly-read env: resolving the GPU ids
+      // is where a selection that other tenants have since booked is caught, and finding that out
+      // after the deposit tx costs the user gas for nothing.
+      const launchEnv = await resolveLaunchEnv(selectedEnv);
+      let startParams;
+      try {
+        startParams = buildInferenceStartParams({
+          model,
+          params,
+          selectedEnv: launchEnv,
+          // Launch the exact per-type unit count that was priced and escrowed. The hook resolves an
+          // empty/whole-env selection down to the budget-capped count (bounded by free CPU/RAM/disk);
+          // passing selectedEnv.gpuSelection ({} on a whole-env hydrate) straight through would make
+          // buildGpuRequests request every free GPU instead, over-provisioning past the escrow.
+          gpuSelection: selectedByKey,
+          allocation,
+          durationSeconds: jobDurationSeconds,
+          tokenAddress: selectedToken.address,
+          hfToken,
+        });
+      } catch (error) {
+        if (reportGpuSelectionFailure(error)) {
+          return;
+        }
+        throw error;
+      }
       // The node locks the service cost in escrow right after start — deposit/authorize first if
       // the current escrow state can't cover it (one bundled tx on smart accounts).
       const escrowDeposited = await ensureEscrowForSelection();
-      const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      const startParams = buildInferenceStartParams({
-        model,
-        params,
-        selectedEnv,
-        // Launch the exact per-type unit count that was priced and escrowed. The hook resolves an
-        // empty/whole-env selection down to the budget-capped count (bounded by free CPU/RAM/disk);
-        // passing selectedEnv.gpuSelection ({} on a whole-env hydrate) straight through would make
-        // buildGpuRequests request every free GPU instead, over-provisioning past the escrow.
-        gpuSelection: selectedByKey,
-        allocation,
-        durationSeconds: jobDurationSeconds,
-        tokenAddress: selectedToken.address,
-        hfToken,
-      });
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
         serviceStart(nodeUri, token, startParams)
       );
@@ -584,6 +653,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
+    resolveLaunchEnv,
+    reportGpuSelectionFailure,
     allocation,
     selectedByKey,
     jobDurationSeconds,
@@ -638,11 +709,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // and can throw (e.g. CompressionStream unavailable on older Safari/Firefox) — independent of
       // escrow, so build first and let a failure here cost nothing.
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      // Re-read the env first — same reason as runFreshLaunch: the GPU ids are resolved from it.
+      const launchEnv = await resolveLaunchEnv(selectedEnv);
       let startParams;
       try {
         startParams = await buildTemplateStartParams({
           template: selectedTemplate,
-          selectedEnv,
+          selectedEnv: launchEnv,
           // Launch the exact per-type unit count that was priced/escrowed (see runFreshLaunch note).
           gpuSelection: selectedByKey,
           allocation,
@@ -652,6 +725,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           bucketId: selectedBucketId ?? undefined,
         });
       } catch (buildError) {
+        if (reportGpuSelectionFailure(buildError)) {
+          return;
+        }
         (buildError as Error & { stage?: string }).stage = 'payload_build';
         throw buildError;
       }
@@ -698,6 +774,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
+    resolveLaunchEnv,
+    reportGpuSelectionFailure,
     allocation,
     selectedByKey,
     jobDurationSeconds,
@@ -931,7 +1009,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                   <InferenceEnvironmentCard
                     defaultToken={selectedToken?.address}
                     durationSeconds={jobDurationSeconds}
-                    environment={selectedEnv.environment}
+                    environment={environment ?? selectedEnv.environment}
                     gpuSelection={gpuSelection}
                     sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}

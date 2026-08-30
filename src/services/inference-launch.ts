@@ -397,6 +397,56 @@ export function buildUserData(hfToken: string): Record<string, string> {
 }
 
 /**
+ * Why a GPU selection can't be turned into a request against a freshly-read environment. Both are
+ * recoverable by re-picking, but they are NOT the same thing to tell the user, and only the first is
+ * about contention:
+ *
+ *  - `gpus_taken`   — the type is still advertised, fewer units of it are free than were picked.
+ *                     Another tenant booked them between the read the selection was made against
+ *                     and this one.
+ *  - `gpus_missing` — the environment no longer advertises that GPU type at all. Nobody took it:
+ *                     the node's own description for the device changed (an NVML failure renames it
+ *                     — live nodes advertise descriptions like "Failed to initialize NVML: …"), or
+ *                     the operator reconfigured the env. Blaming another tenant here sends the user
+ *                     looking for capacity that will not come back on its own.
+ */
+export const GPUS_TAKEN = 'gpus_taken';
+export const GPUS_MISSING = 'gpus_missing';
+
+export type GpuSelectionErrorCode = typeof GPUS_TAKEN | typeof GPUS_MISSING;
+
+function gpuSelectionError(code: GpuSelectionErrorCode, message: string): Error & { code: GpuSelectionErrorCode } {
+  return Object.assign(new Error(message), { code });
+}
+
+/**
+ * The reason a GPU selection failed, or null for any other error. Callers switch the wording on it;
+ * `null` means the error isn't about the GPU pick and belongs to the generic failure path.
+ */
+export function gpuSelectionErrorCode(error: unknown): GpuSelectionErrorCode | null {
+  const code = (error as { code?: string })?.code;
+  return code === GPUS_TAKEN || code === GPUS_MISSING ? code : null;
+}
+
+/**
+ * User-facing wording for a failed GPU selection, or null when the error is something else (leave
+ * those to the caller's generic handler). Shared so the picker and the payment step say the same
+ * thing about the same condition — only the "when" differs, hence `since`.
+ */
+export function gpuSelectionMessage(error: unknown, since: string): string | null {
+  const detail = error instanceof Error ? error.message : '';
+  switch (gpuSelectionErrorCode(error)) {
+    case GPUS_TAKEN:
+      return `The GPUs you selected just got booked ${since}. ${detail}`;
+    case GPUS_MISSING:
+      // Not contention: this type is gone from the environment and won't free up. Move, don't wait.
+      return `${detail} Pick another GPU type, or another environment.`;
+    default:
+      return null;
+  }
+}
+
+/**
  * Expand the per-GPU-type unit selection into individual GPU resource-id requests. `gpuSelection`
  * is keyed by GPU description (as merged in useInferenceAllocation); each entry asks for N units.
  * Omit / empty selection means "use every free GPU unit" (whole-environment allocation).
@@ -431,11 +481,18 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
     if (units <= 0) {
       continue;
     }
+    // Advertised at all (free or not) vs. free right now — the two tell different stories, so the
+    // gone-entirely case is answered from the full GPU list, not just the free one.
+    const advertised = gpus.some((gpu) => (gpu.description || 'GPU') === key);
+    if (!advertised) {
+      throw gpuSelectionError(GPUS_MISSING, `This environment no longer offers "${key}".`);
+    }
     const ofType = freeGpus.filter((gpu) => (gpu.description || 'GPU') === key);
     const freeUnits = ofType.reduce((sum, gpu) => sum + getAvailableAmount(gpu), 0);
     if (freeUnits < units) {
-      throw new Error(
-        `Cannot allocate ${units} × "${key}" GPU${units > 1 ? 's' : ''}: only ${freeUnits} free right now. Try reducing your selection.`
+      throw gpuSelectionError(
+        GPUS_TAKEN,
+        `Only ${freeUnits} × "${key}" free right now, ${units} selected. Reduce your selection to continue.`
       );
     }
     // Draw `units` from the free pool of this type, taking up to each id's free amount in turn.
