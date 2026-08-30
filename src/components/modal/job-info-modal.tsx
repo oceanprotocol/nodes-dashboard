@@ -3,11 +3,15 @@ import { DownloadResultButton } from '@/components/button/download-result-button
 import EnvironmentCard from '@/components/environment-card/environment-card';
 import { JobLogsPanel } from '@/components/modal/job-logs-panel';
 import Modal from '@/components/modal/modal';
+import ResourceUsagePanel from '@/components/resource-usage/resource-usage-panel';
 import { getApiRoute } from '@/config';
+import { useJobMetrics } from '@/hooks/use-job-metrics';
+import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { resolveNodeUri } from '@/lib/resolve-node-uri';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { ComputeJob } from '@/types/jobs';
 import { formatDuration, getJobDurationSeconds } from '@/utils/formatters';
+import { resourceDescriptionsById } from '@/utils/resources';
 import { Stack } from '@mui/material';
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
@@ -17,6 +21,11 @@ interface JobInfoModalProps {
   open: boolean;
   onClose: () => void;
 }
+
+// Job resources are display units (CPU cores, RAM/disk GB); the resource usage panel wants bytes for
+// RAM/disk so a gauge still has a denominator when the node's own runtime snapshot lacks one
+// (unconstrained CPU, no disk quota reported).
+const GIB = 1024 ** 3;
 
 // Job resource amounts are stored in display units (CPU cores, RAM/disk GB, GPU units),
 // matching how they are submitted in the resources step.
@@ -88,10 +97,26 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
     fetchNodeEnv();
   }, [open, job?.peerId, job?.environment]);
 
+  // Best-effort runtime metrics — polled only while the modal is open,
+  // using the SAME cached node token JobLogsPanel mints below (no extra wallet signature). Called
+  // unconditionally (before the `!job` early return) per rules of hooks; both hooks already accept a
+  // null job and no-op until one is set.
+  const metrics = useJobMetrics(job, open, nodeUri);
+  const metricsHistory = useMetricsHistory(metrics, job?.jobId ?? '');
+
   if (!job) return null;
 
   const durationSeconds = getJobDurationSeconds(job);
   const resources = Array.isArray(job.resources) ? job.resources : [];
+  const resourceAmount = (id: string): number | undefined => resources.find((r) => r.id === id)?.amount;
+  // The snapshot names resources by opaque id (`gpu2`, `cpu`); the node's environment knows the
+  // hardware behind them.
+  const hardwareNames = resourceDescriptionsById(environment?.resources);
+  const bookedResources = {
+    cpuCores: resourceAmount('cpu'),
+    ramBytes: resourceAmount('ram') !== undefined ? (resourceAmount('ram') as number) * GIB : undefined,
+    diskBytes: resourceAmount('disk') !== undefined ? (resourceAmount('disk') as number) * GIB : undefined,
+  };
 
   return (
     <Modal isOpen={open} onClose={onClose} title="Job information" width="md">
@@ -106,8 +131,11 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
           <div className="wordBreakWord">{job.jobId}</div>
         </div>
 
+        <h4>Resources</h4>
         <div>
-          <strong style={{ marginBottom: '8px' }}>Resources used</strong>
+          <div className="textBold" style={{ marginBottom: '8px' }}>
+            Selected environment & resources
+          </div>
           {loading && <div>Loading environment data...</div>}
           {!loading && environment && nodeInfo ? (
             <EnvironmentCard
@@ -124,12 +152,29 @@ export const JobInfoModal = ({ job, open, onClose }: JobInfoModalProps) => {
             <Stack spacing={0.5}>
               {error && <div style={{ color: 'var(--text-secondary)' }}>{error}</div>}
               {resources.length > 0 ? (
-                resources.map((resource) => <div key={resource.id}>{formatResourceRow(resource.id, resource.amount)}</div>)
+                resources.map((resource) => (
+                  <div key={resource.id}>{formatResourceRow(resource.id, resource.amount)}</div>
+                ))
               ) : (
                 <div>No resource usage available</div>
               )}
               <div>Duration: {durationSeconds == null ? '—' : formatDuration(durationSeconds)}</div>
             </Stack>
+          )}
+
+          {/* Nothing here at all when the node reports no runtime metrics (collection disabled, or
+              the caller lacks owner credentials) — absence is normal, not an error state. */}
+          {metrics && (
+            <div style={{ marginTop: '16px' }}>
+              <ResourceUsagePanel
+                bookedResources={bookedResources}
+                hardwareNames={hardwareNames}
+                history={metricsHistory}
+                metrics={metrics}
+                title={<strong>Resource usage</strong>}
+                variant="compact"
+              />
+            </div>
           )}
         </div>
 

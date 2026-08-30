@@ -12,10 +12,12 @@ import ServiceLogsPanel from '@/components/inference/service-logs-panel';
 import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
 import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import ResourceUsagePanel from '@/components/resource-usage/resource-usage-panel';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
+import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { captureError } from '@/lib/analytics';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -32,8 +34,10 @@ import { firstQueryValue } from '@/services/inference-url';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
+import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { isBundle } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
+import { resourceDescriptionsById } from '@/utils/resources';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -88,6 +92,9 @@ const POLL_INTERVAL_MS = 4000;
 // A P2P round-trip can hang indefinitely if the node/relay is unreachable (no built-in timeout).
 // Cap each status fetch so a hung dial surfaces as an error + retry instead of an eternal spinner.
 const STATUS_TIMEOUT_MS = 30000;
+// `sizing`'s ram/disk are GB (decimal-named, binary-sized to match formatBytes' 1024 base) — convert
+// to bytes for the resource usage card's booked-allocation fallback.
+const GIB = 1024 ** 3;
 
 /**
  * Statuses that stop the poll loop — genuinely final states. `Running` is deliberately NOT here: a
@@ -416,6 +423,21 @@ const ManageServicePage: React.FC = () => {
   );
   const gpuSelection = bookedResources?.gpuSelection ?? selectedEnv?.gpuSelection;
   const sizing = bookedResources?.sizing ?? selectedEnv?.sizing;
+
+  // Runtime metrics ride free on the same poll — SERVICE_GET_STATUS attaches them by default, so no
+  // extra request and no flag. Reader degrades to null on a node with metrics disabled; a ring buffer
+  // (reset when the serviceId changes) backs the gauges' peak ticks and the sparkline.
+  const metrics = useMemo(() => getRuntimeMetrics(job), [job]);
+  const metricsHistory = useMetricsHistory(metrics, id);
+  // `sizing` amounts are display units (CPU cores, RAM/disk GB — see parseServiceResources) so a
+  // gauge still has a denominator when the snapshot's own field is empty (unconstrained CPU, no
+  // disk quota reported).
+  const bookedForUsagePanel = sizing
+    ? { cpuCores: sizing.cpu, ramBytes: sizing.ram * GIB, diskBytes: sizing.disk * GIB }
+    : undefined;
+  // The snapshot names resources by opaque id (`gpu2`, `cpu`); the environment knows the hardware
+  // behind them, which is what the usage panel labels its gauges and GPU rows with.
+  const hardwareNames = useMemo(() => resourceDescriptionsById(environment?.resources), [environment?.resources]);
   // Nothing to size the environment card with yet: arrived from the services table (no `gpus`/`res` on
   // the query) and the node's job record hasn't landed. Rendering the card now would show a whole-env
   // allocation and price that aren't what the service holds, so wait out the first poll instead.
@@ -827,6 +849,31 @@ const ManageServicePage: React.FC = () => {
                   nodeInfo={nodeInfo}
                   sizing={sizing}
                 />
+              )}
+            </Card>
+          )}
+
+          {/* Resource usage — booked allocation lives in the Environment card above; this is what the
+              container is ACTUALLY doing against it. Metrics ride free on the existing status poll
+              already fetching status, so there's no card at all when a node doesn't report them — except
+              while the service runs, where a silent gap would read as a broken card rather than a node
+              that simply doesn't sample. */}
+          {(metrics || isRunning) && (
+            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+              {metrics ? (
+                <ResourceUsagePanel
+                  bookedResources={bookedForUsagePanel}
+                  hardwareNames={hardwareNames}
+                  history={metricsHistory}
+                  metrics={metrics}
+                  title={<h3>Resource usage</h3>}
+                  variant="page"
+                />
+              ) : (
+                <>
+                  <h3>Resource usage</h3>
+                  <div className="textSecondary">This node doesn&apos;t report runtime metrics.</div>
+                </>
               )}
             </Card>
           )}

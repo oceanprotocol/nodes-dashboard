@@ -3,6 +3,7 @@ import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import ExistingServicesTable from '@/components/inference/existing-services-table';
 import SectionTitle from '@/components/section-title/section-title';
+import { InferenceBranch } from '@/lib/inference-analytics';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
@@ -11,9 +12,7 @@ import classNames from 'classnames';
 import posthog from 'posthog-js';
 import styles from './inference-index-page.module.css';
 
-type EntryBranch = 'custom' | 'default' | 'services' | 'templates';
-
-const trackEntry = (branch: EntryBranch) => {
+const trackEntry = (branch: InferenceBranch) => {
   posthog.capture('inference_flow_started', { branch });
 };
 
@@ -53,7 +52,7 @@ const InferenceIndexPage: React.FC = () => {
               <Button
                 color="accent1"
                 href="/inference/default-models"
-                onClick={() => trackEntry('default')}
+                onClick={() => trackEntry('quickstart')}
                 variant="filled"
               >
                 Curated
@@ -83,7 +82,7 @@ const InferenceIndexPage: React.FC = () => {
                 contentAfter={<ArrowForwardIcon />}
                 color="accent1"
                 href="/inference/services"
-                onClick={() => trackEntry('services')}
+                onClick={() => trackEntry('service')}
                 variant="outlined"
               >
                 Browse services
@@ -113,7 +112,7 @@ const InferenceIndexPage: React.FC = () => {
                 contentAfter={<ArrowForwardIcon />}
                 color="accent1"
                 href="/inference/templates"
-                onClick={() => trackEntry('templates')}
+                onClick={() => trackEntry('template')}
                 variant="outlined"
               >
                 Browse templates
