@@ -204,26 +204,27 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     void refreshLiveEnv();
   };
 
-  // A live read can shrink what's free (another tenant booked units since the list was cached). Trim
-  // the chips to it, or Continue would carry a count the node can no longer satisfy — `selectedByKey`
+  // A live read can shrink what's bookable — another tenant took GPU units of a type (maxByKey), or
+  // took shared CPU/RAM/disk so fewer units can be backed at all (maxUnitsByResources). Trim the chips
+  // to both, or Continue would carry a count the node can no longer satisfy: `selectedByKey`
   // deliberately clamps an explicit pick to the PHYSICAL max, not to availability, so nothing else does.
+  //
+  // Runs through the same `drawUnitsAcrossTypes` the seed above uses, so a trimmed pick lands exactly
+  // where a fresh seed would — per-type ceiling first, combined budget drawn down in declared order.
+  // Neither ceiling depends on the selection, so this can't feed back into itself.
   useEffect(() => {
     setOwnSelection((prev) => {
-      if (!prev) {
+      if (!prev || mergedGpus.length === 0) {
         return prev;
       }
-      let changed = false;
-      const next: GpuSelection = { ...prev };
-      Object.entries(prev).forEach(([key, count]) => {
-        const cap = maxByKey[key] ?? 0;
-        if (count > cap) {
-          next[key] = cap;
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
+      const next = drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g, cap) =>
+        Math.min(Math.max(prev[g.key] ?? 0, 0), cap)
+      );
+      // Identity matters: returning a fresh object every render would re-render forever.
+      const unchanged = mergedGpus.every((g) => next[g.key] === prev[g.key]);
+      return unchanged ? prev : next;
     });
-  }, [maxByKey]);
+  }, [mergedGpus, maxByKey, maxUnitsByResources]);
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,

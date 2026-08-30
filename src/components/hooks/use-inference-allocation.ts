@@ -19,7 +19,7 @@ export type MergedGpu = {
   description?: string;
   /** Total units of this type the environment advertises (the physical ceiling). */
   max: number;
-  /** Units of this type actually free right now (max − inUse). The pickable ceiling. */
+  /** Units of this type actually free right now (getAvailableAmount). The pickable ceiling. */
   available: number;
   /** Per-unit fee for this type (units of one description share a fee — the first id's). */
   fee: number;
@@ -117,7 +117,7 @@ function sliceFor(
  * omit it for pinned/plain-fraction.
  *
  * Clamping rules (shared by every mode):
- *   - Upper bound is what's currently AVAILABLE (min(total, max) − inUse), not the physical `max`:
+ *   - Upper bound is what's currently AVAILABLE (min(max, total − inUse)), not the physical `max`:
  *     another tenant may hold part of the resource and the node rejects a serviceStart asking for
  *     more than free. Available wins over min/floor — an exhausted resource can't be met, and the
  *     card blocks selection in that case (gpuExhausted / maxUnitsByResources <= 0).
@@ -195,7 +195,7 @@ export function drawUnitsAcrossTypes(
  * When an environment has no GPUs, the fraction is 1 (the whole environment is used).
  *
  * The selection is bounded by what's actually AVAILABLE, not just the physical max: per-type units
- * are capped at that type's free units (max − inUse), and the overall unit count is further capped so
+ * are capped at that type's free units (min(max, total − inUse)), and the overall unit count is further capped so
  * the proportional CPU/RAM/disk slice never exceeds those resources' free amounts. A user can't book
  * more than the node can currently give — the node would reject the serviceStart otherwise.
  */
@@ -240,7 +240,7 @@ const useInferenceAllocation = ({
 
   /**
    * Merge units of the same description into one type, summing both the physical ceiling (max) and the
-   * units currently free (gpusAvailable, i.e. max − inUse) across every id of that type. The fee is the
+   * units currently free (gpusAvailable, i.e. min(max, total − inUse)) across every id of that type. The fee is the
    * first id's — units of one description share a fee, so no averaging needed.
    */
   const mergedGpus = useMemo<MergedGpu[]>(() => {
@@ -276,7 +276,7 @@ const useInferenceAllocation = ({
   const diskId = disk?.id ?? 'disk';
 
   // Every resource that participates in constraint math, each `max` narrowed to what's currently
-  // AVAILABLE (max − inUse) — a raised floor can then never exceed what a job could actually get.
+  // AVAILABLE (min(max, total − inUse)) — a raised floor can then never exceed what a job could actually get.
   // env-resources yields the @/types ComputeResource shape; the hook's other math uses the
   // structurally-identical @oceanprotocol/lib alias, hence the cast.
   const availResources = useMemo<LocalComputeResource[]>(() => {

@@ -452,7 +452,7 @@ export function gpuSelectionMessage(error: unknown, since: string): string | nul
  * Omit / empty selection means "use every free GPU unit" (whole-environment allocation).
  *
  * Units are counted the same way the allocation hook prices them: a resource id contributes
- * `getAvailableAmount(id)` (max − inUse) UNITS, which may be >1 for a pooled id. We draw the
+ * `getAvailableAmount(id)` (min(max, total − inUse)) UNITS, which may be >1 for a pooled id. We draw the
  * requested units from the free ids of a type, taking up to each id's free amount before moving to
  * the next id — so a single pooled id with 4 free units satisfies a 4-unit pick as `{id, amount:4}`,
  * matching what was priced/escrowed. Requesting per-id blindly (amount:1 each) would disagree with

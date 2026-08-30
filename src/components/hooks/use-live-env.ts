@@ -77,13 +77,18 @@ export default function useLiveEnv(
         } catch {
           // Node unreachable — keep the snapshot rather than stranding the user on a dial failure.
           return null;
-        } finally {
-          setRefreshing(false);
-          inFlightRef.current = null;
         }
       })();
+      // Publish first, THEN attach the cleanup. Clearing from inside the body's own `finally` would
+      // run before this assignment for anything that threw synchronously ahead of the first `await`
+      // — the ref would keep a settled promise forever and every later call would coalesce onto it,
+      // silently killing live reads for the rest of the session.
       inFlightRef.current = request;
-      return (await request) ?? latestRef.current ?? environment;
+      const settled = request.finally(() => {
+        setRefreshing(false);
+        inFlightRef.current = null;
+      });
+      return (await settled) ?? latestRef.current ?? environment;
     },
     [environment, getEnvs, isReady, nodeInfo]
   );
