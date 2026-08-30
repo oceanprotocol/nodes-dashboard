@@ -1,0 +1,16 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}

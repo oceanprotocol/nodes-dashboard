@@ -9,6 +9,7 @@ import InferenceModelList, { ServiceModel } from '@/components/inference/inferen
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ProvisioningProgress from '@/components/inference/provisioning-progress';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
 import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
 import ResourceUsagePanel from '@/components/resource-usage/resource-usage-panel';
@@ -31,10 +32,11 @@ import {
 } from '@/services/inference-launch';
 import { firstQueryValue } from '@/services/inference-url';
 import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
+import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { isBundle } from '@/types/templates';
-import { formatDuration } from '@/utils/formatters';
+import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -106,18 +108,6 @@ const TERMINAL_STATUSES = new Set<ServiceStatusNumber>([
   ServiceStatusNumber.Expired,
   ServiceStatusNumber.Error,
 ]);
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-function formatHMS(totalSeconds: number): string {
-  const sec = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
-}
 
 /** Live time-running progress bar with a ticking countdown to session end. */
 const DurationProgress: React.FC<{ totalSeconds: number; elapsedSeconds: number; onExpired?: () => void }> = ({
@@ -611,6 +601,45 @@ const ManageServicePage: React.FC = () => {
     setPollEpoch((epoch) => epoch + 1);
   }, [id, durationTotalSeconds, branch]);
 
+  // Record the node's authoritative expiry so the app-wide notifier can warn about this session from
+  // any page (and after a reload, or in another tab). Deliberately its own effect rather than a line
+  // inside fetchStatus: the fields it reads (serviceName, asPath) would join fetchStatus's dep list,
+  // and fetchStatus is a dep of the poll effect — the 4s loop would re-arm on every rename. Depends
+  // on the job's primitives, not the object, so a poll that changed nothing doesn't rewrite the store.
+  const jobServiceId = job?.serviceId;
+  const jobExpiresAt = job?.expiresAt;
+  const jobStatus = job?.status;
+  const jobDateCreated = job?.dateCreated;
+  useEffect(() => {
+    if (!jobServiceId || !jobExpiresAt || !account.address) {
+      return;
+    }
+    const startedAt = new Date(jobDateCreated ?? '').getTime();
+    if (!Number.isFinite(startedAt)) {
+      return;
+    }
+    rememberSession(account.address, {
+      serviceId: jobServiceId,
+      expiresAt: jobExpiresAt,
+      startedAt,
+      status: jobStatus,
+      label: serviceName,
+      href: router.asPath,
+    });
+  }, [jobServiceId, jobExpiresAt, jobStatus, jobDateCreated, account.address, serviceName, router.asPath]);
+
+  // Deep-linked from an expiry warning: land straight on the prolong modal. Waits for canProlong —
+  // the payment token and booked resources are both seeded asynchronously from the polled job — and
+  // fires once, so dismissing the modal doesn't reopen it on the next render.
+  const autoProlongedRef = useRef(false);
+  useEffect(() => {
+    if (router.query.openProlong !== '1' || autoProlongedRef.current || !canProlong) {
+      return;
+    }
+    autoProlongedRef.current = true;
+    setProlongOpen(true);
+  }, [router.query.openProlong, canProlong]);
+
   /**
    * Prolong → straight to payment for the extra runtime only. Same selection (env/token/gpu/models),
    * duration overridden to the extra time; the `prolong` flag skips earlier steps and reuses the same
@@ -702,6 +731,10 @@ const ManageServicePage: React.FC = () => {
                 totalSeconds={durationTotalSeconds}
               />
             )}
+
+            {/* Opt-in for an OS-level alert, so the warning lands even when this tab isn't focused.
+                Offered here because this is the moment it is easiest to say yes to. */}
+            {job && !isExpired && durationTotalSeconds > 0 && <SessionAlertsToggle />}
 
             <div className="actionsGroupMdBetween">
               <div className="actionsGroupMdEnd">
