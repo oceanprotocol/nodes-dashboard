@@ -11,6 +11,8 @@ import DnsIcon from '@mui/icons-material/Dns';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import MemoryIcon from '@mui/icons-material/Memory';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import Collapse from '@mui/material/Collapse';
 import cx from 'classnames';
@@ -715,6 +717,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
               <div className={styles.statsGrid}>
                 {network && (
                   <StatPair
+                    icon={<SwapVertIcon className={styles.resourceIcon} />}
                     label="Network"
                     rows={[
                       { key: '↓ in', value: formatBytes(network.rxBytes) },
@@ -723,6 +726,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
                   />
                 )}
                 <StatPair
+                  icon={<SwapHorizIcon className={styles.resourceIcon} />}
                   label="Disk I/O"
                   rows={[
                     { key: 'read', value: formatBytes(blockIO.readBytes) },
@@ -738,9 +742,13 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
                 </Stat>
                 {/* The gauges above only draw a ratio when a denominator exists; an unconstrained container
                 still has to report what it's using, so it lands here as a plain reading instead. */}
-                {memValue === undefined && <Stat label="Memory used">{formatBytes(memory.usageBytes)}</Stat>}
+                {memValue === undefined && (
+                  <Stat icon={<SdStorageIcon className={styles.resourceIcon} />} label="Memory used">
+                    {formatBytes(memory.usageBytes)}
+                  </Stat>
+                )}
                 {diskValue === undefined && (
-                  <Stat label="Disk used">
+                  <Stat icon={<DnsIcon className={styles.resourceIcon} />} label="Disk used">
                     {formatBytes(disk.usedBytes)}
                     {effectiveDiskQuota && (
                       <span className={styles.statValueMuted}> / {formatBytes(effectiveDiskQuota)}</span>
