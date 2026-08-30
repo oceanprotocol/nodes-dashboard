@@ -15,6 +15,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import Collapse from '@mui/material/Collapse';
+import Tooltip from '@mui/material/Tooltip';
 import cx from 'classnames';
 import { useId, useMemo, useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
@@ -24,6 +25,12 @@ import styles from './resource-usage-panel.module.css';
 // to matter well before 100%, and this keeps CPU/memory/disk/GPU reading the same color language.
 const WARN_AT = 85;
 const DANGER_AT = 95;
+
+// Docker's CFS accounting reports a stray throttled period now and then on a container that is
+// nowhere near its quota, so "throttledPeriods > 0" is background noise, not a condition worth
+// warning about — a container using 0.2% of its cores was never actually held back. Only a full
+// second of accumulated throttling means the workload genuinely lost CPU it asked for.
+const THROTTLE_FLOOR_SECONDS = 1;
 
 // A tick is only worth drawing when it's meaningfully above the current reading — right on top of
 // it just adds visual noise, and it needs at least one other sample to be a "peak" at all.
@@ -183,13 +190,6 @@ const UsageBar: React.FC<{
     </div>
   );
 };
-
-/**
- * One counter: a label above its reading. These are steady-state numbers (bytes moved, processes
- * open, CPU seconds burned), not states — a pill around each one implied a discrete condition the
- * way the signal chips genuinely do, and read as leftovers under the gauges. Laid out on the same
- * grid so the values line up in a column.
- */
 
 /**
  * One counter: a label above its reading. These are steady-state numbers (bytes moved, processes
@@ -471,9 +471,14 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
     });
   }
 
+  // Single source of truth for both the signals-row gate and the chip: they disagreed (`> 0` vs
+  // `>= 1`), so a sub-second throttle opened the row for a chip that then declined to render — or,
+  // rounded, rendered as the self-contradicting "throttled 0s".
+  const isThrottled = cpu.throttledSeconds >= THROTTLE_FLOOR_SECONDS;
+
   const hasSignals =
     containerState.oomKilled ||
-    cpu.throttledSeconds > 0 ||
+    isThrottled ||
     containerState.restartCount > 0 ||
     (containerState.exitCode != null && containerState.status !== 'running') ||
     Boolean(containerState.health);
@@ -502,11 +507,16 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
       {hasSignals && (
         <div className={styles.signalsRow}>
           {containerState.oomKilled && <span className="chip chipError">Out of memory</span>}
-          {cpu.throttledSeconds >= 1 && (
-            <span className="chip chipWarning">
-              CPU throttled {formatNumber(Math.round(cpu.throttledSeconds))}s ({formatNumber(cpu.throttledPeriods)}{' '}
-              {cpu.throttledPeriods === 1 ? 'period' : 'periods'})
-            </span>
+          {isThrottled && (
+            <Tooltip
+              title={`This workload was held at its CPU limit for ${formatCpuTime(
+                cpu.throttledSeconds
+              )} across ${formatNumber(cpu.throttledPeriods)} scheduling ${
+                cpu.throttledPeriods === 1 ? 'period' : 'periods'
+              } — it asked for more CPU than it booked.`}
+            >
+              <span className="chip chipWarning">CPU throttled {formatCpuTime(cpu.throttledSeconds)}</span>
+            </Tooltip>
           )}
           {containerState.restartCount > 0 && (
             <span className="chip chipGlass">Restarted {containerState.restartCount}×</span>
