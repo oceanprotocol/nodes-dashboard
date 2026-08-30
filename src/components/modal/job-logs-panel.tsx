@@ -54,7 +54,7 @@ export const JobLogsPanel = ({ job, open, nodeUri }: JobLogsPanelProps) => {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <strong>Logs</strong>
+        <h4>Logs</h4>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
             <span

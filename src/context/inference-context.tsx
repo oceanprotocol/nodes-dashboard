@@ -490,15 +490,22 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
           size: 1000,
         },
       });
-      const foundNode = response.data.envs.find((node) => node.id === peerId);
+      // `/envs` returns ONE row per environment, and every row of a node carries that node's peer id.
+      // So the env has to be looked up across all of its rows: matching the peer id with `.find()`
+      // returns row 0 alone, which restores only the node's FIRST environment and fails every other.
+      const pairs = response.data.envs
+        .filter((node) => node.id === peerId)
+        .flatMap((node) => node.computeEnvironments.environments.map((environment) => ({ environment, node })));
       // The env id's suffix (after `-`) rotates per epoch, so a stored id goes stale. Match the exact
       // id when still present, else fall back to the stable prefix (the environment's real identity).
       const envPrefix = envId.split('-')[0];
-      const envs = foundNode?.computeEnvironments.environments ?? [];
-      const foundEnv = envs.find((env) => env.id === envId) ?? envs.find((env) => env.id.split('-')[0] === envPrefix);
-      if (!foundNode || !foundEnv) {
+      const found =
+        pairs.find((pair) => pair.environment.id === envId) ??
+        pairs.find((pair) => pair.environment.id.split('-')[0] === envPrefix);
+      if (!found) {
         return false;
       }
+      const { environment: foundEnv, node: foundNode } = found;
       setSelectedEnv({
         environment: foundEnv,
         gpuSelection: decodeGpuSelection(q.gpus) ?? {},
