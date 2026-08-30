@@ -1,15 +1,28 @@
 import { ComputeResource } from '@/types/environments';
 
 /**
- * Amount of a compute resource currently available for a new job.
- * Convention used across the app: available = max (per-job ceiling) - inUse (currently consumed).
+ * Amount of a compute resource currently available for a new job — mirroring the node's own gate
+ * exactly: `min(max, total - inUse)`.
+ *  - `total - inUse` is the env aggregate ceiling the node checks (checkIfResourcesAreAvailable,
+ *    gate 1: `total - inUse < amount` → reject).
+ *  - `max` is the separate PER-JOB ceiling (checkAndFillMissingResources: `desired > max` → reject).
+ * Both must hold, so the bookable amount is the smaller of the two. Computing it as
+ * `min(total, max) - inUse` instead (the old convention) under-reports whenever `max < total`: an
+ * env with 16 cores, an 8-core per-job cap and 4 in use can still grant a full 8, not 4 — and
+ * under-reporting there strands free GPUs that nothing can be booked against.
  * Clamped to >= 0 so a fully (or over-) consumed resource reports 0.
  */
-export const getAvailableAmount = (resource?: Pick<ComputeResource, 'max' | 'inUse'>): number => {
+export const getAvailableAmount = (resource?: {
+  total?: number;
+  max?: number;
+  inUse?: number;
+}): number => {
   if (!resource) {
     return 0;
   }
-  return Math.max(0, (resource.max ?? 0) - (resource.inUse ?? 0));
+  const max = resource.max ?? 0;
+  const total = resource.total && resource.total > 0 ? resource.total : max;
+  return Math.max(0, Math.min(max, total - (resource.inUse ?? 0)));
 };
 
 export const capacityOf = (resource?: Pick<ComputeResource, 'total' | 'max'>): number => {
