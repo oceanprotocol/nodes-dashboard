@@ -4608,9 +4608,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:9.0.0-next.12":
-  version: 9.0.0-next.12
-  resolution: "@oceanprotocol/lib@npm:9.0.0-next.12"
+"@oceanprotocol/lib@npm:9.0.0":
+  version: 9.0.0
+  resolution: "@oceanprotocol/lib@npm:9.0.0"
   dependencies:
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
@@ -4637,7 +4637,7 @@ __metadata:
     libp2p: "npm:^3.3.8"
     multiformats: "npm:^14.0.5"
     uint8arrays: "npm:^6.1.1"
-  checksum: 10c0/8427cec70e6780e4a0fb409190445afba3d94d99bcd53b805b671173f646d125f70a1081157a9c111403af9dc962cfd8ca7e224617b23205dc0aafaefddf942b
+  checksum: 10c0/11a9a3691e9980b7b25d9ee8c64a8ebe06385b199b96e4367784f12fedd581fd417ced82ac75f32479083e67dde76cd860e4b2404112277c4fd3a6c0f1e08ae9
   languageName: node
   linkType: hard
 
@@ -18153,7 +18153,7 @@ __metadata:
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
     "@oceanprotocol/contracts": "npm:^2.9.0"
-    "@oceanprotocol/lib": "npm:9.0.0-next.12"
+    "@oceanprotocol/lib": "npm:9.0.0"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.22.2"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"
