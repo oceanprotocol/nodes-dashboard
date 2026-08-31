@@ -97,9 +97,14 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
   const matchedKeyRef = useRef<string | null>(null);
   if (key !== null && matchedKeyRef.current !== key) {
     matchedKeyRef.current = key;
+    // Every new container starts its retry budget fresh, whether or not the previous one ever
+    // resolved. Resetting only alongside the state reset below left the count behind whenever the
+    // previous key was still mid-retry (it never wrote `state.key`, so that stayed null): the new
+    // service inherited the old one's attempts and got fewer retries — or, at MAX_ATTEMPTS - 1, was
+    // declared `failed` on its first failure.
+    setAttempt(0);
     if (state.key !== null && state.key !== key) {
       setState({ key: null, template: null, exact: false, failed: false });
-      setAttempt(0);
     }
   }
 

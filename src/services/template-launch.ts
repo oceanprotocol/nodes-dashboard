@@ -1,7 +1,7 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
-import { buildGpuRequests, resourceId } from '@/services/inference-launch';
+import { assertAllocationAvailable, buildGpuRequests, resourceId } from '@/services/inference-launch';
 import { AppTemplate, requiredEnvVars, TemplateWorkflow } from '@/types/templates';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
@@ -156,6 +156,10 @@ export async function buildTemplateStartParams({
 
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
+
+  // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
+  // here too, before the caller runs the escrow deposit tx.
+  assertAllocationAvailable(envResources, allocation);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },

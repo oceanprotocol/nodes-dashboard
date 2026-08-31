@@ -373,12 +373,27 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       });
       return;
     }
+    // Validate against the node's CURRENT copy of the env, not the one carried into this step: these
+    // guards exist to stop a wasted escrow deposit tx, so checking them against bounds the operator
+    // may have changed since would let exactly the rejection they guard against through. Forced —
+    // the TTL would otherwise serve the same stale read this is trying to avoid. Spinner on for the
+    // dial and left on into the launch below; the guards in between clear it on their way out.
+    setLaunching(true);
+    setLaunchError(null);
+    let prolongEnv = selectedEnv.environment;
+    try {
+      prolongEnv = (await resolveLaunchEnv(selectedEnv)).environment;
+    } catch {
+      // Best-effort, like the read itself: an unreachable node leaves the carried env in place and the
+      // guards below run against it, exactly as they did before. Swallowed here rather than left to
+      // the launch's own catch, which is outside this await and would strand the button disabled.
+    }
     // The node accepts an extension shorter than the env's minJobDuration but bills it at that
     // minimum anyway (calculateResourcesCost re-applies the session minimum to the increment), so
     // +1min on a 10min-minimum env costs the same as +10min and grants a tenth of it. The modal
     // blocks that; this catches a deep-linked prolong URL carrying a smaller duration. Drop both
     // once the node stops flooring extensions.
-    const envMin = selectedEnv.environment.minJobDuration;
+    const envMin = prolongEnv.minJobDuration;
     if (envMin && jobDurationSeconds < envMin) {
       setLaunchError(
         `This environment charges a ${formatDuration(envMin)} minimum per top-up — a shorter extension costs the same. Pick a longer one.`
@@ -389,6 +404,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         min_seconds: envMin,
         branch,
       });
+      setLaunching(false);
       return;
     }
     // The node rejects an extension that pushes total runtime past its max (serviceExtend: 400
@@ -396,7 +412,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     // the live remaining runtime here, but the env's advertised maxJobDuration bounds a single
     // window — if the extra time alone already exceeds it the extend is guaranteed to fail, so stop
     // before paying the (wasted) escrow deposit tx.
-    const envMax = selectedEnv.environment.maxJobDuration;
+    const envMax = prolongEnv.maxJobDuration;
     if (envMax && jobDurationSeconds > envMax) {
       setLaunchError(
         `The extra time exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter extension.`
@@ -407,11 +423,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         max_seconds: envMax,
         branch,
       });
+      setLaunching(false);
       return;
     }
 
-    setLaunching(true);
-    setLaunchError(null);
     try {
       // The node locks the extension cost in escrow — top up funds/authorization first if needed.
       await ensureEscrowForSelection();
@@ -450,6 +465,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     withNodeAuth,
     jobDurationSeconds,
     ensureEscrowForSelection,
+    resolveLaunchEnv,
     serviceExtend,
     totalCost,
     router,

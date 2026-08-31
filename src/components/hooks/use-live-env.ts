@@ -43,6 +43,12 @@ export default function useLiveEnv(
   const envId = environment?.id;
   const peerId = nodeInfo?.id;
 
+  // Identifies WHICH env/node a read was asked for, so a response that lands after the caller moved on
+  // can be told apart from one that still describes what's on screen.
+  const keyOf = (env?: string, peer?: string) => `${env ?? ''}\u0000${peer ?? ''}`;
+  const activeKeyRef = useRef(keyOf(envId, peerId));
+  activeKeyRef.current = keyOf(envId, peerId);
+
   // Pointed at a different env/node: the previous live copy describes neither.
   useEffect(() => {
     setLiveEnv(null);
@@ -56,19 +62,31 @@ export default function useLiveEnv(
       if (!isReady || !environment || !nodeInfo?.id) {
         return fallback;
       }
-      // Coalesce: a burst of clicks shares the one dial already in flight.
+      // What THIS call is asking about, checked against the live key before any answer is used.
+      const callKey = keyOf(environment.id, nodeInfo.id);
+      // Coalesce: a burst of clicks shares the one dial already in flight. Guarded by the same key as
+      // the publish below — the shared dial may have been started for a DIFFERENT env/node, and handing
+      // its answer back here would hand the caller (Continue / pay) the wrong env to launch from.
       if (inFlightRef.current) {
-        return (await inFlightRef.current) ?? latestRef.current ?? environment;
+        const shared = await inFlightRef.current;
+        const usable = activeKeyRef.current === callKey ? shared : null;
+        return usable ?? latestRef.current ?? environment;
       }
       if (!force && Date.now() - fetchedAtRef.current < LIVE_TTL_MS) {
         return fallback;
       }
       setRefreshing(true);
+      // The env/node this particular dial is asking about. A dial outlives a chip click, so by the time
+      // it answers the user may have moved to another env or node — and the reset effect above has
+      // already cleared the refs for the new one. Publishing regardless would put the PREVIOUS env's
+      // `inUse` behind the current one, which is what this hook exists to stop: the flow would price and
+      // launch against the wrong device list, and the stamped `fetchedAtRef` would suppress the
+      // corrective re-read for a whole TTL.
       const request = (async () => {
         try {
           const envs = (await getEnvs(toNodeUri(nodeInfo))) as ComputeEnvironment[];
           const fresh = envs?.find((env) => env.id === environment.id) ?? null;
-          if (fresh) {
+          if (fresh && activeKeyRef.current === callKey) {
             latestRef.current = fresh;
             fetchedAtRef.current = Date.now();
             setLiveEnv(fresh);
@@ -88,7 +106,10 @@ export default function useLiveEnv(
         setRefreshing(false);
         inFlightRef.current = null;
       });
-      return (await settled) ?? latestRef.current ?? environment;
+      const result = await settled;
+      // Same guard on the way out: if the env/node changed while this dial was open, its answer is not
+      // about what the caller is now acting on. Fall back to whatever describes the CURRENT key.
+      return (activeKeyRef.current === callKey ? result : null) ?? latestRef.current ?? environment;
     },
     [environment, getEnvs, isReady, nodeInfo]
   );

@@ -60,7 +60,7 @@ export function enginePort(engine: InferenceEngine): number {
 }
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
-type Allocation = {
+export type Allocation = {
   cpu: number;
   ram: number;
   disk: number;
@@ -412,8 +412,15 @@ export function buildUserData(hfToken: string): Record<string, string> {
  */
 export const GPUS_TAKEN = 'gpus_taken';
 export const GPUS_MISSING = 'gpus_missing';
+/**
+ * The shared CPU/RAM/disk the allocation was sized against is no longer free — same contention as
+ * `gpus_taken`, on the resources a GPU pick doesn't name. Reported from the same place and for the
+ * same reason: the node would reject the serviceStart, and finding that out after the escrow deposit
+ * tx costs the user gas for nothing.
+ */
+export const RESOURCES_TAKEN = 'resources_taken';
 
-export type GpuSelectionErrorCode = typeof GPUS_TAKEN | typeof GPUS_MISSING;
+export type GpuSelectionErrorCode = typeof GPUS_TAKEN | typeof GPUS_MISSING | typeof RESOURCES_TAKEN;
 
 function gpuSelectionError(code: GpuSelectionErrorCode, message: string): Error & { code: GpuSelectionErrorCode } {
   return Object.assign(new Error(message), { code });
@@ -425,7 +432,7 @@ function gpuSelectionError(code: GpuSelectionErrorCode, message: string): Error 
  */
 export function gpuSelectionErrorCode(error: unknown): GpuSelectionErrorCode | null {
   const code = (error as { code?: string })?.code;
-  return code === GPUS_TAKEN || code === GPUS_MISSING ? code : null;
+  return code === GPUS_TAKEN || code === GPUS_MISSING || code === RESOURCES_TAKEN ? code : null;
 }
 
 /**
@@ -441,6 +448,8 @@ export function gpuSelectionMessage(error: unknown, since: string): string | nul
     case GPUS_MISSING:
       // Not contention: this type is gone from the environment and won't free up. Move, don't wait.
       return `${detail} Pick another GPU type, or another environment.`;
+    case RESOURCES_TAKEN:
+      return `This environment ran short of capacity ${since}. ${detail}`;
     default:
       return null;
   }
@@ -507,6 +516,45 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
     }
   }
   return requests;
+}
+
+/**
+ * Check the priced CPU/RAM/disk amounts still fit what the environment has free.
+ *
+ * The allocation handed to a launch was sized against the env as it was read when the payment page
+ * last rendered, but the ids are resolved from a freshly re-read env at click time. `buildGpuRequests`
+ * already catches contention on the GPU units; nothing did for the shared resources, so a tenant
+ * taking CPU/RAM/disk in between meant the node rejected the serviceStart AFTER the escrow deposit tx.
+ *
+ * Throws rather than shrinking the request, for the same reason buildGpuRequests does: a silently
+ * reduced allocation provisions less than the user is being charged for.
+ */
+export function assertAllocationAvailable(resources: ComputeResource[], allocation: Allocation): void {
+  const checks: [keyof Allocation, 'cpu' | 'ram' | 'disk', string][] = [
+    ['cpu', 'cpu', 'CPU'],
+    ['ram', 'ram', 'RAM'],
+    ['disk', 'disk', 'disk'],
+  ];
+  for (const [key, type, label] of checks) {
+    const wanted = allocation[key];
+    if (!wanted || wanted <= 0) {
+      continue;
+    }
+    const id = resourceId(resources, type);
+    const resource = resources.find((r) => r.id === id);
+    // Absent from the env: nothing to validate against, and buildInferenceStartParams still names the
+    // id — leave that to the node, which is the authority on whether it knows the resource.
+    if (!resource) {
+      continue;
+    }
+    const free = getAvailableAmount(resource);
+    if (free < wanted) {
+      throw gpuSelectionError(
+        RESOURCES_TAKEN,
+        `Only ${free} ${label} free right now, ${wanted} needed. Reduce your selection or duration to continue.`
+      );
+    }
+  }
 }
 
 /** Look up the resource id for a base type (cpu/ram/disk), falling back to the type name. */
@@ -639,6 +687,10 @@ export function buildInferenceStartParams({
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
   const runtime = engineRuntime(params);
+
+  // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
+  // here too, before the caller runs the escrow deposit tx.
+  assertAllocationAvailable(envResources, allocation);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },

@@ -354,8 +354,9 @@ const useInferenceAllocation = ({
     return 0;
   }, [totalGpus, cpu, cpuAvailable, ram, ramAvailable, disk, diskAvailable, sizing, packageFloor]);
 
-  // Constraint-aware GPU unit cap: the largest whole unit count whose proportional CPU/RAM/disk slice —
-  // clamped into the constraint envelope exactly as `allocation` builds it — still satisfies every
+  // Constraint-aware GPU unit cap: the largest whole unit count whose CPU/RAM/disk amounts — sized by the
+  // active sizing mode and clamped into the constraint envelope exactly as `allocation` builds them —
+  // still satisfies every
   // constraint within availability. Mirrors run-job's maxUnitsByConstraints. No GPUs / no constraints →
   // unbounded (the resource cap governs). Must clamp before validating: a raw proportional slice can
   // exceed a constraint ceiling that the real derivation trims.
@@ -363,12 +364,23 @@ const useInferenceAllocation = ({
     if (totalGpus <= 0 || orderedFreeGpuUnits.length === 0) {
       return Number.POSITIVE_INFINITY;
     }
+    // Same sizing-mode branches `allocation` books with: a pinned package's amounts are FIXED and don't
+    // scale with units, and a floor package raises the slice to its per-resource min. Validating a bare
+    // proportional slice instead tests a selection the flow never requests, and rejects free GPU units a
+    // pinned package comfortably fits (the same bug maxUnitsByResources guards against).
+    const floorAmounts = sizing?.mode === 'floor' ? sizing : undefined;
+    const rawFor = (resource: ComputeResource | undefined, key: keyof ResourceAmounts, units: number) => {
+      if (sizing?.mode === 'pinned') {
+        return clampResource(resource, sizing[key], true, sizing.floor?.[key]);
+      }
+      return clampResource(resource, sliceFor(resource, units, totalGpus), true, floorAmounts?.[key]);
+    };
     let feasible = 0;
     for (let u = 1; u <= orderedFreeGpuUnits.length; u++) {
       const gpuSel = toGpuRequests(orderedFreeGpuUnits.slice(0, u));
-      const rawCpu = clampResource(cpu, sliceFor(cpu, u, totalGpus), true);
-      const rawRam = clampResource(ram, sliceFor(ram, u, totalGpus), true);
-      const rawDisk = clampResource(disk, sliceFor(disk, u, totalGpus), true);
+      const rawCpu = rawFor(cpu, 'cpu', u);
+      const rawRam = rawFor(ram, 'ram', u);
+      const rawDisk = rawFor(disk, 'disk', u);
       const b = deriveBounds(
         availResources,
         { [cpuId]: rawCpu, [ramId]: rawRam, [diskId]: rawDisk, ...Object.fromEntries(gpuSel.map((g) => [g.id, g.amount])) },
@@ -389,7 +401,7 @@ const useInferenceAllocation = ({
       feasible = u;
     }
     return feasible;
-  }, [totalGpus, orderedFreeGpuUnits, cpu, ram, disk, availResources, baseBounds, cpuId, ramId, diskId]);
+  }, [totalGpus, orderedFreeGpuUnits, cpu, ram, disk, sizing, availResources, baseBounds, cpuId, ramId, diskId]);
 
   // Combined budget for the COMBINED unit selection: shared-resource fit AND constraint feasibility.
   const unitBudget = Math.min(maxUnitsByResources, maxUnitsByConstraints);

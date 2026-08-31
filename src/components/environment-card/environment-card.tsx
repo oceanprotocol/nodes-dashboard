@@ -238,7 +238,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         </div>
       );
     }
-    const percentage = max > 0 ? Math.min(100, (100 * (max - available)) / max) : 100;
+    const inUse = cpu.inUse ?? 0;
+    const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
     return (
       <div className={styles.cpuWrapper}>
         <ProgressBar
@@ -343,7 +344,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           </div>
         );
       }
-      const percentage = max > 0 ? Math.min(100, (100 * (max - available)) / max) : 100;
+      const inUse = gpu.inUse ?? 0;
+      const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
       return (
         <div className={styles.gpuWrapper} key={gpu.id}>
           <ProgressBar
@@ -433,7 +435,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         </div>
       );
     }
-    const percentage = max > 0 ? Math.min(100, (100 * (max - available)) / max) : 100;
+    const inUse = ram.inUse ?? 0;
+    const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
     return (
       <div className={styles.ramWrapper}>
         <ProgressBar
@@ -520,7 +523,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         </div>
       );
     }
-    const percentage = max > 0 ? Math.min(100, (100 * (max - available)) / max) : 100;
+    const inUse = disk.inUse ?? 0;
+    const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
     return (
       <div className={styles.diskWrapper}>
         <ProgressBar
