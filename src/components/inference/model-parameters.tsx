@@ -16,7 +16,6 @@ import {
   mapQuantization,
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
-import { VLLM_TAG_OPTIONS } from '@/services/vllm-model-presets';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -59,29 +58,20 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
   { label: 'fp8', value: 'fp8' },
 ];
 
-const vllmTagOptions: { label: string; value: string }[] = [...VLLM_TAG_OPTIONS];
-
-/** How many of the newest published tags to surface in the collapsed picker (before "show all"). */
-const DEFAULT_VLLM_TAG_COUNT = 5;
+const automaticVllmTagOption = { label: 'Automatic (recommended)', value: '' };
 
 /**
- * The vLLM runtime picker's options: the curated subset always, plus published Docker Hub tags — the
- * `limit` newest by default, or all of them when `limit` is null ("show all") — and, pinned first, the
- * currently-set tag whenever it's an off-list value (a model preset's tag, or a hand-edited override)
- * so the selection is never dropped. fetchedTags arrive curated-first then most-recent-first, so the
- * slice after dropping already-curated values is the newest tags.
+ * Keep Automatic first, append the newest published tags, and preserve an off-list current tag so
+ * model compatibility presets and older services never lose their runtime selection.
  */
-function buildVllmTagOptions(
-  currentTag: string,
-  fetchedTags: string[],
-  limit: number | null
-): { label: string; value: string }[] {
-  const options = [...vllmTagOptions];
+function buildVllmTagOptions(currentTag: string, fetchedTags: string[]): { label: string; value: string }[] {
+  const options = [automaticVllmTagOption];
   const seen = new Set(options.map(({ value }) => value));
-  const extra = fetchedTags.filter((tag) => !seen.has(tag));
-  const shown = limit === null ? extra : extra.slice(0, limit);
-  for (const tag of shown) {
-    options.push({ label: tag, value: tag });
+  for (const tag of fetchedTags) {
+    if (!seen.has(tag)) {
+      options.push({ label: tag, value: tag });
+      seen.add(tag);
+    }
   }
   if (currentTag && !options.some(({ value }) => value === currentTag)) {
     return [{ label: `${currentTag} (current)`, value: currentTag }, ...options];
@@ -338,10 +328,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const isGenerative = isGenerativePipeline(pipelineTag);
   const showTools = isGenerative && !!config?.supportsTools;
 
-  // vLLM runtime picker: show the newest few published tags by default, expandable to the full list.
-  // The fetch is cached image-wide and falls back to the curated tags on failure.
-  const [showAllVllmTags, setShowAllVllmTags] = useState(false);
-  const { tags: fetchedVllmTags, loading: vllmTagsLoading } = useVllmTags();
+  // Only vLLM needs Docker tags. The curated options remain usable while the newest ten load.
+  const fetchedVllmTags = useVllmTags(engine === 'vllm');
 
   // Prefill from committed/restored context params (else HF-derived defaults). Keyed on this model's
   // params so an unrelated model's commit doesn't reinitialize this card. Defaults spread underneath
@@ -585,24 +573,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             )}
             name="vllmTag"
             onChange={formik.handleChange}
-            options={buildVllmTagOptions(
-              v.vllmTag ?? '',
-              fetchedVllmTags,
-              showAllVllmTags ? null : DEFAULT_VLLM_TAG_COUNT
-            )}
+            options={buildVllmTagOptions(v.vllmTag ?? '', fetchedVllmTags)}
             value={v.vllmTag ?? ''}
           />
-          <Button
-            color="accent1"
-            contentBefore={vllmTagsLoading ? <CircularProgress size={14} /> : undefined}
-            disabled={vllmTagsLoading}
-            onClick={() => setShowAllVllmTags((prev) => !prev)}
-            size="sm"
-            type="button"
-            variant="transparent"
-          >
-            {showAllVllmTags ? 'Show curated tags only' : 'Show all published tags'}
-          </Button>
           {showTools && (
             <>
               <div>

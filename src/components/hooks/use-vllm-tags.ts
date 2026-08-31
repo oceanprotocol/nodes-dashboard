@@ -1,24 +1,17 @@
-import { fetchDockerHubTags, orderTags } from '@/lib/dockerhub';
+import { fetchDockerHubTags } from '@/lib/dockerhub';
 import { VLLM_IMAGE } from '@/services/inference-launch';
-import { VLLM_KNOWN_TAGS } from '@/services/vllm-model-presets';
 import { useQuery } from '@tanstack/react-query';
 
-type VllmTagsState = {
-  /** Curated known tags pinned first, then every other published tag (most-recent first). */
-  tags: string[];
-  loading: boolean;
-};
+const VLLM_RECENT_TAG_LIMIT = 10;
 
-export function useVllmTags(): VllmTagsState {
-  const { data, isFetching } = useQuery({
-    queryKey: ['vllm-tags', VLLM_IMAGE],
+/** The newest published tags for the vLLM image, cached image-wide for one hour. */
+export function useVllmTags(enabled: boolean): string[] {
+  const { data } = useQuery({
+    queryKey: ['vllm-tags', VLLM_IMAGE, VLLM_RECENT_TAG_LIMIT],
+    enabled,
     staleTime: 60 * 60 * 1000,
-    queryFn: async ({ signal }) => {
-      const fetched = await fetchDockerHubTags(VLLM_IMAGE, signal);
-      const ordered = orderTags(fetched, VLLM_KNOWN_TAGS);
-      return ordered.length > 0 ? ordered : VLLM_KNOWN_TAGS;
-    },
+    queryFn: ({ signal }) => fetchDockerHubTags(VLLM_IMAGE, signal, VLLM_RECENT_TAG_LIMIT),
   });
 
-  return { tags: data ?? VLLM_KNOWN_TAGS, loading: isFetching && !data };
+  return data ?? [];
 }

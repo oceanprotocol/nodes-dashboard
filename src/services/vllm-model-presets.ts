@@ -13,21 +13,6 @@ export type VllmModelPreset = {
   customParams: CustomParam[];
 };
 
-/** Tags users can deliberately select in the advanced vLLM runtime field. Empty = model/default routing. */
-export const VLLM_TAG_OPTIONS = [
-  { label: 'Automatic (recommended)', value: '' },
-  { label: 'v0.28.0 (stable)', value: 'v0.28.0' },
-  { label: 'qwen38-flash-next (Qwen3.8-Flash-Next)', value: 'qwen38-flash-next' },
-  { label: 'glm53-flash (GLM-5.3-Flash)', value: 'glm53-flash' },
-] as const;
-
-/**
- * Curated, known-good tag values (Automatic's empty value dropped). Pinned first in the live Docker
- * Hub tag list and used as the fallback when that fetch fails — see useVllmTags. Keep this the single
- * source so the picker's curated subset and the fallback can't drift apart.
- */
-export const VLLM_KNOWN_TAGS: string[] = VLLM_TAG_OPTIONS.map(({ value }) => value).filter(Boolean);
-
 const VLLM_MODEL_PRESETS: Record<string, VllmModelPreset> = {
   'qwen/qwen3.8-flash-next': {
     imageTag: 'qwen38-flash-next',
