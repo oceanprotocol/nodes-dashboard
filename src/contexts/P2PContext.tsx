@@ -53,7 +53,7 @@ import {
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
 import BigNumber from 'bignumber.js';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 export type NodeUri = OceanNode | string[];
 
@@ -253,6 +253,9 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<Record<string, any>>({});
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  // Live readiness for callbacks that must not capture it — see getServiceTemplates.
+  const isReadyRef = useRef(false);
+  isReadyRef.current = isReady;
   const [computeLogs] = useState<any>(undefined);
   const [computeResult, setComputeResult] = useState<Record<string, any> | Uint8Array | undefined>(undefined);
   const [computeStatus, setComputeStatus] = useState<Record<string, any> | null>(null);
@@ -696,12 +699,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   // up. The template catalogue is fetched over HTTP first for exactly that reason.
   const getServiceTemplates = useCallback(
     async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
-      if (!isReady && Array.isArray(nodeUri)) {
+      // Readiness is read from a ref, not from the closed-over `isReady`, and this callback has no
+      // dependencies: fetchTemplates shares ONE in-flight request between every concurrent caller, so
+      // a callback captured before libp2p came up would keep throwing 'Node not ready' for callers
+      // that arrive after it did — including the retry that becoming ready is supposed to trigger.
+      if (!isReadyRef.current && Array.isArray(nodeUri)) {
         throw new Error('Node not ready');
       }
       return getServiceTemplatesFromService(nodeUri, chainId, signal);
     },
-    [isReady]
+    []
   );
 
   const streamServiceLogs = useCallback(

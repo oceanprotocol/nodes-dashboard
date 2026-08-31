@@ -53,11 +53,11 @@ async function tryCatalogueTransport(
 ): Promise<AppTemplate[] | null> {
   try {
     const result = await withTimeout(attempt, TRANSPORT_TIMEOUT_MS, `Service templates (${name})`);
-    const templates = Array.isArray(result) ? (result as AppTemplate[]) : [];
-    // An empty catalogue is a legitimate answer (a node advertising nothing) but indistinguishable
-    // from a transport that answered with junk, and falling through costs one round trip and can only
-    // improve on it. Treated as a miss deliberately.
-    return templates.length > 0 ? templates : null;
+    // A well-formed array IS the answer, empty included: a node that advertises no templates is a real
+    // state, not a failed transport. Only a malformed response falls through — retrying a node that
+    // answered "nothing" over a second transport just spends a round trip to be told the same thing,
+    // and (worse) lets a P2P `[]` masquerade as the HTTP rung having failed.
+    return Array.isArray(result) ? (result as AppTemplate[]) : null;
   } catch (error) {
     console.warn(`Template catalogue via ${name} failed, trying next transport:`, error);
     return null;
