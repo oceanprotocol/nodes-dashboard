@@ -4,6 +4,10 @@ type DockerHubTagsResponse = {
   tags?: string[];
 };
 
+type DockerHubTagExistsResponse = {
+  exists?: boolean;
+};
+
 // Fetch tag names for a public Docker Hub repo (`namespace/repo`). Goes through our own /api/docker-tags
 // route: Docker Hub's hub.docker.com/v2 API sends no Access-Control-Allow-Origin, so a direct browser
 // fetch is CORS-blocked (200 but unreadable) — the proxy fetches it server-side and returns same-origin
@@ -14,6 +18,15 @@ export async function fetchDockerHubTags(repo: string, signal?: AbortSignal, lim
     signal,
   });
   return (data.tags ?? []).filter(Boolean);
+}
+
+/** Check one exact public Docker Hub tag through the same-origin proxy. */
+export async function dockerHubTagExists(repo: string, tag: string, signal?: AbortSignal): Promise<boolean> {
+  const { data } = await axios.get<DockerHubTagExistsResponse>('/api/docker-tags', {
+    params: { repo, tag },
+    signal,
+  });
+  return data.exists === true;
 }
 
 // Order fetched tags for display: the image's pinned `knownTags` first (only those actually present),

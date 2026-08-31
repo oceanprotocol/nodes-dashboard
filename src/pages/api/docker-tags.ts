@@ -7,6 +7,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 // Hub host, so this can't be turned into an open proxy.
 
 const REPO_RE = /^[a-z0-9]+(?:[._-][a-z0-9]+)*\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/
+const TAG_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/
 const MAX_TAG_LIMIT = 100
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -18,6 +19,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!REPO_RE.test(repo)) {
     return res.status(400).json({ error: 'Invalid repo' })
   }
+  const tag = typeof req.query.tag === 'string' ? req.query.tag : ''
+  if (req.query.tag != null && !TAG_RE.test(tag)) {
+    return res.status(400).json({ error: 'Invalid tag' })
+  }
+
+  if (tag) {
+    try {
+      const upstream = await fetch(`https://hub.docker.com/v2/repositories/${repo}/tags/${tag}`, {
+        cache: 'no-store',
+      })
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400')
+      if (upstream.status === 404) {
+        return res.status(200).json({ exists: false })
+      }
+      if (!upstream.ok) {
+        return res.status(502).json({ error: 'Upstream error', status: upstream.status })
+      }
+      return res.status(200).json({ exists: true })
+    } catch (err) {
+      console.error('[docker-tags proxy] exact-tag upstream error:', err)
+      return res.status(502).json({ error: 'Bad gateway' })
+    }
+  }
+
   const requestedLimit = req.query.limit == null ? MAX_TAG_LIMIT : Number(req.query.limit)
   if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > MAX_TAG_LIMIT) {
     return res.status(400).json({ error: 'Invalid limit' })

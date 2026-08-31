@@ -494,7 +494,7 @@ function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: strin
   const preset = getVllmModelPreset(modelId);
   return {
     engine: 'vllm',
-    vllmTag: preset?.imageTag ?? '',
+    vllmTag: '',
     servedModelName: getModelShortName(modelId),
     // User-defined key/value params — none by default; the user adds them like env vars.
     customParams: preset?.customParams.map((param) => ({ ...param })) ?? [],

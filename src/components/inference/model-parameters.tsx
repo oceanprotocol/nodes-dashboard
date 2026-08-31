@@ -16,7 +16,7 @@ import {
   mapQuantization,
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
-import { getVllmModelPreset } from '@/services/vllm-model-presets';
+import { VLLM_TAG } from '@/services/inference-launch';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -59,25 +59,30 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
   { label: 'fp8', value: 'fp8' },
 ];
 
-const automaticVllmTagOption = { label: 'Automatic (recommended)', value: '' };
+function automaticVllmTagLabel(modelTag: string | null): string {
+  return `Automatic (${modelTag ?? VLLM_TAG})`;
+}
 
 /**
- * Keep Automatic first, then the model's required compatibility image (if it has one) as a
- * first-class listed option so it stays selectable after switching away, then the newest published
- * tags. An off-list current tag is preserved on top so restored/older services never lose their
- * runtime selection.
+ * Keep Automatic first, then the configured current version and the verified model tag (if vLLM has
+ * published one), followed by the ten newest tags. An off-list current tag is preserved on top so
+ * restored/older services never lose their runtime selection.
  */
 function buildVllmTagOptions(
+  modelId: string,
   currentTag: string,
   fetchedTags: string[],
-  presetTag: string
+  modelTag: string | null
 ): { label: string; value: string }[] {
-  const options = [automaticVllmTagOption];
+  const options = [{ label: automaticVllmTagLabel(modelTag), value: '' }];
   const seen = new Set(options.map(({ value }) => value));
-  // Model-required image: always listed, labeled with why, deduped against Automatic/fetched tags.
-  if (presetTag && !seen.has(presetTag)) {
-    options.push({ label: `${presetTag} (required for this model)`, value: presetTag });
-    seen.add(presetTag);
+  if (VLLM_TAG && !seen.has(VLLM_TAG)) {
+    options.push({ label: `${VLLM_TAG} (current default)`, value: VLLM_TAG });
+    seen.add(VLLM_TAG);
+  }
+  if (modelTag && !seen.has(modelTag)) {
+    options.push({ label: `${modelTag} (${getModelShortName(modelId)})`, value: modelTag });
+    seen.add(modelTag);
   }
   for (const tag of fetchedTags) {
     if (!seen.has(tag)) {
@@ -89,6 +94,11 @@ function buildVllmTagOptions(
     return [{ label: `${currentTag} (current)`, value: currentTag }, ...options];
   }
   return options;
+}
+
+/** Resolve Automatic only after the exact model-derived tag has been verified on Docker Hub. */
+function resolveAutomaticVllmTag(values: ModelParametersType, modelTag: string | null): ModelParametersType {
+  return values.engine === 'vllm' && !values.vllmTag && modelTag ? { ...values, vllmTag: modelTag } : values;
 }
 
 // Options come from the shared registry subset in @/types/huggingface — kept there so the type and
@@ -340,8 +350,13 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const isGenerative = isGenerativePipeline(pipelineTag);
   const showTools = isGenerative && !!config?.supportsTools;
 
-  // Only vLLM needs Docker tags. The curated options remain usable while the newest ten load.
-  const fetchedVllmTags = useVllmTags(engine === 'vllm');
+  // Derive the model-specific tag from the HF model name and verify that exact tag on Docker Hub.
+  // The ten newest tags load independently as manual overrides.
+  const {
+    tags: fetchedVllmTags,
+    modelTag: discoveredVllmTag,
+    modelTagLoading,
+  } = useVllmTags(modelId, engine === 'vllm');
 
   // Prefill from committed/restored context params (else HF-derived defaults). Keyed on this model's
   // params so an unrelated model's commit doesn't reinitialize this card. Defaults spread underneath
@@ -442,12 +457,12 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           setOpen(true);
           return null;
         }
-        return formik.values;
+        return resolveAutomaticVllmTag(formik.values, discoveredVllmTag);
       },
       reloadDefaults,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [formik]
+    [formik, discoveredVllmTag]
   );
 
   // Unset vLLM tool params for a model that doesn't support them (llama.cpp has no tool-parser field).
@@ -585,7 +600,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             )}
             name="vllmTag"
             onChange={formik.handleChange}
-            options={buildVllmTagOptions(v.vllmTag ?? '', fetchedVllmTags, getVllmModelPreset(modelId)?.imageTag ?? '')}
+            options={buildVllmTagOptions(modelId, v.vllmTag ?? '', fetchedVllmTags, discoveredVllmTag)}
+            placeholder={automaticVllmTagLabel(discoveredVllmTag)}
             value={v.vllmTag ?? ''}
           />
           {showTools && (
@@ -820,13 +836,14 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     </div>
   );
 
-  // Full-card spinner only on first load; later reloads keep the form visible.
-  if (loading && !config && authState === 'none' && !loadError) {
+  // Full-card spinner only on first load. Wait for exact tag discovery too, so Automatic can never
+  // submit the stable fallback while a model-specific compatibility tag is still being checked.
+  if ((loading && !config && authState === 'none' && !loadError) || modelTagLoading) {
     return (
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         <h3 className={styles.loading}>
           <CircularProgress size={24} />
-          Loading model defaults from Hugging Face…
+          Loading model and runtime defaults…
         </h3>
       </Card>
     );

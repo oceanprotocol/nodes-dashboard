@@ -2,7 +2,6 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
-import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import { ComputeResource } from '@/types/environments';
 import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
@@ -48,16 +47,15 @@ function wantsGpuOffload(params: ModelParameters): boolean {
 
 /**
  * The image/tag/port to launch a model with. llama.cpp GPU offload selects its CUDA image; vLLM uses
- * an explicit per-model override, then a compatibility preset, then the configured stable fallback.
+ * the tag resolved by the configuration flow, then the configured stable fallback.
  */
-export function engineRuntime(modelId: string, params: ModelParameters): { image: string; tag: string; port: number } {
+export function engineRuntime(params: ModelParameters): { image: string; tag: string; port: number } {
   const runtime = ENGINE_RUNTIME[params.engine];
   if (wantsGpuOffload(params)) {
     return { ...runtime, tag: LLAMACPP_TAG_CUDA };
   }
   if (params.engine === 'vllm') {
-    const preset = getVllmModelPreset(modelId);
-    return { ...runtime, tag: params.vllmTag || preset?.imageTag || runtime.tag };
+    return { ...runtime, tag: params.vllmTag || runtime.tag };
   }
   return runtime;
 }
@@ -554,7 +552,7 @@ export function buildInferenceRestartSpec({
   params: ModelParameters;
   hfToken: string;
 }): ServiceRestartParams {
-  const runtime = engineRuntime(model.id, params);
+  const runtime = engineRuntime(params);
   return {
     image: runtime.image,
     tag: runtime.tag,
@@ -593,7 +591,7 @@ export function buildInferenceStartParams({
   hfToken: string;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
-  const runtime = engineRuntime(model.id, params);
+  const runtime = engineRuntime(params);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },

@@ -1,12 +1,10 @@
 import { CustomParam, ToolCallParser } from '@/types/huggingface';
 
 /**
- * Launch settings that differ from the generic stable vLLM runtime for a specific Hugging Face
- * model. These models use architectures that landed after the current stable vLLM release, so the
- * official model-specific image is required until the support ships in a stable release.
+ * Launch flags that differ from the generic vLLM defaults for a specific Hugging Face model. Image
+ * tags are deliberately not kept here: the dashboard derives and verifies those at runtime.
  */
 export type VllmModelPreset = {
-  imageTag: string;
   tensorParallelSize: number;
   toolCalling: boolean;
   toolCallParser: ToolCallParser;
@@ -15,7 +13,6 @@ export type VllmModelPreset = {
 
 const VLLM_MODEL_PRESETS: Record<string, VllmModelPreset> = {
   'qwen/qwen3.8-flash-next': {
-    imageTag: 'qwen38-flash-next',
     tensorParallelSize: 4,
     toolCalling: true,
     toolCallParser: 'qwen3_xml',
@@ -27,7 +24,6 @@ const VLLM_MODEL_PRESETS: Record<string, VllmModelPreset> = {
     ],
   },
   'zai-org/glm-5.3-flash': {
-    imageTag: 'glm53-flash',
     tensorParallelSize: 4,
     toolCalling: true,
     toolCallParser: 'glm47',
@@ -35,7 +31,7 @@ const VLLM_MODEL_PRESETS: Record<string, VllmModelPreset> = {
   },
 };
 
-/** Return the official vLLM launch preset for a model id, if it needs one. */
+/** Return model-specific vLLM launch flags, if this model needs any. */
 export function getVllmModelPreset(modelId: string): VllmModelPreset | null {
   return VLLM_MODEL_PRESETS[modelId.trim().toLowerCase()] ?? null;
 }
