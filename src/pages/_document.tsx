@@ -7,7 +7,7 @@ import Script from 'next/script';
    which is the flash this exists to prevent. */
 const THEME_INIT_SCRIPT = `
 (function () {
-  var preference = 'light';
+  var preference = 'system';
   try {
     var stored = localStorage.getItem('ocean-theme');
     if (stored === 'light' || stored === 'dark' || stored === 'system') {

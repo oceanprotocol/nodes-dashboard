@@ -21,7 +21,7 @@ const applyTheme = (resolved: ResolvedTheme) => {
   document.documentElement.setAttribute('data-theme', resolved);
 };
 
-const DEFAULT_PREFERENCE: ThemePreference = 'light';
+const DEFAULT_PREFERENCE: ThemePreference = 'system';
 
 const readStoredPreference = (): ThemePreference => {
   try {
@@ -45,6 +45,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // Default first so server and client agree on hydration; stored choice loads in the effect below.
+  // `systemTheme` likewise starts 'light' — the real OS value lands in an effect, after hydration.
   const [preference, setPreferenceState] = useState<ThemePreference>(DEFAULT_PREFERENCE);
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>('light');
 
