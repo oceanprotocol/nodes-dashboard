@@ -690,9 +690,13 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  // Only the P2P path needs a ready libp2p node. ocean.js dispatches on the uri's shape (a plain url
+  // goes to HttpProvider, a peer id / multiaddr to P2pProvider — see BaseProvider.getImpl), so gating
+  // an HTTP fetch on `isReady` would block the one transport that works while libp2p is still coming
+  // up. The template catalogue is fetched over HTTP first for exactly that reason.
   const getServiceTemplates = useCallback(
     async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
-      if (!isReady) {
+      if (!isReady && Array.isArray(nodeUri)) {
         throw new Error('Node not ready');
       }
       return getServiceTemplatesFromService(nodeUri, chainId, signal);
