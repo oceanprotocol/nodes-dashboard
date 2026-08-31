@@ -128,6 +128,22 @@ export function isProlongBlocked(status: ServiceStatusNumber | undefined): boole
   return status === undefined || PROLONG_BLOCKED_STATUSES.has(status);
 }
 
+/**
+ * Statuses where the service's FIRST payment is still in flight — escrow createLock (`Locking`) and
+ * claimLock (`Claiming`). A job in one of these has no `claimTx` yet and that is expected, so a
+ * missing claimTx must NOT be read as "unpaid or refunded" here: the user has just paid and the node
+ * simply hasn't finished settling.
+ */
+const PAYMENT_IN_FLIGHT_STATUSES = new Set<ServiceStatusNumber>([
+  ServiceStatusNumber.Locking,
+  ServiceStatusNumber.Claiming,
+]);
+
+/** True while the service's initial escrow payment is still being locked/claimed. */
+export function isPaymentInFlight(status: ServiceStatusNumber | undefined): boolean {
+  return status !== undefined && PAYMENT_IN_FLIGHT_STATUSES.has(status);
+}
+
 // ── Compute-job status (ocean-node src/@types/C2D/C2D.ts: C2DStatusNumber / C2DStatusText) ──
 // The lib doesn't export the C2D enum, so map the raw codes here. Same three visual kinds as
 // services: running (algorithm executing), pending (queued/provisioning/publishing …), failed, dead.

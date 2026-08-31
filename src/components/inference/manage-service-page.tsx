@@ -31,7 +31,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { firstQueryValue } from '@/services/inference-url';
-import { getServiceStatusView, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
+import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
@@ -582,7 +582,12 @@ const ManageServicePage: React.FC = () => {
   // or it was refunded — `cancelTx` set): restarting would run it for free, so it says "start a new
   // service instead". claimTx is set before the first container start, so every legitimately
   // restartable job (Running / crashed Error / Stopped) has it.
-  const isUnpaid = !!job && !job.payment?.claimTx;
+  //
+  // But it is NOT set yet while the initial payment is still settling (Locking / Claiming), and a job
+  // sitting in those statuses has been paid for seconds ago — treating it as unpaid told a user who
+  // had just paid that their payment "was never claimed" and to start a new service. Restart/Edit and
+  // Prolong stay blocked through that window regardless, via isRestartBlocked / isProlongBlocked.
+  const isUnpaid = !!job && !job.payment?.claimTx && !isPaymentInFlight(job.status);
   /**
    * Whether this service's template identity is known yet — `settled` covers "matched", "matched to
    * nothing" and "this is a model service, no match needed" alike.

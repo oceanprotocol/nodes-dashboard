@@ -5,7 +5,7 @@ import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const DEFAULT_PROLONG_SECONDS = 3600;
 
@@ -48,15 +48,37 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
   };
 
   const [seconds, setSeconds] = useState(() => seedSeconds(minSeconds, maxSeconds));
+  /**
+   * Whether the user has edited the field since this open, which freezes the re-seed below.
+   *
+   * `maxSeconds` is derived from the service's REMAINING runtime, so it changes on every one-second
+   * tick of the countdown — meaning the re-seed effect fires continuously, not just on open. Without
+   * this guard it overwrote whatever had just been typed, the field snapped back to the seed within a
+   * second, and Prolong could only ever buy DEFAULT_PROLONG_SECONDS (billed as a full hour).
+   */
+  const edited = useRef(false);
 
   // Re-seed on every open: the modal outlives a close, and the bounds only land once the env and the
-  // node's job record have loaded — a default seeded before that could sit outside the window.
+  // node's job record have loaded — a default seeded before that could sit outside the window. Never
+  // re-seed past an edit, though: bounds arriving late can leave an edited value outside the window,
+  // but that is caught by the validation below (which blocks Continue and says why), whereas silently
+  // rewriting the user's number is both invisible and unrecoverable.
   useEffect(() => {
-    if (isOpen) {
-      setSeconds(seedSeconds(minSeconds, maxSeconds));
+    if (!isOpen) {
+      edited.current = false;
+      return;
     }
+    if (edited.current) {
+      return;
+    }
+    setSeconds(seedSeconds(minSeconds, maxSeconds));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, minSeconds, maxSeconds]);
+
+  const onDurationChange = (next: number) => {
+    edited.current = true;
+    setSeconds(next);
+  };
 
   // Nothing can be bought when the window has no room for the smallest purchase. Two ways in:
   //   - no headroom at all (already at the env's max) — independent of any billing minimum, so this
@@ -107,7 +129,7 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
           label="Additional time"
           max={maxSeconds}
           min={minSeconds || 1}
-          onChange={setSeconds}
+          onChange={onDurationChange}
           size="md"
           value={seconds}
         />
