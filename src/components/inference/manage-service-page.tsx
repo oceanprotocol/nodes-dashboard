@@ -864,8 +864,8 @@ const ManageServicePage: React.FC = () => {
                 the user into the wrong flow on a guess. Restart is unaffected: it needs no identity. */}
             {templateMatchFailed && (
               <div className="textErrorDarker">
-                Couldn&apos;t reach the node&apos;s template catalogue, so this service&apos;s app is unknown — Edit and
-                Prolong are unavailable. Reload to try again.
+                The node&apos;s template catalogue is unavailable, so this service&apos;s app could not be identified.
+                Edit and Prolong are disabled until it can be reached; reload to retry.
               </div>
             )}
           </Card>
