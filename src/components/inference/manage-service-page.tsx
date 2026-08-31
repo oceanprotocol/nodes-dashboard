@@ -258,6 +258,13 @@ const ManageServicePage: React.FC = () => {
    *   3. the template the link named (the in-flow selection an Edit re-entry is built from),
    *   4. an inexact (image-only) job match, when the link named none.
    *
+   * Case 2 is deliberately NOT weakened to "unless the job matched something", which was tried and
+   * reverted after browser testing. Every custom-model launch runs the inference templates' own image
+   * (that is what serves the model), so an image-only match resolves one to a template every time: a
+   * plain TinyLlama launch came back labelled "vLLM — any Hugging Face model", showed a Service card
+   * instead of its Model card, lost Edit, and would have prolonged through the template payment page.
+   * Only a UNIQUE command — case 1 — can outrank the link, because only that identifies the variant.
+   *
    * The one thing this cannot resolve is a custom launch whose command is byte-for-byte a template's —
    * same model, same defaults, no extra flags. Nothing in the record distinguishes those two, so it is
    * read as the template: the container is identical either way, so an Edit relaunches the same thing,
@@ -287,6 +294,8 @@ const ManageServicePage: React.FC = () => {
   // resolveInferenceBranch. A managed service can't tell a custom launch from a quickstart one after
   // the fact (both are plain model services with no template), so both report 'custom' here; this is
   // a known, accepted limitation of reading branch off the running service rather than live flow state.
+  // An ambiguously-matched bundle is a second such case: the match resolves to the bare SERVICE its
+  // family shares, so `isBundleService` is false and this reports 'service' for a running bundle.
   const branch = !template ? 'custom' : isBundleService ? 'template' : 'service';
 
   /** Fetch the service status once; returns true when terminal (stop polling). */

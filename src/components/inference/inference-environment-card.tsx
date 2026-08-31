@@ -12,7 +12,7 @@ import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
+import { assertAllocationAvailable, buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
@@ -323,21 +323,52 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
    * the pick no longer fits, say so and let the (now trimmed) chips be re-picked instead of carrying a
    * doomed selection into the payment step.
    */
+  // The live read Continue forces is a node round trip, and the button stays mounted across it — a
+  // second click would start a second dial and could commit the pick (and navigate) twice.
+  const [committing, setCommitting] = useState(false);
   const handleContinue = async () => {
-    if (selectDisabled || !tokenSymbol || !onSelect) {
+    if (selectDisabled || committing || !tokenSymbol || !onSelect) {
       return;
     }
-    const fresh = (await refreshLiveEnv(true)) ?? environment;
+    setCommitting(true);
     try {
-      buildGpuRequests(fresh.resources ?? [], selectedByKey);
-    } catch (error) {
-      toast.error(
-        gpuSelectionMessage(error, 'in the meantime') ??
-          'This environment can no longer host that selection. Adjust it and try again.'
-      );
-      return;
+      const read = await refreshLiveEnv(true);
+      const fresh = read.env ?? environment;
+      // Validate against the node's own numbers, and only those. When the read fell back to the backend
+      // snapshot (`live: false` — node unreachable, P2P not up, env not in its list) the checks below
+      // would be measuring the snapshot against itself: guaranteed to pass, and then the launch fails
+      // at serviceStart. Say the availability is unverified instead of pretending it was checked.
+      //
+      // Stopping here strands nobody who could otherwise have launched: the launch is itself a P2P
+      // call (serviceStart), and the payment step already blocks Next while the node is unreachable.
+      // So this only moves the same failure earlier — to before the escrow deposit, rather than after.
+      if (!read.live) {
+        toast.error(
+          read.reason === 'unidentified'
+            ? 'This node is no longer offering the environment you picked. Go back and choose one again.'
+            : "Couldn't reach the node to confirm these GPUs are still free. Check your connection and try again."
+        );
+        return;
+      }
+      const freshResources = fresh.resources ?? [];
+      try {
+        buildGpuRequests(freshResources, selectedByKey);
+        // The shared resources too, not just the GPU units. `allocation` is the CPU/RAM/disk this pick
+        // is priced on, and nothing checked it until the launch itself (inference-launch) — so a tenant
+        // taking CPU or RAM in between carried a doomed selection all the way to the payment step. Uses
+        // the same assertion the launch does, so selection and launch can't disagree on what fits.
+        assertAllocationAvailable(freshResources, allocation);
+      } catch (error) {
+        toast.error(
+          gpuSelectionMessage(error, 'in the meantime') ??
+            'This environment can no longer host that selection. Adjust it and try again.'
+        );
+        return;
+      }
+      onSelect(tokenAddress, tokenSymbol, selectedByKey, fresh);
+    } finally {
+      setCommitting(false);
     }
-    onSelect(tokenAddress, tokenSymbol, selectedByKey, fresh);
   };
 
   return (
@@ -409,7 +440,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                   className={styles.continueButton}
                   color="accent1"
                   contentBefore={<PlayArrowIcon />}
-                  disabled={selectDisabled}
+                  disabled={selectDisabled || committing}
                   onClick={handleContinue}
                   type="button"
                   variant="filled"

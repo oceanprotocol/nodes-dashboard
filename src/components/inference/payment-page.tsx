@@ -174,8 +174,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
    */
   const resolveLaunchEnv = useCallback(
     async (env: SelectedInferenceEnv): Promise<SelectedInferenceEnv> => {
-      const fresh = (await refreshLiveEnv(true)) ?? env.environment;
-      return { ...env, environment: fresh };
+      // Deliberately still falls back to the priced env when the node can't be reached (`live: false`).
+      // Blocking a launch on an unreachable node is a behaviour change that can stop a launch which
+      // would have succeeded, so it is staged separately; the selection step already refuses to commit
+      // an unverified pick, which is where the cheap half of the protection lives.
+      const read = await refreshLiveEnv(true);
+      return { ...env, environment: read.env ?? env.environment };
     },
     [refreshLiveEnv]
   );

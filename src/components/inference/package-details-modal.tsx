@@ -1,4 +1,5 @@
 import Button from '@/components/button/button';
+import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import usePackageEnvs, { ResolvedPackageEnv } from '@/components/hooks/use-package-env';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
@@ -22,7 +23,17 @@ interface PackageDetailsModalProps {
   onClose: () => void;
   onCustomize: () => void;
   /** Continue from a specific env card → commit that env (with the card's fee token) + go to payment. */
-  onContinue: (resolvedEnv: ResolvedPackageEnv, token: { address: string; symbol: string }) => void;
+  /**
+   * `gpuSelection` and `environment` come from the card that priced this pick: the units it drew and
+   * the node's own freshly re-read env. Both were dropped here, so the flow committed the resolver's
+   * older snapshot and the package's default units instead of what was actually validated.
+   */
+  onContinue: (
+    resolvedEnv: ResolvedPackageEnv,
+    token: { address: string; symbol: string },
+    gpuSelection: GpuSelection,
+    environment: ComputeEnvironment
+  ) => void;
 }
 
 /** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). */
@@ -99,7 +110,9 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
             gpuSelection={entry.env.gpuSelection}
             key={entry.env.environment.id}
             nodeInfo={entry.env.nodeInfo}
-            onSelect={(address, symbol) => onContinue(entry, { address, symbol })}
+            onSelect={(address, symbol, gpuSelection, environment) =>
+              onContinue(entry, { address, symbol }, gpuSelection, environment)
+            }
             sizing={entry.env.sizing}
           />
         ))}
