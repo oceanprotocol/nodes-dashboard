@@ -768,7 +768,10 @@ const ManageServicePage: React.FC = () => {
             <div className={styles.header}>
               <div>
                 <h3>{serviceName}</h3>
-                <div className={styles.meta}>{isTemplate ? 'Template app' : 'Custom selection'}</div>
+                {/* Anything that isn't a template app is a model service — reached from the custom
+                    picker OR from a curated package, and the package identity isn't carried this far,
+                    so the label has to be true for both rather than claim a custom selection. */}
+                <div className={styles.meta}>{isTemplate ? 'Template app' : 'Model service'}</div>
               </div>
               <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
                 {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
