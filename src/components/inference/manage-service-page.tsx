@@ -292,6 +292,8 @@ const ManageServicePage: React.FC = () => {
   // Never publish a GUESS: on an ambiguous match `template` is one of several indistinguishable
   // candidates, and writing it to shared context would carry the wrong id into every later step (and
   // silently disarm the gate below, which used to read `selectedTemplate`).
+  // (Same condition as `templateVariantUnknown` below, which can't be referenced this early — a null
+  // `template` makes both branches null anyway, so the extra term there is redundant here.)
   const publishableTemplate = jobTemplateAmbiguous && !jobTemplateExact && !urlTemplateId ? null : template;
   useEffect(() => {
     if (publishableTemplate && publishableTemplate.id !== selectedTemplate?.id) {
@@ -624,7 +626,15 @@ const ManageServicePage: React.FC = () => {
    * which ship a byte-identical image AND command and differ only in workflows delivered through
    * encrypted userData the node never returns).
    */
-  const templateVariantUnknown = jobTemplateAmbiguous && !jobTemplateExact && !urlTemplateId;
+  /**
+   * Gated on `template` being what this page actually runs on, not merely on the match being
+   * ambiguous: a plain model service (custom picker or quickstart) runs the engine's own image with
+   * its own `--model` command, which matches NO template exactly and so comes back ambiguous among
+   * every bundle sharing that image. `isModelServiceByUrl` already resolves `template` to null in that
+   * case — there is no variant to be unsure about, and gating on the raw ambiguity disabled Edit and
+   * Prolong on every quickstart launch.
+   */
+  const templateVariantUnknown = !!template && jobTemplateAmbiguous && !jobTemplateExact && !urlTemplateId;
   /**
    * Whether this service's template identity is known yet — `settled` covers "matched", "matched to
    * nothing" and "this is a model service, no match needed" alike.
