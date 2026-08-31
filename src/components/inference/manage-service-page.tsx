@@ -48,6 +48,7 @@ import cx from 'classnames';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
+import { toast } from 'react-toastify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './manage-service-page.module.css';
 
@@ -233,7 +234,9 @@ const ManageServicePage: React.FC = () => {
    * service to one of them, drop the Model card, the base URL and the curl example, and offer an
    * "Open UI" button for a web UI an inference server doesn't serve.
    */
-  const isModelServiceByUrl = !firstQueryValue(router.query.template) && decodeModelIds(router.query.models).length > 0;
+  /** The template the LINK named, if any — the one claim the page's own publish effect can't overwrite. */
+  const urlTemplateId = firstQueryValue(router.query.template);
+  const isModelServiceByUrl = !urlTemplateId && decodeModelIds(router.query.models).length > 0;
   // The template this service was launched from, matched off the node's own job record (see
   // useJobTemplate). Matched even when the URL named one, because the link is only as good as whatever
   // matched it: the services table matches against a listing that drops dockerCmd, which can't tell a
@@ -243,6 +246,7 @@ const ManageServicePage: React.FC = () => {
     template: jobTemplate,
     matching: matchingTemplate,
     exact: jobTemplateExact,
+    ambiguous: jobTemplateAmbiguous,
     settled: templateSettled,
     failed: templateMatchFailed,
   } = useJobTemplate(job);
@@ -285,11 +289,15 @@ const ManageServicePage: React.FC = () => {
    * variants share). Left unpublished, the re-entry navigated to the right URL and was bounced back
    * out of the flow the moment it arrived.
    */
+  // Never publish a GUESS: on an ambiguous match `template` is one of several indistinguishable
+  // candidates, and writing it to shared context would carry the wrong id into every later step (and
+  // silently disarm the gate below, which used to read `selectedTemplate`).
+  const publishableTemplate = jobTemplateAmbiguous && !jobTemplateExact && !urlTemplateId ? null : template;
   useEffect(() => {
-    if (template && template.id !== selectedTemplate?.id) {
-      setSelectedTemplate(template);
+    if (publishableTemplate && publishableTemplate.id !== selectedTemplate?.id) {
+      setSelectedTemplate(publishableTemplate);
     }
-  }, [template, selectedTemplate?.id, setSelectedTemplate]);
+  }, [publishableTemplate, selectedTemplate?.id, setSelectedTemplate]);
   // Which of the four entry branches this service belongs to, for PostHog funnels — see
   // resolveInferenceBranch. A managed service can't tell a custom launch from a quickstart one after
   // the fact (both are plain model services with no template), so both report 'custom' here; this is
@@ -598,6 +606,26 @@ const ManageServicePage: React.FC = () => {
   // Prolong stay blocked through that window regardless, via isRestartBlocked / isProlongBlocked.
   const isUnpaid = !!job && !job.payment?.claimTx && !isPaymentInFlight(job.status);
   /**
+   * The match resolved to one of several templates the running container cannot be told apart from,
+   * and nothing else names the variant — so which one this is genuinely isn't known.
+   *
+   * Only counts when the link didn't already say: a `template=` on the query is a real answer, and
+   * `template` prefers it over the guess, so an ambiguous job match behind it is irrelevant. This is
+   * the table path, whose Manage link withholds `template=` on exactly this case (see routeTemplate in
+   * existing-services-table).
+   *
+   * Read off the QUERY, not context's `selectedTemplate`: the effect above publishes the resolved
+   * template into context, so by the time this runs `selectedTemplate` is the guess itself — testing
+   * it would disarm this gate on every render after the first.
+   *
+   * Naming still uses the guess — the candidates share an app, so the name is right for all of them —
+   * but Edit and Prolong must not act on it: they'd relaunch the wrong bundle's command and price the
+   * extension off the wrong template's resources (a 6× overcharge, observed with the ComfyUI bundles,
+   * which ship a byte-identical image AND command and differ only in workflows delivered through
+   * encrypted userData the node never returns).
+   */
+  const templateVariantUnknown = jobTemplateAmbiguous && !jobTemplateExact && !urlTemplateId;
+  /**
    * Whether this service's template identity is known yet — `settled` covers "matched", "matched to
    * nothing" and "this is a model service, no match needed" alike.
    *
@@ -606,7 +634,31 @@ const ManageServicePage: React.FC = () => {
    * whole round trip early, and a click inside that window took the model-service branch for a
    * template service — landing on the model picker, which then cleared the selection.
    */
-  const templateKnown = templateSettled;
+  const templateKnown = templateSettled && !templateVariantUnknown;
+
+  /**
+   * Say once, in a toast, why Edit and Prolong are greyed out — a disabled button with no reason reads
+   * as a broken page. Both causes are permanent for this service (an unreachable catalogue clears only
+   * on reload; an unidentifiable variant never clears), so this fires on a ref-guarded edge rather than
+   * per render: the status poll re-renders every 4s and would otherwise stack a toast each tick.
+   * Re-armed when the serviceId changes so navigating between services still reports each one.
+   */
+  const identityToastRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!templateMatchFailed && !templateVariantUnknown) {
+      return;
+    }
+    if (identityToastRef.current === id) {
+      return;
+    }
+    identityToastRef.current = id;
+    toast.error(
+      templateMatchFailed
+        ? "Couldn't load this service's app details. Editing and extending are unavailable — reload to try again."
+        : "Couldn't identify which app this service is running. Editing and extending are unavailable."
+    );
+  }, [templateMatchFailed, templateVariantUnknown, id]);
+
   // Edit relaunches through the same SERVICE_RESTART (with a new dockerCmd), so it shares the gate.
   const canEdit =
     !!job && templateKnown && !isExpired && !restartBlocked && !isUnpaid && (!isBundleService || bundleHasConfig);
@@ -836,7 +888,7 @@ const ManageServicePage: React.FC = () => {
                   disabled={!canEdit}
                   // Both actions branch on the template match; until it settles they'd re-enter the
                   // wrong flow, so show them working rather than inexplicably dead.
-                  loading={!!job && !templateKnown && !templateMatchFailed}
+                  loading={!!job && !templateKnown && !templateMatchFailed && !templateVariantUnknown}
                   onClick={onEdit}
                   size="md"
                   variant="outlined"
@@ -847,7 +899,7 @@ const ManageServicePage: React.FC = () => {
                   color="accent1"
                   contentBefore={<BoltOutlinedIcon />}
                   disabled={!canProlong}
-                  loading={!!job && !templateKnown && !templateMatchFailed}
+                  loading={!!job && !templateKnown && !templateMatchFailed && !templateVariantUnknown}
                   onClick={() => {
                     posthog.capture('inference_prolong_opened', { serviceId: id, canProlong, branch });
                     setProlongOpen(true);
@@ -862,12 +914,6 @@ const ManageServicePage: React.FC = () => {
             {/* Edit and Prolong both branch on which template this service runs, and the catalogue
                 that answers that is unreachable — so say why they're unavailable rather than sending
                 the user into the wrong flow on a guess. Restart is unaffected: it needs no identity. */}
-            {templateMatchFailed && (
-              <div className="textErrorDarker">
-                The node&apos;s template catalogue is unavailable, so this service&apos;s app could not be identified.
-                Edit and Prolong are disabled until it can be reached; reload to retry.
-              </div>
-            )}
           </Card>
 
           {/* A bundle's weights land minutes after the container reports Running, so say so here

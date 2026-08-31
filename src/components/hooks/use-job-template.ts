@@ -21,6 +21,16 @@ type JobTemplateState = {
    */
   exact: boolean;
   /**
+   * The match landed on one of SEVERAL candidates that the running container cannot be told apart from
+   * — `template` is a coin flip among them, right for naming (they share an app) but wrong to act on.
+   *
+   * Distinct from `!exact`: an image-only match of a lone candidate is inexact yet unambiguous, and a
+   * caller may still act on it. This flag means the record genuinely does not identify the variant, so
+   * Edit / Prolong must decline rather than route to whichever sibling sorted first (see
+   * matchTemplateForService — bundles sharing an image AND a command are indistinguishable on the wire).
+   */
+  ambiguous: boolean;
+  /**
    * The match ran to completion (successfully or not) for the container currently passed in, so
    * `template` is this service's real answer rather than "not yet". `false` while there is nothing to
    * match (no job) — callers that must not act on an unknown template gate on `settled`, not on
@@ -63,12 +73,14 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     key: string | null;
     template: AppTemplate | null;
     exact: boolean;
+    ambiguous: boolean;
     /** The catalogue itself was unreachable, so "no template" is an absence of an answer, not one. */
     failed: boolean;
   }>({
     key: null,
     template: null,
     exact: false,
+    ambiguous: false,
     failed: false,
   });
   const [matching, setMatching] = useState(false);
@@ -104,7 +116,7 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     // declared `failed` on its first failure.
     setAttempt(0);
     if (state.key !== null && state.key !== key) {
-      setState({ key: null, template: null, exact: false, failed: false });
+      setState({ key: null, template: null, exact: false, ambiguous: false, failed: false });
     }
   }
 
@@ -126,7 +138,13 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
         const templates = await fetchTemplates(getServiceTemplates, controller.signal);
         const match = matchTemplateForService(templates, { image, dockerCmd });
         if (!cancelled) {
-          setState({ key, template: match.template, exact: match.source === 'command', failed: false });
+          setState({
+            key,
+            template: match.template,
+            exact: match.source === 'command',
+            ambiguous: match.ambiguous,
+            failed: false,
+          });
         }
       } catch (error) {
         // A transient catalogue failure shouldn't permanently strand the caller — retry a bounded
@@ -137,7 +155,7 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
         if (!cancelled) {
           console.error('Failed to match this service back to a template:', error);
           if (attempt + 1 >= MAX_ATTEMPTS) {
-            setState({ key, template: null, exact: false, failed: true });
+            setState({ key, template: null, exact: false, ambiguous: false, failed: true });
           } else {
             retryTimer = setTimeout(() => setAttempt((n) => n + 1), RETRY_DELAY_MS);
           }
@@ -161,6 +179,7 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     template: answered ? state.template : null,
     matching,
     exact: answered ? state.exact : false,
+    ambiguous: answered && state.ambiguous,
     // Nothing to match is not a settled match, and a match that gave up has no answer to settle on
     // (see `failed`).
     settled: answered && !state.failed,
