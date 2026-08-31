@@ -8,6 +8,11 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 
 const REPO_RE = /^[a-z0-9]+(?:[._-][a-z0-9]+)*\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/
 
+type DockerHubTag = {
+  name: string
+  last_updated?: string
+}
+
 function getOriginHost(req: NextApiRequest): string | null {
   const origin = req.headers.origin ?? req.headers.referer
   if (!origin) return null
@@ -36,14 +41,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const upstream = await fetch(
-      `https://hub.docker.com/v2/repositories/${repo}/tags?page_size=100`
-    )
+    const upstreamUrl = new URL(`https://hub.docker.com/v2/repositories/${repo}/tags`)
+    upstreamUrl.searchParams.set('page_size', '100')
+    upstreamUrl.searchParams.set('ordering', 'last_updated')
+    const upstream = await fetch(upstreamUrl, { cache: 'no-store' })
     if (!upstream.ok) {
       return res.status(502).json({ error: 'Upstream error', status: upstream.status })
     }
-    const data: { results?: { name: string }[] } = await upstream.json()
-    const tags = (data.results ?? []).map((result) => result.name).filter(Boolean)
+    const data: { results?: DockerHubTag[] } = await upstream.json()
+    const tags = (data.results ?? [])
+      .filter((result) => result.name)
+      .sort((a, b) => {
+        const aUpdated = a.last_updated ? Date.parse(a.last_updated) : 0
+        const bUpdated = b.last_updated ? Date.parse(b.last_updated) : 0
+        return bUpdated - aUpdated
+      })
+      .map((result) => result.name)
+      .filter((tag, index, allTags) => allTags.indexOf(tag) === index)
     // Cache at the edge: the tag list moves slowly and is identical for every viewer.
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400')
     return res.status(200).json({ tags })
