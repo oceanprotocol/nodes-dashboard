@@ -9,6 +9,7 @@ import {
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
+import { isGgufRepoId } from '@/services/model-compatibility';
 import axios from 'axios';
 
 // Hugging Face Hub API reference: https://huggingface.co/spaces/huggingface/openapi
@@ -149,7 +150,30 @@ type RawHfModel = {
   tags?: string[];
   library_name?: string;
   gated?: boolean | string;
+  safetensors?: { total?: number; parameters?: Record<string, number> };
 };
+
+/**
+ * Fields requested from the list endpoint via `expand[]`. This is the complete set — `expand[]`
+ * REPLACES the default field set rather than adding to it, so anything mapModel reads must appear
+ * here or it silently arrives undefined.
+ *
+ * Cheaper than the `full=true` this replaced (~18KB vs ~48KB per 30 models) because `full` also
+ * ships siblings, card data and config, none of which the grid renders — while `safetensors` gives
+ * the parameter count for weight-size estimates, which `full` doesn't include at all.
+ */
+const HF_LIST_FIELDS = [
+  'author',
+  'lastModified',
+  'likes',
+  'downloads',
+  'trendingScore',
+  'pipeline_tag',
+  'tags',
+  'library_name',
+  'gated',
+  'safetensors',
+];
 
 function mapModel(raw: RawHfModel): HuggingFaceModel {
   return {
@@ -163,6 +187,9 @@ function mapModel(raw: RawHfModel): HuggingFaceModel {
     tags: raw.tags,
     libraryName: raw.library_name,
     gated: raw.gated,
+    // Absent for ~1 in 3 repos (GGUF-only ones, and anything HF hasn't indexed) — treat as unknown,
+    // never as zero.
+    paramCount: raw.safetensors?.total,
   };
 }
 
@@ -265,10 +292,10 @@ export async function fetchHuggingFaceModels(
     sort = DEFAULT_MODEL_SORT,
   }: { limit?: number; cursor?: string; pipelineTag?: string; sort?: ModelSort } = {}
 ): Promise<HuggingFaceModelsPage> {
-  const params = new URLSearchParams({
-    limit: String(limit),
-    full: 'true',
-  });
+  const params = new URLSearchParams({ limit: String(limit) });
+  for (const field of HF_LIST_FIELDS) {
+    params.append('expand[]', field);
+  }
 
   const trimmed = query?.trim();
   if (trimmed) {
@@ -447,8 +474,15 @@ export const DEFAULT_INFERENCE_ENGINE: InferenceEngine = 'vllm';
  * weights repo (llama.cpp can't serve raw weights) and follow no strict rule, so this is only a
  * starting suggestion the user is expected to correct: `bartowski` re-publishes most popular models
  * as `<repo>-GGUF`, so we point there. Empty for a bare id with no author.
+ *
+ * A model id that is ALREADY a GGUF repo is returned untouched — the user picked the exact repo to
+ * serve, so re-pointing it at `bartowski/<that>-GGUF` would replace a correct answer with a guess at
+ * a repo that doesn't exist.
  */
 export function guessGgufRepo(modelId: string): string {
+  if (isGgufRepoId(modelId)) {
+    return modelId;
+  }
   const repo = getModelShortName(modelId);
   return repo ? `bartowski/${repo}-GGUF` : '';
 }

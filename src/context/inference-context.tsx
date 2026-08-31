@@ -19,6 +19,7 @@ import {
   encodeResourceSizing,
   firstQueryValue,
 } from '@/services/inference-url';
+import { getModelCompatibility } from '@/services/model-compatibility';
 import { fetchTemplates, findTemplateById } from '@/services/service-templates';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
 import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
@@ -85,7 +86,10 @@ type InferenceContextType = {
    * engine (params.engine is authoritative at launch/manage); this is the in-flow selection driver.
    */
   engine: InferenceEngine;
+  /** Ignores anything but `llamacpp` while `engineLockedToLlamaCpp` is set. */
   setEngine: (engine: InferenceEngine) => void;
+  /** The selected model is GGUF-only, so vLLM can't serve it — pickers should not offer vLLM. */
+  engineLockedToLlamaCpp: boolean;
   modelParamsByModel: Record<string, ModelParameters>;
   setParamsForModel: (modelId: string, params: ModelParameters) => void;
   /** Selected app template (Templates flow) — an APP to launch, distinct from the HF-model flows. */
@@ -160,7 +164,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
-  const [engine, setEngine] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
+  const [engine, setEngineState] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
   const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
@@ -218,6 +222,41 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     },
     [selectedModels]
   );
+
+  /**
+   * True when the selection has no transformers weights for vLLM to load, so llama.cpp is the only
+   * engine that can serve it. Derived from the selection rather than latched at pick time, so it
+   * can't drift out of sync with the model actually selected.
+   */
+  const engineLockedToLlamaCpp = useMemo(
+    () =>
+      selectedModels.some((m) => {
+        const compatibility = getModelCompatibility(m);
+        return compatibility.supported && compatibility.engines === 'llamacpp-only';
+      }),
+    [selectedModels]
+  );
+
+  /**
+   * Engine setter that enforces the lock above. The pickers are two steps apart and neither can see
+   * the model's metadata, so without this a GGUF-only model could be switched to vLLM after
+   * selection and fail at launch. The pickers also hide the impossible option, making this the
+   * backstop rather than the only guard.
+   */
+  const setEngine = useCallback(
+    (next: InferenceEngine) => {
+      setEngineState(engineLockedToLlamaCpp ? 'llamacpp' : next);
+    },
+    [engineLockedToLlamaCpp]
+  );
+
+  // Selecting a GGUF-only model while vLLM is active has to correct the engine too — the lock only
+  // guards future setEngine calls, not the value already in state.
+  useEffect(() => {
+    if (engineLockedToLlamaCpp && engine !== 'llamacpp') {
+      setEngineState('llamacpp');
+    }
+  }, [engineLockedToLlamaCpp, engine]);
 
   /**
    * Single-model flow: make the selection exactly `[model]` (or clear it), pruning the committed
@@ -357,7 +396,11 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     const paramEngine = Object.values(restoredParams)[0]?.engine;
     const restoredEngine: InferenceEngine =
       engineParam === 'vllm' || engineParam === 'llamacpp' ? engineParam : (paramEngine ?? DEFAULT_INFERENCE_ENGINE);
-    setEngine(restoredEngine);
+    // Raw setter: the lock is derived from selectedModels, which this same pass is still restoring,
+    // so it would read stale here. The effect above corrects the engine once the models land — and
+    // going through the guarded setter would put it in this callback's deps, whose identity tracks
+    // selectedModels, re-triggering hydration.
+    setEngineState(restoredEngine);
     // Plain id, not a secret (unlike templateEnvValues), and no async fetch needed (unlike
     // restoreTemplate) — restored synchronously so a template-restore failure can't discard it.
     setSelectedBucketId(firstQueryValue(q.bucket) ?? null);
@@ -397,15 +440,22 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
           size: 1000,
         },
       });
-      const foundNode = response.data.envs.find((node) => node.id === peerId);
+      // `/envs` returns ONE row per environment, and every row of a node carries that node's peer id.
+      // So the env has to be looked up across all of its rows: matching the peer id with `.find()`
+      // returns row 0 alone, which restores only the node's FIRST environment and fails every other.
+      const pairs = response.data.envs
+        .filter((node) => node.id === peerId)
+        .flatMap((node) => node.computeEnvironments.environments.map((environment) => ({ environment, node })));
       // The env id's suffix (after `-`) rotates per epoch, so a stored id goes stale. Match the exact
       // id when still present, else fall back to the stable prefix (the environment's real identity).
       const envPrefix = envId.split('-')[0];
-      const envs = foundNode?.computeEnvironments.environments ?? [];
-      const foundEnv = envs.find((env) => env.id === envId) ?? envs.find((env) => env.id.split('-')[0] === envPrefix);
-      if (!foundNode || !foundEnv) {
+      const found =
+        pairs.find((pair) => pair.environment.id === envId) ??
+        pairs.find((pair) => pair.environment.id.split('-')[0] === envPrefix);
+      if (!found) {
         return false;
       }
+      const { environment: foundEnv, node: foundNode } = found;
       setSelectedEnv({
         environment: foundEnv,
         gpuSelection: decodeGpuSelection(q.gpus) ?? {},
@@ -564,6 +614,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setJobDurationSeconds,
       engine,
       setEngine,
+      engineLockedToLlamaCpp,
       modelParamsByModel,
       setParamsForModel,
       selectedTemplate,
@@ -578,7 +629,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedToken(null);
         setHfToken('');
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
-        setEngine(DEFAULT_INFERENCE_ENGINE);
+        // Raw setter: the selection is being emptied, so the lock no longer applies.
+        setEngineState(DEFAULT_INFERENCE_ENGINE);
         setModelParamsByModel({});
         setSelectedTemplate(null);
         setSelectedBucketId(null);
@@ -600,6 +652,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setHfToken,
       jobDurationSeconds,
       engine,
+      setEngine,
+      engineLockedToLlamaCpp,
       modelParamsByModel,
       setParamsForModel,
       selectedTemplate,

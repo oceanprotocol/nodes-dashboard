@@ -163,4 +163,9 @@ export type HuggingFaceModel = {
   tags?: string[];
   libraryName?: string;
   gated?: boolean | string;
+  /**
+   * Total parameter count from the repo's safetensors index. Undefined when HF hasn't indexed the
+   * weights — GGUF-only repos never have it — so it means "unknown", not "zero".
+   */
+  paramCount?: number;
 };

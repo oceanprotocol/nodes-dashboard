@@ -11,4 +11,29 @@
     justify-content: space-between;
     gap: 8px;
   }
+
+  /* Wraps the bar only so the marker has something to position against. line-height: 0 keeps the
+     wrapper the same height as the bar itself, so adding it doesn't shift existing layouts. */
+  .track {
+    line-height: 0;
+    position: relative;
+
+    /* A tick across the full track height. Sits above the fill, and is nudged half its own width so
+       the value it marks is the center of the tick rather than its left edge. */
+    .marker {
+      background: var(--text-secondary);
+      bottom: 0;
+      position: absolute;
+      top: 0;
+      transform: translateX(-1px);
+      width: 2px;
+
+      /* 2px is too thin to hover reliably, so widen the hit area without widening the tick. */
+      &::after {
+        content: '';
+        inset: 0 -5px;
+        position: absolute;
+      }
+    }
+  }
 }
