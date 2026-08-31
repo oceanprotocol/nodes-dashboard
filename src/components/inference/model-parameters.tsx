@@ -16,6 +16,7 @@ import {
   mapQuantization,
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
+import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -61,19 +62,30 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
 const automaticVllmTagOption = { label: 'Automatic (recommended)', value: '' };
 
 /**
- * Keep Automatic first, append the newest published tags, and preserve an off-list current tag so
- * model compatibility presets and older services never lose their runtime selection.
+ * Keep Automatic first, then the model's required compatibility image (if it has one) as a
+ * first-class listed option so it stays selectable after switching away, then the newest published
+ * tags. An off-list current tag is preserved on top so restored/older services never lose their
+ * runtime selection.
  */
-function buildVllmTagOptions(currentTag: string, fetchedTags: string[]): { label: string; value: string }[] {
+function buildVllmTagOptions(
+  currentTag: string,
+  fetchedTags: string[],
+  presetTag: string
+): { label: string; value: string }[] {
   const options = [automaticVllmTagOption];
   const seen = new Set(options.map(({ value }) => value));
+  // Model-required image: always listed, labeled with why, deduped against Automatic/fetched tags.
+  if (presetTag && !seen.has(presetTag)) {
+    options.push({ label: `${presetTag} (required for this model)`, value: presetTag });
+    seen.add(presetTag);
+  }
   for (const tag of fetchedTags) {
     if (!seen.has(tag)) {
       options.push({ label: tag, value: tag });
       seen.add(tag);
     }
   }
-  if (currentTag && !options.some(({ value }) => value === currentTag)) {
+  if (currentTag && !seen.has(currentTag)) {
     return [{ label: `${currentTag} (current)`, value: currentTag }, ...options];
   }
   return options;
@@ -573,7 +585,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             )}
             name="vllmTag"
             onChange={formik.handleChange}
-            options={buildVllmTagOptions(v.vllmTag ?? '', fetchedVllmTags)}
+            options={buildVllmTagOptions(v.vllmTag ?? '', fetchedVllmTags, getVllmModelPreset(modelId)?.imageTag ?? '')}
             value={v.vllmTag ?? ''}
           />
           {showTools && (
