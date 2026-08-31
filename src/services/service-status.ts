@@ -129,13 +129,23 @@ export function isProlongBlocked(status: ServiceStatusNumber | undefined): boole
 }
 
 /**
- * Statuses where the service's FIRST payment is still in flight — escrow createLock (`Locking`) and
- * claimLock (`Claiming`). A job in one of these has no `claimTx` yet and that is expected, so a
- * missing claimTx must NOT be read as "unpaid or refunded" here: the user has just paid and the node
- * simply hasn't finished settling.
+ * Statuses where the service's FIRST payment has not been claimed YET, so a missing `claimTx` is
+ * expected rather than evidence the service was never paid for.
+ *
+ * This is the node's whole pre-claim pipeline, not just the escrow steps: ocean-node's startService
+ * background flow (compute_engine_docker.ts, "3. PAYMENT") claims the lock only AFTER the image step,
+ * in this order — Starting → Locking → PullImage/BuildImage → Claiming → claimLock → Running. So every
+ * status up to and including `Claiming` legitimately has an empty claimTx.
+ *
+ * Deliberately EXCLUDES PullImageFailed / BuildImageFailed: when the image step fails the node cancels
+ * the lock and sets `cancelTx`, which means the payment really was refunded — there the "never claimed"
+ * message is correct.
  */
 const PAYMENT_IN_FLIGHT_STATUSES = new Set<ServiceStatusNumber>([
+  ServiceStatusNumber.Starting,
   ServiceStatusNumber.Locking,
+  ServiceStatusNumber.PullImage,
+  ServiceStatusNumber.BuildImage,
   ServiceStatusNumber.Claiming,
 ]);
 
