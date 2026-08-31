@@ -4,7 +4,7 @@ import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
 import Switch from '@/components/switch/switch';
-import { useVllmTags } from '@/components/hooks/use-vllm-tags';
+import { useVllmModelTag } from '@/components/hooks/use-vllm-model-tag';
 import { useInferenceContext } from '@/context/inference-context';
 import {
   buildModelDefaults,
@@ -64,14 +64,13 @@ function automaticVllmTagLabel(modelTag: string | null): string {
 }
 
 /**
- * Keep Automatic first, then the configured current version and the verified model tag (if vLLM has
- * published one), followed by the ten newest tags. An off-list current tag is preserved on top so
- * restored/older services never lose their runtime selection.
+ * Keep Automatic first, then the configured stable version and the verified model tag (if vLLM has
+ * published one). An existing off-list tag is preserved on top so editing an older service never
+ * loses its runtime selection.
  */
 function buildVllmTagOptions(
   modelId: string,
   currentTag: string,
-  fetchedTags: string[],
   modelTag: string | null
 ): { label: string; value: string }[] {
   const options = [{ label: automaticVllmTagLabel(modelTag), value: '' }];
@@ -83,12 +82,6 @@ function buildVllmTagOptions(
   if (modelTag && !seen.has(modelTag)) {
     options.push({ label: `${modelTag} (${getModelShortName(modelId)})`, value: modelTag });
     seen.add(modelTag);
-  }
-  for (const tag of fetchedTags) {
-    if (!seen.has(tag)) {
-      options.push({ label: tag, value: tag });
-      seen.add(tag);
-    }
   }
   if (currentTag && !seen.has(currentTag)) {
     return [{ label: `${currentTag} (current)`, value: currentTag }, ...options];
@@ -351,12 +344,10 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const showTools = isGenerative && !!config?.supportsTools;
 
   // Derive the model-specific tag from the HF model name and verify that exact tag on Docker Hub.
-  // The ten newest tags load independently as manual overrides.
-  const {
-    tags: fetchedVllmTags,
-    modelTag: discoveredVllmTag,
-    modelTagLoading,
-  } = useVllmTags(modelId, engine === 'vllm');
+  const { modelTag: discoveredVllmTag, loading: modelTagLoading } = useVllmModelTag(
+    modelId,
+    engine === 'vllm'
+  );
 
   // Prefill from committed/restored context params (else HF-derived defaults). Keyed on this model's
   // params so an unrelated model's commit doesn't reinitialize this card. Defaults spread underneath
@@ -600,7 +591,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             )}
             name="vllmTag"
             onChange={formik.handleChange}
-            options={buildVllmTagOptions(modelId, v.vllmTag ?? '', fetchedVllmTags, discoveredVllmTag)}
+            options={buildVllmTagOptions(modelId, v.vllmTag ?? '', discoveredVllmTag)}
             placeholder={automaticVllmTagLabel(discoveredVllmTag)}
             value={v.vllmTag ?? ''}
           />
