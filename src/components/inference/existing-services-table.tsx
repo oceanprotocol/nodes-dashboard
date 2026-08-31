@@ -44,6 +44,12 @@ type ServiceRow = Partial<ServiceJob> & {
   session: ServiceSession;
   templateName?: string;
   templatePending?: boolean;
+  /**
+   * The name is the app family, not this service's specific variant — several catalogue entries match
+   * the record equally well. The cell drops the caption in that case rather than asserting a variant
+   * it can't know (see toRow).
+   */
+  templateNameApproximate?: boolean;
 };
 
 // The model a session serves: the backend's own field when it has one, else recovered from the launch
@@ -84,9 +90,28 @@ function toRow(session: ServiceSession, match: TemplateMatch | undefined, templa
     // field with no command to detect from is assumed vLLM — the default engine.
     dockerCmd: modelId ? [modelFlag(session), modelId] : template ? [] : session.dockerCmd,
     session,
-    templateName: template ? (template.name ?? template.id) : undefined,
+    // An ambiguous match names the app family, never the variant: the listing strips `dockerCmd`, so
+    // an image with variants resolves to whichever bare service shares it. Keeping the full name meant
+    // a DeepSeek bundle rendered as "vLLM — any Hugging Face model (MODEL_ID)" — a DIFFERENT catalogue
+    // entry, stated as fact. The headline alone ("vLLM", "ComfyUI") is true of every candidate, and the
+    // manage page still resolves the real variant off the job record's command.
+    templateName: template ? appFamilyName(template, !!match?.ambiguous) : undefined,
+    templateNameApproximate: !!template && !!match?.ambiguous,
     templatePending: !template && !modelId && templatesLoading,
   };
+}
+
+/**
+ * The name to show for a matched template: its full name when the match is certain, otherwise just the
+ * headline before the em-dash — the part that names the app rather than the variant. Falls back to the
+ * whole name when there is no dash to split on.
+ */
+function appFamilyName(template: AppTemplate, ambiguous: boolean): string {
+  const name = template.name ?? template.id;
+  if (!ambiguous) {
+    return name;
+  }
+  return name.split(/\s+[—–-]\s+/)[0] || name;
 }
 
 // The template id worth putting on the manage link (`template=`), which the manage page would build an
