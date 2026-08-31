@@ -21,6 +21,13 @@ export const VLLM_TAG_OPTIONS = [
   { label: 'glm53-flash (GLM-5.3-Flash)', value: 'glm53-flash' },
 ] as const;
 
+/**
+ * Curated, known-good tag values (Automatic's empty value dropped). Pinned first in the live Docker
+ * Hub tag list and used as the fallback when that fetch fails — see useVllmTags. Keep this the single
+ * source so the picker's curated subset and the fallback can't drift apart.
+ */
+export const VLLM_KNOWN_TAGS: string[] = VLLM_TAG_OPTIONS.map(({ value }) => value).filter(Boolean);
+
 const VLLM_MODEL_PRESETS: Record<string, VllmModelPreset> = {
   'qwen/qwen3.8-flash-next': {
     imageTag: 'qwen38-flash-next',

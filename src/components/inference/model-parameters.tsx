@@ -4,6 +4,7 @@ import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
 import Switch from '@/components/switch/switch';
+import { useVllmTags } from '@/components/hooks/use-vllm-tags';
 import { useInferenceContext } from '@/context/inference-context';
 import {
   buildModelDefaults,
@@ -59,6 +60,32 @@ const kvCacheDtypeOptions: { label: string; value: KvCacheDtype }[] = [
 ];
 
 const vllmTagOptions: { label: string; value: string }[] = [...VLLM_TAG_OPTIONS];
+
+/**
+ * The vLLM runtime picker's options: the curated subset always, the full live Docker Hub list appended
+ * when the user expands "show all", and — pinned first — the currently-set tag whenever it's an
+ * off-list value (a model preset's tag, or a hand-edited override) so the selection is never dropped.
+ */
+function buildVllmTagOptions(
+  currentTag: string,
+  showAll: boolean,
+  fetchedTags: string[]
+): { label: string; value: string }[] {
+  const options = [...vllmTagOptions];
+  if (showAll) {
+    const seen = new Set(options.map(({ value }) => value));
+    for (const tag of fetchedTags) {
+      if (!seen.has(tag)) {
+        options.push({ label: tag, value: tag });
+        seen.add(tag);
+      }
+    }
+  }
+  if (currentTag && !options.some(({ value }) => value === currentTag)) {
+    return [{ label: `${currentTag} (current)`, value: currentTag }, ...options];
+  }
+  return options;
+}
 
 // Options come from the shared registry subset in @/types/huggingface — kept there so the type and
 // the picker can't drift apart. Widened from the readonly `as const` tuple to what Select expects.
@@ -309,6 +336,11 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const isGenerative = isGenerativePipeline(pipelineTag);
   const showTools = isGenerative && !!config?.supportsTools;
 
+  // vLLM runtime picker: default to the curated tag subset; only fetch the full Docker Hub list once
+  // the user asks to see everything. Fetch is cached image-wide and falls back to the curated tags.
+  const [showAllVllmTags, setShowAllVllmTags] = useState(false);
+  const { tags: fetchedVllmTags, loading: vllmTagsLoading } = useVllmTags(showAllVllmTags);
+
   // Prefill from committed/restored context params (else HF-derived defaults). Keyed on this model's
   // params so an unrelated model's commit doesn't reinitialize this card. Defaults spread underneath
   // so a params object from an older URL lacking newer fields is completed, not left partial. The
@@ -551,13 +583,20 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             )}
             name="vllmTag"
             onChange={formik.handleChange}
-            options={
-              v.vllmTag && !vllmTagOptions.some(({ value }) => value === v.vllmTag)
-                ? [{ label: `${v.vllmTag} (current)`, value: v.vllmTag }, ...vllmTagOptions]
-                : vllmTagOptions
-            }
+            options={buildVllmTagOptions(v.vllmTag ?? '', showAllVllmTags, fetchedVllmTags)}
             value={v.vllmTag ?? ''}
           />
+          <Button
+            color="accent1"
+            contentBefore={vllmTagsLoading ? <CircularProgress size={14} /> : undefined}
+            disabled={vllmTagsLoading}
+            onClick={() => setShowAllVllmTags((prev) => !prev)}
+            size="sm"
+            type="button"
+            variant="transparent"
+          >
+            {showAllVllmTags ? 'Show curated tags only' : 'Show all published tags'}
+          </Button>
           {showTools && (
             <>
               <div>
