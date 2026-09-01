@@ -21,13 +21,13 @@ const STATUS_LABEL: Record<LogViewStatus, string> = {
 };
 
 const STATUS_COLOR: Record<LogViewStatus, string> = {
-  idle: 'var(--text-secondary, #888)',
-  connecting: 'var(--text-secondary, #888)',
-  live: 'var(--success, #22c55e)',
-  reconnecting: 'var(--warning, #f59e0b)',
-  'loading-result': 'var(--text-secondary, #888)',
-  ended: 'var(--text-secondary, #888)',
-  error: 'var(--error, #ef4444)',
+  idle: 'var(--text-secondary)',
+  connecting: 'var(--text-secondary)',
+  live: 'var(--success)',
+  reconnecting: 'var(--warning)',
+  'loading-result': 'var(--text-secondary)',
+  ended: 'var(--text-secondary)',
+  error: 'var(--error)',
 };
 
 export const JobLogsPanel = ({ job, open, nodeUri }: JobLogsPanelProps) => {
@@ -76,9 +76,9 @@ export const JobLogsPanel = ({ job, open, nodeUri }: JobLogsPanelProps) => {
                 alignItems: 'center',
                 gap: '4px',
                 background: 'transparent',
-                border: '1px solid var(--border-glass, #444)',
+                border: '1px solid var(--border-glass)',
                 borderRadius: '6px',
-                color: 'var(--text-primary, inherit)',
+                color: 'var(--text-primary)',
                 cursor: 'pointer',
                 fontSize: '0.8rem',
                 padding: '2px 8px',
@@ -118,14 +118,14 @@ export const JobLogsPanel = ({ job, open, nodeUri }: JobLogsPanelProps) => {
         )}
       </div>
 
-      {error && <div style={{ color: 'var(--error, #ef4444)', fontSize: '0.8rem', marginTop: '6px' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--error)', fontSize: '0.8rem', marginTop: '6px' }}>{error}</div>}
       {!stickToBottom && isLive && (
         <button
           onClick={() => setStickToBottom(true)}
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'var(--accent1, #7b5cff)',
+            color: 'var(--accent1)',
             cursor: 'pointer',
             fontSize: '0.78rem',
             marginTop: '6px',

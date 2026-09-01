@@ -40,7 +40,7 @@
 /* Chip colour (text + dot via currentColor) and background tint by status kind. */
 .status_running {
   background: var(--success);
-  /* color: var(--success-darker); */
+  color: var(--success-contrast);
 }
 
 .status_pending {
@@ -53,7 +53,7 @@
 
 .status_failed {
   background: var(--error);
-  /* color: var(--error-darker); */
+  color: var(--error-contrast);
 }
 
 .divider {
@@ -192,6 +192,7 @@
   padding: 16px 20px;
   border-radius: 12px;
   background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
   color: var(--terminal-text);
   font-family: var(--font-mono, monospace);
   font-size: 13px;

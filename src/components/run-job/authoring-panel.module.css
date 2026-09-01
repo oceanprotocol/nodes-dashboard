@@ -111,13 +111,13 @@
 .pillOpen {
   background: var(--accent1);
   box-shadow: none;
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
 }
 
 .pillDone {
   background: var(--accent2);
   box-shadow: none;
-  color: var(--text-primary);
+  color: var(--accent2-contrast);
 }
 
 .pillSkipped {
@@ -129,7 +129,7 @@
 .pillMissing {
   background: var(--accent1);
   box-shadow: none;
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
 }
 
 .pillReq {
@@ -159,7 +159,7 @@
 
 /* ---- Section container ---- */
 .sectionBox {
-  background: rgba(255, 255, 255, 0.55);
+  background: color-mix(in srgb, var(--background-primary) 55%, transparent);
   border: 1px solid var(--border-glass);
   border-radius: 24px;
   display: flex;
@@ -217,7 +217,7 @@
 
 .chipDone {
   background: var(--success);
-  color: #1d3b00;
+  color: var(--success-contrast);
 }
 
 .chipSkip {
@@ -227,7 +227,7 @@
 
 .chipMiss {
   background: var(--error);
-  color: #5b1207;
+  color: var(--error-contrast);
 }
 
 .chipReq {
@@ -281,7 +281,7 @@
   align-items: center;
   background: var(--success);
   border-radius: 50%;
-  color: #1d3b00;
+  color: var(--success-contrast);
   display: flex;
   flex: none;
   font-size: 10px;
@@ -304,7 +304,7 @@
 
 /* ---- "How does the job start?" ---- */
 .entryPanel {
-  background: color-mix(in srgb, var(--accent1) 3%, white);
+  background: color-mix(in srgb, var(--accent1) 3%, var(--background-primary));
   border: 1px solid var(--border-glass);
   border-radius: 16px;
   display: flex;
@@ -340,7 +340,7 @@
 }
 
 .entryCardSel {
-  background: color-mix(in srgb, var(--accent1) 6%, white);
+  background: color-mix(in srgb, var(--accent1) 6%, var(--background-primary));
   box-shadow: inset 0 0 0 2px var(--accent1);
 }
 
@@ -564,7 +564,7 @@
   align-items: center;
   background: var(--accent1);
   border-radius: 999px;
-  color: var(--background, #fff);
+  color: var(--accent1-contrast);
   display: inline-flex;
   font-size: 12px;
   font-weight: 600;

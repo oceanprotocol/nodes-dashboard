@@ -25,7 +25,7 @@
   }
 
   &.reconnecting .dot {
-    background: var(--warning, #f59e0b);
+    background: var(--warning);
   }
 
   &.error .dot {
@@ -39,6 +39,7 @@
   padding: 16px 20px;
   border-radius: 12px;
   background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
   color: var(--terminal-text);
   font-family: var(--font-mono, monospace);
   font-size: 13px;

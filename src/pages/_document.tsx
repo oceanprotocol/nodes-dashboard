@@ -1,10 +1,32 @@
 import { Head, Html, Main, NextScript } from 'next/document';
 import Script from 'next/script';
 
+/* Stamps `data-theme` on <html> before first paint so a stored preference doesn't flash the wrong
+   theme first. Mirrors `applyTheme` in src/lib/use-theme.tsx — keep the two in sync.
+   A plain synchronous <script>, not next/script: `beforeInteractive` still defers past first paint,
+   which is the flash this exists to prevent. */
+const THEME_INIT_SCRIPT = `
+(function () {
+  var preference = 'system';
+  try {
+    var stored = localStorage.getItem('ocean-theme');
+    if (stored === 'light' || stored === 'dark' || stored === 'system') {
+      preference = stored;
+    }
+  } catch (e) {}
+  var resolved = preference;
+  if (preference === 'system') {
+    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', resolved);
+})();
+`;
+
 export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {/* Cookiebot must load first so auto-blocking can gate downstream tags */}
         <Script
           strategy="beforeInteractive"

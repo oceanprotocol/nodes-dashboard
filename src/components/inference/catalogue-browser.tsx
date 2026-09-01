@@ -2,9 +2,10 @@ import GpuIcon from '@/assets/icons/gpu.svg';
 import Button from '@/components/button/button';
 import { CatalogueCopy } from '@/components/inference/catalogue-config';
 import CatalogueSkeleton from '@/components/inference/catalogue-skeleton';
-import TemplateCard, { DecoratedTemplate, decorate } from '@/components/inference/template-card';
-import { CATEGORY_META, CATEGORY_ORDER, TemplateCategory } from '@/components/inference/template-visual';
+import TemplateCard, { decorate, DecoratedTemplate } from '@/components/inference/template-card';
+import { accentVars, CATEGORY_META, CATEGORY_ORDER, TemplateCategory } from '@/components/inference/template-visual';
 import Input from '@/components/input/input';
+import { useTheme } from '@/lib/use-theme';
 import { firstQueryValue } from '@/services/inference-url';
 import { AppTemplate } from '@/types/templates';
 import AppsIcon from '@mui/icons-material/Apps';
@@ -89,6 +90,7 @@ type CatalogueBrowserProps = {
  */
 const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, error, onOpen, copy }) => {
   const { heading, lead, noun, nounPlural, searchPlaceholder, pathname, empty } = copy;
+  const { resolvedTheme } = useTheme();
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
@@ -274,7 +276,9 @@ const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, err
               })}
               key={key}
               onClick={() => setFilters((f) => ({ ...f, category: key }))}
-              style={{ '--accent': meta?.accent ?? 'var(--accent1)' } as CSSProperties}
+              style={
+                (meta ? accentVars(meta.accent, resolvedTheme) : { '--accent': 'var(--accent1)' }) as CSSProperties
+              }
               type="button"
             >
               <span
