@@ -37,6 +37,8 @@ export type DecoratedTemplate = {
   interaction: string;
   meta: { key: string; Icon: React.ComponentType<{ className?: string }>; label: string }[];
   metaFallback: string | null;
+  /** The GPU ask, as the chip row's trailing chip: "2-4 GPUs", "1 GPU", or "CPU only". */
+  gpuLabel: string;
   included: string | null;
   ariaLabel: string;
 };
@@ -47,21 +49,27 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
   // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
   // SD-storage for RAM, DNS for disk.
   const cores = hw.cpu != null ? `${hw.cpu} ${hw.cpu === 1 ? 'core' : 'cores'}` : null;
+  // The card's hardware line is the GPU ask ALONE — the declared range ("2-4 GPUs", or "1 GPU" when
+  // min and recommended agree), or "CPU only" when the template declares no GPU. The CPU/RAM/disk
+  // figures that used to sit beside it are deliberately gone: the shared slice is now derived from
+  // whichever GPU count the user picks (templateFloorSizing — proportional above the declared floor),
+  // so printing one fixed cores/RAM/disk triple here stated a number the launch would rarely book.
+  // The environment cards show the real amounts per pick, which is where the decision is actually made.
+  const gpuLabel = (): string => {
+    const min = hw.gpuMin;
+    const rec = hw.gpuUnits || min;
+    const unit = (n: number) => `${n} ${n === 1 ? 'GPU' : 'GPUs'}`;
+    return min > 0 && rec > min ? `${min}-${rec} GPUs` : unit(rec || 1);
+  };
   const meta: DecoratedTemplate['meta'] = [
     hw.gpu
-      ? { key: 'hw', Icon: GpuIcon, label: `${hw.gpuUnits || 1}× GPU` }
-      : { key: 'hw', Icon: MemoryIcon, label: cores ? `CPU only · ${cores}` : 'CPU only' },
+      ? { key: 'hw', Icon: GpuIcon, label: gpuLabel() }
+      : { key: 'hw', Icon: MemoryIcon, label: 'CPU only' },
   ];
-  if (hw.gpu && cores) {
-    meta.push({ key: 'cpu', Icon: MemoryIcon, label: cores });
-  }
-  if (hw.ram != null) {
-    meta.push({ key: 'ram', Icon: SdStorageIcon, label: `${hw.ram} GB RAM` });
-  }
-  if (hw.disk != null) {
-    meta.push({ key: 'disk', Icon: DnsIcon, label: `${hw.disk} GB disk` });
-  }
-  const metaFallback = hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null;
+  const gpuChipLabel = hw.gpu ? gpuLabel() : 'CPU only';
+  // Kept for the aria label / spoken summary below, and so a template that declares nothing still says
+  // so rather than rendering an empty meta row.
+  const metaFallback = !hw.gpu && hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null;
   const name = tpl.name ?? tpl.id;
   const included = includesSummary(tpl);
   const spoken = [
@@ -87,6 +95,7 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
     interaction: visual.meta.interaction,
     meta,
     metaFallback,
+    gpuLabel: gpuChipLabel,
     included,
     ariaLabel: `Open details for ${name}. ${spoken.join(', ')}.`,
   };
@@ -151,6 +160,10 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
       <div className={cx(styles.chips, 'gapSm')}>
         <span className={cx('chip', styles.chip, styles.categoryChip)}>{item.categoryLabel}</span>
         <span className={cx('chip', 'chipAccent2', styles.chip)}>{item.interaction}</span>
+        {/* Trailing chip: the GPU ask only. Replaces the old cores/RAM/disk meta row (commented out
+            below) — the shared slice now scales with the GPU count the user picks, so a fixed triple
+            here named amounts the launch would rarely book. */}
+        <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpuLabel}</span>
       </div>
 
       {item.included && (
@@ -160,6 +173,11 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
         </div>
       )}
 
+      {/* Resource meta row (cores / RAM / disk) — commented out in favour of the GPU chip above. The
+          numbers were the template's fixed `recommended` figures, which stopped matching what a launch
+          books once the shared slice became proportional to the GPU pick (templateFloorSizing). Kept
+          rather than deleted: `item.meta`/`metaFallback` still feed the card's aria-label, and this is
+          the markup to restore if per-card resource figures are wanted again.
       <div className={styles.metaRow}>
         {item.meta.map(({ key, Icon, label }) => (
           <span className={styles.meta} key={key}>
@@ -169,6 +187,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
         ))}
         {item.metaFallback && <span className={styles.metaFallback}>{item.metaFallback}</span>}
       </div>
+      */}
     </Card>
   );
 };

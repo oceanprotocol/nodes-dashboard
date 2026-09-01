@@ -45,33 +45,33 @@ const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({ nodeInfo, s
         <h4>Persistent storage</h4>
         <div className="textSecondary">Caches this app&apos;s model weights so relaunches skip the download.</div>
       </div>
-      <div className={styles.row}>
-        <Select
-          className={styles.select}
-          label="Bucket"
-          onChange={(e) => onSelect((e.target.value as string) || null)}
-          options={[
-            { value: '', label: 'No bucket' },
-            ...nodeBuckets.map((b) => ({ value: b.bucketId, label: b.label || b.bucketId })),
-          ]}
-          placeholder={loading ? 'Loading buckets…' : 'No bucket'}
-          size="md"
-          value={selectedBucketId ?? ''}
-        />
-        <Button
-          color="accent1"
-          contentBefore={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          size="md"
-          type="button"
-          variant="outlined"
-        >
-          Create bucket
-        </Button>
-      </div>
+      <Select
+        className={styles.select}
+        label="Bucket"
+        onChange={(e) => onSelect((e.target.value as string) || null)}
+        options={[
+          { value: '', label: 'No bucket' },
+          ...nodeBuckets.map((b) => ({ value: b.bucketId, label: b.label || b.bucketId })),
+        ]}
+        placeholder={loading ? 'Loading buckets…' : 'No bucket'}
+        size="md"
+        topRight={
+          <Button
+            color="accent1"
+            contentBefore={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            size="xs"
+            type="button"
+            variant="transparent"
+          >
+            Create bucket
+          </Button>
+        }
+        value={selectedBucketId ?? ''}
+      />
       {!selectedBucketId && (
         <div className="textWarning">
-          Without a bucket, this app re-downloads 38 GB of model weights on every launch, inside your paid session.
+          Without a bucket, this app re-downloads several GB of model weights on every launch, inside your paid session.
         </div>
       )}
       <CreateBucketModal

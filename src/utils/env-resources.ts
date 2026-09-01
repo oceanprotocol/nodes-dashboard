@@ -139,8 +139,14 @@ export function autoGpuSelection({ environment, required, allowZeroGpu = false }
   // Floor is 1 UNLESS zero is both permitted and the env's own GPU floor is 0 — a target declaring 0
   // GPUs (or no GPU entry) on a zero-permitting env must seed 0, not the old blanket "nothing declared
   // → 1". `preferredGpuOption` still drives the non-zero case unchanged.
-  const preferred = preferredGpuOption(declaredGpuOptions(gpuReq, totalMax, { allowZero: envAllowsZero }));
-  let remaining = Math.max(preferred ?? (envAllowsZero ? 0 : 1), envAllowsZero ? 0 : 1);
+  // A target that declares NO GPU requirement at all (jupyterlab, hermes) wants the MINIMUM, not the
+  // biggest offered count: the app can't use a GPU, so seeding the range's top would book — and price —
+  // every free unit in the env. With zero permitted that minimum is 0; otherwise it's the 1-unit floor
+  // a GPU env is sold in. A target that DOES declare a GPU requirement keeps seeding its biggest
+  // declared option, which is the recommendation the publisher asked for.
+  const options = declaredGpuOptions(gpuReq, totalMax, { allowZero: envAllowsZero });
+  const seed = gpuReq ? preferredGpuOption(options) : options?.[0];
+  let remaining = Math.max(seed ?? (envAllowsZero ? 0 : 1), envAllowsZero ? 0 : 1);
   byKey.forEach(({ available }, key) => {
     const take = Math.min(available, remaining);
     selection[key] = take;

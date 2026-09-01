@@ -536,6 +536,13 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
 
           {shape === 'recipe' && (template.includes?.length ?? 0) > 0 && renderUnderTheHood(template)}
 
+          {/* Resources table (Resource / Required / Recommended) — commented out. It printed the
+              template's declared CPU/RAM/disk as the amounts a launch would book, which stopped being
+              true once the shared slice became proportional to the GPU count picked below
+              (templateFloorSizing): the declared figures are now a FLOOR, not the booking. The env
+              cards under "Environment" show the real amounts for the current pick, and the card's GPU
+              chip carries the declared ask. Kept rather than deleted — `resourceRows`/`NOT_DECLARED`
+              and the resourceTable styles are still here if a declared-vs-booked table is wanted back.
           <div className={styles.section}>
             <div className={styles.sectionHead}>
               <h4>Resources</h4>
@@ -568,6 +575,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               ))}
             </div>
           </div>
+          */}
 
           <div className={styles.section}>
             <div className={styles.sectionHead}>

@@ -207,12 +207,18 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             // A restored pick is clamped to `cap` (it can exceed current availability).
             return Math.min(Math.max(prior, 0), cap);
           }
-          // No prior pick: with a declared requirement, default to its biggest option (clamped to this
-          // type's physical max, same ceiling declaredGpuOptions uses for the row itself) rather than
-          // `cap` — a template asking for "1" must not default to booking every free unit. Then still
-          // clamp to `cap` so the default can't exceed the shared budget either. Nothing declared →
-          // undefined, which lets drawUnitsAcrossTypes fill `cap` itself (today's behavior).
-          const preferred = preferredGpuOption(declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) }));
+          // No prior pick: default to the declared requirement's biggest option (clamped to this type's
+          // physical max, the same ceiling declaredGpuOptions uses for the row itself) rather than `cap`
+          // — a template asking for "1" must not default to booking every free unit. Then still clamp to
+          // `cap` so the default can't exceed the shared budget either.
+          //
+          // A target declaring NO GPU requirement (jupyterlab, hermes) takes the row's MINIMUM instead:
+          // it can't use a GPU, so the top of the offered range would book and price every free unit.
+          // That minimum is 0 where zero is permitted, else the 1-unit floor. Only when the row itself
+          // is unrestricted (nothing declared AND zero not allowed) does this return undefined and let
+          // drawUnitsAcrossTypes fill `cap` — the original behavior for the custom-model flow.
+          const options = declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) });
+          const preferred = gpuReq ? preferredGpuOption(options) : options?.[0];
           return preferred === undefined ? undefined : Math.min(preferred, cap);
         })
       );

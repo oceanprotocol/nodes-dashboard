@@ -442,14 +442,21 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   );
 
   // Unset vLLM tool params for a model that doesn't support them (llama.cpp has no tool-parser field).
+  //
+  // Waits for `config` to land first. `showTools` reads `config.supportsTools`, which is null until the
+  // HF fetch resolves — so before it does, "not yet known" looked identical to "not supported" and this
+  // effect destroyed restored values that were about to become valid again. On an Edit re-entry (params
+  // hydrated from the URL) that silently turned a quickstart package's `toolCalling: true` /
+  // `toolCallParser: 'hermes'` into false/null, and the relaunched service stopped serving tool calls.
+  // A model that genuinely lacks tool support still gets cleared — one fetch later, when we know.
   useEffect(() => {
-    if (formik.values.engine !== 'vllm') {
+    if (formik.values.engine !== 'vllm' || !config) {
       return;
     }
     if (!showTools && (formik.values.toolCalling || formik.values.toolCallParser)) {
       formik.setValues({ ...formik.values, toolCalling: false, toolCallParser: null });
     }
-  }, [showTools, formik]);
+  }, [showTools, formik, config]);
 
   // Going back and re-booking fewer GPUs would otherwise leave a now-impossible shard width behind
   // (the field hides below 2 GPUs, so the user couldn't even see the stale value to fix it).
