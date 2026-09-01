@@ -60,6 +60,10 @@
       grid-column: 1;
       grid-row: 1;
       opacity: 0.5;
+
+      :global(:root[data-theme='dark']) & {
+        color: var(--accent2);
+      }
     }
 
     .cardTitle {
@@ -67,6 +71,10 @@
       font-size: 20px;
       grid-column: 2;
       grid-row: 1;
+
+      :global(:root[data-theme='dark']) & {
+        color: var(--accent2);
+      }
     }
 
     .cardDescription {
