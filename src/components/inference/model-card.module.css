@@ -37,6 +37,17 @@
     }
   }
 
+  .detailsLink {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-left: auto;
+    align-self: flex-start;
+
+    svg {
+      font-size: 16px;
+    }
+  }
+
   .titleBox {
     display: flex;
     flex-direction: column;
