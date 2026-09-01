@@ -14,6 +14,7 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
@@ -33,9 +34,13 @@ function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
 }
 
 /** An env is bookable for inference when it (a) advertises service-on-demand support — the node
- *  rejects serviceStart with 403 otherwise — and (b) accepts a paid token we support (USDC / COMPY). */
+ *  rejects serviceStart with 403 otherwise — (b) isn't the node's own benchmark environment, and
+ *  (c) accepts a paid token we support (USDC / COMPY). */
 function isBookableEnv(env: ComputeEnvironment): boolean {
   if (!env.features?.services) {
+    return false;
+  }
+  if (isBenchmarkEnv(env)) {
     return false;
   }
   return getEnvSupportedTokens(env, true).length > 0;

@@ -8,6 +8,24 @@ import { getAvailableAmount } from '@/utils/resources';
  * shapes fit {@link DeclaredRequirement}, so the helpers below work for either.
  */
 
+/**
+ * Description the node stamps on the compute environment it generates for the benchmark runner. Not a
+ * flag — the node exposes no other marker, and the benchmark env shares its sibling's `id`, so the
+ * string is the only thing that tells them apart. Kept in sync with the node-config editor, which
+ * matches the same text to render that env read-only.
+ */
+export const BENCHMARK_ENV_DESCRIPTION = 'Auto-generated benchmark environment';
+
+/**
+ * The node's own benchmarking environment, which must never be offered as a launch target: it exists
+ * so the incentives benchmark has somewhere to run, and booking it competes with the measurement the
+ * node's rewards depend on. It advertises `features.services` and a paid fee token like any other env,
+ * so nothing else in the bookability checks excludes it.
+ */
+export function isBenchmarkEnv(environment: ComputeEnvironment): boolean {
+  return environment.description === BENCHMARK_ENV_DESCRIPTION;
+}
+
 /** A declared resource floor: `cpu`/`ram`/`disk` by id, or GPU units by `type: 'gpu'`. */
 export type DeclaredRequirement = {
   id?: string;

@@ -9,7 +9,7 @@ import { withTimeout } from '@/lib/with-timeout';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
-import { autoGpuSelection, meetsMinResources } from '@/utils/env-resources';
+import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
@@ -40,10 +40,13 @@ export type TemplateEnvsState = {
   retry: () => void;
 };
 
-/** An env can host a template when it advertises service-on-demand, accepts a supported paid token,
- *  and can currently satisfy the template's declared resource floors. */
+/** An env can host a template when it advertises service-on-demand, isn't the node's benchmark env,
+ *  accepts a supported paid token, and can currently satisfy the template's declared resource floors. */
 function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate): boolean {
   if (!environment.features?.services) {
+    return false;
+  }
+  if (isBenchmarkEnv(environment)) {
     return false;
   }
   if (getEnvSupportedTokens(environment, true).length === 0) {
