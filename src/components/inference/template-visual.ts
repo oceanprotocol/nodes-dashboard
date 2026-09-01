@@ -219,6 +219,23 @@ export function templateHardware(tpl: AppTemplate): TemplateHardware {
 }
 
 /**
+ * The hardware chip's label — the GPU ask alone: the declared range ("2-4 GPUs"), a single count
+ * ("1 GPU") when min and recommended agree, or "CPU only" when no GPU is declared. Shared so the
+ * catalogue card and the details modal name the same ask in the same words.
+ */
+export function templateGpuLabel(hw: TemplateHardware): string {
+  if (!hw.gpu) {
+    return 'CPU only';
+  }
+  const rec = hw.gpuUnits || hw.gpuMin;
+  if (hw.gpuMin > 0 && rec > hw.gpuMin) {
+    return `${hw.gpuMin}-${rec} GPUs`;
+  }
+  const n = rec || 1;
+  return `${n} ${n === 1 ? 'GPU' : 'GPUs'}`;
+}
+
+/**
  * Who publishes the image, for the card's subtitle: the registry namespace (the path segment before
  * the image name), with bare registry hosts collapsed to "registry" since they name no one. An image
  * with no namespace at all (`nginx`) is shown as-is.

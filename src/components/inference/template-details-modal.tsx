@@ -6,7 +6,13 @@ import BundleIncludes, { IncludesAvatarCluster } from '@/components/inference/bu
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import TemplateDisclosure from '@/components/inference/template-disclosure';
 import { templateLogo } from '@/components/inference/template-logos';
-import { accentVars, templateHardware, templateImageRef, visualFor } from '@/components/inference/template-visual';
+import {
+  accentVars,
+  templateGpuLabel,
+  templateHardware,
+  templateImageRef,
+  visualFor,
+} from '@/components/inference/template-visual';
 import TemplateWorkflows from '@/components/inference/template-workflows';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
@@ -512,13 +518,14 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               {template.outcome && <div className={styles.outcome}>{template.outcome}</div>}
               <div className={cx(styles.headerChips, 'gapSm')}>
                 <span className={cx('chip', styles.chip, styles.categoryChip)}>{visual.meta.label}</span>
-                <span className={cx('chip', styles.chip, hw.gpu ? 'chipAccent2' : 'chipGlass')}>
+                {/* Same chip as the catalogue card — same icon, same words for the same ask. */}
+                <span className={cx('chip', 'chipGlass', styles.chip)}>
                   {hw.gpu ? (
                     <GpuIcon className={styles.chipIcon} />
                   ) : (
                     <MemoryIcon className={styles.chipIcon} fontSize="small" />
                   )}
-                  {hw.gpu ? 'GPU' : 'CPU'}
+                  {templateGpuLabel(hw)}
                 </span>
                 {/* Three tiers, one word each — a buyer who expects a runnable recipe and gets three
                     checkpoints will ask for a refund, so the distinction is worth a chip. */}

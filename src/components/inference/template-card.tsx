@@ -7,6 +7,7 @@ import {
   CATEGORY_META,
   TemplateCategory,
   TemplateCategoryMeta,
+  templateGpuLabel,
   templateHardware,
   templateVendor,
   visualFor,
@@ -55,18 +56,8 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
   // whichever GPU count the user picks (templateFloorSizing — proportional above the declared floor),
   // so printing one fixed cores/RAM/disk triple here stated a number the launch would rarely book.
   // The environment cards show the real amounts per pick, which is where the decision is actually made.
-  const gpuLabel = (): string => {
-    const min = hw.gpuMin;
-    const rec = hw.gpuUnits || min;
-    const unit = (n: number) => `${n} ${n === 1 ? 'GPU' : 'GPUs'}`;
-    return min > 0 && rec > min ? `${min}-${rec} GPUs` : unit(rec || 1);
-  };
-  const meta: DecoratedTemplate['meta'] = [
-    hw.gpu
-      ? { key: 'hw', Icon: GpuIcon, label: gpuLabel() }
-      : { key: 'hw', Icon: MemoryIcon, label: 'CPU only' },
-  ];
-  const gpuChipLabel = hw.gpu ? gpuLabel() : 'CPU only';
+  const gpuChipLabel = templateGpuLabel(hw);
+  const meta: DecoratedTemplate['meta'] = [{ key: 'hw', Icon: hw.gpu ? GpuIcon : MemoryIcon, label: gpuChipLabel }];
   // Kept for the aria label / spoken summary below, and so a template that declares nothing still says
   // so rather than rendering an empty meta row.
   const metaFallback = !hw.gpu && hw.cpu == null && hw.ram == null && hw.disk == null ? 'Resources at next step' : null;
@@ -163,7 +154,14 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
         {/* Trailing chip: the GPU ask only. Replaces the old cores/RAM/disk meta row (commented out
             below) — the shared slice now scales with the GPU count the user picks, so a fixed triple
             here named amounts the launch would rarely book. */}
-        <span className={cx('chip', 'chipGlass', styles.chip)}>{item.gpuLabel}</span>
+        <span className={cx('chip', 'chipGlass', styles.chip)}>
+          {item.gpu ? (
+            <GpuIcon className={styles.chipIcon} />
+          ) : (
+            <MemoryIcon className={styles.chipIcon} fontSize="small" />
+          )}
+          {item.gpuLabel}
+        </span>
       </div>
 
       {item.included && (
