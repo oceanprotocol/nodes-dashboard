@@ -1,10 +1,12 @@
 /* A collapsed row that carries its own summary — the pattern used for both "Good to know" and the
    manifest, so the modal has exactly one way of saying "there is more here". */
 
+/* No `gap` here: the MUI Collapse wrapper is always in the flow (it animates its own height to 0),
+   so a wrapper gap would show as dead space under a CLOSED row. The spacing lives on .content
+   instead, where it collapses along with the content it belongs to. */
 .wrapper {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .row {
@@ -74,6 +76,7 @@
   display: flex;
   flex-direction: column;
   gap: 9px;
+  margin-top: 8px;
   padding: 2px 14px 4px;
   font-size: 12px;
   line-height: 1.6;
