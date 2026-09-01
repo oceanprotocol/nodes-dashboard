@@ -15,6 +15,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { assertAllocationAvailable, buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
+import { DeclaredRequirement, declaredGpuOptions, preferredGpuOption } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -64,6 +65,22 @@ type InferenceEnvironmentCardProps = {
    * (manage page). Omit for the proportional slice. See {@link ResourceSizing}.
    */
   sizing?: ResourceSizing;
+  /**
+   * The launch target's declared resource requirements (template `requiredResources`/
+   * `recommendedResources`, or a package's `requiredResources`) — used ONLY to restrict which GPU unit
+   * counts are offered per type (see {@link declaredGpuOptions}). Omit (or pass a requirement list with
+   * no GPU entry) to keep the full 1..max row, e.g. the custom HF-model flow which declares nothing.
+   */
+  declaredRequirements?: DeclaredRequirement[];
+  /**
+   * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
+   * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually
+   * appears on a type's row the env itself lets you book none of (`MergedGpu.allowsZero`) — an env whose
+   * GPU resources require at least one unit keeps blocking zero regardless of this flag. Set true only for the template flows (details modal + Advanced env picker
+   * in Template mode); custom-model, default-model, and quick-start-package flows must keep the
+   * existing hard floor of 1, so this stays false there.
+   */
+  allowZeroGpu?: boolean;
 };
 
 function formatGb(value: number): string {
@@ -86,6 +103,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   gpuSelection: controlledSelection,
   initialSelection,
   sizing,
+  declaredRequirements,
+  allowZeroGpu = false,
 }) => {
   const { account, provider } = useOceanAccount();
 
@@ -161,22 +180,44 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     durationSeconds,
   });
 
-  // Seed the local chips once the types are known: restore a prior pick for this env, or default to
-  // all pickable units. Same budget-draw as the hook's selectedByKey (drawUnitsAcrossTypes) so the
-  // seed never sums past what CPU/RAM/disk can back. A restored pick is clamped to the per-type
-  // budget left (`cap`), matching the disable rules the chips render.
+  // Declared GPU requirement (template/package), if any — restricts each type's row to just the
+  // declared values instead of the full 1..max range, and drives the default (biggest declared option,
+  // clamped) below instead of "every pickable unit". `undefined` (no requirement passed, or one with no
+  // GPU entry — e.g. the custom HF-model flow) makes declaredGpuOptions return null per type, which is
+  // the "no restriction" signal that keeps today's full-range behavior end to end.
+  const gpuReq = declaredRequirements?.find((r) => r.type === 'gpu');
+
+  // Per-type zero-eligibility: `allowZeroGpu` is caller policy (template flows only), but zero is only
+  // ever actually offered on a TYPE the env itself lets you book none of (`MergedGpu.allowsZero` — see
+  // that field's docblock). An env requiring >= 1 unit of a type keeps blocking zero on that row even
+  // when the caller allows it in general.
+  const zeroAllowedFor = useCallback((gpu: { allowsZero: boolean }) => allowZeroGpu && gpu.allowsZero, [allowZeroGpu]);
+
+  // Seed the local chips once the types are known: restore a prior pick for this env, else default to
+  // the biggest declared+clamped option (or, with nothing declared, every pickable unit — today's
+  // behavior). Same budget-draw as the hook's selectedByKey (drawUnitsAcrossTypes) so the seed never
+  // sums past what CPU/RAM/disk can back. A restored pick is clamped to the per-type budget left
+  // (`cap`), matching the disable rules the chips render.
   useEffect(() => {
     if (!isControlled && ownSelection === null && mergedGpus.length > 0) {
       setOwnSelection(
         drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g, cap) => {
           const prior = initialSelection?.[g.key];
-          // undefined → default this type to `cap`; a restored pick is clamped to `cap` (it can exceed
-          // current availability). Returning undefined lets drawUnitsAcrossTypes fill `cap` itself.
-          return prior === undefined ? undefined : Math.min(Math.max(prior, 0), cap);
+          if (prior !== undefined) {
+            // A restored pick is clamped to `cap` (it can exceed current availability).
+            return Math.min(Math.max(prior, 0), cap);
+          }
+          // No prior pick: with a declared requirement, default to its biggest option (clamped to this
+          // type's physical max, same ceiling declaredGpuOptions uses for the row itself) rather than
+          // `cap` — a template asking for "1" must not default to booking every free unit. Then still
+          // clamp to `cap` so the default can't exceed the shared budget either. Nothing declared →
+          // undefined, which lets drawUnitsAcrossTypes fill `cap` itself (today's behavior).
+          const preferred = preferredGpuOption(declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) }));
+          return preferred === undefined ? undefined : Math.min(preferred, cap);
         })
       );
     }
-  }, [isControlled, ownSelection, mergedGpus, maxByKey, maxUnitsByResources, initialSelection]);
+  }, [isControlled, ownSelection, mergedGpus, maxByKey, maxUnitsByResources, initialSelection, gpuReq, zeroAllowedFor]);
 
   const editable = !isControlled && !!onSelect;
 
@@ -217,14 +258,26 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       if (!prev || mergedGpus.length === 0) {
         return prev;
       }
-      const next = drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g, cap) =>
-        Math.min(Math.max(prev[g.key] ?? 0, 0), cap)
-      );
+      const next = drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g, cap) => {
+        const clamped = Math.min(Math.max(prev[g.key] ?? 0, 0), cap);
+        // With a declared requirement, a trim must still land on one of the row's OFFERED options, or
+        // Continue would carry a count with no corresponding button (confusing — "selected" with
+        // nothing highlighted). Snap down to the largest offered option that still fits `clamped`;
+        // options are clamped to `g.max` (not `cap`), so this can legitimately fall through to 0 when
+        // even the smallest declared option no longer fits the shrunk budget — same as the undeclared
+        // case clamping to 0, just via a different route.
+        const options = declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) });
+        if (!options) {
+          return clamped;
+        }
+        const fitting = options.filter((n) => n <= clamped);
+        return fitting.length > 0 ? fitting[fitting.length - 1] : 0;
+      });
       // Identity matters: returning a fresh object every render would re-render forever.
       const unchanged = mergedGpus.every((g) => next[g.key] === prev[g.key]);
       return unchanged ? prev : next;
     });
-  }, [mergedGpus, maxByKey, maxUnitsByResources]);
+  }, [mergedGpus, maxByKey, maxUnitsByResources, gpuReq, zeroAllowedFor]);
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,
@@ -247,14 +300,25 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       const budgetForThisType = Math.max(0, maxUnitsByResources - othersSelected);
       // Pickable = this type's own free units, capped by the shared budget left after other types.
       const pickable = Math.min(maxByKey[gpu.key] ?? 0, budgetForThisType);
+      // Options to offer as buttons: the declared min/recommended, clamped into [1, gpu.max] (or
+      // [0, gpu.max] on a zero-permitting type) and deduped — or, with nothing declared, every unit
+      // 1..gpu.max (today's behavior, unchanged; declaredGpuOptions itself widens this to include 0
+      // when zero is allowed and nothing was declared — see its docblock). Note this clamps against the
+      // type's PHYSICAL max, not `pickable` — an option above `pickable` still renders, just disabled
+      // with its existing tooltip reason, per spec (nothing is ever removed for being currently
+      // unavailable, only for not being a declared/useful value).
+      const zeroAllowed = zeroAllowedFor(gpu);
+      const options =
+        declaredGpuOptions(gpuReq, gpu.max, { allowZero: zeroAllowed }) ??
+        Array.from({ length: gpu.max }, (_, i) => i + 1);
       return (
         <div className={styles.gpuType} key={gpu.key}>
           <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />
           {editable ? (
             <div className={styles.counts}>
-              {/* All units shown; counts above what's free are disabled (in use, or not enough shared
-                  CPU/RAM/disk) with a tooltip explaining why. */}
-              {Array.from({ length: gpu.max }, (_, i) => i + 1).map((n) => {
+              {/* All offered units shown; counts above what's free are disabled (in use, or not enough
+                  shared CPU/RAM/disk) with a tooltip explaining why. */}
+              {options.map((n) => {
                 const disabled = n > pickable;
                 const button = (
                   <Button
@@ -305,13 +369,21 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       : paidAccess
         ? null
         : "Your wallet address is not in this environment's access list.";
+  // Zero is a legitimate "continue" state only when EVERY GPU type in the env allows it — a mixed env
+  // (one type with min 0, another with min 1) still needs at least one real unit picked overall, since
+  // the type requiring >= 1 is never satisfied by leaving it at zero.
+  const zeroSelectionAllowed = hasGpus && mergedGpus.every((g) => zeroAllowedFor(g));
+  // A user who deliberately wants 0 GPUs doesn't care that every unit is currently busy — exhaustion
+  // only matters to a selection that actually asks for units. Without this, a zero-permitting template
+  // on a fully-booked env would wrongly show "all GPU units in use" for a pick that needs none.
+  const zeroSelected = selectedTotal <= 0 && zeroSelectionAllowed;
   const selectBlockedReason =
     disabledReason ??
     accessBlockedReason ??
     (hasGpus
-      ? gpuExhausted
+      ? gpuExhausted && !zeroSelected
         ? 'All GPU units in this environment are currently in use.'
-        : selectedTotal <= 0
+        : selectedTotal <= 0 && !zeroSelectionAllowed
           ? 'Select at least one GPU unit to continue.'
           : (constraintViolation ?? null)
       : (constraintViolation ?? null));

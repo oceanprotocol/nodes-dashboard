@@ -12,7 +12,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
-import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
+import { templateFloorSizing, templateNeedsConfigStep } from '@/services/template-launch';
 import { ComputeEnvironment } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, isBundle } from '@/types/templates';
@@ -105,7 +105,7 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
         peerId: env.nodeInfo.id,
         envId: env.environment.id,
         gpuSelection,
-        sizing: env.sizing ?? templatePinnedSizing(openTemplate),
+        sizing: env.sizing ?? templateFloorSizing(openTemplate),
         tokenAddress: token.address,
         durationSeconds,
       }),

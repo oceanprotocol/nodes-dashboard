@@ -218,31 +218,28 @@ export async function buildTemplateRestartParams(
 }
 
 /**
- * Pin the template's recommended CPU/RAM/disk so the payment step books that sized allocation (the same
- * `pinned` sizing quick start uses), floored at the template's required per-resource min — the effective
- * lower bound is max(envMin, templateMin), so a constraint ceiling can't trim the booked amount below
- * what the app needs. Prefer `recommendedResources`, else `requiredResources`; per resource use
- * `recommended`, falling back to `min`. Undefined when any of cpu/ram/disk is absent — then the launch
- * falls back to the GPU-fraction slice rather than silently booking the environment's bare minimum.
- * GPU is handled separately by the gpu selection. Clamped to the env's real limits downstream.
+ * Floor the template's required CPU/RAM/disk under the GPU-fraction slice — the same `floor` sizing the
+ * default-models flow uses (packageFloorSizing in default-models-page.tsx), so both flows clamp shared
+ * resources the same way.
+ *
+ * Deliberately NOT `pinned` (which booked the template's `recommended` amounts as fixed figures): the
+ * GPU unit count is user-selectable in the details modal and the Advanced picker, and pinned amounts
+ * ignore it — picking 1 GPU out of 8 booked the same CPU/RAM/disk as picking all 8, and the price with
+ * it. Under `floor` the slice stays proportional to the GPU units actually picked and only stops
+ * falling at the template's declared minimum, so a bigger pick buys proportionally more shared compute
+ * and a smaller one costs less.
+ *
+ * The floor is combined with the env's own min via max downstream in the allocation hook, so it bites
+ * only where the template is stricter than the environment. Undefined when the template declares none
+ * of cpu/ram/disk — then the slice is used unfloored, rather than inventing a bound.
  */
-export function templatePinnedSizing(template: AppTemplate): ResourceSizing | undefined {
-  const reqs = template.recommendedResources ?? template.requiredResources;
+export function templateFloorSizing(template: AppTemplate): ResourceSizing | undefined {
+  const reqs = template.requiredResources;
   if (!reqs) {
     return undefined;
   }
-  const amount = (id: string): number | undefined => {
-    const entry = reqs.find((r) => r.id === id);
-    return entry ? (entry.recommended ?? entry.min) : undefined;
-  };
-  const cpu = amount('cpu');
-  const ram = amount('ram');
-  const disk = amount('disk');
-  if (cpu == null || ram == null || disk == null) {
-    return undefined;
-  }
-  const min = (id: string): number => template.requiredResources?.find((r) => r.id === id)?.min ?? 0;
-  return { mode: 'pinned', cpu, ram, disk, floor: { cpu: min('cpu'), ram: min('ram'), disk: min('disk') } };
+  const min = (id: string): number => reqs.find((r) => r.id === id)?.min ?? 0;
+  return { mode: 'floor', cpu: min('cpu'), ram: min('ram'), disk: min('disk') };
 }
 
 /** The port serving the template's primary web UI (first exposed port) — for the "Open" link. */

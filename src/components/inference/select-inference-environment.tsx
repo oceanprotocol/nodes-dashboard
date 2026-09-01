@@ -383,6 +383,11 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
                 return (
                   <InferenceEnvironmentCard
+                    // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
+                    // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
+                    // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
+                    allowZeroGpu={flowType === InferenceFlowType.Template}
+                    declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
                     defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                     durationSeconds={jobDurationSeconds}
                     environment={env}

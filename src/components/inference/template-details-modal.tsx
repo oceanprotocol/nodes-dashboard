@@ -164,6 +164,11 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     return undefined;
   };
 
+  // recommendedResources when the node published one, else requiredResources — recommendedResources is
+  // null on every live template today, but the fallback keeps the offered GPU counts agreeing with the
+  // seeded pick (use-template-envs reads the same preference for autoGpuSelection).
+  const declaredResources = template?.recommendedResources ?? template?.requiredResources;
+
   const renderEnvsSection = () => {
     if (loadError) {
       return (
@@ -218,15 +223,21 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     }
     return (
       <div className={styles.envList}>
-        {/* Controlled gpuSelection → static chips (read-only, auto recommended). onSelect drives its own
-            play/price button; disabledReason force-disables it (with a tooltip reason) when the shared
-            duration is out of this env's bounds. */}
+        {/* Uncontrolled GPU chips: `initialSelection` seeds the auto-recommended pick (autoGpuSelection,
+            via use-template-envs) and the card owns it from there, so the user can change the unit count
+            without leaving for Advanced setup. onSelect hands back whatever they settled on — the same
+            selection the card priced — which is what onContinue books. `sizing` is the template's PINNED
+            CPU/RAM/disk, so a different GPU count moves the GPU units and the price, not the shared
+            slice; same behavior as this template in the Advanced picker. disabledReason force-disables
+            the play/price button (with a tooltip reason) when the shared duration is out of bounds. */}
         {resolved.map((entry) => (
           <InferenceEnvironmentCard
+            allowZeroGpu
+            declaredRequirements={declaredResources}
             disabledReason={durationErrorFor(entry.env.environment)}
             durationSeconds={durationSeconds}
             environment={entry.env.environment}
-            gpuSelection={entry.env.gpuSelection}
+            initialSelection={entry.env.gpuSelection}
             key={`${entry.env.nodeInfo.id}-${entry.env.environment.id}`}
             nodeInfo={entry.env.nodeInfo}
             onSelect={(address, symbol, gpuSelection, environment) =>

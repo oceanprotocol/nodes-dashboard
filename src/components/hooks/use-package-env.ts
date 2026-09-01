@@ -146,7 +146,8 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
             return {
               env: {
                 environment,
-                gpuSelection: autoGpuSelection(environment, pkg!.requiredResources),
+                // Packages never permit a zero-GPU pick (allowZeroGpu defaults false) — see the card prop.
+                gpuSelection: autoGpuSelection({ environment, required: pkg!.requiredResources }),
                 sizing,
                 nodeInfo: {
                   currentAddrs: node.currentAddrs,
