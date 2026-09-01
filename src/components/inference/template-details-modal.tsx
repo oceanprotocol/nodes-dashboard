@@ -11,6 +11,7 @@ import TemplateWorkflows from '@/components/inference/template-workflows';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { SelectedToken } from '@/context/run-job-context';
+import { templateNeedsConfigStep } from '@/services/template-launch';
 import { useTheme } from '@/lib/use-theme';
 import { ComputeEnvironment } from '@/types/environments';
 import {
@@ -118,7 +119,7 @@ function resourceRows(template: AppTemplate): ResourceRow[] {
 
 /**
  * "What's included" details for a picked app template: what the app is, how it's used (browser UI vs
- * HTTP API), the resources it asks for, the session length, and the
+ * HTTP API), its configurable env vars, the resources it asks for, the session length, and the
  * environments that can currently run it. Each env is a read-only card with its own Continue → payment (the resources step is
  * skipped); "Advanced setup" hands off to the full env picker instead. Selection lives in the parent —
  * closing this commits nothing.
@@ -132,10 +133,7 @@ function resourceRows(template: AppTemplate): ResourceRow[] {
  * - **modelPack** — the manifest promoted into that same slot, annotated but visibly quieter, plus
  *   the absence of a workflow said out loud.
  * - **service** — plain prose and no panel at all. A bordered panel is this modal's way of saying
- *   "assets are included", so an empty app must not have one. Its configurable env vars are left out
- *   here too: a bare image's variables are the whole of its configuration and belong on the config
- *   step where they're actually set, not as a chip row in the catalogue. Templates still list theirs
- *   under "Good to know", where they annotate a preloaded workflow rather than stand in for it.
+ *   "assets are included", so an empty app must not have one.
  */
 const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   template,
@@ -247,16 +245,32 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     );
   };
 
-  /** The configurable-variable chips. Placement differs by shape, the markup doesn't. */
-  const renderEnvVars = (tpl: AppTemplate) => (
-    <div className={styles.envVars}>
-      <div className={styles.envVarsHead}>
-        <span className={styles.overline}>Configurable env vars</span>
-        <span className="textSecondary text12">optional · set on the next step</span>
-      </div>
-      {tpl.userConfigurableEnvVars && tpl.userConfigurableEnvVars.length > 0 ? (
+  /**
+   * The configurable-variable chips. Placement differs by shape, the markup doesn't. Rendered only
+   * when the template actually declares variables — "declares no configurable variables" is a line
+   * about the template's schema, not about anything the user can act on, and for a bare service it
+   * was the whole of the section.
+   *
+   * The hint tracks routing rather than asserting it: only a launch that stops at the config step
+   * (a required var, or a bucket picker — templateNeedsConfigStep) reaches the form from here, and a
+   * template whose vars are all optional goes straight to payment, so "set on the next step" would
+   * be pointing at a step this pick skips. Advanced setup always routes through config.
+   */
+  const renderEnvVars = (tpl: AppTemplate) => {
+    const specs = tpl.userConfigurableEnvVars ?? [];
+    if (specs.length === 0) {
+      return null;
+    }
+    return (
+      <div className={styles.envVars}>
+        <div className={styles.envVarsHead}>
+          <span className={styles.overline}>Configurable env vars</span>
+          <span className="textSecondary text12">
+            {templateNeedsConfigStep(tpl) ? 'set on the next step' : 'optional · set under Advanced setup'}
+          </span>
+        </div>
         <div className={styles.envVarList}>
-          {tpl.userConfigurableEnvVars.map((spec) => (
+          {specs.map((spec) => (
             <span className={cx('chip', 'chipGlass', styles.chip, styles.envVarChip)} key={spec.key}>
               {spec.sensitive && <LockIcon className={styles.envVarLock} />}
               {spec.key}
@@ -264,11 +278,9 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             </span>
           ))}
         </div>
-      ) : (
-        <span className={styles.emptyNote}>This template declares no configurable variables.</span>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   /**
    * How you reach the running app. No port number: the node allocates a host port from 30000-32767 at
@@ -461,6 +473,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             running.
           </div>
         </div>
+        {renderEnvVars(tpl)}
       </div>
     );
   };

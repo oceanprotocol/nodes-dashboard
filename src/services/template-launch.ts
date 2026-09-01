@@ -2,7 +2,7 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { assertAllocationAvailable, buildGpuRequests, resourceId } from '@/services/inference-launch';
-import { AppTemplate, requiredEnvVars, TemplateWorkflow } from '@/types/templates';
+import { AppTemplate, TemplateWorkflow } from '@/types/templates';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
@@ -44,17 +44,24 @@ export function templateNeedsBucketPicker(template: AppTemplate | null | undefin
 }
 
 /**
- * Whether a fresh (non-edit) template launch has to stop at the config step: the template declares a
- * required env var (without it the container starts and fails), or it needs the bucket picker (see
- * templateNeedsBucketPicker). Both routing directions and the stepper read this one predicate, so the
- * steps a launch actually takes can't drift from the steps drawn for it — a skipped config step
- * strands the user at a container that fails, or at payment with no bucket.
+ * Whether a fresh (non-edit) template launch has to stop at the config step: the template declares
+ * ANY user-configurable env var, or it needs the bucket picker (see templateNeedsBucketPicker). Both
+ * routing directions and the stepper read this one predicate, so the steps a launch actually takes
+ * can't drift from the steps drawn for it — a skipped config step strands the user at a container
+ * that fails, or at payment with no bucket.
+ *
+ * Optional vars count, not just required ones. A required var is the load-bearing case (without it
+ * the container starts and fails), but gating on `required` alone meant a template whose vars are
+ * all optional advertised them in the catalogue and then routed past the only page that can set
+ * them — leaving Advanced setup, which the user has no reason to suspect, as the sole way in before
+ * the escrow claim. The cost is one extra step on a launch that declares a var nobody has to fill;
+ * the alternative was a decision silently taken away.
  */
 export function templateNeedsConfigStep(template: AppTemplate | null | undefined): boolean {
   if (!template) {
     return false;
   }
-  return templateNeedsBucketPicker(template) || requiredEnvVars(template).length > 0;
+  return templateNeedsBucketPicker(template) || (template.userConfigurableEnvVars?.length ?? 0) > 0;
 }
 
 const COMFY_WORKFLOW_ID_KEY = 'COMFY_WORKFLOW_ID';
