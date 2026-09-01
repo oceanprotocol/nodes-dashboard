@@ -16,14 +16,14 @@ const AccountLink = () => {
 
   if (isMounted && account?.isConnected) {
     return (
-      <Button color="primary-inverse" href="/account" size="link" variant="transparent">
+      <Button color="on-accent1" href="/account" size="link" variant="transparent">
         MY ACCOUNT
       </Button>
     );
   }
 
   return (
-    <Button color="primary-inverse" onClick={login} size="link" variant="transparent">
+    <Button color="on-accent1" onClick={login} size="link" variant="transparent">
       LOG IN
     </Button>
   );
@@ -91,14 +91,14 @@ const FooterSection = () => {
 
                 return (
                   <li key={route.path}>
-                    <Button color="primary-inverse" href={route.path} size="link" variant="transparent">
+                    <Button color="on-accent1" href={route.path} size="link" variant="transparent">
                       {route.name}
                     </Button>
                   </li>
                 );
               })}
               <li>
-                <Button color="primary-inverse" href={links.docs} size="link" target="_blank" variant="transparent">
+                <Button color="on-accent1" href={links.docs} size="link" target="_blank" variant="transparent">
                   Docs
                 </Button>
               </li>
@@ -111,7 +111,7 @@ const FooterSection = () => {
         <div className={styles.lowerRow}>
           <div className={styles.socialLinks}>
             <Button
-              color="primary-inverse"
+              color="on-accent1"
               href={config.socialMedia.discord}
               size="link"
               target="_blank"
@@ -120,7 +120,7 @@ const FooterSection = () => {
               Discord
             </Button>
             <Button
-              color="primary-inverse"
+              color="on-accent1"
               href={config.socialMedia.twitter}
               size="link"
               target="_blank"
@@ -129,7 +129,7 @@ const FooterSection = () => {
               X (Twitter)
             </Button>
             <Button
-              color="primary-inverse"
+              color="on-accent1"
               href={config.socialMedia.youtube}
               size="link"
               target="_blank"
@@ -139,7 +139,7 @@ const FooterSection = () => {
             </Button>
           </div>
           <div className={styles.legalLinks}>
-            <Button color="primary-inverse" href="/privacy-policy" size="link" variant="transparent">
+            <Button color="on-accent1" href="/privacy-policy" size="link" variant="transparent">
               Privacy policy
             </Button>
           </div>

@@ -63,7 +63,7 @@
 
 .modeButtonActive {
   background: var(--accent1);
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
 }
 
 /* ---- Hero card body ---- */
@@ -188,7 +188,7 @@
 .pillSelected {
   background: var(--accent1);
   box-shadow: none;
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
 }
 
 .gpuError {

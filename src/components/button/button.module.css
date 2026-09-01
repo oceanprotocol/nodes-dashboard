@@ -87,12 +87,12 @@
 .color-accent1 {
   &.variant-filled {
     background: var(--accent1);
-    color: var(--text-primary-inverse);
+    color: var(--accent1-contrast);
   }
   &.variant-glass {
     background: color-mix(in srgb, var(--accent1) 75%, transparent 25%);
     backdrop-filter: var(--backdrop-filter-glass);
-    color: var(--text-primary-inverse);
+    color: var(--accent1-contrast);
     box-shadow: var(--inner-shadow-glass);
   }
   &.variant-outlined {
@@ -110,12 +110,12 @@
 .color-accent2 {
   &.variant-filled {
     background: var(--accent2);
-    color: var(--text-primary);
+    color: var(--accent2-contrast);
   }
   &.variant-glass {
     background: color-mix(in srgb, var(--accent2) 75%, transparent 25%);
     backdrop-filter: var(--backdrop-filter-glass);
-    color: var(--text-primary);
+    color: var(--accent2-contrast);
     box-shadow: var(--inner-shadow-glass);
   }
   &.variant-outlined {
@@ -133,12 +133,12 @@
 .color-error {
   &.variant-filled {
     background: var(--error);
-    color: var(--text-primary);
+    color: var(--error-contrast);
   }
   &.variant-glass {
     background: color-mix(in srgb, var(--error) 75%, transparent 25%);
     backdrop-filter: var(--backdrop-filter-glass);
-    color: var(--text-primary);
+    color: var(--error-contrast);
     box-shadow: var(--inner-shadow-glass);
   }
   &.variant-outlined {
@@ -176,6 +176,56 @@
     }
   }
 }
+/* For buttons ON an accent-filled surface. Mirrors .color-primary-inverse, but resolves against
+   the fixed --accentN-contrast tokens instead of the theme-dependent --text-primary* pair, so a
+   button on the brand-colored footer/CTA stays legible in both themes. */
+.color-on-accent1 {
+  &.variant-filled {
+    background: var(--accent1-contrast);
+    color: var(--accent1);
+  }
+  &.variant-glass {
+    background: color-mix(in srgb, var(--background-glass) 75%, transparent 25%);
+    backdrop-filter: var(--backdrop-filter-glass);
+    color: var(--accent1-contrast);
+    box-shadow: var(--inner-shadow-glass);
+  }
+  &.variant-outlined {
+    box-shadow: inset 0 0 0 2px var(--accent1-contrast);
+    color: var(--accent1-contrast);
+  }
+  &.variant-transparent {
+    background: transparent;
+    color: var(--accent1-contrast);
+    &:not(.disabled):not(.size-link):hover {
+      background: color-mix(in srgb, var(--accent1-contrast) 5%, transparent 95%);
+    }
+  }
+}
+.color-on-accent2 {
+  &.variant-filled {
+    background: var(--accent2-contrast);
+    color: var(--accent2);
+  }
+  &.variant-glass {
+    background: color-mix(in srgb, var(--background-glass) 75%, transparent 25%);
+    backdrop-filter: var(--backdrop-filter-glass);
+    color: var(--accent2-contrast);
+    box-shadow: var(--inner-shadow-glass);
+  }
+  &.variant-outlined {
+    box-shadow: inset 0 0 0 2px var(--accent2-contrast);
+    color: var(--accent2-contrast);
+  }
+  &.variant-transparent {
+    background: transparent;
+    color: var(--accent2-contrast);
+    &:not(.disabled):not(.size-link):hover {
+      background: color-mix(in srgb, var(--accent2-contrast) 5%, transparent 95%);
+    }
+  }
+}
+
 .color-primary-inverse {
   &.variant-filled {
     background: var(--text-primary-inverse);

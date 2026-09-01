@@ -133,7 +133,7 @@ const StyledDataGrid = styled(DataGrid)<{ clickable?: boolean }>(({ clickable })
   },
 
   '& .MuiSkeleton-root': {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'var(--background-glass-secondary)',
   },
 }));
 
@@ -389,7 +389,7 @@ export const Table = <T extends GridValidRowModel>({
   const slotProps: GridSlotsComponentsProps & { toolbar: Partial<CustomToolbarProps> } = {
     basePopper: {
       style: {
-        color: '#000000',
+        color: 'var(--text-primary)',
       },
     },
     // loadingOverlay: {

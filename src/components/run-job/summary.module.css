@@ -72,7 +72,7 @@
 
 .modeCardSelected .modeIcon {
   background: var(--accent1);
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
 }
 
 .modeBody {

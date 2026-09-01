@@ -111,30 +111,35 @@
 }
 .variant-success {
   background: var(--success);
+  color: var(--success-contrast);
 }
 .variant-success-outline {
   border: 2px solid var(--success);
 }
 .variant-warning {
   background: var(--warning);
+  color: var(--warning-contrast);
 }
 .variant-warning-outline {
   border: 2px solid var(--warning);
 }
 .variant-error {
   background: var(--error);
+  color: var(--error-contrast);
 }
 .variant-error-outline {
   border: 2px solid var(--error);
 }
 .variant-accent1 {
   background: var(--accent1);
+  color: var(--accent1-contrast);
 }
 .variant-accent1-outline {
   border: 2px solid var(--accent1-lightest);
 }
 .variant-accent2 {
   background: var(--accent2);
+  color: var(--accent2-contrast);
 }
 .variant-accent2-outline {
   border: 2px solid var(--accent2);

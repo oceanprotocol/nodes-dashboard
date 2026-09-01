@@ -6,11 +6,12 @@ import BundleIncludes, { IncludesAvatarCluster } from '@/components/inference/bu
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import TemplateDisclosure from '@/components/inference/template-disclosure';
 import { templateLogo } from '@/components/inference/template-logos';
-import { templateHardware, templateImageRef, visualFor } from '@/components/inference/template-visual';
+import { accentVars, templateHardware, templateImageRef, visualFor } from '@/components/inference/template-visual';
 import TemplateWorkflows from '@/components/inference/template-workflows';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { SelectedToken } from '@/context/run-job-context';
+import { useTheme } from '@/lib/use-theme';
 import { ComputeEnvironment } from '@/types/environments';
 import {
   AppTemplate,
@@ -143,6 +144,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   onContinue,
 }) => {
   const { resolved, totalMatched, loading, loadError, retry } = envs;
+  const { resolvedTheme } = useTheme();
   const visual = template ? visualFor(template.id, template.category) : null;
   const hw = template ? templateHardware(template) : null;
   const logo = template ? templateLogo(template) : null;
@@ -465,7 +467,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     <Modal isOpen={!!template} onClose={onClose} title="What's included" width="md">
       {template && visual && hw && (
         <>
-          <div className={styles.header} style={{ '--accent': visual.meta.accent } as CSSProperties}>
+          <div className={styles.header} style={accentVars(visual.meta.accent, resolvedTheme) as CSSProperties}>
             {/* The brand mark REPLACES the category glyph — see the same note in template-card. */}
             <span className={styles.tile}>
               {logo ? (

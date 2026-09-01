@@ -1,8 +1,8 @@
 .root {
   position: relative;
   padding: 140px 0 120px;
-  background: var(--accent1-lighter);
-  color: var(--text-primary-inverse);
+  background: var(--accent1-lighter-surface);
+  color: var(--accent1-contrast);
   overflow: hidden;
 }
 
@@ -96,8 +96,15 @@
     background-size: 280px;
   }
 
+  /* Covers the whole section, so it runs on the -surface trio like the slab it sits over —
+     otherwise the mobile gradient would reintroduce the glare the surface tokens exist to avoid. */
   .root::after {
-    background: linear-gradient(125deg, var(--accent1-light), var(--accent1-lighter) 45%, var(--accent1-lightest));
+    background: linear-gradient(
+      125deg,
+      var(--accent1-surface),
+      var(--accent1-lighter-surface) 45%,
+      var(--accent1-lightest-surface)
+    );
   }
 
   .socialLinks {
