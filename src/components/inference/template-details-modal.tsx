@@ -17,8 +17,8 @@ import TemplateWorkflows from '@/components/inference/template-workflows';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { SelectedToken } from '@/context/run-job-context';
-import { templateNeedsConfigStep } from '@/services/template-launch';
 import { useTheme } from '@/lib/use-theme';
+import { templateNeedsConfigStep } from '@/services/template-launch';
 import { ComputeEnvironment } from '@/types/environments';
 import {
   AppTemplate,
@@ -44,7 +44,7 @@ import SdStorageIcon from '@mui/icons-material/SdStorage';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
-import { CSSProperties, Fragment } from 'react';
+import { CSSProperties } from 'react';
 import styles from './template-details-modal.module.css';
 
 type TemplateDetailsModalProps = {
@@ -183,7 +183,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
           <div className={styles.errorText}>
             <div className={styles.errorTitle}>Couldn&apos;t load environments</div>
             <div className={styles.errorDetail}>
-              Nothing has been committed — retry, or close and pick another template.
+              Nothing has been committed. Retry, or close and pick another template.
             </div>
             <div className={styles.errorReason}>{loadError}</div>
           </div>
@@ -254,7 +254,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
         ))}
         {totalMatched > resolved.length && (
           <div className={styles.envCapNote}>
-            Showing the {resolved.length} best-scoring of {totalMatched} matching environments — Advanced setup lists
+            Showing the {resolved.length} best-scoring of {totalMatched} matching environments. Advanced setup lists
             them all.
           </div>
         )}
@@ -333,7 +333,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
         <TemplateDisclosure
           Icon={InfoOutlinedIcon}
           summary={
-            hasEnvVars ? 'Good to know — how it runs, and the variables you can set' : 'Good to know — how it runs'
+            hasEnvVars ? 'Good to know: how it runs, and the variables you can set' : 'Good to know: how it runs'
           }
         >
           {description && <p className={styles.notesProse}>{description}</p>}
@@ -368,7 +368,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               <IncludesAvatarCluster template={tpl} />
               <span>
                 {breakdown}, downloaded into the app on first launch
-                {publishers ? ` — from ${publishers}` : ''}
+                {publishers ? `, from ${publishers}` : ''}
               </span>
             </span>
           }
@@ -416,7 +416,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
           <div className={styles.sectionHead}>
             <h4>What you get</h4>
             <div>
-              {visual.meta.purpose} The models below are already downloaded — no workflow is preloaded, so you build
+              {visual.meta.purpose} The models below are already downloaded, but no workflow is preloaded, so you build
               your own.
             </div>
           </div>
@@ -436,7 +436,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
                     <IncludesAvatarCluster template={tpl} />
                     <span>
                       {breakdown}
-                      {publishers ? ` — from ${publishers}` : ''}
+                      {publishers ? `, from ${publishers}` : ''}
                     </span>
                   </span>
                 }
@@ -448,7 +448,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             <div className={styles.absence}>
               <AccountTreeOutlinedIcon className={styles.absenceIcon} />
               <div>
-                <strong>No workflows included.</strong> The app opens empty — build a graph, or bring your own. The
+                <strong>No workflows included.</strong> The app opens empty, so build a graph or bring your own. The
                 models above are already in place, so they show up in the app straight away.
               </div>
             </div>
@@ -486,7 +486,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
         <div className={styles.absence}>
           <Inventory2OutlinedIcon className={styles.absenceIcon} />
           <div>
-            <strong>Ships empty — no models, no workflows.</strong> Fetch what you need from inside the app once it is
+            <strong>Ships empty - no models, no workflows.</strong> Fetch what you need from inside the app once it is
             running.
           </div>
         </div>

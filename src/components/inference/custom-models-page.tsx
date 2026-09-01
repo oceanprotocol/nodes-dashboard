@@ -54,7 +54,7 @@ const CONDITIONALLY_SERVABLE_TAGS = ['translation', 'summarization'];
 const REJECTION_HINTS: Record<IncompatibilityKind, string> = {
   // Has a real destination — ComfyUI and friends are already published as services.
   'generative-media':
-    'Image, audio and video models run on engines like ComfyUI instead — pick one, then add this model from its own UI. If none of them fit,',
+    'Image, audio and video models run on engines like ComfyUI instead. Pick one, then add this model from its own UI. If none of them fit,',
   // Servable in principle, but by TEI/Infinity-style runtimes we don't offer, and not over the
   // chat/completions endpoint everything downstream of here assumes.
   // Deliberately not "embedding, ranking and classification": this kind also covers speech
@@ -64,13 +64,13 @@ const REJECTION_HINTS: Record<IncompatibilityKind, string> = {
   // The weights, not the task: another publisher's copy of the same model may load fine, so point at
   // that before treating it as unsupported.
   'unsupported-library':
-    'The task may be fine — it’s the packaging vLLM and llama.cpp can’t load. A transformers-format copy of the same model usually works, so it is worth searching for one. If there isn’t any,',
+    'The task may be fine; it’s the packaging vLLM and llama.cpp can’t load. A transformers-format copy of the same model usually works, so it is worth searching for one. If there isn’t any,',
   // Neither servable nor clearly categorised — the honest answer is "tell us".
   'unsupported-task': 'This isn’t a task we serve today. If it would be useful for your use case,',
   // Fully self-service: the base model is named on the adapter's own model card, and launching it
   // works today — so this points at the fix rather than at us.
   'adapter-only':
-    'The adapter’s model card names the base model it was trained on — search for that one here and launch it instead. If you need the adapter’s weights merged in,',
+    'The adapter’s model card names the base model it was trained on. Search for that one here and launch it instead. If you need the adapter’s weights merged in,',
   // Also self-service, and worth being concrete: the same model in a format we DO serve is usually
   // one search away, since popular models get AWQ/GPTQ republishes within days.
   'unsupported-quantization':

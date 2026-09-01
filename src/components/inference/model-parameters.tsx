@@ -117,7 +117,7 @@ function validateParams(
 
   if (v.engine === 'llamacpp') {
     if (!v.ggufRepo.trim()) {
-      errors.ggufRepo = 'Required — the GGUF repo llama.cpp pulls the model from.';
+      errors.ggufRepo = 'Required: the GGUF repo llama.cpp pulls the model from.';
     }
     // Optional: blank/null lets llama.cpp use the model's trained context. A pinned value clears the floor.
     if (v.contextLength != null && v.contextLength < contextFloor) {
@@ -133,7 +133,7 @@ function validateParams(
       if (v.maxContext < contextFloor) {
         errors.maxContext = `Must be at least ${contextFloor} (or leave blank to let vLLM decide).`;
       } else if (contextCeiling != null && v.maxContext > contextCeiling) {
-        errors.maxContext = `Must be at most ${contextCeiling} — the model's context limit.`;
+        errors.maxContext = `Must be at most ${contextCeiling}, the model's context limit.`;
       }
     }
     // GPU memory must stay within bounds — the floor is > 0 (0 = no VRAM claimed, rejected).
@@ -148,11 +148,11 @@ function validateParams(
       if (v.tensorParallelSize < 1 || !Number.isInteger(v.tensorParallelSize)) {
         errors.tensorParallelSize = 'Must be a whole number of GPUs (1 or more).';
       } else if (v.tensorParallelSize > bookedGpus) {
-        errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked — the model can't shard across more.`;
+        errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked, so the model can't shard across more.`;
       }
     }
     if (v.toolCalling && !v.toolCallParser) {
-      errors.toolCallParser = 'Pick a parser — tool calling breaks at runtime without one.';
+      errors.toolCallParser = 'Pick a parser. Tool calling breaks at runtime without one.';
     }
   }
 
@@ -475,7 +475,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     <div className={styles.subsection}>
       <div>
         <h4>vLLM launch flags</h4>
-        <div className="textSecondary">Fixed when the model starts — changing them requires a restart</div>
+        <div className="textSecondary">Fixed when the model starts. Changing them requires a restart</div>
       </div>
       <div className={styles.grid}>
         <div className={styles.column}>
@@ -485,7 +485,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="--served-model-name"
             label={labelWithInfo(
               'Served model name',
-              'The name the running model answers to — clients put this in the request `model` field and it shows in the model dropdown. A routing label only; if wrong, clients can’t address the model.'
+              'The name the running model answers to. Clients put this in the request `model` field and it shows in the model dropdown. A routing label only; if wrong, clients can’t address the model.'
             )}
             name="servedModelName"
             onBlur={formik.handleBlur}
@@ -536,7 +536,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           <Select<ModelQuantization>
             size="sm"
             disabled={!!lockedQuant}
-            hint={lockedQuant ? 'Locked by model — already quantized' : '--quantization'}
+            hint={lockedQuant ? 'Locked by model: already quantized' : '--quantization'}
             label={labelWithInfo(
               'Quantization',
               'Compress model weights to a smaller numeric format to save VRAM. none = full precision (bf16); fp8/awq/gptq = smaller, often faster, slight quality tradeoff. Locked when the model ships pre-quantized. FP8 needs H100+ hardware.'
@@ -581,7 +581,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                   checked={v.toolCalling}
                   label={labelWithInfo(
                     'Tool calling',
-                    'Enables function/tool calling so the model can emit structured tool-call requests (what OpenWebUI’s function-calling needs). Cold — must be set at launch, can’t be toggled per request. Only shown for models whose chat template supports tools.',
+                    'Enables function/tool calling so the model can emit structured tool-call requests (what OpenWebUI’s function-calling needs). Cold: must be set at launch, and can’t be toggled per request. Only shown for models whose chat template supports tools.',
                     true
                   )}
                   name="toolCalling"
@@ -601,7 +601,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
                   hint="--tool-call-parser"
                   label={labelWithInfo(
                     'Tool call parser',
-                    'Tells vLLM how to parse the tool calls this model family emits (each formats them differently — llama, mistral, hermes, deepseek…). Must match the model or tool calls break. Auto-inferred from family, overridable, required when tool calling is on.'
+                    'Tells vLLM how to parse the tool calls this model family emits (each formats them differently: llama, mistral, hermes, deepseek…). Must match the model or tool calls break. Auto-inferred from family, overridable, required when tool calling is on.'
                   )}
                   name="toolCallParser"
                   onChange={(e) => formik.setFieldValue('toolCallParser', (e.target.value as ToolCallParser) || null)}
@@ -665,7 +665,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="--revision"
             label={labelWithInfo(
               'Revision',
-              'Which version of the HF repo to load — a branch, tag, or commit hash. Blank = main (latest). Pin an exact checkpoint so the model doesn’t silently change if the repo updates.'
+              'Which version of the HF repo to load: a branch, tag, or commit hash. Blank = main (latest). Pin an exact checkpoint so the model doesn’t silently change if the repo updates.'
             )}
             name="revision"
             onBlur={handleRevisionBlur}
@@ -679,7 +679,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               checked={v.enforceEager}
               label={labelWithInfo(
                 'Enforce eager',
-                'Disables CUDA graph capture, forcing eager execution. Slower, but uses less VRAM and is more forgiving — a fallback for debugging or when a model won’t start cleanly. Off = normal (faster) mode.',
+                'Disables CUDA graph capture, forcing eager execution. Slower, but uses less VRAM and is more forgiving. A fallback for debugging or when a model won’t start cleanly. Off = normal (faster) mode.',
                 true
               )}
               name="enforceEager"
@@ -698,7 +698,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     <div className={styles.subsection}>
       <div>
         <h4>llama.cpp launch flags</h4>
-        <div className="textSecondary">Fixed when the model starts — changing them requires a restart</div>
+        <div className="textSecondary">Fixed when the model starts. Changing them requires a restart</div>
       </div>
       <div className={styles.grid}>
         <div className={styles.column}>
@@ -708,7 +708,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="--alias"
             label={labelWithInfo(
               'Served model name',
-              'The name the running model answers to — clients put this in the request `model` field. A routing label only; if wrong, clients can’t address the model.'
+              'The name the running model answers to. Clients put this in the request `model` field. A routing label only; if wrong, clients can’t address the model.'
             )}
             name="servedModelName"
             onBlur={formik.handleBlur}
@@ -723,7 +723,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="-hf (repo)"
             label={labelWithInfo(
               'GGUF repo',
-              'The Hugging Face repo llama.cpp pulls the GGUF from — a `*-GGUF` repo, NOT the raw-weights repo. On startup llama.cpp downloads this from the Hub. Seeded as a best guess; correct it to a repo that actually ships GGUF files.'
+              'The Hugging Face repo llama.cpp pulls the GGUF from: a `*-GGUF` repo, NOT the raw-weights repo. On startup llama.cpp downloads this from the Hub. Seeded as a best guess; correct it to a repo that actually ships GGUF files.'
             )}
             name="ggufRepo"
             onBlur={formik.handleBlur}
@@ -737,7 +737,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="-hf (:quant)"
             label={labelWithInfo(
               'Quantization',
-              'Which quantization file inside the repo to load — the tag after the `:` in `-hf repo:quant`. Q4_K_M is a common size/quality balance. Leave blank to let llama.cpp pick from the repo.'
+              'Which quantization file inside the repo to load: the tag after the `:` in `-hf repo:quant`. Q4_K_M is a common size/quality balance. Leave blank to let llama.cpp pick from the repo.'
             )}
             name="ggufQuant"
             onBlur={formik.handleBlur}
@@ -849,7 +849,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           </div>
         ) : authState === 'rejected' ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>
-            The Hugging Face token was rejected for this model — invalid or lacks access. Check the token and reload.
+            The Hugging Face token was rejected for this model, as it is invalid or lacks access. Check the token and reload.
           </div>
         ) : loadError ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>{loadError}</div>
@@ -884,7 +884,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             <div>
               <h4>Inference engine</h4>
               <div className="textSecondary">
-                Switching resets the launch flags below — vLLM and llama.cpp take different settings.
+                Switching resets the launch flags below, since vLLM and llama.cpp take different settings.
               </div>
             </div>
             <Select<InferenceEngine>

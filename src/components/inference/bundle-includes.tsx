@@ -115,7 +115,7 @@ const BundleIncludes: React.FC<BundleIncludesProps> = ({ template, compact = fal
                   href={href}
                   rel="noreferrer noopener"
                   target="_blank"
-                  title={repoId ? `${item.name} — ${repoId}` : item.name}
+                  title={repoId ? `${item.name} - ${repoId}` : item.name}
                 >
                   {item.name}
                 </a>

@@ -345,7 +345,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                   // Disabled buttons emit no pointer/focus events — focusable span (tabIndex +
                   // aria-label) keeps the tooltip reason reachable by keyboard and screen readers.
                   <Tooltip key={n} title={disabledReason}>
-                    <span tabIndex={0} aria-label={`${n}x — ${disabledReason}`}>
+                    <span tabIndex={0} aria-label={`${n}x: ${disabledReason}`}>
                       {button}
                     </span>
                   </Tooltip>

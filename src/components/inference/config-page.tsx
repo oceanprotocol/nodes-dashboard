@@ -79,7 +79,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     if (!included) {
       return null;
     }
-    return `Relaunching re-downloads all ${included} — inside the session you have already paid for.`;
+    return `Relaunching re-downloads all ${included}, inside the session you have already paid for.`;
   }, [selectedTemplate]);
   useEffect(() => {
     if (isTemplateFlow) {
@@ -345,10 +345,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           ) : (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div>
-                <h3>{selectedTemplate?.name ?? 'Template'} — settings</h3>
+                <h3>{selectedTemplate?.name ?? 'Template'} settings</h3>
                 <div className="textSecondary">
                   {isEditMode
-                    ? 'Update the settings and relaunch. The container restarts on the same environment with the same paid session — the endpoint URL is unchanged.'
+                    ? 'Update the settings and relaunch. The container restarts on the same environment with the same paid session, so the endpoint URL is unchanged.'
                     : 'Optional settings for this app.'}
                 </div>
               </div>
@@ -396,7 +396,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
               ) : null}
               {isEditMode && (
                 <div className="textSecondary">
-                  Secrets you entered on the original launch aren&apos;t stored — re-enter any tokens you need.
+                  Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens you need.
                 </div>
               )}
               {/* A relaunch recreates the container from the image, and service containers get no

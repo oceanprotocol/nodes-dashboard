@@ -664,7 +664,7 @@ const ManageServicePage: React.FC = () => {
     identityToastRef.current = id;
     toast.error(
       templateMatchFailed
-        ? "Couldn't load this service's app details. Editing and extending are unavailable — reload to try again."
+        ? "Couldn't load this service's app details. Editing and extending are unavailable. Reload to try again."
         : "Couldn't identify which app this service is running. Editing and extending are unavailable."
     );
   }, [templateMatchFailed, templateVariantUnknown, id]);
@@ -789,7 +789,7 @@ const ManageServicePage: React.FC = () => {
       setProlongOpen(false);
       setJobError(
         !selectedToken || !templateKnown
-          ? 'Loading service details — try again in a moment.'
+          ? 'Loading service details. Try again in a moment.'
           : 'This service can no longer be extended.'
       );
       return;
@@ -857,8 +857,8 @@ const ManageServicePage: React.FC = () => {
             {job && !isExpired && (restartBlocked || isUnpaid) && (
               <div className="textSecondary">
                 {isUnpaid
-                  ? 'This service’s payment was never claimed (unpaid or refunded) — it can’t be restarted or edited. Start a new service instead.'
-                  : `Service is ${status.label.toLowerCase()} — Restart and Edit become available once the node finishes this operation.`}
+                  ? 'This service’s payment was never claimed (unpaid or refunded), so it can’t be restarted or edited. Start a new service instead.'
+                  : `Service is ${status.label.toLowerCase()}. Restart and Edit become available once the node finishes this operation.`}
               </div>
             )}
 
@@ -957,7 +957,7 @@ const ManageServicePage: React.FC = () => {
                 <div className="textSecondary">
                   {jobLoading || matchingTemplate
                     ? 'Loading model…'
-                    : 'Unknown model — neither the node nor this service’s record names one.'}
+                    : 'Unknown model. Neither the node nor this service’s record names one.'}
                 </div>
               )}
             </Card>
@@ -1094,7 +1094,7 @@ const ManageServicePage: React.FC = () => {
               ) : (
                 <div className="textSecondary">
                   {isExpired
-                    ? 'This session has ended — the app is no longer available.'
+                    ? 'This session has ended, so the app is no longer available.'
                     : isRunning
                       ? 'App is running but exposed no endpoint.'
                       : 'The app URL becomes available once the service is running…'}
@@ -1107,7 +1107,7 @@ const ManageServicePage: React.FC = () => {
                     <div className={`chip chipGlass ${styles.endpointChip}`}>Base URL</div>
                     <span className={styles.endpointPath}>{baseUrl}</span>
                     <span className={styles.endpointDescription}>
-                      OpenAI-compatible — append a route from the references above
+                      OpenAI-compatible. Append a route from the references above
                     </span>
                     {/* CopyButton takes no click callback, so wrap it — analytics only, copy
                         behaviour is unchanged. */}
@@ -1150,7 +1150,7 @@ const ManageServicePage: React.FC = () => {
             ) : (
               <div className="textSecondary">
                 {isExpired
-                  ? 'This session has ended — the endpoints are no longer available.'
+                  ? 'This session has ended, so the endpoints are no longer available.'
                   : isRunning
                     ? 'Service is running but exposed no endpoint.'
                     : 'Endpoints become available once the service is running…'}

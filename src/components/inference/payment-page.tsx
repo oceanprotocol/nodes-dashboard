@@ -365,7 +365,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // flow as the initial start.
   const prolongService = useCallback(async () => {
     if (!targetServiceId || !selectedEnv || !selectedToken || !account.address) {
-      setLaunchError('Selection incomplete — missing service, environment, token or wallet.');
+      setLaunchError('Selection incomplete: missing service, environment, token or wallet.');
       captureError('inference_service_prolong_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
@@ -400,7 +400,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     const envMin = prolongEnv.minJobDuration;
     if (envMin && jobDurationSeconds < envMin) {
       setLaunchError(
-        `This environment charges a ${formatDuration(envMin)} minimum per top-up — a shorter extension costs the same. Pick a longer one.`
+        `This environment charges a ${formatDuration(envMin)} minimum per top-up, so a shorter extension costs the same. Pick a longer one.`
       );
       captureError('inference_service_prolong_failed', new Error('duration_below_env_min'), {
         stage: 'duration_bounds',
@@ -495,7 +495,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !account.address && 'wallet',
         !targetServiceId && 'service id',
       ].filter(Boolean);
-      setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
       captureError('inference_service_relaunch_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
@@ -567,7 +567,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !selectedToken && 'payment token',
         !account.address && 'wallet',
       ].filter(Boolean);
-      setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
       captureError('inference_service_start_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
@@ -696,7 +696,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !selectedToken && 'payment token',
         !account.address && 'wallet',
       ].filter(Boolean);
-      setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
       captureError('inference_service_start_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
@@ -822,7 +822,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         !account.address && 'wallet',
         !targetServiceId && 'service id',
       ].filter(Boolean);
-      setLaunchError(`Selection incomplete — missing: ${missing.join(', ')}.`);
+      setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
       captureError('inference_service_relaunch_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
