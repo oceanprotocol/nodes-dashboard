@@ -118,7 +118,7 @@ function resourceRows(template: AppTemplate): ResourceRow[] {
 
 /**
  * "What's included" details for a picked app template: what the app is, how it's used (browser UI vs
- * HTTP API), its configurable env vars, the resources it asks for, the session length, and the
+ * HTTP API), the resources it asks for, the session length, and the
  * environments that can currently run it. Each env is a read-only card with its own Continue → payment (the resources step is
  * skipped); "Advanced setup" hands off to the full env picker instead. Selection lives in the parent —
  * closing this commits nothing.
@@ -132,7 +132,10 @@ function resourceRows(template: AppTemplate): ResourceRow[] {
  * - **modelPack** — the manifest promoted into that same slot, annotated but visibly quieter, plus
  *   the absence of a workflow said out loud.
  * - **service** — plain prose and no panel at all. A bordered panel is this modal's way of saying
- *   "assets are included", so an empty app must not have one.
+ *   "assets are included", so an empty app must not have one. Its configurable env vars are left out
+ *   here too: a bare image's variables are the whole of its configuration and belong on the config
+ *   step where they're actually set, not as a chip row in the catalogue. Templates still list theirs
+ *   under "Good to know", where they annotate a preloaded workflow rather than stand in for it.
  */
 const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   template,
@@ -458,7 +461,6 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             running.
           </div>
         </div>
-        {renderEnvVars(tpl)}
       </div>
     );
   };
