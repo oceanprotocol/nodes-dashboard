@@ -49,7 +49,18 @@ type TemplateDetailsModalProps = {
   /** Hand off to the full env picker (resources step) instead of launching from here. */
   onAdvanced: () => void;
   /** Continue from a specific env card → commit that env (with its fee token + GPU units) → payment. */
-  onContinue: (resolvedEnv: ResolvedTemplateEnv, token: SelectedToken, gpuSelection: GpuSelection) => void;
+  /**
+   * `environment` is the copy the card actually priced and validated the pick against — the node's
+   * own, freshly re-read at click time. Forwarded so the flow stores and launches from the same
+   * availability the user was shown; the entry's own `env.environment` is the resolver's older
+   * snapshot, and committing that re-introduced the contention this whole path exists to catch.
+   */
+  onContinue: (
+    resolvedEnv: ResolvedTemplateEnv,
+    token: SelectedToken,
+    gpuSelection: GpuSelection,
+    environment: ComputeEnvironment
+  ) => void;
 };
 
 /** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). */
@@ -217,7 +228,9 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             gpuSelection={entry.env.gpuSelection}
             key={`${entry.env.nodeInfo.id}-${entry.env.environment.id}`}
             nodeInfo={entry.env.nodeInfo}
-            onSelect={(address, symbol, gpuSelection) => onContinue(entry, { address, symbol }, gpuSelection)}
+            onSelect={(address, symbol, gpuSelection, environment) =>
+              onContinue(entry, { address, symbol }, gpuSelection, environment)
+            }
             sizing={entry.env.sizing}
           />
         ))}

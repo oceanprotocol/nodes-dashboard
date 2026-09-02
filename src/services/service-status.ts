@@ -128,6 +128,32 @@ export function isProlongBlocked(status: ServiceStatusNumber | undefined): boole
   return status === undefined || PROLONG_BLOCKED_STATUSES.has(status);
 }
 
+/**
+ * Statuses where the service's FIRST payment has not been claimed YET, so a missing `claimTx` is
+ * expected rather than evidence the service was never paid for.
+ *
+ * This is the node's whole pre-claim pipeline, not just the escrow steps: ocean-node's startService
+ * background flow (compute_engine_docker.ts, "3. PAYMENT") claims the lock only AFTER the image step,
+ * in this order — Starting → Locking → PullImage/BuildImage → Claiming → claimLock → Running. So every
+ * status up to and including `Claiming` legitimately has an empty claimTx.
+ *
+ * Deliberately EXCLUDES PullImageFailed / BuildImageFailed: when the image step fails the node cancels
+ * the lock and sets `cancelTx`, which means the payment really was refunded — there the "never claimed"
+ * message is correct.
+ */
+const PAYMENT_IN_FLIGHT_STATUSES = new Set<ServiceStatusNumber>([
+  ServiceStatusNumber.Starting,
+  ServiceStatusNumber.Locking,
+  ServiceStatusNumber.PullImage,
+  ServiceStatusNumber.BuildImage,
+  ServiceStatusNumber.Claiming,
+]);
+
+/** True while the service's initial escrow payment is still being locked/claimed. */
+export function isPaymentInFlight(status: ServiceStatusNumber | undefined): boolean {
+  return status !== undefined && PAYMENT_IN_FLIGHT_STATUSES.has(status);
+}
+
 // ── Compute-job status (ocean-node src/@types/C2D/C2D.ts: C2DStatusNumber / C2DStatusText) ──
 // The lib doesn't export the C2D enum, so map the raw codes here. Same three visual kinds as
 // services: running (algorithm executing), pending (queued/provisioning/publishing …), failed, dead.

@@ -8,6 +8,7 @@ import {
   resolveConstraints,
   ResourceRequest,
 } from '@/utils/constraints';
+import { billableMinutes } from '@/utils/duration';
 import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResource } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
@@ -18,7 +19,7 @@ export type MergedGpu = {
   description?: string;
   /** Total units of this type the environment advertises (the physical ceiling). */
   max: number;
-  /** Units of this type actually free right now (max − inUse). The pickable ceiling. */
+  /** Units of this type actually free right now (getAvailableAmount). The pickable ceiling. */
   available: number;
   /** Per-unit fee for this type (units of one description share a fee — the first id's). */
   fee: number;
@@ -56,19 +57,11 @@ export type ResourceSizing =
   | ({ mode: 'exact' } & ResourceAmounts);
 
 /**
- * Free units the node will actually grant for a fungible resource. The node's availability gate
- * rejects a request above `total - inUse` (the env aggregate ceiling), while `max` is only the
- * per-job ceiling — so the bookable amount is bounded by the SMALLER of the two, minus what's in
- * use. Ceiling at `max - inUse` alone would let a pinned amount pass client-side and get rejected
- * at serviceStart after the escrow deposit tx (wasted gas). See ocean-node
- * checkIfResourcesAreAvailable (fungible gate: `total - inUse < amount`).
+ * Free units the node will actually grant for a fungible resource: `min(max, total - inUse)` — the
+ * env aggregate gate (`total - inUse < amount` → reject) AND the per-job `max` ceiling must both
+ * hold. Aliased to the shared helper so every flow uses one definition; see @/utils/resources.
  */
-function grantableAmount(resource: Pick<ComputeResource, 'total' | 'max' | 'inUse'>): number {
-  const max = resource.max ?? 0;
-  const total = resource.total && resource.total > 0 ? resource.total : max;
-  const ceiling = Math.min(total, max);
-  return Math.max(0, ceiling - (resource.inUse ?? 0));
-}
+const grantableAmount = getAvailableAmount;
 
 /**
  * Capacity ONE job can reach: the per-job `max` caps `total` when it's set lower (e.g. a free-compute
@@ -82,16 +75,49 @@ function jobCapacityOf(resource: Pick<ComputeResource, 'total' | 'max'> | undefi
 }
 
 /**
+ * The proportional slice of a shared resource for `units` out of `totalGpus`, FLOORED to a whole
+ * amount.
+ *
+ * Flooring (rather than rounding) is what keeps the last free GPU bookable. `Math.round` lets a
+ * slice claim MORE than its share — 7 cores over 2 GPUs rounds 3.5 up to 4 — so the first booking
+ * eats into the second's share and the remaining 3 cores no longer cover a "slice"; the unit budget
+ * then floors to 0 and the free GPU can't be selected at all. Flooring is subadditive here
+ * (`sum of floor(cap·uᵢ/T) <= cap` whenever `sum uᵢ <= T`), so slices of disjoint unit picks can
+ * never overrun capacity and every free unit stays bookable — at the cost of leaving at most T−1
+ * units of a resource unallocated.
+ *
+ * A resource that exists is never sliced to 0 (the node rejects an amount:0 request), and an env
+ * with no GPUs isn't fractioned at all — it's booked whole.
+ */
+function sliceFor(
+  resource: Pick<ComputeResource, 'total' | 'max'> | undefined,
+  units: number,
+  totalGpus: number
+): number {
+  const capacity = jobCapacityOf(resource);
+  if (capacity <= 0) {
+    return 0;
+  }
+  if (totalGpus <= 0) {
+    return capacity;
+  }
+  if (units <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.floor((capacity * units) / totalGpus));
+}
+
+/**
  * Resolve one shared resource (CPU/RAM/disk) to the amount to book, clamped to the env's real
  * constraints — the same way run-job derives a package slice from a GPU pick (see select-resources.tsx).
  * `target` is the desired amount before clamping:
- *   - fraction slice → `jobCapacityOf(resource) * fraction` (proportional, the custom-flow default)
+ *   - fraction slice → `sliceFor(resource, units, totalGpus)` (proportional, the custom-flow default)
  *   - pinned         → the fixed package amount
  * `floor` raises the lower bound above the env's own `min` (the advanced-handoff package minimum);
  * omit it for pinned/plain-fraction.
  *
  * Clamping rules (shared by every mode):
- *   - Upper bound is what's currently AVAILABLE (min(total, max) − inUse), not the physical `max`:
+ *   - Upper bound is what's currently AVAILABLE (min(max, total − inUse)), not the physical `max`:
  *     another tenant may hold part of the resource and the node rejects a serviceStart asking for
  *     more than free. Available wins over min/floor — an exhausted resource can't be met, and the
  *     card blocks selection in that case (gpuExhausted / maxUnitsByResources <= 0).
@@ -123,6 +149,13 @@ function clampResource(
     return Math.min(min, available);
   }
   return value;
+}
+
+/** Collapse a list of per-unit GPU ids into `{ id, amount }` requests, the shape the node reads. */
+function toGpuRequests(unitIds: string[]): ResourceRequest[] {
+  const amounts = new Map<string, number>();
+  unitIds.forEach((id) => amounts.set(id, (amounts.get(id) ?? 0) + 1));
+  return [...amounts].map(([id, amount]) => ({ id, amount }));
 }
 
 /**
@@ -162,7 +195,7 @@ export function drawUnitsAcrossTypes(
  * When an environment has no GPUs, the fraction is 1 (the whole environment is used).
  *
  * The selection is bounded by what's actually AVAILABLE, not just the physical max: per-type units
- * are capped at that type's free units (max − inUse), and the overall unit count is further capped so
+ * are capped at that type's free units (min(max, total − inUse)), and the overall unit count is further capped so
  * the proportional CPU/RAM/disk slice never exceeds those resources' free amounts. A user can't book
  * more than the node can currently give — the node would reject the serviceStart otherwise.
  */
@@ -185,16 +218,29 @@ const useInferenceAllocation = ({
   sizing?: ResourceSizing;
   durationSeconds: number;
 }) => {
-  const { cpu, cpuAvailable, cpuFee, disk, diskAvailable, diskFee, gpus, gpusAvailable, gpuFees, ram, ramAvailable, ramFee } =
-    useEnvResources({
-      environment,
-      freeCompute: false,
-      tokenAddress,
-    });
+  const {
+    cpu,
+    cpuAvailable,
+    cpuFee,
+    disk,
+    diskAvailable,
+    diskFee,
+    gpus,
+    gpusAvailable,
+    gpuFees,
+    minJobDurationSeconds,
+    ram,
+    ramAvailable,
+    ramFee,
+  } = useEnvResources({
+    environment,
+    freeCompute: false,
+    tokenAddress,
+  });
 
   /**
    * Merge units of the same description into one type, summing both the physical ceiling (max) and the
-   * units currently free (gpusAvailable, i.e. max − inUse) across every id of that type. The fee is the
+   * units currently free (gpusAvailable, i.e. min(max, total − inUse)) across every id of that type. The fee is the
    * first id's — units of one description share a fee, so no averaging needed.
    */
   const mergedGpus = useMemo<MergedGpu[]>(() => {
@@ -230,7 +276,7 @@ const useInferenceAllocation = ({
   const diskId = disk?.id ?? 'disk';
 
   // Every resource that participates in constraint math, each `max` narrowed to what's currently
-  // AVAILABLE (max − inUse) — a raised floor can then never exceed what a job could actually get.
+  // AVAILABLE (min(max, total − inUse)) — a raised floor can then never exceed what a job could actually get.
   // env-resources yields the @/types ComputeResource shape; the hook's other math uses the
   // structurally-identical @oceanprotocol/lib alias, hence the cast.
   const availResources = useMemo<LocalComputeResource[]>(() => {
@@ -261,54 +307,80 @@ const useInferenceAllocation = ({
     return b;
   }, [cpuId, ramId, diskId, cpu, ram, disk, cpuAvailable, ramAvailable, diskAvailable, gpus, gpusAvailable, packageFloor]);
 
-  // GPU resource ids that still have a free unit, in declared order — the order the unit-cap loop and
-  // the per-selection id mapping both draw from, so a chosen count maps deterministically to ids.
-  const orderedFreeGpuIds = useMemo(
-    () => gpus.filter((r) => (gpusAvailable[r.id] ?? 0) > 0).map((r) => r.id),
+  // One entry per FREE GPU UNIT, in declared order — the unit-cap loop and the per-selection id
+  // mapping both draw from this, so a chosen unit count maps deterministically onto ids. An id is
+  // repeated once per free unit: a POOLED id (one resource advertising several units, which
+  // buildGpuRequests already handles by sending `amount: N`) would otherwise count as a single unit
+  // here and cap the whole selection at one GPU, leaving the rest of the pool unselectable.
+  const orderedFreeGpuUnits = useMemo(
+    () => gpus.flatMap((r) => Array.from({ length: gpusAvailable[r.id] ?? 0 }, () => r.id)),
     [gpus, gpusAvailable]
   );
 
   /**
-   * A GPU unit's proportional share of each shared resource is (capacity / totalGpus).
-   * Bound how many units the free CPU/RAM/disk can back: another tenant can leave GPUs free but too little shared
-   * capacity to run them, so this can be lower than the count of free GPU units. No-GPU envs are one whole unit.
+   * Bound how many GPU units the free CPU/RAM/disk can actually back: another tenant can leave GPUs
+   * free but too little shared capacity to run them, so this can be lower than the count of free GPU
+   * units. No-GPU envs are one whole unit.
+   *
+   * Asks the question the allocation itself answers — "what would a `u`-unit pick REQUEST, and is
+   * that much free?" — instead of dividing availability by an idealised per-unit share. Two things
+   * that division got wrong, both leaving a free GPU unselectable:
+   *  - it demanded a full ROUNDED share per unit, so any capacity that doesn't divide evenly across
+   *    the GPUs (7 cores over 2) made the last unit look unaffordable (see sliceFor);
+   *  - it applied to `pinned` sizing too, where the booked amounts are FIXED and don't scale with
+   *    units at all — a quick-start package that comfortably fits was still rejected.
+   * Largest feasible `u` wins, so the search runs downwards from the full unit count.
    */
   const maxUnitsByResources = useMemo(() => {
     if (totalGpus <= 0) {
       return 1;
     }
-    const unitsThatFit = (available: number, resource: ComputeResource | undefined): number => {
-      // Per-unit share is based on JOB-REACHABLE capacity (min(total, max)), matching the slice
-      // clampResource derives — dividing the full `total` would understate the share and over-count.
-      const per = jobCapacityOf(resource) / totalGpus;
-      if (per <= 0) {
-        return totalGpus; // resource doesn't constrain (none required per unit)
-      }
-      return Math.floor(available / per);
+    const shared: [ComputeResource | undefined, number, keyof ResourceAmounts][] = [
+      [cpu, cpuAvailable, 'cpu'],
+      [ram, ramAvailable, 'ram'],
+      [disk, diskAvailable, 'disk'],
+    ];
+    // What a `units` pick would ask the node for, before availability clamps it: the pinned amount
+    // (fixed) or the floored proportional slice, raised to the env min and the package floor.
+    const needed = (resource: ComputeResource | undefined, key: keyof ResourceAmounts, units: number) => {
+      const target = sizing?.mode === 'pinned' ? Math.round(sizing[key]) : sliceFor(resource, units, totalGpus);
+      return Math.max(target, resource?.min ?? 0, packageFloor?.[key] ?? 0);
     };
-    return Math.min(
-      unitsThatFit(cpuAvailable, cpu),
-      unitsThatFit(ramAvailable, ram),
-      unitsThatFit(diskAvailable, disk)
-    );
-  }, [totalGpus, cpu, cpuAvailable, ram, ramAvailable, disk, diskAvailable]);
+    for (let u = totalGpus; u >= 1; u--) {
+      if (shared.every(([resource, available, key]) => !resource || needed(resource, key, u) <= available)) {
+        return u;
+      }
+    }
+    return 0;
+  }, [totalGpus, cpu, cpuAvailable, ram, ramAvailable, disk, diskAvailable, sizing, packageFloor]);
 
-  // Constraint-aware GPU unit cap: the largest whole unit count whose proportional CPU/RAM/disk slice —
-  // clamped into the constraint envelope exactly as `allocation` builds it — still satisfies every
+  // Constraint-aware GPU unit cap: the largest whole unit count whose CPU/RAM/disk amounts — sized by the
+  // active sizing mode and clamped into the constraint envelope exactly as `allocation` builds them —
+  // still satisfies every
   // constraint within availability. Mirrors run-job's maxUnitsByConstraints. No GPUs / no constraints →
   // unbounded (the resource cap governs). Must clamp before validating: a raw proportional slice can
   // exceed a constraint ceiling that the real derivation trims.
   const maxUnitsByConstraints = useMemo(() => {
-    if (totalGpus <= 0 || orderedFreeGpuIds.length === 0) {
+    if (totalGpus <= 0 || orderedFreeGpuUnits.length === 0) {
       return Number.POSITIVE_INFINITY;
     }
+    // Same sizing-mode branches `allocation` books with: a pinned package's amounts are FIXED and don't
+    // scale with units, and a floor package raises the slice to its per-resource min. Validating a bare
+    // proportional slice instead tests a selection the flow never requests, and rejects free GPU units a
+    // pinned package comfortably fits (the same bug maxUnitsByResources guards against).
+    const floorAmounts = sizing?.mode === 'floor' ? sizing : undefined;
+    const rawFor = (resource: ComputeResource | undefined, key: keyof ResourceAmounts, units: number) => {
+      if (sizing?.mode === 'pinned') {
+        return clampResource(resource, sizing[key], true, sizing.floor?.[key]);
+      }
+      return clampResource(resource, sliceFor(resource, units, totalGpus), true, floorAmounts?.[key]);
+    };
     let feasible = 0;
-    for (let u = 1; u <= orderedFreeGpuIds.length; u++) {
-      const gpuSel = orderedFreeGpuIds.slice(0, u).map((id) => ({ id, amount: 1 }));
-      const frac = u / totalGpus;
-      const rawCpu = clampResource(cpu, jobCapacityOf(cpu) * frac, true);
-      const rawRam = clampResource(ram, jobCapacityOf(ram) * frac, true);
-      const rawDisk = clampResource(disk, jobCapacityOf(disk) * frac, true);
+    for (let u = 1; u <= orderedFreeGpuUnits.length; u++) {
+      const gpuSel = toGpuRequests(orderedFreeGpuUnits.slice(0, u));
+      const rawCpu = rawFor(cpu, 'cpu', u);
+      const rawRam = rawFor(ram, 'ram', u);
+      const rawDisk = rawFor(disk, 'disk', u);
       const b = deriveBounds(
         availResources,
         { [cpuId]: rawCpu, [ramId]: rawRam, [diskId]: rawDisk, ...Object.fromEntries(gpuSel.map((g) => [g.id, g.amount])) },
@@ -329,7 +401,7 @@ const useInferenceAllocation = ({
       feasible = u;
     }
     return feasible;
-  }, [totalGpus, orderedFreeGpuIds, cpu, ram, disk, availResources, baseBounds, cpuId, ramId, diskId]);
+  }, [totalGpus, orderedFreeGpuUnits, cpu, ram, disk, sizing, availResources, baseBounds, cpuId, ramId, diskId]);
 
   // Combined budget for the COMBINED unit selection: shared-resource fit AND constraint feasibility.
   const unitBudget = Math.min(maxUnitsByResources, maxUnitsByConstraints);
@@ -373,8 +445,6 @@ const useInferenceAllocation = ({
     [selectedByKey]
   );
 
-  const fraction = totalGpus > 0 ? selectedTotal / totalGpus : 1;
-
   // Concrete GPU-id requests for the current selection. `selectedByKey` is keyed by description; map
   // each description's count onto its first-N available resource ids (declared order), so the request
   // the constraint model sees uses the same ids the node keys constraints on.
@@ -385,13 +455,15 @@ const useInferenceAllocation = ({
       if (count <= 0) {
         return;
       }
-      const idsForType = gpus
-        .filter((r) => (r.description || 'GPU') === g.key && (gpusAvailable[r.id] ?? 0) > 0)
-        .map((r) => r.id);
-      idsForType.slice(0, count).forEach((id) => requests.push({ id, amount: 1 }));
+      // Draw `count` free UNITS of this type (an id repeated once per free unit), then collapse them
+      // into per-id amounts — the same draw buildGpuRequests performs when it builds the real request.
+      const unitsOfType = orderedFreeGpuUnits.filter(
+        (id) => (gpus.find((r) => r.id === id)?.description || 'GPU') === g.key
+      );
+      requests.push(...toGpuRequests(unitsOfType.slice(0, count)));
     });
     return requests;
-  }, [mergedGpus, selectedByKey, gpus, gpusAvailable]);
+  }, [mergedGpus, selectedByKey, gpus, orderedFreeGpuUnits]);
 
   // Size the shared CPU/RAM/disk, then clamp each to the env, then settle cross-resource constraints.
   // GPUs are always driven by the unit selection above — only the shared resources are sized here.
@@ -419,7 +491,7 @@ const useInferenceAllocation = ({
         // is max(envMin, packageMin) — the more aggressive of the two. Available still wins on top.
         return clampResource(resource, sizing[key], true, sizing.floor?.[key]);
       }
-      return clampResource(resource, jobCapacityOf(resource) * fraction, true, amounts?.[key]);
+      return clampResource(resource, sliceFor(resource, selectedTotal, totalGpus), true, amounts?.[key]);
     };
     const floor = sizing?.mode === 'floor' ? sizing : undefined;
     const rawCpu = clampSlice(cpu, floor, 'cpu');
@@ -456,7 +528,7 @@ const useInferenceAllocation = ({
       ram: clampNum(amount(ramId, rawRam), rb.min, rb.max),
       disk: clampNum(amount(diskId, rawDisk), db.min, db.max),
     };
-  }, [cpu, ram, disk, fraction, sizing, gpuIdRequests, availResources, baseBounds, cpuId, ramId, diskId]);
+  }, [cpu, ram, disk, selectedTotal, totalGpus, sizing, gpuIdRequests, availResources, baseBounds, cpuId, ramId, diskId]);
 
   // The exact request the node would receive, checked against the full constraint model (covers
   // type-group / aggregate cases per-resource bounds can't express). Null when the node would accept.
@@ -482,8 +554,23 @@ const useInferenceAllocation = ({
     const diskTotal = (diskFee ?? 0) * allocation.disk;
     // GPUs are priced by the exact units selected, not the blended fraction.
     const gpuTotal = mergedGpus.reduce((sum, g) => sum + g.fee * (selectedByKey[g.key] ?? 0), 0);
-    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * (durationSeconds / 60);
-  }, [cpuFee, allocation.cpu, allocation.ram, allocation.disk, ramFee, diskFee, mergedGpus, durationSeconds, selectedByKey]);
+    // Whole billable minutes, floored at the env's minJobDuration — the node's own formula. Pricing
+    // this as a plain `durationSeconds / 60` under-quotes any window below the env minimum (a short
+    // Prolong) or any non-whole-minute window, and the escrow deposit sized from that quote is then
+    // too small for the node's createLock ("does not have enough funds"). See billableMinutes.
+    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * billableMinutes(durationSeconds, minJobDurationSeconds);
+  }, [
+    cpuFee,
+    allocation.cpu,
+    allocation.ram,
+    allocation.disk,
+    ramFee,
+    diskFee,
+    mergedGpus,
+    durationSeconds,
+    minJobDurationSeconds,
+    selectedByKey,
+  ]);
 
   return {
     mergedGpus,

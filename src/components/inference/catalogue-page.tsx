@@ -13,6 +13,7 @@ import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inf
 import { SelectedToken } from '@/context/run-job-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
+import { ComputeEnvironment } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, isBundle } from '@/types/templates';
 import { useRouter } from 'next/router';
@@ -79,11 +80,19 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
    * from overrides so it doesn't depend on setState timing, and carries the template's pinned
    * CPU/RAM/disk so payment books that allocation (a bundle's disk floor covers its weights).
    */
-  const continueToPayment = (entry: ResolvedTemplateEnv, token: SelectedToken, gpuSelection: GpuSelection) => {
+  const continueToPayment = (
+    entry: ResolvedTemplateEnv,
+    token: SelectedToken,
+    gpuSelection: GpuSelection,
+    // The env the card priced and validated this pick against — the node's own, re-read at click time.
+    // `entry.env.environment` is the resolver's older snapshot, so committing that carried a slice the
+    // node may already have handed to someone else into payment and launch.
+    environment: ComputeEnvironment
+  ) => {
     if (!openTemplate) {
       return;
     }
-    const env = { ...entry.env, gpuSelection };
+    const env = { ...entry.env, gpuSelection, environment };
     setSelectedTemplate(openTemplate);
     setSelectedEnv(env);
     setSelectedToken(token);

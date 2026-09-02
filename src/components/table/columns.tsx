@@ -400,6 +400,22 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
 
 // Amount paid, rendered as "<amount> <TOKEN>". The record stores the payment token by address, so the
 // symbol is recovered from the chain's token list; an unknown token falls back to the bare amount.
+/**
+ * Everything actually paid for a service: the initial start payment plus one entry per successful
+ * SERVICE_EXTEND. Reading `payment.cost` alone understated every prolonged service — a 10-minute
+ * service extended to 20 showed the 10-minute price against a "20 m" duration.
+ *
+ * Costs come off the wire as string|number, so each is coerced and non-numeric entries skipped rather
+ * than poisoning the sum with NaN. Returns undefined when there is nothing to show, which is what
+ * renderAmountPaid treats as "-" — distinct from a real 0.
+ */
+function totalAmountPaid(payment?: { cost?: string | number }, extendPayments?: { cost?: string | number }[]) {
+  const amounts = [payment?.cost, ...(extendPayments ?? []).map((extend) => extend?.cost)]
+    .map((cost) => (cost === undefined || cost === null || cost === '' ? NaN : Number(cost)))
+    .filter((cost) => Number.isFinite(cost));
+  return amounts.length > 0 ? amounts.reduce((sum, cost) => sum + cost, 0) : undefined;
+}
+
 function renderAmountPaid(cost?: string | number, token?: string) {
   if (cost === undefined || cost === null || cost === '') {
     return '-';
@@ -720,7 +736,9 @@ export function modelIdFromJob(job: ServiceJob): string | null {
 // HF model (the app rides in the template's own image/command), so the row names the app instead.
 // `templatePending` marks a modelless row whose template lookup is still in flight — it shimmers
 // rather than claiming "Unknown model" for a name that's about to arrive.
-export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: string; templatePending?: boolean }>[] =
+export const existingServicesColumns: GridColDef<
+  ServiceJob & { templateName?: string; templatePending?: boolean; templateNameApproximate?: boolean }
+>[] =
   [
     {
       field: 'model',
@@ -732,8 +750,16 @@ export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: s
         if (row.templateName) {
           // Template names read as "vLLM — two lite models on one small GPU": headline before the dash,
           // the rest as the caption, so the cell keeps the same two-line shape as a model row.
+          //
+          // An approximate name is already just the family headline (see appFamilyName) and carries no
+          // caption to split off — the variant is unknown, so the row says the app and stops there.
           const [headline, ...rest] = row.templateName.split(/\s+[—–-]\s+/);
-          return <ModelCell subtitle={rest.join(' — ') || undefined} title={headline} />;
+          return (
+            <ModelCell
+              subtitle={row.templateNameApproximate ? undefined : rest.join(' — ') || undefined}
+              title={headline}
+            />
+          );
         }
         const modelId = modelIdFromJob(row);
         if (modelId) {
@@ -786,15 +812,29 @@ export const existingServicesColumns: GridColDef<ServiceJob & { templateName?: s
       sortable: true,
       renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
     },
-    {
-      field: 'payment.cost',
-      filterable: false,
-      flex: 1,
-      headerName: 'Amount paid',
-      sortable: true,
-      valueGetter: (_value, row) => row.payment?.cost,
-      renderCell: ({ row }) => renderAmountPaid(row.payment?.cost, row.payment?.token),
-    },
+    // "Amount paid" is hidden until the backend keeps the cost in step with the duration.
+    //
+    // This row is served entirely by the incentive-backend (see existing-services-table's single GET
+    // to /owners/:address/services) and `payment.cost` there is written once, at launch. A prolong
+    // pays again through SERVICE_EXTEND, and the monitor's reconcile refreshes `duration` from the
+    // node — but nothing updates the cost, and the backend records no `extendPayments` at all. So a
+    // 10-minute service extended to 20 rendered "20 m" beside the 10-minute price: understated, and
+    // wrong in the direction that matters.
+    //
+    // Nothing client-side can repair that (the summing helper below is kept for whenever the field
+    // arrives), so the honest option is to show no figure rather than a low one. Restore this column
+    // once the backend updates the cost alongside the duration — ideally recording each extension the
+    // way /services/:serviceId/started and /restarted already record their events.
+    // {
+    //   field: 'payment.cost',
+    //   filterable: false,
+    //   flex: 1,
+    //   headerName: 'Amount paid',
+    //   sortable: true,
+    //   // Start payment PLUS every extension — a prolonged service has paid more than `payment.cost`.
+    //   valueGetter: (_value, row) => totalAmountPaid(row.payment, row.extendPayments),
+    //   renderCell: ({ row }) => renderAmountPaid(totalAmountPaid(row.payment, row.extendPayments), row.payment?.token),
+    // },
   ];
 
 // An env id is a hyphen-joined list of addresses; render each shortened, joined with ' - '.

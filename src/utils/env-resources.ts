@@ -1,5 +1,6 @@
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
-import { ComputeEnvironment, ComputeResource } from '@/types/environments';
+import { ComputeEnvironment } from '@/types/environments';
+import { getAvailableAmount } from '@/utils/resources';
 
 /**
  * Resource math shared by the flows that auto-match an environment to a declared requirement set —
@@ -15,13 +16,9 @@ export type DeclaredRequirement = {
   recommended?: number;
 };
 
-/** Units of a fungible/GPU resource the env can hand ONE job right now: min(total, max) − inUse,
- *  mirroring the allocation hook's grantableAmount. */
-export function grantable(resource: Pick<ComputeResource, 'total' | 'max' | 'inUse'>): number {
-  const max = resource.max ?? 0;
-  const total = resource.total && resource.total > 0 ? resource.total : max;
-  return Math.max(0, Math.min(total, max) - (resource.inUse ?? 0));
-}
+/** Units of a fungible/GPU resource the env can hand ONE job right now: min(max, total − inUse),
+ *  the node's own gate. Single definition in @/utils/resources so every flow agrees. */
+export const grantable = getAvailableAmount;
 
 /** Sum grantable units across every resource of a `type` (e.g. all GPUs). */
 export function grantableByType(environment: ComputeEnvironment, type: string): number {

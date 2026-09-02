@@ -871,18 +871,23 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="lg" variant="glass-shaded">
       <div>
-        <button aria-expanded={open} className={styles.head} onClick={() => setOpen(!open)} type="button">
+        {/* The toggle lives on the Button, not on a wrapper: a <button> around a <button> is invalid
+            HTML, the inner one swallowed the outer's clicks, and assistive tech saw two nested
+            controls where there is one action. */}
+        <div className={styles.head}>
           <h3 className={styles.headName}>{getModelShortName(modelId)}</h3>
           <Button
+            aria-expanded={open}
             color="accent1"
             contentBefore={open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            onClick={() => setOpen(!open)}
             size="sm"
             type="button"
             variant="transparent"
           >
             {open ? 'Hide' : 'Parameters'}
           </Button>
-        </button>
+        </div>
         {reloadStatus === 'loading' ? (
           <div className={cx(styles.notice, styles.noticeRow)}>
             <CircularProgress size={16} />

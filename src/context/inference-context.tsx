@@ -25,7 +25,7 @@ import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/envir
 import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { AppTemplate } from '@/types/templates';
 import axios from 'axios';
-import { useRouter } from 'next/router';
+import { NextRouter, useRouter } from 'next/router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 /** Selection encoded as individual query params, carried forward with `...router.query` (see inference-url.ts). */
@@ -153,12 +153,26 @@ function readStoredHfToken(): string {
   }
 }
 
+/**
+ * The template a URL names, from either place it can appear.
+ *
+ * `template=` is what buildSelectionQuery carries between steps — but every template step also lives
+ * under `/inference/services/[templateId]/…`, and the Pages Router merges that dynamic segment into
+ * `router.query` as `templateId`. Reading only the query param meant a URL that named its template in
+ * the path alone — a shared link, a typed URL, an in-flow redirect that dropped the query — hydrated
+ * to no template at all, and the step guards then bounced the user out of the flow to a catalogue.
+ * The path is the more authoritative of the two (it is what routed the request), so it wins.
+ */
+function templateIdOf(query: NextRouter['query']): string | null {
+  return firstQueryValue(query.templateId) ?? firstQueryValue(query.template) ?? null;
+}
+
 const InferenceContext = createContext<InferenceContextType | undefined>(undefined);
 
 export const InferenceProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   // Templates are served by the node; restoreTemplate fetches them, so it waits on the P2P node.
-  const { getServiceTemplates, isReady: p2pReady } = useP2P();
+  const { getServiceTemplates, isReady: p2pReady, error: p2pError } = useP2P();
   const [selectedModels, setSelectedModels] = useState<HuggingFaceModel[]>([]);
   const [selectedEnv, setSelectedEnv] = useState<SelectedInferenceEnv | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
@@ -169,7 +183,18 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
   const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
   const [templateEnvValues, setTemplateEnvValues] = useState<Record<string, string>>({});
-  const [hydrateFromUrlFinished, setHydrateFromUrlFinished] = useState(false);
+  /**
+   * The URL signature the context state currently DESCRIBES — not a "did hydration run" boolean.
+   *
+   * `hydrateFromUrlFinished` is derived from it (below) by comparing against the signature of the URL
+   * being rendered right now, which makes it impossible for a step guard to act on a finished flag
+   * that belongs to the previous page. It used to be plain state flipped back to false inside this
+   * Provider's own effect — i.e. one commit AFTER the page that reads it has already rendered and
+   * queued its bounce guard. A guard's closure captured `true` together with a selection that hadn't
+   * been rebuilt for the new URL yet, so any navigation that changed the signature (Edit / Prolong
+   * adding `template=`) bounced out of the flow before hydration could restore anything.
+   */
+  const [hydratedSignature, setHydratedSignature] = useState<string | null>(null);
   // True when the URL described a selection we couldn't fully rebuild (HF/env fetch failed or a
   // model/env is gone). Lets guards distinguish that from "no selection in URL" and offer a retry.
   const [hydrationFailed, setHydrationFailed] = useState(false);
@@ -183,6 +208,31 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   // captured — prevents a retry against the same signature, or an unrelated re-render, from
   // re-firing the same failure event.
   const hydrationFailedTrackedRef = useRef<string | null>(null);
+
+  /**
+   * The identity of the selection a URL describes. Only these params identify a *different*
+   * selection; everything else (gpus/res/token/params/duration/bucket) is a tweak within one, so it
+   * must not force a re-hydration that would refetch models and the environment on every step.
+   */
+  const signatureOf = useCallback((query: NextRouter['query']): string => {
+    const sigPart = (v: string | string[] | undefined) => firstQueryValue(v) ?? '';
+    return [
+      sigPart(query.models),
+      sigPart(query.peerId),
+      sigPart(query.env),
+      sigPart(query.serviceId),
+      templateIdOf(query) ?? '',
+    ].join('|');
+  }, []);
+  // The signature of the URL being rendered right now. Before the router is ready the query is empty
+  // and would produce a signature that describes nothing, so it stays null until then.
+  const currentSignature = router.isReady ? signatureOf(router.query) : null;
+  /**
+   * Whether the context selection describes the URL currently being rendered. Derived, so it is
+   * `false` from the very first render of a navigation that changed the selection — never one commit
+   * late (see hydratedSignature).
+   */
+  const hydrateFromUrlFinished = currentSignature !== null && hydratedSignature === currentSignature;
 
   // Persist the HF token to sessionStorage on change so a refresh mid-flow doesn't force the user to
   // re-enter it for gated models. The token stays out of the URL (it's a secret).
@@ -484,7 +534,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
 
     // Restore the selected app template (Templates flow) from its id. Best-effort, like models/env.
     const restoreTemplate = async (): Promise<boolean> => {
-      const templateId = firstQueryValue(q.template);
+      const templateId = templateIdOf(q);
       if (!templateId) {
         setSelectedTemplate(null);
         return true;
@@ -534,7 +584,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       }
     }
     setHydrationFailed(failed);
-    setHydrateFromUrlFinished(true);
+    // Stamp the signature this attempt rebuilt the selection for — that, compared against the URL
+    // being rendered, is what `hydrateFromUrlFinished` means.
+    setHydratedSignature(initiatingSignature);
   }, [router.query, getServiceTemplates]);
 
   // Hydrate after the router is ready so query params are populated. Re-runs when the identifying
@@ -549,39 +601,44 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     // fetch throws and the restore is (wrongly) flagged as failed. Non-template selections (models/
     // env, restored via HF/axios) don't wait. Returning before consuming the signature lets the
     // effect re-run and hydrate once p2pReady flips true.
-    if (firstQueryValue(router.query.template) && !p2pReady) {
+    //
+    // Unless the node failed to start at all: `isReady` never flips after an init error, so waiting on
+    // it would hold every step page on a bare "Loading…" for the rest of the session, with no retry
+    // offered (that lives behind `hydrationFailed`). Hydrate anyway and let the restore fail honestly.
+    if (templateIdOf(router.query) && !p2pReady && !p2pError) {
       return;
     }
-    const sigPart = (v: string | string[] | undefined) => firstQueryValue(v) ?? '';
-    const signature = [
-      sigPart(router.query.models),
-      sigPart(router.query.peerId),
-      sigPart(router.query.env),
-      sigPart(router.query.serviceId),
-      sigPart(router.query.template),
-    ].join('|');
+    const signature = signatureOf(router.query);
     if (hydratedSignatureRef.current === signature) {
       return;
     }
     hydratedSignatureRef.current = signature;
-    if (router.query.models || router.query.peerId || router.query.template) {
-      // Re-hydration (signature changed on a client-side nav): flip back to "not finished" so step
-      // guards show loading against the new selection instead of the previous one's stale state.
-      setHydrateFromUrlFinished(false);
+    if (router.query.models || router.query.peerId || templateIdOf(router.query)) {
+      // Re-hydration (signature changed on a client-side nav). `hydrateFromUrlFinished` already reads
+      // false for this URL — it is derived from `hydratedSignature`, which still names the previous
+      // one — so step guards wait rather than judging the new URL against the old selection.
       setHydrationFailed(false);
       hydrateFromQueryParams();
     } else {
-      setHydrateFromUrlFinished(true);
+      // Nothing to restore: the empty selection is a correct description of this URL.
+      setHydratedSignature(signature);
     }
+    // `router.query` is read whole (through signatureOf) but deliberately NOT a dependency: only the
+    // params below identify a different selection, and depending on the object would re-run this on
+    // every within-flow param tweak (gpus/res/token/params/duration).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     hydrateFromQueryParams,
+    signatureOf,
     router.isReady,
     p2pReady,
+    p2pError,
     router.query.models,
     router.query.peerId,
     router.query.env,
     router.query.serviceId,
     router.query.template,
+    router.query.templateId,
   ]);
 
   // Retry a failed hydration: reset the finished/failed flags and re-run against the current URL.
@@ -590,7 +647,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       return;
     }
     setHydrationFailed(false);
-    setHydrateFromUrlFinished(false);
+    // Back to "describes nothing" for the duration of the retry, so guards wait it out.
+    setHydratedSignature(null);
     // Re-run against the current URL directly. Leave hydratedSignatureRef at the current signature
     // (the effect already set it) so the guard stays synced — clearing it would make a later
     // non-signature URL change (env/serviceId) re-trigger an unnecessary re-hydration.

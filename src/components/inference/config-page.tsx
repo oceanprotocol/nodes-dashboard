@@ -103,8 +103,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       }
     } else if (isTemplateFlow) {
       if (!selectedTemplate) {
-        // No template restored (deep link / refresh with a bad id) — back to the picker.
-        router.replace({ pathname: '/inference/services', query: router.query });
+        // The URL named no template in either place — neither the query nor the `[templateId]` path
+        // segment (hydration reads both; an id it can't resolve fails hydration, which this guard
+        // skips). With no id to classify, the hub is the only honest destination — see payment-page.
+        router.replace('/inference');
       } else if (!selectedEnv && !isEditMode && needsBucketPicker) {
         // A template needing the bucket picker requires selectedEnv (its nodeInfo) to render one —
         // without it (deep link / refresh with no peerId/env) this page would show an empty card that
