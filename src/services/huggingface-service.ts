@@ -1,3 +1,4 @@
+import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import {
   HuggingFaceModel,
   HuggingFaceModelConfig,
@@ -524,18 +525,20 @@ export function mapQuantization(method: string | null): ModelQuantization | null
 /** vLLM launch-param defaults from HF config, falling back to neutral values for anything unpinned. */
 function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: string): VllmParameters {
   const lockedQuant = mapQuantization(config?.quantizationMethod ?? null);
+  const preset = getVllmModelPreset(modelId);
   return {
     engine: 'vllm',
+    vllmTag: '',
     servedModelName: getModelShortName(modelId),
     // User-defined key/value params — none by default; the user adds them like env vars.
-    customParams: [],
+    customParams: preset?.customParams.map((param) => ({ ...param })) ?? [],
     // The model's own reported context, seeded as-is; null when HF reports nothing so launch omits
     // --max-model-len and lets vLLM derive it from the model config (no arbitrary fallback). The form
     // lowers its floor to the model's max for sub-floor models (see MODEL_PARAM_BOUNDS), so even a
     // reported value below the nominal floor is a valid default the user can keep or pin.
     maxContext: config?.maxContext ?? null,
     // null = single GPU (vLLM's own default) — the flag is only emitted for a real multi-GPU shard.
-    tensorParallelSize: null,
+    tensorParallelSize: preset?.tensorParallelSize ?? null,
     gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
     quantization: lockedQuant ?? 'none',
     // Default to 'auto' rather than the model's own torch_dtype: many models declare bfloat16, which
@@ -546,9 +549,9 @@ function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: strin
     trustRemoteCode: false,
     enforceEager: false,
     revision: '',
-    toolCalling: false,
+    toolCalling: preset?.toolCalling ?? false,
     // Pre-fill the best-guess parser (still user-overridable); null when the family is unknown.
-    toolCallParser: inferToolCallParser(config),
+    toolCallParser: preset?.toolCallParser ?? inferToolCallParser(config),
   };
 }
 
