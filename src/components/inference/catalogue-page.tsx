@@ -6,8 +6,8 @@ import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-tem
 import CatalogueBrowser from '@/components/inference/catalogue-browser';
 import { CatalogueConfig } from '@/components/inference/catalogue-config';
 import InferenceStepper from '@/components/inference/inference-stepper';
-import { templateHardware, templateVendor } from '@/components/inference/template-visual';
 import TemplateDetailsModal from '@/components/inference/template-details-modal';
+import { templateHardware, templateVendor } from '@/components/inference/template-visual';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';

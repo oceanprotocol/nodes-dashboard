@@ -48,8 +48,8 @@ import cx from 'classnames';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { toast } from 'react-toastify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './manage-service-page.module.css';
 
 /**
@@ -398,7 +398,10 @@ const ManageServicePage: React.FC = () => {
 
   // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
   // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
-  const jobCommand = useMemo(() => (job?.dockerCmd ? parseEngineCommand(job.dockerCmd) : null), [job?.dockerCmd]);
+  const jobCommand = useMemo(
+    () => (job?.dockerCmd ? parseEngineCommand(job.dockerCmd, job.tag) : null),
+    [job?.dockerCmd, job?.tag]
+  );
 
   // Seed model launch params from the job's dockerCmd when the URL didn't carry them (e.g. opened from
   // the services table, which only puts models/env/duration on the query). Keeps the Model card and

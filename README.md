@@ -132,7 +132,12 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 | Variable                | Description                                                                      |
 | ----------------------- | -------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_GPU_LIST`  | Comma-separated list of supported GPU models shown in the job wizard             |
-| `NEXT_PUBLIC_VLLM_TAG`  | Optional. Docker tag for the vLLM inference image (`vllm/vllm-openai`). Defaults to `latest`. |
+| `NEXT_PUBLIC_VLLM_TAG`  | Optional. Fallback Docker tag for `vllm/vllm-openai`. Defaults to pinned stable `v0.28.0`; models that require a newer architecture use their official model-specific image tag automatically. |
+
+The Custom Models configuration keeps the fallback per deployment but also exposes a per-model
+vLLM runtime selector. Its automatic setting selects `qwen38-flash-next` for
+`Qwen/Qwen3.8-Flash-Next`, `glm53-flash` for `zai-org/GLM-5.3-Flash`, and the configured fallback
+for other models.
 
 > **Note:** Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser. All others are server-side only and must never be committed or exposed publicly.
 
