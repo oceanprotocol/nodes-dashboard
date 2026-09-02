@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import DurationInput from '@/components/input/duration-input';
 import Input from '@/components/input/input';
 import Slider from '@/components/slider/slider';
@@ -391,7 +391,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
                   checked={(envGpu?.total ?? 0) > 0}
                   className="justifySelfStart"
                   disabled={disabled}
-                  label={<GpuLabel className="textBold" gpu={gpu.description ?? gpu.id} iconHeight={20} />}
+                  label={<HardwareLabel className="textBold" type="gpu" value={gpu.description ?? gpu.id} iconHeight={20} />}
                   onChange={(_, checked) => handleGpuToggle(gpu, checked)}
                 />
                 <div className={styles.resourcePriceInputs}>
@@ -522,7 +522,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
                     className="alignSelfStart"
                     disabled={disabled}
                     key={gpu.id}
-                    label={<GpuLabel className="textBold" gpu={gpu.description ?? gpu.id} iconHeight={20} />}
+                    label={<HardwareLabel className="textBold" type="gpu" value={gpu.description ?? gpu.id} iconHeight={20} />}
                     onChange={(_, checked) => handleFreeResourceToggle(gpu.id, checked, maxAllowed)}
                   />
                 );
@@ -600,9 +600,9 @@ const EnvPreview: React.FC<{ env: Environment }> = ({ env }) => {
       {env.description ? <div className="textSecondary">{env.description}</div> : null}
       <div className={styles.envPreviewResources}>
         {gpus.map((gpu) => (
-          <GpuLabel
+          <HardwareLabel
             className={classNames('chip', 'chipGlass', styles.previewChip)}
-            gpu={gpu.description ?? gpu.id}
+            type="gpu" value={gpu.description ?? gpu.id}
             iconHeight={14}
             key={gpu.id}
           />

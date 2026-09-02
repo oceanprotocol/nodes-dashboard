@@ -27,14 +27,13 @@
     "@mui/material": "^7.3.6",
     "@mui/x-data-grid": "^8.14.1",
     "@multiformats/multiaddr": "^13.0.1",
-    "@oceanprotocol/contracts": "^2.8.0",
-    "@oceanprotocol/lib": "^8.5.1",
+    "@oceanprotocol/contracts": "^2.9.0",
+    "@oceanprotocol/lib": "9.0.0",
     "@privy-io/alchemy-migration": "^0.0.5",
     "@privy-io/react-auth": "^3.22.2",
     "@ramp-network/ramp-instant-sdk": "^6.2.0",
     "@tanstack/react-query": "^5.28.4",
     "@vercel/functions": "^3.6.0",
-    "@wagmi/core": "^2.15.0",
     "alchemy-sdk": "3.6.5",
     "axios": "1.12.2",
     "bignumber.js": "^9.3.1",
@@ -61,7 +60,7 @@
     "react-dom": "^18",
     "react-toastify": "^11.0.5",
     "recharts": "^3.3.0",
-    "wagmi": "^2.15.0",
+    "unique-names-generator": "^4.7.1",
     "yup": "^1.7.1"
   },
   "devDependencies": {
@@ -88,7 +87,7 @@
     "@solana/codecs-core": "5.5.1",
     "uuid": "^8.3.2",
     "@reown/appkit-wallet": "1.7.8",
-    "@solana/errors": "6.9.0",
+    "@solana/errors": "6.10.0",
     "@privy-io/react-auth": "3.22.2"
   }
 }

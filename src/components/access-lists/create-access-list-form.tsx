@@ -10,7 +10,7 @@ import classNames from 'classnames';
 import { isAddress } from 'ethers';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import styles from './access-lists-page.module.css';
+import styles from './access-lists-manager.module.css';
 
 type CreateAccessListFormProps = {
   onCreated: (contractAddress: string) => void;

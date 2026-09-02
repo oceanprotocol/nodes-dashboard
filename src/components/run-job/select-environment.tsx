@@ -1,23 +1,29 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Switch from '@/components/switch/switch';
-import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
-import { NodeEnvironments } from '@/types/environments';
+import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
+import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
 
+/** Paid envs must accept a token we support (USDC / COMPY); the "Test compute" (free) mode shows
+ *  everything the server returned. */
+function acceptsSupportedToken(env: ComputeEnvironment): boolean {
+  return getEnvSupportedTokens(env, true).length > 0;
+}
+
 const sortOptions = [
-  { label: 'Most powerful', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
+  { label: 'Best score', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
   { label: 'Cheapest', value: JSON.stringify({ price: 'asc' }) },
   { label: 'Most expensive', value: JSON.stringify({ price: 'desc' }) },
 ];
@@ -35,10 +41,10 @@ type FilterFormValues = {
 
 const SelectEnvironment = () => {
   const {
-    // fetchGpus,
+    fetchGpus,
     filters,
     filtersUnmetFallback,
-    // gpus,
+    gpus,
     loading,
     loadMoreEnvs,
     nodeEnvs,
@@ -50,12 +56,20 @@ const SelectEnvironment = () => {
 
   const [expanded, setExpanded] = useState(!!filters);
 
-  // useEffect(() => {
-  //   fetchGpus();
-  // }, [fetchGpus]);
+  useEffect(() => {
+    fetchGpus();
+  }, [fetchGpus]);
 
-  // const gpuOptions = useMemo(() => gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName })), [gpus]);
-  const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
+  const gpuOptions = useMemo(() => {
+    if (gpus.length > 0) {
+      // Keep the full "vendor name" string as both value and label:
+      // the /envs gpuName filter matches the full name, and GpuLabel shortens
+      // it for display while using the vendor prefix to pick the right logo.
+      return gpus.map((gpu) => ({ value: gpu.gpuName, label: gpu.gpuName }));
+    }
+    // Fallback to the static env list when the popularity endpoint returns nothing.
+    return process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
+  }, [gpus]);
 
   const feeTokenOptions = useMemo(() => {
     const tokens = getSupportedTokens();
@@ -119,27 +133,19 @@ const SelectEnvironment = () => {
     setExpanded(!expanded);
   };
 
+  // In free ("Test compute") mode every env is shown, so no page can filter down to nothing.
+  const isVisibleEnv = useCallback(
+    (env: ComputeEnvironment) => filters.free || acceptsSupportedToken(env),
+    [filters.free]
+  );
+
   const filteredNodeEnvs = useMemo(() => {
     if (filters.free) {
       return nodeEnvs;
     }
     const filteredNodeEnvs: NodeEnvironments[] = [];
     nodeEnvs.forEach((nodeEnv) => {
-      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter((env) => {
-        if (!env.fees?.[CHAIN_ID]) {
-          return false;
-        }
-        if (
-          !env.fees[CHAIN_ID].some(
-            (fee) =>
-              fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ||
-              fee.feeToken.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase()
-          )
-        ) {
-          return false;
-        }
-        return true;
-      });
+      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter(acceptsSupportedToken);
       if (filteredEnvs.length > 0) {
         filteredNodeEnvs.push({
           ...nodeEnv,
@@ -154,7 +160,8 @@ const SelectEnvironment = () => {
   }, [filters.free, nodeEnvs]);
 
   /**
-   * If all environments were filtered out, and there are more pages, load the next page.
+   * Keep paging while the visible list is empty. loadMoreEnvs skips pages that contribute nothing
+   * visible, so this fires once per stall rather than once per server page.
    */
   useEffect(() => {
     if (
@@ -163,9 +170,9 @@ const SelectEnvironment = () => {
       paginationResponse &&
       paginationResponse.currentPage < paginationResponse.totalPages
     ) {
-      loadMoreEnvs();
+      loadMoreEnvs(isVisibleEnv);
     }
-  }, [filteredNodeEnvs.length, loading, loadMoreEnvs, paginationResponse]);
+  }, [filteredNodeEnvs.length, isVisibleEnv, loading, loadMoreEnvs, paginationResponse]);
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -181,8 +188,8 @@ const SelectEnvironment = () => {
               onChange={formik.handleChange}
               options={gpuOptions}
               placeholder="Any GPU"
-              renderOption={(option) => <GpuLabel gpu={option.label} />}
-              renderSelectedValue={(option) => <GpuLabel gpu={option} />}
+              renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
+              renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
               size="sm"
               value={formik.values.gpuName}
             />
@@ -286,25 +293,26 @@ const SelectEnvironment = () => {
                   environment={env}
                   forcePricing={filters.free ? 'free' : 'paid'}
                   key={env.id}
-                  nodeInfo={{
-                    currentAddrs: node.currentAddrs,
-                    friendlyName: node.friendlyName,
-                    id: node.id,
-                    latestBenchmarkResults: node.latestBenchmarkResults,
-                    multiaddrs: node.multiaddrs,
-                  }}
+                  nodeInfo={node}
                   showNodeInfo
                 />
               ))
             )}
-            {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-              <Button className="alignSelfCenter" color="accent2" loading={loading} onClick={loadMoreEnvs}>
-                Load more
-              </Button>
-            )}
           </>
         ) : (
-          <p className="alignSelfCenter">No environments found</p>
+          <p className="alignSelfCenter">{loading ? 'Loading environments…' : 'No environments found'}</p>
+        )}
+        {/* Outside the empty-check above: a page whose envs all get filtered out client-side must
+            still offer a way forward, or the user is stranded with pages left unexplored. */}
+        {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
+          <Button
+            className="alignSelfCenter"
+            color="accent2"
+            loading={loading}
+            onClick={() => loadMoreEnvs(isVisibleEnv)}
+          >
+            Load more
+          </Button>
         )}
       </div>
     </Card>

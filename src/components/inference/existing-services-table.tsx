@@ -1,0 +1,333 @@
+import Button from '@/components/button/button';
+import Card from '@/components/card/card';
+import { Table } from '@/components/table/table';
+import { TableTypeEnum } from '@/components/table/table-type';
+import { getApiRoute } from '@/config';
+import { useP2P } from '@/contexts/P2PContext';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { encodeModelIds } from '@/services/huggingface-service';
+import { detectEngine, modelIdFromCommand } from '@/services/inference-launch';
+import { fetchTemplates, matchTemplateForService, TemplateMatch } from '@/services/service-templates';
+import { AppTemplate, isBundle } from '@/types/templates';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { CircularProgress, Collapse, Tooltip } from '@mui/material';
+import { ServiceJob } from '@oceanprotocol/lib';
+import axios from 'axios';
+import cx from 'classnames';
+import { useRouter } from 'next/router';
+import posthog from 'posthog-js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import styles from './existing-services-table.module.css';
+
+type ServiceSession = {
+  serviceId: string;
+  peerId?: string;
+  status?: number;
+  statusText?: string;
+  environment?: string;
+  dockerCmd?: string[];
+  /** Container image the service was launched from — matched back to a template with dockerCmd (see findTemplateForService). */
+  image?: string;
+  model?: string;
+  duration?: number;
+  expiresAt?: number;
+  dateCreated: number;
+  payment?: { token?: string; cost?: string | number };
+};
+
+// Rows are ServiceJob-shaped so the shared existingServicesColumns can render them, but the
+// backend's session records are looser than the node's own ServiceJob (no clusterHash/etc, and
+// peerId is ours). Keep the session alongside for routing, and the matched template's name so the
+// Model column can name the app instead of a model that doesn't exist for a template launch.
+type ServiceRow = Partial<ServiceJob> & {
+  serviceId: string;
+  session: ServiceSession;
+  templateName?: string;
+  templatePending?: boolean;
+  /**
+   * The name is the app family, not this service's specific variant — several catalogue entries match
+   * the record equally well. The cell drops the caption in that case rather than asserting a variant
+   * it can't know (see toRow).
+   */
+  templateNameApproximate?: boolean;
+};
+
+// The model a session serves: the backend's own field when it has one, else recovered from the launch
+// command — `--model` on vLLM, `-hf` on llama.cpp (see modelIdFromCommand). Reading only `--model`
+// made every llama.cpp service look modelless, so the template guard below let it through and the row
+// showed "llama.cpp" (the template that shares its image) instead of the model it serves.
+function modelIdFromSession(session: ServiceSession): string | null {
+  return session.model || modelIdFromCommand(session.dockerCmd);
+}
+
+/** The flag this session's engine names its model with — see the dockerCmd note in toRow. */
+function modelFlag(session: ServiceSession): string {
+  return session.dockerCmd && detectEngine(session.dockerCmd) === 'llamacpp' ? '-hf' : '--model';
+}
+
+// The shared columns expect the node's own field shapes: an ISO `dateCreated` (they do
+// `new Date(value)`) and a model recoverable from `dockerCmd` via `--model`. The backend instead
+// sends a numeric epoch — in seconds or ms depending on the record — and may name the model
+// directly, so normalize both here rather than teaching the columns a second shape.
+//
+// A template-launched service has no HF model at all — the whole app rides in the template's own
+// image/command — so when one matched, the row names the template and carries no model id.
+//
+// The name comes from the match even when it's ambiguous (the listing strips `dockerCmd`, so every
+// bundle row is): an ambiguous match resolves to the bare service, whose name is the app's name for
+// every variant of it. Only the manage link is withheld in that case (see routeTemplate) — naming the
+// app beats a bare "Unknown model" for a service that has no model to name.
+function toRow(session: ServiceSession, match: TemplateMatch | undefined, templatesLoading: boolean): ServiceRow {
+  const createdMs = session.dateCreated > 1e12 ? session.dateCreated : session.dateCreated * 1000;
+  const template = match?.template ?? null;
+  const modelId = template ? null : modelIdFromSession(session);
+  return {
+    ...session,
+    dateCreated: new Date(createdMs).toISOString(),
+    // A recovered model id is re-emitted under the flag its own engine uses, not always `--model`: the
+    // column reads either, but `--model <gguf repo>` would also make the row's command claim vLLM for a
+    // llama.cpp service. `-hf` keeps detectEngine right for anything else reading this row. A `model`
+    // field with no command to detect from is assumed vLLM — the default engine.
+    dockerCmd: modelId ? [modelFlag(session), modelId] : template ? [] : session.dockerCmd,
+    session,
+    // An ambiguous match names the app family, never the variant: the listing strips `dockerCmd`, so
+    // an image with variants resolves to whichever bare service shares it. Keeping the full name meant
+    // a DeepSeek bundle rendered as "vLLM — any Hugging Face model (MODEL_ID)" — a DIFFERENT catalogue
+    // entry, stated as fact. The headline alone ("vLLM", "ComfyUI") is true of every candidate, and the
+    // manage page still resolves the real variant off the job record's command.
+    templateName: template ? appFamilyName(template, !!match?.ambiguous) : undefined,
+    templateNameApproximate: !!template && !!match?.ambiguous,
+    templatePending: !template && !modelId && templatesLoading,
+  };
+}
+
+/**
+ * The name to show for a matched template: its full name when the match is certain, otherwise just the
+ * headline before the em-dash — the part that names the app rather than the variant. Falls back to the
+ * whole name when there is no dash to split on.
+ */
+function appFamilyName(template: AppTemplate, ambiguous: boolean): string {
+  const name = template.name ?? template.id;
+  if (!ambiguous) {
+    return name;
+  }
+  return name.split(/\s+[—–-]\s+/)[0] || name;
+}
+
+// The template id worth putting on the manage link (`template=`), which the manage page would build an
+// Edit from: only an exact image+command match names the right variant. On an ambiguous one the manage
+// page re-matches off the node's own job record, which does carry `dockerCmd`.
+function routeTemplate(match: TemplateMatch | undefined): AppTemplate | null {
+  return match && !match.ambiguous ? match.template : null;
+}
+
+const ExistingServicesTable: React.FC = () => {
+  const router = useRouter();
+  const { account } = useOceanAccount();
+  const { isReady: p2pReady, getServiceTemplates } = useP2P();
+
+  const [sessions, setSessions] = useState<ServiceSession[]>([]);
+  const [total, setTotal] = useState(0);
+  const [matchByService, setMatchByService] = useState<Record<string, TemplateMatch>>({});
+  // Template matching is a second, node-side fetch that resolves after the services land. Tracked
+  // separately so modelless rows can shimmer instead of flashing "Unknown model" in the meantime.
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Services aren't fetched on mount — the collapsible only opens (and loads) once "Load" is pressed.
+  const [open, setOpen] = useState(false);
+
+  const requestRef = useRef<AbortController>();
+
+  // Template matching resolves after the services themselves (a second, node-side fetch), so rows are
+  // derived rather than stored — they re-render with the app name once the match lands.
+  const rows = useMemo(
+    () => sessions.map((session) => toRow(session, matchByService[session.serviceId], templatesLoading)),
+    [sessions, matchByService, templatesLoading]
+  );
+
+  useEffect(() => {
+    requestRef.current?.abort();
+    setSessions([]);
+    setTotal(0);
+    setMatchByService({});
+    setTemplatesLoading(false);
+    setOpen(false);
+    setLoading(false);
+  }, [account.address]);
+
+  const load = useCallback(async () => {
+    if (!account.address) {
+      return;
+    }
+    requestRef.current?.abort();
+    const request = new AbortController();
+    requestRef.current = request;
+
+    setLoading(true);
+    setTemplatesLoading(p2pReady);
+    setError(null);
+    try {
+      const { data } = await axios.get(`${getApiRoute('owners')}/${account.address.toLowerCase()}/services`, {
+        params: { page: 1, size: 100, sort: JSON.stringify({ dateCreated: 'desc' }) },
+        signal: request.signal,
+      });
+      const services: ServiceSession[] = data.services ?? [];
+      setSessions(services);
+      setTotal(data.pagination?.totalItems ?? 0);
+      // The rows are renderable now — drop the whole-table spinner and let the slower template match
+      // resolve underneath it, shimmering only the cells whose name depends on it.
+      setLoading(false);
+      if (p2pReady) {
+        try {
+          const templates = await fetchTemplates(getServiceTemplates, request.signal);
+          const matched: Record<string, TemplateMatch> = {};
+          for (const service of services) {
+            // A plain model launch shares its image with this node's own engine templates (vLLM's with
+            // vllm-hf-model, llama.cpp's with llamacpp-phi4-cpu), so image alone would relabel real
+            // model rows as the app. Only services with no model id are template runs.
+            if (modelIdFromSession(service)) {
+              continue;
+            }
+            // The backend's listing drops dockerCmd, so a bundle row can only ever match by image —
+            // ambiguous whenever the image has variants. Keep the whole match, not just the confident
+            // ones: the row still names the app off it, while `ambiguous` gates the manage link.
+            const match = matchTemplateForService(templates, service);
+            if (match.template) {
+              matched[service.serviceId] = match;
+            }
+          }
+          if (!request.signal.aborted) {
+            setMatchByService(matched);
+          }
+        } catch (templateErr) {
+          console.error('Failed to match services to templates:', templateErr);
+        } finally {
+          if (!request.signal.aborted) {
+            setTemplatesLoading(false);
+          }
+        }
+      }
+    } catch (err) {
+      if (axios.isCancel(err)) {
+        return;
+      }
+      console.error('Failed to load existing services:', err);
+      setError(
+        (axios.isAxiosError(err) && err.response?.data?.message) ||
+          (err instanceof Error ? err.message : 'Failed to load services.')
+      );
+    } finally {
+      if (!request.signal.aborted) {
+        setLoading(false);
+        setTemplatesLoading(false);
+      }
+    }
+  }, [account.address, p2pReady, getServiceTemplates]);
+
+  // Open the collapsible and (re)fetch. Toggles closed again if already open.
+  const handleLoad = useCallback(() => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    load();
+  }, [open, load]);
+
+  // Route to the manage page. It hydrates its model/env display from the query params (peerId/env/
+  // models) — the record alone can't rebuild the rich model card, so seed what we recovered from it.
+  // Carry the payment token too: the manage page needs it in context for a Prolong re-entry, and
+  // hydrating it from the URL avoids waiting on the async job-token seed effect (see manage page).
+  const openService = (session: ServiceSession) => {
+    if (!session.peerId || !session.environment) {
+      setError('This service is missing node info and cannot be managed from here.');
+      return;
+    }
+    const match = matchByService[session.serviceId];
+    const template = routeTemplate(match);
+    // Matched at all (even ambiguously) ⇒ a template run, which has no HF model to seed.
+    const modelId = match?.template ? null : modelIdFromSession(session);
+    const token = session.payment?.token;
+    // Re-entry to an already-running service: a matched template tells template vs service apart via
+    // isBundle, same as elsewhere. A plain model service (no match) can't be told apart from quickstart
+    // after the fact, so it's recorded as 'custom'.
+    const branch = template ? (isBundle(template) ? 'template' : 'service') : 'custom';
+    posthog.capture('inference_service_reopened', {
+      serviceId: session.serviceId,
+      nodeId: session.peerId,
+      ...(template ? { templateId: template.id } : {}),
+      ...(modelId ? { modelId } : {}),
+      branch,
+    });
+    router.push({
+      pathname: `/inference/instances/${encodeURIComponent(session.serviceId)}`,
+      query: {
+        peerId: session.peerId,
+        env: session.environment,
+        ...(template ? { template: template.id } : modelId ? { models: encodeModelIds([modelId]) } : {}),
+        ...(token ? { token } : {}),
+        ...(session.duration != null ? { duration: String(session.duration) } : {}),
+      },
+    });
+  };
+
+  if (!account.address) {
+    return null;
+  }
+
+  return (
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+      <div className={styles.head}>
+        <div>
+          <h3>My services</h3>
+          <span className="textSecondary">Running & recent inference services</span>
+        </div>
+        <Button color="accent2" onClick={handleLoad} size="md" variant="filled">
+          {open ? 'Hide services' : 'Load services'}
+        </Button>
+      </div>
+
+      <Collapse in={open} mountOnEnter unmountOnExit>
+        {error && (
+          <p className="textErrorDarker flexRow alignItemsCenter gapXs">
+            <span className="textBold">Failed to load services</span>
+            <Tooltip title={error}>
+              <InfoOutlinedIcon fontSize="small" />
+            </Tooltip>
+          </p>
+        )}
+
+        {loading && rows.length === 0 ? (
+          <div className={styles.centered}>
+            <CircularProgress size={18} />
+          </div>
+        ) : rows.length === 0 ? (
+          <div className={cx('textSecondary', styles.centered)}>No services yet.</div>
+        ) : (
+          <>
+            <Table<ServiceRow>
+              autoHeight
+              actionsColumn={({ row }) => (
+                <Button color="accent1" onClick={() => openService(row.session)} size="sm" variant="transparent">
+                  Manage
+                </Button>
+              )}
+              data={rows}
+              getRowId={(row) => row.serviceId}
+              paginationType="none"
+              tableType={TableTypeEnum.EXISTING_SERVICES}
+            />
+            {total > rows.length && (
+              <span className="textSecondary">
+                Showing newest {rows.length} of {total}
+              </span>
+            )}
+          </>
+        )}
+      </Collapse>
+    </Card>
+  );
+};
+
+export default ExistingServicesTable;

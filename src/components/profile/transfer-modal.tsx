@@ -39,6 +39,7 @@ const TransferModalContent = ({
         tokenAddress: tokenBalance.address,
         toAddress: values.toAddress,
         amount: values.amount,
+        isNative: tokenBalance.isNative,
       });
     },
     validationSchema: Yup.object({

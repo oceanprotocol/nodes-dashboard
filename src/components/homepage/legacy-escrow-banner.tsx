@@ -60,7 +60,7 @@ const LegacyEscrowBanner: React.FC<{
       </div>
       {escrowPageLink ? (
         <div className="actionsGroupMdEnd">
-          <Button href="/profile/escrow" size="sm" variant="outlined">
+          <Button href="/account/escrow" size="sm" variant="outlined">
             Manage escrow
           </Button>
         </div>

@@ -11,7 +11,7 @@ type UseEnvResources = {
   diskAvailable: number;
   diskFee?: number;
   gpus: ComputeResource[];
-  // Available units per GPU resource id (max - inUse, clamped >= 0)
+  // Available units per GPU resource id (min(max, total - inUse), clamped >= 0)
   gpusAvailable: Record<string, number>;
   gpuFees: Record<string, number>;
   maxJobDurationSeconds?: number;

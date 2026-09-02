@@ -21,14 +21,24 @@ export async function signNodeCommandMessage({
   command,
   consumerAddress,
   incrementedNonce,
+  issuerPeerId = '',
   signMessage,
 }: {
   command: string;
   consumerAddress: string;
   incrementedNonce: number;
+  /**
+   * The target node's peerId. 
+   * Non-empty only for CREATE_AUTH_TOKEN; 
+   * every other command validates against issuerPeerId = '' node-side, 
+   * so the default keeps them byte-identical to the old format.
+   * See ocean-node nonceHandler.verifyConsumerSignature and ocean.js BaseProvider.getSignature —
+   * message = address + nonce + command + issuerPeerId.
+   */
+  issuerPeerId?: string;
   signMessage: SignMessageFn;
 }): Promise<string> {
-  const message = `${consumerAddress}${incrementedNonce}${command}`;
+  const message = `${consumerAddress}${incrementedNonce}${command}${issuerPeerId}`;
   const signedMessage = await signMessage(message);
   return signedMessage;
 }

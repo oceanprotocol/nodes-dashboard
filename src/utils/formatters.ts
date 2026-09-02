@@ -42,12 +42,39 @@ export const roundTokenAmount = (
 };
 
 /**
+ * How many decimals a token amount actually uses, after rounding to the token's precision.
+ * `1.5` -> 1, `1` -> 0, `0.004` -> 3.
+ */
+export const tokenAmountDecimals = (amount: number, tokenAddress: string): number => {
+  const rounded = Number(amount.toFixed(getTokenDecimals(tokenAddress)));
+  const [, fraction = ''] = String(rounded).split('.');
+  return fraction.length;
+};
+
+/**
+ * The decimals needed to render a group of amounts with the same precision: the most any single
+ * value actually uses. Use for a column of amounts that should line up on the decimal point.
+ */
+export const sharedTokenAmountDecimals = (amounts: number[], tokenAddress: string): number =>
+  amounts.reduce((max, amount) => Math.max(max, tokenAmountDecimals(amount, tokenAddress)), 0);
+
+/**
  * Format a token amount for display, showing up to the token's decimal precision
  * without trailing zeros.
+ *
+ * Pass `fractionDigits` to always render exactly that many decimals (no K/M
+ * abbreviation), so a column of values lines up on the decimal point.
  */
-export const formatTokenAmount = (amount: number, tokenAddress: string): string => {
+export const formatTokenAmount = (amount: number, tokenAddress: string, fractionDigits?: number): string => {
   const decimals = getTokenDecimals(tokenAddress);
   const rounded = Number(amount.toFixed(decimals));
+
+  if (fractionDigits !== undefined) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }).format(rounded);
+  }
 
   if (rounded >= 1000 && rounded < 1000000) {
     return `${(rounded / 1000).toFixed(1)}K`;
@@ -85,7 +112,12 @@ export const formatWalletAddress = (address: string): string => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-const formatHMS = (sec: number): string => {
+/**
+ * Seconds as HH:MM:SS. Clamped at zero so a live countdown that momentarily reads negative (the
+ * local tick can run a hair past the authoritative deadline) renders 00:00:00 rather than -00:00:01.
+ */
+export const formatHMS = (totalSeconds: number): string => {
+  const sec = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
@@ -139,6 +171,23 @@ export const formatDuration = (totalSeconds: number | null | undefined, short?: 
   return `${sec} ${sUnit} (${formatHMS(sec)})`;
 };
 
+/**
+ * Total wall-clock duration of a compute job (in seconds): dateFinished - dateCreated.
+ * Timestamps arrive as unix-seconds strings (e.g. "1784196420.452"), so they are
+ * coerced to numbers. Returns null while the job is unfinished or the values are invalid.
+ */
+export const getJobDurationSeconds = (job: {
+  dateCreated?: number | string | null;
+  dateFinished?: number | string | null;
+}): number | null => {
+  const start = Number(job.dateCreated);
+  const finished = Number(job.dateFinished);
+  if (!Number.isFinite(start) || !Number.isFinite(finished) || finished <= start) {
+    return null;
+  }
+  return finished - start;
+};
+
 export const formatDateTime = (timestamp: number): string => {
   if (!timestamp) return '-';
   const date = new Date(timestamp * 1000);
@@ -150,15 +199,53 @@ export const formatDateTime = (timestamp: number): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
 
-const GPU_BRANDING = ['nvidia', 'corporation', 'amd', 'advanced', 'micro', 'devices', 'inc', 'intel', 'intel(r)'];
+/**
+ * Title-case a Hugging Face pipeline tag for display (e.g. `text-generation` → "Text Generation").
+ * `fallback` is returned for a missing tag — callers pass what reads best in their context
+ * ("Model", "Other").
+ */
+export const formatPipelineTag = (tag: string | undefined, fallback: string): string => {
+  if (!tag) {
+    return fallback;
+  }
+  return tag
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
+export type HardwareType = 'cpu' | 'gpu';
+
+// Manufacturer/noise words dropped from a CPU/GPU model string; the brand is shown as a logo
+// instead. Keeps the useful model bits (e.g. "H200", "Xeon Platinum 8480+", "Ryzen 9 5950X").
+const HW_BRANDING = [
+  'nvidia',
+  'amd',
+  'intel',
+  'advanced',
+  'micro',
+  'devices',
+  'inc',
+  'corporation',
+  'processor',
+  'cpu',
+];
 const GPU_VENDORS = ['nvidia', 'amd', 'intel'] as const;
 type GpuVendor = (typeof GPU_VENDORS)[number];
 
-export const formatGpuName = (gpu: string, { showVendor = false }: { showVendor?: boolean } = {}): string => {
-  const detectedVendor = GPU_VENDORS.find((v) => gpu.toLowerCase().includes(v)) as GpuVendor | undefined;
-  const filtered = gpu
-    .split(/[\s,\.]+/)
-    .filter((word) => !GPU_BRANDING.includes(word.toLowerCase()))
+export const formatHardwareName = (
+  name: string,
+  type: HardwareType,
+  { showVendor = false }: { showVendor?: boolean } = {}
+): string => {
+  const detectedVendor = GPU_VENDORS.find((v) => name.toLowerCase().includes(v)) as GpuVendor | undefined;
+  // CPU model strings carry meaningful dots (clock speed, e.g. "2.60GHz"); GPU names don't.
+  const splitter = type === 'cpu' ? /[\s,]+/ : /[\s,.]+/;
+  const filtered = name
+    // Strip trademark marks glued to words, e.g. "Intel(R)" / "Core(TM)".
+    .replace(/\((?:r|tm)\)/gi, ' ')
+    .split(splitter)
+    .filter((word) => word && !HW_BRANDING.includes(word.toLowerCase()))
     .join(' ')
     .trim();
   if (showVendor && detectedVendor) {

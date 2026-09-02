@@ -1,11 +1,23 @@
 .panel {
   display: grid;
-  grid-template-columns: 350px minmax(0, 1fr);
+  grid-template-columns: 1fr;
   align-items: stretch;
-  gap: 0;
+  gap: 24px;
 
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
+  .panelDivider {
+    background: var(--border);
+    height: 1px;
+    width: 100%;
+  }
+
+  @media (min-width: 992px) {
+    gap: 12px;
+    grid-template-columns: 280px 1px minmax(0, 1fr);
+
+    .panelDivider {
+      width: 1px;
+      height: 100%;
+    }
   }
 }
 
@@ -14,12 +26,6 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding-right: 28px;
-
-  @media (max-width: 900px) {
-    padding-right: 0;
-    padding-bottom: 24px;
-  }
 }
 
 .overline {
@@ -71,6 +77,7 @@
 .secondaryRow {
   display: flex;
   align-items: center;
+  gap: 8px;
   justify-content: space-between;
   padding: 8px 0;
 
@@ -86,6 +93,7 @@
 
 .secondaryAmount {
   font-size: 14px;
+  text-align: right;
 }
 
 .secondarySymbol {
@@ -126,6 +134,7 @@
 .fundButtons {
   display: flex;
   flex-direction: column;
+  flex-wrap: wrap;
   gap: 10px;
 
   @media (min-width: 576px) {
@@ -146,18 +155,9 @@
 
 /* ── Right column ── */
 .right {
-  border-left: 1px solid var(--border);
-  padding-left: 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-
-  @media (max-width: 900px) {
-    border-left: none;
-    border-top: 1px solid var(--border);
-    padding-left: 0;
-    padding-top: 24px;
-  }
 }
 
 .authSectionHeader {
