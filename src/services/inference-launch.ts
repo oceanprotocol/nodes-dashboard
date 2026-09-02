@@ -2,6 +2,7 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
+import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
 import { ComputeResource } from '@/types/environments';
 import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
@@ -652,17 +653,26 @@ export function buildInferenceRestartSpec({
   model,
   params,
   hfToken,
+  appType,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
   hfToken: string;
+  /**
+   * Which flow this relaunch came from, so the service's labels keep describing what it now runs.
+   * An omitted `metadata` reuses the stored bag, which after a model swap would name the OLD model —
+   * so this is re-stamped on every relaunch, not just the ones that change flow.
+   */
+  appType: ServiceAppType;
 }): ServiceRestartParams {
   const runtime = engineRuntime(params);
+  const metadata = buildServiceMetadata({ appType, appId: model.id });
   return {
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
     userData: buildUserData(hfToken),
+    ...(metadata ? { metadata } : {}),
   };
 }
 
@@ -680,6 +690,7 @@ export function buildInferenceStartParams({
   durationSeconds,
   tokenAddress,
   hfToken,
+  appType,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
@@ -694,6 +705,13 @@ export function buildInferenceStartParams({
   durationSeconds: number;
   tokenAddress: string;
   hfToken: string;
+  /**
+   * Which of the four flows launched this, stamped into the service's `metadata` alongside the model
+   * id so the running service identifies itself instead of having to be matched by image/dockerCmd
+   * (see services/service-metadata). Both model flows run the SAME image the node's own inference
+   * templates do, which is exactly the collision image matching can't resolve.
+   */
+  appType: ServiceAppType;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
   const runtime = engineRuntime(params);
@@ -709,6 +727,8 @@ export function buildInferenceStartParams({
     ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
   ];
 
+  const metadata = buildServiceMetadata({ appType, appId: model.id });
+
   return {
     environment: selectedEnv.environment.id,
     image: runtime.image,
@@ -716,6 +736,7 @@ export function buildInferenceStartParams({
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
     userData: buildUserData(hfToken),
+    ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },

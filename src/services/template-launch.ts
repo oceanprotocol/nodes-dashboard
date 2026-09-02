@@ -2,6 +2,8 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { assertAllocationAvailable, buildGpuRequests, resourceId } from '@/services/inference-launch';
+import { buildServiceMetadata, resolveServiceAppType } from '@/services/service-metadata';
+import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, TemplateWorkflow } from '@/types/templates';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
@@ -133,6 +135,25 @@ export function buildTemplateUserData(
 }
 
 /**
+ * The labels a template launch stamps on its service: the flow (`service` for a bare app, `template`
+ * for a bundle) plus the catalogue id, so the running service resolves back to its exact catalogue
+ * entry with one findTemplateById instead of an image+command match. That match is a guess for every
+ * bundle — bundles share their parent's image, and the SERVICE_LIST listing strips `dockerCmd`
+ * altogether — which is what made a running bundle show its parent's name and load its parent's
+ * config on Edit. See services/service-metadata.
+ *
+ * `flowType` is always `Template` here (both catalogues are the same flow); it's taken as an argument
+ * only so the wire type comes from the one shared classifier rather than a second copy of the
+ * bundle-vs-service rule.
+ */
+function templateMetadata(template: AppTemplate) {
+  return buildServiceMetadata({
+    appType: resolveServiceAppType(InferenceFlowType.Template, template),
+    appId: template.id,
+  });
+}
+
+/**
  * Build the ServiceStartParams to launch an app template on the chosen environment. Mirrors
  * buildInferenceStartParams, but sources image/tag/ports/command from the template instead of the
  * engine map, and userData from the template's env vars instead of vLLM/llama.cpp params. The env's
@@ -176,6 +197,7 @@ export async function buildTemplateStartParams({
   ];
 
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
+  const metadata = templateMetadata(template);
 
   return {
     environment: selectedEnv.environment.id,
@@ -185,6 +207,7 @@ export async function buildTemplateStartParams({
     ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
     ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
     userData,
+    ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },
@@ -208,12 +231,16 @@ export async function buildTemplateRestartParams(
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
+  // Re-stamped, not reused: an Edit can relaunch onto a DIFFERENT template, and an omitted `metadata`
+  // would leave the service labelled with the app it used to run.
+  const metadata = templateMetadata(template);
   return {
     image: template.image,
     ...imageRef,
     ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
     ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
     userData,
+    ...(metadata ? { metadata } : {}),
   };
 }
 

@@ -26,7 +26,8 @@ import {
   gpuSelectionMessage,
   toNodeUri,
 } from '@/services/inference-launch';
-import { decodeGpuSelection, decodeResourceSizing } from '@/services/inference-url';
+import { decodeGpuSelection, decodeResourceSizing, firstQueryValue } from '@/services/inference-url';
+import { isModelAppType, parseServiceAppType, resolveServiceAppType } from '@/services/service-metadata';
 import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
@@ -74,6 +75,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Which of the four entry branches this session is in — carried on every inference event so each
   // gets its own PostHog funnel. See resolveInferenceBranch for why it needs both flowType and template.
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
+  /**
+   * The same classification, in the wire vocabulary — stamped into the launched service's `metadata`
+   * so it can be identified later without reverse-engineering its image/dockerCmd. Template launches
+   * derive it from the template itself (see template-launch), so only the model paths pass it.
+   *
+   * An Edit re-entry may carry the running service's own type on the query: every model-service Edit
+   * routes through the custom-model flow, so the route alone would re-label a quickstart launch. It
+   * only overrides within the model pair — a stale param must never make a template launch claim to
+   * be a model service, or vice versa.
+   */
+  const appType = useMemo(() => {
+    const derived = resolveServiceAppType(flowType, selectedTemplate);
+    const fromUrl = parseServiceAppType(firstQueryValue(router.query.appType));
+    return fromUrl && isModelAppType(fromUrl) && isModelAppType(derived) ? fromUrl : derived;
+  }, [flowType, selectedTemplate, router.query.appType]);
 
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
@@ -508,7 +524,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // anything changes), and the image/tag come from the new params' engine so an engine switch
       // (vLLM ↔ llama.cpp) relaunches on the right image.
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken }))
+        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken, appType }))
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -544,6 +560,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     router,
     buildManageQuery,
     branch,
+    appType,
   ]);
 
   // Launch the service for real: single model on a vLLM instance. Escrow is prepared client-side
@@ -619,6 +636,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           durationSeconds: jobDurationSeconds,
           tokenAddress: selectedToken.address,
           hfToken,
+          appType,
         });
       } catch (error) {
         if (reportGpuSelectionFailure(error)) {
@@ -684,6 +702,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     router,
     buildManageQuery,
     branch,
+    appType,
   ]);
 
   // Fresh launch of a template app (ComfyUI, …). Mirrors runFreshLaunch but sources the container spec

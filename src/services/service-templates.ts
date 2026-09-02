@@ -2,8 +2,9 @@ import { CHAIN_ID } from '@/constants/chains';
 import { DEFAULT_NODE_HTTP_URL, DEFAULT_NODE_URI } from '@/constants/default-node';
 import { NodeUri } from '@/contexts/P2PContext';
 import { withTimeout } from '@/lib/with-timeout';
+import { isModelAppType, isTemplateAppType, readServiceMetadata } from '@/services/service-metadata';
 import { AppBundle, AppTemplate, isBundle, isService } from '@/types/templates';
-import { ServiceTemplatePublic } from '@oceanprotocol/lib';
+import { ComputeJobMetadata, ServiceTemplatePublic } from '@oceanprotocol/lib';
 
 /**
  * The node's public template getter (ProviderInstance.getServiceTemplates), as exposed by useP2P().
@@ -207,33 +208,72 @@ function sameCommand(a: string[] | undefined, b: string[] | undefined): boolean 
 export type TemplateMatch = {
   template: AppTemplate | null;
   /**
-   * How it was matched: 'command' = image AND a command only ONE template has, the only
-   * authoritative one. 'image' = a guess — image alone, or a command several templates share (see
-   * `ambiguous`).
+   * How it was matched:
+   *   - 'metadata' = the service's own labels named its catalogue entry (or declared itself a model
+   *     service, in which case `template` is null). The service identifying ITSELF, so this is the
+   *     only source that is authoritative in both directions — a null template from 'metadata' means
+   *     "definitively not a template", not "couldn't tell".
+   *   - 'command'  = image AND a command only ONE template has. Authoritative, but only positively.
+   *   - 'image'    = a guess — image alone, or a command several templates share (see `ambiguous`).
    */
-  source: 'command' | 'image' | null;
+  source: 'metadata' | 'command' | 'image' | null;
   /** Match against an image (or image + command) several templates share — the variant is a coin flip. */
   ambiguous: boolean;
 };
 
+/** What a running service is matched back to the catalogue by, best evidence first. */
+export type MatchableService = {
+  /** Owner-supplied labels — the dashboard stamps appType/appId on every launch (see service-metadata). */
+  metadata?: ComputeJobMetadata;
+  image?: string;
+  dockerCmd?: string[];
+};
+
 /**
- * Match a running service back to the template it was launched from. Every bundle of a service runs
- * the SAME image as that service (a bundle differs only in the `command` that pre-downloads its
- * models), so image alone resolves all of them to whichever template happens to come first — which is
- * how a running bundle used to show its parent's name and load its parent's config on Edit.
+ * Match a running service back to the template it was launched from, best evidence first.
  *
- * So: match image AND command exactly first, and only fall back to image alone. The fallback covers
- * two cases: the listing endpoint (SERVICE_LIST) strips `dockerCmd`, and an operator may have edited
- * the template's JSON since this service was launched. It's reported as `source: 'image'` (and
- * `ambiguous` when the image has variants) rather than passed off as a real match, so a caller that
- * would act on it — seeding an Edit, sending a launch — can decline instead of guessing wrong. Naming
- * is safe on an ambiguous match: it resolves to the bare service, whose name covers every variant.
+ * **1. The service's own labels** (`metadata.appType` / `appId`, stamped by every dashboard launch —
+ * see services/service-metadata). One id lookup, exact, and the only source that also answers
+ * NEGATIVELY: a model service says so outright instead of being image-matched onto an inference
+ * template it merely shares an image with. Carried on SERVICE_GET_STATUS *and* SERVICE_LIST, so it
+ * works where `dockerCmd` isn't there to match on.
+ *
+ * The two fallbacks below stay for services this can't answer for: launched before the labels
+ * existed, launched by another client, or reached through a hop that drops the bag.
+ *
+ * **2. Image AND command.** Every bundle of a service runs the SAME image as that service (a bundle
+ * differs only in the `command` that pre-downloads its models), so image alone resolves all of them
+ * to whichever template happens to come first — which is how a running bundle used to show its
+ * parent's name and load its parent's config on Edit.
+ *
+ * **3. Image alone.** Covers a listing that stripped `dockerCmd` and an operator who edited the
+ * template's JSON since launch. Reported as `source: 'image'` (and `ambiguous` when the image has
+ * variants) rather than passed off as a real match, so a caller that would act on it — seeding an
+ * Edit, sending a launch — can decline instead of guessing wrong. Naming is safe on an ambiguous
+ * match: it resolves to the bare service, whose name covers every variant.
  */
-export function matchTemplateForService(
-  templates: AppTemplate[],
-  service: { image?: string; dockerCmd?: string[] }
-): TemplateMatch {
+export function matchTemplateForService(templates: AppTemplate[], service: MatchableService): TemplateMatch {
   const unmatched: TemplateMatch = { template: null, source: null, ambiguous: false };
+  // The service's own labels, when it has them: an exact answer with no image/command guessing at all.
+  // Absent for anything launched before these labels existed, launched by another client, or reached
+  // through a hop that drops the bag — those fall through to the image/command match below.
+  const identity = readServiceMetadata(service);
+  if (identity) {
+    // A model service runs no catalogue template AT ALL, and says so. Worth reporting as a match
+    // (source 'metadata', template null) rather than as "unmatched": both model flows run the same
+    // image the node's own inference templates do, so the fallback below resolves every one of them
+    // onto a template they merely share an image with.
+    if (isModelAppType(identity.appType)) {
+      return { template: null, source: 'metadata', ambiguous: false };
+    }
+    const declared = isTemplateAppType(identity.appType) ? findTemplateById(templates, identity.appId) : null;
+    if (declared) {
+      return { template: declared, source: 'metadata', ambiguous: false };
+    }
+    // Labelled with a template id this catalogue doesn't have — the operator renamed or removed the
+    // entry since launch. We still know it's a template run, so fall through and name the app family
+    // by image rather than reporting nothing.
+  }
   if (!service.image) {
     return unmatched;
   }
@@ -266,10 +306,7 @@ export function matchTemplateForService(
 }
 
 /** The matched template regardless of how confident the match is — see matchTemplateForService. */
-export function findTemplateForService(
-  templates: AppTemplate[],
-  service: { image?: string; dockerCmd?: string[] }
-): AppTemplate | null {
+export function findTemplateForService(templates: AppTemplate[], service: MatchableService): AppTemplate | null {
   return matchTemplateForService(templates, service).template;
 }
 

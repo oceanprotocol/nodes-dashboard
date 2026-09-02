@@ -362,7 +362,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                 />
               )}
               {isEditMode && needsBucketPicker && (
-                <div className="textSecondary">The original persistent-storage bucket stays mounted.</div>
+                <div className="textSecondary">
+                  The persistent-storage bucket selected at launch, if any, stays mounted.
+                </div>
               )}
               {envSpecs.length > 0 ? (
                 envSpecs.map((spec) => (
