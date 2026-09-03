@@ -88,8 +88,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const appType = useMemo(() => {
     const derived = resolveServiceAppType(flowType, selectedTemplate);
     const fromUrl = parseServiceAppType(firstQueryValue(router.query.appType));
-    return fromUrl && isModelAppType(fromUrl) && isModelAppType(derived) ? fromUrl : derived;
-  }, [flowType, selectedTemplate, router.query.appType]);
+    return isEditMode && fromUrl && isModelAppType(fromUrl) && isModelAppType(derived) ? fromUrl : derived;
+  }, [flowType, selectedTemplate, router.query.appType, isEditMode]);
 
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);

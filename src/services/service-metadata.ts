@@ -129,8 +129,11 @@ export function readServiceMetadata(
     return null;
   }
   const appType = parseServiceAppType(bag[APP_TYPE_KEY]);
-  const appId = bag[APP_ID_KEY];
-  if (!appType || typeof appId !== 'string' || appId.length === 0) {
+  const rawAppId = bag[APP_ID_KEY];
+  // Trimmed to mirror buildServiceMetadata, which writes a trimmed id: a whitespace-only value names
+  // nothing, so it has to read as "does not tell us" and fall back to image/dockerCmd matching.
+  const appId = typeof rawAppId === 'string' ? rawAppId.trim() : '';
+  if (!appType || appId.length === 0) {
     return null;
   }
   return { appType, appId };

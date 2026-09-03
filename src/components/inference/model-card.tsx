@@ -85,6 +85,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle
           {/* Span carries the tooltip ref: Button's href path renders a Link and doesn't forward one. */}
           <span className={styles.detailsLink}>
             <Button
+              aria-label="View on Hugging Face"
               color="accent1"
               href={`https://huggingface.co/${model.id}`}
               onClick={(event) => event.stopPropagation()}
