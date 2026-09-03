@@ -35,7 +35,7 @@ const OwnerStats = () => {
         barKey="totalRevenue"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={ownerStatsPerEpoch}
-        title="Revenue per epoch"
+        title="Jobs revenue"
         footer={{
           amount: formatNumber(totalNetworkRevenue + totalBenchmarkRevenue),
           currency: 'USDC',
@@ -48,7 +48,7 @@ const OwnerStats = () => {
         barKey="totalJobs"
         chartType={ChartTypeEnum.JOBS_PER_EPOCH}
         data={ownerStatsPerEpoch}
-        title="Jobs per epoch"
+        title="Jobs run"
         footer={{
           amount: formatNumber(totalNetworkJobs + totalBenchmarkJobs),
           label: 'Total jobs',

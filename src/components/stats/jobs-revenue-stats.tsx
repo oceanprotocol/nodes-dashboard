@@ -16,7 +16,7 @@ const JobsRevenueStats = () => {
   return (
     <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.revenueWrapper}>
-        <h3 className={styles.heading}>Total revenue</h3>
+        <h3 className={styles.heading}>Network jobs revenue</h3>
         <div className={styles.revenue}>
           <span className={styles.token}>USDC</span> <span className={styles.amount}>{formatNumber(totalRevenue)}</span>
         </div>

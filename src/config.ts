@@ -155,6 +155,14 @@ const apiRoutes = {
   consumerStats: { root: 'analytics', path: '/consumers' },
   ownerStats: { root: 'analytics', path: '/owners' },
 
+  // Analytics API routes - inference / Service-on-Demand stats
+  serviceGlobalStats: { root: 'analytics', path: '/services/global-stats' },
+  serviceConsumerStats: { root: 'analytics', path: '/services/consumers' },
+  serviceOwnerStats: { root: 'analytics', path: '/services/owners' },
+  serviceNodeStats: { root: 'analytics', path: '/services/nodes' },
+  modelPopularity: { root: 'analytics', path: '/services/model-popularity' },
+  appPopularity: { root: 'analytics', path: '/services/app-popularity' },
+
   // ENS API routes
   ensAddress: { root: 'ens', path: '/address' },
   ensName: { root: 'ens', path: '/name' },

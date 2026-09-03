@@ -4,6 +4,12 @@ import { EnvNodeInfo } from '@/types/environments';
 import { GrantStatus } from '@/types/grant';
 import { EnsProfile } from '@/types/profile';
 import {
+  ConsumerServiceStats,
+  ConsumerServiceStatsPerEpoch,
+  OwnerServiceStats,
+  ServiceStatsPerEpoch,
+} from '@/types/services-stats';
+import {
   ActiveNodes,
   ConsumerStats,
   ConsumerStatsPerEpoch,
@@ -31,12 +37,28 @@ type ProfileContextType = {
   totalPaidAmount: number;
   consumerStatsPerEpoch: ConsumerStatsPerEpoch[];
   successfullJobs: number;
+  // Owner service (inference) stats. Named apart from the job fields above
+  // because `totalJobs` is already written by three different fetchers here,
+  // last-write-wins, and these must not join that pile.
+  ownerServiceStatsPerEpoch: ServiceStatsPerEpoch[];
+  ownerTotalServices: number;
+  ownerServiceRevenue: number;
+  // Consumer service (inference) stats
+  consumerServiceStatsPerEpoch: ConsumerServiceStatsPerEpoch[];
+  totalServices: number;
+  totalServicePaidAmount: number;
+  activeServices: number;
+  servicesExpiringSoon: number;
+  avgServiceDurationSeconds: number;
+  avgServiceCostUsdc: number;
   environment: any;
   nodeInfo: EnvNodeInfo;
   grantStatus: GrantStatus | null;
   // API functions
   fetchOwnerStats: () => Promise<void>;
   fetchConsumerStats: () => Promise<void>;
+  fetchOwnerServiceStats: () => Promise<void>;
+  fetchConsumerServiceStats: () => Promise<void>;
   fetchActiveNodes: () => Promise<void>;
   fetchGrantStatus: (walletAddress: string) => Promise<void>;
   fetchJobsSuccessRate: () => Promise<void>;
@@ -62,6 +84,16 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [eligibleNodes, setEligibleNodes] = useState<number>(0);
   const [totalNodes, setTotalNodes] = useState<number>(0);
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
+  const [ownerServiceStatsPerEpoch, setOwnerServiceStatsPerEpoch] = useState<ServiceStatsPerEpoch[]>([]);
+  const [ownerTotalServices, setOwnerTotalServices] = useState<number>(0);
+  const [ownerServiceRevenue, setOwnerServiceRevenue] = useState<number>(0);
+  const [consumerServiceStatsPerEpoch, setConsumerServiceStatsPerEpoch] = useState<ConsumerServiceStatsPerEpoch[]>([]);
+  const [totalServices, setTotalServices] = useState<number>(0);
+  const [totalServicePaidAmount, setTotalServicePaidAmount] = useState<number>(0);
+  const [activeServices, setActiveServices] = useState<number>(0);
+  const [servicesExpiringSoon, setServicesExpiringSoon] = useState<number>(0);
+  const [avgServiceDurationSeconds, setAvgServiceDurationSeconds] = useState<number>(0);
+  const [avgServiceCostUsdc, setAvgServiceCostUsdc] = useState<number>(0);
   const [environment, setEnvironment] = useState<any>(null);
   const [nodeInfo, setNodeInfo] = useState<any>();
   const [grantStatus, setGrantStatus] = useState<GrantStatus | null>(null);
@@ -141,6 +173,46 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       console.error('Error fetching consumer stats: ', err);
+    }
+  }, [ensAddress]);
+
+  const fetchOwnerServiceStats = useCallback(async () => {
+    if (!ensAddress) {
+      return;
+    }
+    try {
+      const response = await axios.get<OwnerServiceStats>(`${getApiRoute('serviceOwnerStats')}/${ensAddress}/stats`);
+      if (response.data) {
+        setOwnerServiceStatsPerEpoch(response.data.data ?? []);
+        setOwnerTotalServices(response.data.totalServices);
+        setOwnerServiceRevenue(response.data.serviceRevenue);
+      }
+    } catch (err) {
+      console.error('Error fetching owner service stats: ', err);
+    }
+  }, [ensAddress]);
+
+  const fetchConsumerServiceStats = useCallback(async () => {
+    if (!ensAddress) {
+      return;
+    }
+    try {
+      const response = await axios.get<ConsumerServiceStats>(
+        `${getApiRoute('serviceConsumerStats')}/${ensAddress}/stats`
+      );
+      if (response.data) {
+        // No reshaping needed: the server already sends `paidAmount` and
+        // `totalServices` per epoch, which are the two barKeys the charts read.
+        setConsumerServiceStatsPerEpoch(response.data.data ?? []);
+        setTotalServices(response.data.totalServices);
+        setTotalServicePaidAmount(response.data.totalPaidAmount);
+        setActiveServices(response.data.activeServices);
+        setServicesExpiringSoon(response.data.expiringSoon);
+        setAvgServiceDurationSeconds(response.data.avgDurationSeconds);
+        setAvgServiceCostUsdc(response.data.avgCostUsdc);
+      }
+    } catch (err) {
+      console.error('Error fetching consumer service stats: ', err);
     }
   }, [ensAddress]);
 
@@ -233,11 +305,23 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         eligibleNodes,
         totalNodes,
         successfullJobs,
+        ownerServiceStatsPerEpoch,
+        ownerTotalServices,
+        ownerServiceRevenue,
+        consumerServiceStatsPerEpoch,
+        totalServices,
+        totalServicePaidAmount,
+        activeServices,
+        servicesExpiringSoon,
+        avgServiceDurationSeconds,
+        avgServiceCostUsdc,
         environment,
         nodeInfo,
         grantStatus,
         fetchOwnerStats,
         fetchConsumerStats,
+        fetchOwnerServiceStats,
+        fetchConsumerServiceStats,
         fetchActiveNodes,
         fetchGrantStatus,
         fetchJobsSuccessRate,
