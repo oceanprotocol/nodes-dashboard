@@ -95,15 +95,15 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
   if (noHeadroom) {
     error = exhausted
       ? "This service is already at the environment's maximum runtime, so it can't be extended further."
-      : `Only ${formatDuration(maxSeconds)} of runtime is left before this environment's maximum, but it charges a ${formatDuration(minSeconds)} minimum per top-up — this service can't be extended further.`;
+      : `Only ${formatDuration(maxSeconds)} of runtime is left before this environment's maximum, but it charges a ${formatDuration(minSeconds)} minimum per top-up, so this service can't be extended further.`;
   } else if (seconds <= 0) {
     error = 'Pick a duration greater than zero.';
   } else if (minSeconds > 0 && seconds < minSeconds) {
     // Not a node rejection — a node overcharge (see minSeconds). A shorter extension costs exactly
     // the same as the minimum, so there is never a reason to buy one.
-    error = `This environment charges a ${formatDuration(minSeconds)} minimum per top-up — a shorter extension costs the same, so add at least ${formatDuration(minSeconds)}.`;
+    error = `This environment charges a ${formatDuration(minSeconds)} minimum per top-up, and a shorter extension costs the same, so add at least ${formatDuration(minSeconds)}.`;
   } else if (maxSeconds !== undefined && seconds > maxSeconds) {
-    error = `At most ${formatDuration(maxSeconds)} can be added before this environment's maximum runtime — pick a shorter extension.`;
+    error = `At most ${formatDuration(maxSeconds)} can be added before this environment's maximum runtime, so pick a shorter extension.`;
   }
 
   return (

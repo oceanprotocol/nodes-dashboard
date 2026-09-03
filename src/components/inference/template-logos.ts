@@ -10,29 +10,64 @@ import { AppTemplate } from '@/types/templates';
  * it matches an entry, so a mark that hasn't been supplied is never requested (no 404, no broken tile).
  * An unmatched template keeps its category glyph, and an uncategorised one falls back to a monogram.
  *
- * Keys match by substring against the template id (longest key first), the same way categories are
- * resolved in template-visual — so one `comfyui` entry covers `comfyui`, `comfyui-sdxl` and whatever
- * ComfyUI variant a node publishes next, without listing each.
+ * Keys match by substring against the template id, so one `comfyui` entry covers `comfyui`,
+ * `comfyui-sdxl` and whatever ComfyUI variant a node publishes next, without listing each.
  *
- * Suggested filenames for the templates the node publishes today, so they stay consistent as the marks
- * land: `stable-diffusion`/`sd-webui`/`automatic1111` → stability-ai.svg, `comfyui` → comfyui.svg,
- * `fooocus` → fooocus.svg, `wan-video` → wan.svg, `ltx-video` → lightricks.svg, `jupyter` →
- * jupyter.svg, `llamacpp` → llama-cpp.svg, `open-webui` → open-webui.svg, `ollama` → ollama.svg,
- * `vllm` → vllm.svg, `nomic-embed` → nomic.svg.
+ * A bundle's id usually names BOTH the app that runs it and the model inside it (`hermes-qwen38`,
+ * `qwen38-opencode`), so the tiers below decide which one the tile wears. The model wins — a bundle is
+ * bought for the model, and it is what a returning user scans the grid for — EXCEPT where the app is
+ * itself the whole product rather than a runner for someone else's weights, which is what SHELL_KEYS
+ * is for: a ComfyUI bundle is a ComfyUI bundle regardless of which checkpoints it ships.
+ *
+ * Suggested filenames for templates whose marks have NOT landed yet, so they stay consistent when they
+ * do: `stable-diffusion`/`sd-webui`/`automatic1111` → stability-ai.svg, `fooocus` → fooocus.svg,
+ * `wan-video` → wan.svg, `ltx-video` → lightricks.svg, `llamacpp` → llama-cpp.svg, `ollama` →
+ * ollama.svg, `minimax` → minimax.svg, `glm`/`zai` → zhipu.svg.
+ *
+ * One trap worth knowing before adding a mark: these load as `<img src>`, so `currentColor` does not
+ * reach them (a fill-less path renders black, invisible on a dark card) and an SVG's own
+ * `@media (prefers-color-scheme: dark)` never fires — this app themes via a `data-theme` attribute, not
+ * the OS preference. The tile's backplate is the same 12%-alpha accent tint in BOTH themes, so a mark
+ * needs one treatment that works on both; a mark with open negative space (qwen) needs its own plate,
+ * or the tint shows through the gaps and reads as a shape of its own.
  */
 const TEMPLATE_LOGO_FILES: Record<string, string> = {
   comfyui: 'comfyui.svg',
+  deepseek: 'deepseek.svg',
+  hermes: 'hermes.svg',
   jupyter: 'jupyter.svg',
-  // Longer than `vllm`, so `vllm-nomic-embed` wears Nomic's mark rather than vLLM's (see MATCH_KEYS).
+  glm: 'zai.svg',
   'nomic-embed': 'nomic.svg',
-  vllm: 'vllm.png',
-  // PNG, not SVG: Open WebUI publishes no vector mark — its own favicon.svg is a 500px PNG in an SVG
-  // wrapper, so this is that same artwork at the size the tile actually needs (96px, transparent).
+  openclaw: 'openclaw.svg',
+  opencode: 'opencode.svg',
   'open-webui': 'open-webui.png',
+  qwen: 'qwen.svg',
+  vllm: 'vllm.png',
+  // GLM is published by Z.ai, so both keys point at the same mark — `glm` catches the model as it is
+  // named in ids (`glm52-opencode`), `zai` the vendor, should a template be keyed that way instead.
+  zai: 'zai.svg',
 };
 
-// Longest key first so the most specific match wins (e.g. `open-webui` over a hypothetical `webui`).
-const MATCH_KEYS = Object.keys(TEMPLATE_LOGO_FILES).sort((a, b) => b.length - a.length);
+/**
+ * Apps whose own mark outranks the model's, because the app IS the product rather than a runner for
+ * whatever weights it was pointed at — a ComfyUI bundle reads as ComfyUI first, and its manifest of
+ * thirteen checkpoints is not a brand. Everything not listed here loses to a model key.
+ */
+const SHELL_KEYS = ['comfyui', 'jupyter', 'open-webui'];
+
+/** Model marks, which outrank any app not in SHELL_KEYS (`qwen38-opencode` wears Qwen's mark). */
+const MODEL_KEYS = ['deepseek', 'glm', 'qwen', 'zai', 'nomic-embed'];
+
+// Three tiers, each longest-key-first so the most specific match inside a tier still wins (e.g.
+// `nomic-embed` over `vllm` for `vllm-nomic-embed`). Ties inside a tier cannot happen today.
+const byLengthDesc = (a: string, b: string) => b.length - a.length;
+const ALL_KEYS = Object.keys(TEMPLATE_LOGO_FILES);
+const MATCH_KEYS = [
+  ...SHELL_KEYS.filter((k) => k in TEMPLATE_LOGO_FILES).sort(byLengthDesc),
+  ...MODEL_KEYS.filter((k) => k in TEMPLATE_LOGO_FILES).sort(byLengthDesc),
+  ...ALL_KEYS.filter((k) => !SHELL_KEYS.includes(k) && !MODEL_KEYS.includes(k)).sort(byLengthDesc),
+];
+
 
 /** Public path of a template's brand mark, or null when no file has been supplied for it. */
 export function templateLogoSrc(templateId: string): string | null {

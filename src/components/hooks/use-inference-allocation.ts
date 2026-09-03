@@ -23,6 +23,17 @@ export type MergedGpu = {
   available: number;
   /** Per-unit fee for this type (units of one description share a fee — the first id's). */
   fee: number;
+  /**
+   * Whether the env itself tolerates booking NONE of this type — true only when every resource id
+   * merged into it declares `min: 0`. The env's own floor, distinct from a template/package's declared
+   * min. Live envs stamp `min: 0` on every GPU device id, so this is true today, but it's read (not
+   * assumed) wherever zero-GPU picks are gated: an env that actually requires at least one unit of a
+   * type must keep blocking a zero pick even when the launch target allows one.
+   *
+   * A boolean rather than a summed `min`, which would read like a clamp bound without being one — 8
+   * devices at `min: 1` sum to 8, while the floor for the group is 1.
+   */
+  allowsZero: boolean;
 };
 
 /** How many units of each GPU type (keyed by MergedGpu.key) the user wants to use. */
@@ -250,6 +261,7 @@ const useInferenceAllocation = ({
       if (existing) {
         existing.max += gpu.max ?? 0;
         existing.available += gpusAvailable[gpu.id] ?? 0;
+        existing.allowsZero = existing.allowsZero && (gpu.min ?? 0) <= 0;
       } else {
         merged.push({
           key,
@@ -257,6 +269,7 @@ const useInferenceAllocation = ({
           max: gpu.max ?? 0,
           available: gpusAvailable[gpu.id] ?? 0,
           fee: gpuFees[gpu.id] ?? 0,
+          allowsZero: (gpu.min ?? 0) <= 0,
         });
       }
       return merged;

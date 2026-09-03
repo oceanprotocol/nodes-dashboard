@@ -21,7 +21,7 @@ function warningKey(session: ExpiringSession): string {
 
 function toastMessage(session: ExpiringSession): string {
   return session.band <= URGENT_BAND_SECONDS
-    ? 'ends in under a minute. Save your work — the endpoint will stop responding.'
+    ? 'ends in under a minute. Save your work, as the endpoint will stop responding.'
     : 'ends in about 10 minutes. Prolong it to keep it running.';
 }
 
@@ -87,7 +87,7 @@ const SessionExpiryNotifier: React.FC = () => {
         void showSessionNotification({
           title:
             session.band <= URGENT_BAND_SECONDS ? 'Session ending in under a minute' : 'Session ending in 10 minutes',
-          body: `${session.label} — ${
+          body: `${session.label}: ${
             session.band <= URGENT_BAND_SECONDS
               ? 'the endpoint is about to stop responding.'
               : 'prolong it to keep it running.'

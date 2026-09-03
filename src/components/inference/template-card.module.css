@@ -108,7 +108,17 @@
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
+}
+
+.chipIcon {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+  fill: currentColor;
 }
 
 /* Same accent treatment as the details modal's category chip, so the card carries the category colour
