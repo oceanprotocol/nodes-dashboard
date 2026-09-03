@@ -3,12 +3,13 @@ import { styled, TextField } from '@mui/material';
 import React from 'react';
 
 const StyledTextField = styled(TextField, {
-  shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size',
-})<{ custom_size?: 'sm' | 'md'; has_error?: boolean }>(({ custom_size, disabled, has_error }) => ({
-  background: disabled ? 'transparent' : 'var(--background-glass)',
-  border: `1px solid var(${has_error ? '--error' : '--border'})`,
-  boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
-  borderRadius: 24,
+  shouldForwardProp: (prop) => prop !== 'has_error' && prop !== 'custom_size' && prop !== 'custom_radius',
+})<{ custom_size?: 'sm' | 'md'; custom_radius?: number; has_error?: boolean }>(
+  ({ custom_radius, custom_size, disabled, has_error }) => ({
+    background: disabled ? 'transparent' : 'var(--background-glass)',
+    border: `1px solid var(${has_error ? '--error' : '--border'})`,
+    boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
+    borderRadius: custom_radius ?? 24,
   lineHeight: '18px',
   minHeight: custom_size === 'sm' ? 34 : 50,
   transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
@@ -63,6 +64,7 @@ type InputProps = {
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   onKeyUp?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   placeholder?: string;
+  radius?: number;
   size?: 'sm' | 'md';
   startAdornment?: React.ReactNode;
   step?: number | 'any';
@@ -87,6 +89,7 @@ const Input: React.FC<InputProps> = ({
   onKeyDown,
   onKeyUp,
   placeholder,
+  radius,
   size = 'md',
   startAdornment,
   step,
@@ -103,6 +106,7 @@ const Input: React.FC<InputProps> = ({
     topRight={topRight}
   >
     <StyledTextField
+      custom_radius={radius}
       custom_size={size}
       disabled={disabled}
       has_error={!!errorText}

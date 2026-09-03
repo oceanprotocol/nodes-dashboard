@@ -12,6 +12,9 @@ export interface TransferTokensParams {
   tokenAddress: string;
   toAddress: string;
   amount: string;
+  /** Native chain currency (ETH) — sent as tx value instead of an ERC20 transfer call. */
+  isNative?: boolean;
+  decimals?: number;
 }
 
 export interface UseTransferTokensParams {
@@ -33,7 +36,7 @@ export const useTransferTokens = ({ onSuccess }: UseTransferTokensParams = {}): 
   const [error, setError] = useState<string>();
 
   const handleTransfer = useCallback(
-    async ({ tokenAddress, toAddress, amount }: TransferTokensParams) => {
+    async ({ tokenAddress, toAddress, amount, isNative, decimals }: TransferTokensParams) => {
       if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(toAddress)) {
         const errorText = 'Invalid address';
         setError(errorText);
@@ -41,18 +44,21 @@ export const useTransferTokens = ({ onSuccess }: UseTransferTokensParams = {}): 
         return;
       }
 
+      const getNormalizedAmount = async () => {
+        const tokenDecimals = isNative ? (decimals ?? 18) : await getTokenDecimals(tokenAddress);
+        return new BigNumber(amount).multipliedBy(new BigNumber(10).pow(Number(tokenDecimals))).toFixed(0);
+      };
+
       if (user?.type === 'eoa') {
         try {
           setIsTransferring(true);
           if (!provider) return;
-          const tokenDecimals = await getTokenDecimals(tokenAddress);
-          const normalizedAmount = new BigNumber(amount)
-            .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
-            .toFixed(0);
+          const normalizedAmount = await getNormalizedAmount();
 
           const signer = await provider.getSigner();
-          const tokenWithSigner = new ethers.Contract(tokenAddress, ERC20Template.abi, signer);
-          const tx = await tokenWithSigner.transfer(toAddress, normalizedAmount);
+          const tx = isNative
+            ? await signer.sendTransaction({ to: toAddress, value: BigInt(normalizedAmount) })
+            : await new ethers.Contract(tokenAddress, ERC20Template.abi, signer).transfer(toAddress, normalizedAmount);
           await tx.wait();
           setIsTransferring(false);
           setError(undefined);
@@ -78,21 +84,25 @@ export const useTransferTokens = ({ onSuccess }: UseTransferTokensParams = {}): 
         setIsTransferring(true);
         setError(undefined);
 
-        const tokenDecimals = await getTokenDecimals(tokenAddress);
-        const normalizedAmount = new BigNumber(amount)
-          .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
-          .toFixed(0);
+        const normalizedAmount = await getNormalizedAmount();
 
-        const data = encodeFunctionData({
-          abi: ERC20Template.abi,
-          functionName: 'transfer',
-          args: [toAddress as `0x${string}`, BigInt(normalizedAmount)],
-        });
+        if (isNative) {
+          await sendTransaction({
+            to: toAddress as `0x${string}`,
+            value: BigInt(normalizedAmount),
+          });
+        } else {
+          const data = encodeFunctionData({
+            abi: ERC20Template.abi,
+            functionName: 'transfer',
+            args: [toAddress as `0x${string}`, BigInt(normalizedAmount)],
+          });
 
-        await sendTransaction({
-          to: tokenAddress as `0x${string}`,
-          data: data as `0x${string}`,
-        });
+          await sendTransaction({
+            to: tokenAddress as `0x${string}`,
+            data: data as `0x${string}`,
+          });
+        }
 
         setIsTransferring(false);
         setError(undefined);

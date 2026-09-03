@@ -1,0 +1,174 @@
+.root {
+  align-self: start;
+
+  @media (min-width: 768px) {
+    max-height: calc(100dvh - 140px);
+    overflow-y: auto;
+    position: sticky;
+    top: 116px;
+  }
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toggle {
+  background-color: var(--background-glass-secondary);
+}
+
+.toggleIcon {
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+  font-size: 20px;
+  transition: transform 0.2s ease;
+}
+
+.toggleIconOpen {
+  transform: rotate(180deg);
+}
+
+.item {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 24px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  padding: 8px 12px;
+  text-align: left;
+  transition: background-color 0.2s ease;
+  width: 100%;
+
+  &:hover {
+    background-color: var(--background-glass-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: 2px;
+  }
+}
+
+.itemActive {
+  background-color: var(--accent2);
+  color: var(--accent2-contrast);
+
+  &:hover {
+    background-color: var(--accent2);
+  }
+}
+
+.itemIcon {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex: 0 0 auto;
+
+  svg {
+    font-size: 19px;
+  }
+}
+
+/* Inherit the active item's contrast color instead of naming a theme token — the accent2 fill
+   is fixed in both themes, so --text-primary here would flip to white and vanish on the green. */
+.itemActive .itemIcon {
+  color: inherit;
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemLinksOut {
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+/* Segmented light / system / dark control. Only the selected option shows its label; three equal
+   columns would leave each one ~40px in this narrow card, enough only for "Li…". */
+.theme {
+  background-color: var(--background-glass-secondary);
+  border-radius: 24px;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+}
+
+.themeOption {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 21px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px 12px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+
+  svg {
+    flex: 0 0 auto;
+    font-size: 17px;
+  }
+
+  &:hover:not(.themeOptionActive) {
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: 2px;
+  }
+}
+
+/* --background-modal rather than --background-glass: the latter lands within a few percent of the
+   track on the near-black page, so the selected pill would disappear in dark. */
+.themeOptionActive {
+  background-color: var(--background-modal);
+  box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
+  color: var(--text-primary);
+  flex: 1;
+  padding: 8px 12px;
+}
+
+.themeOptionLabel {
+  display: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.themeOptionActive .themeOptionLabel {
+  display: block;
+}
+
+.logout {
+  color: var(--error-darker);
+
+  .itemIcon {
+    color: var(--error-darker);
+  }
+}

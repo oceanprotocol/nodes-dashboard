@@ -6,8 +6,7 @@ import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
-import { usePrivy } from '@privy-io/react-auth';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './unban-requests.module.css';
 
@@ -16,9 +15,7 @@ type UnbanRequestsProps = {
 };
 
 const UnbanRequests = ({ node }: UnbanRequestsProps) => {
-  const { login } = usePrivy();
-
-  const { account, ocean, signMessage } = useOceanAccount();
+  const { account, login, ocean, signMessage } = useOceanAccount();
 
   const { unbanRequests, fetchUnbanRequests, requestNodeUnban } = useUnbanRequestsContext();
 
@@ -31,9 +28,7 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
 
   const { buttonDisabled, disabledReason } = useMemo(() => {
     const isPermanentBan = node.banned && node.permanent;
-    const inFlight = unbanRequests.some(
-      (r) => r.status === 'pending' || r.status === 'running'
-    );
+    const inFlight = unbanRequests.some((r) => r.status === 'pending' || r.status === 'running');
     return {
       buttonDisabled: loading || inFlight || isPermanentBan,
       disabledReason: isPermanentBan
@@ -77,23 +72,22 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
       <div className={styles.header}>
         <h3>Unban requests</h3>
         {isAdmin && (
-          <Button
-            color="accent1"
-            disabled={buttonDisabled}
-            loading={loading}
-            onClick={handleRequestUnban}
-          >
+          <Button color="accent1" disabled={buttonDisabled} loading={loading} onClick={handleRequestUnban}>
             {loading ? 'Requesting...' : 'Request unban'}
           </Button>
         )}
       </div>
-      {isAdmin && disabledReason && (
-        <p className={styles.disabledReason}>{disabledReason}</p>
-      )}
+      {isAdmin && disabledReason && <p className={styles.disabledReason}>{disabledReason}</p>}
       {unbanRequests.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', margin: 0 }}>No unban history</p>
       ) : (
-        <Table<UnbanRequest> data={unbanRequests} getRowId={(row) => row.requestId} paginationType="none" tableType={TableTypeEnum.UNBAN_REQUESTS} />
+        <Table<UnbanRequest>
+          autoHeight
+          data={unbanRequests}
+          getRowId={(row) => row.requestId}
+          paginationType="none"
+          tableType={TableTypeEnum.UNBAN_REQUESTS}
+        />
       )}
     </Card>
   );

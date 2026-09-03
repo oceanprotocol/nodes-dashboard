@@ -21,7 +21,7 @@ const StyledPagination = styled(Pagination)(({ theme }) => ({
     padding: '3px 8px',
     '&.MuiPaginationItem-page.Mui-selected': {
       backgroundColor: 'var(--accent1)',
-      color: 'var(--text-primary-inverse)',
+      color: 'var(--accent1-contrast)',
     },
   },
 }));

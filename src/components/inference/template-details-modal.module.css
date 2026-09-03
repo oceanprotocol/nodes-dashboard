@@ -1,0 +1,484 @@
+/* --accent is set inline per template from its category meta. */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.tileIcon,
+.tileLogo {
+  grid-area: 1 / 1;
+}
+
+.tileIcon {
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  fill: currentColor;
+}
+
+.tileLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.tileMono {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+/* Templates only: the outcome, read as a lead under the app's name. */
+.outcome {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.headerChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Denser than the global chip default, and icon-bearing. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.categoryChip {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.chipIcon {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+  fill: currentColor;
+}
+
+/* The tier word (Service / Model pack / Template). Deliberately the quietest chip in the row: it
+   classifies, it doesn't sell. */
+.shapeChip {
+  color: var(--text-secondary);
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sectionHeadRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--background-glass);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--inner-shadow-glass);
+}
+
+/**
+ * A service's description, as plain prose with no panel around it. The panel is this modal's way of
+ * saying "assets are included", so an empty app must not get one — and a slightly larger, unboxed
+ * paragraph stops a two-sentence service looking like a bundle whose panel happens to be short.
+ */
+.prose {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.descriptionEmpty {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* What a bare app can do — the quiet counterpart of a bundle's workflow cards: same slot, outline
+   chips instead of bordered cards. */
+.capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capabilityChip {
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+}
+
+/* An overline heading, for sections whose content is a single collapsed row — the heading rhythm of
+   the modal survives, at a weight that doesn't compete with the offer. */
+.overlineHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/**
+ * A stated absence. Never render an empty section, but do say the absence out loud once, where the
+ * content would have been: silence reads as an oversight, one grey line reads as a choice.
+ */
+.absence {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--background-glass-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.absence strong {
+  color: var(--text-primary);
+}
+
+.absenceIcon {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  fill: currentColor;
+  margin-top: 1px;
+}
+
+/* The manifest's collapsed summary: avatar cluster, then the sentence it stands in for. */
+.clusterSummary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The published description, once it has stopped being the modal's opening move. */
+.notesProse {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.portRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.envVars {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.envVarsHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.overline {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.envVarList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.envVarChip {
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.envVarLock {
+  width: 13px;
+  height: 13px;
+  font-size: 13px;
+  fill: currentColor;
+  color: var(--accent1);
+}
+
+.envVarMask {
+  color: var(--text-secondary);
+}
+
+/* Resources table */
+
+.resourceTable {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  border-radius: 16px;
+  background: var(--background-glass);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--inner-shadow-glass);
+  overflow: hidden;
+}
+
+.resourceHeadCell {
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  background: var(--background-glass-secondary);
+}
+
+.resourceHeadCellAccent {
+  color: var(--accent1);
+}
+
+.resourceCell,
+.resourceLabelCell {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-glass);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.resourceLabelCell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.resourceIcon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  fill: currentColor;
+  color: var(--text-secondary);
+}
+
+.resourceCellAccent {
+  color: var(--accent1);
+}
+
+.resourceCellEmpty {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Runtime */
+
+.durationInput {
+  width: 100%;
+  max-width: 260px;
+}
+
+/* Environments */
+
+.envList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.envCapNote {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.errorBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--error) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 55%, transparent);
+}
+
+.errorIcon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  flex: 0 0 20px;
+  fill: currentColor;
+  color: var(--error-darker);
+}
+
+.errorText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.errorTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.errorDetail {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.errorReason {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.stateBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 26px;
+  border-radius: 16px;
+  border: 1.5px dashed var(--border);
+  background: var(--background-glass);
+  text-align: center;
+}
+
+.stateBoxIcon {
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  fill: currentColor;
+  color: var(--text-secondary);
+}
+
+.stateBoxTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stateBoxText {
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 360px;
+}
+
+/* Loading skeletons */
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--background-glass);
+  border: 1px solid var(--border-glass);
+}
+
+.skeletonCardFaded {
+  opacity: 0.6;
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* .shimmer / .shimmerSoft come from globals.css. */
+
+.loadingNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  color: var(--accent1);
+}

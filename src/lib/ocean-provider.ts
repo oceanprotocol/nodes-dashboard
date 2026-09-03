@@ -1,4 +1,5 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
+import { buildEscrowBundleArgs, type EscrowDepositPermit, toBaseUnits } from '@/lib/escrow-bundle';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
 import { Authorizations, EscrowLock } from '@/types/payment';
@@ -278,6 +279,116 @@ export class OceanProvider {
     const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
     const deposit = await escrowWithSigner.deposit(tokenAddress, normalizedAmount);
     return deposit;
+  }
+
+  private async buildDepositPermit(
+    tokenAddress: string,
+    owner: string,
+    escrowAddress: string,
+    normalizedAmount: string,
+    deadline: number,
+    signer: ethers.Signer
+  ): Promise<EscrowDepositPermit | null> {
+    try {
+      const token = new ethers.Contract(tokenAddress, ERC20Template.abi, this.provider);
+      const [name, nonce, onchainSeparator] = await Promise.all([
+        token.name() as Promise<string>,
+        token.nonces(owner) as Promise<bigint>,
+        token.DOMAIN_SEPARATOR() as Promise<string>,
+      ]);
+
+      const domain = { name, version: '1', chainId: this.chainId, verifyingContract: tokenAddress };
+      if (ethers.TypedDataEncoder.hashDomain(domain) !== onchainSeparator) {
+        console.warn('Permit domain mismatch; falling back to approve path', { tokenAddress });
+        return null;
+      }
+
+      const types = {
+        Permit: [
+          { name: 'owner', type: 'address' },
+          { name: 'spender', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'nonce', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+      };
+      const value = {
+        owner,
+        spender: escrowAddress,
+        value: normalizedAmount,
+        nonce,
+        deadline,
+      };
+
+      const signature = await signer.signTypedData(domain, types, value);
+      const { v, r, s } = ethers.Signature.from(signature);
+      return { token: tokenAddress, amount: BigInt(normalizedAmount), deadline: BigInt(deadline), v, r, s };
+    } catch (err) {
+      console.warn('Failed to build deposit permit; falling back to approve path', err);
+      return null;
+    }
+  }
+
+  async bundleDepositAuthorizeEoa({
+    tokenAddress,
+    depositAmount,
+    spender,
+    maxLockedAmount,
+    maxLockSeconds,
+    maxLockCount,
+  }: {
+    tokenAddress: string;
+    depositAmount?: string;
+    spender: string;
+    maxLockedAmount: string;
+    maxLockSeconds: string;
+    maxLockCount: string;
+  }): Promise<any> {
+    if (!ethers.isAddress(tokenAddress) || !ethers.isAddress(spender)) {
+      console.error('Invalid address passed to bundleDepositAuthorizeEoa', { tokenAddress, spender });
+      throw new Error('Invalid address');
+    }
+    const escrow = await this.getEscrowContract(this.chainId);
+    const escrowAddress = escrow.target as string;
+    const tokenDecimals = await getTokenDecimals(tokenAddress);
+    const signer = await this.provider.getSigner();
+    const owner = await signer.getAddress();
+    const escrowWithSigner = escrow.connect(signer) as ethers.Contract;
+
+    let permit: EscrowDepositPermit | null = null;
+    const normalizedDeposit = depositAmount ? toBaseUnits(depositAmount, tokenDecimals) : BigInt(0);
+    if (normalizedDeposit > BigInt(0)) {
+      const deadline = Math.floor(Date.now() / 1000) + 3600;
+      // Permit path: signature funds the deposit, so bundle runs in a single tx.
+      permit = await this.buildDepositPermit(
+        tokenAddress,
+        owner,
+        escrowAddress,
+        normalizedDeposit.toString(),
+        deadline,
+        signer
+      );
+      if (!permit) {
+        // Fallback: approve then plain deposit inside the bundle.
+        const token = new ethers.Contract(tokenAddress, ERC20Template.abi, signer);
+        const approve = await token.approve(escrowAddress, normalizedDeposit);
+        await approve.wait();
+      }
+    }
+
+    const args = buildEscrowBundleArgs({
+      depositAmount,
+      maxLockCount,
+      maxLockedAmount,
+      maxLockSeconds,
+      permit,
+      spender,
+      tokenAddress,
+      tokenDecimals,
+    });
+
+    const bundle = await escrowWithSigner.bundle(args.deposits, args.permits, args.auths);
+    return bundle;
   }
 
   async withdrawTokensEoa({

@@ -1,7 +1,10 @@
 import {
   actionsColumnProps,
   benchmarkJobsColumns,
+  existingServicesColumns,
   jobsColumns,
+  nodeJobsColumns,
+  nodeServicesColumns,
   nodesLeaderboardColumns,
   NodesLeaderboardColumnsVisibility,
   nodesLeaderboardHomeColumns,
@@ -48,6 +51,7 @@ const StyledActionsWrapper = styled('div')({
   flexDirection: 'row',
   gap: 4,
   height: '100%',
+  justifyContent: 'flex-end',
 });
 
 const StyledDataGridWrapper = styled('div')<{ autoHeight?: boolean }>(({ autoHeight }) => ({
@@ -129,7 +133,7 @@ const StyledDataGrid = styled(DataGrid)<{ clickable?: boolean }>(({ clickable })
   },
 
   '& .MuiSkeleton-root': {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'var(--background-glass-secondary)',
   },
 }));
 
@@ -232,6 +236,15 @@ export const Table = <T extends GridValidRowModel>({
       }
       case TableTypeEnum.NODE_STORAGE_SHARED_BUCKETS: {
         return withActions(nodeStorageSharedBucketsColumns);
+      }
+      case TableTypeEnum.NODE_SERVICES: {
+        return withActions(nodeServicesColumns);
+      }
+      case TableTypeEnum.NODE_JOBS: {
+        return withActions(nodeJobsColumns);
+      }
+      case TableTypeEnum.EXISTING_SERVICES: {
+        return withActions(existingServicesColumns);
       }
       case TableTypeEnum.NODES_LEADERBOARD:
       case TableTypeEnum.MY_NODES: {
@@ -369,10 +382,14 @@ export const Table = <T extends GridValidRowModel>({
           pageSize: pageSize,
         };
 
+  // Only meaningful alongside server pagination: under paginationMode 'client' the grid counts its own
+  // rows and MUI warns that rowCount has no effect. Same 'none' guard as paginationMode/paginationModel.
+  const rowCount = paginationType === 'none' ? undefined : totalItems;
+
   const slotProps: GridSlotsComponentsProps & { toolbar: Partial<CustomToolbarProps> } = {
     basePopper: {
       style: {
-        color: '#000000',
+        color: 'var(--text-primary)',
       },
     },
     // loadingOverlay: {
@@ -417,7 +434,7 @@ export const Table = <T extends GridValidRowModel>({
           paginationMode={paginationType === 'none' ? undefined : 'server'}
           paginationModel={paginationModel}
           processRowUpdate={processRowUpdate}
-          rowCount={totalItems}
+          rowCount={rowCount}
           rows={data}
           showToolbar={showToolbar}
           slots={{

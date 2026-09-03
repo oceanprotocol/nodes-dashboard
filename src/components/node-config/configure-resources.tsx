@@ -1,7 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import DurationInput from '@/components/input/duration-input';
 import Input from '@/components/input/input';
 import Slider from '@/components/slider/slider';
@@ -10,6 +10,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { NodeConfig } from '@/types/node-config';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { BENCHMARK_ENV_DESCRIPTION } from '@/utils/env-resources';
 import CheckIcon from '@mui/icons-material/Check';
 import DnsIcon from '@mui/icons-material/Dns';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -32,8 +33,6 @@ type EnvGroup = NonNullable<NodeConfig['dockerComputeEnvironments']>[number];
 type Environment = EnvGroup['environments'][number];
 type Resource = NonNullable<Environment['resources']>[number];
 type FreeCompute = NonNullable<Environment['free']>;
-
-const BENCH_ENV_DESCRIPTION = 'Auto-generated benchmark environment';
 
 const SUPPORTED_TOKENS = getSupportedTokens();
 const TOKEN_SYMBOLS = Object.keys(SUPPORTED_TOKENS) as (keyof typeof SUPPORTED_TOKENS)[];
@@ -391,7 +390,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
                   checked={(envGpu?.total ?? 0) > 0}
                   className="justifySelfStart"
                   disabled={disabled}
-                  label={<GpuLabel className="textBold" gpu={gpu.description ?? gpu.id} iconHeight={20} />}
+                  label={<HardwareLabel className="textBold" type="gpu" value={gpu.description ?? gpu.id} iconHeight={20} />}
                   onChange={(_, checked) => handleGpuToggle(gpu, checked)}
                 />
                 <div className={styles.resourcePriceInputs}>
@@ -522,7 +521,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
                     className="alignSelfStart"
                     disabled={disabled}
                     key={gpu.id}
-                    label={<GpuLabel className="textBold" gpu={gpu.description ?? gpu.id} iconHeight={20} />}
+                    label={<HardwareLabel className="textBold" type="gpu" value={gpu.description ?? gpu.id} iconHeight={20} />}
                     onChange={(_, checked) => handleFreeResourceToggle(gpu.id, checked, maxAllowed)}
                   />
                 );
@@ -600,9 +599,9 @@ const EnvPreview: React.FC<{ env: Environment }> = ({ env }) => {
       {env.description ? <div className="textSecondary">{env.description}</div> : null}
       <div className={styles.envPreviewResources}>
         {gpus.map((gpu) => (
-          <GpuLabel
+          <HardwareLabel
             className={classNames('chip', 'chipGlass', styles.previewChip)}
-            gpu={gpu.description ?? gpu.id}
+            type="gpu" value={gpu.description ?? gpu.id}
             iconHeight={14}
             key={gpu.id}
           />
@@ -709,7 +708,7 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
       ) : (
         envs.map((env, index) => {
           const isOpen = openIndexes.includes(index);
-          const isBench = env.description === BENCH_ENV_DESCRIPTION;
+          const isBench = env.description === BENCHMARK_ENV_DESCRIPTION;
           return (
             <Card direction="column" innerShadow="black" key={index} padding="md" radius="sm" variant="glass-shaded">
               <div className={commonStyles.envCardHeader}>

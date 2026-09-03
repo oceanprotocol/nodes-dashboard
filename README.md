@@ -14,8 +14,8 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 - **Global Stats** – Network-wide analytics: total nodes, jobs, rewards, GPU popularity, and country distribution.
 - **Profile** – Per-wallet view of owned nodes, rewards history, and associated jobs.
 - **Grant Flow** – Token grant mechanism backed by a Google Sheets ledger and Gemini AI integration.
-- **Swap Tokens / Withdraw** – Utility pages for token operations using Alchemy and Wagmi/Coinbase wallet integrations.
-- **Web3 Wallet Support** – Alchemy Account Kit + Wagmi for seamless wallet connection. Supports email magic link, passkey, Google OAuth (popup), and external wallets (MetaMask, WalletConnect, etc.).
+- **Swap Tokens / Withdraw** – Utility pages for token operations.
+- **Web3 Wallet Support** – Two independent paths: native wallets connect via EIP-6963 discovery + Ethers.js, and email magic link / passkey / Google OAuth go through Privy + Alchemy Account Kit to a smart contract account.
 - **ENS Resolution** – Display human-readable ENS names for wallet addresses.
 - **Analytics** – Dedicated analytics layer (summaries, rewards history, GPU stats) from the `analytics` backend.
 - **Node Storage** – Per-node persistent storage for compute consumers to upload files for using in compute jobs. Browse and create buckets on a node, upload/delete files, and control access via reusable on-chain access lists.
@@ -29,7 +29,7 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 | Framework       | [Next.js](https://nextjs.org/) 16 (Pages Router)                                                                                |
 | Language        | TypeScript                                                                                                                      |
 | Styling         | SCSS / CSS Modules                                                                                                              |
-| Web3            | [Wagmi](https://wagmi.sh/) v3, [Ethers.js](https://docs.ethers.org/) v6, [Alchemy Account Kit](https://accountkit.alchemy.com/) |
+| Web3            | [Ethers.js](https://docs.ethers.org/) v6, EIP-6963, [Privy](https://privy.io/), [Alchemy Account Kit](https://accountkit.alchemy.com/) |
 | Ocean SDK       | `@oceanprotocol/lib`, `@oceanprotocol/contracts`                                                                                |
 | P2P             | [libp2p](https://libp2p.io/)                                                                                                    |
 | Data Fetching   | [TanStack Query](https://tanstack.com/query)                                                                                    |
@@ -129,9 +129,15 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 
 ### Compute
 
-| Variable               | Description                                                          |
-| ---------------------- | -------------------------------------------------------------------- |
-| `NEXT_PUBLIC_GPU_LIST` | Comma-separated list of supported GPU models shown in the job wizard |
+| Variable                | Description                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_GPU_LIST`  | Comma-separated list of supported GPU models shown in the job wizard             |
+| `NEXT_PUBLIC_VLLM_TAG`  | Optional. Fallback Docker tag for `vllm/vllm-openai`. Defaults to pinned stable `v0.28.0`; models that require a newer architecture use their official model-specific image tag automatically. |
+
+The Custom Models configuration keeps the fallback per deployment but also exposes a per-model
+vLLM runtime selector. Its automatic setting selects `qwen38-flash-next` for
+`Qwen/Qwen3.8-Flash-Next`, `glm53-flash` for `zai-org/GLM-5.3-Flash`, and the configured fallback
+for other models.
 
 > **Note:** Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser. All others are server-side only and must never be committed or exposed publicly.
 

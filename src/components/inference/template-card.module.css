@@ -1,0 +1,177 @@
+/* --accent is set inline per card from the category meta. Padding/radius/background stay here rather
+   than coming from Card's size tokens, so the grid keeps its own denser card rhythm. */
+.card {
+  text-align: left;
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.01);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: 2px;
+  }
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.tileIcon,
+.tileLogo {
+  grid-area: 1 / 1;
+}
+
+.tileIcon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  fill: currentColor;
+}
+
+.tileLogo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.tileMono {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.titleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vendor {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 38px;
+}
+
+.descEmpty {
+  font-style: italic;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.chipIcon {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+  fill: currentColor;
+}
+
+/* Same accent treatment as the details modal's category chip, so the card carries the category colour
+   before the modal is ever opened — and the tile and the pill read as one mark. */
+.categoryChip {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Bundles only: what the bundle pre-downloads. Boxed off so a card that has it still reads as the
+   same card, with one extra block, rather than as a different kind of tile. */
+
+.included {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--background-glass-secondary);
+}
+
+.includedHead {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.metaIcon {
+  width: 15px;
+  height: 15px;
+  font-size: 15px;
+  fill: currentColor;
+  opacity: 0.55;
+}
+
+.metaFallback {
+  font-style: italic;
+  opacity: 0.7;
+}

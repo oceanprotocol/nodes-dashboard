@@ -13,7 +13,7 @@
 }
 
 .featureItem {
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -26,8 +26,11 @@
     transform: scale(1.02);
   } */
 
+  /* Deliberately the opposite of its siblings' white, for alternating emphasis on the fixed
+     accent section. Pinned rather than themed: --text-primary would flip to white in dark and
+     erase the distinction. Its icons inherit this via currentColor. */
   &.featureItemBlue {
-    color: var(--text-primary);
+    color: var(--accent2-contrast);
   }
 }
 

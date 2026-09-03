@@ -1,20 +1,38 @@
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
+import ModelCell from '@/components/inference/model-cell';
+import ServiceStatusChip, { JobStatusChip } from '@/components/service-status-chip/service-status-chip';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
+import { modelIdFromCommand } from '@/services/inference-launch';
+import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
-import { formatAccessLists, formatBytes, formatDateTime, formatNumber, formatWalletAddress } from '@/utils/formatters';
+import {
+  formatAccessLists,
+  formatBytes,
+  formatDateTime,
+  formatDuration,
+  formatNumber,
+  formatWalletAddress,
+  getJobDurationSeconds,
+} from '@/utils/formatters';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
 import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { PersistentStorageBucket, PersistentStorageFileEntry } from '@oceanprotocol/lib';
+import {
+  NodeComputeJob,
+  PersistentStorageBucket,
+  PersistentStorageFileEntry,
+  ServiceJob,
+  ServiceJobListed,
+} from '@oceanprotocol/lib';
 import classNames from 'classnames';
 
 function getUnbanAttemptResult(result: any) {
@@ -73,7 +91,7 @@ function renderGpuList(gpus: GPUPopularity[]) {
           <span className="flexRow alignItemsCenter gapXs" key={index}>
             {index > 0 && <span className="textSecondary">, </span>}
             <strong className="textSecondary">{count > 1 ? `${count}x ` : ''}</strong>
-            <GpuLabel gpu={gpuLabel} />
+            <HardwareLabel type="gpu" value={gpuLabel} />
           </span>
         ))}
       </div>
@@ -381,6 +399,38 @@ export const nodesTopByJobCountColumns: GridColDef<Node>[] = [
   },
 ];
 
+// Amount paid, rendered as "<amount> <TOKEN>". The record stores the payment token by address, so the
+// symbol is recovered from the chain's token list; an unknown token falls back to the bare amount.
+/**
+ * Everything actually paid for a service: the initial start payment plus one entry per successful
+ * SERVICE_EXTEND. Reading `payment.cost` alone understated every prolonged service — a 10-minute
+ * service extended to 20 showed the 10-minute price against a "20 m" duration.
+ *
+ * Costs come off the wire as string|number, so each is coerced and non-numeric entries skipped rather
+ * than poisoning the sum with NaN. Returns undefined when there is nothing to show, which is what
+ * renderAmountPaid treats as "-" — distinct from a real 0.
+ */
+function totalAmountPaid(payment?: { cost?: string | number }, extendPayments?: { cost?: string | number }[]) {
+  const amounts = [payment?.cost, ...(extendPayments ?? []).map((extend) => extend?.cost)]
+    .map((cost) => (cost === undefined || cost === null || cost === '' ? NaN : Number(cost)))
+    .filter((cost) => Number.isFinite(cost));
+  return amounts.length > 0 ? amounts.reduce((sum, cost) => sum + cost, 0) : undefined;
+}
+
+function renderAmountPaid(cost?: string | number, token?: string) {
+  if (cost === undefined || cost === null || cost === '') {
+    return '-';
+  }
+  const tokenEntry = Object.entries(tokenAddressesByChainId[CHAIN_ID]).find(
+    ([, t]) => t.address.toLowerCase() === token?.toLowerCase()
+  );
+  const formattedAmount = formatNumber(cost);
+  if (!tokenEntry) {
+    return formattedAmount;
+  }
+  return `${formattedAmount} ${tokenEntry[0]}`;
+}
+
 export const jobsColumns: GridColDef<ComputeJob>[] = [
   {
     align: 'center',
@@ -389,6 +439,15 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     headerAlign: 'center',
     headerName: 'Index',
     sortable: false,
+  },
+  {
+    field: 'metadata.name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => <span title={value}>{value || '-'}</span>,
   },
   {
     field: 'statusText',
@@ -450,19 +509,7 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
-    renderCell: ({ value, row }) => {
-      if (!value) {
-        return '-';
-      }
-      const tokenEntry = Object.entries(tokenAddressesByChainId[CHAIN_ID]).find(
-        ([, t]) => t.address.toLowerCase() === row.payment?.token?.toLowerCase()
-      );
-      const formattedAmount = formatNumber(row.payment?.cost);
-      if (!tokenEntry) {
-        return formattedAmount;
-      }
-      return `${formattedAmount} ${tokenEntry[0]}`;
-    },
+    renderCell: ({ row }) => renderAmountPaid(row.payment?.cost, row.payment?.token),
   },
   {
     field: 'algoDuration',
@@ -473,13 +520,8 @@ export const jobsColumns: GridColDef<ComputeJob>[] = [
     filterOperators: getGridNumericOperators().filter(
       (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
     ),
-    renderCell: ({ value }) => {
-      if (!value) return '-';
-      if (value < 60) return `${value.toFixed(2)}s`;
-      const mins = Math.floor(value / 60);
-      const secs = (value % 60).toFixed(0);
-      return `${mins}m ${secs}s`;
-    },
+    valueGetter: (_value, row) => getJobDurationSeconds(row),
+    renderCell: ({ value }) => (value == null ? '-' : formatDuration(value, true)),
   },
   {
     align: 'right',
@@ -680,6 +722,275 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
         {getUnbanAttemptResult(params.row.benchmarkResult)}
       </div>
     ),
+  },
+];
+
+// The model a service serves, or null when it serves none.
+//
+// The service's own `appType`/`appId` labels answer directly when it has them — including "this runs a
+// template, so there is no model" (see service-metadata). Otherwise the node returns the launch
+// command, not HF metadata, so the id is recovered from it (`--model` on vLLM, `-hf` on llama.cpp;
+// see modelIdFromCommand).
+export function modelIdFromJob(job: ServiceJob): string | null {
+  const identity = readServiceMetadata(job);
+  if (identity) {
+    return isModelAppType(identity.appType) ? identity.appId : null;
+  }
+  return modelIdFromCommand(job.dockerCmd);
+}
+
+// The caller's own inference services (getServiceStatus keeps dockerCmd, so the model id is
+// recoverable). Actions column (Manage) is supplied by the consumer via the Table `actionsColumn`.
+// `templateName` is set by the consumer for a service launched from an app template: those carry no
+// HF model (the app rides in the template's own image/command), so the row names the app instead.
+// `templatePending` marks a modelless row whose template lookup is still in flight — it shimmers
+// rather than claiming "Unknown model" for a name that's about to arrive.
+export const existingServicesColumns: GridColDef<
+  ServiceJob & { templateName?: string; templatePending?: boolean; templateNameApproximate?: boolean }
+>[] =
+  [
+    {
+      field: 'model',
+      filterable: false,
+      flex: 1.5,
+      headerName: 'Model',
+      sortable: false,
+      renderCell: ({ row }) => {
+        if (row.templateName) {
+          // Template names read as "vLLM — two lite models on one small GPU": headline before the dash,
+          // the rest as the caption, so the cell keeps the same two-line shape as a model row.
+          //
+          // An approximate name is already just the family headline (see appFamilyName) and carries no
+          // caption to split off — the variant is unknown, so the row says the app and stops there.
+          const [headline, ...rest] = row.templateName.split(/\s+[—–-]\s+/);
+          return (
+            <ModelCell
+              subtitle={row.templateNameApproximate ? undefined : rest.join(' — ') || undefined}
+              title={headline}
+            />
+          );
+        }
+        const modelId = modelIdFromJob(row);
+        if (modelId) {
+          return <ModelCell modelId={modelId} />;
+        }
+        if (row.templatePending) {
+          return <ModelCell loading />;
+        }
+        // No `--model` in the launch command (e.g. a malformed record from an earlier run) — there's no
+        // model to name, so say so rather than showing a serviceId fragment that reads like a model id.
+        return (
+          <span className="textSecondary" title={`Service ${row.serviceId}`}>
+            Unknown model
+          </span>
+        );
+      },
+    },
+    {
+      field: 'statusText',
+      filterable: false,
+      flex: 1,
+      headerName: 'Status',
+      sortable: false,
+      renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+    },
+    {
+      field: 'dateCreated',
+      filterable: false,
+      flex: 1,
+      headerName: 'Created',
+      sortable: true,
+      renderCell: ({ value }) => {
+        if (!value) return '-';
+        return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+      },
+    },
+    {
+      field: 'duration',
+      filterable: false,
+      flex: 1,
+      headerName: 'Duration',
+      sortable: true,
+      renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+    },
+    {
+      field: 'expiresAt',
+      filterable: false,
+      flex: 1,
+      headerName: 'End time',
+      sortable: true,
+      renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+    },
+    // "Amount paid" is hidden until the backend keeps the cost in step with the duration.
+    //
+    // This row is served entirely by the incentive-backend (see existing-services-table's single GET
+    // to /owners/:address/services) and `payment.cost` there is written once, at launch. A prolong
+    // pays again through SERVICE_EXTEND, and the monitor's reconcile refreshes `duration` from the
+    // node — but nothing updates the cost, and the backend records no `extendPayments` at all. So a
+    // 10-minute service extended to 20 rendered "20 m" beside the 10-minute price: understated, and
+    // wrong in the direction that matters.
+    //
+    // Nothing client-side can repair that (the summing helper below is kept for whenever the field
+    // arrives), so the honest option is to show no figure rather than a low one. Restore this column
+    // once the backend updates the cost alongside the duration — ideally recording each extension the
+    // way /services/:serviceId/started and /restarted already record their events.
+    // {
+    //   field: 'payment.cost',
+    //   filterable: false,
+    //   flex: 1,
+    //   headerName: 'Amount paid',
+    //   sortable: true,
+    //   // Start payment PLUS every extension — a prolonged service has paid more than `payment.cost`.
+    //   valueGetter: (_value, row) => totalAmountPaid(row.payment, row.extendPayments),
+    //   renderCell: ({ row }) => renderAmountPaid(totalAmountPaid(row.payment, row.extendPayments), row.payment?.token),
+    // },
+  ];
+
+// An env id is a hyphen-joined list of addresses; render each shortened, joined with ' - '.
+function renderEnvironment(value?: string) {
+  if (!value) {
+    return <span className="textSecondary">-</span>;
+  }
+  return (
+    <span title={value}>
+      {value
+        .split('-')
+        .map((v) => formatWalletAddress(v))
+        .join(' - ')}
+    </span>
+  );
+}
+
+// Services running on a node, listed node-wide across all owners (ProviderInstance.getServices).
+// The listed shape strips dockerCmd/dockerfile, so identity is the container image, not the model.
+export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
+  {
+    field: 'image',
+    filterable: true,
+    flex: 1,
+    headerName: 'Image',
+    sortable: true,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
+    ),
+    valueGetter: (_value, row) => (row.tag ? `${row.image}:${row.tag}` : row.image),
+    renderCell: ({ value }) => <span title={value}>{value || '-'}</span>,
+  },
+  {
+    field: 'owner',
+    filterable: true,
+    flex: 1,
+    headerName: 'Owner',
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'equals'
+    ),
+    renderCell: ({ value }) => (value ? <span title={value}>{formatWalletAddress(value)}</span> : '-'),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => renderEnvironment(value),
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Start time',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'duration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+  },
+  {
+    field: 'expiresAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'End time',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+];
+
+// Compute jobs running on a node, listed node-wide across all owners (ProviderInstance.getNodeJobs).
+export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
+  {
+    field: 'name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return value;
+    },
+  },
+  {
+    field: 'owner',
+    filterable: true,
+    flex: 1,
+    headerName: 'Owner',
+    sortable: false,
+    filterOperators: getGridStringOperators().filter(
+      (operator) => operator.value === 'contains' || operator.value === 'equals'
+    ),
+    renderCell: ({ value }) => (value ? <span title={value}>{formatWalletAddress(value)}</span> : '-'),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => renderEnvironment(value),
+  },
+  {
+    field: 'statusText',
+    filterable: false,
+    flex: 1,
+    headerName: 'Status',
+    sortable: false,
+    renderCell: ({ row }) => <JobStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Start time',
+    sortable: true,
+    renderCell: ({ value }) => {
+      if (!value) return '-';
+      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+    },
+  },
+  {
+    field: 'algoDuration',
+    filterable: false,
+    flex: 1,
+    headerName: 'Duration',
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
   },
 ];
 

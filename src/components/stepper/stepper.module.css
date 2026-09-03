@@ -32,12 +32,12 @@
 
     &.active {
       background: var(--accent1-lighter);
-      color: var(--text-primary-inverse);
+      color: var(--accent1-contrast);
     }
 
     &.complete {
       background: var(--success);
-      color: var(--text-primary);
+      color: var(--success-contrast);
     }
   }
 
