@@ -174,6 +174,30 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
         }
         break;
       }
+      case ChartTypeEnum.SERVICE_REVENUE_PER_EPOCH: {
+        if (label < 0) {
+          tooltipContent = null;
+        } else {
+          tooltipContent = (
+            <EpochLabel epoch={Number(label)}>
+              USDC <strong>{Number(value).toLocaleString()}</strong>
+            </EpochLabel>
+          );
+        }
+        break;
+      }
+      case ChartTypeEnum.SESSIONS_PER_EPOCH: {
+        if (label < 0) {
+          tooltipContent = null;
+        } else {
+          tooltipContent = (
+            <EpochLabel epoch={Number(label)}>
+              <strong>{Number(value).toLocaleString()}</strong> sessions
+            </EpochLabel>
+          );
+        }
+        break;
+      }
       default: {
         tooltipContent = <div>Value: {Number(value).toLocaleString()}</div>;
       }

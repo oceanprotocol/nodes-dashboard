@@ -1,5 +1,6 @@
 import { getApiRoute } from '@/config';
 import { BenchmarkMinMaxLastResponse, Node, NodeStatsResponse } from '@/types/nodes';
+import { NodeServiceStats, ServiceStatsPerEpoch, ServiceTermBucket } from '@/types/services-stats';
 import { JobsPerEpochType, RevenuePerEpochType } from '@/types/stats';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
@@ -14,10 +15,19 @@ type NodesContextType = {
   temporaryTotalScore: number;
   totalJobs: number;
   totalRevenue: number;
+  // Service (inference) stats for the selected node
+  serviceStatsPerEpoch: ServiceStatsPerEpoch[];
+  serviceTotalServices: number;
+  serviceRevenue: number;
+  serviceReservedSeconds: number;
+  serviceRunningNow: number;
+  serviceUniqueConsumers: number;
+  serviceByModel: ServiceTermBucket[];
 
   fetchNode: (nodeId: string) => Promise<void>;
   fetchNodeBenchmarkMinMaxLast: () => Promise<void>;
   fetchNodeStats: () => Promise<void>;
+  fetchNodeServiceStats: () => Promise<void>;
   setSelectedNode: (node: Node | null) => void;
 };
 
@@ -41,6 +51,13 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   // TODO remove once analytics nodes/:id/benchmark is fixed
   const [temporaryTotalScore, setTemporaryTotalScore] = useState<number>(0);
+  const [serviceStatsPerEpoch, setServiceStatsPerEpoch] = useState<ServiceStatsPerEpoch[]>([]);
+  const [serviceTotalServices, setServiceTotalServices] = useState<number>(0);
+  const [serviceRevenue, setServiceRevenue] = useState<number>(0);
+  const [serviceReservedSeconds, setServiceReservedSeconds] = useState<number>(0);
+  const [serviceRunningNow, setServiceRunningNow] = useState<number>(0);
+  const [serviceUniqueConsumers, setServiceUniqueConsumers] = useState<number>(0);
+  const [serviceByModel, setServiceByModel] = useState<ServiceTermBucket[]>([]);
 
   const fetchNode = useCallback(async (nodeId: string) => {
     setLoadingFetchNode(true);
@@ -113,6 +130,29 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [selectedNode?.id]);
 
+  const fetchNodeServiceStats = useCallback(async () => {
+    try {
+      const response = await axios.get<NodeServiceStats>(
+        `${getApiRoute('serviceNodeStats')}/${selectedNode?.id}/stats`
+      );
+      if (response.data) {
+        // Rows arrive carrying both the session count and the revenue, so unlike
+        // the jobs endpoint nothing has to be summed client-side.
+        setServiceStatsPerEpoch(response.data.data ?? []);
+        setServiceTotalServices(response.data.totalServices);
+        setServiceRevenue(response.data.serviceRevenue);
+        setServiceReservedSeconds(response.data.reservedSeconds);
+        setServiceRunningNow(response.data.runningNow);
+        setServiceUniqueConsumers(response.data.uniqueConsumers);
+        // Sessions with no recorded model land in an `unknown` bucket rather than
+        // disappearing; drop it so the chart shows only real model names.
+        setServiceByModel((response.data.byModel ?? []).filter((bucket) => bucket.key !== 'unknown'));
+      }
+    } catch (error) {
+      console.error('Error fetching node service stats:', error);
+    }
+  }, [selectedNode?.id]);
+
   return (
     <NodesContext.Provider
       value={{
@@ -124,9 +164,17 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
         temporaryTotalScore,
         totalJobs,
         totalRevenue,
+        serviceStatsPerEpoch,
+        serviceTotalServices,
+        serviceRevenue,
+        serviceReservedSeconds,
+        serviceRunningNow,
+        serviceUniqueConsumers,
+        serviceByModel,
         fetchNode,
         fetchNodeBenchmarkMinMaxLast,
         fetchNodeStats,
+        fetchNodeServiceStats,
         setSelectedNode,
       }}
     >
