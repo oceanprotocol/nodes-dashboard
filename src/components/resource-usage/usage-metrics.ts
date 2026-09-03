@@ -186,17 +186,3 @@ export function buildGpuRows({
     })
     .filter((row) => row.util !== undefined || row.vram !== undefined);
 }
-
-/**
- * Booked disk across the node's environments, in bytes — the counterpart of `advertisedDiskBytes`
- * (which owns the GB->bytes conversion and the "advertised, not capacity" caveat). Split out here
- * because only the live panel needs the booked half, while the sample rollup needs only the total.
- *
- * `<envId>:free` rows are a distinct pool with the same resource ids, so they are counted like any
- * other env — separately bookable space, not a duplicate of the paid pool.
- */
-export function bookedDiskBytes(env: { inUse: number; resource: string }[]): number {
-  return (env ?? [])
-    .filter((row) => row.resource === 'disk')
-    .reduce((total, row) => total + (Number.isFinite(row.inUse) ? row.inUse : 0) * 1_000_000_000, 0);
-}

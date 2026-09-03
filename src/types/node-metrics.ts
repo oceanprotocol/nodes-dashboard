@@ -171,16 +171,123 @@ export function hostMemoryPercent(memory: { hostFreeBytes: number; hostTotalByte
 /** Client-side rollup of one node snapshot for the ring buffer — the sibling of `UsageSample`. */
 export interface NodeUsageSample {
   collectedAt: number;
-  cpuPercentOfHost: number;
   /**
-   * Workload disk as a percentage of what the node's environments advertise. `undefined` when they
-   * advertise no disk at all — the sparkline then has nothing to plot, which is the honest outcome,
-   * whereas a 0 would draw a floor that reads as "no disk in use".
+   * Usage as a percentage of what the node's environments ADVERTISE — the same basis the live bars
+   * and gauges draw, so a peak tick derived from these lands where the fill would have been. Each is
+   * `undefined` when the environments advertise none of that resource: the sparkline then plots
+   * nothing, whereas a 0 would draw a floor that reads as "in use, but empty".
    */
-  diskPercentOfAdvertised?: number;
+  cpuPercent?: number;
+  diskPercent?: number;
   gpuMemoryPercent: Record<string, number>;
   gpuUtilizationPercent: Record<string, number>;
-  memoryPercentOfHost: number;
+  memoryPercent?: number;
+}
+
+/**
+ * Per-resource capacity and booking from `env[]`, deduplicated across environments.
+ *
+ * THE ROWS ARE PER (ENVIRONMENT, RESOURCE), NOT PER RESOURCE. A node offering the same hardware
+ * through several environments lists it once per environment, so a real payload carries `gpu0` three
+ * times and `disk` four times. Summing those rows double-counts the same physical hardware: on a
+ * 2×2000 + 2×500 GB node that produced "4.5 TB advertised" for one filesystem, and it would report
+ * eight GPUs as twenty-four.
+ *
+ * So each resource id is reduced to ONE figure: the max `total` seen for it, and the max `inUse`.
+ * Max rather than sum because the environments are alternative ways to book the same pool — a
+ * device booked through env A shows `inUse: 1` under every env that also offers it, so the largest
+ * value is the true one while the total would multiply it by the environment count.
+ *
+ * This still can't distinguish "two envs sharing one 2 TB filesystem" from "two envs with separate
+ * 2 TB filesystems" — the payload carries no filesystem identity. Max is the conservative read of
+ * the two, which is why every label built on it says "advertised" rather than "capacity".
+ */
+function dedupeEnvResource(
+  env: { inUse: number; resource: string; total: number }[],
+  matches: (resource: string) => boolean
+): { booked: number; total: number } {
+  const totals = new Map<string, { booked: number; total: number }>();
+  (env ?? [])
+    .filter((row) => matches(row.resource))
+    .forEach((row) => {
+      const seen = totals.get(row.resource);
+      const total = Number.isFinite(row.total) ? row.total : 0;
+      const booked = Number.isFinite(row.inUse) ? row.inUse : 0;
+      totals.set(row.resource, {
+        booked: Math.max(seen?.booked ?? 0, booked),
+        total: Math.max(seen?.total ?? 0, total),
+      });
+    });
+  return [...totals.values()].reduce(
+    (sum, entry) => ({ booked: sum.booked + entry.booked, total: sum.total + entry.total }),
+    { booked: 0, total: 0 }
+  );
+}
+
+const GB_IN_BYTES = 1_000_000_000;
+
+/**
+ * Disk advertised and booked across the node's environments, in bytes. Env resources are GB per
+ * /computeEnvironments while `disk.usedBytes` is bytes, so the conversion belongs here rather than at
+ * each call site, where mixing the two silently is a 10^9 error.
+ */
+export function envDiskBytes(env: { inUse: number; resource: string; total: number }[]): {
+  bookedBytes: number;
+  totalBytes: number;
+} {
+  const { booked, total } = dedupeEnvResource(env, (resource) => resource === 'disk');
+  return { bookedBytes: booked * GB_IN_BYTES, totalBytes: total * GB_IN_BYTES };
+}
+
+/**
+ * CPU cores advertised and booked across the node's environments. Units are cores, per
+ * /computeEnvironments — comparable to `cpu.hostCores`, and usually SMALLER, since an operator
+ * commonly offers only part of the machine (a real node: 123 of 160 cores).
+ */
+export function envCpuCores(env: { inUse: number; resource: string; total: number }[]): {
+  booked: number;
+  total: number;
+} {
+  return dedupeEnvResource(env, (resource) => resource === 'cpu');
+}
+
+/**
+ * RAM advertised and booked across the node's environments, in bytes. Source units are GB.
+ */
+export function envRamBytes(env: { inUse: number; resource: string; total: number }[]): {
+  bookedBytes: number;
+  totalBytes: number;
+} {
+  const { booked, total } = dedupeEnvResource(env, (resource) => resource === 'ram');
+  return { bookedBytes: booked * GB_IN_BYTES, totalBytes: total * GB_IN_BYTES };
+}
+
+/**
+ * GPU devices advertised and booked across the node's environments. Each device is its own resource
+ * id (`gpu0`, `gpu1`, …) carrying `total: 1`, and `inUse: 1` once booked — so these are DEVICE COUNTS,
+ * a different quantity from the utilization and VRAM percentages the same charts plot.
+ */
+export function envGpuDevices(env: { inUse: number; resource: string; total: number }[]): {
+  booked: number;
+  total: number;
+} {
+  return dedupeEnvResource(env, (resource) => /^gpu\d+$/.test(resource));
+}
+
+/** Client-side rollup of one node snapshot for the ring buffer — the sibling of `UsageSample`. */
+export interface NodeUsageSample {
+  collectedAt: number;
+  /**
+   * Usage as a percentage of what the node's environments ADVERTISE — the same basis the live bars
+   * and gauges draw, so a peak tick derived from these lands where the fill would have been. Each is
+   * `undefined` when the environments advertise none of that resource: the sparkline then plots
+   * nothing, whereas a 0 would draw a floor that reads as "in use, but empty".
+   */
+  cpuPercent?: number;
+  diskPercent?: number;
+  gpuMemoryPercent: Record<string, number>;
+  gpuUtilizationPercent: Record<string, number>;
+  memoryPercent?: number;
 }
 
 /**
@@ -195,6 +302,17 @@ export function advertisedDiskBytes(env: { resource: string; total: number }[]):
   return (env ?? [])
     .filter((row) => row.resource === 'disk')
     .reduce((total, row) => total + (Number.isFinite(row.total) ? row.total : 0) * 1_000_000_000, 0);
+}
+
+/**
+ * Disk BOOKED across the node's environments, in bytes — the counterpart of `advertisedDiskBytes`,
+ * sharing its GB source units and its caveats. `<envId>:free` rows are a distinct pool with the same
+ * resource ids, so they count like any other env: separately bookable space, not a duplicate.
+ */
+export function bookedDiskBytes(env: { inUse: number; resource: string }[]): number {
+  return (env ?? [])
+    .filter((row) => row.resource === 'disk')
+    .reduce((total, row) => total + (Number.isFinite(row.inUse) ? row.inUse : 0) * 1_000_000_000, 0);
 }
 
 export function nodeSampleFromSnapshot(snapshot: NodeMetricsSnapshot): NodeUsageSample {
@@ -212,14 +330,15 @@ export function nodeSampleFromSnapshot(snapshot: NodeMetricsSnapshot): NodeUsage
       gpuMemoryPercent[device.resourceId] = (device.memoryUsedBytes / device.memoryTotalBytes) * 100;
     }
   });
-  const diskTotalBytes = advertisedDiskBytes(snapshot.env);
+  const cpuEnv = envCpuCores(snapshot.env);
+  const ramEnv = envRamBytes(snapshot.env);
+  const diskEnv = envDiskBytes(snapshot.env);
   return {
     collectedAt: snapshot.collectedAt,
-    cpuPercentOfHost: cpuPercentOfHost(snapshot.cpu) ?? 0,
-    diskPercentOfAdvertised:
-      diskTotalBytes > 0 ? (snapshot.disk.usedBytes / diskTotalBytes) * 100 : undefined,
+    cpuPercent: cpuEnv.total > 0 ? (snapshot.cpu.usagePercent / 100 / cpuEnv.total) * 100 : undefined,
+    diskPercent: diskEnv.totalBytes > 0 ? (snapshot.disk.usedBytes / diskEnv.totalBytes) * 100 : undefined,
     gpuMemoryPercent,
     gpuUtilizationPercent,
-    memoryPercentOfHost: hostMemoryPercent(snapshot.memory) ?? 0,
+    memoryPercent: ramEnv.totalBytes > 0 ? (snapshot.memory.usedBytes / ramEnv.totalBytes) * 100 : undefined,
   };
 }

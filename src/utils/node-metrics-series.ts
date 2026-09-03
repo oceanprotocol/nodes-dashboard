@@ -1,4 +1,4 @@
-import { NodeMetricsHourly } from '@/types/node-metrics';
+import { envDiskBytes, envGpuDevices, NodeMetricsHourly } from '@/types/node-metrics';
 import { formatBytes, formatNumber } from '@/utils/formatters';
 
 export const HOUR_MS = 3_600_000;
@@ -31,10 +31,19 @@ export function rangeToWindow(range: MetricsRange, now = Date.now()): { startTim
 export type HistoryMetric = 'cpu' | 'disk' | 'gpu' | 'jobs' | 'memory';
 
 export interface HistorySeries {
-  /** Dashed = the capacity/booked counterpart of a usage line. */
+  /**
+   * DASHED MEANS BOOKED, on every chart. Reserved for the reserved-capacity counterpart of a usage
+   * line so that a dash carries the same meaning everywhere — which is why GPU, the one metric with
+   * no booked figure on the wire, pairs two SOLID lines instead of dashing one of them.
+   */
   dashed?: boolean;
   key: string;
   label: string;
+  /**
+   * Series color. Set only where a chart needs to break the default (usage accent, booked muted) —
+   * GPU's two solid lines have to be told apart by hue, since neither may use the dash.
+   */
+  color?: string;
   /** `null` for an hour whose bucket can't produce this number — recharts breaks the line there. */
   value: (bucket: NodeMetricsHourly) => number | null;
 }
@@ -57,6 +66,9 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
       // Plotted as a fraction of the machine rather than raw usagePercent: that field is docker-stats
       // semantics summed over containers (0..hostCores*100), so on a 16-core host it reaches 1600.
       // The gap between booked and used is the reading an operator actually wants.
+      //
+      // Used + Booked is the shape EVERY chart here follows (GPU excepted, which has no booked
+      // figure). Same two words, same solid/dashed roles, same host denominator.
       return {
         domain: [0, 100],
         format: (value) => `${Math.round(value)}%`,
@@ -75,24 +87,31 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
         ],
       };
     case 'memory':
+      // Used = what the C2D containers consume; Booked = the memory limits they reserved. Both as a
+      // percentage of the host's total RAM, so this chart reads exactly like the CPU one.
+      //
+      // Deliberately NOT the whole machine's memory in use ((hostTotal - hostFree) / hostTotal). That
+      // was plotted here as "Host", which read as a capacity line but moved with everything on the
+      // box — OS, other tenants, anything unrelated to Ocean. The fixed total is the 100% ceiling; a
+      // line for it would be flat by definition.
       return {
         domain: [0, 100],
         format: (value) => `${Math.round(value)}%`,
         series: [
           {
-            key: 'memHost',
-            label: 'Host',
+            key: 'memUsed',
+            label: 'Used',
             value: (bucket) =>
-              bucket.memory.hostTotalBytes
-                ? ((bucket.memory.hostTotalBytes - bucket.memory.hostFreeBytes) / bucket.memory.hostTotalBytes) * 100
-                : null,
+              bucket.memory.hostTotalBytes ? (bucket.memory.usedBytes / bucket.memory.hostTotalBytes) * 100 : null,
           },
           {
             dashed: true,
-            key: 'memWorkloads',
-            label: 'Workloads',
+            key: 'memBooked',
+            label: 'Booked',
             value: (bucket) =>
-              bucket.memory.hostTotalBytes ? (bucket.memory.usedBytes / bucket.memory.hostTotalBytes) * 100 : null,
+              bucket.memory.hostTotalBytes && bucket.memory.limitBytes
+                ? (bucket.memory.limitBytes / bucket.memory.hostTotalBytes) * 100
+                : null,
           },
         ],
       };
@@ -107,26 +126,48 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
         ],
       };
     case 'disk':
-      // Bytes, not a percentage: an hourly bucket carries `disk.usedBytes` with no host total and no
-      // env capacity, so unlike the other three charts this one has no denominator and its axis is
-      // absolute. `domain` is therefore left off, letting recharts fit the range actually observed.
+      // Bytes, not a percentage: a bucket carries `disk.usedBytes` and env capacity, but no HOST disk
+      // total, so there is no machine-wide denominator to draw a ratio against. `domain` is left off
+      // and the axis is absolute, which is also why the two series here are byte figures rather than
+      // the percentages the other three charts plot.
       //
-      // One series only. There is no booked counterpart on the wire for disk over time — the live
-      // panel derives that from the snapshot's `env[]`, which hourly buckets do carry, but as a
-      // capacity figure that is config rather than measurement: replaying it as a second line would
-      // draw a flat line that only moves when the operator edits the node's config.
+      // Booked still comes from the bucket's own `env[]` (disk `inUse`, GB), so this chart carries
+      // the same Used/Booked pair as CPU and memory rather than a lone line.
       return {
         format: (value) => formatBytes(value),
-        series: [{ key: 'diskUsed', label: 'Used', value: (bucket) => bucket.disk?.usedBytes ?? null }],
+        series: [
+          { key: 'diskUsed', label: 'Used', value: (bucket) => bucket.disk?.usedBytes ?? null },
+          {
+            dashed: true,
+            key: 'diskBooked',
+            label: 'Booked',
+            value: (bucket) => {
+              const { bookedBytes } = envDiskBytes(bucket.env ?? []);
+              return bookedBytes > 0 ? bookedBytes : null;
+            },
+          },
+        ],
       };
     case 'gpu':
+      // Three series, because GPU carries two DIFFERENT usage readings (how hard the devices are
+      // working, and how full their VRAM is) on top of the booked share every chart here shows.
+      //
+      // Booked is the fraction of DEVICES reserved (each `gpuN` env row is `total: 1`, `inUse: 1`
+      // once booked), which is a different quantity from the other two — a node can have every
+      // device booked while VRAM sits near empty. It shares the axis because all three are
+      // percentages, and it stays dashed because dashed means booked on every chart in this set.
       return {
         domain: [0, 100],
         format: (value) => `${Math.round(value)}%`,
         series: [
-          { key: 'gpuUtil', label: 'Utilization', value: (bucket) => meanGpu(bucket, (d) => d.utilizationPercent) },
           {
-            dashed: true,
+            color: 'var(--accent1)',
+            key: 'gpuUtil',
+            label: 'Used',
+            value: (bucket) => meanGpu(bucket, (d) => d.utilizationPercent),
+          },
+          {
+            color: 'var(--success-darker)',
             key: 'gpuVram',
             label: 'VRAM',
             value: (bucket) =>
@@ -135,6 +176,15 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
                   ? (device.memoryUsedBytes / device.memoryTotalBytes) * 100
                   : undefined
               ),
+          },
+          {
+            dashed: true,
+            key: 'gpuBooked',
+            label: 'Booked',
+            value: (bucket) => {
+              const { booked, total } = envGpuDevices(bucket.env ?? []);
+              return total > 0 ? (booked / total) * 100 : null;
+            },
           },
         ],
       };

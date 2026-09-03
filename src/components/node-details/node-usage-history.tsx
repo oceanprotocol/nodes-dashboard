@@ -25,9 +25,16 @@ import { useId, useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import styles from './node-usage-history.module.css';
 
-// One accent line and one muted dashed line per metric — with only two series there is no need for a
-// categorical ramp, and the dash already says "this is the capacity counterpart".
-const SERIES_COLORS = ['var(--accent1)', 'var(--text-secondary)'];
+/**
+ * Color is assigned by ROLE, not by position in the series list, so the same reading looks the same on
+ * every chart: usage takes the accent, booked takes the muted tone that pairs with its dash. A series
+ * only overrides this when a chart carries two unlike usage lines (GPU's utilization vs VRAM), where
+ * position alone can't tell them apart.
+ */
+const USAGE_COLOR = 'var(--accent1)';
+const BOOKED_COLOR = 'var(--text-secondary)';
+
+const seriesColor = (entry: HistorySeries): string => entry.color ?? (entry.dashed ? BOOKED_COLOR : USAGE_COLOR);
 
 /**
  * GPU, CPU, memory, disk — the same four resources in the same order the live panel puts its gauges
@@ -68,11 +75,11 @@ const HistoryTooltip: React.FC<{
       <div className={styles.tooltipHead}>
         {formatTime(row.hourStart)} - {formatTime(row.hourStart + HOUR_MS)}
       </div>
-      {series.map((entry, index) => {
+      {series.map((entry) => {
         const value = row[entry.key];
         return (
           <div className={styles.tooltipRow} key={entry.key}>
-            <span style={{ color: SERIES_COLORS[index] }}>{entry.label}</span>
+            <span style={{ color: seriesColor(entry) }}>{entry.label}</span>
             <span className={styles.tooltipValue}>{typeof value === 'number' ? format(value) : 'no data'}</span>
           </div>
         );
@@ -125,11 +132,14 @@ const HistoryChart: React.FC<{
         </h6>
         {hasSeriesData && (
           <div className={styles.legend}>
-            {spec.series.map((entry, index) => (
+            {spec.series.map((entry) => (
               <span className={styles.legendItem} key={entry.key}>
                 <span
                   className={cx(styles.legendSwatch, { [styles.legendSwatchDashed]: entry.dashed })}
-                  style={{ background: entry.dashed ? undefined : SERIES_COLORS[index], color: SERIES_COLORS[index] }}
+                  style={{
+                    background: entry.dashed ? undefined : seriesColor(entry),
+                    color: seriesColor(entry),
+                  }}
                 />
                 {entry.label}
               </span>
@@ -166,16 +176,17 @@ const HistoryChart: React.FC<{
                 tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
                 tickFormatter={spec.format}
                 tickLine={false}
-                // Percent ticks ("100%") fit in 40; a formatted byte tick ("18.6 GB") does not, and
-                // recharts wraps rather than widens — which lands the label off its own gridline.
-                width={spec.domain ? 40 : 58}
+                // Percent ticks ("100%") fit in 40; a formatted byte tick does not, and recharts wraps
+                // rather than widens, landing the label off its own gridline. Sized for the widest
+                // realistic byte label ("558.8 GB"), not the narrowest.
+                width={spec.domain ? 40 : 72}
               />
               {/* Declared before the series so it paints underneath. Marks where the last complete
                   hour ends: the trailing bucket averages only the minutes elapsed so far. */}
               {partialHour !== null && (
                 <ReferenceLine stroke="var(--text-secondary)" strokeDasharray="2 4" x={partialHour} />
               )}
-              {spec.series.map((entry, index) => (
+              {spec.series.map((entry) => (
                 <Line
                   activeDot={{ r: 3 }}
                   // Hours the node never recorded are `null` rows and the line must BREAK there:
@@ -188,7 +199,7 @@ const HistoryChart: React.FC<{
                   dot={false}
                   isAnimationActive={false}
                   key={entry.key}
-                  stroke={SERIES_COLORS[index]}
+                  stroke={seriesColor(entry)}
                   strokeDasharray={entry.dashed ? '4 4' : undefined}
                   strokeWidth={1.5}
                   type="monotone"

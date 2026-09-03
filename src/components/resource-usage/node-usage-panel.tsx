@@ -1,7 +1,6 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import {
   aggregateGpu,
-  bookedDiskBytes,
   buildGpuRows,
   formatFreshness,
   formatSpan,
@@ -23,9 +22,10 @@ import {
   UsageSummaryGrid,
 } from '@/components/resource-usage/usage-primitives';
 import {
-  advertisedDiskBytes,
-  cpuPercentOfHost,
-  hostMemoryPercent,
+  envCpuCores,
+  envDiskBytes,
+  envGpuDevices,
+  envRamBytes,
   NodeMetricsSnapshot,
   NodeUsageSample,
 } from '@/types/node-metrics';
@@ -68,9 +68,13 @@ export interface NodeUsagePanelProps {
  *
  * The one thing this panel has to keep straight is WHOSE numbers it draws. Only hostCores,
  * loadAverage and host free/total memory describe the machine; every other scalar is a sum over the
- * C2D containers sampled in the node's last tick. So the arcs are "CPU" (what the workloads take of
- * the machine) and "Memory" (what the machine has left), while the workload memory /
- * traffic readings sit below as plain stats, where no ratio would be honest.
+ * C2D containers sampled in the node's last tick.
+ *
+ * Every bar and arc therefore measures the C2D workloads against what the node OFFERS through its
+ * compute environments (`env[]`, deduplicated per resource — see `envDiskBytes` and friends), which
+ * is normally less than the machine: a real node advertises 123 of its 160 cores. Booked comes from
+ * the same rows, so a fill and its tick always share one denominator. The machine's own figures are
+ * real but answer a different question, so they sit below as plain stats next to load average.
  */
 const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
   defaultExpanded = false,
@@ -81,12 +85,18 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
   variant = 'page',
 }) => {
   const compact = variant === 'compact';
-  const cpuHistory = useMemo(() => history.map((sample) => sample.cpuPercentOfHost), [history]);
-  const memHistory = useMemo(() => history.map((sample) => sample.memoryPercentOfHost), [history]);
+  const cpuHistory = useMemo(
+    () => history.map((sample) => sample.cpuPercent).filter((value): value is number => value !== undefined),
+    [history]
+  );
+  const memHistory = useMemo(
+    () => history.map((sample) => sample.memoryPercent).filter((value): value is number => value !== undefined),
+    [history]
+  );
   const diskHistory = useMemo(
     () =>
       history
-        .map((sample) => sample.diskPercentOfAdvertised)
+        .map((sample) => sample.diskPercent)
         .filter((value): value is number => value !== undefined),
     [history]
   );
@@ -114,29 +124,38 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
   // readings are dropped entirely and a chip says why. The host fields stay: they are still real.
   const hasWorkloadData = metrics.hasAggregate;
 
-  const cpuValue = hasWorkloadData ? cpuPercentOfHost(cpu) : undefined;
-  const cpuCenterLabel = `${(cpu.usagePercent / 100).toFixed(1)} / ${formatNumber(cpu.hostCores)} cores`;
-  const cpuPeak = cpuValue !== undefined ? resolvePeak(cpuValue, cpuHistory) : undefined;
-  // Cores RESERVED by the running containers, on the same percent-of-host scale as the fill. Held
-  // whether or not the workloads are burning them, so a fill far short of this tick is booked-but-idle
-  // capacity — the reading an operator uses to decide the node is oversold rather than busy.
-  const cpuBooked =
-    hasWorkloadData && cpu.hostCores && cpu.coresAllocated > 0
-      ? (cpu.coresAllocated / cpu.hostCores) * 100
-      : undefined;
+  // BOOKED COMES FROM `env[]` FOR EVERY RESOURCE, and so does each fill's denominator.
+  //
+  // `env[]` is what consumers reserved through the marketplace; the cgroup fields
+  // (`cpu.coresAllocated`, `memory.limitBytes`) are what the containers were actually granted. They
+  // agree closely in practice (a real node: 31 cores booked, 31 allocated), but they answer different
+  // questions, and mixing them across resources meant "booked" changed meaning from bar to bar.
+  //
+  // The denominators change with it: `env[]` totals are what the operator OFFERS, which is normally
+  // less than the machine (that node advertises 123 of 160 cores, 1.6 of 2.2 TB). That is the honest
+  // scale for "how booked is this node" — and the fill has to share it, or the tick lands in the
+  // wrong place on its own track. The host figures stay visible as separate readings below.
+  const cpuEnv = envCpuCores(metrics.env);
+  const ramEnv = envRamBytes(metrics.env);
+  const gpuEnv = envGpuDevices(metrics.env);
+  const diskEnv = envDiskBytes(metrics.env);
 
-  const hostMemUsedBytes = Math.max(0, memory.hostTotalBytes - memory.hostFreeBytes);
-  const memValue = hostMemoryPercent(memory);
-  const memCenterLabel = `${formatBytes(hostMemUsedBytes)} / ${formatBytes(memory.hostTotalBytes)}`;
+  // usagePercent is docker-stats semantics summed over containers (100 == one busy core), so cores in
+  // use is usagePercent / 100 — against cores OFFERED, not host cores.
+  const cpuCoresUsed = cpu.usagePercent / 100;
+  const cpuValue = hasWorkloadData && cpuEnv.total > 0 ? (cpuCoresUsed / cpuEnv.total) * 100 : undefined;
+  const cpuCenterLabel = `${cpuCoresUsed.toFixed(1)} / ${formatNumber(cpuEnv.total)} cores`;
+  const cpuPeak = cpuValue !== undefined ? resolvePeak(cpuValue, cpuHistory) : undefined;
+  const cpuBooked = cpuValue !== undefined && cpuEnv.booked > 0 ? (cpuEnv.booked / cpuEnv.total) * 100 : undefined;
+
+  // The containers' own consumption against RAM offered — not `hostTotal - hostFree`, which is the
+  // whole machine's memory in use (OS and every other tenant included) and would put an unrelated
+  // number on the same track as an Ocean booking.
+  const memValue = hasWorkloadData && ramEnv.totalBytes > 0 ? (memory.usedBytes / ramEnv.totalBytes) * 100 : undefined;
+  const memCenterLabel = `${formatBytes(memory.usedBytes)} / ${formatBytes(ramEnv.totalBytes)}`;
   const memPeak = memValue !== undefined ? resolvePeak(memValue, memHistory) : undefined;
-  // The containers' own memory limits against host RAM. Note the two numbers on this bar come from
-  // different places: the fill is the WHOLE machine's memory in use (os.freemem, which includes
-  // everything else running on the box), while the tick is only what C2D booked — so the tick can sit
-  // below a high fill without contradicting it.
   const memBooked =
-    hasWorkloadData && memory.hostTotalBytes && memory.limitBytes > 0
-      ? (memory.limitBytes / memory.hostTotalBytes) * 100
-      : undefined;
+    memValue !== undefined && ramEnv.bookedBytes > 0 ? (ramEnv.bookedBytes / ramEnv.totalBytes) * 100 : undefined;
 
   const gpuTotals = aggregateGpu(gpu);
   const gpuVramValue = gpuTotals.totalBytes > 0 ? (gpuTotals.usedBytes / gpuTotals.totalBytes) * 100 : undefined;
@@ -144,25 +163,25 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
   const gpuVramPeak = gpuVramValue !== undefined ? resolvePeak(gpuVramValue, gpuVramHistory) : undefined;
   const gpuRows = buildGpuRows({ devices: gpu, hardwareNames, samples: history });
   const deviceCount = gpuRows.length;
+  // The one resource whose booked share is a different QUANTITY from its fill: the bar measures VRAM
+  // bytes, the tick counts whole devices reserved (each `gpuN` row is total 1, inUse 1 once booked).
+  // Both are percentages of what the node offers, so they share the track honestly, but the hover has
+  // to say "devices" or the tick reads as booked VRAM.
+  const gpuBooked = gpuEnv.total > 0 && gpuEnv.booked > 0 ? (gpuEnv.booked / gpuEnv.total) * 100 : undefined;
 
-  // Workload disk against what the node ADVERTISES across its environments — see `advertisedDiskBytes`
-  // for why that is the only denominator available and what it does not claim to be. With no disk rows
-  // in `env[]` there is no ratio to draw, and the reading falls back to the plain byte stat below.
-  const diskTotalBytes = advertisedDiskBytes(metrics.env);
-  const diskBookedBytes = bookedDiskBytes(metrics.env);
-  const diskValue = hasWorkloadData && diskTotalBytes > 0 ? (disk.usedBytes / diskTotalBytes) * 100 : undefined;
+  const diskValue =
+    hasWorkloadData && diskEnv.totalBytes > 0 ? (disk.usedBytes / diskEnv.totalBytes) * 100 : undefined;
   const diskBooked =
-    diskValue !== undefined && diskBookedBytes > 0 ? (diskBookedBytes / diskTotalBytes) * 100 : undefined;
+    diskValue !== undefined && diskEnv.bookedBytes > 0 ? (diskEnv.bookedBytes / diskEnv.totalBytes) * 100 : undefined;
   const diskPeak = diskValue !== undefined ? resolvePeak(diskValue, diskHistory) : undefined;
-  const diskCenterLabel = `${formatBytes(disk.usedBytes)} / ${formatBytes(diskTotalBytes)}`;
+  const diskCenterLabel = `${formatBytes(disk.usedBytes)} / ${formatBytes(diskEnv.totalBytes)}`;
 
   // GPU first: it is why a consumer picks one node over another, and on a rig the VRAM bar is the
-  // reading that decides whether a job fits at all. CPU, host memory and disk follow.
+  // reading that decides whether a job fits at all. CPU, memory and disk follow.
   //
-  // These bars carry ONE tick and it always means booked. They used to also mark the session peak,
-  // but both ticks draw identically, so a bar with two of them couldn't say which was which — and
-  // VRAM, which has no booked figure on the wire, showed a lone tick that read as booked and wasn't.
-  // The peak is still on the gauges in "More info", where it's the only thing a tick could mean.
+  // These bars carry ONE tick and it always means booked, now on every one of the four — every figure
+  // comes from `env[]`, against the same offered-capacity denominator as its own fill. The session
+  // peak is on the gauges in "More info" instead, where a tick can only mean one thing.
   const summaryBars: {
     booked?: number;
     bookedTitle?: string;
@@ -172,10 +191,17 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
     label: string;
     value: number;
   }[] = [];
-  // No tick: the snapshot carries no reserved-VRAM figure. `env[]` counts whole devices in use, a
-  // different denominator — drawing that here would be inventing a number.
   if (gpuVramValue !== undefined) {
     summaryBars.push({
+      booked: gpuBooked,
+      // Spelled out as devices, because this is the one tick that measures something other than its
+      // own bar: the fill is VRAM bytes, the tick is whole GPUs reserved.
+      bookedTitle:
+        gpuBooked === undefined
+          ? undefined
+          : `booked: ${formatNumber(roundPercent(gpuBooked))}% · ${formatNumber(gpuEnv.booked)} of ${formatNumber(
+              gpuEnv.total
+            )} GPUs reserved`,
       detail: `${formatBytes(gpuTotals.usedBytes)} / ${formatBytes(gpuTotals.totalBytes)}`,
       icon: <GpuIcon className={resourceIconClass} />,
       key: 'vram',
@@ -189,8 +215,8 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
       bookedTitle:
         cpuBooked === undefined
           ? undefined
-          : `booked: ${formatNumber(roundPercent(cpuBooked))}% · ${formatNumber(cpu.coresAllocated)} of ${formatNumber(
-              cpu.hostCores
+          : `booked: ${formatNumber(roundPercent(cpuBooked))}% · ${formatNumber(cpuEnv.booked)} of ${formatNumber(
+              cpuEnv.total
             )} cores reserved`,
       detail: cpuCenterLabel,
       icon: <MemoryIcon className={resourceIconClass} />,
@@ -206,8 +232,8 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
         memBooked === undefined
           ? undefined
           : `booked: ${formatNumber(roundPercent(memBooked))}% · ${formatBytes(
-              memory.limitBytes
-            )} reserved by workloads`,
+              ramEnv.bookedBytes
+            )} of ${formatBytes(ramEnv.totalBytes)} reserved`,
       detail: memCenterLabel,
       icon: <SdStorageIcon className={resourceIconClass} />,
       key: 'memory',
@@ -222,7 +248,7 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
         diskBooked === undefined
           ? undefined
           : `booked: ${formatNumber(roundPercent(diskBooked))}% · ${formatBytes(
-              diskBookedBytes
+              diskEnv.bookedBytes
             )} reserved across environments`,
       // "advertised", not "capacity": environments sharing a filesystem each report their own total.
       detail: `${diskCenterLabel} advertised`,
@@ -325,10 +351,19 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
             {loadRows.length > 0 && (
               <StatPair icon={<SpeedIcon className={resourceIconClass} />} label="Load average" rows={loadRows} />
             )}
-            {hasWorkloadData && (
-              <Stat icon={<SdStorageIcon className={resourceIconClass} />} label="Workload memory">
-                {formatBytes(memory.usedBytes)}
-                {memory.limitBytes > 0 && <StatMuted> / {formatBytes(memory.limitBytes)}</StatMuted>}
+            {/* The whole machine, not Ocean's share of it: os.totalmem/os.freemem count every process
+                on the box. The gauges above deliberately measure against what the node offers, so
+                this is the only place the machine's own figure appears. */}
+            {memory.hostTotalBytes > 0 && (
+              <Stat icon={<SdStorageIcon className={resourceIconClass} />} label="Machine memory">
+                {formatBytes(Math.max(0, memory.hostTotalBytes - memory.hostFreeBytes))}
+                <StatMuted> / {formatBytes(memory.hostTotalBytes)}</StatMuted>
+              </Stat>
+            )}
+            {cpu.hostCores > 0 && (
+              <Stat icon={<MemoryIcon className={resourceIconClass} />} label="Machine cores">
+                {formatNumber(cpu.hostCores)}
+                {cpuEnv.total > 0 && <StatMuted> · {formatNumber(cpuEnv.total)} offered</StatMuted>}
               </Stat>
             )}
             {/* Only when the environments advertise no disk total: with one, the reading is already a
