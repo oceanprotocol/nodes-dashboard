@@ -51,6 +51,9 @@ const HISTORY_CHARTS: { icon: React.ReactNode; key: HistoryMetric; title: string
 type NodeUsageHistoryProps = {
   /** Only fetched once the live snapshot proved the node speaks these commands. */
   enabled: boolean;
+  /** Forwarded into every `env[]`-based series (CPU/Memory/Disk Booked, GPU Booked) — see
+   * `historyMetricSpec`'s `excludeEnvIds` for why the benchmark environment has to be dropped. */
+  excludeEnvIds?: Set<string>;
   multiaddrs?: string[];
   peerId: string;
 };
@@ -231,7 +234,7 @@ const HistoryChart: React.FC<{
  * "this node is GPU-bound", and tabs hid exactly that by only ever showing one of the pair. The range
  * toggle stays single and section-wide, since comparing charts across different windows is meaningless.
  */
-const NodeUsageHistory: React.FC<NodeUsageHistoryProps> = ({ enabled, multiaddrs, peerId }) => {
+const NodeUsageHistory: React.FC<NodeUsageHistoryProps> = ({ enabled, excludeEnvIds, multiaddrs, peerId }) => {
   const [range, setRange] = useState<MetricsRange>('24h');
   const [open, setOpen] = useState(false);
   const regionId = useId();

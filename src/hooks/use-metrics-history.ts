@@ -1,6 +1,6 @@
 import { NodeMetricsSnapshot, nodeSampleFromSnapshot, NodeUsageSample } from '@/types/node-metrics';
 import { ContainerMetricsSnapshot, sampleFromSnapshot, UsageSample } from '@/types/runtime-metrics';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // ~30 samples at the existing poll cadences (4s for services, 15s for compute jobs, 20s for a node)
 // is 2-10 minutes of history — enough for a peak tick and a sparkline without holding an unbounded
@@ -65,7 +65,22 @@ export function useMetricsHistory(snapshot: ContainerMetricsSnapshot | null, res
 /**
  * The node equivalent, fed by `useNodeMetrics`'s 20s poll. Named "samples" rather than "history" to
  * keep it apart from `useNodeMetricsHistory`, which reads the node's own hourly rollup.
+ *
+ * `excludeEnvIds` is forwarded into every sample's env-based math (see `nodeSampleFromSnapshot`) so a
+ * node's auto-generated benchmark environment — which duplicates its sibling's cpu/ram/disk figures
+ * rather than offering a second pool — never gets double-counted into the denominators the sparklines
+ * and peak ticks plot against. Bound with `useCallback` rather than passed as an inline lambda:
+ * `useSnapshotHistory`'s append effect keys off `toSample`'s identity, and a set that hasn't changed
+ * must not look like a new function every render.
  */
-export function useNodeUsageSamples(snapshot: NodeMetricsSnapshot | null, resetKey: string): NodeUsageSample[] {
-  return useSnapshotHistory({ resetKey, snapshot, toSample: nodeSampleFromSnapshot });
+export function useNodeUsageSamples(
+  snapshot: NodeMetricsSnapshot | null,
+  resetKey: string,
+  excludeEnvIds?: Set<string>
+): NodeUsageSample[] {
+  const toSample = useCallback(
+    (nodeSnapshot: NodeMetricsSnapshot) => nodeSampleFromSnapshot(nodeSnapshot, excludeEnvIds),
+    [excludeEnvIds]
+  );
+  return useSnapshotHistory({ resetKey, snapshot, toSample });
 }

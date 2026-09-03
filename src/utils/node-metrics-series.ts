@@ -1,4 +1,4 @@
-import { envDiskBytes, envGpuDevices, NodeMetricsHourly } from '@/types/node-metrics';
+import { envCpuCores, envDiskBytes, envGpuDevices, envRamBytes, NodeMetricsHourly } from '@/types/node-metrics';
 import { formatBytes, formatNumber } from '@/utils/formatters';
 
 export const HOUR_MS = 3_600_000;
@@ -60,15 +60,17 @@ function meanGpu(bucket: NodeMetricsHourly, pick: (device: NodeMetricsHourly['gp
   return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
 
-export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
+export function historyMetricSpec(metric: HistoryMetric, excludeEnvIds?: Set<string>): HistoryMetricSpec {
   switch (metric) {
     case 'cpu':
-      // Plotted as a fraction of the machine rather than raw usagePercent: that field is docker-stats
-      // semantics summed over containers (0..hostCores*100), so on a 16-core host it reaches 1600.
-      // The gap between booked and used is the reading an operator actually wants.
+      // Plotted as a fraction of what the node OFFERS (`env[]`, deduplicated — see `envCpuCores`),
+      // not the raw host: usagePercent is docker-stats semantics summed over containers
+      // (0..hostCores*100), and an operator commonly offers only part of the machine, so hostCores
+      // would understate how full the node's own advertised pool actually is. Same denominator the
+      // live bar uses, so a peak/booked tick here and the live tick land on the same scale.
       //
       // Used + Booked is the shape EVERY chart here follows (GPU excepted, which has no booked
-      // figure). Same two words, same solid/dashed roles, same host denominator.
+      // figure). Same two words, same solid/dashed roles, same env-offered denominator.
       return {
         domain: [0, 100],
         format: (value) => `${Math.round(value)}%`,
@@ -76,24 +78,31 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
           {
             key: 'cpuUsed',
             label: 'Used',
-            value: (bucket) => (bucket.cpu.hostCores ? bucket.cpu.usagePercent / bucket.cpu.hostCores : null),
+            value: (bucket) => {
+              const { total } = envCpuCores(bucket.env ?? [], excludeEnvIds);
+              return total > 0 ? bucket.cpu.usagePercent / 100 / total * 100 : null;
+            },
           },
           {
             dashed: true,
             key: 'cpuBooked',
             label: 'Booked',
-            value: (bucket) => (bucket.cpu.hostCores ? (bucket.cpu.coresAllocated / bucket.cpu.hostCores) * 100 : null),
+            value: (bucket) => {
+              const { booked, total } = envCpuCores(bucket.env ?? [], excludeEnvIds);
+              return total > 0 ? (booked / total) * 100 : null;
+            },
           },
         ],
       };
     case 'memory':
-      // Used = what the C2D containers consume; Booked = the memory limits they reserved. Both as a
-      // percentage of the host's total RAM, so this chart reads exactly like the CPU one.
+      // Used = what the C2D containers consume; Booked = what the node's environments offer/reserve
+      // (`env[]`, deduplicated — see `envRamBytes`). Same denominator and shape as CPU.
       //
-      // Deliberately NOT the whole machine's memory in use ((hostTotal - hostFree) / hostTotal). That
-      // was plotted here as "Host", which read as a capacity line but moved with everything on the
-      // box — OS, other tenants, anything unrelated to Ocean. The fixed total is the 100% ceiling; a
-      // line for it would be flat by definition.
+      // Deliberately NOT the whole machine's memory in use ((hostTotal - hostFree) / hostTotal), and
+      // not the cgroup limits against host RAM either. The machine figure moved here as "Host" used to
+      // read as a capacity line but moved with everything on the box — OS, other tenants, anything
+      // unrelated to Ocean; the cgroup-against-host pairing put a per-container ceiling on a
+      // machine-wide scale. Both are real numbers, just not this chart's.
       return {
         domain: [0, 100],
         format: (value) => `${Math.round(value)}%`,
@@ -101,17 +110,19 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
           {
             key: 'memUsed',
             label: 'Used',
-            value: (bucket) =>
-              bucket.memory.hostTotalBytes ? (bucket.memory.usedBytes / bucket.memory.hostTotalBytes) * 100 : null,
+            value: (bucket) => {
+              const { totalBytes } = envRamBytes(bucket.env ?? [], excludeEnvIds);
+              return totalBytes > 0 ? (bucket.memory.usedBytes / totalBytes) * 100 : null;
+            },
           },
           {
             dashed: true,
             key: 'memBooked',
             label: 'Booked',
-            value: (bucket) =>
-              bucket.memory.hostTotalBytes && bucket.memory.limitBytes
-                ? (bucket.memory.limitBytes / bucket.memory.hostTotalBytes) * 100
-                : null,
+            value: (bucket) => {
+              const { bookedBytes, totalBytes } = envRamBytes(bucket.env ?? [], excludeEnvIds);
+              return totalBytes > 0 ? (bookedBytes / totalBytes) * 100 : null;
+            },
           },
         ],
       };
@@ -142,7 +153,7 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
             key: 'diskBooked',
             label: 'Booked',
             value: (bucket) => {
-              const { bookedBytes } = envDiskBytes(bucket.env ?? []);
+              const { bookedBytes } = envDiskBytes(bucket.env ?? [], excludeEnvIds);
               return bookedBytes > 0 ? bookedBytes : null;
             },
           },
@@ -182,7 +193,7 @@ export function historyMetricSpec(metric: HistoryMetric): HistoryMetricSpec {
             key: 'gpuBooked',
             label: 'Booked',
             value: (bucket) => {
-              const { booked, total } = envGpuDevices(bucket.env ?? []);
+              const { booked, total } = envGpuDevices(bucket.env ?? [], excludeEnvIds);
               return total > 0 ? (booked / total) * 100 : null;
             },
           },

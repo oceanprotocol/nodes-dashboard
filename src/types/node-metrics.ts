@@ -198,17 +198,24 @@ export interface NodeUsageSample {
  * device booked through env A shows `inUse: 1` under every env that also offers it, so the largest
  * value is the true one while the total would multiply it by the environment count.
  *
- * This still can't distinguish "two envs sharing one 2 TB filesystem" from "two envs with separate
- * 2 TB filesystems" — the payload carries no filesystem identity. Max is the conservative read of
- * the two, which is why every label built on it says "advertised" rather than "capacity".
+ * `excludeEnvIds` drops specific env ids before the dedupe — pass the node's own benchmark
+ * environment(s) (see `isBenchmarkEnv`), whose id shares a prefix with its "real" sibling and
+ * duplicates the SAME pool rather than offering a second one. Without this, a node with one paid
+ * environment reports double its actual capacity, because the benchmark twin repeats every figure.
+ *
+ * Beyond that specific case, this still can't distinguish "two envs sharing one 2 TB filesystem"
+ * from "two envs with separate 2 TB filesystems" — the payload carries no filesystem identity. Max
+ * is the conservative read of the two, which is why every label built on it says "advertised" rather
+ * than "capacity".
  */
 function dedupeEnvResource(
-  env: { inUse: number; resource: string; total: number }[],
-  matches: (resource: string) => boolean
+  env: { env: string; inUse: number; resource: string; total: number }[],
+  matches: (resource: string) => boolean,
+  excludeEnvIds?: Set<string>
 ): { booked: number; total: number } {
   const totals = new Map<string, { booked: number; total: number }>();
   (env ?? [])
-    .filter((row) => matches(row.resource))
+    .filter((row) => matches(row.resource) && !excludeEnvIds?.has(row.env))
     .forEach((row) => {
       const seen = totals.get(row.resource);
       const total = Number.isFinite(row.total) ? row.total : 0;
@@ -231,11 +238,11 @@ const GB_IN_BYTES = 1_000_000_000;
  * /computeEnvironments while `disk.usedBytes` is bytes, so the conversion belongs here rather than at
  * each call site, where mixing the two silently is a 10^9 error.
  */
-export function envDiskBytes(env: { inUse: number; resource: string; total: number }[]): {
-  bookedBytes: number;
-  totalBytes: number;
-} {
-  const { booked, total } = dedupeEnvResource(env, (resource) => resource === 'disk');
+export function envDiskBytes(
+  env: { env: string; inUse: number; resource: string; total: number }[],
+  excludeEnvIds?: Set<string>
+): { bookedBytes: number; totalBytes: number } {
+  const { booked, total } = dedupeEnvResource(env, (resource) => resource === 'disk', excludeEnvIds);
   return { bookedBytes: booked * GB_IN_BYTES, totalBytes: total * GB_IN_BYTES };
 }
 
@@ -244,21 +251,21 @@ export function envDiskBytes(env: { inUse: number; resource: string; total: numb
  * /computeEnvironments — comparable to `cpu.hostCores`, and usually SMALLER, since an operator
  * commonly offers only part of the machine (a real node: 123 of 160 cores).
  */
-export function envCpuCores(env: { inUse: number; resource: string; total: number }[]): {
-  booked: number;
-  total: number;
-} {
-  return dedupeEnvResource(env, (resource) => resource === 'cpu');
+export function envCpuCores(
+  env: { env: string; inUse: number; resource: string; total: number }[],
+  excludeEnvIds?: Set<string>
+): { booked: number; total: number } {
+  return dedupeEnvResource(env, (resource) => resource === 'cpu', excludeEnvIds);
 }
 
 /**
  * RAM advertised and booked across the node's environments, in bytes. Source units are GB.
  */
-export function envRamBytes(env: { inUse: number; resource: string; total: number }[]): {
-  bookedBytes: number;
-  totalBytes: number;
-} {
-  const { booked, total } = dedupeEnvResource(env, (resource) => resource === 'ram');
+export function envRamBytes(
+  env: { env: string; inUse: number; resource: string; total: number }[],
+  excludeEnvIds?: Set<string>
+): { bookedBytes: number; totalBytes: number } {
+  const { booked, total } = dedupeEnvResource(env, (resource) => resource === 'ram', excludeEnvIds);
   return { bookedBytes: booked * GB_IN_BYTES, totalBytes: total * GB_IN_BYTES };
 }
 
@@ -267,11 +274,11 @@ export function envRamBytes(env: { inUse: number; resource: string; total: numbe
  * id (`gpu0`, `gpu1`, …) carrying `total: 1`, and `inUse: 1` once booked — so these are DEVICE COUNTS,
  * a different quantity from the utilization and VRAM percentages the same charts plot.
  */
-export function envGpuDevices(env: { inUse: number; resource: string; total: number }[]): {
-  booked: number;
-  total: number;
-} {
-  return dedupeEnvResource(env, (resource) => /^gpu\d+$/.test(resource));
+export function envGpuDevices(
+  env: { env: string; inUse: number; resource: string; total: number }[],
+  excludeEnvIds?: Set<string>
+): { booked: number; total: number } {
+  return dedupeEnvResource(env, (resource) => /^gpu\d+$/.test(resource), excludeEnvIds);
 }
 
 /** Client-side rollup of one node snapshot for the ring buffer — the sibling of `UsageSample`. */
@@ -315,7 +322,10 @@ export function bookedDiskBytes(env: { inUse: number; resource: string }[]): num
     .reduce((total, row) => total + (Number.isFinite(row.inUse) ? row.inUse : 0) * 1_000_000_000, 0);
 }
 
-export function nodeSampleFromSnapshot(snapshot: NodeMetricsSnapshot): NodeUsageSample {
+export function nodeSampleFromSnapshot(
+  snapshot: NodeMetricsSnapshot,
+  excludeEnvIds?: Set<string>
+): NodeUsageSample {
   const gpuMemoryPercent: Record<string, number> = {};
   const gpuUtilizationPercent: Record<string, number> = {};
   (snapshot.gpu ?? []).forEach((device) => {
@@ -330,9 +340,9 @@ export function nodeSampleFromSnapshot(snapshot: NodeMetricsSnapshot): NodeUsage
       gpuMemoryPercent[device.resourceId] = (device.memoryUsedBytes / device.memoryTotalBytes) * 100;
     }
   });
-  const cpuEnv = envCpuCores(snapshot.env);
-  const ramEnv = envRamBytes(snapshot.env);
-  const diskEnv = envDiskBytes(snapshot.env);
+  const cpuEnv = envCpuCores(snapshot.env, excludeEnvIds);
+  const ramEnv = envRamBytes(snapshot.env, excludeEnvIds);
+  const diskEnv = envDiskBytes(snapshot.env, excludeEnvIds);
   return {
     collectedAt: snapshot.collectedAt,
     cpuPercent: cpuEnv.total > 0 ? (snapshot.cpu.usagePercent / 100 / cpuEnv.total) * 100 : undefined,

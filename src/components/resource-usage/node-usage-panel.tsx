@@ -50,6 +50,13 @@ export interface NodeUsagePanelProps {
   /** Start expanded. Default (`false`) opens on the bars. */
   defaultExpanded?: boolean;
   /**
+   * Env ids to drop before every `env[]`-based total/booked figure — pass the node's own benchmark
+   * environment(s) (`isBenchmarkEnv`). Its id shares a resource prefix with its "real" sibling and
+   * duplicates that pool's cpu/ram/disk/GPU figures rather than offering a second one; without this a
+   * node with one paid environment reports double its actual capacity.
+   */
+  excludeEnvIds?: Set<string>;
+  /**
    * resourceId -> hardware name, merged from every compute environment's resource descriptions
    * (`gpu0` -> "NVIDIA H200", `cpu` -> "AMD EPYC 9634"). The metrics payload carries only opaque ids.
    */
@@ -78,6 +85,7 @@ export interface NodeUsagePanelProps {
  */
 const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
   defaultExpanded = false,
+  excludeEnvIds,
   hardwareNames,
   history = [],
   metrics,
@@ -135,10 +143,10 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
   // less than the machine (that node advertises 123 of 160 cores, 1.6 of 2.2 TB). That is the honest
   // scale for "how booked is this node" — and the fill has to share it, or the tick lands in the
   // wrong place on its own track. The host figures stay visible as separate readings below.
-  const cpuEnv = envCpuCores(metrics.env);
-  const ramEnv = envRamBytes(metrics.env);
-  const gpuEnv = envGpuDevices(metrics.env);
-  const diskEnv = envDiskBytes(metrics.env);
+  const cpuEnv = envCpuCores(metrics.env, excludeEnvIds);
+  const ramEnv = envRamBytes(metrics.env, excludeEnvIds);
+  const gpuEnv = envGpuDevices(metrics.env, excludeEnvIds);
+  const diskEnv = envDiskBytes(metrics.env, excludeEnvIds);
 
   // usagePercent is docker-stats semantics summed over containers (100 == one busy core), so cores in
   // use is usagePercent / 100 — against cores OFFERED, not host cores.
