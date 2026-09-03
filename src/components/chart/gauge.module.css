@@ -40,6 +40,11 @@
       height: 110px;
       position: relative;
       width: 220px;
+      /* The value + label block is absolutely positioned BELOW the arc (negative `bottom`), so its
+         height is outside this box and would otherwise be painted over the min/max footer that
+         follows in flow. Reserve that overhang as real space; each size variant sets its own, since
+         the value text — and so the block — scales with the variant. */
+      margin-bottom: 44px;
       /* The arc is laid out at a fixed width, but a grid/flex column narrower than that (the resource
          usage panel's auto-fit grid, a phone) must shrink it rather than overflow — ResponsiveContainer
          redraws to whatever width it lands on. */
@@ -49,6 +54,7 @@
          row and the default 220px arc leaves no breathing room between them. */
       &.chartSmall {
         height: 88px;
+        margin-bottom: 46px;
         width: 176px;
 
         .valueWrapper {
@@ -68,6 +74,7 @@
          usage panel's modal/compact grid. Default rendering above is untouched. */
       &.chartCompact {
         height: 80px;
+        margin-bottom: 34px;
         width: 150px;
 
         .valueWrapper {
@@ -85,10 +92,14 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
-        left: 0;
+        left: 50%;
         position: absolute;
         text-align: center;
-        width: 100%;
+        transform: translateX(-50%);
+        /* Wider than the arc on purpose: these labels are two byte figures and a device count, which
+           at 176px got ellipsed down to the half that says least. The gauge sits in a padded card, so
+           the extra width is the card's own gutter rather than a neighbour's space. */
+        width: 132%;
 
         .value {
           font-size: 30px;

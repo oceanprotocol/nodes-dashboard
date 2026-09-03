@@ -1,3 +1,10 @@
+/* Shared by every usage panel: `resource-usage-panel` (one container) and `node-usage-panel` (a whole
+   node), via `usage-primitives` / `usage-panel-shell`. Kept as ONE file on purpose — the rules below
+   lean on cross-class nesting (`.gaugeItem .sparklineWrap`, `.gpuCard .hardwareLabel`,
+   `.statsSection .statsGrid`, `.gaugesGrid.compact`, `.root.compactRoot h5`, the 600px rule), and CSS
+   modules hash per file, so splitting the classes across two modules makes those selectors stop
+   matching with no error at all. */
+
 .root {
   display: flex;
   flex-direction: column;
@@ -262,7 +269,6 @@
       background: var(--error);
     }
   }
-
 }
 
 /* HardwareLabel is sized for table cells; under a gauge it needs to center and wrap. */

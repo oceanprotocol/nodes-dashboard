@@ -1,7 +1,9 @@
 import { NodeUri } from '@/contexts/P2PContext';
 import { NODE_URL } from '@/lib/constants';
+import { directNodeCommandJson, NodeCommandError } from '@/lib/direct-node-command';
 import { signNodeCommandMessage } from '@/lib/sign-message';
 import { SignMessageFn } from '@/lib/use-ocean-account';
+import { withTimeout } from '@/lib/with-timeout';
 import { EscrowEvent } from '@/types/payment';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import {
@@ -89,6 +91,105 @@ export async function getEscrowEvents(filters: {
     throw new Error(`Failed to fetch escrow events: ${response.status}`);
   }
   return (await response.json()) as EscrowEvent[];
+}
+
+// --- Node metrics (ocean-node >= 4.1.0) ---
+// These ride the gateway's /directCommand rather than ocean.js: the lib ships no wrapper for the two
+// commands, and its only generic P2P sender is private. Both are unauthenticated — no wallet, no
+// node token — so any visitor to a node's page can read them.
+const NODE_METRICS_TIMEOUT_MS = 20_000;
+const NODE_METRICS_HISTORY_TIMEOUT_MS = 45_000;
+
+/** Live per-node resource snapshot for ANY node. Returns the raw body; narrow it with
+ * `asNodeMetricsSnapshot`. */
+export async function getNodeMetrics({
+  multiaddrs,
+  peerId,
+}: {
+  multiaddrs?: string[];
+  peerId: string;
+}): Promise<unknown> {
+  return withTimeout(
+    (signal) =>
+      directNodeCommandJson<unknown>({
+        command: 'getNodeMetrics',
+        label: 'Node metrics',
+        multiaddrs,
+        peerId,
+        signal,
+      }),
+    NODE_METRICS_TIMEOUT_MS,
+    'Node metrics'
+  );
+}
+
+/**
+ * Hourly history buckets. Bounds are epoch MILLISECONDS and optional node-side, but always pass a
+ * bounded range: omitting them serves the node's whole retention window (180 days by default = 4320
+ * buckets), and the gateway sends no content-encoding, so a bucket costs a few KB on the wire.
+ */
+export async function getNodeMetricsHistory({
+  multiaddrs,
+  peerId,
+  startTime,
+  stopTime,
+}: {
+  multiaddrs?: string[];
+  peerId: string;
+  startTime: number;
+  stopTime: number;
+}): Promise<unknown> {
+  return withTimeout(
+    (signal) =>
+      directNodeCommandJson<unknown>({
+        body: { startTime, stopTime },
+        command: 'getNodeMetricsHistory',
+        label: 'Node metrics history',
+        multiaddrs,
+        peerId,
+        signal,
+      }),
+    NODE_METRICS_HISTORY_TIMEOUT_MS,
+    'Node metrics history'
+  );
+}
+
+/**
+ * "This node will never answer": the target node predates the command (501 `No handler found`), or
+ * the GATEWAY itself does (400 + `Invalid or unrecognized command`, raised by validateCommands
+ * before it ever forwards). Terminal — a node's build doesn't change under us, so callers stop
+ * polling instead of retrying. Status first, text second: the strings are ocean-node's
+ * human-readable errors and could be reworded in a future release.
+ */
+export function isNodeMetricsUnsupported(error: unknown): boolean {
+  if (!(error instanceof NodeCommandError)) {
+    return false;
+  }
+  if (error.status === 501) {
+    return true;
+  }
+  return error.status === 400 && /unrecognized command/i.test(error.message);
+}
+
+/** History specifically disabled or DB-less node-side (NODE_METRICS_HISTORY_ENABLED=false). Means
+ * "unavailable", never "busy" — don't auto-retry it. */
+export function isNodeMetricsHistoryUnavailable(error: unknown): boolean {
+  return error instanceof NodeCommandError && error.status === 503;
+}
+
+/** The gateway could not reach the peer at all. The node header already reports offline nodes, so
+ * callers stay quiet rather than adding a second red line. */
+export function isNodeUnreachable(error: unknown): boolean {
+  return error instanceof NodeCommandError && error.status === 404;
+}
+
+/** ocean-node rate-limits per requester IP across its whole API — and for a remote target the
+ * requester is the GATEWAY, so every dashboard viewer polling this node shares one budget. */
+export function isNodeRateLimited(error: unknown): boolean {
+  if (!(error instanceof NodeCommandError)) {
+    return false;
+  }
+  return error.status === 429 || (error.status === 403 && /rate limit/i.test(error.message));
 }
 
 export async function getNonce(nodeUri: NodeUri, consumerAddress: string): Promise<number> {
