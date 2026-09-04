@@ -18,19 +18,17 @@ import { isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import { useFormik } from 'formik';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
 
-/** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). Inference always
- *  uses a paid token, so the top-level bounds apply (not the `free.*` ones). */
+/** Paid service-on-demand duration bounds for an env. Inference always uses a paid token, so the
+ *  top-level bounds apply (not the `free.*` ones). */
 function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
-  return {
-    min: env.minJobDuration ?? 0,
-    max: env.maxJobDuration ?? Infinity,
-  };
+  return serviceDurationBounds(env);
 }
 
 /** An env is bookable for inference when it (a) advertises service-on-demand support — the node

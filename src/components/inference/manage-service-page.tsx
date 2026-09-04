@@ -39,6 +39,7 @@ import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { isBundle } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -579,10 +580,13 @@ const ManageServicePage: React.FC = () => {
   // `remaining + additionalDuration`, NOT elapsed + additional: extending is bounded by the forward
   // window, so a long-running service is no harder to extend than a fresh one.
   const durationRemainingSeconds = Math.max(0, durationTotalSeconds - durationElapsedSeconds);
-  /** Headroom for a single extension: the env's `maxJobDuration` minus the runtime already ahead of us. */
-  const prolongMaxSeconds = environment?.maxJobDuration
-    ? Math.max(0, environment.maxJobDuration - durationRemainingSeconds)
-    : undefined;
+  /** Headroom for a single extension: the env's service cap minus the runtime already ahead of us.
+   *  This is the cap serviceExtend actually enforces — `maxJobDuration` bounds compute jobs only. */
+  const serviceBounds = environment ? serviceDurationBounds(environment) : undefined;
+  const prolongMaxSeconds =
+    serviceBounds && Number.isFinite(serviceBounds.max)
+      ? Math.max(0, serviceBounds.max - durationRemainingSeconds)
+      : undefined;
   const defaultToken = selectedToken?.address;
   const isTemplate = !!template;
   // Edit relaunches the SAME bundle through serviceRestart, which recreates the container from the
@@ -1234,7 +1238,7 @@ const ManageServicePage: React.FC = () => {
       <ProlongSessionModal
         isOpen={prolongOpen}
         maxSeconds={prolongMaxSeconds}
-        minSeconds={environment?.minJobDuration}
+        minSeconds={serviceBounds?.min}
         onClose={() => setProlongOpen(false)}
         onConfirm={onProlong}
       />

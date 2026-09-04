@@ -30,6 +30,7 @@ import {
 } from '@/types/templates';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -72,7 +73,7 @@ type TemplateDetailsModalProps = {
 
 /** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). */
 function durationBounds(environment: ComputeEnvironment): { min: number; max: number } {
-  return { min: environment.minJobDuration ?? 0, max: environment.maxJobDuration ?? Infinity };
+  return serviceDurationBounds(environment);
 }
 
 /** One row of the required-vs-recommended resources table. */

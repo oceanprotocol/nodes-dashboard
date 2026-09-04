@@ -35,6 +35,7 @@ import {
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import { CircularProgress } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
@@ -408,15 +409,14 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // guards below run against it, exactly as they did before. Swallowed here rather than left to
       // the launch's own catch, which is outside this await and would strand the button disabled.
     }
-    // The node accepts an extension shorter than the env's minJobDuration but bills it at that
-    // minimum anyway (calculateResourcesCost re-applies the session minimum to the increment), so
-    // +1min on a 10min-minimum env costs the same as +10min and grants a tenth of it. The modal
-    // blocks that; this catches a deep-linked prolong URL carrying a smaller duration. Drop both
-    // once the node stops flooring extensions.
-    const envMin = prolongEnv.minJobDuration;
+    // The node rejects an extension below the env's service floor (serviceExtend: 400 "Additional
+    // duration Xs is below minimum Ys") — the floor is a minimum purchase, not a rounding rule. The
+    // modal blocks that; this catches a deep-linked prolong URL carrying a smaller duration, so the
+    // rejection lands before the escrow deposit tx rather than after it.
+    const envMin = serviceDurationBounds(prolongEnv).min;
     if (envMin && jobDurationSeconds < envMin) {
       setLaunchError(
-        `This environment charges a ${formatDuration(envMin)} minimum per top-up, so a shorter extension costs the same. Pick a longer one.`
+        `This environment has a ${formatDuration(envMin)} minimum per top-up. Pick a longer extension.`
       );
       captureError('inference_service_prolong_failed', new Error('duration_below_env_min'), {
         stage: 'duration_bounds',
@@ -428,11 +428,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       return;
     }
     // The node rejects an extension that pushes total runtime past its max (serviceExtend: 400
-    // "remaining + additionalDuration > maxDurationSeconds"). We can't see the node's exact cap or
-    // the live remaining runtime here, but the env's advertised maxJobDuration bounds a single
-    // window — if the extra time alone already exceeds it the extend is guaranteed to fail, so stop
-    // before paying the (wasted) escrow deposit tx.
-    const envMax = prolongEnv.maxJobDuration;
+    // "remaining + additionalDuration > maxServiceDuration"). The env now advertises that exact cap,
+    // but not the live remaining runtime — so this only catches the certain failure, where the extra
+    // time alone already exceeds the cap. Stops before paying the (wasted) escrow deposit tx.
+    const envMax = serviceDurationBounds(prolongEnv).max;
     if (envMax && jobDurationSeconds > envMax) {
       setLaunchError(
         `The extra time exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter extension.`
@@ -599,7 +598,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     // The node sets expiresAt = now + duration and rejects a window past the env's max.
     // Mirror the prolong guard so a deep-linked/refreshed payment page with an
     // over-max duration fails here rather than after the (wasted) escrow deposit tx.
-    const envMax = selectedEnv.environment.maxJobDuration;
+    const envMax = serviceDurationBounds(selectedEnv.environment).max;
     if (envMax && jobDurationSeconds > envMax) {
       setLaunchError(
         `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
@@ -727,7 +726,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       });
       return;
     }
-    const envMax = selectedEnv.environment.maxJobDuration;
+    const envMax = serviceDurationBounds(selectedEnv.environment).max;
     if (envMax && jobDurationSeconds > envMax) {
       setLaunchError(
         `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`

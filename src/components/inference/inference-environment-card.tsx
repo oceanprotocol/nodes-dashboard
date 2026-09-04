@@ -18,6 +18,7 @@ import { checkEnvAccess } from '@/utils/check-env-access';
 import { DeclaredRequirement, declaredGpuOptions, preferredGpuOption } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
@@ -227,22 +228,21 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const editable = !isControlled && !!onSelect;
 
-  // Paid service-on-demand job-duration window (inference always uses a paid token → top-level bounds).
+  // Paid service-on-demand duration window (inference always uses a paid token → top-level bounds).
   // Shown next to the select button so the user knows the valid range.
   const durationRangeText = useMemo(() => {
-    const min = environment.minJobDuration;
-    const max = environment.maxJobDuration;
-    if (min && max) {
+    const { min, max } = serviceDurationBounds(environment);
+    if (min && Number.isFinite(max)) {
       return `${formatDuration(min)} – ${formatDuration(max)}`;
     }
     if (min) {
       return `min ${formatDuration(min)}`;
     }
-    if (max) {
+    if (Number.isFinite(max)) {
       return `max ${formatDuration(max)}`;
     }
     return null;
-  }, [environment.minJobDuration, environment.maxJobDuration]);
+  }, [environment]);
 
   const setTypeCount = (key: string, count: number) => {
     setOwnSelection((prev) => ({ ...(prev ?? {}), [key]: count }));

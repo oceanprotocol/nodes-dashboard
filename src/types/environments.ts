@@ -76,6 +76,10 @@ export type ComputeEnvironment = {
   maxJobDuration?: number;
   maxJobs?: number;
   minJobDuration?: number;
+  /** Service-on-demand duration bounds. Distinct from min/maxJobDuration, which bound compute jobs
+   *  only — read these through `serviceDurationBounds()` in `@/utils/service-duration`. */
+  maxServiceDuration?: number;
+  minServiceDuration?: number;
   nodeId: string;
   platform?: {
     architecture: string;

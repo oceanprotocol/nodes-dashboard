@@ -10,6 +10,7 @@ import {
 } from '@/utils/constraints';
 import { billableMinutes } from '@/utils/duration';
 import { getAvailableAmount } from '@/utils/resources';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import { ComputeResource } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
 
@@ -239,7 +240,6 @@ const useInferenceAllocation = ({
     gpus,
     gpusAvailable,
     gpuFees,
-    minJobDurationSeconds,
     ram,
     ramAvailable,
     ramFee,
@@ -567,11 +567,12 @@ const useInferenceAllocation = ({
     const diskTotal = (diskFee ?? 0) * allocation.disk;
     // GPUs are priced by the exact units selected, not the blended fraction.
     const gpuTotal = mergedGpus.reduce((sum, g) => sum + g.fee * (selectedByKey[g.key] ?? 0), 0);
-    // Whole billable minutes, floored at the env's minJobDuration — the node's own formula. Pricing
-    // this as a plain `durationSeconds / 60` under-quotes any window below the env minimum (a short
-    // Prolong) or any non-whole-minute window, and the escrow deposit sized from that quote is then
-    // too small for the node's createLock ("does not have enough funds"). See billableMinutes.
-    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * billableMinutes(durationSeconds, minJobDurationSeconds);
+    // Whole billable minutes, floored at the env's SERVICE minimum — the node's own formula. This is
+    // the floor calculateResourcesCost applies to a service (minJobDuration governs compute jobs), so
+    // quoting against the wrong one under-quotes and the escrow deposit sized from that quote is too
+    // small for the node's createLock ("does not have enough funds"). See billableMinutes.
+    const { min: serviceMinSeconds } = serviceDurationBounds(environment);
+    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * billableMinutes(durationSeconds, serviceMinSeconds);
   }, [
     cpuFee,
     allocation.cpu,
@@ -581,7 +582,7 @@ const useInferenceAllocation = ({
     diskFee,
     mergedGpus,
     durationSeconds,
-    minJobDurationSeconds,
+    environment,
     selectedByKey,
   ]);
 
