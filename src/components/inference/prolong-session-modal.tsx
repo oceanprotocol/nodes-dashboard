@@ -12,17 +12,16 @@ const DEFAULT_PROLONG_SECONDS = 3600;
 type ProlongSessionModalProps = {
   isOpen: boolean;
   /**
-   * The environment's `minJobDuration`, enforced here as the smallest extension.
+   * The environment's `minServiceDuration` — the smallest extension the node will sell.
    *
-   * The node does NOT require it: serviceExtend only rejects `additionalDuration <= 0` and a new
-   * total past `maxJobDuration`, and it grants exactly the seconds asked for. But it floors the
-   * extension's PRICE at this window — calculateResourcesCost re-applies the session minimum to the
-   * increment, so +1min on a 10min-minimum env is billed as 10min while granting 60s. Until that is
-   * fixed node-side, block it rather than sell a tenth of what the node charges for.
+   * serviceExtend rejects `additionalDuration` below it (400 "Additional duration Xs is below
+   * minimum Ys"): the floor is a minimum purchase, and anything accepted is priced by its actual
+   * duration. Blocking here keeps that rejection out of the paid path, since the escrow deposit tx
+   * would otherwise already have been sent.
    */
   minSeconds?: number;
   /**
-   * Headroom for THIS extension — the env's `maxJobDuration` minus the runtime already ahead of the
+   * Headroom for THIS extension — the env's `maxServiceDuration` minus the runtime already ahead of the
    * service, since the node caps `remaining + additionalDuration` (not elapsed + additional).
    */
   maxSeconds?: number;
@@ -82,7 +81,7 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
 
   // Nothing can be bought when the window has no room for the smallest purchase. Two ways in:
   //   - no headroom at all (already at the env's max) — independent of any billing minimum, so this
-  //     must NOT be gated on minSeconds > 0, or an env without a minJobDuration would offer an input
+  //     must NOT be gated on minSeconds > 0, or an env without a service floor would offer an input
   //     whose every value is rejected;
   //   - headroom smaller than the billing minimum: the minimum is a floor on what can be BOUGHT, the
   //     headroom a ceiling on what can be ADDED, and they cross on a service near the env's max.
@@ -95,15 +94,15 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
   if (noHeadroom) {
     error = exhausted
       ? "This service is already at the environment's maximum runtime, so it can't be extended further."
-      : `Only ${formatDuration(maxSeconds)} of runtime is left before this environment's maximum, but it charges a ${formatDuration(minSeconds)} minimum per top-up — this service can't be extended further.`;
+      : `Only ${formatDuration(maxSeconds)} of runtime is left before this environment's maximum, but it charges a ${formatDuration(minSeconds)} minimum per top-up, so this service can't be extended further.`;
   } else if (seconds <= 0) {
     error = 'Pick a duration greater than zero.';
   } else if (minSeconds > 0 && seconds < minSeconds) {
     // Not a node rejection — a node overcharge (see minSeconds). A shorter extension costs exactly
     // the same as the minimum, so there is never a reason to buy one.
-    error = `This environment charges a ${formatDuration(minSeconds)} minimum per top-up — a shorter extension costs the same, so add at least ${formatDuration(minSeconds)}.`;
+    error = `This environment has a ${formatDuration(minSeconds)} minimum per top-up, so add at least ${formatDuration(minSeconds)}.`;
   } else if (maxSeconds !== undefined && seconds > maxSeconds) {
-    error = `At most ${formatDuration(maxSeconds)} can be added before this environment's maximum runtime — pick a shorter extension.`;
+    error = `At most ${formatDuration(maxSeconds)} can be added before this environment's maximum runtime, so pick a shorter extension.`;
   }
 
   return (

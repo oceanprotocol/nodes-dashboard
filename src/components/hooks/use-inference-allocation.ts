@@ -10,6 +10,7 @@ import {
 } from '@/utils/constraints';
 import { billableMinutes } from '@/utils/duration';
 import { getAvailableAmount } from '@/utils/resources';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import { ComputeResource } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
 
@@ -23,6 +24,17 @@ export type MergedGpu = {
   available: number;
   /** Per-unit fee for this type (units of one description share a fee — the first id's). */
   fee: number;
+  /**
+   * Whether the env itself tolerates booking NONE of this type — true only when every resource id
+   * merged into it declares `min: 0`. The env's own floor, distinct from a template/package's declared
+   * min. Live envs stamp `min: 0` on every GPU device id, so this is true today, but it's read (not
+   * assumed) wherever zero-GPU picks are gated: an env that actually requires at least one unit of a
+   * type must keep blocking a zero pick even when the launch target allows one.
+   *
+   * A boolean rather than a summed `min`, which would read like a clamp bound without being one — 8
+   * devices at `min: 1` sum to 8, while the floor for the group is 1.
+   */
+  allowsZero: boolean;
 };
 
 /** How many units of each GPU type (keyed by MergedGpu.key) the user wants to use. */
@@ -228,7 +240,6 @@ const useInferenceAllocation = ({
     gpus,
     gpusAvailable,
     gpuFees,
-    minJobDurationSeconds,
     ram,
     ramAvailable,
     ramFee,
@@ -250,6 +261,7 @@ const useInferenceAllocation = ({
       if (existing) {
         existing.max += gpu.max ?? 0;
         existing.available += gpusAvailable[gpu.id] ?? 0;
+        existing.allowsZero = existing.allowsZero && (gpu.min ?? 0) <= 0;
       } else {
         merged.push({
           key,
@@ -257,6 +269,7 @@ const useInferenceAllocation = ({
           max: gpu.max ?? 0,
           available: gpusAvailable[gpu.id] ?? 0,
           fee: gpuFees[gpu.id] ?? 0,
+          allowsZero: (gpu.min ?? 0) <= 0,
         });
       }
       return merged;
@@ -554,11 +567,12 @@ const useInferenceAllocation = ({
     const diskTotal = (diskFee ?? 0) * allocation.disk;
     // GPUs are priced by the exact units selected, not the blended fraction.
     const gpuTotal = mergedGpus.reduce((sum, g) => sum + g.fee * (selectedByKey[g.key] ?? 0), 0);
-    // Whole billable minutes, floored at the env's minJobDuration — the node's own formula. Pricing
-    // this as a plain `durationSeconds / 60` under-quotes any window below the env minimum (a short
-    // Prolong) or any non-whole-minute window, and the escrow deposit sized from that quote is then
-    // too small for the node's createLock ("does not have enough funds"). See billableMinutes.
-    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * billableMinutes(durationSeconds, minJobDurationSeconds);
+    // Whole billable minutes, floored at the env's SERVICE minimum — the node's own formula. This is
+    // the floor calculateResourcesCost applies to a service (minJobDuration governs compute jobs), so
+    // quoting against the wrong one under-quotes and the escrow deposit sized from that quote is too
+    // small for the node's createLock ("does not have enough funds"). See billableMinutes.
+    const { min: serviceMinSeconds } = serviceDurationBounds(environment);
+    return (cpuTotal + ramTotal + diskTotal + gpuTotal) * billableMinutes(durationSeconds, serviceMinSeconds);
   }, [
     cpuFee,
     allocation.cpu,
@@ -568,7 +582,7 @@ const useInferenceAllocation = ({
     diskFee,
     mergedGpus,
     durationSeconds,
-    minJobDurationSeconds,
+    environment,
     selectedByKey,
   ]);
 

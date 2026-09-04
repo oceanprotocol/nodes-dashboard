@@ -9,6 +9,7 @@ import { ComputeEnvironment } from '@/types/environments';
 import { InferencePackage } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
@@ -38,7 +39,7 @@ interface PackageDetailsModalProps {
 
 /** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). */
 function durationBounds(environment: ComputeEnvironment): { min: number; max: number } {
-  return { min: environment.minJobDuration ?? 0, max: environment.maxJobDuration ?? Infinity };
+  return serviceDurationBounds(environment);
 }
 
 /**
@@ -104,6 +105,7 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
             shared duration is out of this env's bounds. */}
         {resolved.map((entry) => (
           <InferenceEnvironmentCard
+            declaredRequirements={pkg?.requiredResources}
             disabledReason={durationErrorFor(entry.env.environment)}
             durationSeconds={durationSeconds}
             environment={entry.env.environment}

@@ -14,28 +14,31 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import { useFormik } from 'formik';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
 
-/** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). Inference always
- *  uses a paid token, so the top-level bounds apply (not the `free.*` ones). */
+/** Paid service-on-demand duration bounds for an env. Inference always uses a paid token, so the
+ *  top-level bounds apply (not the `free.*` ones). */
 function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
-  return {
-    min: env.minJobDuration ?? 0,
-    max: env.maxJobDuration ?? Infinity,
-  };
+  return serviceDurationBounds(env);
 }
 
 /** An env is bookable for inference when it (a) advertises service-on-demand support — the node
- *  rejects serviceStart with 403 otherwise — and (b) accepts a paid token we support (USDC / COMPY). */
+ *  rejects serviceStart with 403 otherwise — (b) isn't the node's own benchmark environment, and
+ *  (c) accepts a paid token we support (USDC / COMPY). */
 function isBookableEnv(env: ComputeEnvironment): boolean {
   if (!env.features?.services) {
+    return false;
+  }
+  if (isBenchmarkEnv(env)) {
     return false;
   }
   return getEnvSupportedTokens(env, true).length > 0;
@@ -378,6 +381,11 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
                 return (
                   <InferenceEnvironmentCard
+                    // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
+                    // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
+                    // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
+                    allowZeroGpu={flowType === InferenceFlowType.Template}
+                    declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
                     defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                     durationSeconds={jobDurationSeconds}
                     environment={env}

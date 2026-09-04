@@ -8,6 +8,8 @@ export type ButtonProps = {
   'aria-controls'?: string;
   'aria-expanded'?: boolean;
   'aria-haspopup'?: boolean | 'dialog' | 'menu';
+  /** Accessible name. Required for an icon-only button/link, which has no text to name it. */
+  'aria-label'?: string;
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
@@ -36,6 +38,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       'aria-controls': ariaControls,
       'aria-expanded': ariaExpanded,
       'aria-haspopup': ariaHasPopup,
+      'aria-label': ariaLabel,
       autoLoading,
       children,
       className,
@@ -90,6 +93,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     if (href) {
       return (
         <Link
+          aria-label={ariaLabel}
           className={classes}
           href={isDisabled ? '' : href}
           id={id}
@@ -109,6 +113,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         aria-controls={ariaControls}
         aria-expanded={ariaExpanded}
         aria-haspopup={ariaHasPopup}
+        aria-label={ariaLabel}
         className={classes}
         disabled={isDisabled}
         id={id}

@@ -1,0 +1,240 @@
+/* Same rule-and-heading rhythm the usage panel uses between its own sections, so the history reads as
+   one more section of the card rather than a second card crammed inside the first. */
+.root {
+  border-top: 1px solid var(--background-glass-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+
+  /* The heading itself is the disclosure control, so the hit area covers the words rather than just a
+     chevron beside them. Reset the button chrome — this has to read as the h5 it contains. */
+  .headToggle {
+    align-items: center;
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+
+    > h5 {
+      margin: 0;
+    }
+
+    &:hover .headIcon {
+      color: var(--text-primary);
+    }
+
+    /* Keyboard users need to see what they're about to open; the outline sits off the text so it
+       doesn't crowd the heading. */
+    &:focus-visible {
+      border-radius: 4px;
+      outline: 2px solid var(--accent1);
+      outline-offset: 4px;
+    }
+  }
+
+  /* The chevron is the state indicator, so it turns with the region it opens. */
+  .headIcon {
+    color: var(--text-secondary);
+    flex: 0 0 auto;
+    font-size: 20px;
+    transition: transform 0.2s ease;
+
+    &.headIconOpen {
+      transform: rotate(180deg);
+    }
+  }
+
+  /* Segmented control: the buttons sit together so the group reads as one switch, not two actions. */
+  .group {
+    display: flex;
+    gap: 2px;
+  }
+}
+
+/* Collapse owns the height animation, so the opened region's own spacing lives here rather than on
+   `.root` (whose `gap` would otherwise also apply to the collapsed wrapper at height 0). */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 2x2 rather than four across: half the row is wide enough to read a 168-bucket week as a trend
+   line, where a quarter-width plot compresses it into a smear. Fixed at two columns instead of
+   `auto-fit`, so the pairing stays 2x2 on a wide screen rather than stretching into a single row of
+   four as the viewport grows. */
+.chartGrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Card owns the frame, the padding and the column, matching the gauge cards in "More info" — all that
+   is left here is the grid behaviour Card can't know about. Grid items default to `min-width: auto`,
+   which lets recharts' measured width ratchet the column wider than its track and overflow the card. */
+.chartCell {
+  min-width: 0;
+}
+
+.chartHead {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+
+  .chartTitle {
+    align-items: center;
+    display: flex;
+    font-size: 12px;
+    gap: 6px;
+    letter-spacing: 0.04em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+}
+
+/* Fixed height so the skeletons, the charts and every empty state occupy the same box — the card must
+   not resize when a range finishes loading. */
+.chart,
+.skeleton {
+  height: 180px;
+  width: 100%;
+}
+
+.placeholder {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 180px;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+.skeleton {
+  background: var(--background-shimmer-gradient);
+  border-radius: 8px;
+  /* Matches a loaded card's chart + head, so the row doesn't jump when the buckets land. */
+  height: 206px;
+}
+
+/* A metric the node reports nothing for keeps its frame and says why, so a two-chart row never leaves
+   the reader wondering whether the third failed to load. */
+.chartEmpty {
+  align-items: center;
+  border: 1px dashed var(--background-glass-secondary);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 12px;
+  height: 100%;
+  justify-content: center;
+  padding: 0 12px;
+  text-align: center;
+}
+
+.legend {
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 12px;
+
+  .legendItem {
+    align-items: center;
+    display: flex;
+    gap: 6px;
+  }
+
+  .legendSwatch {
+    border-radius: 1px;
+    flex: 0 0 auto;
+    height: 2px;
+    width: 14px;
+  }
+
+  /* The dashed series' swatch has to look dashed, or the legend can't tell the two lines apart. */
+  .legendSwatchDashed {
+    background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px);
+  }
+}
+
+.coverage {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* Same glass tokens the rest of the app's hover chrome uses. Rendered inside the chart rather than
+   through `useCustomTooltip`: that hook keeps only `payload[0]` and dispatches on ChartTypeEnum, so
+   it structurally cannot show two series. */
+.tooltip {
+  backdrop-filter: var(--backdrop-filter-glass);
+  background: var(--background-glass);
+  border-radius: 12px;
+  box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 8px 12px;
+
+  .tooltipHead {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .tooltipRow {
+    align-items: baseline;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+  }
+
+  .tooltipValue {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .tooltipFoot {
+    color: var(--text-secondary);
+    font-size: 11px;
+    margin-top: 4px;
+  }
+}
+
+/* One per row below this: two columns of a ~340px viewport leaves each plot too narrow for even the
+   end labels of its own axis. */
+@media (max-width: 760px) {
+  .chartGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .head .headIcon {
+    transition: none;
+  }
+}

@@ -41,7 +41,7 @@ export const SERVICES_CATALOGUE: CatalogueConfig = {
   select: selectServices,
   pathname: '/inference/services',
   heading: 'Pick a service',
-  lead: 'Ready-made containerized apps — pick one, review what’s inside, choose an environment, pay and launch. Models are yours to add from the app once it’s running.',
+  lead: 'Ready-made containerized apps. Pick one, review what’s inside, choose an environment, pay and launch. Models are yours to add from the app once it’s running.',
   noun: 'service',
   nounPlural: 'services',
   searchPlaceholder: 'Search services',
@@ -53,7 +53,7 @@ export const BUNDLES_CATALOGUE: CatalogueConfig = {
   select: selectBundles,
   pathname: '/inference/templates',
   heading: 'Pick a template',
-  lead: 'An app with its models already included — pick what you want to get done and launch. The models download in the background while the app comes up.',
+  lead: 'An app with its models already included. Pick what you want to get done and launch. The models download in the background while the app comes up.',
   noun: 'template',
   nounPlural: 'templates',
   searchPlaceholder: 'Search templates',
@@ -63,8 +63,8 @@ export const BUNDLES_CATALOGUE: CatalogueConfig = {
       <Inventory2OutlinedIcon className={styles.emptyIcon} />
       <div className={styles.emptyTitle}>No templates on this node yet</div>
       <div className={styles.emptyHint}>
-        Templates are published by the node you&apos;re connected to. This one advertises none right now — you can still
-        start any service and add models from its own UI.
+        Templates are published by the node you&apos;re connected to. This one advertises none right now, but you can
+        still start any service and add models from its own UI.
       </div>
       <Button
         className={styles.emptyReset}
