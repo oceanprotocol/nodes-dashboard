@@ -415,9 +415,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     // rejection lands before the escrow deposit tx rather than after it.
     const envMin = serviceDurationBounds(prolongEnv).min;
     if (envMin && jobDurationSeconds < envMin) {
-      setLaunchError(
-        `This environment has a ${formatDuration(envMin)} minimum per top-up. Pick a longer extension.`
-      );
+      setLaunchError(`This environment has a ${formatDuration(envMin)} minimum per top-up. Pick a longer extension.`);
       captureError('inference_service_prolong_failed', new Error('duration_below_env_min'), {
         stage: 'duration_bounds',
         duration_seconds: jobDurationSeconds,

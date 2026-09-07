@@ -34,9 +34,9 @@ import { AppTemplate } from '@/types/templates';
 const TEMPLATE_LOGO_FILES: Record<string, string> = {
   comfyui: 'comfyui.svg',
   deepseek: 'deepseek.svg',
+  glm: 'zai.svg',
   hermes: 'hermes.svg',
   jupyter: 'jupyter.svg',
-  glm: 'zai.svg',
   'nomic-embed': 'nomic.svg',
   openclaw: 'openclaw.svg',
   opencode: 'opencode.svg',
