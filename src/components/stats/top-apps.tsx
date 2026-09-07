@@ -3,6 +3,8 @@ import HBarChart from '@/components/chart/h-bar-chart';
 import { useServicesStatsContext } from '@/context/services-stats-context';
 import { useEffect } from 'react';
 
+const MAX_LABEL_CHARS = 20;
+
 const TopApps = () => {
   const { appPopularity, fetchAppPopularity } = useServicesStatsContext();
 
@@ -15,7 +17,7 @@ const TopApps = () => {
       <h3>Top apps by sessions</h3>
       {appPopularity.length > 0 ? (
         <>
-          <HBarChart axisKey="image" barKey="sessions" data={appPopularity} />
+          <HBarChart axisKey="image" barKey="sessions" data={appPopularity} maxLabelChars={MAX_LABEL_CHARS} />
           {/*
             "Apps", not "templates": this is grouped by container image, and every
             bundle runs its parent service's image, so variants cannot be told apart.

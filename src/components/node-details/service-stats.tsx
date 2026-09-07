@@ -8,6 +8,8 @@ import { formatNumber, formatReservedHours } from '@/utils/formatters';
 import { useEffect } from 'react';
 import styles from './service-stats.module.css';
 
+const MAX_LABEL_CHARS = 20;
+
 const ServiceStats = () => {
   const {
     serviceByModel,
@@ -69,7 +71,7 @@ const ServiceStats = () => {
       {serviceByModel.length > 0 ? (
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
           <h3>Top models served</h3>
-          <HBarChart axisKey="key" barKey="count" data={serviceByModel} />
+          <HBarChart axisKey="key" barKey="count" data={serviceByModel} maxLabelChars={MAX_LABEL_CHARS} />
           <span className="text10 textSecondary">
             Only sessions launched from the dashboard record a model, so this is a partial view.
           </span>
