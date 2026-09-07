@@ -6,12 +6,19 @@ import BundleIncludes, { IncludesAvatarCluster } from '@/components/inference/bu
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import TemplateDisclosure from '@/components/inference/template-disclosure';
 import { templateLogo } from '@/components/inference/template-logos';
-import { accentVars, templateHardware, templateImageRef, visualFor } from '@/components/inference/template-visual';
+import {
+  accentVars,
+  templateGpuLabel,
+  templateHardware,
+  templateImageRef,
+  visualFor,
+} from '@/components/inference/template-visual';
 import TemplateWorkflows from '@/components/inference/template-workflows';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
 import { SelectedToken } from '@/context/run-job-context';
 import { useTheme } from '@/lib/use-theme';
+import { templateNeedsConfigStep } from '@/services/template-launch';
 import { ComputeEnvironment } from '@/types/environments';
 import {
   AppTemplate,
@@ -37,7 +44,7 @@ import SdStorageIcon from '@mui/icons-material/SdStorage';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
-import { CSSProperties, Fragment } from 'react';
+import { CSSProperties } from 'react';
 import styles from './template-details-modal.module.css';
 
 type TemplateDetailsModalProps = {
@@ -163,6 +170,11 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     return undefined;
   };
 
+  // recommendedResources when the node published one, else requiredResources — recommendedResources is
+  // null on every live template today, but the fallback keeps the offered GPU counts agreeing with the
+  // seeded pick (use-template-envs reads the same preference for autoGpuSelection).
+  const declaredResources = template?.recommendedResources ?? template?.requiredResources;
+
   const renderEnvsSection = () => {
     if (loadError) {
       return (
@@ -171,7 +183,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
           <div className={styles.errorText}>
             <div className={styles.errorTitle}>Couldn&apos;t load environments</div>
             <div className={styles.errorDetail}>
-              Nothing has been committed — retry, or close and pick another template.
+              Nothing has been committed. Retry, or close and pick another template.
             </div>
             <div className={styles.errorReason}>{loadError}</div>
           </div>
@@ -217,15 +229,21 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     }
     return (
       <div className={styles.envList}>
-        {/* Controlled gpuSelection → static chips (read-only, auto recommended). onSelect drives its own
-            play/price button; disabledReason force-disables it (with a tooltip reason) when the shared
-            duration is out of this env's bounds. */}
+        {/* Uncontrolled GPU chips: `initialSelection` seeds the auto-recommended pick (autoGpuSelection,
+            via use-template-envs) and the card owns it from there, so the user can change the unit count
+            without leaving for Advanced setup. onSelect hands back whatever they settled on — the same
+            selection the card priced — which is what onContinue books. `sizing` is the template's PINNED
+            CPU/RAM/disk, so a different GPU count moves the GPU units and the price, not the shared
+            slice; same behavior as this template in the Advanced picker. disabledReason force-disables
+            the play/price button (with a tooltip reason) when the shared duration is out of bounds. */}
         {resolved.map((entry) => (
           <InferenceEnvironmentCard
+            allowZeroGpu
+            declaredRequirements={declaredResources}
             disabledReason={durationErrorFor(entry.env.environment)}
             durationSeconds={durationSeconds}
             environment={entry.env.environment}
-            gpuSelection={entry.env.gpuSelection}
+            initialSelection={entry.env.gpuSelection}
             key={`${entry.env.nodeInfo.id}-${entry.env.environment.id}`}
             nodeInfo={entry.env.nodeInfo}
             onSelect={(address, symbol, gpuSelection, environment) =>
@@ -236,7 +254,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
         ))}
         {totalMatched > resolved.length && (
           <div className={styles.envCapNote}>
-            Showing the {resolved.length} best-scoring of {totalMatched} matching environments — Advanced setup lists
+            Showing the {resolved.length} best-scoring of {totalMatched} matching environments. Advanced setup lists
             them all.
           </div>
         )}
@@ -244,16 +262,32 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     );
   };
 
-  /** The configurable-variable chips. Placement differs by shape, the markup doesn't. */
-  const renderEnvVars = (tpl: AppTemplate) => (
-    <div className={styles.envVars}>
-      <div className={styles.envVarsHead}>
-        <span className={styles.overline}>Configurable env vars</span>
-        <span className="textSecondary text12">optional · set on the next step</span>
-      </div>
-      {tpl.userConfigurableEnvVars && tpl.userConfigurableEnvVars.length > 0 ? (
+  /**
+   * The configurable-variable chips. Placement differs by shape, the markup doesn't. Rendered only
+   * when the template actually declares variables — "declares no configurable variables" is a line
+   * about the template's schema, not about anything the user can act on, and for a bare service it
+   * was the whole of the section.
+   *
+   * The hint tracks routing rather than asserting it: only a launch that stops at the config step
+   * (a required var, or a bucket picker — templateNeedsConfigStep) reaches the form from here, and a
+   * template whose vars are all optional goes straight to payment, so "set on the next step" would
+   * be pointing at a step this pick skips. Advanced setup always routes through config.
+   */
+  const renderEnvVars = (tpl: AppTemplate) => {
+    const specs = tpl.userConfigurableEnvVars ?? [];
+    if (specs.length === 0) {
+      return null;
+    }
+    return (
+      <div className={styles.envVars}>
+        <div className={styles.envVarsHead}>
+          <span className={styles.overline}>Configurable env vars</span>
+          <span className="textSecondary text12">
+            {templateNeedsConfigStep(tpl) ? 'set on the next step' : 'optional · set under Advanced setup'}
+          </span>
+        </div>
         <div className={styles.envVarList}>
-          {tpl.userConfigurableEnvVars.map((spec) => (
+          {specs.map((spec) => (
             <span className={cx('chip', 'chipGlass', styles.chip, styles.envVarChip)} key={spec.key}>
               {spec.sensitive && <LockIcon className={styles.envVarLock} />}
               {spec.key}
@@ -261,11 +295,9 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             </span>
           ))}
         </div>
-      ) : (
-        <span className={styles.emptyNote}>This template declares no configurable variables.</span>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   /**
    * How you reach the running app. No port number: the node allocates a host port from 30000-32767 at
@@ -301,7 +333,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
         <TemplateDisclosure
           Icon={InfoOutlinedIcon}
           summary={
-            hasEnvVars ? 'Good to know — how it runs, and the variables you can set' : 'Good to know — how it runs'
+            hasEnvVars ? 'Good to know: how it runs, and the variables you can set' : 'Good to know: how it runs'
           }
         >
           {description && <p className={styles.notesProse}>{description}</p>}
@@ -336,7 +368,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               <IncludesAvatarCluster template={tpl} />
               <span>
                 {breakdown}, downloaded into the app on first launch
-                {publishers ? ` — from ${publishers}` : ''}
+                {publishers ? `, from ${publishers}` : ''}
               </span>
             </span>
           }
@@ -384,7 +416,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
           <div className={styles.sectionHead}>
             <h4>What you get</h4>
             <div>
-              {visual.meta.purpose} The models below are already downloaded — no workflow is preloaded, so you build
+              {visual.meta.purpose} The models below are already downloaded, but no workflow is preloaded, so you build
               your own.
             </div>
           </div>
@@ -404,7 +436,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
                     <IncludesAvatarCluster template={tpl} />
                     <span>
                       {breakdown}
-                      {publishers ? ` — from ${publishers}` : ''}
+                      {publishers ? `, from ${publishers}` : ''}
                     </span>
                   </span>
                 }
@@ -416,7 +448,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             <div className={styles.absence}>
               <AccountTreeOutlinedIcon className={styles.absenceIcon} />
               <div>
-                <strong>No workflows included.</strong> The app opens empty — build a graph, or bring your own. The
+                <strong>No workflows included.</strong> The app opens empty, so build a graph or bring your own. The
                 models above are already in place, so they show up in the app straight away.
               </div>
             </div>
@@ -454,7 +486,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
         <div className={styles.absence}>
           <Inventory2OutlinedIcon className={styles.absenceIcon} />
           <div>
-            <strong>Ships empty — no models, no workflows.</strong> Fetch what you need from inside the app once it is
+            <strong>Ships empty - no models, no workflows.</strong> Fetch what you need from inside the app once it is
             running.
           </div>
         </div>
@@ -486,13 +518,14 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               {template.outcome && <div className={styles.outcome}>{template.outcome}</div>}
               <div className={cx(styles.headerChips, 'gapSm')}>
                 <span className={cx('chip', styles.chip, styles.categoryChip)}>{visual.meta.label}</span>
-                <span className={cx('chip', styles.chip, hw.gpu ? 'chipAccent2' : 'chipGlass')}>
+                {/* Same chip as the catalogue card — same icon, same words for the same ask. */}
+                <span className={cx('chip', 'chipGlass', styles.chip)}>
                   {hw.gpu ? (
                     <GpuIcon className={styles.chipIcon} />
                   ) : (
                     <MemoryIcon className={styles.chipIcon} fontSize="small" />
                   )}
-                  {hw.gpu ? 'GPU' : 'CPU'}
+                  {templateGpuLabel(hw)}
                 </span>
                 {/* Three tiers, one word each — a buyer who expects a runnable recipe and gets three
                     checkpoints will ask for a refund, so the distinction is worth a chip. */}
@@ -510,6 +543,13 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
 
           {shape === 'recipe' && (template.includes?.length ?? 0) > 0 && renderUnderTheHood(template)}
 
+          {/* Resources table (Resource / Required / Recommended) — commented out. It printed the
+              template's declared CPU/RAM/disk as the amounts a launch would book, which stopped being
+              true once the shared slice became proportional to the GPU count picked below
+              (templateFloorSizing): the declared figures are now a FLOOR, not the booking. The env
+              cards under "Environment" show the real amounts for the current pick, and the card's GPU
+              chip carries the declared ask. Kept rather than deleted — `resourceRows`/`NOT_DECLARED`
+              and the resourceTable styles are still here if a declared-vs-booked table is wanted back.
           <div className={styles.section}>
             <div className={styles.sectionHead}>
               <h4>Resources</h4>
@@ -542,6 +582,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               ))}
             </div>
           </div>
+          */}
 
           <div className={styles.section}>
             <div className={styles.sectionHead}>

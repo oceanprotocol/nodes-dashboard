@@ -4,12 +4,12 @@ import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
-import { templatePinnedSizing } from '@/services/template-launch';
+import { templateFloorSizing } from '@/services/template-launch';
 import { withTimeout } from '@/lib/with-timeout';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
-import { autoGpuSelection, meetsMinResources } from '@/utils/env-resources';
+import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
@@ -40,10 +40,13 @@ export type TemplateEnvsState = {
   retry: () => void;
 };
 
-/** An env can host a template when it advertises service-on-demand, accepts a supported paid token,
- *  and can currently satisfy the template's declared resource floors. */
+/** An env can host a template when it advertises service-on-demand, isn't the node's benchmark env,
+ *  accepts a supported paid token, and can currently satisfy the template's declared resource floors. */
 function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate): boolean {
   if (!environment.features?.services) {
+    return false;
+  }
+  if (isBenchmarkEnv(environment)) {
     return false;
   }
   if (getEnvSupportedTokens(environment, true).length === 0) {
@@ -77,7 +80,7 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
     // Aborts the in-flight request on effect re-run / unmount (modal closed, template switched), on top
     // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
     const cleanupController = new AbortController();
-    const sizing = templatePinnedSizing(template);
+    const sizing = templateFloorSizing(template);
 
     async function resolve() {
       setLoading(true);
@@ -124,7 +127,19 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
             return {
               env: {
                 environment,
-                gpuSelection: autoGpuSelection(environment, template!.requiredResources ?? []),
+                // Prefer recommendedResources for the GPU COUNT (null on every live template today,
+                // but this stays right if that changes) — meetsMinResources above stays on
+                // requiredResources since that's the actual floor, not the recommendation. The shared
+                // CPU/RAM/disk are sized separately by templateFloorSizing, which reads the required
+                // mins and lets the GPU pick drive the rest proportionally.
+                // Templates are one of the two zero-GPU-permitting flows (see env-resources.ts spec) — a
+                // template declaring no GPU requirement (jupyterlab, hermes) must seed 0 rather than the
+                // old blanket "nothing declared -> 1", on an env whose GPU min actually allows it.
+                gpuSelection: autoGpuSelection({
+                  environment,
+                  required: template!.recommendedResources ?? template!.requiredResources ?? [],
+                  allowZeroGpu: true,
+                }),
                 sizing,
                 nodeInfo: {
                   currentAddrs: node.currentAddrs,

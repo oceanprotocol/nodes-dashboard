@@ -131,7 +131,7 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
       <div className={styles.head}>
         <CircularProgress className={styles.spinner} size={14} />
         <span className={styles.title}>
-          Preparing models — {finished} of {total}
+          Preparing models: {finished} of {total}
         </span>
         <span className={styles.percent}>{percent}%</span>
       </div>
@@ -142,7 +142,7 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
         {state.current ? `Downloading ${state.current}…` : 'Waiting for the next download to start…'}
       </div>
       <div className={styles.note}>
-        The app is already reachable — refresh its tab once the models land and they&apos;ll appear in its pickers.
+        The app is already reachable. Refresh its tab once the models land and they&apos;ll appear in its pickers.
       </div>
       {(state.done.length > 0 || state.failed.length > 0) && (
         <ul className={styles.items}>
@@ -156,7 +156,7 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
             <li className={styles.item} key={name}>
               <ErrorOutlineIcon className={cx(styles.itemIcon, styles.itemIconFailed)} />
               <span className={styles.itemName}>{name}</span>
-              <span className={styles.itemHint}>failed — install it from the app instead</span>
+              <span className={styles.itemHint}>failed, install it from the app instead</span>
             </li>
           ))}
         </ul>

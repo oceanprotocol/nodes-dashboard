@@ -8,6 +8,7 @@ import Switch from '@/components/switch/switch';
 import { getSupportedTokens } from '@/constants/tokens';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
+import { isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
@@ -133,19 +134,21 @@ const SelectEnvironment = () => {
     setExpanded(!expanded);
   };
 
-  // In free ("Test compute") mode every env is shown, so no page can filter down to nothing.
+  /**
+   * In free ("Test compute") mode the fee-token test is dropped — a free job pays nothing — so only
+   * the benchmark env is excluded there. It's excluded in both modes: booking the environment the
+   * node generated for its own benchmark competes with the measurement its rewards depend on, and a
+   * free job competes for the same slot as a paid one.
+   */
   const isVisibleEnv = useCallback(
-    (env: ComputeEnvironment) => filters.free || acceptsSupportedToken(env),
+    (env: ComputeEnvironment) => !isBenchmarkEnv(env) && (filters.free || acceptsSupportedToken(env)),
     [filters.free]
   );
 
   const filteredNodeEnvs = useMemo(() => {
-    if (filters.free) {
-      return nodeEnvs;
-    }
     const filteredNodeEnvs: NodeEnvironments[] = [];
     nodeEnvs.forEach((nodeEnv) => {
-      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter(acceptsSupportedToken);
+      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter(isVisibleEnv);
       if (filteredEnvs.length > 0) {
         filteredNodeEnvs.push({
           ...nodeEnv,
@@ -157,7 +160,7 @@ const SelectEnvironment = () => {
       }
     });
     return filteredNodeEnvs;
-  }, [filters.free, nodeEnvs]);
+  }, [isVisibleEnv, nodeEnvs]);
 
   /**
    * Keep paging while the visible list is empty. loadMoreEnvs skips pages that contribute nothing

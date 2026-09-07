@@ -7,11 +7,12 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { encodeModelIds } from '@/services/huggingface-service';
 import { detectEngine, modelIdFromCommand } from '@/services/inference-launch';
+import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { fetchTemplates, matchTemplateForService, TemplateMatch } from '@/services/service-templates';
 import { AppTemplate, isBundle } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
-import { ServiceJob } from '@oceanprotocol/lib';
+import { ComputeJobMetadata, ServiceJob } from '@oceanprotocol/lib';
 import axios from 'axios';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
@@ -28,6 +29,12 @@ type ServiceSession = {
   dockerCmd?: string[];
   /** Container image the service was launched from — matched back to a template with dockerCmd (see findTemplateForService). */
   image?: string;
+  /**
+   * The service's own labels (appType + appId), when the record carries them. The node keeps these on
+   * SERVICE_LIST, so unlike `dockerCmd` they survive the listing — but only if the backend's own
+   * session record stores and returns them (see the note in the match loop below).
+   */
+  metadata?: ComputeJobMetadata;
   model?: string;
   duration?: number;
   expiresAt?: number;
@@ -52,11 +59,19 @@ type ServiceRow = Partial<ServiceJob> & {
   templateNameApproximate?: boolean;
 };
 
-// The model a session serves: the backend's own field when it has one, else recovered from the launch
-// command — `--model` on vLLM, `-hf` on llama.cpp (see modelIdFromCommand). Reading only `--model`
-// made every llama.cpp service look modelless, so the template guard below let it through and the row
-// showed "llama.cpp" (the template that shares its image) instead of the model it serves.
+// The model a session serves, or null when it serves none.
+//
+// The session's own `appType`/`appId` labels settle it outright when present: a model flow names its
+// model, and a template flow says there is no model at all (see service-metadata). Without them we
+// fall back to the backend's own field, else recover it from the launch command — `--model` on vLLM,
+// `-hf` on llama.cpp (see modelIdFromCommand). Reading only `--model` made every llama.cpp service
+// look modelless, so the template guard below let it through and the row showed "llama.cpp" (the
+// template that shares its image) instead of the model it serves.
 function modelIdFromSession(session: ServiceSession): string | null {
+  const identity = readServiceMetadata(session);
+  if (identity) {
+    return isModelAppType(identity.appType) ? identity.appId : null;
+  }
   return session.model || modelIdFromCommand(session.dockerCmd);
 }
 
@@ -189,9 +204,15 @@ const ExistingServicesTable: React.FC = () => {
             if (modelIdFromSession(service)) {
               continue;
             }
-            // The backend's listing drops dockerCmd, so a bundle row can only ever match by image —
+            // A labelled session resolves to its exact catalogue entry by id. Without labels the
+            // backend's listing drops dockerCmd, so a bundle row can only ever match by image —
             // ambiguous whenever the image has variants. Keep the whole match, not just the confident
             // ones: the row still names the app off it, while `ambiguous` gates the manage link.
+            //
+            // NOTE: the labels only reach us if the backend stores them. Its session record
+            // (`StartedService`) has no `metadata` field yet, and the monitor's SERVICE_LIST
+            // reconcile is where it would come from — until both carry it, every row here still
+            // takes the image fallback.
             const match = matchTemplateForService(templates, service);
             if (match.template) {
               matched[service.serviceId] = match;

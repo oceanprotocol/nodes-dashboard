@@ -40,19 +40,18 @@
 
 .body {
   font-size: 12.5px;
-  line-height: 1.6;
+  /* Pinned in px, not a ratio: BODY_LINE_HEIGHT in template-workflows.tsx multiplies this by three
+     to get the collapsed height, and a ratio against a 12.5px font lands on a fraction that rounds
+     differently per browser — which showed up as the clamp cutting a fourth line in half. */
+  line-height: 20px;
   color: var(--text-primary);
   text-wrap: pretty;
 }
 
-/* Published descriptions run 4-6 lines and open with what goes in and what comes out, so the clamp
-   keeps the load-bearing half and the toggle takes the mechanism. */
-.bodyClamped {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+/* Published descriptions run 4-6 lines and open with what goes in and what comes out, so the
+   collapsed height keeps the load-bearing half and the toggle takes the mechanism. The clamp itself
+   is a MUI Collapse `collapsedSize` (see COLLAPSED_HEIGHT in template-workflows.tsx) rather than a
+   -webkit-line-clamp, so opening it animates; keep .body's line-height and BODY_LINE_HEIGHT in step. */
 
 .moreButton {
   align-self: flex-start;

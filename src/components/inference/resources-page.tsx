@@ -10,7 +10,7 @@ import SelectInferenceEnvironment, {
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
-import { templateNeedsConfigStep, templatePinnedSizing } from '@/services/template-launch';
+import { templateFloorSizing, templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { isBundle } from '@/types/templates';
 import { useParams } from 'next/navigation';
@@ -129,7 +129,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         // to be filled or the container fails, and the bucket pick has to happen before payment, since
         // a bad bucket id costs the escrow claim, not just a failed page load.
         // Pin recommended CPU/RAM/disk into the URL either way (re-hydrated from the query on arrival).
-        const sizing = selectedTemplate ? templatePinnedSizing(selectedTemplate) : undefined;
+        const sizing = selectedTemplate ? templateFloorSizing(selectedTemplate) : undefined;
         const nextStep = needsConfigStep ? 'config' : 'payment';
         trackNextStep(nextStep);
         router.push({

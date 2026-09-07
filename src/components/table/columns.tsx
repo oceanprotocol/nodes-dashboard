@@ -6,6 +6,7 @@ import ServiceStatusChip, { JobStatusChip } from '@/components/service-status-ch
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
 import { modelIdFromCommand } from '@/services/inference-launch';
+import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
@@ -724,9 +725,17 @@ export const unbanRequestsColumns: GridColDef<UnbanRequest>[] = [
   },
 ];
 
-// The node returns the launch command, not HF metadata — recover the model id from it (`--model` on
-// vLLM, `-hf` on llama.cpp; see modelIdFromCommand).
+// The model a service serves, or null when it serves none.
+//
+// The service's own `appType`/`appId` labels answer directly when it has them — including "this runs a
+// template, so there is no model" (see service-metadata). Otherwise the node returns the launch
+// command, not HF metadata, so the id is recovered from it (`--model` on vLLM, `-hf` on llama.cpp;
+// see modelIdFromCommand).
 export function modelIdFromJob(job: ServiceJob): string | null {
+  const identity = readServiceMetadata(job);
+  if (identity) {
+    return isModelAppType(identity.appType) ? identity.appId : null;
+  }
   return modelIdFromCommand(job.dockerCmd);
 }
 

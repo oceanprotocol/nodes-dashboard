@@ -6,7 +6,7 @@ import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
 import { NodeEnvironments } from '@/types/environments';
 import { InferencePackage } from '@/types/inference';
-import { autoGpuSelection, meetsMinResources } from '@/utils/env-resources';
+import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
@@ -121,6 +121,9 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               if (!environment.features?.services) {
                 return false;
               }
+              if (isBenchmarkEnv(environment)) {
+                return false;
+              }
               if (getEnvSupportedTokens(environment, true).length === 0) {
                 return false;
               }
@@ -143,7 +146,8 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
             return {
               env: {
                 environment,
-                gpuSelection: autoGpuSelection(environment, pkg!.requiredResources),
+                // Packages never permit a zero-GPU pick (allowZeroGpu defaults false) — see the card prop.
+                gpuSelection: autoGpuSelection({ environment, required: pkg!.requiredResources }),
                 sizing,
                 nodeInfo: {
                   currentAddrs: node.currentAddrs,

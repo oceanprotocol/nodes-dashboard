@@ -2,7 +2,9 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { assertAllocationAvailable, buildGpuRequests, resourceId } from '@/services/inference-launch';
-import { AppTemplate, requiredEnvVars, TemplateWorkflow } from '@/types/templates';
+import { buildServiceMetadata, resolveServiceAppType } from '@/services/service-metadata';
+import { InferenceFlowType } from '@/types/inference';
+import { AppTemplate, TemplateWorkflow } from '@/types/templates';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
@@ -44,17 +46,24 @@ export function templateNeedsBucketPicker(template: AppTemplate | null | undefin
 }
 
 /**
- * Whether a fresh (non-edit) template launch has to stop at the config step: the template declares a
- * required env var (without it the container starts and fails), or it needs the bucket picker (see
- * templateNeedsBucketPicker). Both routing directions and the stepper read this one predicate, so the
- * steps a launch actually takes can't drift from the steps drawn for it — a skipped config step
- * strands the user at a container that fails, or at payment with no bucket.
+ * Whether a fresh (non-edit) template launch has to stop at the config step: the template declares
+ * ANY user-configurable env var, or it needs the bucket picker (see templateNeedsBucketPicker). Both
+ * routing directions and the stepper read this one predicate, so the steps a launch actually takes
+ * can't drift from the steps drawn for it — a skipped config step strands the user at a container
+ * that fails, or at payment with no bucket.
+ *
+ * Optional vars count, not just required ones. A required var is the load-bearing case (without it
+ * the container starts and fails), but gating on `required` alone meant a template whose vars are
+ * all optional advertised them in the catalogue and then routed past the only page that can set
+ * them — leaving Advanced setup, which the user has no reason to suspect, as the sole way in before
+ * the escrow claim. The cost is one extra step on a launch that declares a var nobody has to fill;
+ * the alternative was a decision silently taken away.
  */
 export function templateNeedsConfigStep(template: AppTemplate | null | undefined): boolean {
   if (!template) {
     return false;
   }
-  return templateNeedsBucketPicker(template) || requiredEnvVars(template).length > 0;
+  return templateNeedsBucketPicker(template) || (template.userConfigurableEnvVars?.length ?? 0) > 0;
 }
 
 const COMFY_WORKFLOW_ID_KEY = 'COMFY_WORKFLOW_ID';
@@ -126,6 +135,25 @@ export function buildTemplateUserData(
 }
 
 /**
+ * The labels a template launch stamps on its service: the flow (`service` for a bare app, `template`
+ * for a bundle) plus the catalogue id, so the running service resolves back to its exact catalogue
+ * entry with one findTemplateById instead of an image+command match. That match is a guess for every
+ * bundle — bundles share their parent's image, and the SERVICE_LIST listing strips `dockerCmd`
+ * altogether — which is what made a running bundle show its parent's name and load its parent's
+ * config on Edit. See services/service-metadata.
+ *
+ * `flowType` is always `Template` here (both catalogues are the same flow); it's taken as an argument
+ * only so the wire type comes from the one shared classifier rather than a second copy of the
+ * bundle-vs-service rule.
+ */
+function templateMetadata(template: AppTemplate) {
+  return buildServiceMetadata({
+    appType: resolveServiceAppType(InferenceFlowType.Template, template),
+    appId: template.id,
+  });
+}
+
+/**
  * Build the ServiceStartParams to launch an app template on the chosen environment. Mirrors
  * buildInferenceStartParams, but sources image/tag/ports/command from the template instead of the
  * engine map, and userData from the template's env vars instead of vLLM/llama.cpp params. The env's
@@ -169,6 +197,7 @@ export async function buildTemplateStartParams({
   ];
 
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
+  const metadata = templateMetadata(template);
 
   return {
     environment: selectedEnv.environment.id,
@@ -178,6 +207,7 @@ export async function buildTemplateStartParams({
     ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
     ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
     userData,
+    ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },
@@ -201,41 +231,42 @@ export async function buildTemplateRestartParams(
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
+  // Re-stamped, not reused: an Edit can relaunch onto a DIFFERENT template, and an omitted `metadata`
+  // would leave the service labelled with the app it used to run.
+  const metadata = templateMetadata(template);
   return {
     image: template.image,
     ...imageRef,
     ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
     ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
     userData,
+    ...(metadata ? { metadata } : {}),
   };
 }
 
 /**
- * Pin the template's recommended CPU/RAM/disk so the payment step books that sized allocation (the same
- * `pinned` sizing quick start uses), floored at the template's required per-resource min — the effective
- * lower bound is max(envMin, templateMin), so a constraint ceiling can't trim the booked amount below
- * what the app needs. Prefer `recommendedResources`, else `requiredResources`; per resource use
- * `recommended`, falling back to `min`. Undefined when any of cpu/ram/disk is absent — then the launch
- * falls back to the GPU-fraction slice rather than silently booking the environment's bare minimum.
- * GPU is handled separately by the gpu selection. Clamped to the env's real limits downstream.
+ * Floor the template's required CPU/RAM/disk under the GPU-fraction slice — the same `floor` sizing the
+ * default-models flow uses (packageFloorSizing in default-models-page.tsx), so both flows clamp shared
+ * resources the same way.
+ *
+ * Deliberately NOT `pinned` (which booked the template's `recommended` amounts as fixed figures): the
+ * GPU unit count is user-selectable in the details modal and the Advanced picker, and pinned amounts
+ * ignore it — picking 1 GPU out of 8 booked the same CPU/RAM/disk as picking all 8, and the price with
+ * it. Under `floor` the slice stays proportional to the GPU units actually picked and only stops
+ * falling at the template's declared minimum, so a bigger pick buys proportionally more shared compute
+ * and a smaller one costs less.
+ *
+ * The floor is combined with the env's own min via max downstream in the allocation hook, so it bites
+ * only where the template is stricter than the environment. Undefined when the template declares none
+ * of cpu/ram/disk — then the slice is used unfloored, rather than inventing a bound.
  */
-export function templatePinnedSizing(template: AppTemplate): ResourceSizing | undefined {
-  const reqs = template.recommendedResources ?? template.requiredResources;
+export function templateFloorSizing(template: AppTemplate): ResourceSizing | undefined {
+  const reqs = template.requiredResources;
   if (!reqs) {
     return undefined;
   }
-  const amount = (id: string): number | undefined => {
-    const entry = reqs.find((r) => r.id === id);
-    return entry ? (entry.recommended ?? entry.min) : undefined;
-  };
-  const cpu = amount('cpu');
-  const ram = amount('ram');
-  const disk = amount('disk');
-  if (cpu == null || ram == null || disk == null) {
-    return undefined;
-  }
-  const min = (id: string): number => template.requiredResources?.find((r) => r.id === id)?.min ?? 0;
-  return { mode: 'pinned', cpu, ram, disk, floor: { cpu: min('cpu'), ram: min('ram'), disk: min('disk') } };
+  const min = (id: string): number => reqs.find((r) => r.id === id)?.min ?? 0;
+  return { mode: 'floor', cpu: min('cpu'), ram: min('ram'), disk: min('disk') };
 }
 
 /** The port serving the template's primary web UI (first exposed port) — for the "Open" link. */

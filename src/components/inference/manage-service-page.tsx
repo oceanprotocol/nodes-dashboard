@@ -31,6 +31,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { firstQueryValue } from '@/services/inference-url';
+import { branchForAppType, isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
@@ -48,8 +49,8 @@ import cx from 'classnames';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { toast } from 'react-toastify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 import styles from './manage-service-page.module.css';
 
 /**
@@ -247,11 +248,18 @@ const ManageServicePage: React.FC = () => {
     matching: matchingTemplate,
     exact: jobTemplateExact,
     ambiguous: jobTemplateAmbiguous,
+    declared: jobTemplateDeclared,
     settled: templateSettled,
     failed: templateMatchFailed,
   } = useJobTemplate(job);
   /**
    * Which template this service runs, in order of authority:
+   *   0. the service's OWN labels (`metadata.appType`/`appId`, stamped by every dashboard launch —
+   *      see services/service-metadata). The container stating what it is, so it settles the question
+   *      in BOTH directions: a declared template resolves to its exact catalogue entry, and a
+   *      declared model service is `null` outright rather than being image-matched onto an inference
+   *      template it merely shares an image with. Every case below exists only because that label
+   *      wasn't there.
    *   1. an EXACT job match — image plus a command only ONE template in the catalogue has. That is the
    *      running container identifying itself, so it outranks everything, including a `models=` link
    *      that claims a custom launch (see isModelServiceByUrl: those links are generated for real
@@ -269,14 +277,16 @@ const ManageServicePage: React.FC = () => {
    * instead of its Model card, lost Edit, and would have prolonged through the template payment page.
    * Only a UNIQUE command — case 1 — can outrank the link, because only that identifies the variant.
    *
-   * The one thing this cannot resolve is a custom launch whose command is byte-for-byte a template's —
-   * same model, same defaults, no extra flags. Nothing in the record distinguishes those two, so it is
+   * Cases 1-4 cannot resolve a custom launch whose command is byte-for-byte a template's — same model,
+   * same defaults, no extra flags. Nothing in an unlabelled record distinguishes those two, so it is
    * read as the template: the container is identical either way, so an Edit relaunches the same thing,
    * and a user who wants different params can launch a new service. Preferring the other reading is
-   * what broke every real service launch, which is not a trade worth making for the rarer case.
+   * what broke every real service launch, which is not a trade worth making for the rarer case. Case 0
+   * does resolve it, which is the whole point of stamping the labels.
    */
-  const template =
-    (jobTemplateExact ? jobTemplate : null) ?? (isModelServiceByUrl ? null : (selectedTemplate ?? jobTemplate));
+  const template = jobTemplateDeclared
+    ? jobTemplate
+    : ((jobTemplateExact ? jobTemplate : null) ?? (isModelServiceByUrl ? null : (selectedTemplate ?? jobTemplate)));
   const isBundleService = !!template && isBundle(template);
   /**
    * Publish the resolved template to context.
@@ -300,13 +310,28 @@ const ManageServicePage: React.FC = () => {
       setSelectedTemplate(publishableTemplate);
     }
   }, [publishableTemplate, selectedTemplate?.id, setSelectedTemplate]);
-  // Which of the four entry branches this service belongs to, for PostHog funnels — see
-  // resolveInferenceBranch. A managed service can't tell a custom launch from a quickstart one after
-  // the fact (both are plain model services with no template), so both report 'custom' here; this is
-  // a known, accepted limitation of reading branch off the running service rather than live flow state.
-  // An ambiguously-matched bundle is a second such case: the match resolves to the bare SERVICE its
-  // family shares, so `isBundleService` is false and this reports 'service' for a running bundle.
-  const branch = !template ? 'custom' : isBundleService ? 'template' : 'service';
+  /**
+   * Which of the four entry branches this service belongs to, for PostHog funnels — see
+   * resolveInferenceBranch.
+   *
+   * The service's own `appType` label answers exactly when it has one. Without it, reading the branch
+   * back off a running container is lossy in two known ways: a custom launch and a quickstart one are
+   * indistinguishable (both are plain model services with no template), so both report 'custom'; and
+   * an ambiguously-matched bundle resolves to the bare SERVICE its family shares, so `isBundleService`
+   * is false and a running bundle reports 'service'.
+   */
+  const declaredIdentity = readServiceMetadata(job);
+  // Kept as primitives, not the object: the status poll hands us a fresh job (and so a fresh bag)
+  // every tick, and these feed memo/callback dependency lists.
+  const declaredAppType = declaredIdentity?.appType ?? null;
+  const declaredAppId = declaredIdentity?.appId ?? null;
+  const branch = declaredAppType
+    ? branchForAppType(declaredAppType)
+    : !template
+      ? 'custom'
+      : isBundleService
+        ? 'template'
+        : 'service';
 
   /** Fetch the service status once; returns true when terminal (stop polling). */
   const fetchStatus = useCallback(async (): Promise<boolean> => {
@@ -447,8 +472,11 @@ const ManageServicePage: React.FC = () => {
    *   1. the P2P job record's `--model` — what the container is actually running. Wins because an Edit
    *      relaunch swaps the model in place (serviceRestart + dockerCmd, same serviceId), so the link
    *      that got us here can name a model this service no longer serves.
-   *   2. the backend session record's model, which reaches us as the `models` query param,
-   *   3. neither → the card says "Unknown model".
+   *   2. the service's own `appId` label, when it declared a model flow. Same authority as (1) — both
+   *      come off the running container, and the launch stamps them from the same model — but it also
+   *      survives a record whose command can't be parsed for a model id.
+   *   3. the backend session record's model, which reaches us as the `models` query param,
+   *   4. neither → the card says "Unknown model".
    * When both name the same model, the hydrated entry is used: same id, but with HF metadata (avatar,
    * author) the job record doesn't carry. A node-only model renders off its id alone, with launch params
    * parsed from the same dockerCmd. One container serves one model, so it replaces the list, not joins.
@@ -456,17 +484,20 @@ const ManageServicePage: React.FC = () => {
    * Empty for a template app: it serves no model, and its dockerCmd is the template's own command —
    * a `--model`-looking flag in there is the app's argument, not an HF model to name or relaunch.
    */
+  const declaredModelId = declaredAppType && isModelAppType(declaredAppType) ? declaredAppId : null;
   const models: ServiceModel[] = useMemo(() => {
     if (template) {
       return [];
     }
-    const jobModelId = jobCommand?.modelId;
+    const jobModelId = jobCommand?.modelId ?? declaredModelId;
     if (jobModelId) {
       const hydrated = selectedModels.find((m) => m.id === jobModelId);
-      return [{ model: hydrated ?? { id: jobModelId }, params: modelParamsByModel[jobModelId] ?? jobCommand.params }];
+      // `jobCommand` is optional here: the id can come from the label alone (see declaredModelId),
+      // on a record whose command didn't parse.
+      return [{ model: hydrated ?? { id: jobModelId }, params: modelParamsByModel[jobModelId] ?? jobCommand?.params }];
     }
     return selectedModels.map((model) => ({ model, params: modelParamsByModel[model.id] }));
-  }, [selectedModels, modelParamsByModel, jobCommand, template]);
+  }, [selectedModels, modelParamsByModel, jobCommand, declaredModelId, template]);
 
   const environment = selectedEnv?.environment ?? null;
   const nodeInfo = selectedEnv?.nodeInfo ?? null;
@@ -667,7 +698,7 @@ const ManageServicePage: React.FC = () => {
     identityToastRef.current = id;
     toast.error(
       templateMatchFailed
-        ? "Couldn't load this service's app details. Editing and extending are unavailable — reload to try again."
+        ? "Couldn't load this service's app details. Editing and extending are unavailable. Reload to try again."
         : "Couldn't identify which app this service is running. Editing and extending are unavailable."
     );
   }, [templateMatchFailed, templateVariantUnknown, id]);
@@ -728,7 +759,16 @@ const ManageServicePage: React.FC = () => {
     });
     router.push({
       pathname: '/inference/custom-models',
-      query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
+      // Carry the service's OWN app type. Every model-service Edit re-enters through the custom-model
+      // route, so without this a quickstart launch would come back re-labelled 'custom-model' by the
+      // relaunch — the label would describe the route taken to edit it rather than the flow it came
+      // from. Only the label travels; nothing about the launch itself differs between the two.
+      query: {
+        ...buildSelectionQuery(selectionOverrides),
+        edit: '1',
+        serviceId: id,
+        ...(declaredAppType ? { appType: declaredAppType } : {}),
+      },
     });
   };
 
@@ -792,7 +832,7 @@ const ManageServicePage: React.FC = () => {
       setProlongOpen(false);
       setJobError(
         !selectedToken || !templateKnown
-          ? 'Loading service details — try again in a moment.'
+          ? 'Loading service details. Try again in a moment.'
           : 'This service can no longer be extended.'
       );
       return;
@@ -860,8 +900,8 @@ const ManageServicePage: React.FC = () => {
             {job && !isExpired && (restartBlocked || isUnpaid) && (
               <div className="textSecondary">
                 {isUnpaid
-                  ? 'This service’s payment was never claimed (unpaid or refunded) — it can’t be restarted or edited. Start a new service instead.'
-                  : `Service is ${status.label.toLowerCase()} — Restart and Edit become available once the node finishes this operation.`}
+                  ? 'This service’s payment was never claimed (unpaid or refunded), so it can’t be restarted or edited. Start a new service instead.'
+                  : `Service is ${status.label.toLowerCase()}. Restart and Edit become available once the node finishes this operation.`}
               </div>
             )}
 
@@ -960,7 +1000,7 @@ const ManageServicePage: React.FC = () => {
                 <div className="textSecondary">
                   {jobLoading || matchingTemplate
                     ? 'Loading model…'
-                    : 'Unknown model — neither the node nor this service’s record names one.'}
+                    : 'Unknown model. Neither the node nor this service’s record names one.'}
                 </div>
               )}
             </Card>
@@ -1097,7 +1137,7 @@ const ManageServicePage: React.FC = () => {
               ) : (
                 <div className="textSecondary">
                   {isExpired
-                    ? 'This session has ended — the app is no longer available.'
+                    ? 'This session has ended, so the app is no longer available.'
                     : isRunning
                       ? 'App is running but exposed no endpoint.'
                       : 'The app URL becomes available once the service is running…'}
@@ -1110,7 +1150,7 @@ const ManageServicePage: React.FC = () => {
                     <div className={`chip chipGlass ${styles.endpointChip}`}>Base URL</div>
                     <span className={styles.endpointPath}>{baseUrl}</span>
                     <span className={styles.endpointDescription}>
-                      OpenAI-compatible — append a route from the references above
+                      OpenAI-compatible. Append a route from the references above
                     </span>
                     {/* CopyButton takes no click callback, so wrap it — analytics only, copy
                         behaviour is unchanged. */}
@@ -1153,7 +1193,7 @@ const ManageServicePage: React.FC = () => {
             ) : (
               <div className="textSecondary">
                 {isExpired
-                  ? 'This session has ended — the endpoints are no longer available.'
+                  ? 'This session has ended, so the endpoints are no longer available.'
                   : isRunning
                     ? 'Service is running but exposed no endpoint.'
                     : 'Endpoints become available once the service is running…'}

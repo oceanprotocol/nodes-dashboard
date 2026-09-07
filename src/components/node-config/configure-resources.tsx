@@ -10,6 +10,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { NodeConfig } from '@/types/node-config';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { BENCHMARK_ENV_DESCRIPTION } from '@/utils/env-resources';
 import CheckIcon from '@mui/icons-material/Check';
 import DnsIcon from '@mui/icons-material/Dns';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -32,8 +33,6 @@ type EnvGroup = NonNullable<NodeConfig['dockerComputeEnvironments']>[number];
 type Environment = EnvGroup['environments'][number];
 type Resource = NonNullable<Environment['resources']>[number];
 type FreeCompute = NonNullable<Environment['free']>;
-
-const BENCH_ENV_DESCRIPTION = 'Auto-generated benchmark environment';
 
 const SUPPORTED_TOKENS = getSupportedTokens();
 const TOKEN_SYMBOLS = Object.keys(SUPPORTED_TOKENS) as (keyof typeof SUPPORTED_TOKENS)[];
@@ -709,7 +708,7 @@ const ConfigureResources: React.FC<ConfigureResourcesProps> = ({ config, setConf
       ) : (
         envs.map((env, index) => {
           const isOpen = openIndexes.includes(index);
-          const isBench = env.description === BENCH_ENV_DESCRIPTION;
+          const isBench = env.description === BENCHMARK_ENV_DESCRIPTION;
           return (
             <Card direction="column" innerShadow="black" key={index} padding="md" radius="sm" variant="glass-shaded">
               <div className={commonStyles.envCardHeader}>

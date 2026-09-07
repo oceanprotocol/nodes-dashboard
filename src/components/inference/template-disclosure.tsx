@@ -1,4 +1,5 @@
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Collapse } from '@mui/material';
 import cx from 'classnames';
 import { ReactNode, useId, useState } from 'react';
 import styles from './template-disclosure.module.css';
@@ -41,11 +42,14 @@ const TemplateDisclosure: React.FC<TemplateDisclosureProps> = ({
           <ExpandMoreIcon className={cx(styles.chevron, { [styles.chevronOpen]: open })} />
         </span>
       </button>
-      {open && (
+      {/* mountOnEnter/unmountOnExit keeps the old `{open && …}` semantics — the manifest's avatar
+          images and the env-var chips only ever mount once the row is actually opened — while the
+          height transition replaces the instant swap. */}
+      <Collapse in={open} mountOnEnter unmountOnExit>
         <div className={cx(styles.content, { [styles.contentPanel]: contentIsPanel })} id={contentId}>
           {children}
         </div>
-      )}
+      </Collapse>
     </div>
   );
 };

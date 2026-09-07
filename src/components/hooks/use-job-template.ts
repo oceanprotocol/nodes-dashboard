@@ -1,10 +1,14 @@
 import { useP2P } from '@/contexts/P2PContext';
+import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { fetchTemplates, matchTemplateForService } from '@/services/service-templates';
 import { AppTemplate } from '@/types/templates';
+import type { ComputeJobMetadata } from '@oceanprotocol/lib';
 import { useEffect, useRef, useState } from 'react';
 
-/** The container facts a running service is matched back to the catalogue by. */
+/** The facts a running service is matched back to the catalogue by — see matchTemplateForService. */
 type JobContainer = {
+  /** The service's own labels, when it carries them. Answers outright; the rest is fallback evidence. */
+  metadata?: ComputeJobMetadata;
   image?: string;
   dockerCmd?: string[];
 };
@@ -30,6 +34,13 @@ type JobTemplateState = {
    * matchTemplateForService — bundles sharing an image AND a command are indistinguishable on the wire).
    */
   ambiguous: boolean;
+  /**
+   * The service DECLARED what it is — its own `metadata` labels named a catalogue entry, or named a
+   * model flow (in which case `template` is null because it genuinely runs no template). Outranks
+   * every other claim about this service, the URL's included: nothing else is the container speaking
+   * for itself, and a null `template` here is an answer rather than an absence of one.
+   */
+  declared: boolean;
   /**
    * The match ran to completion (successfully or not) for the container currently passed in, so
    * `template` is this service's real answer rather than "not yet". `false` while there is nothing to
@@ -58,11 +69,14 @@ const RETRY_DELAY_MS = 1500;
  * matches nothing), and an in-flow redirect can drop the query altogether. Without a match the page
  * falls through to the Model card and claims "Unknown model" for an app that serves no model at all.
  *
- * The job record always names image + dockerCmd, which is what distinguishes a bundle from its parent
- * service (they share the image and differ only in `command`).
+ * A dashboard-launched service carries its own `metadata` labels (appType + appId), which answer
+ * outright — including "this is a model service", the one conclusion image matching can never reach.
+ * Anything without them falls back to image + dockerCmd, which is what distinguishes a bundle from
+ * its parent service (they share the image and differ only in `command`).
  *
  * Always matched, even when the URL already names a template or claims a plain model service: the
- * link is only ever as good as whatever generated it, and `exact` says whether this match outranks it.
+ * link is only ever as good as whatever generated it, and `declared` / `exact` say whether this match
+ * outranks it.
  *
  * @param job    container facts from the polled job record — a fresh object every tick, so the lookup
  *               is keyed on the facts themselves and not repeated while they're unchanged.
@@ -74,6 +88,7 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     template: AppTemplate | null;
     exact: boolean;
     ambiguous: boolean;
+    declared: boolean;
     /** The catalogue itself was unreachable, so "no template" is an absence of an answer, not one. */
     failed: boolean;
   }>({
@@ -81,6 +96,7 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     template: null,
     exact: false,
     ambiguous: false,
+    declared: false,
     failed: false,
   });
   const [matching, setMatching] = useState(false);
@@ -95,7 +111,10 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
    * cancelled the catalogue fetch still in flight from the previous one. A fetch slower than one poll
    * interval could therefore never land, leaving `template` null for the life of the page.
    */
-  const key = job ? [job.image ?? '', ...(job.dockerCmd ?? [])].join('\u0000') : null;
+  const identity = readServiceMetadata(job);
+  const key = job
+    ? [identity?.appType ?? '', identity?.appId ?? '', job.image ?? '', ...(job.dockerCmd ?? [])].join('\u0000')
+    : null;
   // Read the facts inside the effect without making the effect depend on their identity: `key`
   // already changes whenever they do.
   const jobRef = useRef(job);
@@ -116,19 +135,27 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     // declared `failed` on its first failure.
     setAttempt(0);
     if (state.key !== null && state.key !== key) {
-      setState({ key: null, template: null, exact: false, ambiguous: false, failed: false });
+      setState({ key: null, template: null, exact: false, ambiguous: false, declared: false, failed: false });
     }
   }
 
+  /**
+   * The service declared itself a MODEL service, so it runs no catalogue template — there is nothing
+   * to look up, and nothing to gate on libp2p being up. Answered synchronously below instead of
+   * through the effect: the manage page holds Edit / Prolong until this settles, and a plain model
+   * launch used to wait out a whole catalogue round trip only to be told it matched nothing.
+   */
+  const declaredModel = !!identity && isModelAppType(identity.appType);
+
   useEffect(() => {
-    if (key === null || !isReady || attempt >= MAX_ATTEMPTS) {
+    if (key === null || declaredModel || !isReady || attempt >= MAX_ATTEMPTS) {
       // Nothing is in flight on any of these paths. Say so explicitly: an in-flight fetch that was
       // cancelled (by `job` blinking to null, say) resolves behind `if (!cancelled)` and so never
       // clears this itself, which would leave the Model card reading "Loading model…" forever.
       setMatching(false);
       return;
     }
-    const { image, dockerCmd } = jobRef.current ?? {};
+    const { metadata, image, dockerCmd } = jobRef.current ?? {};
     const controller = new AbortController();
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -136,13 +163,16 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     (async () => {
       try {
         const templates = await fetchTemplates(getServiceTemplates, controller.signal);
-        const match = matchTemplateForService(templates, { image, dockerCmd });
+        const match = matchTemplateForService(templates, { metadata, image, dockerCmd });
         if (!cancelled) {
           setState({
             key,
             template: match.template,
-            exact: match.source === 'command',
+            // A metadata match names the entry outright; a command match is the only other source
+            // that identifies the variant (see matchTemplateForService).
+            exact: match.source === 'metadata' || match.source === 'command',
             ambiguous: match.ambiguous,
+            declared: match.source === 'metadata',
             failed: false,
           });
         }
@@ -155,7 +185,7 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
         if (!cancelled) {
           console.error('Failed to match this service back to a template:', error);
           if (attempt + 1 >= MAX_ATTEMPTS) {
-            setState({ key, template: null, exact: false, ambiguous: false, failed: true });
+            setState({ key, template: null, exact: false, ambiguous: false, declared: false, failed: true });
           } else {
             retryTimer = setTimeout(() => setAttempt((n) => n + 1), RETRY_DELAY_MS);
           }
@@ -171,7 +201,21 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
       controller.abort();
       clearTimeout(retryTimer);
     };
-  }, [key, isReady, getServiceTemplates, attempt]);
+  }, [key, declaredModel, isReady, getServiceTemplates, attempt]);
+
+  // A declared model service is its own answer — see declaredModel. Reported before `state` is
+  // consulted, so it needs neither a catalogue nor a settled effect.
+  if (declaredModel) {
+    return {
+      template: null,
+      matching: false,
+      exact: true,
+      ambiguous: false,
+      declared: true,
+      settled: true,
+      failed: false,
+    };
+  }
 
   // Only ever report an answer that belongs to the container currently passed in.
   const answered = key !== null && state.key === key;
@@ -180,6 +224,7 @@ const useJobTemplate = (job: JobContainer | null): JobTemplateState => {
     matching,
     exact: answered ? state.exact : false,
     ambiguous: answered && state.ambiguous,
+    declared: answered && state.declared,
     // Nothing to match is not a settled match, and a match that gave up has no answer to settle on
     // (see `failed`).
     settled: answered && !state.failed,

@@ -49,6 +49,13 @@ export type InferenceSelectionQuery = Partial<{
   edit: string;
   /** Running service being edited/prolonged — target of serviceExtend / stop-on-relaunch. */
   serviceId: string;
+  /**
+   * The app type an Edit re-entry inherits from the running service (see services/service-metadata).
+   * Every model-service Edit re-enters through the custom-model route, so without this the relaunch
+   * would re-label a quickstart service as a custom one. Only ever a hint carried between steps — the
+   * payment page validates it and applies it within the model pair only.
+   */
+  appType: string;
 }>;
 
 export type SelectedInferenceEnv = {
@@ -397,6 +404,12 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       if (serviceId) {
         query.serviceId = serviceId;
       }
+      // Same reason as the two above: the payment step is where the relaunch re-stamps the service's
+      // labels, and this hop is where the route stops being able to tell which model flow it was.
+      const appType = firstQueryValue(router.query.appType);
+      if (appType) {
+        query.appType = appType;
+      }
       return query;
     },
     [
@@ -410,6 +423,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedBucketId,
       router.query.edit,
       router.query.serviceId,
+      router.query.appType,
     ]
   );
 

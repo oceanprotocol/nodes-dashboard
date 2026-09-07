@@ -40,6 +40,12 @@ export type TemplateIncludedItem = {
   /** Direct download URL for anything that isn't a plain HF repo (CivitAI, mirrors). */
   url?: string;
   /**
+   * On-disk size of this item in GB, as published by the node. Present on most model entries and
+   * absent on some non-model ones (a git checkout whose size the author didn't measure), so a total
+   * built from these is a lower bound — see {@link includesDownloadGb}.
+   */
+  sizeGb?: number;
+  /**
    * What this item is for, one line. Only read when the manifest is the offer (a model pack, where
    * "which of these is the text encoder?" is a real question) — inside a bundle that also ships
    * workflows the list stays collapsed and unannotated.
@@ -116,6 +122,28 @@ export const SHAPE_LABEL: Record<TemplateShape, string> = {
   modelPack: 'Model pack',
   service: 'Service',
 };
+
+/**
+ * Total GB the bundle downloads on a launch with no bucket mounted — summed from the manifest's own
+ * `sizeGb` figures. Null when the manifest declares no sizes at all, so callers can omit the number
+ * rather than print a fabricated one (the bucket picker showed a hardcoded "38 GB" for every template,
+ * which was wrong for all of them and 20x off for the 753 GB one).
+ *
+ * `partial` is true when some items carry no `sizeGb`: the total is then a floor, not the whole
+ * download, and the caller should hedge the wording rather than state it as exact.
+ */
+export function includesDownloadGb(tpl: AppTemplate): { gb: number; partial: boolean } | null {
+  const items = tpl.includes ?? [];
+  if (items.length === 0) {
+    return null;
+  }
+  const sized = items.filter((i) => typeof i.sizeGb === 'number' && i.sizeGb > 0);
+  if (sized.length === 0) {
+    return null;
+  }
+  const gb = sized.reduce((sum, i) => sum + (i.sizeGb ?? 0), 0);
+  return { gb, partial: sized.length < items.length };
+}
 
 /**
  * "5 models and 1 custom node" — the collapsed manifest's own summary line. Kinds are counted

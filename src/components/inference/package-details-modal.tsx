@@ -104,6 +104,7 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
             shared duration is out of this env's bounds. */}
         {resolved.map((entry) => (
           <InferenceEnvironmentCard
+            declaredRequirements={pkg?.requiredResources}
             disabledReason={durationErrorFor(entry.env.environment)}
             durationSeconds={durationSeconds}
             environment={entry.env.environment}

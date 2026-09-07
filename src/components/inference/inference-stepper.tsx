@@ -1,7 +1,8 @@
 import { getInferenceSteps, InferenceStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
 import { InferenceFlowType } from '@/types/inference';
-import { AppTemplate, isBundle, requiredEnvVars } from '@/types/templates';
+import { templateNeedsConfigStep } from '@/services/template-launch';
+import { AppTemplate, isBundle } from '@/types/templates';
 
 type InferenceStepperProps = {
   currentStep: InferenceStep;
@@ -16,7 +17,11 @@ type InferenceStepperProps = {
   template?: AppTemplate | null;
   /** Catalogue pages know which kind they list before anything is picked — they pass it directly. */
   kindLabel?: 'Service' | 'Template';
-  /** Fresh template launch that needs the Config step — see templateNeedsBucketPicker. */
+  /**
+   * Force the Config step on when the template alone can't say so — the config page itself, which is
+   * on that step by definition. Otherwise leave it unset: the step list is derived from `template`
+   * via templateNeedsConfigStep, the same predicate the routing uses.
+   */
   showTemplateConfig?: boolean;
 };
 
@@ -30,9 +35,8 @@ const InferenceStepper: React.FC<InferenceStepperProps> = ({
 }) => {
   const steps = getInferenceSteps(flowType, edit, {
     kindLabel: kindLabel ?? (template && isBundle(template) ? 'Template' : 'Service'),
-    // Either reason forces the Config step on a fresh launch: a required env var to collect, or a
-    // bucket to pick. Both are collected on that page, so they share one flag.
-    needsConfig: (!!template && requiredEnvVars(template).length > 0) || !!showTemplateConfig,
+    // One predicate with the routing, so the drawn steps can't disagree with the walked ones.
+    needsConfig: templateNeedsConfigStep(template) || !!showTemplateConfig,
   });
   return <Stepper currentStep={currentStep} steps={steps} />;
 };

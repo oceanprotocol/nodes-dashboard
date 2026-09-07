@@ -185,8 +185,10 @@ export function visualFor(id: string, category?: string): TemplateVisual {
 export interface TemplateHardware {
   /** True when the template declares a GPU resource — the main GPU-vs-CPU signal on the card. */
   gpu: boolean;
-  /** GPU units the template asks for (0 when it declares none). */
+  /** GPU units the template asks for (0 when it declares none) — the recommended count, else min. */
   gpuUnits: number;
+  /** Declared GPU floor (0 when none declared) — the low end of the card's `min-max GPUs` label. */
+  gpuMin: number;
   /** Recommended (else min) CPU cores, if the template declares them. */
   cpu?: number;
   /** Recommended (else min) RAM in GB, if the template declares it. */
@@ -209,10 +211,28 @@ export function templateHardware(tpl: AppTemplate): TemplateHardware {
   return {
     gpu: !!gpuEntry,
     gpuUnits: gpuEntry ? (gpuEntry.recommended ?? gpuEntry.min ?? 0) : 0,
+    gpuMin: gpuEntry ? (gpuEntry.min ?? 0) : 0,
     cpu: amount('cpu'),
     ram: amount('ram'),
     disk: amount('disk'),
   };
+}
+
+/**
+ * The hardware chip's label — the GPU ask alone: the declared range ("2-4 GPUs"), a single count
+ * ("1 GPU") when min and recommended agree, or "CPU only" when no GPU is declared. Shared so the
+ * catalogue card and the details modal name the same ask in the same words.
+ */
+export function templateGpuLabel(hw: TemplateHardware): string {
+  if (!hw.gpu) {
+    return 'CPU only';
+  }
+  const rec = hw.gpuUnits || hw.gpuMin;
+  if (hw.gpuMin > 0 && rec > hw.gpuMin) {
+    return `${hw.gpuMin}-${rec} GPUs`;
+  }
+  const n = rec || 1;
+  return `${n} ${n === 1 ? 'GPU' : 'GPUs'}`;
 }
 
 /**
