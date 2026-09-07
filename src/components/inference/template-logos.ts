@@ -22,7 +22,9 @@ import { AppTemplate } from '@/types/templates';
  */
 const TEMPLATE_LOGO_FILES: Record<string, string> = {
   comfyui: 'comfyui.svg',
+  hermes: 'hermes.png',
   jupyter: 'jupyter.svg',
+  openclaw: 'openclaw.svg',
   // Longer than `vllm`, so `vllm-nomic-embed` wears Nomic's mark rather than vLLM's (see MATCH_KEYS).
   'nomic-embed': 'nomic.svg',
   vllm: 'vllm.png',
