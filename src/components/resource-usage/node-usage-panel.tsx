@@ -343,7 +343,7 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
 
           {gpuRows.length > 0 && <GpuDeviceSection compact={compact} rows={gpuRows} />}
 
-          <UsageStatsSection compact={compact} heading="Workloads &amp; host">
+          <UsageStatsSection compact={compact} heading="Workloads & host">
             {hasWorkloadData && (
               <Stat icon={<BoltIcon className={resourceIconClass} />} label="Running jobs">
                 {formatNumber(jobs.running)}

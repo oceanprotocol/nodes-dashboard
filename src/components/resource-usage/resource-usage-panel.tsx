@@ -326,7 +326,7 @@ const ResourceUsagePanel: React.FC<ResourceUsagePanelProps> = ({
 
           {gpuRows.length > 0 && <GpuDeviceSection compact={compact} rows={gpuRows} />}
 
-          <UsageStatsSection compact={compact} heading="Throughput &amp; processes">
+          <UsageStatsSection compact={compact} heading="Throughput & processes">
             {network && (
               <StatPair
                 icon={<SwapVertIcon className={resourceIconClass} />}

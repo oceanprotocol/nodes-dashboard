@@ -493,7 +493,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         </div>
 
         <div className="actionsGroupMdEnd">
-          {onSelect && durationRangeText && <span className="textSecondary">Job duration: {durationRangeText}</span>}
+          {onSelect && durationRangeText && <span className="textSecondary">Service duration: {durationRangeText}</span>}
           {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
             <Select
               onChange={(e) => setTokenAddress(e.target.value)}

@@ -593,23 +593,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       });
       return;
     }
-    // The node sets expiresAt = now + duration and rejects a window past the env's max.
-    // Mirror the prolong guard so a deep-linked/refreshed payment page with an
-    // over-max duration fails here rather than after the (wasted) escrow deposit tx.
-    const envMax = serviceDurationBounds(selectedEnv.environment).max;
-    if (envMax && jobDurationSeconds > envMax) {
-      setLaunchError(
-        `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
-      );
-      captureError('inference_service_start_failed', new Error('duration_exceeds_env_max'), {
-        stage: 'duration_bounds',
-        duration_seconds: jobDurationSeconds,
-        max_seconds: envMax,
-        branch,
-      });
-      return;
-    }
-
     setLaunching(true);
     setLaunchError(null);
     try {
@@ -618,6 +601,22 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // is where a selection that other tenants have since booked is caught, and finding that out
       // after the deposit tx costs the user gas for nothing.
       const launchEnv = await resolveLaunchEnv(selectedEnv);
+      // The node sets expiresAt = now + duration and rejects a window past the env's max. Checked
+      // against the freshly-read env (like the prolong guard) so a cap the operator lowered since
+      // this page priced the launch is caught here, before the escrow deposit tx is paid for nothing.
+      const envMax = serviceDurationBounds(launchEnv.environment).max;
+      if (envMax && jobDurationSeconds > envMax) {
+        setLaunchError(
+          `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
+        );
+        captureError('inference_service_start_failed', new Error('duration_exceeds_env_max'), {
+          stage: 'duration_bounds',
+          duration_seconds: jobDurationSeconds,
+          max_seconds: envMax,
+          branch,
+        });
+        return;
+      }
       let startParams;
       try {
         startParams = buildInferenceStartParams({
@@ -724,20 +723,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       });
       return;
     }
-    const envMax = serviceDurationBounds(selectedEnv.environment).max;
-    if (envMax && jobDurationSeconds > envMax) {
-      setLaunchError(
-        `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
-      );
-      captureError('inference_service_start_failed', new Error('duration_exceeds_env_max'), {
-        stage: 'duration_bounds',
-        duration_seconds: jobDurationSeconds,
-        max_seconds: envMax,
-        branch,
-      });
-      return;
-    }
-
     setLaunching(true);
     setLaunchError(null);
     try {
@@ -747,6 +732,20 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
       // Re-read the env first — same reason as runFreshLaunch: the GPU ids are resolved from it.
       const launchEnv = await resolveLaunchEnv(selectedEnv);
+      // Max-duration guard against the freshly-read env — see runFreshLaunch.
+      const envMax = serviceDurationBounds(launchEnv.environment).max;
+      if (envMax && jobDurationSeconds > envMax) {
+        setLaunchError(
+          `The selected duration exceeds this environment's maximum session length (${formatDuration(envMax)}). Pick a shorter duration.`
+        );
+        captureError('inference_service_start_failed', new Error('duration_exceeds_env_max'), {
+          stage: 'duration_bounds',
+          duration_seconds: jobDurationSeconds,
+          max_seconds: envMax,
+          branch,
+        });
+        return;
+      }
       let startParams;
       try {
         startParams = await buildTemplateStartParams({

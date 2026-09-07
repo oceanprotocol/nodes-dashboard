@@ -281,47 +281,6 @@ export function envGpuDevices(
   return dedupeEnvResource(env, (resource) => /^gpu\d+$/.test(resource), excludeEnvIds);
 }
 
-/** Client-side rollup of one node snapshot for the ring buffer — the sibling of `UsageSample`. */
-export interface NodeUsageSample {
-  collectedAt: number;
-  /**
-   * Usage as a percentage of what the node's environments ADVERTISE — the same basis the live bars
-   * and gauges draw, so a peak tick derived from these lands where the fill would have been. Each is
-   * `undefined` when the environments advertise none of that resource: the sparkline then plots
-   * nothing, whereas a 0 would draw a floor that reads as "in use, but empty".
-   */
-  cpuPercent?: number;
-  diskPercent?: number;
-  gpuMemoryPercent: Record<string, number>;
-  gpuUtilizationPercent: Record<string, number>;
-  memoryPercent?: number;
-}
-
-/**
- * Disk capacity advertised across the node's compute environments, in bytes. Env resources are GB per
- * /computeEnvironments while `disk.usedBytes` is bytes, so the conversion belongs here rather than at
- * each call site, where mixing the two silently is a 10^9 error.
- *
- * Not host disk: environments sharing a filesystem each advertise their own total, so this sum can
- * exceed the physical volume. Every label built on it says "advertised", never "capacity".
- */
-export function advertisedDiskBytes(env: { resource: string; total: number }[]): number {
-  return (env ?? [])
-    .filter((row) => row.resource === 'disk')
-    .reduce((total, row) => total + (Number.isFinite(row.total) ? row.total : 0) * 1_000_000_000, 0);
-}
-
-/**
- * Disk BOOKED across the node's environments, in bytes — the counterpart of `advertisedDiskBytes`,
- * sharing its GB source units and its caveats. `<envId>:free` rows are a distinct pool with the same
- * resource ids, so they count like any other env: separately bookable space, not a duplicate.
- */
-export function bookedDiskBytes(env: { inUse: number; resource: string }[]): number {
-  return (env ?? [])
-    .filter((row) => row.resource === 'disk')
-    .reduce((total, row) => total + (Number.isFinite(row.inUse) ? row.inUse : 0) * 1_000_000_000, 0);
-}
-
 export function nodeSampleFromSnapshot(
   snapshot: NodeMetricsSnapshot,
   excludeEnvIds?: Set<string>
