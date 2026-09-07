@@ -20,7 +20,8 @@ export const API_ROOTS: {
 } =
   process.env.NEXT_PUBLIC_APP_ENV === 'production'
     ? {
-      analytics: 'https://analytics.oncompute.ai',
+      // analytics: 'https://analytics.oncompute.ai',
+      analytics: 'https://analytics-dev.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
       // incentive: 'https://api.oncompute.ai',
       incentive: 'https://api-dev.oncompute.ai/',
@@ -28,7 +29,8 @@ export const API_ROOTS: {
     }
     : {
       // analytics: 'https://analytics.nodes.oceanprotocol.io',
-      analytics: 'https://analytics.oncompute.ai',
+      // analytics: 'https://analytics.oncompute.ai',
+      analytics: 'https://analytics-dev.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
       // incentive: 'https://incentive-backend.oceanprotocol.io',
       incentive: 'https://api-dev.oncompute.ai/',
