@@ -58,11 +58,21 @@ export function useNodeMetricsHistory({
     }
 
     let cancelled = false;
+    // Aborts the in-flight read on cleanup, not just ignores it. `cancelled` alone keeps a 45s
+    // request alive after the viewer switched range — and the gateway's rate limit is shared by
+    // every viewer of this node, so an abandoned request holds a slot the new one is queueing for.
+    const controller = new AbortController();
     setResult(null);
     setState('loading');
 
     const { startTime, stopTime } = rangeToWindow(range);
-    getNodeMetricsHistory({ multiaddrs: addrsKey ? addrsKey.split('|') : undefined, peerId, startTime, stopTime })
+    getNodeMetricsHistory({
+      multiaddrs: addrsKey ? addrsKey.split('|') : undefined,
+      peerId,
+      signal: controller.signal,
+      startTime,
+      stopTime,
+    })
       .then((raw) => {
         if (cancelled) {
           return;
@@ -88,6 +98,7 @@ export function useNodeMetricsHistory({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [addrsKey, attempt, enabled, peerId, range]);
 

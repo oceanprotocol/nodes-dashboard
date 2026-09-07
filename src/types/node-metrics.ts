@@ -99,6 +99,15 @@ export interface NodeMetricsHistoryResult {
   stopTime: number;
 }
 
+/**
+ * `typeof x === 'number'` accepts NaN and Infinity, which are exactly the values that ruin a
+ * denominator quietly — `usedBytes / NaN` is NaN, and a NaN percentage draws an empty gauge with no
+ * error to trace. Every scalar below goes through this instead.
+ */
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 /** Narrow-or-null, never throw — same discipline as `getRuntimeMetrics`. A node on a build we don't
  * know about degrades to "no data" rather than crashing the page. */
 export function asNodeMetricsSnapshot(value: unknown): NodeMetricsSnapshot | null {
@@ -106,16 +115,47 @@ export function asNodeMetricsSnapshot(value: unknown): NodeMetricsSnapshot | nul
     return null;
   }
   const v = value as Record<string, any>;
-  if (typeof v.collectedAt !== 'number') {
+  if (!isFiniteNumber(v.collectedAt)) {
     return null;
   }
-  if (!v.cpu || typeof v.cpu.usagePercent !== 'number' || typeof v.cpu.hostCores !== 'number') {
+  // Every scalar the panel divides by or renders, checked for FINITENESS rather than `typeof
+  // 'number'`: NaN and Infinity are numbers, and a NaN denominator propagates silently into a gauge
+  // that draws an empty arc with no error anywhere. A partial record is rejected outright — the
+  // panel reads these unguarded, and half a snapshot renders as confident zeroes.
+  if (
+    !v.cpu ||
+    !isFiniteNumber(v.cpu.usagePercent) ||
+    !isFiniteNumber(v.cpu.hostCores) ||
+    !isFiniteNumber(v.cpu.coresAllocated) ||
+    !isFiniteNumber(v.cpu.throttledCount)
+  ) {
     return null;
   }
-  if (!v.memory || typeof v.memory.hostTotalBytes !== 'number') {
+  if (
+    !v.memory ||
+    !isFiniteNumber(v.memory.hostTotalBytes) ||
+    !isFiniteNumber(v.memory.hostFreeBytes) ||
+    !isFiniteNumber(v.memory.usedBytes) ||
+    !isFiniteNumber(v.memory.limitBytes)
+  ) {
     return null;
   }
-  if (!v.jobs || !v.disk || !v.network || !v.meta) {
+  if (!v.disk || !isFiniteNumber(v.disk.usedBytes)) {
+    return null;
+  }
+  if (!v.network || !isFiniteNumber(v.network.rxBytes) || !isFiniteNumber(v.network.txBytes)) {
+    return null;
+  }
+  if (
+    !v.jobs ||
+    !isFiniteNumber(v.jobs.queued) ||
+    !isFiniteNumber(v.jobs.queuedFree) ||
+    !isFiniteNumber(v.jobs.running) ||
+    !isFiniteNumber(v.jobs.runningFree)
+  ) {
+    return null;
+  }
+  if (!v.meta || !isFiniteNumber(v.meta.sampledContainers)) {
     return null;
   }
   // gpu/env/loadAverage are always arrays node-side, but a malformed peer must not make a `.map`
@@ -138,7 +178,23 @@ export function asNodeMetricsHistory(value: unknown): NodeMetricsHistoryResult |
   }
   const buckets = v.buckets
     .filter(
-      (bucket: any) => bucket && typeof bucket.hourStart === 'number' && bucket.cpu && bucket.memory && bucket.jobs
+      (bucket: any) =>
+        bucket &&
+        isFiniteNumber(bucket.hourStart) &&
+        // Buckets are dropped individually rather than failing the whole window: one malformed hour
+        // in a 168-bucket week should leave a gap in the line (which `connectNulls={false}` already
+        // draws honestly), not blank the chart. The scalars checked are the ones the series read.
+        isFiniteNumber(bucket.sampleCount) &&
+        bucket.cpu &&
+        isFiniteNumber(bucket.cpu.usagePercent) &&
+        isFiniteNumber(bucket.cpu.hostCores) &&
+        bucket.memory &&
+        isFiniteNumber(bucket.memory.usedBytes) &&
+        isFiniteNumber(bucket.memory.hostTotalBytes) &&
+        isFiniteNumber(bucket.memory.hostFreeBytes) &&
+        bucket.disk &&
+        isFiniteNumber(bucket.disk.usedBytes) &&
+        bucket.jobs
     )
     .map((bucket: any) => ({ ...bucket, gpu: Array.isArray(bucket.gpu) ? bucket.gpu : [] })) as NodeMetricsHourly[];
   // `count` is recomputed rather than echoed: it must match the buckets that survived the filter.

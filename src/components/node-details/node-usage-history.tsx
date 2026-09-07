@@ -245,7 +245,13 @@ const NodeUsageHistory: React.FC<NodeUsageHistoryProps> = ({ enabled, excludeEnv
   const { result, retry, state } = useNodeMetricsHistory({ enabled, multiaddrs, peerId, range });
 
   const formatTime = useMemo(() => historyTimeFormatter(range), [range]);
-  const charts = useMemo(() => HISTORY_CHARTS.map((chart) => ({ ...chart, spec: historyMetricSpec(chart.key) })), []);
+  // `excludeEnvIds` has to reach every spec: the env-based series (Booked lines, and the CPU/Memory/
+  // Disk denominators) are built from `bucket.env`, so a spec built without it double-counts the
+  // benchmark environment and draws history against a different capacity than the live panel above.
+  const charts = useMemo(
+    () => HISTORY_CHARTS.map((chart) => ({ ...chart, spec: historyMetricSpec(chart.key, excludeEnvIds) })),
+    [excludeEnvIds]
+  );
   // The axis is driven by the range the node ACTUALLY served: it clamps `startTime` to its own
   // retention horizon, so a node that has only been up a day answers a 7d request with a 1d window.
   // One row set for all three charts — same window, same buckets, so the series of every chart are
