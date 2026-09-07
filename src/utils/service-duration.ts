@@ -1,4 +1,4 @@
-import { ComputeEnvironment } from '@/types/environments';
+import { ComputeEnvironment } from '@oceanprotocol/lib';
 
 /**
  * Ocean-node's fallback service cap (`serviceOnDemand.maxDurationSeconds`, 24 h) for nodes too old
@@ -21,8 +21,10 @@ const NODE_DEFAULT_MAX_SERVICE_DURATION_SECONDS = 86400;
  * `max(duration, min)` rounded up to whole minutes. Quote with the same value returned here, or the
  * escrow deposit under-funds and `createLock` reverts.
  *
- * Both fields arrived together in ocean-node; a node that advertises neither is handled by the
- * fallbacks. `min` falls back to `minJobDuration`, which is exactly what such a node bills at.
+ * Both fields arrived together in ocean-node (and in ocean.js 9.2.1's `ComputeEnvironment`, which
+ * this reads from so the shape tracks the protocol rather than the dashboard's own view of it). A
+ * node too old to advertise them is handled by the fallbacks: `min` falls back to `minJobDuration`,
+ * which is exactly what such a node bills at.
  */
 export function serviceDurationBounds(
   environment: Pick<
