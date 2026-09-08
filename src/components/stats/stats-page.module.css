@@ -1,0 +1,39 @@
+/* Group rhythm. `pageContentWrapper`'s single 24px gap is not used here: it spaced a section
+   heading exactly like two adjacent cards, which is what made the page read as cramped.
+   Between groups is deliberately more than twice the gap between cards inside one. */
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  /* Heading sits closer to the cards it introduces than to the group above it. */
+  gap: 20px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Two cards that answer the same question (which models / which apps) read as a comparison
+   side by side. Single column until there is room for the charts' label gutters, which
+   truncate rather than wrap. */
+.pair {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .sections {
+    gap: 72px;
+  }
+  .pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
