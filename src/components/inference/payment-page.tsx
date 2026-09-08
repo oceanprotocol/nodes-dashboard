@@ -11,7 +11,7 @@ import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
-import { SelectedInferenceEnv, useInferenceContext } from '@/context/inference-context';
+import { editSessionDurationFromQuery, SelectedInferenceEnv, useInferenceContext } from '@/context/inference-context';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
@@ -91,6 +91,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     const fromUrl = parseServiceAppType(firstQueryValue(router.query.appType));
     return isEditMode && fromUrl && isModelAppType(fromUrl) && isModelAppType(derived) ? fromUrl : derived;
   }, [flowType, selectedTemplate, router.query.appType, isEditMode]);
+
+  /**
+   * The window the summary describes. Edit reuses the service's already-paid window, which the manage
+   * page stamps onto the query — read it from there rather than from context, whose
+   * `jobDurationSeconds` still holds the previous flow's value on a client-side nav (after a Prolong,
+   * that extension's increment). Launch and Prolong are unaffected: each is buying exactly
+   * `jobDurationSeconds`, so this falls through to it.
+   */
+  const displayDurationSeconds = editSessionDurationFromQuery(router.query) ?? jobDurationSeconds;
 
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
@@ -1038,15 +1047,14 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     <h3>Environment</h3>
                     <span className="textSecondary">
                       {/* Edit keeps the service's already-paid window (serviceRestart reuses the same
-                          expiry), so this describes the existing session rather than a new one. The
-                          Edit link carries that window on the query, so jobDurationSeconds is it. */}
+                          expiry), so this describes the existing session rather than a new one. */}
                       {isProlongMode ? 'Adding ' : isEditMode ? 'Session length ' : 'Running for '}
-                      {formatDuration(jobDurationSeconds)}
+                      {formatDuration(displayDurationSeconds)}
                     </span>
                   </div>
                   <InferenceEnvironmentCard
                     defaultToken={selectedToken?.address}
-                    durationSeconds={jobDurationSeconds}
+                    durationSeconds={displayDurationSeconds}
                     // An Edit relaunch reuses the paid window: nothing is charged, so no price.
                     hidePrice={isEditMode}
                     environment={environment ?? selectedEnv.environment}
