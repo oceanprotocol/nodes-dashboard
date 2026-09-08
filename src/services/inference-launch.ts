@@ -2,6 +2,7 @@ import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-a
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
+import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
 import { ComputeResource } from '@/types/environments';
 import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
@@ -13,7 +14,7 @@ import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from
  * serving a single HF model, listening on port 8000.
  */
 export const VLLM_IMAGE = 'vllm/vllm-openai';
-export const VLLM_TAG = process.env.NEXT_PUBLIC_VLLM_TAG ?? 'latest';
+export const VLLM_TAG = process.env.NEXT_PUBLIC_VLLM_TAG ?? 'v0.28.0';
 export const VLLM_PORT = 8000;
 
 /**
@@ -46,12 +47,18 @@ function wantsGpuOffload(params: ModelParameters): boolean {
 }
 
 /**
- * The image/tag/port to launch these params with. Same as ENGINE_RUNTIME except llama.cpp with GPU
- * offload requested, which needs the CUDA-built tag — the CPU tag would ignore `-ngl` at runtime.
+ * The image/tag/port to launch a model with. llama.cpp GPU offload selects its CUDA image; vLLM uses
+ * the tag resolved by the configuration flow, then the configured stable fallback.
  */
 export function engineRuntime(params: ModelParameters): { image: string; tag: string; port: number } {
   const runtime = ENGINE_RUNTIME[params.engine];
-  return wantsGpuOffload(params) ? { ...runtime, tag: LLAMACPP_TAG_CUDA } : runtime;
+  if (wantsGpuOffload(params)) {
+    return { ...runtime, tag: LLAMACPP_TAG_CUDA };
+  }
+  if (params.engine === 'vllm') {
+    return { ...runtime, tag: params.vllmTag || runtime.tag };
+  }
+  return runtime;
 }
 
 /** The container port an engine's OpenAI-compatible server listens on (for endpoint lookup on manage). */
@@ -60,7 +67,7 @@ export function enginePort(engine: InferenceEngine): number {
 }
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
-type Allocation = {
+export type Allocation = {
   cpu: number;
   ram: number;
   disk: number;
@@ -317,7 +324,10 @@ function parseCustomArgs(cmd: string[], engine: InferenceEngine): CustomParam[] 
  * from the command shape; flags absent from the command fall back to buildModelDefaults' neutral
  * values; unrecognized flags come back as customParams so an Edit relaunch doesn't silently drop them.
  */
-export function parseEngineCommand(cmd: string[]): { modelId: string | null; params: ModelParameters } {
+export function parseEngineCommand(
+  cmd: string[],
+  runningVllmTag?: string
+): { modelId: string | null; params: ModelParameters } {
   // Read the value following a flag, or undefined when the flag is absent / has no value. FIRST
   // occurrence: buildCustomArgs appends custom params after the builder's own flags, so a repeated
   // known flag is a custom override — the first occurrence is the one the typed form field emitted.
@@ -367,6 +377,7 @@ export function parseEngineCommand(cmd: string[]): { modelId: string | null; par
     modelId,
     params: {
       ...defaults,
+      vllmTag: runningVllmTag ?? defaults.vllmTag,
       customParams: parseCustomArgs(cmd, 'vllm'),
       servedModelName: valueOf('--served-model-name') || defaults.servedModelName,
       // Flag absent (or garbage) → null: the service launched without a pinned length, so vLLM
@@ -397,12 +408,71 @@ export function buildUserData(hfToken: string): Record<string, string> {
 }
 
 /**
+ * Why a GPU selection can't be turned into a request against a freshly-read environment. Both are
+ * recoverable by re-picking, but they are NOT the same thing to tell the user, and only the first is
+ * about contention:
+ *
+ *  - `gpus_taken`   — the type is still advertised, fewer units of it are free than were picked.
+ *                     Another tenant booked them between the read the selection was made against
+ *                     and this one.
+ *  - `gpus_missing` — the environment no longer advertises that GPU type at all. Nobody took it:
+ *                     the node's own description for the device changed (an NVML failure renames it
+ *                     — live nodes advertise descriptions like "Failed to initialize NVML: …"), or
+ *                     the operator reconfigured the env. Blaming another tenant here sends the user
+ *                     looking for capacity that will not come back on its own.
+ */
+export const GPUS_TAKEN = 'gpus_taken';
+export const GPUS_MISSING = 'gpus_missing';
+/**
+ * The shared CPU/RAM/disk the allocation was sized against is no longer free — same contention as
+ * `gpus_taken`, on the resources a GPU pick doesn't name. Reported from the same place and for the
+ * same reason: the node would reject the serviceStart, and finding that out after the escrow deposit
+ * tx costs the user gas for nothing.
+ */
+export const RESOURCES_TAKEN = 'resources_taken';
+
+export type GpuSelectionErrorCode = typeof GPUS_TAKEN | typeof GPUS_MISSING | typeof RESOURCES_TAKEN;
+
+function gpuSelectionError(code: GpuSelectionErrorCode, message: string): Error & { code: GpuSelectionErrorCode } {
+  return Object.assign(new Error(message), { code });
+}
+
+/**
+ * The reason a GPU selection failed, or null for any other error. Callers switch the wording on it;
+ * `null` means the error isn't about the GPU pick and belongs to the generic failure path.
+ */
+export function gpuSelectionErrorCode(error: unknown): GpuSelectionErrorCode | null {
+  const code = (error as { code?: string })?.code;
+  return code === GPUS_TAKEN || code === GPUS_MISSING || code === RESOURCES_TAKEN ? code : null;
+}
+
+/**
+ * User-facing wording for a failed GPU selection, or null when the error is something else (leave
+ * those to the caller's generic handler). Shared so the picker and the payment step say the same
+ * thing about the same condition — only the "when" differs, hence `since`.
+ */
+export function gpuSelectionMessage(error: unknown, since: string): string | null {
+  const detail = error instanceof Error ? error.message : '';
+  switch (gpuSelectionErrorCode(error)) {
+    case GPUS_TAKEN:
+      return `The GPUs you selected just got booked ${since}. ${detail}`;
+    case GPUS_MISSING:
+      // Not contention: this type is gone from the environment and won't free up. Move, don't wait.
+      return `${detail} Pick another GPU type, or another environment.`;
+    case RESOURCES_TAKEN:
+      return `This environment ran short of capacity ${since}. ${detail}`;
+    default:
+      return null;
+  }
+}
+
+/**
  * Expand the per-GPU-type unit selection into individual GPU resource-id requests. `gpuSelection`
  * is keyed by GPU description (as merged in useInferenceAllocation); each entry asks for N units.
  * Omit / empty selection means "use every free GPU unit" (whole-environment allocation).
  *
  * Units are counted the same way the allocation hook prices them: a resource id contributes
- * `getAvailableAmount(id)` (max − inUse) UNITS, which may be >1 for a pooled id. We draw the
+ * `getAvailableAmount(id)` (min(max, total − inUse)) UNITS, which may be >1 for a pooled id. We draw the
  * requested units from the free ids of a type, taking up to each id's free amount before moving to
  * the next id — so a single pooled id with 4 free units satisfies a 4-unit pick as `{id, amount:4}`,
  * matching what was priced/escrowed. Requesting per-id blindly (amount:1 each) would disagree with
@@ -431,11 +501,18 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
     if (units <= 0) {
       continue;
     }
+    // Advertised at all (free or not) vs. free right now — the two tell different stories, so the
+    // gone-entirely case is answered from the full GPU list, not just the free one.
+    const advertised = gpus.some((gpu) => (gpu.description || 'GPU') === key);
+    if (!advertised) {
+      throw gpuSelectionError(GPUS_MISSING, `This environment no longer offers "${key}".`);
+    }
     const ofType = freeGpus.filter((gpu) => (gpu.description || 'GPU') === key);
     const freeUnits = ofType.reduce((sum, gpu) => sum + getAvailableAmount(gpu), 0);
     if (freeUnits < units) {
-      throw new Error(
-        `Cannot allocate ${units} × "${key}" GPU${units > 1 ? 's' : ''}: only ${freeUnits} free right now. Try reducing your selection.`
+      throw gpuSelectionError(
+        GPUS_TAKEN,
+        `Only ${freeUnits} × "${key}" free right now, ${units} selected. Reduce your selection to continue.`
       );
     }
     // Draw `units` from the free pool of this type, taking up to each id's free amount in turn.
@@ -450,6 +527,45 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
     }
   }
   return requests;
+}
+
+/**
+ * Check the priced CPU/RAM/disk amounts still fit what the environment has free.
+ *
+ * The allocation handed to a launch was sized against the env as it was read when the payment page
+ * last rendered, but the ids are resolved from a freshly re-read env at click time. `buildGpuRequests`
+ * already catches contention on the GPU units; nothing did for the shared resources, so a tenant
+ * taking CPU/RAM/disk in between meant the node rejected the serviceStart AFTER the escrow deposit tx.
+ *
+ * Throws rather than shrinking the request, for the same reason buildGpuRequests does: a silently
+ * reduced allocation provisions less than the user is being charged for.
+ */
+export function assertAllocationAvailable(resources: ComputeResource[], allocation: Allocation): void {
+  const checks: [keyof Allocation, 'cpu' | 'ram' | 'disk', string][] = [
+    ['cpu', 'cpu', 'CPU'],
+    ['ram', 'ram', 'RAM'],
+    ['disk', 'disk', 'disk'],
+  ];
+  for (const [key, type, label] of checks) {
+    const wanted = allocation[key];
+    if (!wanted || wanted <= 0) {
+      continue;
+    }
+    const id = resourceId(resources, type);
+    const resource = resources.find((r) => r.id === id);
+    // Absent from the env: nothing to validate against, and buildInferenceStartParams still names the
+    // id — leave that to the node, which is the authority on whether it knows the resource.
+    if (!resource) {
+      continue;
+    }
+    const free = getAvailableAmount(resource);
+    if (free < wanted) {
+      throw gpuSelectionError(
+        RESOURCES_TAKEN,
+        `Only ${free} ${label} free right now, ${wanted} needed. Reduce your selection or duration to continue.`
+      );
+    }
+  }
 }
 
 /** Look up the resource id for a base type (cpu/ram/disk), falling back to the type name. */
@@ -537,17 +653,26 @@ export function buildInferenceRestartSpec({
   model,
   params,
   hfToken,
+  appType,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
   hfToken: string;
+  /**
+   * Which flow this relaunch came from, so the service's labels keep describing what it now runs.
+   * An omitted `metadata` reuses the stored bag, which after a model swap would name the OLD model —
+   * so this is re-stamped on every relaunch, not just the ones that change flow.
+   */
+  appType: ServiceAppType;
 }): ServiceRestartParams {
   const runtime = engineRuntime(params);
+  const metadata = buildServiceMetadata({ appType, appId: model.id });
   return {
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
     userData: buildUserData(hfToken),
+    ...(metadata ? { metadata } : {}),
   };
 }
 
@@ -565,6 +690,7 @@ export function buildInferenceStartParams({
   durationSeconds,
   tokenAddress,
   hfToken,
+  appType,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
@@ -579,9 +705,20 @@ export function buildInferenceStartParams({
   durationSeconds: number;
   tokenAddress: string;
   hfToken: string;
+  /**
+   * Which of the four flows launched this, stamped into the service's `metadata` alongside the model
+   * id so the running service identifies itself instead of having to be matched by image/dockerCmd
+   * (see services/service-metadata). Both model flows run the SAME image the node's own inference
+   * templates do, which is exactly the collision image matching can't resolve.
+   */
+  appType: ServiceAppType;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
   const runtime = engineRuntime(params);
+
+  // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
+  // here too, before the caller runs the escrow deposit tx.
+  assertAllocationAvailable(envResources, allocation);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
@@ -590,6 +727,8 @@ export function buildInferenceStartParams({
     ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
   ];
 
+  const metadata = buildServiceMetadata({ appType, appId: model.id });
+
   return {
     environment: selectedEnv.environment.id,
     image: runtime.image,
@@ -597,6 +736,7 @@ export function buildInferenceStartParams({
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
     userData: buildUserData(hfToken),
+    ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: tokenAddress },

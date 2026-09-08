@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
-import { ResourceSizing } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import usePackageEnvs, { ResolvedPackageEnv } from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
 import InferenceStepper from '@/components/inference/inference-stepper';
@@ -10,6 +10,7 @@ import PackageDetailsModal from '@/components/inference/package-details-modal';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
+import { ComputeEnvironment } from '@/types/environments';
 import { InferenceFlowType, InferencePackage } from '@/types/inference';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
@@ -83,7 +84,12 @@ const DefaultModelsPage: React.FC = () => {
   const commitAndPush = (
     pathname: string,
     pickedEnv?: ResolvedPackageEnv,
-    token?: SelectedToken
+    token?: SelectedToken,
+    // What the env card actually priced and validated the pick against, when the commit came from one:
+    // the units it drew, and the node's own freshly re-read environment. `pickedEnv` carries the
+    // resolver's older snapshot and the package's default units, so committing that instead booked a
+    // slice the node had already given away — the contention the card's live read exists to catch.
+    picked?: { gpuSelection: GpuSelection; environment: ComputeEnvironment }
   ) => {
     if (!selectedPackage || !model) {
       return;
@@ -95,7 +101,10 @@ const DefaultModelsPage: React.FC = () => {
     // it preselected (still changeable), and payment launches on the right runtime.
     setEngine(selectedPackage.params.engine);
     if (pickedEnv) {
-      setSelectedEnv(pickedEnv.env);
+      setSelectedEnv({
+        ...pickedEnv.env,
+        ...(picked ? { environment: picked.environment, gpuSelection: picked.gpuSelection } : {}),
+      });
       setSelectedToken(token ?? pickedEnv.token);
     }
     const sizing = pickedEnv ? pickedEnv.env.sizing : packageFloorSizing(selectedPackage);
@@ -109,8 +118,8 @@ const DefaultModelsPage: React.FC = () => {
         ...(pickedEnv
           ? {
               peerId: pickedEnv.env.nodeInfo.id,
-              envId: pickedEnv.env.environment.id,
-              gpuSelection: pickedEnv.env.gpuSelection,
+              envId: (picked?.environment ?? pickedEnv.env.environment).id,
+              gpuSelection: picked?.gpuSelection ?? pickedEnv.env.gpuSelection,
               sizing,
               ...(token ?? pickedEnv.token ? { tokenAddress: (token ?? pickedEnv.token)!.address } : {}),
             }
@@ -120,9 +129,17 @@ const DefaultModelsPage: React.FC = () => {
   };
 
   // Continue from a specific env card → straight to payment with that env + the card's fee token.
-  const goToPayment = (pickedEnv: ResolvedPackageEnv, token: SelectedToken) => {
+  const goToPayment = (
+    pickedEnv: ResolvedPackageEnv,
+    token: SelectedToken,
+    gpuSelection: GpuSelection,
+    environment: ComputeEnvironment
+  ) => {
     if (selectedPackage) {
-      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`, pickedEnv, token);
+      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`, pickedEnv, token, {
+        gpuSelection,
+        environment,
+      });
     }
   };
 

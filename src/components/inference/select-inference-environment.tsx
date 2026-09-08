@@ -14,6 +14,7 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
@@ -33,9 +34,13 @@ function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
 }
 
 /** An env is bookable for inference when it (a) advertises service-on-demand support — the node
- *  rejects serviceStart with 403 otherwise — and (b) accepts a paid token we support (USDC / COMPY). */
+ *  rejects serviceStart with 403 otherwise — (b) isn't the node's own benchmark environment, and
+ *  (c) accepts a paid token we support (USDC / COMPY). */
 function isBookableEnv(env: ComputeEnvironment): boolean {
   if (!env.features?.services) {
+    return false;
+  }
+  if (isBenchmarkEnv(env)) {
     return false;
   }
   return getEnvSupportedTokens(env, true).length > 0;
@@ -220,15 +225,15 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   const handleSelect = (
     node: NodeEnvironments,
-    envId: string,
+    // The card's own copy of the environment — re-read from the node when it committed the pick, so
+    // the availability stored here (and the GPU ids the launch resolves from it) is the fresh one,
+    // not this list's cached entry.
+    environment: ComputeEnvironment,
     tokenAddress: string,
     tokenSymbol: string,
     gpuSelection: GpuSelection
   ) => {
-    const environment = node.computeEnvironments.environments.find((env) => env.id === envId);
-    if (!environment) {
-      return;
-    }
+    const envId = environment.id;
     // Block advancing when the duration is outside this env's paid window. The node doesn't reject
     // a too-short serviceStart — it just sets expiresAt = now + duration, so a job below the min
     // gets swept to Expired almost immediately. Catch it here instead.
@@ -378,6 +383,11 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
                 return (
                   <InferenceEnvironmentCard
+                    // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
+                    // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
+                    // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
+                    allowZeroGpu={flowType === InferenceFlowType.Template}
+                    declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
                     defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                     durationSeconds={jobDurationSeconds}
                     environment={env}
@@ -386,8 +396,8 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                     sizing={selectedEnv?.sizing}
                     selected={isPriorSelection}
                     nodeInfo={node}
-                    onSelect={(tokenAddress, tokenSymbol, gpuSelection) =>
-                      handleSelect(node, env.id, tokenAddress, tokenSymbol, gpuSelection)
+                    onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv) =>
+                      handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection)
                     }
                   />
                 );

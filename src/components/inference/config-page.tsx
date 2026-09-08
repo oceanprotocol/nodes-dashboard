@@ -79,7 +79,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     if (!included) {
       return null;
     }
-    return `Relaunching re-downloads all ${included} — inside the session you have already paid for.`;
+    return `Relaunching re-downloads all ${included}, inside the session you have already paid for.`;
   }, [selectedTemplate]);
   useEffect(() => {
     if (isTemplateFlow) {
@@ -103,8 +103,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       }
     } else if (isTemplateFlow) {
       if (!selectedTemplate) {
-        // No template restored (deep link / refresh with a bad id) — back to the picker.
-        router.replace({ pathname: '/inference/services', query: router.query });
+        // The URL named no template in either place — neither the query nor the `[templateId]` path
+        // segment (hydration reads both; an id it can't resolve fails hydration, which this guard
+        // skips). With no id to classify, the hub is the only honest destination — see payment-page.
+        router.replace('/inference');
       } else if (!selectedEnv && !isEditMode && needsBucketPicker) {
         // A template needing the bucket picker requires selectedEnv (its nodeInfo) to render one —
         // without it (deep link / refresh with no peerId/env) this page would show an empty card that
@@ -343,10 +345,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           ) : (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div>
-                <h3>{selectedTemplate?.name ?? 'Template'} — settings</h3>
+                <h3>{selectedTemplate?.name ?? 'Template'} settings</h3>
                 <div className="textSecondary">
                   {isEditMode
-                    ? 'Update the settings and relaunch. The container restarts on the same environment with the same paid session — the endpoint URL is unchanged.'
+                    ? 'Update the settings and relaunch. The container restarts on the same environment with the same paid session, so the endpoint URL is unchanged.'
                     : 'Optional settings for this app.'}
                 </div>
               </div>
@@ -360,7 +362,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                 />
               )}
               {isEditMode && needsBucketPicker && (
-                <div className="textSecondary">The original persistent-storage bucket stays mounted.</div>
+                <div className="textSecondary">
+                  The persistent-storage bucket selected at launch, if any, stays mounted.
+                </div>
               )}
               {envSpecs.length > 0 ? (
                 envSpecs.map((spec) => (
@@ -394,7 +398,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
               ) : null}
               {isEditMode && (
                 <div className="textSecondary">
-                  Secrets you entered on the original launch aren&apos;t stored — re-enter any tokens you need.
+                  Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens you need.
                 </div>
               )}
               {/* A relaunch recreates the container from the image, and service containers get no

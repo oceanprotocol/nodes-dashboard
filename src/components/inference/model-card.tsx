@@ -1,9 +1,12 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { HuggingFaceModel } from '@/types/huggingface';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useState } from 'react';
@@ -77,6 +80,23 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle
           </div>
           {model.author && <div className={styles.author}>{model.author}</div>}
         </div>
+        {/* Card itself is the select target, so keep the link's click from toggling the selection. */}
+        <Tooltip title="View on Hugging Face">
+          {/* Span carries the tooltip ref: Button's href path renders a Link and doesn't forward one. */}
+          <span className={styles.detailsLink}>
+            <Button
+              aria-label="View on Hugging Face"
+              color="accent1"
+              href={`https://huggingface.co/${model.id}`}
+              onClick={(event) => event.stopPropagation()}
+              size="xs"
+              target="_blank"
+              variant="transparent"
+            >
+              <OpenInNewIcon fontSize="small" />
+            </Button>
+          </span>
+        </Tooltip>
       </div>
       <div className={styles.chips}>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{prettyPipeline(model.pipelineTag)}</span>

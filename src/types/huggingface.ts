@@ -37,6 +37,7 @@ export const TOOL_CALL_PARSERS = [
   { label: 'deepseek_v31 — DeepSeek V3.1', value: 'deepseek_v31' },
   { label: 'deepseek_v3 — DeepSeek V3 / V4', value: 'deepseek_v3' },
   { label: 'mistral — Mistral, Mixtral, Ministral', value: 'mistral' },
+  { label: 'glm47 — GLM-5.3', value: 'glm47' },
   { label: 'glm45 — GLM-4.5 / 4.6 / 4.7', value: 'glm45' },
   { label: 'kimi_k2 — Moonshot Kimi K2', value: 'kimi_k2' },
   { label: 'minimax_m2 — MiniMax M2', value: 'minimax_m2' },
@@ -103,6 +104,8 @@ type CommonModelParameters = {
  */
 export type VllmParameters = CommonModelParameters & {
   engine: 'vllm';
+  /** vLLM Docker image tag. Blank uses the model-specific preset, then the configured stable fallback. */
+  vllmTag?: string;
   // Optional: null = don't emit --max-model-len, let vLLM derive the context length from the model
   // config at launch. A number pins it explicitly.
   maxContext: number | null;

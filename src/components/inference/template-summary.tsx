@@ -117,7 +117,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
             // Everything else in the panel describes the NAMED template, so say so once rather than
             // annotating each section. Both refs are named here — it's the only place they appear.
             <p className={cx(styles.desc, 'textAccent1')}>
-              The container runs {runningImageRef}, not the {templateRef} this template publishes — everything below
+              The container runs {runningImageRef}, not the {templateRef} this template publishes. Everything below
               describes the template, not what is running.
             </p>
           )}
@@ -160,7 +160,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
                   ))}
                 </dl>
               ) : envValues ? (
-                <span className="textSecondary">None configured — the image defaults apply.</span>
+                <span className="textSecondary">None configured, so the image defaults apply.</span>
               ) : (
                 // No values passed = we can't read them back (see the envValues prop docs). List the
                 // keys the template accepts so the section still says something true.

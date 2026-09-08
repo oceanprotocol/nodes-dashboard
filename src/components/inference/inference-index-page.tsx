@@ -74,7 +74,7 @@ const InferenceIndexPage: React.FC = () => {
             <div className={styles.cardContent}>
               <h3>Services</h3>
               <div className="textSecondary">
-                Start a ready-made app — ComfyUI, Open WebUI, JupyterLab — and add your own models
+                Start a ready-made app (ComfyUI, Open WebUI, JupyterLab) and add your own models
               </div>
             </div>
             <div className={styles.cardActions}>

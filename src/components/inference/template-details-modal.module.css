@@ -281,12 +281,6 @@
   color: var(--text-secondary);
 }
 
-.emptyNote {
-  font-size: 12px;
-  font-style: italic;
-  color: var(--text-secondary);
-}
-
 /* Resources table */
 
 .resourceTable {

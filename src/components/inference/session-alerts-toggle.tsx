@@ -35,7 +35,7 @@ const SessionAlertsToggle: React.FC = () => {
   if (state === 'denied') {
     return (
       <div className={styles.note}>
-        Notifications are blocked for this site — the in-app warning will still appear while the dashboard is open.
+        Notifications are blocked for this site, but the in-app warning will still appear while the dashboard is open.
       </div>
     );
   }

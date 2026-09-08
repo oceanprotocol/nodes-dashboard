@@ -3,6 +3,7 @@ import Environments from '@/components/node-details/environments';
 import JobsRevenueStats from '@/components/node-details/jobs-revenue-stats';
 import NodeDetailsPageLayout from '@/components/node-details/node-details-page-layout';
 import NodeInfo from '@/components/node-details/node-info';
+import NodeResourceUsage from '@/components/node-details/node-resource-usage';
 import NodeRunningWorkloads from '@/components/node-details/node-running-workloads';
 import ServiceStats from '@/components/node-details/service-stats';
 import UnbanRequests from '@/components/node-details/unban-requests';
@@ -116,6 +117,7 @@ const NodeDetailsPage: React.FC = () => {
           <NodeInfo envs={nodeEnvs} node={node} nodeOnline={connectedP2P || connectedDirectNodeCommand} />
           <JobsRevenueStats envs={nodeEnvs} />
           <ServiceStats />
+          <NodeResourceUsage envs={nodeEnvs} node={node} />
           <NodeRunningWorkloads node={node} />
           <BenchmarkJobs />
           <Environments

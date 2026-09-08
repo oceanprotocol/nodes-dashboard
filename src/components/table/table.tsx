@@ -382,6 +382,10 @@ export const Table = <T extends GridValidRowModel>({
           pageSize: pageSize,
         };
 
+  // Only meaningful alongside server pagination: under paginationMode 'client' the grid counts its own
+  // rows and MUI warns that rowCount has no effect. Same 'none' guard as paginationMode/paginationModel.
+  const rowCount = paginationType === 'none' ? undefined : totalItems;
+
   const slotProps: GridSlotsComponentsProps & { toolbar: Partial<CustomToolbarProps> } = {
     basePopper: {
       style: {
@@ -430,7 +434,7 @@ export const Table = <T extends GridValidRowModel>({
           paginationMode={paginationType === 'none' ? undefined : 'server'}
           paginationModel={paginationModel}
           processRowUpdate={processRowUpdate}
-          rowCount={totalItems}
+          rowCount={rowCount}
           rows={data}
           showToolbar={showToolbar}
           slots={{
