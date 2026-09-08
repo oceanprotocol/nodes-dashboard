@@ -190,7 +190,7 @@ const NodeDetailsPage: React.FC = () => {
               </div>
             </section>
 
-            {node.banned === false && unbanRequests?.length === 0 ? null : (
+            {!node.banned && unbanRequests?.length === 0 ? null : (
               <section className={styles.section}>
                 <SectionTitle secondary title="Moderation" subTitle="Ban status and unban requests for this node" />
                 <div className={styles.group}>
