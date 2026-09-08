@@ -184,8 +184,8 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       const response = await axios.get<OwnerServiceStats>(`${getApiRoute('serviceOwnerStats')}/${ensAddress}/stats`);
       if (response.data) {
         setOwnerServiceStatsPerEpoch(response.data.data ?? []);
-        setOwnerTotalServices(response.data.totalServices);
-        setOwnerServiceRevenue(response.data.serviceRevenue);
+        setOwnerTotalServices(response.data.totalServices ?? 0);
+        setOwnerServiceRevenue(response.data.serviceRevenue ?? 0);
       }
     } catch (err) {
       console.error('Error fetching owner service stats: ', err);
@@ -204,12 +204,15 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         // No reshaping needed: the server already sends `paidAmount` and
         // `totalServices` per epoch, which are the two barKeys the charts read.
         setConsumerServiceStatsPerEpoch(response.data.data ?? []);
-        setTotalServices(response.data.totalServices);
-        setTotalServicePaidAmount(response.data.totalPaidAmount);
-        setActiveServices(response.data.activeServices);
-        setServicesExpiringSoon(response.data.expiringSoon);
-        setAvgServiceDurationSeconds(response.data.avgDurationSeconds);
-        setAvgServiceCostUsdc(response.data.avgCostUsdc);
+        // Every scalar is defaulted: these feed formatNumber/toFixed directly, so
+        // a field missing from the response would blank the page instead of
+        // rendering a zero.
+        setTotalServices(response.data.totalServices ?? 0);
+        setTotalServicePaidAmount(response.data.totalPaidAmount ?? 0);
+        setActiveServices(response.data.activeServices ?? 0);
+        setServicesExpiringSoon(response.data.expiringSoon ?? 0);
+        setAvgServiceDurationSeconds(response.data.avgDurationSeconds ?? 0);
+        setAvgServiceCostUsdc(response.data.avgCostUsdc ?? 0);
       }
     } catch (err) {
       console.error('Error fetching consumer service stats: ', err);
@@ -285,6 +288,11 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsAddress(undefined);
       setEnsName(undefined);
       setEnsProfile(undefined);
+      // Owner service metrics are address-scoped; leaving them up after a
+      // disconnect shows the previous account's revenue.
+      setOwnerServiceStatsPerEpoch([]);
+      setOwnerTotalServices(0);
+      setOwnerServiceRevenue(0);
     }
   }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile, fetchGrantStatus]);
 

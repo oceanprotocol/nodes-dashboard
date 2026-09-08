@@ -59,7 +59,7 @@ const ConsumerServiceStats = () => {
           { label: 'Running now', value: formatNumber(activeServices) },
           { label: 'Expiring in 24h', value: formatNumber(servicesExpiringSoon) },
           { label: 'Avg duration', value: formatDuration(avgServiceDurationSeconds, true) },
-          { label: 'Avg cost', value: `USDC ${formatNumber(Number(avgServiceCostUsdc.toFixed(2)))}` },
+          { label: 'Avg cost', value: `USDC ${formatNumber(Number((avgServiceCostUsdc ?? 0).toFixed(2)))}` },
         ]}
         title="Your sessions"
       />

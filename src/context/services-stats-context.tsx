@@ -24,8 +24,17 @@ type ServicesStatsContextType = {
   modelPopularity: ModelPopularity[];
   /** Share (0-1) of sessions that record a model at all. Surface it next to the chart. */
   modelCoverage: number;
-  error: string | null;
-  loading: boolean;
+  /**
+   * Fetch status is tracked per resource, not shared: the three endpoints are
+   * independent, so one failing must not blank the others' state, and a
+   * consumer needs to tell "request failed" apart from "no usage yet".
+   */
+  statsError: string | null;
+  statsLoading: boolean;
+  appPopularityError: string | null;
+  appPopularityLoading: boolean;
+  modelPopularityError: string | null;
+  modelPopularityLoading: boolean;
   fetchServiceGlobalStats: () => Promise<void>;
   fetchAppPopularity: () => Promise<void>;
   fetchModelPopularity: () => Promise<void>;
@@ -48,49 +57,61 @@ export const ServicesStatsProvider = ({ children }: { children: ReactNode }) => 
   const [appPopularity, setAppPopularity] = useState<AppPopularity[]>([]);
   const [modelPopularity, setModelPopularity] = useState<ModelPopularity[]>([]);
   const [modelCoverage, setModelCoverage] = useState<number>(0);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [statsLoading, setStatsLoading] = useState<boolean>(false);
+  const [appPopularityError, setAppPopularityError] = useState<string | null>(null);
+  const [appPopularityLoading, setAppPopularityLoading] = useState<boolean>(false);
+  const [modelPopularityError, setModelPopularityError] = useState<string | null>(null);
+  const [modelPopularityLoading, setModelPopularityLoading] = useState<boolean>(false);
 
   const fetchServiceGlobalStats = useCallback(async () => {
-    setLoading(true);
+    setStatsLoading(true);
     try {
       const response = await axios.get<GlobalServiceStats>(getApiRoute('serviceGlobalStats'));
       if (response.data) {
         setStatsPerEpoch(response.data.data ?? []);
         setTotalServices(response.data.totalServices);
         setTotalServiceRevenue(response.data.totalServiceRevenue);
-        setError(null);
       }
+      setStatsError(null);
     } catch (err) {
       console.error('Error fetching service global stats: ', err);
-      setError('Could not load inference stats.');
+      setStatsError('Could not load inference stats.');
     } finally {
-      setLoading(false);
+      setStatsLoading(false);
     }
   }, []);
 
   const fetchAppPopularity = useCallback(async () => {
+    setAppPopularityLoading(true);
     try {
       const response = await axios.get<AppPopularity[]>(getApiRoute('appPopularity'), {
         params: { limit: POPULARITY_LIMIT },
       });
       setAppPopularity(Array.isArray(response.data) ? response.data : []);
+      setAppPopularityError(null);
     } catch (err) {
       console.error('Error fetching app popularity: ', err);
-      setError('Could not load app popularity.');
+      setAppPopularityError('Could not load app usage.');
+    } finally {
+      setAppPopularityLoading(false);
     }
   }, []);
 
   const fetchModelPopularity = useCallback(async () => {
+    setModelPopularityLoading(true);
     try {
       const response = await axios.get<ModelPopularityResponse>(getApiRoute('modelPopularity'), {
         params: { limit: POPULARITY_LIMIT },
       });
       setModelPopularity(response.data?.data ?? []);
       setModelCoverage(response.data?.coverage ?? 0);
+      setModelPopularityError(null);
     } catch (err) {
       console.error('Error fetching model popularity: ', err);
-      setError('Could not load model popularity.');
+      setModelPopularityError('Could not load model usage.');
+    } finally {
+      setModelPopularityLoading(false);
     }
   }, []);
 
@@ -103,8 +124,12 @@ export const ServicesStatsProvider = ({ children }: { children: ReactNode }) => 
         appPopularity,
         modelPopularity,
         modelCoverage,
-        error,
-        loading,
+        statsError,
+        statsLoading,
+        appPopularityError,
+        appPopularityLoading,
+        modelPopularityError,
+        modelPopularityLoading,
         fetchServiceGlobalStats,
         fetchAppPopularity,
         fetchModelPopularity,

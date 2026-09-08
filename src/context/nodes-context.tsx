@@ -3,7 +3,7 @@ import { BenchmarkMinMaxLastResponse, Node, NodeStatsResponse } from '@/types/no
 import { NodeServiceStats, ServiceStatsPerEpoch, ServiceTermBucket } from '@/types/services-stats';
 import { JobsPerEpochType, RevenuePerEpochType } from '@/types/stats';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useRef, useState } from 'react';
 
 type NodesContextType = {
   benchmarkValues: BenchmarkMinMaxLastResponse;
@@ -58,6 +58,17 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
   const [serviceRunningNow, setServiceRunningNow] = useState<number>(0);
   const [serviceUniqueConsumers, setServiceUniqueConsumers] = useState<number>(0);
   const [serviceByModel, setServiceByModel] = useState<ServiceTermBucket[]>([]);
+
+  // `id` is optional on Node while `nodeId` always carries the peer id, so the
+  // same fallback the details page uses is applied here.
+  const selectedNodeId = selectedNode?.id ?? selectedNode?.nodeId;
+  /**
+   * Written during render, not in an effect: child effects fire before the
+   * provider's would, so an effect-updated ref would still hold the previous id
+   * when a consumer refetches for the newly selected node.
+   */
+  const selectedNodeIdRef = useRef<string | undefined>(selectedNodeId);
+  selectedNodeIdRef.current = selectedNodeId;
 
   const fetchNode = useCallback(async (nodeId: string) => {
     setLoadingFetchNode(true);
@@ -131,19 +142,28 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
   }, [selectedNode?.id]);
 
   const fetchNodeServiceStats = useCallback(async () => {
+    const nodeId = selectedNodeId;
+    if (!nodeId) {
+      return;
+    }
     try {
-      const response = await axios.get<NodeServiceStats>(
-        `${getApiRoute('serviceNodeStats')}/${selectedNode?.id}/stats`
-      );
+      const response = await axios.get<NodeServiceStats>(`${getApiRoute('serviceNodeStats')}/${nodeId}/stats`);
+      // Selection can change while this is in flight; a late response for the
+      // previous node must not overwrite the current node's service stats.
+      if (selectedNodeIdRef.current !== nodeId) {
+        return;
+      }
       if (response.data) {
         // Rows arrive carrying both the session count and the revenue, so unlike
         // the jobs endpoint nothing has to be summed client-side.
         setServiceStatsPerEpoch(response.data.data ?? []);
-        setServiceTotalServices(response.data.totalServices);
-        setServiceRevenue(response.data.serviceRevenue);
-        setServiceReservedSeconds(response.data.reservedSeconds);
-        setServiceRunningNow(response.data.runningNow);
-        setServiceUniqueConsumers(response.data.uniqueConsumers);
+        // Defaulted rather than passed through: these go straight into
+        // formatNumber, which renders a missing field as "NaN".
+        setServiceTotalServices(response.data.totalServices ?? 0);
+        setServiceRevenue(response.data.serviceRevenue ?? 0);
+        setServiceReservedSeconds(response.data.reservedSeconds ?? 0);
+        setServiceRunningNow(response.data.runningNow ?? 0);
+        setServiceUniqueConsumers(response.data.uniqueConsumers ?? 0);
         // Sessions with no recorded model land in an `unknown` bucket rather than
         // disappearing; drop it so the chart shows only real model names.
         setServiceByModel((response.data.byModel ?? []).filter((bucket) => bucket.key !== 'unknown'));
@@ -151,7 +171,7 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Error fetching node service stats:', error);
     }
-  }, [selectedNode?.id]);
+  }, [selectedNodeId]);
 
   return (
     <NodesContext.Provider

@@ -7,7 +7,8 @@ import { useEffect } from 'react';
 import styles from './inference-stats.module.css';
 
 const InferenceStats = () => {
-  const { statsPerEpoch, totalServiceRevenue, totalServices, fetchServiceGlobalStats } = useServicesStatsContext();
+  const { statsPerEpoch, statsError, statsLoading, totalServiceRevenue, totalServices, fetchServiceGlobalStats } =
+    useServicesStatsContext();
 
   useEffect(() => {
     fetchServiceGlobalStats();
@@ -23,30 +24,42 @@ const InferenceStats = () => {
         </div>
       </div>
       {/*
-        Both charts read different keys off the SAME rows, and VBarChart sorts its
-        `data` prop in place — so each gets its own copy rather than reordering the
-        array held in context.
+        A failed request renders as a message, not as two empty charts: zero-height
+        bars would otherwise read as "the network served nothing".
       */}
-      <VBarChart
-        axisKey="epochId"
-        barKey="serviceRevenue"
-        chartType={ChartTypeEnum.SERVICE_REVENUE_PER_EPOCH}
-        data={[...statsPerEpoch]}
-        minBars={16}
-        title="Revenue per epoch"
-      />
-      <VBarChart
-        axisKey="epochId"
-        barKey="totalServices"
-        chartType={ChartTypeEnum.SESSIONS_PER_EPOCH}
-        data={[...statsPerEpoch]}
-        footer={{
-          amount: formatNumber(totalServices),
-          label: 'Total sessions',
-        }}
-        minBars={16}
-        title="Sessions per epoch"
-      />
+      {statsError ? (
+        <span className="textSecondary">{statsError}</span>
+      ) : statsLoading && statsPerEpoch.length === 0 ? (
+        <span className="textSecondary">Loading inference stats…</span>
+      ) : (
+        <>
+          {/*
+            Both charts read different keys off the SAME rows, and VBarChart sorts
+            its `data` prop in place — so each gets its own copy rather than
+            reordering the array held in context.
+          */}
+          <VBarChart
+            axisKey="epochId"
+            barKey="serviceRevenue"
+            chartType={ChartTypeEnum.SERVICE_REVENUE_PER_EPOCH}
+            data={[...statsPerEpoch]}
+            minBars={16}
+            title="Revenue per epoch"
+          />
+          <VBarChart
+            axisKey="epochId"
+            barKey="totalServices"
+            chartType={ChartTypeEnum.SESSIONS_PER_EPOCH}
+            data={[...statsPerEpoch]}
+            footer={{
+              amount: formatNumber(totalServices),
+              label: 'Total sessions',
+            }}
+            minBars={16}
+            title="Sessions per epoch"
+          />
+        </>
+      )}
     </Card>
   );
 };

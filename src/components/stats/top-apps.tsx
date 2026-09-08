@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 const MAX_LABEL_CHARS = 20;
 
 const TopApps = () => {
-  const { appPopularity, fetchAppPopularity } = useServicesStatsContext();
+  const { appPopularity, appPopularityError, appPopularityLoading, fetchAppPopularity } = useServicesStatsContext();
 
   useEffect(() => {
     fetchAppPopularity();
@@ -15,7 +15,13 @@ const TopApps = () => {
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <h3>Top apps by sessions</h3>
-      {appPopularity.length > 0 ? (
+      {appPopularityLoading && appPopularity.length === 0 ? (
+        <span className="textSecondary">Loading app usage…</span>
+      ) : appPopularityError ? (
+        // Distinct from the empty state below: a failed request is not proof
+        // that nothing was used.
+        <span className="textSecondary">{appPopularityError}</span>
+      ) : appPopularity.length > 0 ? (
         <>
           <HBarChart axisKey="image" barKey="sessions" data={appPopularity} maxLabelChars={MAX_LABEL_CHARS} />
           {/*
