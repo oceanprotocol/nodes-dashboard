@@ -40,6 +40,10 @@ const NodeDetailsPage: React.FC = () => {
     return null;
   }, [params?.nodeId, selectedNode]);
 
+  const now = Date.now();
+  const isBanned = node && (node.banned || (node.bannedUntil && now < node.bannedUntil));
+  const isSuspended = node && node.suspendedUntil && now < node.suspendedUntil;
+
   useEffect(() => {
     if (!node) {
       fetchNode(params?.nodeId);
@@ -190,14 +194,14 @@ const NodeDetailsPage: React.FC = () => {
               </div>
             </section>
 
-            {!node.banned && unbanRequests?.length === 0 ? null : (
+            {isBanned || isSuspended || (unbanRequests?.length ?? 0) > 0 ? (
               <section className={styles.section}>
                 <SectionTitle secondary title="Moderation" subTitle="Ban status and unban requests for this node" />
                 <div className={styles.group}>
                   <UnbanRequests node={node} />
                 </div>
               </section>
-            )}
+            ) : null}
           </div>
         </>
       ) : null}
