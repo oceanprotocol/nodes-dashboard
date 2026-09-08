@@ -19,10 +19,11 @@ type VBarChartProps = {
 };
 
 const VBarChart = ({ axisKey, barKey, chartType, data, footer, minBars, title }: VBarChartProps) => {
-  const { handleMouseMove, handleMouseLeave, CustomRechartsTooltipComponent, renderTooltipPortal } = useCustomTooltip({
-    chartType,
-    labelKey: axisKey,
-  });
+  const { handleMouseMove, handleMouseLeave, plotRef, CustomRechartsTooltipComponent, renderTooltipPortal } =
+    useCustomTooltip({
+      chartType,
+      labelKey: axisKey,
+    });
 
   const processedData = useMemo(() => {
     // Sort data
@@ -68,7 +69,7 @@ const VBarChart = ({ axisKey, barKey, chartType, data, footer, minBars, title }:
   return (
     <div className={styles.chartWrapper} onMouseLeave={handleMouseLeave}>
       <h3 className={styles.heading}>{title}</h3>
-      <div onMouseMove={handleMouseMove} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div onMouseMove={handleMouseMove} ref={plotRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
           <RechartsBarChart
             barGap={-8}
