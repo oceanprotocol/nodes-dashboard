@@ -18,7 +18,8 @@ type NodeRunningWorkloadsProps = {
   /**
    * Which card to render. The services and jobs cards are independent (separate state and
    * loaders), so the node details page renders them into different sections: services under
-   * inference, jobs under jobs. Both load regardless of what is shown.
+   * inference, jobs under jobs. Only the shown workload type is loaded — the page mounts this
+   * component twice, so loading both in each instance would double the node calls.
    */
   show?: 'services' | 'jobs' | 'both';
 };
@@ -82,11 +83,14 @@ const NodeRunningWorkloads = ({ node, show = 'both' }: NodeRunningWorkloadsProps
 
   // Auto-load services only when a valid node token is already cached (no signature prompt). If not,
   // the user must press the button — which mints a token via the signature flow.
+  const showServices = show === 'services' || show === 'both';
+  const showJobs = show === 'jobs' || show === 'both';
+
   useEffect(() => {
-    if (!servicesLoaded && isReady && isOwner && nodeId && hasValidNodeToken(nodeId)) {
+    if (showServices && !servicesLoaded && isReady && isOwner && nodeId && hasValidNodeToken(nodeId)) {
       loadServices();
     }
-  }, [servicesLoaded, isReady, isOwner, nodeId, hasValidNodeToken, loadServices]);
+  }, [showServices, servicesLoaded, isReady, isOwner, nodeId, hasValidNodeToken, loadServices]);
 
   // --- Compute jobs ---
   const [jobs, setJobs] = useState<NodeComputeJob[]>([]);
@@ -117,8 +121,11 @@ const NodeRunningWorkloads = ({ node, show = 'both' }: NodeRunningWorkloadsProps
 
   // Jobs need no signature — load them as soon as the node is reachable and the viewer is an owner.
   useEffect(() => {
+    if (!showJobs) {
+      return;
+    }
     loadJobs();
-  }, [loadJobs]);
+  }, [showJobs, loadJobs]);
 
   if (!isOwner) {
     return null;
@@ -126,7 +133,7 @@ const NodeRunningWorkloads = ({ node, show = 'both' }: NodeRunningWorkloadsProps
 
   return (
     <>
-      {show === 'services' || show === 'both' ? (
+      {showServices ? (
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
           <div className={styles.head}>
             <div className={styles.title}>
@@ -175,7 +182,7 @@ const NodeRunningWorkloads = ({ node, show = 'both' }: NodeRunningWorkloadsProps
         </Card>
       ) : null}
 
-      {show === 'jobs' || show === 'both' ? (
+      {showJobs ? (
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
           <div className={styles.head}>
             <div className={styles.title}>

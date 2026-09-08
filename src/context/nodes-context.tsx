@@ -69,6 +69,13 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
    */
   const selectedNodeIdRef = useRef<string | undefined>(selectedNodeId);
   selectedNodeIdRef.current = selectedNodeId;
+  /**
+   * Monotonic request counter for the service-stats fetch. The node id alone is
+   * not enough to discard a stale response: two fetches for the SAME node (a
+   * refetch, or A1 -> A2 while A1 is still in flight) both pass the id check, so
+   * the slower one could land last and overwrite fresher data.
+   */
+  const serviceStatsRequestRef = useRef(0);
 
   const fetchNode = useCallback(async (nodeId: string) => {
     setLoadingFetchNode(true);
@@ -146,11 +153,13 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
     if (!nodeId) {
       return;
     }
+    const requestId = ++serviceStatsRequestRef.current;
     try {
       const response = await axios.get<NodeServiceStats>(`${getApiRoute('serviceNodeStats')}/${nodeId}/stats`);
-      // Selection can change while this is in flight; a late response for the
-      // previous node must not overwrite the current node's service stats.
-      if (selectedNodeIdRef.current !== nodeId) {
+      // Selection can change while this is in flight, and a newer fetch for the
+      // same node can have been started since: only the latest request, for the
+      // currently selected node, may write state.
+      if (serviceStatsRequestRef.current !== requestId || selectedNodeIdRef.current !== nodeId) {
         return;
       }
       if (response.data) {

@@ -139,12 +139,13 @@ export const useCustomTooltip = ({ chartType, labelKey }: UseCustomTooltipProps)
     mousePositionRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
-  const handleMouseLeave = useCallback(() => {
-    if ((window as any).__activeTooltipCard === cardIdRef.current) {
-      (window as any).__activeTooltipCard = null;
-      setTooltipInfo((prev) => ({ ...prev, show: false }));
-    }
-  }, []);
+  /**
+   * Deliberately does NOT dismiss. Leaving the wrapper also happens when the pointer moves into the
+   * portalled tooltip (it lives on document.body, so it is outside the wrapper) — hiding here would
+   * kill the interactive tooltips before they can be entered. Dismissal is owned entirely by the
+   * document-level hit test below, which keeps the tooltip alive while the pointer is over it.
+   */
+  const handleMouseLeave = useCallback(() => {}, []);
 
   /**
    * Dismiss whenever the pointer is outside the plot, judged by coordinates on every document-level

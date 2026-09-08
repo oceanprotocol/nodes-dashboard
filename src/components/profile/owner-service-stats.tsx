@@ -85,7 +85,7 @@ const OwnerServiceStats = ({ className, tileClassName }: OwnerServiceStatsProps)
         <StatTile
           items={[
             { label: 'Total reserved', value: formatReservedHours(ownerReservedSeconds) },
-            { label: 'Avg duration', value: formatDuration(avgSessionSeconds, true) },
+            { label: 'Avg reserved duration', value: formatDuration(avgSessionSeconds, true) },
             { label: 'Avg revenue', value: `USDC ${formatNumber(Number(avgRevenueUsdc.toFixed(2)))}` },
           ]}
           title="Inference activity"
