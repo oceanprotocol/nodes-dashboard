@@ -7,6 +7,7 @@ import NodeResourceUsage from '@/components/node-details/node-resource-usage';
 import NodeRunningWorkloads from '@/components/node-details/node-running-workloads';
 import ServiceStats from '@/components/node-details/service-stats';
 import UnbanRequests from '@/components/node-details/unban-requests';
+import SectionTitle from '@/components/section-title/section-title';
 import { useNodesContext } from '@/context/nodes-context';
 import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useP2P } from '@/contexts/P2PContext';
@@ -15,6 +16,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import styles from './node-details-page.module.css';
 
 const NodeDetailsPage: React.FC = () => {
   const params = useParams<{ nodeId: string }>();
@@ -43,6 +45,20 @@ const NodeDetailsPage: React.FC = () => {
       fetchNode(params?.nodeId);
     }
   }, [params?.nodeId, fetchNode, node]);
+
+  /**
+   * Owner/admin gate, duplicated from NodeRunningWorkloads (which returns null for non-owners)
+   * so the "Running now" heading is hidden on exactly the same condition as the content it
+   * introduces. Kept in sync with that component's own check.
+   */
+  const isOwner = useMemo(() => {
+    const addr = account.address?.toLowerCase();
+    if (!addr || !node) {
+      return false;
+    }
+    const admins = node.allowedAdmins?.map((a) => a.toLowerCase()) ?? [];
+    return admins.includes(addr) || node.address?.toLowerCase() === addr;
+  }, [account.address, node]);
 
   /**
    * Check node connectivity by p2p and direct node command by loading its envs
@@ -114,22 +130,75 @@ const NodeDetailsPage: React.FC = () => {
     >
       {node ? (
         <>
-          <NodeInfo envs={nodeEnvs} node={node} nodeOnline={connectedP2P || connectedDirectNodeCommand} />
-          <JobsRevenueStats envs={nodeEnvs} />
-          <ServiceStats />
-          <NodeResourceUsage envs={nodeEnvs} node={node} />
-          <NodeRunningWorkloads node={node} />
-          <BenchmarkJobs />
-          <Environments
-            envs={nodeEnvs}
-            envsTimestamp={node.computeEnvironments?.timestamp}
-            staleEnvData={maybeStaleEnvData}
-            nodeInfo={{
-              friendlyName: node.friendlyName,
-              id: node.id ?? node.nodeId,
-            }}
-          />
-          {node.banned === false && unbanRequests?.length === 0 ? null : <UnbanRequests node={node} />}
+          <div className={styles.sections}>
+            {/*
+              NodeInfo gets no heading of its own: it identifies the node this page is about, so
+              one would only repeat the page title. It still sits inside `.sections` so the gap
+              below it matches every other group boundary.
+            */}
+            <section className={styles.section}>
+              <NodeInfo envs={nodeEnvs} node={node} nodeOnline={connectedP2P || connectedDirectNodeCommand} />
+            </section>
+
+            <section className={styles.section}>
+              <SectionTitle
+                secondary
+                title="Jobs and revenue"
+                subTitle="Compute jobs this node has run and what they earned"
+              />
+              <div className={styles.group}>
+                <JobsRevenueStats envs={nodeEnvs} />
+                {/* Owner-only, and gated here so no heading introduces an empty group. */}
+                {isOwner ? <NodeRunningWorkloads node={node} show="jobs" /> : null}
+              </div>
+            </section>
+
+            {/*
+              Services are their own group rather than folded into the jobs numbers above: those
+              are compute-job earnings, while service economics are priced on reserved time.
+            */}
+            <section className={styles.section}>
+              <SectionTitle
+                secondary
+                title="Inference and services"
+                subTitle="Service revenue, reserved time and the models this node serves"
+              />
+              <div className={styles.group}>
+                <ServiceStats />
+                {isOwner ? <NodeRunningWorkloads node={node} show="services" /> : null}
+              </div>
+            </section>
+
+            <section className={styles.section}>
+              <SectionTitle
+                secondary
+                title="Hardware and environments"
+                subTitle="Resources, benchmark history and the compute environments this node offers"
+              />
+              <div className={styles.group}>
+                <NodeResourceUsage envs={nodeEnvs} node={node} />
+                <Environments
+                  envs={nodeEnvs}
+                  envsTimestamp={node.computeEnvironments?.timestamp}
+                  staleEnvData={maybeStaleEnvData}
+                  nodeInfo={{
+                    friendlyName: node.friendlyName,
+                    id: node.id ?? node.nodeId,
+                  }}
+                />
+                <BenchmarkJobs />
+              </div>
+            </section>
+
+            {node.banned === false && unbanRequests?.length === 0 ? null : (
+              <section className={styles.section}>
+                <SectionTitle secondary title="Moderation" subTitle="Ban status and unban requests for this node" />
+                <div className={styles.group}>
+                  <UnbanRequests node={node} />
+                </div>
+              </section>
+            )}
+          </div>
         </>
       ) : null}
     </NodeDetailsPageLayout>
