@@ -97,6 +97,31 @@ export async function getEscrowEvents(filters: {
 // These ride the gateway's /directCommand rather than ocean.js: the lib ships no wrapper for the two
 // commands, and its only generic P2P sender is private. Both are unauthenticated — no wallet, no
 // node token — so any visitor to a node's page can read them.
+/**
+ * One signal that aborts when either input does. `AbortSignal.any` is the platform version of this,
+ * but is unavailable on Safari < 17.4, which is still inside this app's support range — so the
+ * fallback wires listeners by hand. `once` on each listener lets both signals be garbage collected
+ * with the request.
+ */
+function combineSignals(primary: AbortSignal, secondary?: AbortSignal): AbortSignal {
+  if (!secondary) {
+    return primary;
+  }
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([primary, secondary]);
+  }
+  const controller = new AbortController();
+  const abort = (reason: unknown) => controller.abort(reason);
+  for (const signal of [primary, secondary]) {
+    if (signal.aborted) {
+      abort(signal.reason);
+      break;
+    }
+    signal.addEventListener('abort', () => abort(signal.reason), { once: true });
+  }
+  return controller.signal;
+}
+
 const NODE_METRICS_TIMEOUT_MS = 20_000;
 const NODE_METRICS_HISTORY_TIMEOUT_MS = 45_000;
 
@@ -131,23 +156,32 @@ export async function getNodeMetrics({
 export async function getNodeMetricsHistory({
   multiaddrs,
   peerId,
+  signal: callerSignal,
   startTime,
   stopTime,
 }: {
   multiaddrs?: string[];
   peerId: string;
+  /**
+   * Abort from the caller — a range or node change while this is still in flight. Combined with the
+   * timeout's own signal rather than replacing it, so whichever fires first cancels the request.
+   * Worth doing here specifically: this is the expensive read, and ocean-node rate-limits by
+   * requester IP, which for a remote target is the shared GATEWAY — an abandoned 45s request keeps
+   * holding a slot every other viewer of this node is queueing for.
+   */
+  signal?: AbortSignal;
   startTime: number;
   stopTime: number;
 }): Promise<unknown> {
   return withTimeout(
-    (signal) =>
+    (timeoutSignal) =>
       directNodeCommandJson<unknown>({
         body: { startTime, stopTime },
         command: 'getNodeMetricsHistory',
         label: 'Node metrics history',
         multiaddrs,
         peerId,
-        signal,
+        signal: combineSignals(timeoutSignal, callerSignal),
       }),
     NODE_METRICS_HISTORY_TIMEOUT_MS,
     'Node metrics history'

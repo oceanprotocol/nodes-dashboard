@@ -1,6 +1,6 @@
 import { NodeMetricsSnapshot, nodeSampleFromSnapshot, NodeUsageSample } from '@/types/node-metrics';
 import { ContainerMetricsSnapshot, sampleFromSnapshot, UsageSample } from '@/types/runtime-metrics';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // ~30 samples at the existing poll cadences (4s for services, 15s for compute jobs, 20s for a node)
 // is 2-10 minutes of history — enough for a peak tick and a sparkline without holding an unbounded
@@ -82,5 +82,10 @@ export function useNodeUsageSamples(
     (nodeSnapshot: NodeMetricsSnapshot) => nodeSampleFromSnapshot(nodeSnapshot, excludeEnvIds),
     [excludeEnvIds]
   );
-  return useSnapshotHistory({ resetKey, snapshot, toSample });
+  // Folded into the reset key, not just into `toSample`: the buffer holds already-computed samples,
+  // so changing which environments are excluded changes the denominator every FUTURE sample is
+  // divided by while the ones already stored keep the old one. Sorted so a set with the same ids in
+  // a different insertion order doesn't read as a change and wipe the buffer for nothing.
+  const excludeKey = useMemo(() => [...(excludeEnvIds ?? [])].sort().join('|'), [excludeEnvIds]);
+  return useSnapshotHistory({ resetKey: `${resetKey}|${excludeKey}`, snapshot, toSample });
 }

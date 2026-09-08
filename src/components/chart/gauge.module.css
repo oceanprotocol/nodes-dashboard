@@ -3,6 +3,11 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  /* The card content box is the real budget: gauges sit in `auto-fit` tracks that go as narrow as
+     150px, and a root wider than its track would push the whole card open. */
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
 
   /* `small`/`compact` gauges sit in dense grids (resource usage panel) where a 24px title gap plus a
      h3-sized heading eats more room than the arc itself. */
@@ -98,8 +103,15 @@
         transform: translateX(-50%);
         /* Wider than the arc on purpose: these labels are two byte figures and a device count, which
            at 176px got ellipsed down to the half that says least. The gauge sits in a padded card, so
-           the extra width is the card's own gutter rather than a neighbour's space. */
+           the extra width is the card's own gutter rather than a neighbour's space.
+
+           Capped so that borrowing stops at the gutter. `.chart` is capped at the card's content
+           width, so in the narrowest tracks 132% of it would spill past the card edge rather than
+           into padding. `max-width` measures against the same containing block as `width` (the
+           positioned `.chart`), so the cap is expressed as that box plus the two 14px gutters of
+           Card's `padding="sm"` — the only space this is allowed to reach into. */
         width: 132%;
+        max-width: calc(100% + 28px);
 
         .value {
           font-size: 30px;

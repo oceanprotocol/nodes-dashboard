@@ -99,6 +99,15 @@ export interface NodeMetricsHistoryResult {
   stopTime: number;
 }
 
+/**
+ * `typeof x === 'number'` accepts NaN and Infinity, which are exactly the values that ruin a
+ * denominator quietly — `usedBytes / NaN` is NaN, and a NaN percentage draws an empty gauge with no
+ * error to trace. Every scalar below goes through this instead.
+ */
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 /** Narrow-or-null, never throw — same discipline as `getRuntimeMetrics`. A node on a build we don't
  * know about degrades to "no data" rather than crashing the page. */
 export function asNodeMetricsSnapshot(value: unknown): NodeMetricsSnapshot | null {
@@ -106,16 +115,47 @@ export function asNodeMetricsSnapshot(value: unknown): NodeMetricsSnapshot | nul
     return null;
   }
   const v = value as Record<string, any>;
-  if (typeof v.collectedAt !== 'number') {
+  if (!isFiniteNumber(v.collectedAt)) {
     return null;
   }
-  if (!v.cpu || typeof v.cpu.usagePercent !== 'number' || typeof v.cpu.hostCores !== 'number') {
+  // Every scalar the panel divides by or renders, checked for FINITENESS rather than `typeof
+  // 'number'`: NaN and Infinity are numbers, and a NaN denominator propagates silently into a gauge
+  // that draws an empty arc with no error anywhere. A partial record is rejected outright — the
+  // panel reads these unguarded, and half a snapshot renders as confident zeroes.
+  if (
+    !v.cpu ||
+    !isFiniteNumber(v.cpu.usagePercent) ||
+    !isFiniteNumber(v.cpu.hostCores) ||
+    !isFiniteNumber(v.cpu.coresAllocated) ||
+    !isFiniteNumber(v.cpu.throttledCount)
+  ) {
     return null;
   }
-  if (!v.memory || typeof v.memory.hostTotalBytes !== 'number') {
+  if (
+    !v.memory ||
+    !isFiniteNumber(v.memory.hostTotalBytes) ||
+    !isFiniteNumber(v.memory.hostFreeBytes) ||
+    !isFiniteNumber(v.memory.usedBytes) ||
+    !isFiniteNumber(v.memory.limitBytes)
+  ) {
     return null;
   }
-  if (!v.jobs || !v.disk || !v.network || !v.meta) {
+  if (!v.disk || !isFiniteNumber(v.disk.usedBytes)) {
+    return null;
+  }
+  if (!v.network || !isFiniteNumber(v.network.rxBytes) || !isFiniteNumber(v.network.txBytes)) {
+    return null;
+  }
+  if (
+    !v.jobs ||
+    !isFiniteNumber(v.jobs.queued) ||
+    !isFiniteNumber(v.jobs.queuedFree) ||
+    !isFiniteNumber(v.jobs.running) ||
+    !isFiniteNumber(v.jobs.runningFree)
+  ) {
+    return null;
+  }
+  if (!v.meta || !isFiniteNumber(v.meta.sampledContainers)) {
     return null;
   }
   // gpu/env/loadAverage are always arrays node-side, but a malformed peer must not make a `.map`
@@ -138,7 +178,23 @@ export function asNodeMetricsHistory(value: unknown): NodeMetricsHistoryResult |
   }
   const buckets = v.buckets
     .filter(
-      (bucket: any) => bucket && typeof bucket.hourStart === 'number' && bucket.cpu && bucket.memory && bucket.jobs
+      (bucket: any) =>
+        bucket &&
+        isFiniteNumber(bucket.hourStart) &&
+        // Buckets are dropped individually rather than failing the whole window: one malformed hour
+        // in a 168-bucket week should leave a gap in the line (which `connectNulls={false}` already
+        // draws honestly), not blank the chart. The scalars checked are the ones the series read.
+        isFiniteNumber(bucket.sampleCount) &&
+        bucket.cpu &&
+        isFiniteNumber(bucket.cpu.usagePercent) &&
+        isFiniteNumber(bucket.cpu.hostCores) &&
+        bucket.memory &&
+        isFiniteNumber(bucket.memory.usedBytes) &&
+        isFiniteNumber(bucket.memory.hostTotalBytes) &&
+        isFiniteNumber(bucket.memory.hostFreeBytes) &&
+        bucket.disk &&
+        isFiniteNumber(bucket.disk.usedBytes) &&
+        bucket.jobs
     )
     .map((bucket: any) => ({ ...bucket, gpu: Array.isArray(bucket.gpu) ? bucket.gpu : [] })) as NodeMetricsHourly[];
   // `count` is recomputed rather than echoed: it must match the buckets that survived the filter.
@@ -279,6 +335,47 @@ export function envGpuDevices(
   excludeEnvIds?: Set<string>
 ): { booked: number; total: number } {
   return dedupeEnvResource(env, (resource) => /^gpu\d+$/.test(resource), excludeEnvIds);
+}
+
+/** Client-side rollup of one node snapshot for the ring buffer — the sibling of `UsageSample`. */
+export interface NodeUsageSample {
+  collectedAt: number;
+  /**
+   * Usage as a percentage of what the node's environments ADVERTISE — the same basis the live bars
+   * and gauges draw, so a peak tick derived from these lands where the fill would have been. Each is
+   * `undefined` when the environments advertise none of that resource: the sparkline then plots
+   * nothing, whereas a 0 would draw a floor that reads as "in use, but empty".
+   */
+  cpuPercent?: number;
+  diskPercent?: number;
+  gpuMemoryPercent: Record<string, number>;
+  gpuUtilizationPercent: Record<string, number>;
+  memoryPercent?: number;
+}
+
+/**
+ * Disk capacity advertised across the node's compute environments, in bytes. Env resources are GB per
+ * /computeEnvironments while `disk.usedBytes` is bytes, so the conversion belongs here rather than at
+ * each call site, where mixing the two silently is a 10^9 error.
+ *
+ * Not host disk: environments sharing a filesystem each advertise their own total, so this sum can
+ * exceed the physical volume. Every label built on it says "advertised", never "capacity".
+ */
+export function advertisedDiskBytes(env: { resource: string; total: number }[]): number {
+  return (env ?? [])
+    .filter((row) => row.resource === 'disk')
+    .reduce((total, row) => total + (Number.isFinite(row.total) ? row.total : 0) * 1_000_000_000, 0);
+}
+
+/**
+ * Disk BOOKED across the node's environments, in bytes — the counterpart of `advertisedDiskBytes`,
+ * sharing its GB source units and its caveats. `<envId>:free` rows are a distinct pool with the same
+ * resource ids, so they count like any other env: separately bookable space, not a duplicate.
+ */
+export function bookedDiskBytes(env: { inUse: number; resource: string }[]): number {
+  return (env ?? [])
+    .filter((row) => row.resource === 'disk')
+    .reduce((total, row) => total + (Number.isFinite(row.inUse) ? row.inUse : 0) * 1_000_000_000, 0);
 }
 
 export function nodeSampleFromSnapshot(
