@@ -3,8 +3,6 @@ import HBarChart from '@/components/chart/h-bar-chart';
 import { useServicesStatsContext } from '@/context/services-stats-context';
 import { useEffect } from 'react';
 
-const MAX_LABEL_CHARS = 20;
-
 const TopModels = () => {
   const { modelCoverage, modelPopularity, modelPopularityError, modelPopularityLoading, fetchModelPopularity } =
     useServicesStatsContext();
@@ -24,7 +22,7 @@ const TopModels = () => {
         <span className="textSecondary">{modelPopularityError}</span>
       ) : modelPopularity.length > 0 ? (
         <>
-          <HBarChart axisKey="model" barKey="sessions" data={modelPopularity} maxLabelChars={MAX_LABEL_CHARS} />
+          <HBarChart axisKey="model" barKey="sessions" data={modelPopularity} entityKind="model" />
           {/*
             Coverage is shown rather than hidden: only launches made from the
             dashboard record a model, because the node's service listing strips

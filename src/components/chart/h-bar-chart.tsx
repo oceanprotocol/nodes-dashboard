@@ -1,4 +1,5 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import EntityTick, { EntityKind } from './entity-tick';
 import styles from './h-bar-chart.module.css';
 
 type HBarChartProps = {
@@ -8,13 +9,24 @@ type HBarChartProps = {
   /**
    * Trim category labels to this many characters, revealing the full value on
    * hover. Omit to render labels in full (the default, so existing charts are
-   * unaffected).
+   * unaffected). Ignored when `entityKind` is set — a rich label clamps its own
+   * two lines to the gutter width instead.
    */
   maxLabelChars?: number;
+  /**
+   * Render category labels as avatar + name cards rather than plain text, the
+   * way models and apps are shown in the services table. `model` reads the axis
+   * value as a Hugging Face model id, `app` as a container image (see
+   * EntityTick). Omit for non-entity axes (epochs, GPU names).
+   */
+  entityKind?: EntityKind;
 };
 
 const BAR_HEIGHT = 52;
 const AXIS_WIDTH = 120;
+/* A rich label needs room for an avatar plus a two-line name, so it gets a wider gutter than the
+   plain text tick's character-counted one. */
+const ENTITY_AXIS_WIDTH = 210;
 /* Ticks inherit the 14px body font, where 8px/char is a safe over-estimate for
    this typeface. The gutter must not be undersized: labels are anchored to the
    axis and grow leftwards, so anything too long for `width` is clipped by the
@@ -44,33 +56,46 @@ const TruncatedTick = ({ x, y, payload, maxChars }: any) => {
   );
 };
 
-const HBarChart = ({ axisKey, barKey, data, maxLabelChars }: HBarChartProps) => (
-  <div className={styles.root}>
-    <ResponsiveContainer width="100%" height={data.length * BAR_HEIGHT}>
-      <BarChart data={data} layout="vertical">
-        <XAxis
-          axisLine={false}
-          dataKey={barKey}
-          tick={{ fill: 'var(--text-secondary)' }}
-          tickLine={false}
-          type="number"
-          allowDecimals={false}
-        />
-        <YAxis
-          axisLine={false}
-          dataKey={axisKey}
-          stroke="var(--border)"
-          tick={maxLabelChars ? <TruncatedTick maxChars={maxLabelChars} /> : { fill: 'var(--text-primary)' }}
-          tickLine={false}
-          type="category"
-          allowDecimals={false}
-          width={maxLabelChars ? maxLabelChars * LABEL_CHAR_WIDTH + 8 : AXIS_WIDTH}
-        />
-        <Bar barSize={30} dataKey={barKey} fill="var(--accent1)" radius={[4, 8, 8, 4]} />
-        <CartesianGrid horizontal={true} stroke="var(--border)" vertical={false} />
-      </BarChart>
-    </ResponsiveContainer>
-  </div>
-);
+const HBarChart = ({ axisKey, barKey, data, maxLabelChars, entityKind }: HBarChartProps) => {
+  const axisWidth = entityKind ? ENTITY_AXIS_WIDTH : maxLabelChars ? maxLabelChars * LABEL_CHAR_WIDTH + 8 : AXIS_WIDTH;
+  // A rich label carries its own avatar and two lines of text, so it outranks the plain truncating
+  // tick when both are configured.
+  const tick = entityKind ? (
+    <EntityTick kind={entityKind} width={axisWidth} />
+  ) : maxLabelChars ? (
+    <TruncatedTick maxChars={maxLabelChars} />
+  ) : (
+    { fill: 'var(--text-primary)' }
+  );
+
+  return (
+    <div className={styles.root}>
+      <ResponsiveContainer width="100%" height={data.length * BAR_HEIGHT}>
+        <BarChart data={data} layout="vertical">
+          <XAxis
+            axisLine={false}
+            dataKey={barKey}
+            tick={{ fill: 'var(--text-secondary)' }}
+            tickLine={false}
+            type="number"
+            allowDecimals={false}
+          />
+          <YAxis
+            axisLine={false}
+            dataKey={axisKey}
+            stroke="var(--border)"
+            tick={tick}
+            tickLine={false}
+            type="category"
+            allowDecimals={false}
+            width={axisWidth}
+          />
+          <Bar barSize={30} dataKey={barKey} fill="var(--accent1)" radius={[4, 8, 8, 4]} />
+          <CartesianGrid horizontal={true} stroke="var(--border)" vertical={false} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
 
 export default HBarChart;
