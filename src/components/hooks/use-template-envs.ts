@@ -1,5 +1,6 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
+import { isInferenceNode } from '@/constants/nodes';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
@@ -16,9 +17,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 // Cap the environments lookup so a hung indexer can't keep the details modal on "loading" forever.
 const ENV_FETCH_TIMEOUT_MS = 30000;
-// One page, ranked by benchmark score — the modal shows the best matches, not the whole network. The
-// resources step (Advanced setup) is the exhaustive, paginated picker.
-const ENV_PAGE_SIZE = 100;
+// One page holding every row, then narrowed client-side to the inference allowlist. `/envs` has no
+// node-id filter (see the FilterField switch in incentive-backend `getEnvs`), so a small
+// benchmark-ranked page could rank the allowlisted nodes off the end and leave the modal empty —
+// the same reason use-package-env and inference-context's `restoreEnv` over-fetch. The modal still
+// shows only the best TEMPLATE_ENV_DISPLAY_LIMIT of what survives.
+const ENV_PAGE_SIZE = 1000;
 /** Env cards rendered in the modal. Above this, the modal says so and points at Advanced setup. */
 export const TEMPLATE_ENV_DISPLAY_LIMIT = 8;
 
@@ -107,11 +111,17 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
           'Template environment lookup'
         );
 
-        const candidates = (response.data.envs ?? []).flatMap((node) =>
-          (node.computeEnvironments.environments ?? [])
-            .filter((environment) => canRunTemplate(environment, template!))
-            .map((environment) => ({ node, environment }))
-        );
+        const candidates = (response.data.envs ?? [])
+          // Inference launches only on the allowlisted nodes — see ON_INFERENCE_NODES.
+          // TODO: remove this allowlist once community nodes are allowed to run inference services.
+          // Drop this `.filter` and put ENV_PAGE_SIZE back to a modest page — the over-fetch exists
+          // only so the allowlisted nodes can't rank off the end of a small benchmark-sorted page.
+          .filter((node) => isInferenceNode(node.id))
+          .flatMap((node) =>
+            (node.computeEnvironments.environments ?? [])
+              .filter((environment) => canRunTemplate(environment, template!))
+              .map((environment) => ({ node, environment }))
+          );
 
         const entries = await Promise.all(
           candidates.slice(0, TEMPLATE_ENV_DISPLAY_LIMIT).map(async ({ node, environment }): Promise<ResolvedTemplateEnv> => {
