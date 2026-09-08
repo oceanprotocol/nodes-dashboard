@@ -1,4 +1,5 @@
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { Tooltip } from '@mui/material';
+import { Bar, BarChart, CartesianGrid, Rectangle, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import EntityTick, { EntityKind } from './entity-tick';
 import styles from './h-bar-chart.module.css';
 
@@ -41,18 +42,42 @@ const truncateTail = (value: string, maxChars: number) =>
   value.length > maxChars ? `…${value.slice(-(maxChars - 1))}` : value;
 
 /* A custom tick because the value has to survive twice: truncated as the visible
-   label, and in full inside an SVG <title>, which browsers render as a native
-   hover tooltip. HBarChart has no Recharts <Tooltip>, so <title> is the only
-   hover surface available. */
+   label, and in full on hover. The hover surface is a MUI Tooltip rather than an
+   SVG <title> so it matches EntityTick and the rest of the app's tooltips — a
+   native <title> has its own delay and styling and reads as a browser chrome
+   popup. HBarChart has no Recharts <Tooltip>, so the tick owns the hover itself. */
 const TruncatedTick = ({ x, y, payload, maxChars }: any) => {
   const full = String(payload?.value ?? '');
   const label = truncateTail(full, maxChars);
 
   return (
-    <text className="recharts-text" dy={4} fill="var(--text-primary)" textAnchor="end" x={x} y={y}>
-      {label !== full && <title>{full}</title>}
-      {label}
-    </text>
+    <Tooltip followCursor title={label !== full ? full : ''}>
+      <text className="recharts-text" dy={4} fill="var(--text-primary)" textAnchor="end" x={x} y={y}>
+        {label}
+      </text>
+    </Tooltip>
+  );
+};
+
+/* Bars carry the same hover text as their label, so a row is identifiable from either end of it —
+   the bar is the larger target, and on a chart whose gutter is truncated (`maxLabelChars`) or
+   clamped (`entityKind`) it is often the only place the full name can be read. Recharts' own
+   <Tooltip> is deliberately not used: it would need a different payload shape per chart and would
+   look nothing like the MUI tooltips the rest of the app uses.
+
+   Wrapping the shape rather than the whole <Bar> because a Bar renders one <Rectangle> per row, and
+   the tooltip has to anchor to the hovered row. Rectangle (not a hand-rolled <rect>) so the bar's
+   `radius` still applies, inside a <g> because MUI Tooltip attaches its ref and mouse handlers to
+   its immediate child and Rectangle is a class component that would swallow them. */
+const TooltipBarShape = ({ axisKey, ...props }: any) => {
+  const full = String(props?.payload?.[axisKey] ?? '');
+
+  return (
+    <Tooltip followCursor title={full}>
+      <g>
+        <Rectangle {...props} />
+      </g>
+    </Tooltip>
   );
 };
 
@@ -90,7 +115,13 @@ const HBarChart = ({ axisKey, barKey, data, maxLabelChars, entityKind }: HBarCha
             allowDecimals={false}
             width={axisWidth}
           />
-          <Bar barSize={30} dataKey={barKey} fill="var(--accent1)" radius={[4, 8, 8, 4]} />
+          <Bar
+            barSize={30}
+            dataKey={barKey}
+            fill="var(--accent1)"
+            radius={[4, 8, 8, 4]}
+            shape={<TooltipBarShape axisKey={axisKey} />}
+          />
           <CartesianGrid horizontal={true} stroke="var(--border)" vertical={false} />
         </BarChart>
       </ResponsiveContainer>
