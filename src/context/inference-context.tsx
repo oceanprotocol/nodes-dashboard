@@ -1,5 +1,6 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
+import { isInferenceNode } from '@/constants/nodes';
 import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
@@ -497,6 +498,15 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const envId = firstQueryValue(q.env);
       if (!peerId || !envId) {
         return true;
+      }
+      // A deep link can name any node. The pickers only ever offer ON_INFERENCE_NODES, so a URL
+      // pointing elsewhere is treated as an unrestorable selection (surfaces the hydration error)
+      // rather than silently reinstating an env the flow can't launch on.
+      // TODO: remove this allowlist once community nodes are allowed to run inference services. Drop
+      // this guard with it, or it keeps rejecting deep links to community-node envs that the pickers
+      // have by then started offering.
+      if (!isInferenceNode(peerId)) {
+        return false;
       }
       const response = await axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
         params: {

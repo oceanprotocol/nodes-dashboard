@@ -31,8 +31,15 @@ export const DEFAULT_FILTERS: RawFilters = {
 
 /** Client-side visibility test a consumer applies to each env (service-on-demand, fee token, …).
  *  Passed to `loadMoreEnvs` so the fetch loop can tell a page that contributes nothing visible from
- *  one that does, and keep paging instead of stopping on a page that would render empty. */
-export type EnvVisibilityFilter = (env: NodeEnvironments['computeEnvironments']['environments'][number]) => boolean;
+ *  one that does, and keep paging instead of stopping on a page that would render empty.
+ *
+ *  The owning node comes through as the second argument so a consumer can also gate on node identity
+ *  (the inference picker allows only ON_INFERENCE_NODES) — without it, a page holding only
+ *  disallowed nodes reads as "gained visible" and the loop stops on a list that renders empty. */
+export type EnvVisibilityFilter = (
+  env: NodeEnvironments['computeEnvironments']['environments'][number],
+  node: NodeEnvironments
+) => boolean;
 
 type RunJobEnvsContextType = {
   fetchGpus: () => Promise<void>;
@@ -176,7 +183,7 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
         const gainedVisible = result.envs.some((node) =>
-          node.computeEnvironments.environments.some((env) => isVisible(env))
+          node.computeEnvironments.environments.some((env) => isVisible(env, node))
         );
         if (gainedVisible || page >= result.pagination.totalPages) {
           return;
