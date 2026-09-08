@@ -37,9 +37,8 @@ const TEMPLATE_LOGO_FILES: Record<string, string> = {
   glm: 'zai.svg',
   hermes: 'hermes.svg',
   jupyter: 'jupyter.svg',
-  openclaw: 'openclaw.svg',
-  // Longer than `vllm`, so `vllm-nomic-embed` wears Nomic's mark rather than vLLM's (see MATCH_KEYS).
   'nomic-embed': 'nomic.svg',
+  openclaw: 'openclaw.svg',
   opencode: 'opencode.svg',
   'open-webui': 'open-webui.png',
   qwen: 'qwen.svg',
