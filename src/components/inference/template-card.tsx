@@ -2,6 +2,7 @@ import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
 import BundleIncludes from '@/components/inference/bundle-includes';
 import { templateLogo } from '@/components/inference/template-logos';
+import TemplateMark from '@/components/inference/template-mark';
 import {
   accentVars,
   CATEGORY_META,
@@ -124,16 +125,22 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
       <div className={styles.cardTop}>
         {/* The brand mark REPLACES the category glyph rather than covering it — the marks are
           transparent artwork, so anything drawn underneath shows through the shape. */}
-        <span className={styles.tile}>
-          {item.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img alt="" className={styles.tileLogo} src={item.logo} />
-          ) : item.mono ? (
-            <span className={styles.tileMono}>{item.mono}</span>
-          ) : (
-            <item.CategoryIcon className={styles.tileIcon} />
-          )}
-        </span>
+        <TemplateMark
+          fallback={
+            <span className={styles.tile}>
+              {item.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="" className={styles.tileLogo} src={item.logo} />
+              ) : item.mono ? (
+                <span className={styles.tileMono}>{item.mono}</span>
+              ) : (
+                <item.CategoryIcon className={styles.tileIcon} />
+              )}
+            </span>
+          }
+          size={30}
+          template={item.tpl}
+        />
         <span className={styles.titleWrap}>
           <span className={styles.name} title={item.name}>
             {item.name}

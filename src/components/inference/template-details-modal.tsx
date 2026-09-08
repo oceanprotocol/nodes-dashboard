@@ -6,6 +6,7 @@ import BundleIncludes, { IncludesAvatarCluster } from '@/components/inference/bu
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import TemplateDisclosure from '@/components/inference/template-disclosure';
 import { templateLogo } from '@/components/inference/template-logos';
+import TemplateMark from '@/components/inference/template-mark';
 import {
   accentVars,
   templateGpuLabel,
@@ -567,16 +568,22 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
         <>
           <div className={styles.header} style={accentVars(visual.meta.accent, resolvedTheme) as CSSProperties}>
             {/* The brand mark REPLACES the category glyph — see the same note in template-card. */}
-            <span className={styles.tile}>
-              {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img alt="" className={styles.tileLogo} src={logo} />
-              ) : visual.mono ? (
-                <span className={styles.tileMono}>{visual.mono}</span>
-              ) : (
-                <visual.meta.Icon className={styles.tileIcon} />
-              )}
-            </span>
+            <TemplateMark
+              fallback={
+                <span className={styles.tile}>
+                  {logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt="" className={styles.tileLogo} src={logo} />
+                  ) : visual.mono ? (
+                    <span className={styles.tileMono}>{visual.mono}</span>
+                  ) : (
+                    <visual.meta.Icon className={styles.tileIcon} />
+                  )}
+                </span>
+              }
+              size={38}
+              template={template}
+            />
             <div className={styles.headerText}>
               <h2 className={styles.name}>{template.name ?? template.id}</h2>
               {/* Templates only: the one concrete thing this gets done. The catalogue card leads with
