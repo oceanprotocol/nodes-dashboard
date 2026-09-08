@@ -1,0 +1,36 @@
+/* One template shared by both owner stat Cards: three equal tracks, matching the consumer stat
+   Cards, where the third holds the smaller metric beside the charts (the eligibility gauge on one
+   Card, the activity tile on the other).
+
+   The count is stated here rather than left to each Card's own `auto-fit`, which is what these used
+   to do: `auto-fit` counts only that Card's children, so the jobs Card resolved to three tracks and
+   the inference Card to two — rendering the inference bars ~50% wider than the jobs bars directly
+   above them. Fixing the count keeps both Cards on the same columns whatever each one contains. */
+.statsCard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 48px;
+  row-gap: 24px;
+  align-items: start;
+}
+
+.statsCard .sideSlot {
+  grid-column: 3;
+}
+
+@media (max-width: 1024px) {
+  .statsCard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+
+  .statsCard .sideSlot {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .statsCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

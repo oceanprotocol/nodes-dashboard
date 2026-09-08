@@ -4,10 +4,21 @@ import Gauge from '@/components/chart/gauge';
 import VBarChart from '@/components/chart/v-bar-chart';
 import { useProfileContext } from '@/context/profile-context';
 import { formatNumber } from '@/utils/formatters';
+import cx from 'classnames';
 import { useEffect } from 'react';
 import styles from './owner-stats.module.css';
 
-const OwnerStats = () => {
+type OwnerStatsProps = {
+  /**
+   * Grid template shared with the sibling inference Card so the two Cards' columns line up — see
+   * owner-section.module.css.
+   */
+  className?: string;
+  /** Places the gauge in the shared template's third track. */
+  gaugeClassName?: string;
+};
+
+const OwnerStats = ({ className, gaugeClassName }: OwnerStatsProps) => {
   const {
     totalNetworkRevenue,
     totalBenchmarkRevenue,
@@ -29,7 +40,7 @@ const OwnerStats = () => {
   }, [fetchOwnerStats]);
 
   return (
-    <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
+    <Card className={className} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
       <VBarChart
         axisKey="epochId"
         barKey="totalRevenue"
@@ -55,14 +66,16 @@ const OwnerStats = () => {
         }}
         minBars={16}
       />
-      <Gauge
-        label="Eligible"
-        max={100}
-        min={0}
-        title="Eligible nodes"
-        value={totalNodes > 0 ? Number(((eligibleNodes / totalNodes) * 100).toFixed(1)) : 0}
-        valueSuffix="%"
-      />
+      <div className={cx(styles.gauge, gaugeClassName)}>
+        <Gauge
+          label="Eligible"
+          max={100}
+          min={0}
+          title="Eligible nodes"
+          value={totalNodes > 0 ? Number(((eligibleNodes / totalNodes) * 100).toFixed(1)) : 0}
+          valueSuffix="%"
+        />
+      </div>
     </Card>
   );
 };

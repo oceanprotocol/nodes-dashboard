@@ -3,7 +3,7 @@ import { ChartTypeEnum } from '@/components/chart/chart-type';
 import VBarChart from '@/components/chart/v-bar-chart';
 import StatTile from '@/components/stat-tile/stat-tile';
 import { useProfileContext } from '@/context/profile-context';
-import { formatDuration, formatNumber } from '@/utils/formatters';
+import { formatDuration, formatNumber, formatReservedHours } from '@/utils/formatters';
 import { useEffect } from 'react';
 import styles from './consumer-service-stats.module.css';
 
@@ -12,6 +12,7 @@ const ConsumerServiceStats = () => {
     activeServices,
     avgServiceCostUsdc,
     avgServiceDurationSeconds,
+    consumerReservedSeconds,
     consumerServiceStatsPerEpoch,
     servicesExpiringSoon,
     totalServicePaidAmount,
@@ -58,6 +59,7 @@ const ConsumerServiceStats = () => {
         items={[
           { label: 'Running now', value: formatNumber(activeServices) },
           { label: 'Expiring in 24h', value: formatNumber(servicesExpiringSoon) },
+          { label: 'Total reserved', value: formatReservedHours(consumerReservedSeconds) },
           { label: 'Avg duration', value: formatDuration(avgServiceDurationSeconds, true) },
           { label: 'Avg cost', value: `USDC ${formatNumber(Number((avgServiceCostUsdc ?? 0).toFixed(2)))}` },
         ]}

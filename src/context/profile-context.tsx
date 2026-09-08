@@ -43,12 +43,14 @@ type ProfileContextType = {
   ownerServiceStatsPerEpoch: ServiceStatsPerEpoch[];
   ownerTotalServices: number;
   ownerServiceRevenue: number;
+  ownerReservedSeconds: number;
   // Consumer service (inference) stats
   consumerServiceStatsPerEpoch: ConsumerServiceStatsPerEpoch[];
   totalServices: number;
   totalServicePaidAmount: number;
   activeServices: number;
   servicesExpiringSoon: number;
+  consumerReservedSeconds: number;
   avgServiceDurationSeconds: number;
   avgServiceCostUsdc: number;
   environment: any;
@@ -85,6 +87,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [totalNodes, setTotalNodes] = useState<number>(0);
   const [successfullJobs, setSuccessfullJobs] = useState<number>(0);
   const [ownerServiceStatsPerEpoch, setOwnerServiceStatsPerEpoch] = useState<ServiceStatsPerEpoch[]>([]);
+  const [ownerReservedSeconds, setOwnerReservedSeconds] = useState<number>(0);
   const [ownerTotalServices, setOwnerTotalServices] = useState<number>(0);
   const [ownerServiceRevenue, setOwnerServiceRevenue] = useState<number>(0);
   const [consumerServiceStatsPerEpoch, setConsumerServiceStatsPerEpoch] = useState<ConsumerServiceStatsPerEpoch[]>([]);
@@ -94,6 +97,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [servicesExpiringSoon, setServicesExpiringSoon] = useState<number>(0);
   const [avgServiceDurationSeconds, setAvgServiceDurationSeconds] = useState<number>(0);
   const [avgServiceCostUsdc, setAvgServiceCostUsdc] = useState<number>(0);
+  const [consumerReservedSeconds, setConsumerReservedSeconds] = useState<number>(0);
   const [environment, setEnvironment] = useState<any>(null);
   const [nodeInfo, setNodeInfo] = useState<any>();
   const [grantStatus, setGrantStatus] = useState<GrantStatus | null>(null);
@@ -186,6 +190,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         setOwnerServiceStatsPerEpoch(response.data.data ?? []);
         setOwnerTotalServices(response.data.totalServices ?? 0);
         setOwnerServiceRevenue(response.data.serviceRevenue ?? 0);
+        setOwnerReservedSeconds(response.data.reservedSeconds ?? 0);
       }
     } catch (err) {
       console.error('Error fetching owner service stats: ', err);
@@ -213,6 +218,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         setServicesExpiringSoon(response.data.expiringSoon ?? 0);
         setAvgServiceDurationSeconds(response.data.avgDurationSeconds ?? 0);
         setAvgServiceCostUsdc(response.data.avgCostUsdc ?? 0);
+        setConsumerReservedSeconds(response.data.reservedSeconds ?? 0);
       }
     } catch (err) {
       console.error('Error fetching consumer service stats: ', err);
@@ -291,6 +297,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       // Owner service metrics are address-scoped; leaving them up after a
       // disconnect shows the previous account's revenue.
       setOwnerServiceStatsPerEpoch([]);
+      setOwnerReservedSeconds(0);
       setOwnerTotalServices(0);
       setOwnerServiceRevenue(0);
     }
@@ -316,6 +323,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         ownerServiceStatsPerEpoch,
         ownerTotalServices,
         ownerServiceRevenue,
+        ownerReservedSeconds,
         consumerServiceStatsPerEpoch,
         totalServices,
         totalServicePaidAmount,
@@ -323,6 +331,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         servicesExpiringSoon,
         avgServiceDurationSeconds,
         avgServiceCostUsdc,
+        consumerReservedSeconds,
         environment,
         nodeInfo,
         grantStatus,
