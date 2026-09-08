@@ -218,6 +218,88 @@
 }
 
 /* The published description, once it has stopped being the modal's opening move. */
+/* The overview. Prose, so it sits on the modal ground rather than in a glass panel — panels here
+   group data, and one around a description would read as another table to skim past.
+   No measure cap: the header outcome, the workflow cards and the resources table all run the full
+   width, and a column stopping short of them reads as broken layout rather than as a reading
+   measure. The modal caps its own width, so lines never get longer than that. */
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The opening paragraph answers "what am I looking at". A 2.5px step over the body is enough to
+   rank them once the colour differs too; 1px was a hierarchy nobody could see. */
+.lead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  text-wrap: pretty;
+}
+
+.bodyProse {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* The toggle for the operating detail. Same colour and weight as the workflow cards' More, with the
+   chevron the modal's other disclosures use — bare text here sat between two paragraphs with nothing
+   marking it as a control. */
+.moreButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: flex-start;
+  margin-top: -2px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent1);
+}
+
+.moreButton:hover {
+  text-decoration: underline;
+}
+
+.moreChevron {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  fill: currentColor;
+  transition: transform var(--transition-fast, 0.2s ease);
+}
+
+.moreChevronOpen {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moreChevron {
+    transition: none;
+  }
+}
+
+/* Who it is for — the same accent already carrying the tile and the category chip, so the rule
+   reads as part of this template's identity rather than as generic pull-quote furniture. */
+.audience {
+  margin: 2px 0 0;
+  padding-left: 13px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  text-wrap: pretty;
+}
+
 .notesProse {
   margin: 0;
   font-size: 12px;

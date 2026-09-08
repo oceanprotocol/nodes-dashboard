@@ -144,8 +144,12 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
         </span>
       </div>
 
-      <p className={cx(styles.desc, { [styles.descEmpty]: !item.tpl.description })}>
-        {item.tpl.description || 'No description published for this image.'}
+      {/* `outcome` first: it is the one-line version the catalogue writes for exactly this slot, and
+          the card clamps to two lines — a full description truncated mid-sentence tells you less
+          than the sentence written to fit. The description is the fallback, and the whole of it is
+          in the details modal either way. */}
+      <p className={cx(styles.desc, { [styles.descEmpty]: !item.tpl.outcome && !item.tpl.description })}>
+        {item.tpl.outcome || item.tpl.description || 'No description published for this image.'}
       </p>
 
       <div className={cx(styles.chips, 'gapSm')}>

@@ -34,6 +34,7 @@ import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import DnsIcon from '@mui/icons-material/Dns';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import LockIcon from '@mui/icons-material/Lock';
@@ -44,7 +45,7 @@ import SdStorageIcon from '@mui/icons-material/SdStorage';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
-import { CSSProperties } from 'react';
+import { CSSProperties, Fragment, useState } from 'react';
 import styles from './template-details-modal.module.css';
 
 type TemplateDetailsModalProps = {
@@ -84,6 +85,57 @@ type ResourceRow = {
 };
 
 const NOT_DECLARED = 'Not declared';
+
+/**
+ * The published `description`, as the paragraphs its author wrote. Split on blank lines because the
+ * catalogue stores it as plain text: rendered into one <p>, HTML collapses the breaks and four
+ * paragraphs arrive as a single block.
+ *
+ * Catalogue descriptions run to four paragraphs in a fixed shape — what it is, then two of operating
+ * detail, then who it is for. Only the first and last are read while deciding, so those two stay
+ * open and the middle sits behind the same More toggle the workflow cards use; all four at once is a
+ * screen of grey between the header and "What you can run", which is the thing being chosen.
+ *
+ * The closing paragraph carries the template's own accent rule, since it is a different kind of
+ * sentence from the spec above it. It is detected from the text rather than declared, so copy that
+ * doesn't follow the pattern simply reads as body and nothing is hidden.
+ */
+const AUDIENCE_LINE = /^this template is built for\b/i;
+
+const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text, style }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const last = paragraphs.length - 1;
+  const hasAudience = last > 0 && AUDIENCE_LINE.test(paragraphs[last]);
+  const audience = hasAudience ? paragraphs[last] : null;
+  const middle = paragraphs.slice(1, hasAudience ? last : undefined);
+
+  return (
+    // `--accent` is set per template on the header, so the audience rule needs it carried here too.
+    <div className={styles.overview} style={style}>
+      <p className={styles.lead}>{paragraphs[0]}</p>
+      {expanded &&
+        middle.map((paragraph, i) => (
+          <p className={styles.bodyProse} key={i}>
+            {paragraph}
+          </p>
+        ))}
+      {middle.length > 0 && (
+        // Named rather than "More": a bare red word between two paragraphs reads as a warning, and
+        // says nothing about what opens. The chevron matches the modal's other disclosures.
+        <button className={styles.moreButton} onClick={() => setExpanded((open) => !open)} type="button">
+          {expanded ? 'Hide how it runs' : 'How it runs'}
+          <ExpandMoreIcon className={cx(styles.moreChevron, { [styles.moreChevronOpen]: expanded })} />
+        </button>
+      )}
+      {audience && <p className={styles.audience}>{audience}</p>}
+    </div>
+  );
+};
 
 function resourceRows(template: AppTemplate): ResourceRow[] {
   const required = template.requiredResources ?? [];
@@ -133,9 +185,10 @@ function resourceRows(template: AppTemplate): ResourceRow[] {
  * The first section varies by `templateShape`, and nothing else does — a returning user never has to
  * re-learn the modal:
  *
- * - **recipe** — the graphs it ships, one bordered card each. They are the offer, so they take the
- *   largest share of the modal, and the published `description` (which restates them almost sentence
- *   for sentence) moves into "Good to know" rather than opening the modal with a prose wall.
+ * - **recipe** — the published `description` opens the modal as "What it is", then the graphs it
+ *   ships, one bordered card each. The description used to be collapsed into "Good to know" because
+ *   it restated those cards; catalogue copy is now written per template and says more than they do,
+ *   so it leads — with only its opening and closing paragraphs open, so the graphs stay in view.
  * - **modelPack** — the manifest promoted into that same slot, annotated but visibly quieter, plus
  *   the absence of a workflow said out loud.
  * - **service** — plain prose and no panel at all. A bordered panel is this modal's way of saying
@@ -316,28 +369,39 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
     );
 
   /**
-   * The published `description`, plus the env vars, behind one row. For a bundle this paragraph is
-   * documentation rather than a decision: it restates the workflow descriptions and then adds the
-   * operational footnotes (storage, first launch, which variables exist) that nothing else carries.
-   * Available, out of the way — and it is also where the env-var chips move to, so the header stops
-   * carrying two competing chip rows.
+   * The overview, first thing under the header. It used to sit inside "Good to know", collapsed, on
+   * the reasoning that for a bundle it restated the workflow descriptions — that stopped being true
+   * once the catalogue started publishing a full description per template, and a paragraph nobody
+   * opens is a paragraph nobody reads. Workflows still follow: overview first, then the detail.
    */
-  const renderGoodToKnow = (tpl: AppTemplate) => {
+  const renderOverview = (tpl: AppTemplate) => {
     const description = tpl.description?.trim();
-    const hasEnvVars = (tpl.userConfigurableEnvVars?.length ?? 0) > 0;
-    if (!description && !hasEnvVars) {
+    if (!description || !visual) {
       return null;
     }
     return (
       <div className={styles.section}>
-        <TemplateDisclosure
-          Icon={InfoOutlinedIcon}
-          summary={
-            hasEnvVars ? 'Good to know: how it runs, and the variables you can set' : 'Good to know: how it runs'
-          }
-        >
-          {description && <p className={styles.notesProse}>{description}</p>}
-          {hasEnvVars && renderEnvVars(tpl)}
+        <div className={styles.sectionHead}>
+          <h4>What it is</h4>
+        </div>
+        <TemplateProse style={accentVars(visual.meta.accent, resolvedTheme) as CSSProperties} text={description} />
+      </div>
+    );
+  };
+
+  /**
+   * The env vars, behind one row: which variables exist is a launch-time detail, not something read
+   * while deciding. Available, out of the way — and keeping them here stops the header carrying two
+   * competing chip rows.
+   */
+  const renderGoodToKnow = (tpl: AppTemplate) => {
+    if ((tpl.userConfigurableEnvVars?.length ?? 0) === 0) {
+      return null;
+    }
+    return (
+      <div className={styles.section}>
+        <TemplateDisclosure Icon={InfoOutlinedIcon} summary="Good to know: the variables you can set">
+          {renderEnvVars(tpl)}
         </TemplateDisclosure>
       </div>
     );
@@ -465,9 +529,11 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
           <h4>What you get</h4>
           <div>{visual.meta.purpose} You bring the models.</div>
         </div>
-        <p className={cx(styles.prose, { [styles.descriptionEmpty]: !tpl.description })}>
-          {tpl.description || 'No description published for this image.'}
-        </p>
+        {tpl.description ? (
+          <TemplateProse text={tpl.description} />
+        ) : (
+          <p className={cx(styles.prose, styles.descriptionEmpty)}>No description published for this image.</p>
+        )}
         {(tpl.capabilities?.length ?? 0) > 0 && (
           <div className={styles.capabilities}>
             {tpl.capabilities?.map((capability) => (
@@ -536,6 +602,8 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
               </div>
             </div>
           </div>
+
+          {shape !== 'service' && renderOverview(template)}
 
           {renderOfferSection(template)}
 
