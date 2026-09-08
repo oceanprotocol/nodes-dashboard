@@ -17,12 +17,35 @@ const ServiceStats = () => {
     serviceStatsPerEpoch,
     serviceTotalServices,
     serviceUniqueConsumers,
+    serviceStatsError,
+    serviceStatsLoading,
     fetchNodeServiceStats,
   } = useNodesContext();
 
   useEffect(() => {
     fetchNodeServiceStats();
   }, [fetchNodeServiceStats]);
+
+  /*
+    A failed request renders as a message, not as zeroed charts and tiles: with the
+    stats cleared, empty bars and a "USDC 0" total would read as "this node earned
+    nothing" rather than "we could not ask".
+  */
+  if (serviceStatsError) {
+    return (
+      <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
+        <span className="textSecondary">{serviceStatsError}</span>
+      </Card>
+    );
+  }
+
+  if (serviceStatsLoading) {
+    return (
+      <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
+        <span className="textSecondary">Loading inference stats…</span>
+      </Card>
+    );
+  }
 
   return (
     <>

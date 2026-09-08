@@ -1037,13 +1037,18 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                   <div className={styles.sectionHead}>
                     <h3>Environment</h3>
                     <span className="textSecondary">
-                      {isProlongMode ? 'Adding ' : 'Running for '}
+                      {/* Edit keeps the service's already-paid window (serviceRestart reuses the same
+                          expiry), so this describes the existing session rather than a new one. The
+                          Edit link carries that window on the query, so jobDurationSeconds is it. */}
+                      {isProlongMode ? 'Adding ' : isEditMode ? 'Session length ' : 'Running for '}
                       {formatDuration(jobDurationSeconds)}
                     </span>
                   </div>
                   <InferenceEnvironmentCard
                     defaultToken={selectedToken?.address}
                     durationSeconds={jobDurationSeconds}
+                    // An Edit relaunch reuses the paid window: nothing is charged, so no price.
+                    hidePrice={isEditMode}
                     environment={environment ?? selectedEnv.environment}
                     gpuSelection={gpuSelection}
                     sizing={sizing}

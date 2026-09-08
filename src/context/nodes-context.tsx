@@ -23,6 +23,8 @@ type NodesContextType = {
   serviceRunningNow: number;
   serviceUniqueConsumers: number;
   serviceByModel: ServiceTermBucket[];
+  serviceStatsError: string | null;
+  serviceStatsLoading: boolean;
 
   fetchNode: (nodeId: string) => Promise<void>;
   fetchNodeBenchmarkMinMaxLast: () => Promise<void>;
@@ -58,6 +60,8 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
   const [serviceRunningNow, setServiceRunningNow] = useState<number>(0);
   const [serviceUniqueConsumers, setServiceUniqueConsumers] = useState<number>(0);
   const [serviceByModel, setServiceByModel] = useState<ServiceTermBucket[]>([]);
+  const [serviceStatsError, setServiceStatsError] = useState<string | null>(null);
+  const [serviceStatsLoading, setServiceStatsLoading] = useState<boolean>(false);
 
   // `id` is optional on Node while `nodeId` always carries the peer id, so the
   // same fallback the details page uses is applied here.
@@ -148,12 +152,30 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [selectedNode?.id]);
 
+  /**
+   * Clears every service-stats field. Called before each fetch so a node whose
+   * request fails never keeps showing the previously selected node's revenue and
+   * session counts as if they were its own.
+   */
+  const resetServiceStats = useCallback(() => {
+    setServiceStatsPerEpoch([]);
+    setServiceTotalServices(0);
+    setServiceRevenue(0);
+    setServiceReservedSeconds(0);
+    setServiceRunningNow(0);
+    setServiceUniqueConsumers(0);
+    setServiceByModel([]);
+  }, []);
+
   const fetchNodeServiceStats = useCallback(async () => {
     const nodeId = selectedNodeId;
     if (!nodeId) {
       return;
     }
     const requestId = ++serviceStatsRequestRef.current;
+    resetServiceStats();
+    setServiceStatsError(null);
+    setServiceStatsLoading(true);
     try {
       const response = await axios.get<NodeServiceStats>(`${getApiRoute('serviceNodeStats')}/${nodeId}/stats`);
       // Selection can change while this is in flight, and a newer fetch for the
@@ -177,10 +199,19 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
         // disappearing; drop it so the chart shows only real model names.
         setServiceByModel((response.data.byModel ?? []).filter((bucket) => bucket.key !== 'unknown'));
       }
+      setServiceStatsLoading(false);
     } catch (error) {
       console.error('Error fetching node service stats:', error);
+      // Same staleness guard as the success path: a failed request for a node the
+      // user has already navigated away from must not blank or flag the stats now
+      // on screen for the node they moved to.
+      if (serviceStatsRequestRef.current !== requestId || selectedNodeIdRef.current !== nodeId) {
+        return;
+      }
+      setServiceStatsError('Could not load inference stats for this node.');
+      setServiceStatsLoading(false);
     }
-  }, [selectedNodeId]);
+  }, [resetServiceStats, selectedNodeId]);
 
   return (
     <NodesContext.Provider
@@ -200,6 +231,8 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
         serviceRunningNow,
         serviceUniqueConsumers,
         serviceByModel,
+        serviceStatsError,
+        serviceStatsLoading,
         fetchNode,
         fetchNodeBenchmarkMinMaxLast,
         fetchNodeStats,

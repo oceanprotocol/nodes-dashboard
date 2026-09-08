@@ -70,8 +70,10 @@ export const ServicesStatsProvider = ({ children }: { children: ReactNode }) => 
       const response = await axios.get<GlobalServiceStats>(getApiRoute('serviceGlobalStats'));
       if (response.data) {
         setStatsPerEpoch(response.data.data ?? []);
-        setTotalServices(response.data.totalServices);
-        setTotalServiceRevenue(response.data.totalServiceRevenue);
+        // Defaulted rather than passed through: these go straight into
+        // formatNumber, which renders a missing field as "NaN".
+        setTotalServices(response.data.totalServices ?? 0);
+        setTotalServiceRevenue(response.data.totalServiceRevenue ?? 0);
       }
       setStatsError(null);
     } catch (err) {

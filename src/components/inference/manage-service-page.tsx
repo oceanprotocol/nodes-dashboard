@@ -542,10 +542,27 @@ const ManageServicePage: React.FC = () => {
    * whenever it isn't already the context selection — otherwise an Edit would relaunch the model the
    * link happened to name rather than the one actually running.
    */
+  // Derive the service's actual window from the job's own start (dateCreated) and expiry, so it tracks
+  // the REAL runtime — including after a Prolong, which pushes expiresAt forward while leaving
+  // job.duration at the original paid value (using that would make the bar wrong post-extend). Zero
+  // until the job loads, which callers read as "not known yet" and fall back on. `expiresAt` is ms;
+  // `dateCreated` is an ISO timestamp.
+  const jobStartSeconds = job ? Math.floor(new Date(job.dateCreated).getTime() / 1000) : 0;
+  const jobExpirySeconds = job ? Math.floor(job.expiresAt / 1000) : 0;
+  const serviceWindowSeconds =
+    job && Number.isFinite(jobStartSeconds) && jobExpirySeconds > jobStartSeconds
+      ? jobExpirySeconds - jobStartSeconds
+      : 0;
+
   const selectionOverrides = useMemo(() => {
     const nodeOnlyModel = models.find((entry) => !selectedModels.some((m) => m.id === entry.model.id));
     return {
       ...(bookedResources ? { gpuSelection: bookedResources.gpuSelection, sizing: bookedResources.sizing } : {}),
+      // The running service's OWN window, not the duration picker's value. Context's
+      // `jobDurationSeconds` is whatever the last launch flow left behind (or the default on a fresh
+      // load), so without this an Edit re-entry would describe the relaunch with a duration the
+      // service never had. Prolong passes its own `durationSeconds` override and is unaffected.
+      ...(serviceWindowSeconds > 0 ? { durationSeconds: serviceWindowSeconds } : {}),
       // Context's template is the link's, which may be missing (matched off the job record instead) or
       // simply wrong (matched from a listing with no dockerCmd). Without this an Edit / Prolong
       // re-entry would navigate to the template flow with no `template=` on the query and bounce
@@ -563,18 +580,9 @@ const ManageServicePage: React.FC = () => {
           }
         : {}),
     };
-  }, [models, selectedModels, bookedResources, template, selectedTemplate]);
+  }, [models, selectedModels, bookedResources, template, selectedTemplate, serviceWindowSeconds]);
   const nowSeconds = Math.floor(Date.now() / 1000);
-  // Derive total + elapsed from the job's own start (dateCreated) and expiry, so both track the ACTUAL
-  // window — including after a Prolong, which pushes expiresAt forward while leaving job.duration at the
-  // original paid value (using that would make the bar wrong post-extend). Fall back to the requested
-  // duration only before the job loads. `expiresAt` is ms; `dateCreated` is an ISO timestamp.
-  const jobStartSeconds = job ? Math.floor(new Date(job.dateCreated).getTime() / 1000) : 0;
-  const jobExpirySeconds = job ? Math.floor(job.expiresAt / 1000) : 0;
-  const durationTotalSeconds =
-    job && Number.isFinite(jobStartSeconds) && jobExpirySeconds > jobStartSeconds
-      ? jobExpirySeconds - jobStartSeconds
-      : jobDurationSeconds;
+  const durationTotalSeconds = serviceWindowSeconds > 0 ? serviceWindowSeconds : jobDurationSeconds;
   const durationElapsedSeconds = job ? Math.max(0, Math.min(durationTotalSeconds, nowSeconds - jobStartSeconds)) : 0;
   // Runtime still ahead of the service — what an extension is added TO. Note the node caps
   // `remaining + additionalDuration`, NOT elapsed + additional: extending is bounded by the forward

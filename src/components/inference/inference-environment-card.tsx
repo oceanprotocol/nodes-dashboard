@@ -82,6 +82,12 @@ type InferenceEnvironmentCardProps = {
    * existing hard floor of 1, so this stays false there.
    */
   allowZeroGpu?: boolean;
+  /**
+   * Hide the price. Set on a card that summarises a launch which costs nothing — an Edit relaunch
+   * reuses the running service's already-paid window (serviceRestart keeps the same expiry and never
+   * touches escrow), so quoting this env's rate would name a charge that is never made.
+   */
+  hidePrice?: boolean;
 };
 
 function formatGb(value: number): string {
@@ -96,6 +102,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   environment: listedEnvironment,
   nodeInfo,
   durationSeconds,
+  hidePrice,
   defaultToken,
   selected = false,
   onSelect,
@@ -527,7 +534,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                 </Button>
               </span>
             </Tooltip>
-          ) : (
+          ) : hidePrice ? null : (
             <span className={styles.price}>
               {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
             </span>

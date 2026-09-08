@@ -16,16 +16,10 @@ const InferenceStats = () => {
 
   return (
     <Card className={styles.root} paddingX="md" paddingY="sm" radius="lg" shadow="black" variant="glass-shaded">
-      <div className={styles.revenueWrapper}>
-        <h3 className={styles.heading}>Network service revenue</h3>
-        <div className={styles.revenue}>
-          <span className={styles.token}>USDC</span>{' '}
-          <span className={styles.amount}>{formatNumber(totalServiceRevenue)}</span>
-        </div>
-      </div>
       {/*
-        A failed request renders as a message, not as two empty charts: zero-height
-        bars would otherwise read as "the network served nothing".
+        A failed request renders as a message, not as a headline over two empty
+        charts: a zero total and zero-height bars would otherwise read as "the
+        network served nothing" rather than "we could not ask".
       */}
       {statsError ? (
         <span className="textSecondary">{statsError}</span>
@@ -33,6 +27,13 @@ const InferenceStats = () => {
         <span className="textSecondary">Loading inference stats…</span>
       ) : (
         <>
+          <div className={styles.revenueWrapper}>
+            <h3 className={styles.heading}>Network service revenue</h3>
+            <div className={styles.revenue}>
+              <span className={styles.token}>USDC</span>{' '}
+              <span className={styles.amount}>{formatNumber(totalServiceRevenue)}</span>
+            </div>
+          </div>
           {/*
             Both charts read different keys off the SAME rows, and VBarChart sorts
             its `data` prop in place — so each gets its own copy rather than

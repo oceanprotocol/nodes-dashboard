@@ -294,12 +294,20 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsAddress(undefined);
       setEnsName(undefined);
       setEnsProfile(undefined);
-      // Owner service metrics are address-scoped; leaving them up after a
-      // disconnect shows the previous account's revenue.
+      // Every service metric is address-scoped; leaving any of them up after a
+      // disconnect shows the previous account's revenue and spend.
       setOwnerServiceStatsPerEpoch([]);
       setOwnerReservedSeconds(0);
       setOwnerTotalServices(0);
       setOwnerServiceRevenue(0);
+      setConsumerServiceStatsPerEpoch([]);
+      setTotalServices(0);
+      setTotalServicePaidAmount(0);
+      setActiveServices(0);
+      setServicesExpiringSoon(0);
+      setAvgServiceDurationSeconds(0);
+      setAvgServiceCostUsdc(0);
+      setConsumerReservedSeconds(0);
     }
   }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile, fetchGrantStatus]);
 
