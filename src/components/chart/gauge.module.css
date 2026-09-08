@@ -55,7 +55,7 @@
          row and the default 220px arc leaves no breathing room between them. */
       &.chartSmall {
         height: 88px;
-        margin-bottom: 46px;
+        margin-bottom: 8px;
         width: 176px;
 
         .valueWrapper {
@@ -75,7 +75,7 @@
          usage panel's modal/compact grid. Default rendering above is untouched. */
       &.chartCompact {
         height: 80px;
-        margin-bottom: 34px;
+        margin-bottom: 8px;
         width: 150px;
 
         .valueWrapper {
