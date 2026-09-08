@@ -37,6 +37,8 @@ const TEMPLATE_LOGO_FILES: Record<string, string> = {
   glm: 'zai.svg',
   hermes: 'hermes.svg',
   jupyter: 'jupyter.svg',
+  ltx: 'lightricks.png',
+  minimax: 'minimax.png',
   'nomic-embed': 'nomic.svg',
   openclaw: 'openclaw.svg',
   opencode: 'opencode.svg',
@@ -56,7 +58,7 @@ const TEMPLATE_LOGO_FILES: Record<string, string> = {
 const SHELL_KEYS = ['comfyui', 'jupyter', 'open-webui'];
 
 /** Model marks, which outrank any app not in SHELL_KEYS (`qwen38-opencode` wears Qwen's mark). */
-const MODEL_KEYS = ['deepseek', 'glm', 'qwen', 'zai', 'nomic-embed'];
+const MODEL_KEYS = ['deepseek', 'glm', 'qwen', 'zai', 'nomic-embed', 'ltx', 'minimax'];
 
 // Three tiers, each longest-key-first so the most specific match inside a tier still wins (e.g.
 // `nomic-embed` over `vllm` for `vllm-nomic-embed`). Ties inside a tier cannot happen today.
@@ -69,10 +71,37 @@ const MATCH_KEYS = [
 ];
 
 
+/** Every key that is not a model — the app the bundle runs, whether or not it is a SHELL_KEY. */
+const APP_KEYS = ALL_KEYS.filter((k) => !MODEL_KEYS.includes(k)).sort(byLengthDesc);
+const MODEL_MARKS = MODEL_KEYS.filter((k) => k in TEMPLATE_LOGO_FILES).sort(byLengthDesc);
+
+function srcForKeys(templateId: string, keys: string[]): string | null {
+  const key = keys.find((part) => templateId.includes(part));
+  return key ? `/logos/templates/${TEMPLATE_LOGO_FILES[key]}` : null;
+}
+
 /** Public path of a template's brand mark, or null when no file has been supplied for it. */
 export function templateLogoSrc(templateId: string): string | null {
   const key = MATCH_KEYS.find((part) => templateId.includes(part));
   return key ? `/logos/templates/${TEMPLATE_LOGO_FILES[key]}` : null;
+}
+
+/**
+ * Both halves of a bundle's identity: the app that runs it and the model inside it. A bundle is those
+ * two things, and picking one to show throws the other away — `landing-studio-qwen38-27b` is OpenCode
+ * AND Qwen, and which one the tile happened to wear used to depend on whether the id spelled the app
+ * out. The app half falls back to the parent `service`, which is where it is named when the id does
+ * not carry it.
+ *
+ * Either half may be null: a service is only an app, and a bundle whose model has no published mark
+ * (LTX, MiniMax) is only an app too. Callers render a pair when both are present and fall back to
+ * `templateLogo` otherwise, so nothing regresses where only one mark exists.
+ */
+export function templateLogoPair(template: AppTemplate): { app: string | null; model: string | null } {
+  const app =
+    srcForKeys(template.id, APP_KEYS) ?? (template.service ? srcForKeys(template.service, APP_KEYS) : null);
+  const model = srcForKeys(template.id, MODEL_MARKS);
+  return { app, model: model === app ? null : model };
 }
 
 /**
