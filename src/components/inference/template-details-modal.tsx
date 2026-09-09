@@ -105,26 +105,26 @@ const NOT_DECLARED = 'Not declared';
 const AUDIENCE_LINE = /^this template is built for\b/i;
 
 /**
- * Splits a paragraph on bare URLs and renders each as a link, so credited sources are clickable.
- * Trailing sentence punctuation (the period ending "...MinimaxH3.") is not part of the URL — strip
- * it from the href and display it as plain text after the link, or the link 404s.
+ * Renders `[text](url)` markdown-style links in a paragraph, so a credited source can show as a
+ * name instead of a bare URL. Anything outside that syntax passes through as plain text.
  */
-const URL_PATTERN = /(https?:\/\/\S+)/g;
-const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]+$/;
-const linkify = (text: string): React.ReactNode =>
-  text.split(URL_PATTERN).map((part, i) => {
-    if (!/^https?:\/\//.test(part)) return part;
-    const trail = part.match(TRAILING_PUNCTUATION)?.[0] ?? '';
-    const url = trail ? part.slice(0, -trail.length) : part;
-    return (
-      <Fragment key={i}>
-        <a href={url} target="_blank" rel="noreferrer" className={styles.proseLink}>
-          {url}
-        </a>
-        {trail}
-      </Fragment>
+const MARKDOWN_LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const linkify = (text: string): React.ReactNode => {
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  for (const match of text.matchAll(MARKDOWN_LINK)) {
+    const index = match.index ?? 0;
+    if (index > lastIndex) nodes.push(text.slice(lastIndex, index));
+    nodes.push(
+      <a key={index} href={match[2]} target="_blank" rel="noreferrer" className={styles.proseLink}>
+        {match[1]}
+      </a>,
     );
-  });
+    lastIndex = index + match[0].length;
+  }
+  nodes.push(text.slice(lastIndex));
+  return nodes;
+};
 
 const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text, style }) => {
   const [expanded, setExpanded] = useState(false);
