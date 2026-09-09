@@ -399,12 +399,27 @@ export function parseEngineCommand(
 }
 
 /**
- * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit). Only
- * HF_TOKEN, which unlocks gated/private repos — the user's custom key/value params are launch flags
- * on the command (see buildCustomArgs), not env vars.
+ * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit).
+ * HF_TOKEN unlocks gated/private repos — the user's custom key/value params are launch flags on the
+ * command (see buildCustomArgs), not env vars.
+ *
+ * NCCL_NVLS_ENABLE=0 is always sent. NVLink SHARP wants multicast objects the driver exposes through
+ * /dev/nvidia-caps, and a service container never gets them: ocean-node deliberately withholds
+ * Devices from services (compute_engine_docker.ts, buildServiceResourceConstraints). NCCL on an
+ * NVSwitch host tries NVLS first and reports the failure as
+ *
+ *     RuntimeError: NCCL error: unhandled cuda error
+ *
+ * from ncclCommInitRank on every rank at once, after the workers start and before any model memory
+ * is touched — so a multi-GPU launch dies inside an already-paid window with a message that names
+ * nothing actionable. Sent unconditionally rather than only above tensor-parallel-size 1: NCCL reads
+ * it itself, a single-GPU or llama.cpp launch ignores it, and a launch path that grows a second card
+ * later cannot forget it. Cost is a few percent on large all-reduces, and nothing at all on a host
+ * without NVSwitch. Ordinary NVLink P2P and ring/tree collectives are unaffected — only the NVSwitch
+ * multicast reduction offload is skipped.
  */
 export function buildUserData(hfToken: string): Record<string, string> {
-  return hfToken ? { HF_TOKEN: hfToken } : {};
+  return { NCCL_NVLS_ENABLE: '0', ...(hfToken ? { HF_TOKEN: hfToken } : {}) };
 }
 
 /**
