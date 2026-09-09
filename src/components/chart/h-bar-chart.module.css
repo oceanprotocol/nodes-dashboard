@@ -9,7 +9,7 @@
 }
 
 .container {
-  background-color: #ffffff;
+  background-color: var(--background-primary);
   border-radius: 16px;
   padding: 24px;
   position: relative;

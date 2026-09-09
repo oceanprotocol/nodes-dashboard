@@ -11,10 +11,10 @@ const DocsCtaSection = () => {
       <Container className={styles.container}>
         <h1 className={styles.title}>Ready to get started?</h1>
         <p className={styles.description}>
-          Run a quick CPU test, or claim $100 in complimentary credits to unlock high-performance GPU workloads in the
-          same environment, all within Ocean Orchestrator
+          Run a quick CPU test, or claim complimentary credits to unlock high-performance GPU workloads in the same
+          environment, all within Ocean Orchestrator
         </p>
-        <Button color="primary-inverse" href={routes.runJob.path} size="lg" variant="filled">
+        <Button color="on-accent1" href={routes.runJob.path} size="lg" variant="filled">
           Run a job
         </Button>
         <div className={styles.socialLinks}>

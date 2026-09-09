@@ -61,6 +61,19 @@ const nextConfig = {
     ];
     return config;
   },
+  async headers() {
+    return [
+      {
+        // The browser only picks up a new worker if it can actually re-fetch this file; a cached
+        // copy pins whatever shipped first. Everything else in /public may cache normally.
+        source: '/sw.js',
+        headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }],
+      },
+    ];
+  },
+  env: {
+    INCENTIVE_BACKEND_URL: process.env.INCENTIVE_BACKEND_URL,
+  },
   transpilePackages: [
     '@mui/x-data-grid',
     '@mui/x-data-grid-pro',

@@ -18,6 +18,14 @@
   filter: brightness(1.25) contrast(1.25) invert(1) saturate(0);
 }
 
+/* The source footage is dark, and the invert above flips it to near-white so it reads as a
+   faint texture behind light-theme text. On a dark ground that same invert turns the hero into
+   a bright wash, so drop the invert and let the original dark footage sit behind the content. */
+:global(:root[data-theme='dark']) .video {
+  filter: brightness(1.1) contrast(1.15) saturate(0);
+  opacity: 0.35;
+}
+
 .title {
   font-size: 88px;
   line-height: 1;
@@ -25,7 +33,7 @@
 }
 
 .title span {
-  color: #d54335;
+  color: var(--accent1);
 }
 
 .relative {
@@ -66,7 +74,7 @@
 }
 
 .textBadge span {
-  color: #d54335;
+  color: var(--accent1);
 }
 
 .legacyEscrowBanner {

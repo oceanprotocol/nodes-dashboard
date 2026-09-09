@@ -1,0 +1,69 @@
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+  }
+
+  &.live .dot {
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success);
+  }
+
+  &.reconnecting .dot {
+    background: var(--warning);
+  }
+
+  &.error .dot {
+    background: var(--error);
+  }
+}
+
+.terminal {
+  position: relative;
+  margin: 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
+  color: var(--terminal-text);
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  height: 420px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  .line {
+    min-height: 1.6em;
+  }
+
+  .placeholder {
+    color: var(--terminal-text-muted);
+  }
+}
+
+.jumpButton {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--accent1);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}

@@ -18,7 +18,7 @@ const McpSection = () => {
           you without leaving your chat.
         </p>
         <div className={styles.actions}>
-          <Button color="primary-inverse" href={links.mcpDocs} size="lg" target="_blank" variant="filled">
+          <Button color="on-accent2" href={links.mcpDocs} size="lg" target="_blank" variant="filled">
             Get started
           </Button>
         </div>

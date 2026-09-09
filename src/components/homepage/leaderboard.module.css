@@ -1,6 +1,6 @@
 .root {
   padding: 60px 50px;
-  background-color: var(--black-900);
+  background-color: var(--background-primary);
   position: relative;
   overflow: hidden;
 }

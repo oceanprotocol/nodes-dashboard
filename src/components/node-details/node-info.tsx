@@ -16,7 +16,6 @@ import LocationPinIcon from '@mui/icons-material/LocationPin';
 import PublicIcon from '@mui/icons-material/Public';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { CircularProgress } from '@mui/material';
-import { usePrivy } from '@privy-io/react-auth';
 import classNames from 'classnames';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -31,9 +30,7 @@ type NodeInfoProps = {
 };
 
 const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
-  const { login } = usePrivy();
-
-  const { account, ocean, signMessage, user } = useOceanAccount();
+  const { account, login, ocean, signMessage, user } = useOceanAccount();
   const { fetchConfig, getNodeLogs, pushConfig } = useP2P();
 
   const [fetchingConfig, setFetchingConfig] = useState<boolean>(false);

@@ -22,7 +22,7 @@
 
   .tabActive {
     background-color: var(--accent2);
-    color: var(--text-primary);
+    color: var(--accent2-contrast);
   }
 }
 

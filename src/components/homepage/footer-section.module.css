@@ -1,8 +1,8 @@
 .root {
   position: relative;
   padding: 60px 0 80px;
-  background-color: var(--accent1);
-  color: var(--text-primary-inverse);
+  background-color: var(--accent1-surface);
+  color: var(--accent1-contrast);
   overflow: hidden;
 }
 
@@ -58,20 +58,20 @@
 .brandSubtitle {
   font-size: 14px;
   text-transform: uppercase;
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
   letter-spacing: 0.18em;
 }
 
 .description {
   font-size: 15px;
   line-height: 1.7;
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
   max-width: 700px;
 }
 
 .copy {
   font-size: 13px;
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
 }
 
 .pagesColumn {
@@ -105,7 +105,7 @@
   font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-primary-inverse);
+  color: var(--accent1-contrast);
 }
 
 .socialLinks,

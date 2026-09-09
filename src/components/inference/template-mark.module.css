@@ -1,0 +1,26 @@
+/* Two marks, overlapping — same treatment as the includes cluster: a ring in the surface colour cuts
+   the one behind so both shapes stay readable at small sizes. `--mark-size` is set by the caller. */
+.pair {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.mark {
+  flex: 0 0 var(--mark-size);
+  width: var(--mark-size);
+  height: var(--mark-size);
+  border-radius: 50%;
+  object-fit: contain;
+  /* The marks are transparent artwork, so they need their own plate — the accent tint the single
+     tile uses, plus the ring that separates the two. */
+  background: color-mix(in srgb, var(--accent, var(--accent1)) 12%, var(--background-primary));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent, var(--accent1)) 26%, transparent),
+    0 0 0 2px var(--background-primary);
+  padding: calc(var(--mark-size) * 0.18);
+}
+
+.mark + .mark {
+  margin-left: calc(var(--mark-size) * -0.28);
+}

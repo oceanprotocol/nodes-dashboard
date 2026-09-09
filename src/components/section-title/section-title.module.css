@@ -55,3 +55,30 @@
     }
   }
 }
+
+/* Group heading inside a page, one level below the default page heading. Declared after the
+   base rules so it overrides them at equal specificity. */
+.secondary {
+  gap: 4px;
+
+  .title {
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+  .subTitle {
+    color: var(--text-secondary);
+    line-height: 1.45;
+    margin: 0;
+    /* Keeps the description a readable measure instead of running the full 1160px container. */
+    max-width: 62ch;
+  }
+
+  @media (min-width: 768px) {
+    .title {
+      font-size: 26px;
+    }
+    .subTitle {
+      font-size: 17px;
+    }
+  }
+}

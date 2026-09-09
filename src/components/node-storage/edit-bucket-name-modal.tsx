@@ -4,7 +4,7 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import { MAX_BUCKET_NAME_LENGTH, useNodeStorage } from '@/contexts/node-storage-context';
-import { Node } from '@/types/nodes';
+import { StorageNode } from '@/types/node-storage';
 import { formatError } from '@/utils/formatters';
 import { PersistentStorageBucket } from '@oceanprotocol/lib';
 import { useState } from 'react';
@@ -13,15 +13,14 @@ import { toast } from 'react-toastify';
 type EditBucketNameModalProps = {
   bucket: PersistentStorageBucket;
   isOpen: boolean;
-  node: Node;
+  node: StorageNode;
   onClose: () => void;
 };
 
 const EditBucketNameModal: React.FC<EditBucketNameModalProps> = ({ bucket, isOpen, node, onClose }) => {
   const { renameBucket } = useNodeStorage();
 
-  const nodeId = node.id ?? node.nodeId ?? '';
-  const nodeUri = node.currentAddrs?.length ? node.currentAddrs : nodeId;
+  const { nodeId, nodeUri } = node;
 
   const [name, setName] = useState(bucket.label ?? '');
   const [saving, setSaving] = useState(false);

@@ -3,6 +3,33 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  /* The card content box is the real budget: gauges sit in `auto-fit` tracks that go as narrow as
+     150px, and a root wider than its track would push the whole card open. */
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+
+  /* `small`/`compact` gauges sit in dense grids (resource usage panel) where a 24px title gap plus a
+     h3-sized heading eats more room than the arc itself. */
+  &.rootSmall {
+    gap: 14px;
+
+    .heading {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+  }
+
+  &.rootCompact {
+    gap: 10px;
+
+    .heading {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+  }
 
   .heading {
     text-align: center;
@@ -18,6 +45,47 @@
       height: 110px;
       position: relative;
       width: 220px;
+      margin-bottom: 8px;
+      /* The arc is laid out at a fixed width, but a grid/flex column narrower than that (the resource
+         usage panel's auto-fit grid, a phone) must shrink it rather than overflow — ResponsiveContainer
+         redraws to whatever width it lands on. */
+      max-width: 100%;
+
+      /* Small variant (`size="small"`) — the resource usage panel's page grid, where 5+ gauges share a
+         row and the default 220px arc leaves no breathing room between them. */
+      &.chartSmall {
+        height: 88px;
+        margin-bottom: 8px;
+        width: 176px;
+
+        .valueWrapper {
+          bottom: -12px;
+
+          .value {
+            font-size: 22px;
+          }
+
+          .label {
+            font-size: 11px;
+          }
+        }
+      }
+
+      /* Compact variant (opt-in via Gauge's `size="compact"`) — dense layouts like the resource
+         usage panel's modal/compact grid. Default rendering above is untouched. */
+      &.chartCompact {
+        height: 80px;
+        margin-bottom: 8px;
+        width: 150px;
+
+        .valueWrapper {
+          bottom: -10px;
+
+          .value {
+            font-size: 18px;
+          }
+        }
+      }
 
       .valueWrapper {
         align-items: center;
@@ -25,10 +93,21 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
-        left: 0;
+        left: 50%;
         position: absolute;
         text-align: center;
-        width: 100%;
+        transform: translateX(-50%);
+        /* Wider than the arc on purpose: these labels are two byte figures and a device count, which
+           at 176px got ellipsed down to the half that says least. The gauge sits in a padded card, so
+           the extra width is the card's own gutter rather than a neighbour's space.
+
+           Capped so that borrowing stops at the gutter. `.chart` is capped at the card's content
+           width, so in the narrowest tracks 132% of it would spill past the card edge rather than
+           into padding. `max-width` measures against the same containing block as `width` (the
+           positioned `.chart`), so the cap is expressed as that box plus the two 14px gutters of
+           Card's `padding="sm"` — the only space this is allowed to reach into. */
+        width: 132%;
+        max-width: calc(100% + 28px);
 
         .value {
           font-size: 30px;
@@ -39,6 +118,13 @@
         .label {
           font-size: 12px;
           color: var(--text-secondary);
+          line-height: 1.3;
+          /* Wraps to at most one line so a long label ("1.6 GB / 225.0 GB") can't push this gauge's
+             footer below its neighbours'. */
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
         }
       }
     }
@@ -49,6 +135,14 @@
       font-size: 14px;
       gap: 16px;
       justify-content: space-between;
+    }
+
+    /* Min/max ticks at default size are wide enough to run into the neighbouring gauge's ticks in a
+       multi-column grid — smaller text keeps them anchored under their own arc. */
+    &.chartWrapperSmall .footer,
+    &.chartWrapperCompact .footer {
+      font-size: 11px;
+      gap: 8px;
     }
   }
 }

@@ -1,0 +1,33 @@
+.stateBox {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.envList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.durationRow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+
+  /* MUI TextField is auto-width by default; give it a fixed, comfortable width
+     so it stays stable whether or not the error line shows. */
+  & > * {
+    width: 100%;
+    max-width: 320px;
+  }
+}

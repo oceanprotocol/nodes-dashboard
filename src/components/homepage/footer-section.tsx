@@ -1,14 +1,40 @@
 import Button from '@/components/button/button';
 import Container from '@/components/container/container';
 import config, { getLinks, getRoutes } from '@/config';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useEffect, useState } from 'react';
 import styles from './footer-section.module.css';
+
+/** Account link only after mount, so server and client markup agree. */
+const AccountLink = () => {
+  const { account, login } = useOceanAccount();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (isMounted && account?.isConnected) {
+    return (
+      <Button color="on-accent1" href="/account" size="link" variant="transparent">
+        MY ACCOUNT
+      </Button>
+    );
+  }
+
+  return (
+    <Button color="on-accent1" onClick={login} size="link" variant="transparent">
+      LOG IN
+    </Button>
+  );
+};
 
 const FooterSection = () => {
   const currentYear = new Date().getFullYear();
   const links = getLinks();
   const routes = getRoutes();
 
-  const pageKeys = ['runJob', 'stats', 'docs', 'leaderboard', 'runNode'] as const;
+  const pageKeys = ['runJob', 'inference'] as const;
 
   return (
     <section className={styles.root}>
@@ -55,7 +81,7 @@ const FooterSection = () => {
             </p>
           </div>
           <div className={styles.pagesColumn}>
-            <span className={styles.columnTitle}>Pages</span>
+            {/* <span className={styles.columnTitle}>Pages</span> */}
             <ul className={styles.pagesList}>
               {pageKeys.map((key) => {
                 const route = routes[key];
@@ -65,19 +91,27 @@ const FooterSection = () => {
 
                 return (
                   <li key={route.path}>
-                    <Button color="primary-inverse" href={route.path} size="link" variant="transparent">
+                    <Button color="on-accent1" href={route.path} size="link" variant="transparent">
                       {route.name}
                     </Button>
                   </li>
                 );
               })}
+              <li>
+                <Button color="on-accent1" href={links.docs} size="link" target="_blank" variant="transparent">
+                  Docs
+                </Button>
+              </li>
+              <li>
+                <AccountLink />
+              </li>
             </ul>
           </div>
         </div>
         <div className={styles.lowerRow}>
           <div className={styles.socialLinks}>
             <Button
-              color="primary-inverse"
+              color="on-accent1"
               href={config.socialMedia.discord}
               size="link"
               target="_blank"
@@ -86,7 +120,7 @@ const FooterSection = () => {
               Discord
             </Button>
             <Button
-              color="primary-inverse"
+              color="on-accent1"
               href={config.socialMedia.twitter}
               size="link"
               target="_blank"
@@ -95,7 +129,7 @@ const FooterSection = () => {
               X (Twitter)
             </Button>
             <Button
-              color="primary-inverse"
+              color="on-accent1"
               href={config.socialMedia.youtube}
               size="link"
               target="_blank"
@@ -105,7 +139,7 @@ const FooterSection = () => {
             </Button>
           </div>
           <div className={styles.legalLinks}>
-            <Button color="primary-inverse" href="/privacy-policy" size="link" variant="transparent">
+            <Button color="on-accent1" href="/privacy-policy" size="link" variant="transparent">
               Privacy policy
             </Button>
           </div>

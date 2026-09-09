@@ -5,7 +5,6 @@ import { useRunNodeContext } from '@/context/run-node-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { usePrivy } from '@privy-io/react-auth';
 import LinkIcon from '@mui/icons-material/Link';
 import { Tooltip } from '@mui/material';
 import classNames from 'classnames';
@@ -18,9 +17,7 @@ type ConnectFormValues = {
 };
 
 const NodeConnection = () => {
-  const { login } = usePrivy();
-
-  const { account } = useOceanAccount();
+  const { account, login } = useOceanAccount();
 
   const { clearRunNodeSelection, connectToNode, isP2PReady, peerId } = useRunNodeContext();
 

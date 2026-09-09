@@ -2,7 +2,7 @@ import BenchmarkSummary from '@/components/benchmarks/benchmark-summary';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
-import GpuLabel from '@/components/gpu-label/gpu-label';
+import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Select from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
@@ -16,7 +16,6 @@ import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import MemoryIcon from '@mui/icons-material/Memory';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PublicIcon from '@mui/icons-material/Public';
 import PublicOffIcon from '@mui/icons-material/PublicOff';
@@ -37,6 +36,13 @@ type EnvironmentCardProps = {
   forcePricing?: 'free' | 'paid';
   nodeInfo: EnvNodeInfo;
   showNodeInfo?: boolean;
+  // When provided, the card renders in "usage" mode: resource bars show the
+  // amounts a past job actually consumed (matched by resource id) instead of the
+  // environment's available/max, fees and the free-compute controls are hidden,
+  // and the footer shows the job's real duration. Values use the same units as
+  // the environment display (CPU cores, RAM/disk GB, GPU units).
+  usedResources?: { id: string; amount: number }[];
+  jobDurationSeconds?: number | null;
 };
 
 const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
@@ -46,6 +52,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   forcePricing,
   nodeInfo,
   showNodeInfo,
+  usedResources,
+  jobDurationSeconds,
 }) => {
   const router = useRouter();
 
@@ -98,13 +106,32 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     forcePricing ? (forcePricing === 'free' ? true : false) : false
   );
 
-  const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, maxJobDurationSeconds, minJobDurationSeconds, ram, ramFee } =
-    useEnvResources({
-      environment,
-      freeCompute: isFreeCompute,
-      tokenAddress: selectedTokenAddress,
-    });
-  const noResourcesAvailable = !cpu && !gpus?.length && !ram && !disk;
+  const {
+    cpu,
+    cpuAvailable,
+    cpuFee,
+    disk,
+    diskAvailable,
+    diskFee,
+    gpus,
+    gpusAvailable,
+    gpuFees,
+    maxJobDurationSeconds,
+    minJobDurationSeconds,
+    ram,
+    ramAvailable,
+    ramFee,
+  } = useEnvResources({
+    environment,
+    freeCompute: isFreeCompute,
+    tokenAddress: selectedTokenAddress,
+  });
+  const usageMode = Array.isArray(usedResources);
+  const usedAmount = (id?: string | null): number | undefined =>
+    usageMode && id ? usedResources!.find((r) => r.id === id)?.amount : undefined;
+  const noResourcesAvailable = usageMode
+    ? !(usedResources && usedResources.length > 0)
+    : !cpu && !gpus?.length && !ram && !disk;
 
   const startingFee = useMemo(() => {
     const minGpuFee = Object.values(gpuFees).reduce((min, fee) => (fee < min ? fee : min), Infinity);
@@ -158,20 +185,41 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   const getCpuProgressBar = () => {
+    if (usageMode) {
+      const used = usedAmount(cpu?.id) ?? usedAmount('cpu');
+      if (used === undefined) {
+        return null;
+      }
+      const envMax = cpu?.max ?? 0;
+      const percentage = envMax > 0 ? Math.min(100, (100 * used) / envMax) : 100;
+      return (
+        <div className={styles.cpuWrapper}>
+          <ProgressBar
+            value={percentage}
+            topLeftContent={
+              <HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />
+            }
+            bottomLeftContent={
+              <span className={styles.label}>
+                <span className={styles.em}>{used}</span>&nbsp;{used === 1 ? 'core' : 'cores'} used
+              </span>
+            }
+          />
+        </div>
+      );
+    }
     if (!cpu) {
       return null;
     }
     const max = cpu.max ?? 0;
-    const inUse = cpu.inUse ?? 0;
-    const available = max - inUse;
+    // From the hook, so the card and the resource picker it leads into report the same number —
+    // min(max, total - inUse), not max - inUse (see getAvailableAmount).
+    const available = cpuAvailable;
     const fee = cpuFee ?? 0;
     if (compact) {
       return (
         <div className={styles.cpuWrapper}>
-          <div className={styles.label}>
-            <MemoryIcon className={styles.icon} />
-            <span className={styles.heading}>{cpu?.description || 'CPU'}</span>
-          </div>
+          <HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />
           <div className={styles.label}>
             <span className={styles.em}>
               {available} / {max}
@@ -190,15 +238,14 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         </div>
       );
     }
-    const percentage = (100 * inUse) / max;
+    const inUse = cpu.inUse ?? 0;
+    const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
     return (
       <div className={styles.cpuWrapper}>
         <ProgressBar
           value={percentage}
           topLeftContent={
-            <span className={classNames(styles.label, styles.em)}>
-              <MemoryIcon className={styles.icon} /> {cpu?.description || 'CPU'}
-            </span>
+            <HardwareLabel className={classNames(styles.heading, styles.label)} type="cpu" value={cpu?.description} />
           }
           bottomLeftContent={
             <span className={styles.label}>
@@ -219,6 +266,38 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   const getGpuProgressBars = () => {
+    if (usageMode) {
+      const nonGpuIds = new Set([cpu?.id, ram?.id, disk?.id, 'cpu', 'ram', 'disk'].filter(Boolean) as string[]);
+      const gpuEntries = (usedResources ?? []).filter((r) => !nonGpuIds.has(r.id));
+      return gpuEntries.map((entry) => {
+        const envGpu = gpus.find((gpu) => gpu.id === entry.id);
+        const envMax = envGpu?.max ?? 0;
+        const used = entry.amount;
+        const percentage = envMax > 0 ? Math.min(100, (100 * used) / envMax) : 100;
+        return (
+          <div className={styles.gpuWrapper} key={entry.id}>
+            <ProgressBar
+              value={percentage}
+              topLeftContent={
+                <HardwareLabel
+                  className={classNames(styles.heading, styles.label)}
+                  type="gpu"
+                  value={envGpu?.description || 'GPU'}
+                />
+              }
+              bottomLeftContent={
+                <span className={styles.label}>
+                  <span className={styles.em}>{used}</span>&nbsp;{used === 1 ? 'unit' : 'units'} used
+                </span>
+              }
+            />
+          </div>
+        );
+      });
+    }
+    // Availability is resolved per resource id BEFORE merging, then summed. It can't be derived from
+    // the merged group: `min(max, total - inUse)` needs each member's own `total`, and the merge only
+    // sums `max`/`inUse`. Same order the inference card's mergedGpus uses.
     const mergedGpus = gpus.reduce(
       (merged, gpuToCheck) => {
         const existingGpu = merged.find(
@@ -227,22 +306,26 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         if (existingGpu) {
           existingGpu.inUse = (existingGpu.inUse ?? 0) + (gpuToCheck.inUse ?? 0);
           existingGpu.max += gpuToCheck.max;
+          existingGpu.available += gpusAvailable[gpuToCheck.id] ?? 0;
         } else {
-          merged.push({ ...gpuToCheck });
+          merged.push({ ...gpuToCheck, available: gpusAvailable[gpuToCheck.id] ?? 0 });
         }
         return merged;
       },
-      [] as typeof gpus
+      [] as Array<(typeof gpus)[number] & { available: number }>
     );
     return mergedGpus.map((gpu) => {
       const max = gpu.max ?? 0;
-      const inUse = gpu.inUse ?? 0;
-      const available = max - inUse;
+      const available = gpu.available;
       const fee = gpuFees[gpu.id] ?? 0;
       if (compact) {
         return (
           <div className={styles.gpuWrapper} key={gpu.id}>
-            <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
+            <HardwareLabel
+              className={classNames(styles.heading, styles.label)}
+              type="gpu"
+              value={gpu.description || 'GPU'}
+            />
             <div className={styles.label}>
               <span className={styles.em}>
                 {available} / {max}
@@ -261,13 +344,18 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           </div>
         );
       }
-      const percentage = (100 * inUse) / max;
+      const inUse = gpu.inUse ?? 0;
+      const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
       return (
         <div className={styles.gpuWrapper} key={gpu.id}>
           <ProgressBar
             value={percentage}
             topLeftContent={
-              <GpuLabel className={classNames(styles.heading, styles.label)} gpu={gpu.description || 'GPU'} />
+              <HardwareLabel
+                className={classNames(styles.heading, styles.label)}
+                type="gpu"
+                value={gpu.description || 'GPU'}
+              />
             }
             bottomLeftContent={
               <span className={styles.label}>
@@ -289,12 +377,38 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   const getRamProgressBar = () => {
+    if (usageMode) {
+      const used = usedAmount(ram?.id) ?? usedAmount('ram');
+      if (used === undefined) {
+        return null;
+      }
+      const envMax = ram?.max ?? 0;
+      const percentage = envMax > 0 ? Math.min(100, (100 * used) / envMax) : 100;
+      return (
+        <div className={styles.ramWrapper}>
+          <ProgressBar
+            value={percentage}
+            topLeftContent={
+              <span className={classNames(styles.label, styles.em)}>
+                <SdStorageIcon className={styles.icon} /> RAM capacity
+              </span>
+            }
+            bottomLeftContent={
+              <span className={styles.label}>
+                <span className={styles.em}>{used}</span>&nbsp;GB used
+              </span>
+            }
+          />
+        </div>
+      );
+    }
     if (!ram) {
       return null;
     }
     const max = ram.max ?? 0;
-    const inUse = ram.inUse ?? 0;
-    const available = max - inUse;
+    // From the hook, so the card and the resource picker it leads into report the same number —
+    // min(max, total - inUse), not max - inUse (see getAvailableAmount).
+    const available = ramAvailable;
     const fee = ramFee ?? 0;
     if (compact) {
       return (
@@ -321,7 +435,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         </div>
       );
     }
-    const percentage = (100 * inUse) / max;
+    const inUse = ram.inUse ?? 0;
+    const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
     return (
       <div className={styles.ramWrapper}>
         <ProgressBar
@@ -350,12 +465,38 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   const getDiskProgressBar = () => {
+    if (usageMode) {
+      const used = usedAmount(disk?.id) ?? usedAmount('disk');
+      if (used === undefined) {
+        return null;
+      }
+      const envMax = disk?.max ?? 0;
+      const percentage = envMax > 0 ? Math.min(100, (100 * used) / envMax) : 100;
+      return (
+        <div className={styles.diskWrapper}>
+          <ProgressBar
+            value={percentage}
+            topLeftContent={
+              <span className={classNames(styles.label, styles.em)}>
+                <DnsIcon className={styles.icon} /> Disk space
+              </span>
+            }
+            bottomLeftContent={
+              <span className={styles.label}>
+                <span className={styles.em}>{used}</span>&nbsp;GB used
+              </span>
+            }
+          />
+        </div>
+      );
+    }
     if (!disk) {
       return null;
     }
     const max = disk.max ?? 0;
-    const inUse = disk.inUse ?? 0;
-    const available = max - inUse;
+    // From the hook, so the card and the resource picker it leads into report the same number —
+    // min(max, total - inUse), not max - inUse (see getAvailableAmount).
+    const available = diskAvailable;
     const fee = diskFee ?? 0;
     if (compact) {
       return (
@@ -382,7 +523,8 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         </div>
       );
     }
-    const percentage = (100 * inUse) / max;
+    const inUse = disk.inUse ?? 0;
+    const percentage = max > 0 ? Math.min(100, (100 * Math.min(max, inUse)) / max) : 100;
     return (
       <div className={styles.diskWrapper}>
         <ProgressBar
@@ -411,7 +553,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   };
 
   const getFreeComputeCheckbox = () => {
-    if (!environment.free || forcePricing) {
+    if (usageMode || !environment.free || forcePricing) {
       return null;
     }
     const isLoggedIn = freeAccess !== null;
@@ -521,7 +663,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               >
                 {nodeInfo.friendlyName || nodeInfo.id}
               </Button>
-              {nodeInfo.latestBenchmarkResults ? <VerifiedIcon className={styles.verified} /> : null}
+              {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
             </span>
           </div>
           {nodeInfo.latestBenchmarkResults ? (
@@ -540,7 +682,17 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           {!noResourcesAvailable ? (
             <Collapse>
               <div className={styles.gridWrapper}>
-                {compact ? (
+                {usageMode ? (
+                  <>
+                    <h4>Resources used</h4>
+                    <div className={classNames(styles.grid)}>
+                      {getGpuProgressBars()}
+                      {getCpuProgressBar()}
+                      {getRamProgressBar()}
+                      {getDiskProgressBar()}
+                    </div>
+                  </>
+                ) : compact ? (
                   <div className={classNames(styles.compactGrid)}>
                     {getGpuProgressBars()}
                     {getCpuProgressBar()}
@@ -588,13 +740,17 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           <div>
             Job duration:&nbsp;
             <strong>
-              {formatDuration(minJobDurationSeconds ?? 0)} - {formatDuration(maxJobDurationSeconds ?? 0)}
+              {usageMode
+                ? jobDurationSeconds != null
+                  ? formatDuration(jobDurationSeconds)
+                  : '—'
+                : `${formatDuration(minJobDurationSeconds ?? 0)} - ${formatDuration(maxJobDurationSeconds ?? 0)}`}
             </strong>
           </div>
           {getFreeComputeCheckbox()}
         </div>
         <div className={styles.buttons}>
-          {Object.entries(supportedTokensSymbols).length > 1 && !isFreeCompute ? (
+          {Object.entries(supportedTokensSymbols).length > 1 && !isFreeCompute && !usageMode ? (
             <Select
               onChange={(e) => setSelectedTokenAddress(e.target.value)}
               options={Object.entries(supportedTokensSymbols).map(([address, symbol]) => ({

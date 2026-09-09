@@ -1,0 +1,31 @@
+.statusChip {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 6px;
+  white-space: nowrap;
+
+  .statusDot {
+    background: currentcolor;
+    border-radius: 50%;
+    height: 8px;
+    width: 8px;
+  }
+}
+
+/* Colour the chip (text + dot via currentColor) by status kind. */
+.status_running {
+  color: var(--success-darker);
+}
+
+.status_pending {
+  color: var(--text-secondary);
+}
+
+.status_dead {
+  color: var(--text-secondary);
+}
+
+.status_failed {
+  color: var(--error-darker);
+}

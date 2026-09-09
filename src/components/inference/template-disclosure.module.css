@@ -1,0 +1,92 @@
+/* A collapsed row that carries its own summary — the pattern used for both "Good to know" and the
+   manifest, so the modal has exactly one way of saying "there is more here". */
+
+/* No `gap` here: the MUI Collapse wrapper is always in the flow (it animates its own height to 0),
+   so a wrapper gap would show as dead space under a CLOSED row. The spacing lives on .content
+   instead, where it collapses along with the content it belongs to. */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--background-glass-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+/* Raised variant: sits on the glass panel background rather than in it, for the manifest row where
+   the avatars need a surface of their own to punch out of. */
+.rowRaised {
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+}
+
+.icon {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  fill: currentColor;
+  color: var(--text-secondary);
+}
+
+.summary {
+  flex: 1;
+  min-width: 0;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent1);
+}
+
+.chevron {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  fill: currentColor;
+  transition: transform var(--transition-fast, 0.2s ease);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 8px;
+  padding: 2px 14px 4px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* Content that is itself a panel (the manifest list) provides its own padding. */
+.contentPanel {
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 1px var(--border-glass);
+}

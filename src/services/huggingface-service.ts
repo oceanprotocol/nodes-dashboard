@@ -1,0 +1,629 @@
+import { getVllmModelPreset } from '@/services/vllm-model-presets';
+import {
+  HuggingFaceModel,
+  HuggingFaceModelConfig,
+  InferenceEngine,
+  LlamaCppParameters,
+  ModelParameters,
+  ModelQuantization,
+  ToolCallParser,
+  VllmParameters,
+} from '@/types/huggingface';
+import { isGgufRepoId } from '@/services/model-compatibility';
+import axios from 'axios';
+
+// Hugging Face Hub API reference: https://huggingface.co/spaces/huggingface/openapi
+
+// List/get models — GET /api/models, GET /api/models/{namespace}/{repo}
+const HF_API_URL = 'https://huggingface.co/api/models';
+// Resolve a file — GET /{namespace}/{repo}/resolve/{rev}/{path}
+const HF_RESOLVE_URL = 'https://huggingface.co';
+
+// Network calls abort after this long so a hung HF request can't freeze the UI.
+const REQUEST_TIMEOUT_MS = 15000;
+
+const http = axios.create({ timeout: REQUEST_TIMEOUT_MS });
+
+/**
+ * Error-handling contract for this module:
+ * - List/get-model calls (fetchHuggingFaceModels/Model) THROW on failure — the caller renders an error state.
+ * - Repo-file reads (fetchModelFile / fetchHuggingFaceModelConfig) return null for a missing/unreadable file,
+ *   but THROW HuggingFaceAuthError when the file is gated/private so the caller can prompt for a token.
+ * - fetchPipelineTags SWALLOWS errors and returns FALLBACK_PIPELINE_TAGS (filters must always render).
+ */
+
+/** Encode an HF model id for use in a URL path, preserving the `namespace/repo` slash. */
+function encodeModelPath(modelId: string): string {
+  return modelId
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+/**
+ * Encode a revision for the `resolve/{rev}/…` path, preserving slashes. HF revisions can be
+ * slash-containing refs (e.g. `refs/pr/6`, or a branch named `feature/foo`) that the resolve
+ * endpoint expects as real path segments — encodeURIComponent alone would turn `/` into `%2F`
+ * and 404. Same segment-wise encoding as encodeModelPath.
+ */
+function encodeRevision(revision: string): string {
+  return revision
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+type RawHfConfig = {
+  architectures?: string[];
+  model_type?: string;
+  max_position_embeddings?: number;
+  torch_dtype?: string;
+  quantization_config?: { quant_method?: string };
+};
+
+type RawHfTokenizerConfig = {
+  // Either a single template string or a list of named templates.
+  chat_template?: string | { name?: string; template?: string }[];
+};
+
+/** A chat template references tools when it mentions the `tools`/`tool_calls` variables vLLM feeds it. */
+function chatTemplateSupportsTools(chatTemplate: RawHfTokenizerConfig['chat_template']): boolean {
+  const templates = Array.isArray(chatTemplate) ? chatTemplate.map((t) => t.template ?? '') : [chatTemplate ?? ''];
+  return templates.some((t) => /\btool_calls\b|\btools\b/.test(t));
+}
+
+/** Thrown when a repo file needs auth (gated/private model) — caller can prompt for an HF token. */
+export class HuggingFaceAuthError extends Error {
+  /** True when a token WAS sent and still rejected (invalid/insufficient), vs no token supplied yet. */
+  readonly tokenProvided: boolean;
+  constructor(modelId: string, tokenProvided: boolean) {
+    super(
+      tokenProvided
+        ? `Access to "${modelId}" was denied — the Hugging Face token is invalid or lacks permission.`
+        : `"${modelId}" is gated or private — an access token is required.`
+    );
+    this.name = 'HuggingFaceAuthError';
+    this.tokenProvided = tokenProvided;
+  }
+}
+
+/**
+ * Resolve a single file from a model repo at a given revision (default `main`).
+ * 401/403 throw HuggingFaceAuthError; any other failure resolves to null (treat as "file absent").
+ */
+async function fetchModelFile<T>(modelId: string, file: string, token?: string, revision = 'main'): Promise<T | null> {
+  const rev = encodeRevision(revision || 'main');
+  let response;
+  try {
+    response = await http.get<T>(`${HF_RESOLVE_URL}/${encodeModelPath(modelId)}/resolve/${rev}/${file}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      responseType: 'json',
+      validateStatus: () => true,
+    });
+  } catch {
+    return null;
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new HuggingFaceAuthError(modelId, !!token);
+  }
+  if (response.status < 200 || response.status >= 300) {
+    return null;
+  }
+  return response.data;
+}
+
+/** Like fetchModelFile but returns raw text (for non-JSON repo files, e.g. chat_template.jinja). */
+async function fetchModelTextFile(
+  modelId: string,
+  file: string,
+  token?: string,
+  revision = 'main'
+): Promise<string | null> {
+  const rev = encodeRevision(revision || 'main');
+  let response;
+  try {
+    response = await http.get<string>(`${HF_RESOLVE_URL}/${encodeModelPath(modelId)}/resolve/${rev}/${file}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      responseType: 'text',
+      validateStatus: () => true,
+    });
+  } catch {
+    return null;
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new HuggingFaceAuthError(modelId, !!token);
+  }
+  if (response.status < 200 || response.status >= 300) {
+    return null;
+  }
+  return response.data;
+}
+
+type RawHfModel = {
+  id: string;
+  author?: string;
+  lastModified?: string;
+  likes?: number;
+  downloads?: number;
+  trendingScore?: number;
+  pipeline_tag?: string;
+  tags?: string[];
+  library_name?: string;
+  gated?: boolean | string;
+  safetensors?: { total?: number; parameters?: Record<string, number> };
+};
+
+/**
+ * Fields requested from the list endpoint via `expand[]`. This is the complete set — `expand[]`
+ * REPLACES the default field set rather than adding to it, so anything mapModel reads must appear
+ * here or it silently arrives undefined.
+ *
+ * Cheaper than the `full=true` this replaced (~18KB vs ~48KB per 30 models) because `full` also
+ * ships siblings, card data and config, none of which the grid renders — while `safetensors` gives
+ * the parameter count for weight-size estimates, which `full` doesn't include at all.
+ */
+const HF_LIST_FIELDS = [
+  'author',
+  'lastModified',
+  'likes',
+  'downloads',
+  'trendingScore',
+  'pipeline_tag',
+  'tags',
+  'library_name',
+  'gated',
+  'safetensors',
+];
+
+function mapModel(raw: RawHfModel): HuggingFaceModel {
+  return {
+    id: raw.id,
+    author: raw.author,
+    lastModified: raw.lastModified,
+    likes: raw.likes,
+    downloads: raw.downloads,
+    trendingScore: raw.trendingScore,
+    pipelineTag: raw.pipeline_tag,
+    tags: raw.tags,
+    libraryName: raw.library_name,
+    gated: raw.gated,
+    // Absent for ~1 in 3 repos (GGUF-only ones, and anything HF hasn't indexed) — treat as unknown,
+    // never as zero.
+    paramCount: raw.safetensors?.total,
+  };
+}
+
+export type PipelineTag = {
+  id: string;
+  label: string;
+};
+
+/** Fallback list if the HF tags endpoint is unreachable. */
+export const FALLBACK_PIPELINE_TAGS: PipelineTag[] = [
+  { id: 'text-generation', label: 'Text Generation' },
+  { id: 'image-text-to-text', label: 'Image Text To Text' },
+  { id: 'text-to-image', label: 'Text To Image' },
+  { id: 'automatic-speech-recognition', label: 'Automatic Speech Recognition' },
+  { id: 'image-to-video', label: 'Image To Video' },
+  { id: 'any-to-any', label: 'Any To Any' },
+  { id: 'text-to-video', label: 'Text To Video' },
+  { id: 'text-to-speech', label: 'Text To Speech' },
+];
+
+type RawTag = { id: string; label: string; type: string };
+
+// HF's tags endpoint carries no popularity/count field, so we approximate it: the tags with the most
+// models (and the ones most relevant to inference) are pinned to the front; everything else keeps HF order.
+const TAG_POPULARITY_ORDER = [
+  'text-generation',
+  'image-text-to-text',
+  'text-to-image',
+  'automatic-speech-recognition',
+  'text-to-speech',
+  'text-to-video',
+  'image-to-video',
+  'translation',
+  'any-to-any',
+];
+
+/** Stable sort by curated popularity: ranked tags first (in order), unranked tags after in HF order. */
+function orderTagsByPopularity(tags: PipelineTag[]): PipelineTag[] {
+  const rankOf = (id: string) => {
+    const index = TAG_POPULARITY_ORDER.indexOf(id);
+    return index === -1 ? TAG_POPULARITY_ORDER.length : index;
+  };
+  return tags
+    .map((tag, index) => ({ tag, index }))
+    .sort((a, b) => rankOf(a.tag.id) - rankOf(b.tag.id) || a.index - b.index)
+    .map((entry) => entry.tag);
+}
+
+/**
+ * Fetch the full list of HF pipeline tags (used as model filters), ordered by curated popularity.
+ */
+export async function fetchPipelineTags(): Promise<PipelineTag[]> {
+  try {
+    const response = await http.get<{ pipeline_tag?: RawTag[] }>(`${HF_RESOLVE_URL}/api/models-tags-by-type`);
+    const data = response.data;
+    const rawTags = Array.isArray(data?.pipeline_tag) ? data.pipeline_tag : [];
+    const tags = rawTags.map((t) => ({ id: t.id, label: t.label }));
+    return tags.length > 0 ? orderTagsByPopularity(tags) : FALLBACK_PIPELINE_TAGS;
+  } catch {
+    return FALLBACK_PIPELINE_TAGS;
+  }
+}
+
+export type HuggingFaceModelsPage = {
+  models: HuggingFaceModel[];
+  /** Opaque cursor for the next page, or null when there are no more results. */
+  nextCursor: string | null;
+};
+
+/** How the model list is ordered. Maps 1:1 to the HF API `sort` param (all descending). */
+export type ModelSort = 'trendingScore' | 'downloads' | 'likes' | 'lastModified' | 'createdAt';
+
+export const DEFAULT_MODEL_SORT: ModelSort = 'trendingScore';
+
+/** HF paginates via a `Link: rel="next"` header carrying an opaque `cursor` token. */
+function parseNextCursor(linkHeader: string | null): string | null {
+  if (!linkHeader) {
+    return null;
+  }
+  const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+  if (!match) {
+    return null;
+  }
+  try {
+    return new URL(match[1]).searchParams.get('cursor');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * List models with search/sort/filter + cursor pagination.
+ */
+export async function fetchHuggingFaceModels(
+  query?: string,
+  {
+    limit = 50,
+    cursor,
+    pipelineTag,
+    sort = DEFAULT_MODEL_SORT,
+  }: { limit?: number; cursor?: string; pipelineTag?: string; sort?: ModelSort } = {}
+): Promise<HuggingFaceModelsPage> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  for (const field of HF_LIST_FIELDS) {
+    params.append('expand[]', field);
+  }
+
+  const trimmed = query?.trim();
+  if (trimmed) {
+    params.set('search', trimmed);
+  }
+  params.set('sort', sort);
+  params.set('direction', '-1');
+  if (pipelineTag) {
+    params.set('pipeline_tag', pipelineTag);
+  }
+  if (cursor) {
+    params.set('cursor', cursor);
+  }
+
+  let response;
+  try {
+    response = await http.get<unknown>(`${HF_API_URL}?${params.toString()}`);
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response) {
+      throw new Error(`Failed to fetch Hugging Face models (${err.response.status})`);
+    }
+    throw new Error('Could not reach Hugging Face. Check your connection and try again.');
+  }
+
+  const data = response.data;
+  if (!Array.isArray(data)) {
+    throw new Error('Unexpected response from Hugging Face.');
+  }
+  return {
+    models: (data as RawHfModel[]).filter((m) => !!m?.id).map(mapModel),
+    nextCursor: parseNextCursor(response.headers['link'] ?? null),
+  };
+}
+
+/**
+ * Get a single model by id.
+ */
+export async function fetchHuggingFaceModel(modelId: string): Promise<HuggingFaceModel> {
+  let response;
+  try {
+    response = await http.get<unknown>(`${HF_API_URL}/${encodeModelPath(modelId)}`);
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response) {
+      if (err.response.status === 404) {
+        throw new Error(`Model "${modelId}" not found on Hugging Face.`);
+      }
+      throw new Error(`Failed to fetch model "${modelId}" (${err.response.status})`);
+    }
+    throw new Error('Could not reach Hugging Face. Check your connection and try again.');
+  }
+
+  const data: unknown = response.data;
+  if (!data || typeof data !== 'object' || typeof (data as RawHfModel).id !== 'string') {
+    throw new Error(`Unexpected response for model "${modelId}".`);
+  }
+  return mapModel(data as RawHfModel);
+}
+
+/**
+ * Pulls per-model engine defaults from HF config.json (context ceiling, dtype, arch, quantization)
+ * and tool support from the chat template (tokenizer_config.json + standalone chat_template.jinja).
+ * Returns nulls for anything missing — caller falls back to its own defaults.
+ * Pass `token` for gated/private models; throws HuggingFaceAuthError if auth is required and missing/invalid.
+ * Pass `revision` to pin a commit/branch (defaults to `main`).
+ */
+export async function fetchHuggingFaceModelConfig(
+  modelId: string,
+  token?: string,
+  revision?: string
+): Promise<HuggingFaceModelConfig> {
+  const [config, tokenizerConfig, chatTemplateFile] = await Promise.all([
+    fetchModelFile<RawHfConfig>(modelId, 'config.json', token, revision),
+    fetchModelFile<RawHfTokenizerConfig>(modelId, 'tokenizer_config.json', token, revision),
+    // Some models ship the chat template as a standalone file instead of inside tokenizer_config.json.
+    fetchModelTextFile(modelId, 'chat_template.jinja', token, revision),
+  ]);
+
+  const supportsTools =
+    chatTemplateSupportsTools(tokenizerConfig?.chat_template) ||
+    chatTemplateSupportsTools(chatTemplateFile ?? undefined);
+
+  return {
+    architecture: config?.architectures?.[0] ?? null,
+    modelType: config?.model_type ?? null,
+    maxContext: config?.max_position_embeddings ?? null,
+    torchDtype: config?.torch_dtype ?? null,
+    quantizationMethod: config?.quantization_config?.quant_method ?? null,
+    supportsTools,
+  };
+}
+
+/**
+ * HF pipeline tags for models that autoregressively sample text on vLLM — the ones where the
+ * generation params (temperature/top_p/top_k/repetition_penalty) and tool calling are meaningful.
+ * `text2text-generation` is legacy (HF folded it into text-generation) but older repos still carry it.
+ */
+export const GENERATIVE_PIPELINE_TAGS = [
+  'text-generation',
+  'text2text-generation',
+  'image-text-to-text',
+  'audio-text-to-text',
+  'video-text-to-text',
+  'any-to-any',
+];
+
+/** Whether a model's pipeline tag is a text-sampling generative one. Unknown/absent tag → treat as generative. */
+export function isGenerativePipeline(pipelineTag?: string): boolean {
+  return !pipelineTag || GENERATIVE_PIPELINE_TAGS.includes(pipelineTag);
+}
+
+/**
+ * Best-effort guess of the vLLM `--tool-call-parser` from model family (config.json model_type/architecture).
+ * Returns null when nothing matches — the caller must then require an explicit choice.
+ */
+export function inferToolCallParser(config: HuggingFaceModelConfig | null): ToolCallParser | null {
+  const hay = `${config?.modelType ?? ''} ${config?.architecture ?? ''}`.toLowerCase();
+  if (/llama4/.test(hay)) {
+    return 'llama4_json';
+  }
+  if (/llama|mllama/.test(hay)) {
+    return 'llama3_json';
+  }
+  if (/mistral|mixtral|ministral/.test(hay)) {
+    return 'mistral';
+  }
+  if (/granite/.test(hay)) {
+    return 'granite';
+  }
+  if (/internlm/.test(hay)) {
+    return 'internlm';
+  }
+  if (/jamba/.test(hay)) {
+    return 'jamba';
+  }
+  if (/deepseek/.test(hay)) {
+    return 'deepseek_v3';
+  }
+  if (/glm/.test(hay)) {
+    return 'glm45';
+  }
+  if (/gemma3|gemma4/.test(hay)) {
+    return 'gemma4';
+  }
+  if (/phi4|phi3/.test(hay)) {
+    return 'phi4_mini_json';
+  }
+  // Qwen3+ switched to an XML tool-call format that the Hermes parser mis-reads. Note this can't
+  // distinguish Qwen3-Coder (which wants 'qwen3_coder') from Qwen3-Instruct — both report the same
+  // model_type/architecture, and the coder variant is only identifiable from the repo name.
+  if (/qwen(?:3|[4-9])/.test(hay)) {
+    return 'qwen3_xml';
+  }
+  // Hermes-style is the common default for Qwen2.x and many fine-tunes.
+  if (/qwen|hermes/.test(hay)) {
+    return 'hermes';
+  }
+  return null;
+}
+
+// vLLM launch-param defaults, used when the model config doesn't pin a value.
+const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
+// llama.cpp defaults: quant tag most GGUF repos ship (good size/quality tradeoff) and CPU-only offload.
+const DEFAULT_GGUF_QUANT = 'Q4_K_M';
+const DEFAULT_LLAMA_GPU_LAYERS = 0;
+
+/** Ocean's supported inference engines, for selectors. `vllm` is the default. */
+export const INFERENCE_ENGINE_OPTIONS: { label: string; value: InferenceEngine }[] = [
+  { label: 'vLLM', value: 'vllm' },
+  { label: 'llama.cpp', value: 'llamacpp' },
+];
+
+export const DEFAULT_INFERENCE_ENGINE: InferenceEngine = 'vllm';
+
+/**
+ * Best-effort GGUF repo guess for llama.cpp from an HF model id. GGUF repos are separate from the raw
+ * weights repo (llama.cpp can't serve raw weights) and follow no strict rule, so this is only a
+ * starting suggestion the user is expected to correct: `bartowski` re-publishes most popular models
+ * as `<repo>-GGUF`, so we point there. Empty for a bare id with no author.
+ *
+ * A model id that is ALREADY a GGUF repo is returned untouched — the user picked the exact repo to
+ * serve, so re-pointing it at `bartowski/<that>-GGUF` would replace a correct answer with a guess at
+ * a repo that doesn't exist.
+ */
+export function guessGgufRepo(modelId: string): string {
+  if (isGgufRepoId(modelId)) {
+    return modelId;
+  }
+  const repo = getModelShortName(modelId);
+  return repo ? `bartowski/${repo}-GGUF` : '';
+}
+
+/**
+ * Allowed range for each numeric launch param — the single source for the form's sliders/validation.
+ * maxContext has only a floor: the ceiling is the model's own reported context (uncapped), and when
+ * the model reports nothing the field is left blank so vLLM derives the length itself.
+ *
+ * Policy for a model whose reported context is BELOW this floor (e.g. 512): the form LOWERS its floor
+ * to the model's reported max so the whole valid range collapses to that single value — the user can
+ * set exactly what the model accepts (512) and nothing higher. We never raise the ceiling to the
+ * floor (that would allow more than the model serves, and the launch would be rejected).
+ */
+export const MODEL_PARAM_BOUNDS = {
+  maxContext: { min: 1024 },
+  // min is the lowest VALID fraction, not 0: claiming 0 VRAM is rejected, so the slider must not
+  // offer it and validation floors at this value. One 0.05 step above zero.
+  gpuMemoryUtilization: { min: 0.05, max: 1 },
+} as const;
+
+/** Map an HF quantization method to our enum; null when none/unrecognized (field then stays user-editable). */
+export function mapQuantization(method: string | null): ModelQuantization | null {
+  switch (method?.toLowerCase()) {
+    case 'fp8': {
+      return 'fp8';
+    }
+    case 'awq': {
+      return 'awq';
+    }
+    case 'gptq': {
+      return 'gptq';
+    }
+    default: {
+      return null;
+    }
+  }
+}
+
+/** vLLM launch-param defaults from HF config, falling back to neutral values for anything unpinned. */
+function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: string): VllmParameters {
+  const lockedQuant = mapQuantization(config?.quantizationMethod ?? null);
+  const preset = getVllmModelPreset(modelId);
+  return {
+    engine: 'vllm',
+    vllmTag: '',
+    servedModelName: getModelShortName(modelId),
+    // User-defined key/value params — none by default; the user adds them like env vars.
+    customParams: preset?.customParams.map((param) => ({ ...param })) ?? [],
+    // The model's own reported context, seeded as-is; null when HF reports nothing so launch omits
+    // --max-model-len and lets vLLM derive it from the model config (no arbitrary fallback). The form
+    // lowers its floor to the model's max for sub-floor models (see MODEL_PARAM_BOUNDS), so even a
+    // reported value below the nominal floor is a valid default the user can keep or pin.
+    maxContext: config?.maxContext ?? null,
+    // null = single GPU (vLLM's own default) — the flag is only emitted for a real multi-GPU shard.
+    tensorParallelSize: preset?.tensorParallelSize ?? null,
+    gpuMemoryUtilization: DEFAULT_GPU_MEMORY_UTILIZATION,
+    quantization: lockedQuant ?? 'none',
+    // Default to 'auto' rather than the model's own torch_dtype: many models declare bfloat16, which
+    // older GPUs (e.g. Tesla T4, compute 7.5) can't run — vLLM then exits at startup. 'auto' lets
+    // vLLM pick a dtype the target GPU supports (float16 on pre-Ampere). User can still override.
+    dtype: 'auto',
+    kvCacheDtype: 'auto',
+    trustRemoteCode: false,
+    enforceEager: false,
+    revision: '',
+    toolCalling: preset?.toolCalling ?? false,
+    // Pre-fill the best-guess parser (still user-overridable); null when the family is unknown.
+    toolCallParser: preset?.toolCallParser ?? inferToolCallParser(config),
+  };
+}
+
+/** llama.cpp launch-param defaults. Seeds a best-guess GGUF repo + common quant; user corrects both. */
+function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: string): LlamaCppParameters {
+  return {
+    engine: 'llamacpp',
+    servedModelName: getModelShortName(modelId),
+    customParams: [],
+    ggufRepo: guessGgufRepo(modelId),
+    ggufQuant: DEFAULT_GGUF_QUANT,
+    // Seed the model's reported context; null lets llama.cpp use its trained default.
+    contextLength: config?.maxContext ?? null,
+    gpuLayers: DEFAULT_LLAMA_GPU_LAYERS,
+    // Jinja on by default so chat/tool templates work; the models we serve are chat models.
+    jinja: true,
+  };
+}
+
+/**
+ * Build the launch parameters for a model + engine from its HF config, falling back to neutral
+ * defaults for anything the config doesn't pin. Passing `config: null` yields the pure defaults —
+ * the fallback used for a selection whose params haven't been committed yet. The engine picks which
+ * branch of ModelParameters is returned (defaults to vLLM).
+ */
+export function buildModelDefaults(
+  config: HuggingFaceModelConfig | null,
+  modelId: string,
+  engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE
+): ModelParameters {
+  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId) : buildVllmDefaults(config, modelId);
+}
+
+/** Short display name for a model id — the repo part after the `author/` prefix. */
+export function getModelShortName(modelId: string): string {
+  return modelId.includes('/') ? modelId.split('/')[1] : modelId;
+}
+
+/** Encode selected model ids into the `models` query param value. */
+export function encodeModelIds(ids: string[]): string {
+  return ids.map((id) => encodeURIComponent(id)).join(',');
+}
+
+/** Decode the `models` query param (string | string[] from Next router) into model ids. */
+export function decodeModelIds(raw: string | string[] | undefined): string[] {
+  if (!raw) {
+    return [];
+  }
+  const value = Array.isArray(raw) ? raw.join(',') : raw;
+  return value
+    .split(',')
+    .map((part) => decodeURIComponent(part.trim()))
+    .filter(Boolean);
+}
+
+/**
+ * Build the org avatar URL for a model's author. `author` is only populated on models fetched from the
+ * HF API — one recovered from a running service's launch command is a bare id — so fall back to the id's
+ * namespace, which is the author for every `namespace/repo` id.
+ */
+export function getModelAvatarUrl(model: HuggingFaceModel): string | undefined {
+  return getAuthorAvatarUrl(model.author || (model.id.includes('/') ? model.id.split('/')[0] : ''));
+}
+
+/**
+ * Org avatar URL for a bare author/namespace. Callers that only have a repo id (a bundle's
+ * `includes[].repoId`, say) can pass its namespace directly instead of faking a HuggingFaceModel.
+ * Not every namespace has an avatar, so treat a 404 as "no logo" and render a fallback.
+ */
+export function getAuthorAvatarUrl(author: string | undefined): string | undefined {
+  if (!author) {
+    return undefined;
+  }
+  return `https://huggingface.co/api/organizations/${encodeURIComponent(author)}/avatar`;
+}

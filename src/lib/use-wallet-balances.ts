@@ -1,6 +1,6 @@
+import { getDisplayTokens } from '@/constants/tokens';
 import { alchemyClient } from '@/lib/alchemy-client';
 import { OceanProvider } from '@/lib/ocean-provider';
-import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { NodeBalance } from '@/types/nodes';
 import { useCallback, useEffect, useState } from 'react';
@@ -26,30 +26,33 @@ export const useWalletBalances = (): UseWalletBalancesReturn => {
 
     setLoading(true);
     try {
-      const data = await alchemyClient.core.getTokenBalances(account.address);
-      const tokenBalances = data.tokenBalances ?? [];
+      const displayTokens = Object.entries(getDisplayTokens());
+      const erc20Addresses = displayTokens.filter(([, token]) => !token.isNative).map(([, token]) => token.address);
 
-      // Filter out zero balances
-      const nonZeroBalances = tokenBalances.filter(
-        (tb) =>
-          tb.tokenBalance &&
-          tb.tokenBalance !== '0x' &&
-          tb.tokenBalance !== '0x0' &&
-          tb.tokenBalance !== '0x0000000000000000000000000000000000000000000000000000000000000000'
+      const [nativeBalance, erc20Data] = await Promise.all([
+        alchemyClient.core.getBalance(account.address),
+        erc20Addresses.length > 0
+          ? alchemyClient.core.getTokenBalances(account.address, erc20Addresses)
+          : Promise.resolve({ tokenBalances: [] }),
+      ]);
+
+      const erc20ByAddress = new Map(
+        (erc20Data.tokenBalances ?? []).map((tb) => [tb.contractAddress.toLowerCase(), tb.tokenBalance])
       );
 
-      const walletBalances: NodeBalance[] = await Promise.all(
-        nonZeroBalances.map(async (tb) => {
-          const symbol = await getTokenSymbol(tb.contractAddress);
-          const decimals = await getTokenDecimals(tb.contractAddress);
-          const amount = Number(OceanProvider.denominateNumber(BigInt(tb.tokenBalance!).toString(), decimals));
-          return {
-            token: symbol || tb.contractAddress,
-            address: tb.contractAddress,
-            amount,
-          };
-        })
-      );
+      const walletBalances: NodeBalance[] = displayTokens.map(([symbol, token]) => {
+        const rawBalance = token.isNative
+          ? nativeBalance.toString()
+          : (erc20ByAddress.get(token.address.toLowerCase()) ?? '0x0');
+        const amount = Number(OceanProvider.denominateNumber(BigInt(rawBalance).toString(), token.decimals));
+
+        return {
+          token: symbol,
+          address: token.address,
+          amount,
+          isNative: token.isNative,
+        };
+      });
 
       setBalances(walletBalances);
     } catch (error) {

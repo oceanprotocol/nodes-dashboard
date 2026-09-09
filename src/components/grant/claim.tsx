@@ -1,22 +1,19 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import { useOceanAccount } from '@/lib/use-ocean-account';
-import FaucetArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsTokenFaucet.sol/GrantsTokenFaucet.json';
 import { captureError } from '@/lib/analytics';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ClaimGrantResponse } from '@/types/grant';
-import { usePrivy } from '@privy-io/react-auth';
+import FaucetArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsTokenFaucet.sol/GrantsTokenFaucet.json';
 import axios from 'axios';
 import posthog from 'posthog-js';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { encodeFunctionData } from 'viem';
 import { useProfileContext } from '../../context/profile-context';
 import styles from './claim.module.css';
 
 const Claim: React.FC = () => {
-  const { login } = usePrivy();
-
-  const { account, sendTransaction, isSendingTransaction } = useOceanAccount();
+  const { account, login, sendTransaction, isSendingTransaction } = useOceanAccount();
   const { fetchGrantStatus } = useProfileContext();
 
   const [claimed, setClaimed] = useState(false);

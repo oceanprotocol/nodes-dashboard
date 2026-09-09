@@ -11,6 +11,7 @@ type DurationUnitOption = {
 
 type DurationInputProps = {
   availableUnits: DurationUnitOption[];
+  className?: string;
   defaultUnit?: DurationUnit;
   disabled?: boolean;
   errorText?: string;
@@ -22,6 +23,7 @@ type DurationInputProps = {
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onChange: (seconds: number) => void;
   onSetMax?: () => void;
+  radius?: number;
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
   value: number; // seconds
@@ -29,6 +31,7 @@ type DurationInputProps = {
 
 const DurationInput: React.FC<DurationInputProps> = ({
   availableUnits,
+  className,
   defaultUnit = 'seconds',
   disabled,
   errorText,
@@ -40,6 +43,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   onBlur,
   onChange,
   onSetMax,
+  radius,
   size,
   topRight,
   value,
@@ -77,6 +81,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
 
   return (
     <Input
+      className={className}
       disabled={disabled}
       endAdornment={
         <div className={styles.controls}>
@@ -108,6 +113,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
       name={name}
       onBlur={onBlur}
       onChange={handleValueChange}
+      radius={radius}
       size={size}
       topRight={topRight}
       type="number"

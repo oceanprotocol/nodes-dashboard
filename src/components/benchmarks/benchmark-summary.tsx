@@ -34,7 +34,7 @@ const BenchmarkSummary: React.FC<BenchmarkSummaryProps> = ({ bandwidthScore, cpu
   }, [gpuScore, cpuScore, bandwidthScore, totalScore]);
 
   return (
-    <div className={classNames('chip', 'chipPrimaryOutlined', styles.root)}>
+    <div className={styles.root}>
       <div className={styles.label}>Benchmark:</div>
       <div className={styles.result} title={`GPU score: ${formattedGpu}`}>
         <GpuIcon className={styles.customIcon} /> {formattedGpu}

@@ -46,6 +46,14 @@
   }
 }
 
+/* The mark ships with baked-in #000 fills, so it can't pick up currentColor. It's pure
+   black-and-white art, so inverting it in dark mode produces exactly the intended white logo.
+   Targeting the element covers the mobile-menu instance too, which carries no class. */
+:global(:root[data-theme='dark']) .logoWrapper svg,
+:global(:root[data-theme='dark']) .mobileMenuHeader svg {
+  filter: invert(1);
+}
+
 .root {
   position: sticky;
   top: 0;
@@ -95,22 +103,52 @@
     display: none;
   }
 
+  /* Avatar + stacked label, so the button keeps a single row with two lines of text on the right */
+  .accountButton {
+    align-items: center;
+    gap: 8px;
+
+    .accountLabel {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      line-height: 1.15;
+      text-align: left;
+
+      .accountAddress {
+        font-size: 10px;
+        font-weight: 400;
+        opacity: 0.75;
+      }
+    }
+  }
+
   .mobileMenu {
     position: fixed;
     top: 0;
     right: 0;
-    width: min(300px, 100dvw);
+    /* The sheet bleeds into the right inset, so its own padding keeps content clear of it */
+    width: min(calc(300px + env(safe-area-inset-right)), 100dvw);
     height: 100dvh;
-    padding: 30px 28px;
+    padding: calc(30px + env(safe-area-inset-top)) calc(28px + env(safe-area-inset-right))
+      calc(30px + env(safe-area-inset-bottom)) 28px;
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 24px;
     transform: translateX(100%);
     transition:
       transform 0.3s ease,
       box-shadow 0.3s ease;
     z-index: 95;
+    /* Scrolls on its own when the links plus actions outgrow the viewport, without chaining to the page */
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+
+    /* Sections must keep their height so the sheet scrolls instead of squeezing the buttons */
+    & > * {
+      flex: 0 0 auto;
+    }
   }
 
   .mobileMenuOpen {
@@ -130,20 +168,25 @@
   }
 
   .mobileActions {
+    border-top: 1px solid var(--border-glass);
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    margin-top: auto;
-  }
+    gap: 12px;
+    padding-top: 16px;
 
-  .mobileActions .actionIconLink {
-    width: 44px;
-    height: 44px;
-  }
+    .mobileSocials {
+      display: flex;
+      gap: 12px;
 
-  .mobileActions .loginButton {
-    width: 100%;
-    text-align: center;
+      .socialButton {
+        flex: 1;
+      }
+    }
+
+    .loginButton {
+      width: 100%;
+      text-align: center;
+    }
   }
 
   .mobileBackdrop {

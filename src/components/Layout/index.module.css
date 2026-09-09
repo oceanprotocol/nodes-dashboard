@@ -8,3 +8,12 @@
   position: relative;
   min-height: 100lvh;
 }
+
+/* The backdrop art is an accent-red gradient tuned to sit quietly on white: its strongest pixel is
+   only ~18% alpha (.6 group opacity x .3 stop opacity). That reads as faint texture on white, but
+   on a near-black ground the same near-transparent red all but disappears. CSS filters can't raise
+   alpha, so dark gets its own copy of the art (background-dark.svg) with the group/stop opacities
+   opened up and a brighter coral, giving it the same quiet-texture weight the light theme has. */
+:global(:root[data-theme='dark']) .main {
+  background-image: url('/background-dark.svg');
+}

@@ -6,10 +6,12 @@ import { NodeEnvironments } from '@/types/environments';
 import { EnvironmentsFilters } from '@/types/filters';
 import { GPUPopularityDisplay, GPUPopularityStats } from '@/types/nodes';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 const INITIAL_PAGE = 1;
-const PAGE_SIZE = 10;
+// Server page size. Consumers filter each page client-side (service-on-demand support, supported fee
+// token), so a server page can contribute zero visible rows.
+const PAGE_SIZE = 20;
 
 export type RawFilters = {
   feeToken?: string | string[];
@@ -27,13 +29,27 @@ export const DEFAULT_FILTERS: RawFilters = {
   feeToken: Object.values(getSupportedTokens()).map((t) => t.address),
 };
 
+/** Client-side visibility test a consumer applies to each env (service-on-demand, fee token, …).
+ *  Passed to `loadMoreEnvs` so the fetch loop can tell a page that contributes nothing visible from
+ *  one that does, and keep paging instead of stopping on a page that would render empty.
+ *
+ *  The owning node comes through as the second argument so a consumer can also gate on node identity
+ *  (the inference picker allows only ON_INFERENCE_NODES) — without it, a page holding only
+ *  disallowed nodes reads as "gained visible" and the loop stops on a list that renders empty. */
+export type EnvVisibilityFilter = (
+  env: NodeEnvironments['computeEnvironments']['environments'][number],
+  node: NodeEnvironments
+) => boolean;
+
 type RunJobEnvsContextType = {
   fetchGpus: () => Promise<void>;
   filters: RawFilters;
   filtersUnmetFallback: boolean;
   gpus: GPUPopularityDisplay;
   loading: boolean;
-  loadMoreEnvs: () => Promise<void>;
+  /** Pages forward until at least one env passing `isVisible` is found, or the last page is reached.
+   *  Omit `isVisible` to advance exactly one page. */
+  loadMoreEnvs: (isVisible?: EnvVisibilityFilter) => Promise<void>;
   nodeEnvs: NodeEnvironments[];
   paginationResponse: ApiPaginationResponse | null;
   setFilters: (filters: RawFilters) => void;
@@ -45,6 +61,8 @@ const RunJobEnvsContext = createContext<RunJobEnvsContextType | undefined>(undef
 
 export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
   const [crtPage, setCrtPage] = useState(INITIAL_PAGE);
+  // Mirrors crtPage for the multi-page load loop, which advances faster than state settles.
+  const pageRef = useRef(INITIAL_PAGE);
   const [filters, setFilters] = useState<RawFilters>(DEFAULT_FILTERS);
   const [filtersUnmetFallback, setFiltersUnmetFallback] = useState(false);
   const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
@@ -102,7 +120,7 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
       pageNumber: number;
       pageSize: number;
       sort: string | null;
-    }) => {
+    }): Promise<{ envs: NodeEnvironments[]; pagination: ApiPaginationResponse } | null> => {
       setLoading(true);
       try {
         const response = await axios.get<{
@@ -125,9 +143,12 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
           } else {
             setNodeEnvs(response.data.envs);
           }
+          return { envs: response.data.envs, pagination: response.data.pagination };
         }
+        return null;
       } catch (error) {
         console.error('Failed to fetch environments:', error);
+        return null;
       } finally {
         setLoading(false);
       }
@@ -135,20 +156,46 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
     [buildFilterParams]
   );
 
-  const loadMoreEnvs = useCallback(async () => {
-    const newPage = crtPage + 1;
-    setCrtPage(newPage);
-    await fetchEnvironments({
-      filters,
-      operation: 'load-more',
-      pageNumber: newPage,
-      pageSize: PAGE_SIZE,
-      sort,
-    });
-  }, [crtPage, fetchEnvironments, filters, sort]);
+  // Page forward until a page contributes at least one env the caller can actually show, or we hit
+  // the last page. Without this, a page whose envs are all filtered out client-side renders as an
+  // empty list even though later pages hold matches. The page cursor is tracked in a ref because the
+  // loop advances several pages within a single call, faster than state would settle.
+  const loadMoreEnvs = useCallback(
+    async (isVisible?: EnvVisibilityFilter) => {
+      let page = pageRef.current;
+      for (;;) {
+        page += 1;
+        pageRef.current = page;
+        setCrtPage(page);
+        const result = await fetchEnvironments({
+          filters,
+          operation: 'load-more',
+          pageNumber: page,
+          pageSize: PAGE_SIZE,
+          sort,
+        });
+        // Request failed — stop rather than hammering the API; the button stays for a manual retry.
+        if (!result) {
+          return;
+        }
+        // No filter supplied: caller just wants the next page.
+        if (!isVisible) {
+          return;
+        }
+        const gainedVisible = result.envs.some((node) =>
+          node.computeEnvironments.environments.some((env) => isVisible(env, node))
+        );
+        if (gainedVisible || page >= result.pagination.totalPages) {
+          return;
+        }
+      }
+    },
+    [fetchEnvironments, filters, sort]
+  );
 
   useEffect(() => {
     setCrtPage(INITIAL_PAGE);
+    pageRef.current = INITIAL_PAGE;
     fetchEnvironments({
       filters,
       operation: 'new-search',
@@ -158,14 +205,17 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [fetchEnvironments, filters, sort]);
 
-  // TODO fetch all GPUs not only top 5
   const fetchGpus = useCallback(async () => {
     try {
       const response = await axios.get<GPUPopularityStats>(getApiRoute('gpuPopularity'));
-      const res: GPUPopularityDisplay = response.data.map((gpu) => ({
-        gpuName: `${gpu.vendor} ${gpu.name}`,
-        popularity: gpu.popularity,
-      }));
+      const res: GPUPopularityDisplay = response.data
+        .map((gpu) => ({
+          // Use the raw `name` only: the /envs gpuName filter matches against the
+          // environment resource's `name` field (e.g. "NVIDIA H200"), not vendor + name.
+          gpuName: gpu.name,
+          popularity: gpu.popularity,
+        }))
+        .sort((a, b) => b.popularity - a.popularity);
       setGpus(res);
     } catch (error) {
       console.error('Failed to fetch GPUs:', error);

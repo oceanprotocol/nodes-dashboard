@@ -1,11 +1,11 @@
 .root {
   align-items: flex-end;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 8px;
   position: fixed;
-  right: 16px;
+  right: calc(16px + env(safe-area-inset-right));
   z-index: 50;
 
   .collapse {

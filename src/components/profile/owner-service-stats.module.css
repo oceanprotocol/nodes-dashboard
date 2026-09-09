@@ -1,0 +1,10 @@
+/* Track placement comes from the section's shared grid template (owner-section.module.css).
+
+   No centring or flex here: StatTile sizes itself to its container (its rows are
+   `justify-content: space-between`), so any wrapper that shrink-wraps it — a flex box, an inline
+   box — collapses the label/value rows to content width and makes the slot read narrower than the
+   charts beside it. A plain block lets it fill the track, the way node-details places StatTile
+   directly in its grid. */
+.tile {
+  min-width: 0;
+}

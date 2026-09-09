@@ -49,7 +49,9 @@ const StyledSwitch = styled(MaterialSwitch)(() => ({
   },
   '& .MuiSwitch-thumb': {
     boxShadow: 'none',
-    color: 'var(--text-primary-inverse)',
+    // The thumb rides on an --accent1 track when checked, so it tracks the fixed accent
+    // contrast rather than the theme (which would turn it black-on-red in dark).
+    color: 'var(--accent1-contrast)',
     width: 20,
   },
   '& .MuiSwitch-track': {

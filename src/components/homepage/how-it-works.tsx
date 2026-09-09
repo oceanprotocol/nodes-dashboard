@@ -50,7 +50,7 @@ export default function HowItWorksSection() {
         <SectionTitle
           title="How It works"
           subTitle="Run compute jobs and train AI models in a few simple steps"
-          subTitleClassName="textPrimaryInverse"
+          subTitleClassName="textAccent1Contrast"
           titleClassName="textAccent2"
         />
         <div className={styles.cards}>

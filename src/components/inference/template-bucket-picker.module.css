@@ -1,0 +1,10 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.select {
+  min-width: 220px;
+  flex: 1;
+}

@@ -22,13 +22,16 @@ export const API_ROOTS: {
     ? {
       analytics: 'https://analytics.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
-      incentive: 'https://api.oncompute.ai',
+      incentive: 'https://api.oncompute.ai/',
       incentive_old: 'https://api.oncompute.ai',
     }
     : {
-      analytics: 'https://analytics.nodes.oceanprotocol.io',
+      // analytics: 'https://analytics.nodes.oceanprotocol.io',
+      // analytics: 'https://analytics.oncompute.ai',
+      analytics: 'https://analytics-dev.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
-      incentive: 'https://incentive-backend.oceanprotocol.io',
+      // incentive: 'https://incentive-backend.oceanprotocol.io',
+      incentive: 'https://api-dev.oncompute.ai/',
       incentive_old: 'https://incentive-backend.oceanprotocol.com',
     };
 
@@ -70,6 +73,10 @@ const config: Config = {
       path: '/run-job/environments',
       name: 'Run a job',
     },
+    inference: {
+      path: '/inference',
+      name: 'Inference',
+    },
     stats: {
       path: '/stats',
       name: 'Stats',
@@ -79,10 +86,10 @@ const config: Config = {
     //   name: 'Docs',
     //   hideFromNavbar: true,
     // },
-    leaderboard: {
-      path: '/leaderboard',
-      name: 'Leaderboard',
-    },
+    // leaderboard: {
+    // path: '/leaderboard',
+    // name: 'Leaderboard',
+    // },
     runNode: {
       path: '/run-node/setup',
       name: 'Run a node',
@@ -147,6 +154,14 @@ const apiRoutes = {
   nodeStats: { root: 'analytics', path: '/nodes' },
   consumerStats: { root: 'analytics', path: '/consumers' },
   ownerStats: { root: 'analytics', path: '/owners' },
+
+  // Analytics API routes - inference / Service-on-Demand stats
+  serviceGlobalStats: { root: 'analytics', path: '/services/global-stats' },
+  serviceConsumerStats: { root: 'analytics', path: '/services/consumers' },
+  serviceOwnerStats: { root: 'analytics', path: '/services/owners' },
+  serviceNodeStats: { root: 'analytics', path: '/services/nodes' },
+  modelPopularity: { root: 'analytics', path: '/services/model-popularity' },
+  appPopularity: { root: 'analytics', path: '/services/app-popularity' },
 
   // ENS API routes
   ensAddress: { root: 'ens', path: '/address' },

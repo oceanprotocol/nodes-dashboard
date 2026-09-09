@@ -5,7 +5,7 @@ import CopyButton from '@/components/button/copy-button';
 import Modal from '@/components/modal/modal';
 import AccessListEditor from '@/components/node-storage/access-list-editor';
 import { useNodeStorage } from '@/contexts/node-storage-context';
-import { Node } from '@/types/nodes';
+import { StorageNode } from '@/types/node-storage';
 import { formatChainLabel, formatError } from '@/utils/formatters';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { CircularProgress, Collapse } from '@mui/material';
@@ -18,7 +18,7 @@ type EditBucketAccessModalProps = {
   bucket: PersistentStorageBucket;
   currentAccount: string;
   isOpen: boolean;
-  node: Node;
+  node: StorageNode;
   onClose: () => void;
 };
 
@@ -59,8 +59,7 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
 }) => {
   const { getAccessListAddresses, addToAccessList, removeFromAccessList } = useNodeStorage();
 
-  const nodeId = node.id ?? node.nodeId;
-  const friendlyName = node.friendlyName ?? nodeId;
+  const { friendlyName, nodeId } = node;
 
   const [accessListStates, setAccessListStates] = useState<Record<string, AccessListState>>(() =>
     buildAccessListsStates(bucket)

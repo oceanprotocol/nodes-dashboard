@@ -28,5 +28,5 @@
 }
 
 .warning {
-  color: var(--text-error, #e5484d);
+  color: var(--error-darker);
 }

@@ -1,0 +1,35 @@
+.root {
+  align-content: start;
+  display: grid;
+  gap: 24px;
+  grid-template-rows: auto 110px;
+}
+
+.heading {
+  text-align: center;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.item {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.label {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.value {
+  font-weight: 600;
+  margin: 0;
+}

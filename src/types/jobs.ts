@@ -44,6 +44,7 @@ export interface ComputeJobHistory {
 export interface ComputeJob {
   owner: string;
   peerId: string;
+  multiaddrs?: string[];
   nodeFriendlyName: string;
   epoch: number;
   errorMessage?: string;
@@ -70,10 +71,13 @@ export interface ComputeJob {
   isRunning: boolean;
   isStarted: boolean;
   containerImage: string;
-  resources: any;
+  resources: { id: string; amount: number }[];
   isFree: boolean;
   algoStartTimestamp: number;
+  algoStopTimestamp?: number;
+  algoDuration?: number;
   maxJobDuration: number;
+  metadata?: { name?: string; [key: string]: string | number | boolean | undefined };
   payment: {
     token: string;
     cost: number;

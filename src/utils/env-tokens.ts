@@ -24,3 +24,16 @@ export const getEnvSupportedTokens = (environment: ComputeEnvironment, supported
 
   return tokenAddresses.filter((address) => supportedTokens.includes(address));
 };
+
+/**
+ * Seed fee token for an auto-matched environment card: USDC when the env accepts it, else the first
+ * supported paid token (null when it accepts none). Mirrors the env card's own getDefaultToken so both
+ * agree on the seed before the user switches it there.
+ */
+export const pickDefaultToken = (supportedTokens: string[]): string | null => {
+  const usdc = getSupportedTokens().USDC.address;
+  if (supportedTokens.some((t) => t.toLowerCase() === usdc.toLowerCase())) {
+    return usdc;
+  }
+  return supportedTokens[0] ?? null;
+};

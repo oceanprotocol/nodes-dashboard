@@ -133,4 +133,5 @@ export type NodeBalance = {
   token: string;
   address: string;
   amount: number;
+  isNative?: boolean;
 };

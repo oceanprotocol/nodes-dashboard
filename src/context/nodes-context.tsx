@@ -1,8 +1,9 @@
 import { getApiRoute } from '@/config';
 import { BenchmarkMinMaxLastResponse, Node, NodeStatsResponse } from '@/types/nodes';
+import { NodeServiceStats, ServiceStatsPerEpoch, ServiceTermBucket } from '@/types/services-stats';
 import { JobsPerEpochType, RevenuePerEpochType } from '@/types/stats';
 import axios from 'axios';
-import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useRef, useState } from 'react';
 
 type NodesContextType = {
   benchmarkValues: BenchmarkMinMaxLastResponse;
@@ -14,10 +15,21 @@ type NodesContextType = {
   temporaryTotalScore: number;
   totalJobs: number;
   totalRevenue: number;
+  // Service (inference) stats for the selected node
+  serviceStatsPerEpoch: ServiceStatsPerEpoch[];
+  serviceTotalServices: number;
+  serviceRevenue: number;
+  serviceReservedSeconds: number;
+  serviceRunningNow: number;
+  serviceUniqueConsumers: number;
+  serviceByModel: ServiceTermBucket[];
+  serviceStatsError: string | null;
+  serviceStatsLoading: boolean;
 
   fetchNode: (nodeId: string) => Promise<void>;
   fetchNodeBenchmarkMinMaxLast: () => Promise<void>;
   fetchNodeStats: () => Promise<void>;
+  fetchNodeServiceStats: () => Promise<void>;
   setSelectedNode: (node: Node | null) => void;
 };
 
@@ -41,6 +53,33 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   // TODO remove once analytics nodes/:id/benchmark is fixed
   const [temporaryTotalScore, setTemporaryTotalScore] = useState<number>(0);
+  const [serviceStatsPerEpoch, setServiceStatsPerEpoch] = useState<ServiceStatsPerEpoch[]>([]);
+  const [serviceTotalServices, setServiceTotalServices] = useState<number>(0);
+  const [serviceRevenue, setServiceRevenue] = useState<number>(0);
+  const [serviceReservedSeconds, setServiceReservedSeconds] = useState<number>(0);
+  const [serviceRunningNow, setServiceRunningNow] = useState<number>(0);
+  const [serviceUniqueConsumers, setServiceUniqueConsumers] = useState<number>(0);
+  const [serviceByModel, setServiceByModel] = useState<ServiceTermBucket[]>([]);
+  const [serviceStatsError, setServiceStatsError] = useState<string | null>(null);
+  const [serviceStatsLoading, setServiceStatsLoading] = useState<boolean>(false);
+
+  // `id` is optional on Node while `nodeId` always carries the peer id, so the
+  // same fallback the details page uses is applied here.
+  const selectedNodeId = selectedNode?.id ?? selectedNode?.nodeId;
+  /**
+   * Written during render, not in an effect: child effects fire before the
+   * provider's would, so an effect-updated ref would still hold the previous id
+   * when a consumer refetches for the newly selected node.
+   */
+  const selectedNodeIdRef = useRef<string | undefined>(selectedNodeId);
+  selectedNodeIdRef.current = selectedNodeId;
+  /**
+   * Monotonic request counter for the service-stats fetch. The node id alone is
+   * not enough to discard a stale response: two fetches for the SAME node (a
+   * refetch, or A1 -> A2 while A1 is still in flight) both pass the id check, so
+   * the slower one could land last and overwrite fresher data.
+   */
+  const serviceStatsRequestRef = useRef(0);
 
   const fetchNode = useCallback(async (nodeId: string) => {
     setLoadingFetchNode(true);
@@ -113,6 +152,67 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [selectedNode?.id]);
 
+  /**
+   * Clears every service-stats field. Called before each fetch so a node whose
+   * request fails never keeps showing the previously selected node's revenue and
+   * session counts as if they were its own.
+   */
+  const resetServiceStats = useCallback(() => {
+    setServiceStatsPerEpoch([]);
+    setServiceTotalServices(0);
+    setServiceRevenue(0);
+    setServiceReservedSeconds(0);
+    setServiceRunningNow(0);
+    setServiceUniqueConsumers(0);
+    setServiceByModel([]);
+  }, []);
+
+  const fetchNodeServiceStats = useCallback(async () => {
+    const nodeId = selectedNodeId;
+    if (!nodeId) {
+      return;
+    }
+    const requestId = ++serviceStatsRequestRef.current;
+    resetServiceStats();
+    setServiceStatsError(null);
+    setServiceStatsLoading(true);
+    try {
+      const response = await axios.get<NodeServiceStats>(`${getApiRoute('serviceNodeStats')}/${nodeId}/stats`);
+      // Selection can change while this is in flight, and a newer fetch for the
+      // same node can have been started since: only the latest request, for the
+      // currently selected node, may write state.
+      if (serviceStatsRequestRef.current !== requestId || selectedNodeIdRef.current !== nodeId) {
+        return;
+      }
+      if (response.data) {
+        // Rows arrive carrying both the session count and the revenue, so unlike
+        // the jobs endpoint nothing has to be summed client-side.
+        setServiceStatsPerEpoch(response.data.data ?? []);
+        // Defaulted rather than passed through: these go straight into
+        // formatNumber, which renders a missing field as "NaN".
+        setServiceTotalServices(response.data.totalServices ?? 0);
+        setServiceRevenue(response.data.serviceRevenue ?? 0);
+        setServiceReservedSeconds(response.data.reservedSeconds ?? 0);
+        setServiceRunningNow(response.data.runningNow ?? 0);
+        setServiceUniqueConsumers(response.data.uniqueConsumers ?? 0);
+        // Sessions with no recorded model land in an `unknown` bucket rather than
+        // disappearing; drop it so the chart shows only real model names.
+        setServiceByModel((response.data.byModel ?? []).filter((bucket) => bucket.key !== 'unknown'));
+      }
+      setServiceStatsLoading(false);
+    } catch (error) {
+      console.error('Error fetching node service stats:', error);
+      // Same staleness guard as the success path: a failed request for a node the
+      // user has already navigated away from must not blank or flag the stats now
+      // on screen for the node they moved to.
+      if (serviceStatsRequestRef.current !== requestId || selectedNodeIdRef.current !== nodeId) {
+        return;
+      }
+      setServiceStatsError('Could not load inference stats for this node.');
+      setServiceStatsLoading(false);
+    }
+  }, [resetServiceStats, selectedNodeId]);
+
   return (
     <NodesContext.Provider
       value={{
@@ -124,9 +224,19 @@ export const NodesProvider = ({ children }: { children: ReactNode }) => {
         temporaryTotalScore,
         totalJobs,
         totalRevenue,
+        serviceStatsPerEpoch,
+        serviceTotalServices,
+        serviceRevenue,
+        serviceReservedSeconds,
+        serviceRunningNow,
+        serviceUniqueConsumers,
+        serviceByModel,
+        serviceStatsError,
+        serviceStatsLoading,
         fetchNode,
         fetchNodeBenchmarkMinMaxLast,
         fetchNodeStats,
+        fetchNodeServiceStats,
         setSelectedNode,
       }}
     >

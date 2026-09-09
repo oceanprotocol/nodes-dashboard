@@ -1,0 +1,105 @@
+/* Advisory panel on a running bundle's manage page while its weights are still downloading. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  background: var(--background-glass);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  flex: 0 0 auto;
+  color: var(--accent1);
+}
+
+.title {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.percent {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 100px;
+  background: var(--background-glass-secondary);
+}
+
+.fill {
+  height: 100%;
+  border-radius: 100px;
+  background: var(--accent1);
+  transition: width 0.4s ease;
+}
+
+.detail {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.note {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  opacity: 0.85;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.itemIcon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+}
+
+.itemIconDone {
+  color: var(--accent2);
+}
+
+.itemIconFailed {
+  color: var(--error);
+}
+
+.itemName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.itemHint {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
