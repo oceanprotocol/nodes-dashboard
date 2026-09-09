@@ -117,11 +117,18 @@ const CustomModelsPage: React.FC = () => {
       return;
     }
     setRejected(null);
-    // A GGUF-only repo has no transformers weights for vLLM to load. Switching here is only the
-    // immediate effect — the context derives the same constraint from the selection and enforces it
-    // from then on, so a later switch back to vLLM is rejected rather than merely discouraged.
+    // Assign the engine the model requires. Both switches are only the immediate effect — the context
+    // derives the same constraint from the selection and enforces it from then on, so a later switch
+    // to an engine that can't serve the model is rejected rather than merely discouraged.
+    //
+    // A GGUF-only repo has no transformers weights for vLLM to load. A curated diffusion model has
+    // nothing either text engine can load, and leaving the engine at its 'vllm' default is exactly
+    // what would send vllm/vllm-openai `--model <a diffusion repo>` — a crash-loop paid for in
+    // advance. This assignment is what makes the ComfyUI config step reachable at all.
     if (compatibility.engines === 'llamacpp-only') {
       setEngine('llamacpp');
+    } else if (compatibility.engines === 'comfyui-only') {
+      setEngine('comfyui');
     }
     // Read before selectSingleModel — it toggles, so afterwards this would report the new state.
     const deselected = isModelSelected(model.id);

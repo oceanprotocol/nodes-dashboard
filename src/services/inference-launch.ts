@@ -1,10 +1,19 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
+import { comfyModelFilesEnv, getComfyPresets } from '@/data/comfy-model-presets';
 import { buildModelDefaults } from '@/services/huggingface-service';
+import { getModelCompatibility } from '@/services/model-compatibility';
 import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
 import { ComputeResource } from '@/types/environments';
-import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
+import {
+  ComfyUIParameters,
+  CustomParam,
+  HuggingFaceModel,
+  InferenceEngine,
+  ModelParameters,
+} from '@/types/huggingface';
+import { AppTemplate } from '@/types/templates';
 import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
@@ -35,10 +44,29 @@ export const LLAMACPP_TAG = process.env.NEXT_PUBLIC_LLAMACPP_TAG ?? 'server';
 export const LLAMACPP_TAG_CUDA = process.env.NEXT_PUBLIC_LLAMACPP_TAG_CUDA ?? 'server-cuda';
 export const LLAMACPP_PORT = 8080;
 
-/** Per-engine container image/tag/port. The launch command differs too — see buildEngineCommand. */
-export const ENGINE_RUNTIME: Record<InferenceEngine, { image: string; tag: string; port: number }> = {
-  vllm: { image: VLLM_IMAGE, tag: VLLM_TAG, port: VLLM_PORT },
-  llamacpp: { image: LLAMACPP_IMAGE, tag: LLAMACPP_TAG, port: LLAMACPP_PORT },
+/** ComfyUI's web UI and graph API port, and the id of the node template that launches it. */
+export const COMFYUI_PORT = 8188;
+export const COMFY_WORKER_TEMPLATE_ID = 'comfyui-worker';
+
+/**
+ * The container port each engine's server listens on. vLLM and llama.cpp serve an
+ * OpenAI-compatible API; ComfyUI serves its own graph API and web UI on 8188.
+ */
+export const ENGINE_PORT: Record<InferenceEngine, number> = {
+  vllm: VLLM_PORT,
+  llamacpp: LLAMACPP_PORT,
+  comfyui: COMFYUI_PORT,
+};
+
+/**
+ * Container image + tag for the engines the dashboard launches directly. ComfyUI is absent on
+ * purpose: its bootstrap is a template `commandFile`, resolved node-side (see
+ * ocean-node/src/components/core/service/templateLoader.ts), so image, tag and command all come
+ * from the node's comfyui-worker template rather than from here.
+ */
+export const ENGINE_IMAGE: Record<'vllm' | 'llamacpp', { image: string; tag: string }> = {
+  vllm: { image: VLLM_IMAGE, tag: VLLM_TAG },
+  llamacpp: { image: LLAMACPP_IMAGE, tag: LLAMACPP_TAG },
 };
 
 /** True when llama.cpp is asked to offload to the GPU: N > 0 layers, or -1 = "all layers". */
@@ -47,11 +75,15 @@ function wantsGpuOffload(params: ModelParameters): boolean {
 }
 
 /**
- * The image/tag/port to launch a model with. llama.cpp GPU offload selects its CUDA image; vLLM uses
- * the tag resolved by the configuration flow, then the configured stable fallback.
+ * The image/tag to launch a model with. llama.cpp GPU offload selects its CUDA image; vLLM uses the
+ * tag resolved by the configuration flow, then the configured stable fallback. ComfyUI has no answer
+ * here — its caller reads the comfyui-worker template instead.
  */
-export function engineRuntime(params: ModelParameters): { image: string; tag: string; port: number } {
-  const runtime = ENGINE_RUNTIME[params.engine];
+export function engineRuntime(params: ModelParameters): { image: string; tag: string; port: number } | null {
+  if (params.engine === 'comfyui') {
+    return null;
+  }
+  const runtime = { ...ENGINE_IMAGE[params.engine], port: ENGINE_PORT[params.engine] };
   if (wantsGpuOffload(params)) {
     return { ...runtime, tag: LLAMACPP_TAG_CUDA };
   }
@@ -61,9 +93,9 @@ export function engineRuntime(params: ModelParameters): { image: string; tag: st
   return runtime;
 }
 
-/** The container port an engine's OpenAI-compatible server listens on (for endpoint lookup on manage). */
+/** The container port an engine serves on (for endpoint lookup on manage). */
 export function enginePort(engine: InferenceEngine): number {
-  return ENGINE_RUNTIME[engine].port;
+  return ENGINE_PORT[engine];
 }
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
@@ -210,12 +242,25 @@ function buildCustomArgs(params: ModelParameters): string[] {
 
 /** Build the launch command for whichever engine the params carry. Dispatches on `params.engine`. */
 export function buildEngineCommand(model: HuggingFaceModel, params: ModelParameters): string[] {
+  if (params.engine === 'comfyui') {
+    // The comfyui-worker template carries the command (its bootstrap is a node-side commandFile).
+    // Reaching here means a caller built a launch without reading the template — fail loudly, since
+    // the silent alternative is a container that starts with no weights after escrow is claimed.
+    throw new Error('ComfyUI launches take their command from the comfyui-worker template');
+  }
   const cmd = params.engine === 'llamacpp' ? buildLlamaCppCommand(params) : buildVllmCommand(model, params);
   return [...cmd, ...buildCustomArgs(params)];
 }
 
-/** Detect the engine a running service uses from its dockerCmd: `-hf` is llama.cpp, else vLLM. */
+/**
+ * The engine a running service uses, from its dockerCmd. ComfyUI first: it has neither `-hf` nor
+ * `--model`, so the old two-way test would call every ComfyUI service vLLM and then look for its
+ * endpoint on port 8000.
+ */
 export function detectEngine(cmd: string[]): InferenceEngine {
+  if (cmd.some((arg) => arg.includes('--enable-cors-header'))) {
+    return 'comfyui';
+  }
   return cmd.includes('-hf') ? 'llamacpp' : 'vllm';
 }
 
@@ -249,8 +294,12 @@ export function modelIdFromCommand(cmd: string[] | undefined): string | null {
  * The flags each engine's own builder emits. Anything else in a command came from a custom param —
  * that's how parseCustomArgs tells them apart. `valued` flags consume the next token, `boolean` ones
  * stand alone.
+ *
+ * ComfyUI is absent for the same reason it is absent from ENGINE_IMAGE: no flag here is ours, the
+ * whole command is the comfyui-worker template's, so there is nothing for a custom param to be told
+ * apart FROM. Custom launch flags are a text-engine concept, hence the narrowed key type.
  */
-const KNOWN_FLAGS: Record<InferenceEngine, { valued: string[]; boolean: string[] }> = {
+const KNOWN_FLAGS: Record<'vllm' | 'llamacpp', { valued: string[]; boolean: string[] }> = {
   vllm: {
     valued: [
       '--model',
@@ -289,7 +338,7 @@ const KNOWN_FLAGS: Record<InferenceEngine, { valued: string[]; boolean: string[]
  * A value starting with `-` is read as the next flag rather than a value, so a genuinely negative
  * numeric value (`--seed -1`) comes back as two bare params. Rare enough to accept over guessing.
  */
-function parseCustomArgs(cmd: string[], engine: InferenceEngine): CustomParam[] {
+function parseCustomArgs(cmd: string[], engine: 'vllm' | 'llamacpp'): CustomParam[] {
   const known = KNOWN_FLAGS[engine];
   const custom: CustomParam[] = [];
   const seenKnown = new Set<string>();
@@ -338,6 +387,14 @@ export function parseEngineCommand(
     return idx >= 0 && idx + 1 < cmd.length ? cmd[idx + 1] : undefined;
   };
   const has = (flag: string): boolean => cmd.includes(flag);
+
+  if (detectEngine(cmd) === 'comfyui') {
+    // The comfyui-worker template's commandFile carries this command, not an engine flag set — there
+    // are no launch params to recover from it (see buildEngineCommand). Report that honestly, with
+    // engine: 'comfyui', rather than falling through to the vLLM branch below and mislabelling the
+    // service as one.
+    return { modelId: null, params: buildModelDefaults(null, '', 'comfyui') };
+  }
 
   if (detectEngine(cmd) === 'llamacpp') {
     // `-hf repo:quant` — the model id we surface is the GGUF repo (llama.cpp has no raw-weights id).
@@ -405,6 +462,36 @@ export function parseEngineCommand(
  */
 export function buildUserData(hfToken: string): Record<string, string> {
   return hfToken ? { HF_TOKEN: hfToken } : {};
+}
+
+/**
+ * Container env for a ComfyUI worker launch: the weight files its preset names, in the
+ * "<directory>\t<url>" form the bootstrap reads. Sent as userData, which ocean.js ECIES-encrypts
+ * in transit — the same channel the bundle templates use for COMFY_WORKFLOW.
+ *
+ * Throws on an unknown variant rather than sending an empty list: the bootstrap SILENTLY SKIPS any
+ * line it can't parse, so a bad list produces a worker that starts, serves an empty model tree, and
+ * only fails once the user queues a prompt — after the escrow is claimed.
+ */
+export function comfyUserData(params: ComfyUIParameters, modelId: string): Record<string, string> {
+  const preset = getComfyPresets(modelId).find((p) => p.id === params.variant);
+  if (!preset) {
+    throw new Error(`No preset "${params.variant}" for model ${modelId}`);
+  }
+  // The bootstrap SILENTLY SKIPS any line whose directory fails ^[a-z0-9_]{1,32}$ or whose URL is not
+  // under https://huggingface.co/. Skipped silently means the worker starts, the weight is simply
+  // absent, and the user finds out as a red loader node — after the escrow is claimed. Same two rules,
+  // enforced here, where the failure is still free.
+  const skipped = preset.files.filter(
+    (f) => !/^[a-z0-9_]{1,32}$/.test(f.directory) || !f.url.startsWith('https://huggingface.co/')
+  );
+  if (skipped.length > 0) {
+    throw new Error(
+      `Preset "${preset.id}" for ${modelId} lists ${skipped.length} file(s) the ComfyUI bootstrap would skip: ` +
+        skipped.map((f) => `${f.directory} ${f.url}`).join(', ')
+    );
+  }
+  return { COMFY_MODEL_FILES: comfyModelFilesEnv(preset) };
 }
 
 /**
@@ -666,6 +753,12 @@ export function buildInferenceRestartSpec({
   appType: ServiceAppType;
 }): ServiceRestartParams {
   const runtime = engineRuntime(params);
+  // Null only for ComfyUI, whose image and command are the comfyui-worker template's. A relaunch
+  // onto that template is buildTemplateRestartParams' job, not this one's — say so rather than
+  // sending the node a spec with no image.
+  if (!runtime) {
+    throw new Error('ComfyUI services relaunch from the comfyui-worker template, not from engine parameters');
+  }
   const metadata = buildServiceMetadata({ appType, appId: model.id });
   return {
     image: runtime.image,
@@ -677,9 +770,50 @@ export function buildInferenceRestartSpec({
 }
 
 /**
- * Build the ServiceStartParams to launch a single Hugging Face model on vLLM. Maps the selected
- * model + its launch params + the chosen environment/allocation into the node's service-start
- * request. `userData` is plaintext here — ocean.js encrypts it.
+ * Check the engine a launch is configured for can actually serve the model it names.
+ *
+ * Everything upstream guards the engine held in STATE — the picker assigns it from the model's
+ * compatibility, the config step's dropdown hides the impossible options, the URL hydration filter
+ * drops a model the restored engine can't serve. None of that guards the per-model launch params,
+ * which ride the URL as an unvalidated base64 JSON blob (`decodeModelParams`) and can therefore name
+ * any engine for any model however the state was reached.
+ *
+ * This is the one place every launch passes through, and it runs before the caller's escrow deposit.
+ * That is the entire point: `vllm/vllm-openai --model <a diffusion repo>` is a container that
+ * crash-loops on weights it cannot load, and without this check the user has already paid for it.
+ *
+ * Throws rather than correcting the engine, for the same reason assertAllocationAvailable throws:
+ * silently launching something other than what was configured and priced is the worse failure.
+ */
+function assertEngineServesModel(model: HuggingFaceModel, engine: InferenceEngine): void {
+  const compatibility = getModelCompatibility(model);
+  if (!compatibility.supported) {
+    throw new Error(`${model.id} can't be served by any engine this dashboard launches: ${compatibility.reason}`);
+  }
+  // `both` means either text engine — anything but ComfyUI, which has no weight list for a model
+  // absent from the preset table and would start with an empty model tree.
+  const required =
+    compatibility.engines === 'comfyui-only'
+      ? 'comfyui'
+      : compatibility.engines === 'llamacpp-only'
+        ? 'llamacpp'
+        : null;
+  if (required ? engine !== required : engine === 'comfyui') {
+    throw new Error(
+      `${model.id} can only be served by ${required ?? 'vLLM or llama.cpp'}, but this launch is configured for ${engine}.`
+    );
+  }
+}
+
+/**
+ * Build the ServiceStartParams to launch a single Hugging Face model. Maps the selected model + its
+ * launch params + the chosen environment/allocation into the node's service-start request.
+ * `userData` is plaintext here — ocean.js encrypts it.
+ *
+ * Three engines, one builder: environment, resources, metadata, duration and payment are identical
+ * for all of them, and this is the function whose caller runs the escrow lock — a second copy of
+ * that arithmetic on the ComfyUI path is exactly the divergence that ends in a paid launch against
+ * the wrong allocation. Only the container spec differs, and only ComfyUI's comes from the node.
  */
 export function buildInferenceStartParams({
   model,
@@ -691,6 +825,8 @@ export function buildInferenceStartParams({
   tokenAddress,
   hfToken,
   appType,
+  comfyTemplate,
+  bucketId,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
@@ -712,9 +848,21 @@ export function buildInferenceStartParams({
    * templates do, which is exactly the collision image matching can't resolve.
    */
   appType: ServiceAppType;
+  /**
+   * The node's `comfyui-worker` template, for a ComfyUI launch only — it is the sole source of that
+   * engine's image, tag, entrypoint and command (its bootstrap is a node-side `commandFile`).
+   * Resolve it from the same catalogue the template flow uses; a node that does not advertise it
+   * cannot run these models.
+   */
+  comfyTemplate?: AppTemplate | null;
+  /** Persistent-storage bucket to mount at /data/outputs — where ComfyUI writes its renders. */
+  bucketId?: string;
 }): ServiceStartParams {
+  // Before anything else, and before the ComfyUI branch below returns: the engine has to match what
+  // the model can actually run on, whatever the params blob claims.
+  assertEngineServesModel(model, params.engine);
+
   const envResources = selectedEnv.environment.resources ?? [];
-  const runtime = engineRuntime(params);
 
   // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
   // here too, before the caller runs the escrow deposit tx.
@@ -729,16 +877,56 @@ export function buildInferenceStartParams({
 
   const metadata = buildServiceMetadata({ appType, appId: model.id });
 
-  return {
+  const common = {
     environment: selectedEnv.environment.id,
+    ...(metadata ? { metadata } : {}),
+    resources,
+    duration: durationSeconds,
+    payment: { chainId: CHAIN_ID, token: tokenAddress },
+  };
+
+  // ComfyUI first: engineRuntime() has no answer for it, so this must come before the runtime is
+  // dereferenced. Throwing beats any fallback — a bare ComfyUI with no bootstrap starts fine, serves
+  // an empty model tree, and only fails when the user queues a prompt, by which point escrow is claimed.
+  if (params.engine === 'comfyui') {
+    if (!comfyTemplate) {
+      throw new Error('This node does not offer the comfyui-worker template');
+    }
+    // Exactly one image reference, as buildTemplateStartParams does: tag or checksum, never both.
+    const imageRef = comfyTemplate.tag
+      ? { tag: comfyTemplate.tag }
+      : comfyTemplate.checksum
+        ? { checksum: comfyTemplate.checksum }
+        : {};
+    return {
+      ...common,
+      image: comfyTemplate.image,
+      ...imageRef,
+      // The template's own ports win; COMFYUI_PORT is the fallback for a template that declares none.
+      exposedPorts: comfyTemplate.exposedPorts?.length ? comfyTemplate.exposedPorts : [COMFYUI_PORT],
+      ...(comfyTemplate.command?.length ? { dockerCmd: comfyTemplate.command } : {}),
+      ...(comfyTemplate.entrypoint?.length ? { dockerEntrypoint: comfyTemplate.entrypoint } : {}),
+      // HF_TOKEN too: the bootstrap passes it as a Bearer header on every weight download, so
+      // without it a gated repo 401s, `curl -f` fails, and the bootstrap logs FAILED and carries on
+      // by design — the same start-with-no-weights-after-payment ending comfyUserData guards against.
+      userData: { ...buildUserData(hfToken), ...comfyUserData(params, model.id) },
+      ...(bucketId ? { outputBucketId: bucketId } : {}),
+    };
+  }
+
+  const runtime = engineRuntime(params);
+  // Unreachable — engineRuntime is null only for comfyui, returned above. Kept because the
+  // alternative on this path is `image: undefined` reaching the node after the escrow lock.
+  if (!runtime) {
+    throw new Error(`No container image for engine "${params.engine}"`);
+  }
+
+  return {
+    ...common,
     image: runtime.image,
     tag: runtime.tag,
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
     userData: buildUserData(hfToken),
-    ...(metadata ? { metadata } : {}),
-    resources,
-    duration: durationSeconds,
-    payment: { chainId: CHAIN_ID, token: tokenAddress },
   };
 }

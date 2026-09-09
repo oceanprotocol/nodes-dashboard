@@ -98,6 +98,8 @@ type InferenceContextType = {
   setEngine: (engine: InferenceEngine) => void;
   /** The selected model is GGUF-only, so vLLM can't serve it — pickers should not offer vLLM. */
   engineLockedToLlamaCpp: boolean;
+  /** The selected model is a diffusion model, so no text engine can serve it — only ComfyUI can. */
+  engineLockedToComfyUI: boolean;
   modelParamsByModel: Record<string, ModelParameters>;
   setParamsForModel: (modelId: string, params: ModelParameters) => void;
   /** Selected app template (Templates flow) — an APP to launch, distinct from the HF-model flows. */
@@ -318,25 +320,52 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   );
 
   /**
-   * Engine setter that enforces the lock above. The pickers are two steps apart and neither can see
-   * the model's metadata, so without this a GGUF-only model could be switched to vLLM after
-   * selection and fail at launch. The pickers also hide the impossible option, making this the
-   * backstop rather than the only guard.
+   * True when the selection is a diffusion model, which no text engine can serve. Derived from the
+   * selection rather than latched at pick time, for the same reason as the llama.cpp lock above.
+   */
+  const engineLockedToComfyUI = useMemo(
+    () =>
+      selectedModels.some((m) => {
+        const compatibility = getModelCompatibility(m);
+        return compatibility.supported && compatibility.engines === 'comfyui-only';
+      }),
+    [selectedModels]
+  );
+
+  /**
+   * Engine setter that enforces the locks above. The pickers are two steps apart and neither can see
+   * the model's metadata, so without this a GGUF-only or diffusion model could be switched to the
+   * wrong engine after selection and fail at launch. The pickers also hide the impossible option,
+   * making this the backstop rather than the only guard.
    */
   const setEngine = useCallback(
     (next: InferenceEngine) => {
-      setEngineState(engineLockedToLlamaCpp ? 'llamacpp' : next);
+      setEngineState(engineLockedToLlamaCpp ? 'llamacpp' : engineLockedToComfyUI ? 'comfyui' : next);
     },
-    [engineLockedToLlamaCpp]
+    [engineLockedToLlamaCpp, engineLockedToComfyUI]
   );
 
-  // Selecting a GGUF-only model while vLLM is active has to correct the engine too — the lock only
-  // guards future setEngine calls, not the value already in state.
+  /**
+   * Selecting a model has to correct the engine already in state — the locks above only guard future
+   * setEngine calls. Same precedence as setEngine, so the two can't disagree.
+   *
+   * ComfyUI also needs the REVERSE correction, which llama.cpp never did: llama.cpp can serve a model
+   * that doesn't require it, so leaving the engine there after switching to an ordinary model is
+   * harmless. ComfyUI can serve nothing but its curated presets, so the same leftover strands the
+   * config step on a variant picker with no presets to pick. Only once a selection exists, though —
+   * hydration sets the engine from the URL before the models it belongs to have finished fetching,
+   * and resetting it in that window would undo every ComfyUI deep link.
+   */
   useEffect(() => {
-    if (engineLockedToLlamaCpp && engine !== 'llamacpp') {
-      setEngineState('llamacpp');
+    const required = engineLockedToLlamaCpp ? 'llamacpp' : engineLockedToComfyUI ? 'comfyui' : null;
+    if (required) {
+      if (engine !== required) {
+        setEngineState(required);
+      }
+    } else if (engine === 'comfyui' && selectedModels.length > 0) {
+      setEngineState(DEFAULT_INFERENCE_ENGINE);
     }
-  }, [engineLockedToLlamaCpp, engine]);
+  }, [engineLockedToLlamaCpp, engineLockedToComfyUI, engine, selectedModels.length]);
 
   /**
    * Single-model flow: make the selection exactly `[model]` (or clear it), pruning the committed
@@ -491,7 +520,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     const engineParam = firstQueryValue(q.engine);
     const paramEngine = Object.values(restoredParams)[0]?.engine;
     const restoredEngine: InferenceEngine =
-      engineParam === 'vllm' || engineParam === 'llamacpp' ? engineParam : (paramEngine ?? DEFAULT_INFERENCE_ENGINE);
+      engineParam === 'vllm' || engineParam === 'llamacpp' || engineParam === 'comfyui'
+        ? engineParam
+        : (paramEngine ?? DEFAULT_INFERENCE_ENGINE);
     // Raw setter: the lock is derived from selectedModels, which this same pass is still restoring,
     // so it would read stale here. The effect above corrects the engine once the models land — and
     // going through the guarded setter would put it in this callback's deps, whose identity tracks
@@ -514,13 +545,35 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         return true;
       }
       const results = await Promise.allSettled(modelIds.map((id) => fetchHuggingFaceModel(id)));
-      const models = results
+      const fetched = results
         .filter((r): r is PromiseFulfilledResult<HuggingFaceModel> => r.status === 'fulfilled')
         .map((r) => r.value);
+      // A hand-edited URL can name a ComfyUI-only curated model while `restoredEngine` is still at its
+      // vLLM default — the same paid-crash-loop the selection-time engine assignment prevents for
+      // clicks. Drop those rather than silently hydrating a selection that would fail at launch.
+      //
+      // Only ComfyUI. A GGUF-only model restored under vLLM is NOT dropped: the force-correct effect
+      // moves the engine to llama.cpp once the models land, so that URL hydrates correctly and always
+      // did. Refusing it here would turn a self-healing case into a hard hydration error — and it is
+      // a reachable one, since an Edit link carries no `engine` param for a service whose dockerCmd
+      // didn't parse (see manage-service-page).
+      const models = fetched.filter((model) => {
+        const compatibility = getModelCompatibility(model);
+        if (!compatibility.supported) {
+          return false;
+        }
+        if (compatibility.engines === 'comfyui-only') {
+          return restoredEngine === 'comfyui';
+        }
+        return true;
+      });
       if (models.length > 0) {
         setSelectedModels(models);
       }
-      // All requested models must come back; a partial restore would silently drop the rest.
+      // All requested models must come back AND be servable by the resolved engine; a partial or
+      // engine-incompatible restore would silently drop or mis-launch the rest. Routing through the
+      // same true/false contract as the fetch check means a filtered model surfaces exactly like any
+      // other hydration failure — flagged via hydrationFailed and captured below, never silent.
       return models.length === modelIds.length;
     };
 
@@ -728,6 +781,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       engine,
       setEngine,
       engineLockedToLlamaCpp,
+      engineLockedToComfyUI,
       modelParamsByModel,
       setParamsForModel,
       selectedTemplate,
@@ -767,6 +821,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       engine,
       setEngine,
       engineLockedToLlamaCpp,
+      engineLockedToComfyUI,
       modelParamsByModel,
       setParamsForModel,
       selectedTemplate,

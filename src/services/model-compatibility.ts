@@ -1,4 +1,5 @@
 import { HuggingFaceModel } from '@/types/huggingface';
+import { getComfyPresets } from '@/data/comfy-model-presets';
 
 /**
  * Can this Hugging Face model be served by the engines this dashboard launches (vLLM, llama.cpp)?
@@ -64,9 +65,10 @@ export type IncompatibilityKind =
 
 /**
  * Engines a servable model can actually run on. A GGUF-only repo has no transformers weights for
- * vLLM, so llama.cpp is its only option and the caller preselects it.
+ * vLLM, so llama.cpp is its only option and the caller preselects it. A diffusion model runs on
+ * neither text engine, so ComfyUI is its only option and there is no engine choice to offer.
  */
-export type ServableEngines = 'both' | 'llamacpp-only';
+export type ServableEngines = 'both' | 'llamacpp-only' | 'comfyui-only';
 
 export type ModelCompatibility =
   | { supported: true; engines: ServableEngines }
@@ -356,10 +358,15 @@ export function getModelCompatibility(model: HuggingFaceModel): ModelCompatibili
 
   // Ahead of format, so a Stable Diffusion repo reads as an image model, not a packaging detail.
   if (tag && GENERATIVE_MEDIA_TAGS.has(tag)) {
+    // Curated models run headless ComfyUI on the node; the preset table holds their weight files.
+    // Everything else keeps the old refusal — there is nothing to download for it.
+    if (getComfyPresets(model.id).length > 0) {
+      return { supported: true, engines: 'comfyui-only' };
+    }
     return {
       supported: false,
       kind: 'generative-media',
-      reason: `This is ${taskPhrase(tag)} model. vLLM and llama.cpp serve text-generation models only — image, audio and video generation need a different runtime.`,
+      reason: `This is ${taskPhrase(tag)} model. It is not available on Ocean nodes yet — only models with a prepared weight set can run, and this one has none.`,
     };
   }
 

@@ -28,7 +28,9 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
 
   // Engine-specific chips: vLLM exposes tool calling + a context ceiling; llama.cpp shows its context.
   const showToolChip = params.engine === 'vllm' && params.toolCalling;
-  const contextTokens = params.engine === 'vllm' ? params.maxContext : params.contextLength;
+  // ComfyUI has no context window — the chip is simply absent for it (the render already guards null).
+  const contextTokens =
+    params.engine === 'vllm' ? params.maxContext : params.engine === 'llamacpp' ? params.contextLength : null;
   const engineLabel = params.engine === 'llamacpp' ? 'llama.cpp' : 'vLLM';
 
   return (
@@ -65,7 +67,9 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
         </p>
       )}
       <div className={styles.chips}>
-        <span className={classNames('chip', 'chipGlass', styles.chip)}>{formatPipelineTag(model.pipelineTag, 'Other')}</span>
+        <span className={classNames('chip', 'chipGlass', styles.chip)}>
+          {formatPipelineTag(model.pipelineTag, 'Other')}
+        </span>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{engineLabel}</span>
         {showToolChip && <span className={classNames('chip', 'chipAccent2', styles.chip)}>Tools</span>}
       </div>

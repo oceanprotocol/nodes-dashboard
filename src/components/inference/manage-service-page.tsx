@@ -428,6 +428,9 @@ const ManageServicePage: React.FC = () => {
     () => (job?.dockerCmd ? parseEngineCommand(job.dockerCmd, job.tag) : null),
     [job?.dockerCmd, job?.tag]
   );
+  // A running ComfyUI worker, detected the same way the endpoint lookups below do. Used to keep Edit
+  // off it (see canEdit) and to switch the "How to use" card to the Connect panel.
+  const isComfyUI = !!job?.dockerCmd && detectEngine(job.dockerCmd) === 'comfyui';
 
   // Seed model launch params from the job's dockerCmd when the URL didn't carry them (e.g. opened from
   // the services table, which only puts models/env/duration on the query). Keeps the Model card and
@@ -716,8 +719,19 @@ const ManageServicePage: React.FC = () => {
   }, [templateMatchFailed, templateVariantUnknown, id]);
 
   // Edit relaunches through the same SERVICE_RESTART (with a new dockerCmd), so it shares the gate.
+  // ComfyUI is excluded outright: it has no engine params to relaunch with (its command comes from the
+  // comfyui-worker template, not from a ModelParameters the Edit flow could rebuild), so
+  // buildInferenceRestartSpec throws on it. Rather than let a user click through the whole model-edit
+  // flow — model picker, config, payment confirmation — only to dead-end on that throw, the button is
+  // just never offered. No payment risk either way (serviceRestart reuses the already-paid window).
   const canEdit =
-    !!job && templateKnown && !isExpired && !restartBlocked && !isUnpaid && (!isBundleService || bundleHasConfig);
+    !!job &&
+    templateKnown &&
+    !isExpired &&
+    !restartBlocked &&
+    !isUnpaid &&
+    (!isBundleService || bundleHasConfig) &&
+    !isComfyUI;
   const canRestart = !!job && !isExpired && !restartBlocked && !isUnpaid;
   // Prolong's own status gate (Expired / Locking / Claiming — see `isProlongBlocked`), plus our
   // expiry check: extend does `expiresAt += additionalDuration` with no past-expiry guard of its own,
@@ -736,6 +750,15 @@ const ManageServicePage: React.FC = () => {
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
+  // Host/port a local ComfyUI-Distributed master adds this worker under — same endpoint lookup shape
+  // as serviceBaseUrl (engine's own port, falling back to the first exposed endpoint), just split into
+  // the two fields the Distributed panel's "Add worker" form asks for separately.
+  const comfyWorkerEndpoint = job
+    ? (job.endpoints.find((ep) => ep.containerPort === enginePort('comfyui')) ?? job.endpoints[0])
+    : undefined;
+  const comfyWorkerUrl = comfyWorkerEndpoint ? new URL(comfyWorkerEndpoint.url) : null;
+  const workerHost = comfyWorkerUrl?.hostname ?? '';
+  const workerPort = comfyWorkerUrl?.port ?? '';
 
   /**
    * Edit → back to model-selection with the whole selection on the query. The `edit` flag skips env
@@ -1086,7 +1109,9 @@ const ManageServicePage: React.FC = () => {
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <div className={styles.howToHead}>
               <h3>How to use</h3>
-              {!isTemplate && baseUrl && !isExpired ? (
+              {/* Neither reference applies to ComfyUI: it serves a graph API + web UI, not the
+                  OpenAI-compatible surface these describe. */}
+              {!isTemplate && !isComfyUI && baseUrl && !isExpired ? (
                 <div className={styles.docsActions}>
                   <Button
                     color="accent1"
@@ -1153,6 +1178,83 @@ const ManageServicePage: React.FC = () => {
                     : isRunning
                       ? 'App is running but exposed no endpoint.'
                       : 'The app URL becomes available once the service is running…'}
+                </div>
+              )
+            ) : isComfyUI ? (
+              baseUrl && !isExpired ? (
+                <>
+                  {/* Same port as the Connect panel below serves ComfyUI's own web UI, which is the
+                      fastest way to confirm the worker is actually up — costs nothing to show
+                      alongside the panel, so it stays rather than being replaced by it. */}
+                  <div className={styles.endpoints}>
+                    <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
+                      <div className={`chip chipGlass ${styles.endpointChip}`}>App URL</div>
+                      <span className={styles.endpointPath}>{baseUrl}</span>
+                      <span className={styles.endpointDescription}>Open ComfyUI&apos;s web UI in a new tab</span>
+                      <a
+                        className={styles.endpointAction}
+                        href={baseUrl}
+                        onClick={() =>
+                          posthog.capture('inference_service_consumed', {
+                            serviceId: id,
+                            kind: 'open_ui',
+                            templateId: undefined,
+                            branch,
+                          })
+                        }
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        <Button
+                          color="accent1"
+                          contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                          size="sm"
+                          variant="filled"
+                        >
+                          Open UI
+                        </Button>
+                      </a>
+                    </Card>
+                  </div>
+                  <div className={styles.connectPanel}>
+                    <h4>Connect your local ComfyUI</h4>
+                    <ol>
+                      <li>
+                        Install the extension in your local ComfyUI:
+                        <code>
+                          git clone https://github.com/robertvoy/ComfyUI-Distributed
+                          custom_nodes/ComfyUI-Distributed
+                        </code>
+                        <CopyButton
+                          contentToCopy="git clone https://github.com/robertvoy/ComfyUI-Distributed custom_nodes/ComfyUI-Distributed"
+                          label="Copy command"
+                        />
+                      </li>
+                      <li>
+                        Add this worker in the Distributed panel:
+                        <div className={styles.connectField}>
+                          <span>Host: {workerHost}</span>
+                          <CopyButton contentToCopy={workerHost} label="Copy host" />
+                        </div>
+                        <div className={styles.connectField}>
+                          <span>Port: {workerPort}</span>
+                          <CopyButton contentToCopy={workerPort} label="Copy port" />
+                        </div>
+                      </li>
+                      <li>
+                        Your local ComfyUI needs current node classes for this model. It does not need
+                        the weights and does not need a GPU.
+                      </li>
+                    </ol>
+                  </div>
+                </>
+              ) : (
+                <div className="textSecondary">
+                  {isExpired
+                    ? 'This session has ended, so the worker is no longer available.'
+                    : isRunning
+                      ? 'Worker is running but exposed no endpoint.'
+                      : 'The worker becomes available once the service is running…'}
                 </div>
               )
             ) : baseUrl && !isExpired ? (

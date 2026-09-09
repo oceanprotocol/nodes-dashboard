@@ -85,7 +85,7 @@ export type CustomParam = {
  * - `vllm`     — vllm/vllm-openai, CUDA GPU, serves the raw HF weights. The rich-flag default.
  * - `llamacpp` — ghcr.io/ggml-org/llama.cpp, CPU-capable, serves a GGUF quantization off the Hub.
  */
-export type InferenceEngine = 'vllm' | 'llamacpp';
+export type InferenceEngine = 'vllm' | 'llamacpp' | 'comfyui';
 
 /** Fields every engine shares — identity + arbitrary user-defined launch flags. */
 type CommonModelParameters = {
@@ -146,11 +146,22 @@ export type LlamaCppParameters = CommonModelParameters & {
 };
 
 /**
+ * ComfyUI worker launch parameters. Far smaller than the text engines': ComfyUI takes no model
+ * flags, because the model is decided by which weight files the bootstrap downloads. The variant
+ * names a preset in COMFY_MODEL_PRESETS, which is where those files are listed.
+ */
+export type ComfyUIParameters = CommonModelParameters & {
+  engine: 'comfyui';
+  /** Preset id: 'quality' | 'balanced' | 'lowvram'. */
+  variant: string;
+};
+
+/**
  * Launch-time configuration for a model, discriminated by `engine`. Both branches share the identity
  * + custom-param fields (CommonModelParameters); the rest are engine-specific cold flags. The UI
  * renders the branch matching the picked engine, and buildEngineCommand dispatches on it.
  */
-export type ModelParameters = VllmParameters | LlamaCppParameters;
+export type ModelParameters = VllmParameters | LlamaCppParameters | ComfyUIParameters;
 
 export type HuggingFaceModel = {
   id: string;

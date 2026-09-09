@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import useInferenceAllocation from '@/components/hooks/use-inference-allocation';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
@@ -12,6 +13,7 @@ import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
+import { ComputeEnvironment } from '@/types/environments';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import { includesSummary, isBundle, validateEnvValue } from '@/types/templates';
@@ -41,6 +43,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     templateEnvValues,
     setTemplateEnvValues,
     engine,
+    engineLockedToComfyUI,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -58,6 +61,31 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Whether the bucket picker is actually shown on this page (edit re-entry never shows it — see the
   // guard on TemplateBucketPicker below).
   const showsPicker = !isEditMode && needsBucketPicker;
+
+  /**
+   * A ComfyUI launch mounts a bucket to keep its weights: tens of gigabytes re-download on every
+   * relaunch without one, so unlike the template flow it is required rather than offered. Edit
+   * re-entry is excluded for the same reason the template branch excludes it — serviceRestart keeps
+   * whatever bucket is already mounted and takes no outputBucketId, so there is nothing to pick.
+   */
+  const needsComfyBucket = isCustomModelFlow && engineLockedToComfyUI && !isEditMode;
+
+  /**
+   * Disk booked on the resources step — the ceiling a ComfyUI variant's download has to fit under.
+   * It is NOT `selectedEnv.sizing.disk`: `sizing` is absent for the plain proportional slice this
+   * flow books. The amount only exists as the output of the same hook that prices and books it.
+   * Only `allocation` is read, so no token or duration is needed — those shape `price`, not the slice.
+   */
+  const { allocation } = useInferenceAllocation({
+    environment: selectedEnv?.environment ?? ({ resources: [] } as unknown as ComputeEnvironment),
+    tokenAddress: '',
+    gpuSelection: selectedEnv?.gpuSelection,
+    sizing: selectedEnv?.sizing,
+    durationSeconds: 0,
+  });
+  // 0 means no environment is in context (edit re-entry, or a deep link still hydrating) — "unknown",
+  // not "you booked no disk". Passing 0 down would disable every variant with no way to fix it.
+  const bookedDiskGb = allocation.disk > 0 ? allocation.disk : undefined;
 
   // Template flow: live values for the template's userConfigurableEnvVars, seeded from context (so a
   // back-nav keeps what was typed) and per-field validation errors. Secrets — never leave the client.
@@ -219,6 +247,17 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         });
         return;
       }
+      if (needsComfyBucket && !selectedBucketId) {
+        setSubmitError(
+          'Pick a persistent-storage bucket. Without one this model re-downloads tens of gigabytes of weights on every relaunch.'
+        );
+        captureError('inference_config_failed', new Error('comfy_bucket_missing'), {
+          stage: 'comfy_bucket_missing',
+          model_count: modelIds.length,
+          branch,
+        });
+        return;
+      }
       const results = await Promise.all(modelIds.map((id) => paramRefs.current[id]!.validateAndGet()));
       // A null result here means a card failed its own validation and already highlighted its fields.
       if (results.some((params) => !params)) {
@@ -330,9 +369,19 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   type="password"
                   value={hfToken}
                 />
+                {/* Required for ComfyUI, not offered otherwise — the text engines pull their weights
+                    fresh each launch and have nothing to cache. */}
+                {needsComfyBucket && selectedEnv && (
+                  <TemplateBucketPicker
+                    nodeInfo={selectedEnv.nodeInfo}
+                    onSelect={setSelectedBucketId}
+                    selectedBucketId={selectedBucketId}
+                  />
+                )}
               </Card>
               {modelIds.map((id) => (
                 <ModelParameters
+                  bookedDiskGb={bookedDiskGb}
                   defaultOpen={false}
                   key={id}
                   modelId={id}

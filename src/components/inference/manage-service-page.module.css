@@ -186,6 +186,52 @@
   gap: 12px;
 }
 
+/* Connect panel — the ComfyUI-Distributed setup steps, an ordered list of copyable facts. */
+.connectPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  h4 {
+    margin: 0;
+  }
+
+  ol {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding-left: 20px;
+  }
+
+  li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  code {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-border);
+    color: var(--terminal-text);
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+}
+
+.connectField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, monospace);
+}
+
 /* Matches the logs console below. */
 .terminal {
   margin: 0;

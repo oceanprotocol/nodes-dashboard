@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
+import { getModelCompatibility } from '@/services/model-compatibility';
 import { HuggingFaceModel } from '@/types/huggingface';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -52,6 +53,8 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle
   const avatarUrl = getModelAvatarUrl(model);
   const modelName = getModelShortName(model.id);
   const initial = (model.author ?? model.id).charAt(0).toUpperCase();
+  const compatibility = getModelCompatibility(model);
+  const isUnavailableMedia = !compatibility.supported && compatibility.kind === 'generative-media';
 
   return (
     <Card
@@ -101,6 +104,9 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, selected = false, onToggle
       <div className={styles.chips}>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{prettyPipeline(model.pipelineTag)}</span>
         {model.gated && <span className={classNames('chip', 'chipWarning', styles.chip)}>Gated</span>}
+        {isUnavailableMedia && (
+          <span className={classNames('chip', styles.chip, styles.chipMuted)}>Not available yet</span>
+        )}
       </div>
       {showStats ? (
         <div className={styles.stats}>

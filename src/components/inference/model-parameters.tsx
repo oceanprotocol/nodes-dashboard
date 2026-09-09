@@ -6,6 +6,7 @@ import Select from '@/components/input/select';
 import Slider from '@/components/slider/slider';
 import Switch from '@/components/switch/switch';
 import { useInferenceContext } from '@/context/inference-context';
+import { ComfyPreset, getComfyPresets } from '@/data/comfy-model-presets';
 import {
   buildModelDefaults,
   fetchHuggingFaceModelConfig,
@@ -19,6 +20,7 @@ import {
 import { VLLM_TAG } from '@/services/inference-launch';
 import { getArchitectureIncompatibility } from '@/services/model-compatibility';
 import {
+  ComfyUIParameters,
   HuggingFaceModelConfig,
   InferenceEngine,
   KvCacheDtype,
@@ -35,7 +37,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { CircularProgress, Collapse, Tooltip } from '@mui/material';
+import { CircularProgress, Collapse, FormControlLabel, Radio, RadioGroup, Tooltip } from '@mui/material';
 import cx from 'classnames';
 import { useFormik } from 'formik';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -141,11 +143,15 @@ function validateCustomParams(v: ModelParametersType, errors: ParamErrors): void
 
 // `contextCeiling` is the model's reported max (null when HF reports none → free optional input).
 // `contextFloor` is the effective lower bound. Passed in because they're component state, not static.
+// `modelId` keys the ComfyUI preset table — the variant is only meaningful against one model, and
+// `bookedDiskGb` is the disk that variant's download has to fit under (undefined = not known here).
 function validateParams(
   v: ModelParametersType,
   contextCeiling: number | null,
   contextFloor: number,
-  bookedGpus: number
+  bookedGpus: number,
+  modelId: string,
+  bookedDiskGb: number | undefined
 ): ParamErrors {
   const errors: ParamErrors = {};
   if (!v.servedModelName.trim()) {
@@ -163,7 +169,7 @@ function validateParams(
     if (!Number.isInteger(v.gpuLayers) || v.gpuLayers < -1) {
       errors.gpuLayers = 'Must be -1 (all layers), 0 (CPU only), or a positive layer count.';
     }
-  } else {
+  } else if (v.engine === 'vllm') {
     // Optional: blank/null lets vLLM derive the length. A pinned value must clear the floor and (when
     // the model reports a ceiling) stay within it.
     if (v.maxContext != null) {
@@ -191,6 +197,19 @@ function validateParams(
     if (v.toolCalling && !v.toolCallParser) {
       errors.toolCallParser = 'Pick a parser. Tool calling breaks at runtime without one.';
     }
+  } else if (v.engine === 'comfyui') {
+    // ComfyUI has no numeric launch flags — the model IS the preset's weight list. That list is the
+    // one thing it can get wrong, and the only other check on it is inside comfyUserData, which
+    // throws after the escrow lock. Refuse an empty or unrecognised variant here, while it's free.
+    const preset = getComfyPresets(modelId).find((p) => p.id === v.variant);
+    if (!preset) {
+      errors.variant = 'Pick a variant to launch.';
+    } else if (bookedDiskGb != null && preset.totalGb > bookedDiskGb) {
+      // The picker disables these, but when NOTHING fits the seeded default is one of them — and a
+      // disabled radio is still a submittable value. Blocking here is what keeps a download that
+      // can't land on the booked disk from being paid for first.
+      errors.variant = `${preset.label} downloads ${preset.totalGb} GB, more than the ${bookedDiskGb} GB of disk booked. Go back to Resources to book more.`;
+    }
   }
 
   validateCustomParams(v, errors);
@@ -200,6 +219,12 @@ function validateParams(
 type ModelParametersProps = {
   modelId: string;
   defaultOpen?: boolean;
+  /**
+   * Disk booked on the resources step, in GB — the ceiling a ComfyUI variant's download has to fit
+   * under. Undefined means "not known here" (edit re-entry, or no env picked yet), which disables
+   * nothing rather than guessing.
+   */
+  bookedDiskGb?: number;
 };
 
 /** Imperative handle for parent-driven actions on a model card. */
@@ -211,21 +236,35 @@ export type ModelParametersHandle = {
 };
 
 const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(function ModelParameters(
-  { modelId, defaultOpen = false },
+  { modelId, defaultOpen = false, bookedDiskGb },
   ref
 ) {
-  const { hfToken, selectedModels, modelParamsByModel, engine, setEngine, engineLockedToLlamaCpp, selectedEnv } =
-    useInferenceContext();
+  const {
+    hfToken,
+    selectedModels,
+    modelParamsByModel,
+    engine,
+    setEngine,
+    engineLockedToLlamaCpp,
+    engineLockedToComfyUI,
+    selectedEnv,
+  } = useInferenceContext();
 
-  // A GGUF-only model has no weights vLLM can load, so offering it would only produce a failed
-  // launch. The context enforces this too; hiding the option is what makes the constraint visible.
-  const engineOptions = useMemo(
-    () =>
-      engineLockedToLlamaCpp
-        ? INFERENCE_ENGINE_OPTIONS.filter((o) => o.value === 'llamacpp')
-        : INFERENCE_ENGINE_OPTIONS,
-    [engineLockedToLlamaCpp]
-  );
+  // A GGUF-only model has no weights vLLM can load, and a diffusion model has nothing either text
+  // engine can load, so offering the wrong one would only produce a failed launch. The context
+  // enforces this too; hiding the option is what makes the constraint visible.
+  //
+  // ComfyUI is never a free choice: it serves only the curated preset models, and those lock to it.
+  // Offering it on any other model would produce a launch with no weight list at all.
+  const engineOptions = useMemo(() => {
+    if (engineLockedToLlamaCpp) {
+      return INFERENCE_ENGINE_OPTIONS.filter((o) => o.value === 'llamacpp');
+    }
+    if (engineLockedToComfyUI) {
+      return INFERENCE_ENGINE_OPTIONS.filter((o) => o.value === 'comfyui');
+    }
+    return INFERENCE_ENGINE_OPTIONS.filter((o) => o.value !== 'comfyui');
+  }, [engineLockedToLlamaCpp, engineLockedToComfyUI]);
 
   // GPUs booked on the resources step (which runs before this one). This is the ceiling for tensor
   // parallelism — sharding across more GPUs than were booked makes vLLM exit at startup. 1 or fewer
@@ -390,7 +429,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const formik = useFormik<ModelParametersType>({
     enableReinitialize: true,
     initialValues,
-    validate: (v) => validateParams(v, contextCeiling, contextFloor, bookedGpus),
+    validate: (v) => validateParams(v, contextCeiling, contextFloor, bookedGpus, modelId, bookedDiskGb),
     onSubmit: () => {},
   });
 
@@ -400,6 +439,38 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     (formik.touched as Record<string, unknown>)[field]
       ? ((formik.errors as Record<string, unknown>)[field] as string | undefined)
       : undefined;
+
+  // Whether a preset's download fits the disk booked one step earlier. No booked disk known here
+  // (edit re-entry, or no env chosen yet) disables nothing — don't refuse a variant on a guess.
+  const presetFits = (preset: ComfyPreset) => bookedDiskGb == null || preset.totalGb <= bookedDiskGb;
+
+  // The picked variant, or null on any other engine. Narrowed here rather than in the effect below,
+  // because a dependency array can't narrow the params union.
+  const comfyVariant = formik.values.engine === 'comfyui' ? formik.values.variant : null;
+
+  // Seed the variant when ComfyUI becomes the engine: the largest preset that fits the booked disk,
+  // or the smallest when none does — so the first thing the user sees is never a disabled radio with
+  // nothing selected and no explanation. Only fires while `variant` is empty, so it can never
+  // overwrite the user's pick or a value restored from the URL.
+  useEffect(() => {
+    if (comfyVariant !== '') {
+      return;
+    }
+    const presets = getComfyPresets(modelId);
+    if (presets.length === 0) {
+      return;
+    }
+    const fitting = presets.filter(presetFits);
+    const pick =
+      fitting.length > 0
+        ? fitting.reduce((a, b) => (b.totalGb > a.totalGb ? b : a))
+        : presets.reduce((a, b) => (b.totalGb < a.totalGb ? b : a));
+    formik.setFieldValue('variant', pick.id);
+    // `formik` and `presetFits` are new every render, so depending on them would re-run this on every
+    // render. What they read is listed instead: `bookedDiskGb` is all presetFits looks at, and
+    // setFieldValue never changes what gets picked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comfyVariant, modelId, bookedDiskGb]);
 
   // Per-row custom-param key error (Formik nests these as errors.customParams[i].key).
   const customParamKeyError = (index: number): string | undefined => {
@@ -748,6 +819,57 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     </div>
   );
 
+  /**
+   * ComfyUI's whole configuration surface: which weight set to download. Everything the text engines
+   * expose here is a model-loading flag, and ComfyUI has none — the model IS the files.
+   *
+   * A preset larger than the booked disk is disabled rather than hidden: the user needs to see that a
+   * better variant exists, and that going back to Resources is what unlocks it.
+   */
+  const renderComfyUIFlags = (v: ComfyUIParameters) => {
+    const presets = getComfyPresets(modelId);
+    const variantError = errorFor('variant');
+    return (
+      <div className={styles.subsection}>
+        <div>
+          <h4>Model variant</h4>
+          <div className="textSecondary">
+            Which weight set the worker downloads. Fixed when the model starts; changing it needs a relaunch
+          </div>
+        </div>
+        {presets.length === 0 ? (
+          <div className={cx(styles.notice, styles.noticeWarning)}>
+            No prepared weight set for this model, so it can&apos;t be launched from here.
+          </div>
+        ) : (
+          <>
+            <RadioGroup
+              name="variant"
+              onChange={(e) => formik.setFieldValue('variant', e.target.value)}
+              value={v.variant}
+            >
+              {presets.map((preset) => (
+                <FormControlLabel
+                  control={<Radio size="small" />}
+                  disabled={!presetFits(preset)}
+                  key={preset.id}
+                  label={
+                    <span>
+                      {preset.label} — {preset.totalGb} GB download, needs {preset.minVramGb} GB VRAM
+                      {presetFits(preset) ? '' : ' — larger than the booked disk. Go back to Resources to book more.'}
+                    </span>
+                  }
+                  value={preset.id}
+                />
+              ))}
+            </RadioGroup>
+            {variantError && <div className="textAccent1">{variantError}</div>}
+          </>
+        )}
+      </div>
+    );
+  };
+
   // llama.cpp cold launch flags — serves a GGUF quantization off the Hub. `v` is the narrowed
   // llama.cpp branch of the form values.
   const renderLlamaCppFlags = (v: LlamaCppParameters) => (
@@ -906,7 +1028,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           </div>
         ) : authState === 'rejected' ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>
-            The Hugging Face token was rejected for this model, as it is invalid or lacks access. Check the token and reload.
+            The Hugging Face token was rejected for this model, as it is invalid or lacks access. Check the token and
+            reload.
           </div>
         ) : loadError ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>{loadError}</div>
@@ -1023,7 +1146,11 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
 
           <div className={styles.divider} />
 
-          {formik.values.engine === 'vllm' ? renderVllmFlags(formik.values) : renderLlamaCppFlags(formik.values)}
+          {/* One block per engine, no fallback: rendering another engine's flags would show settings
+              that engine's launch never sends. */}
+          {formik.values.engine === 'vllm' && renderVllmFlags(formik.values)}
+          {formik.values.engine === 'llamacpp' && renderLlamaCppFlags(formik.values)}
+          {formik.values.engine === 'comfyui' && renderComfyUIFlags(formik.values)}
         </fieldset>
       </Collapse>
     </Card>

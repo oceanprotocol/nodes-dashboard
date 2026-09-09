@@ -1,5 +1,6 @@
 import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import {
+  ComfyUIParameters,
   HuggingFaceModel,
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -465,6 +466,7 @@ const DEFAULT_LLAMA_GPU_LAYERS = 0;
 export const INFERENCE_ENGINE_OPTIONS: { label: string; value: InferenceEngine }[] = [
   { label: 'vLLM', value: 'vllm' },
   { label: 'llama.cpp', value: 'llamacpp' },
+  { label: 'ComfyUI', value: 'comfyui' },
 ];
 
 export const DEFAULT_INFERENCE_ENGINE: InferenceEngine = 'vllm';
@@ -572,6 +574,23 @@ function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: s
 }
 
 /**
+ * ComfyUI launch params. Takes no HF config: ComfyUI has no model-loading flags at all — the model
+ * is whichever weight files the bootstrap downloads, which is what `variant` names.
+ *
+ * `variant` is deliberately left empty rather than guessed at here. Which preset is usable depends
+ * on the disk booked one step earlier, which this module cannot see; the config step picks the
+ * largest preset that fits and validation refuses an empty one, so nothing can launch without it.
+ */
+function buildComfyUIDefaults(modelId: string): ComfyUIParameters {
+  return {
+    engine: 'comfyui',
+    servedModelName: getModelShortName(modelId),
+    customParams: [],
+    variant: '',
+  };
+}
+
+/**
  * Build the launch parameters for a model + engine from its HF config, falling back to neutral
  * defaults for anything the config doesn't pin. Passing `config: null` yields the pure defaults —
  * the fallback used for a selection whose params haven't been committed yet. The engine picks which
@@ -582,7 +601,14 @@ export function buildModelDefaults(
   modelId: string,
   engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE
 ): ModelParameters {
-  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId) : buildVllmDefaults(config, modelId);
+  switch (engine) {
+    case 'llamacpp':
+      return buildLlamaCppDefaults(config, modelId);
+    case 'comfyui':
+      return buildComfyUIDefaults(modelId);
+    default:
+      return buildVllmDefaults(config, modelId);
+  }
 }
 
 /** Short display name for a model id — the repo part after the `author/` prefix. */

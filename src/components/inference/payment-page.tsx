@@ -22,12 +22,14 @@ import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info
 import {
   buildInferenceRestartSpec,
   buildInferenceStartParams,
+  COMFY_WORKER_TEMPLATE_ID,
   gpuSelectionErrorCode,
   gpuSelectionMessage,
   toNodeUri,
 } from '@/services/inference-launch';
 import { decodeGpuSelection, decodeResourceSizing, firstQueryValue } from '@/services/inference-url';
 import { isModelAppType, parseServiceAppType, resolveServiceAppType } from '@/services/service-metadata';
+import { fetchTemplates, findTemplateById } from '@/services/service-templates';
 import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
@@ -67,7 +69,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     buildSelectionQuery,
   } = useInferenceContext();
   const { account, login } = useOceanAccount();
-  const { isReady, serviceExtend, serviceStart, serviceRestart } = useP2P();
+  const { isReady, serviceExtend, serviceStart, serviceRestart, getServiceTemplates } = useP2P();
   const { withNodeAuth } = useNodeTokensContext();
   const { handlePay } = usePaySession();
   // The running service targeted by edit/prolong — set by the manage page when re-entering the flow.
@@ -626,6 +628,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         });
         return;
       }
+      // ComfyUI is the one engine with no dashboard-side image: its bootstrap is a node-side
+      // commandFile, so image/tag/entrypoint/command all come from the node's comfyui-worker
+      // template. fetchTemplates is the same module-cached catalogue the template flow reads, so
+      // this is a cache hit rather than a second round trip in the common case.
+      const comfyTemplate =
+        params.engine === 'comfyui'
+          ? findTemplateById(await fetchTemplates(getServiceTemplates), COMFY_WORKER_TEMPLATE_ID)
+          : null;
+
       let startParams;
       try {
         startParams = buildInferenceStartParams({
@@ -642,6 +653,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           tokenAddress: selectedToken.address,
           hfToken,
           appType,
+          comfyTemplate,
+          // ComfyUI writes its renders to the mounted bucket; the other engines ignore it.
+          bucketId: selectedBucketId ?? undefined,
         });
       } catch (error) {
         if (reportGpuSelectionFailure(error)) {
@@ -708,6 +722,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     buildManageQuery,
     branch,
     appType,
+    getServiceTemplates,
+    selectedBucketId,
   ]);
 
   // Fresh launch of a template app (ComfyUI, …). Mirrors runFreshLaunch but sources the container spec

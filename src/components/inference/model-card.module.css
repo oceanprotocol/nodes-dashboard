@@ -78,6 +78,12 @@
   .chip {
     font-size: 12px;
   }
+
+  /* Muted variant of the chipGlass pairing used above — signals "can't launch" without a new badge class. */
+  .chipMuted {
+    background: var(--background-glass-secondary);
+    color: var(--text-secondary);
+  }
 }
 
 .stats {

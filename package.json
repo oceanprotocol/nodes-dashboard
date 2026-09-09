@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint --ignore-path .gitignore --ext .ts,.tsx .",
     "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix",
-    "format": "prettier --parser typescript --ignore-path .gitignore --write '**/*.{js,jsx,ts,tsx}'"
+    "format": "prettier --parser typescript --ignore-path .gitignore --write '**/*.{js,jsx,ts,tsx}'",
+    "check:presets": "node scripts/check-comfy-presets.mjs"
   },
   "dependencies": {
     "@account-kit/infra": "4.84.1",
