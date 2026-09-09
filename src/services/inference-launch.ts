@@ -431,7 +431,6 @@ export function parseEngineCommand(
 export function buildUserData(hfToken: string): Record<string, string> {
   return {
     NCCL_NVLS_ENABLE: '0',
-    NCCL_DEBUG: NCCL_DEBUG_LEVEL,
     ...(hfToken ? { HF_TOKEN: hfToken } : {}),
   };
 }
