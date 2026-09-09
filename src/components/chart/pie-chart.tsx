@@ -25,10 +25,11 @@ type PieChartCardProps = {
 };
 
 const PieChart: React.FC<PieChartCardProps> = ({ chartType, data, title }) => {
-  const { handleMouseMove, handleMouseLeave, CustomRechartsTooltipComponent, renderTooltipPortal } = useCustomTooltip({
-    chartType,
-    labelKey: 'name',
-  });
+  const { handleMouseMove, handleMouseLeave, plotRef, CustomRechartsTooltipComponent, renderTooltipPortal } =
+    useCustomTooltip({
+      chartType,
+      labelKey: 'name',
+    });
 
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const [lockedIndex, setLockedIndex] = useState<number | undefined>(undefined);
@@ -92,7 +93,7 @@ const PieChart: React.FC<PieChartCardProps> = ({ chartType, data, title }) => {
   };
 
   return (
-    <div className={styles.root} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+    <div className={styles.root} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} ref={plotRef}>
       <h3>{title}</h3>
       <ResponsiveContainer width="100%" height={220}>
         <RechartsPieChart>

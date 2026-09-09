@@ -8,6 +8,7 @@ import { ProfileProvider } from '@/context/profile-context';
 import { RunJobProvider } from '@/context/run-job-context';
 import { RunJobEnvsProvider } from '@/context/run-job-envs-context';
 import { RunNodeProvider } from '@/context/run-node-context';
+import { ServicesStatsProvider } from '@/context/services-stats-context';
 import { StatsProvider } from '@/context/stats-context';
 import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
@@ -124,23 +125,25 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
                         <UnbanRequestsProvider>
                           <ProfileProvider>
                             <StatsProvider>
-                              <P2PProvider>
-                                <NodeStorageProvider>
-                                  <RunJobEnvsProvider>
-                                    <RunJobProvider>
-                                      <RunNodeProvider>
-                                        <InferenceProvider>
-                                          <RootLayout>
-                                            <PHProvider>
-                                              <Component {...pageProps} />
-                                            </PHProvider>
-                                          </RootLayout>
-                                        </InferenceProvider>
-                                      </RunNodeProvider>
-                                    </RunJobProvider>
-                                  </RunJobEnvsProvider>
-                                </NodeStorageProvider>
-                              </P2PProvider>
+                              <ServicesStatsProvider>
+                                <P2PProvider>
+                                  <NodeStorageProvider>
+                                    <RunJobEnvsProvider>
+                                      <RunJobProvider>
+                                        <RunNodeProvider>
+                                          <InferenceProvider>
+                                            <RootLayout>
+                                              <PHProvider>
+                                                <Component {...pageProps} />
+                                              </PHProvider>
+                                            </RootLayout>
+                                          </InferenceProvider>
+                                        </RunNodeProvider>
+                                      </RunJobProvider>
+                                    </RunJobEnvsProvider>
+                                  </NodeStorageProvider>
+                                </P2PProvider>
+                              </ServicesStatsProvider>
                             </StatsProvider>
                           </ProfileProvider>
                         </UnbanRequestsProvider>

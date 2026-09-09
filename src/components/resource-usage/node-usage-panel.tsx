@@ -102,10 +102,7 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
     [history]
   );
   const diskHistory = useMemo(
-    () =>
-      history
-        .map((sample) => sample.diskPercent)
-        .filter((value): value is number => value !== undefined),
+    () => history.map((sample) => sample.diskPercent).filter((value): value is number => value !== undefined),
     [history]
   );
   const gpuVramHistory = useMemo(
@@ -177,8 +174,7 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
   // to say "devices" or the tick reads as booked VRAM.
   const gpuBooked = gpuEnv.total > 0 && gpuEnv.booked > 0 ? (gpuEnv.booked / gpuEnv.total) * 100 : undefined;
 
-  const diskValue =
-    hasWorkloadData && diskEnv.totalBytes > 0 ? (disk.usedBytes / diskEnv.totalBytes) * 100 : undefined;
+  const diskValue = hasWorkloadData && diskEnv.totalBytes > 0 ? (disk.usedBytes / diskEnv.totalBytes) * 100 : undefined;
   const diskBooked =
     diskValue !== undefined && diskEnv.bookedBytes > 0 ? (diskEnv.bookedBytes / diskEnv.totalBytes) * 100 : undefined;
   const diskPeak = diskValue !== undefined ? resolvePeak(diskValue, diskHistory) : undefined;
@@ -343,7 +339,7 @@ const NodeUsagePanel: React.FC<NodeUsagePanelProps> = ({
 
           {gpuRows.length > 0 && <GpuDeviceSection compact={compact} rows={gpuRows} />}
 
-          <UsageStatsSection compact={compact} heading="Workloads &amp; host">
+          <UsageStatsSection compact={compact} heading="Workloads & host">
             {hasWorkloadData && (
               <Stat icon={<BoltIcon className={resourceIconClass} />} label="Running jobs">
                 {formatNumber(jobs.running)}

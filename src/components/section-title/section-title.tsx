@@ -15,6 +15,13 @@ type SectionTitleProps = {
   mobileWarning?: boolean;
   mobileWarningMessage?: string;
   moreReadable?: boolean;
+  /**
+   * Renders the heading one level down, for a group *inside* a page rather than the page itself:
+   * smaller type, an `h3`, and a short accent rule above it. A page has one default (`h2`)
+   * SectionTitle; repeating that size mid-page makes each group read as a new page starting
+   * mid-scroll.
+   */
+  secondary?: boolean;
   subTitleClassName?: string;
   titleClassName?: string;
 };
@@ -27,14 +34,16 @@ const SectionTitle: React.FC<SectionTitleProps> = ({
   mobileWarning,
   mobileWarningMessage,
   moreReadable,
+  secondary,
   subTitleClassName,
   titleClassName,
 }) => {
   const isMobile = useMobile();
+  const Heading = secondary ? 'h3' : 'h2';
 
   return (
-    <div className={cx(styles.root, { [styles.moreReadable]: moreReadable }, className)}>
-      <h2 className={cx('textAccent1', styles.title, titleClassName)}>{title}</h2>
+    <div className={cx(styles.root, { [styles.moreReadable]: moreReadable, [styles.secondary]: secondary }, className)}>
+      <Heading className={cx(!secondary && 'textAccent1', styles.title, titleClassName)}>{title}</Heading>
       {contentBetween}
       {subTitle && <p className={cx(styles.subTitle, subTitleClassName)}>{subTitle}</p>}
       {isMobile && mobileWarning ? (

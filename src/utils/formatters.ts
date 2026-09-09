@@ -172,6 +172,31 @@ export const formatDuration = (totalSeconds: number | null | undefined, short?: 
 };
 
 /**
+ * An AGGREGATE reserved duration, rendered in hours.
+ *
+ * Separate from formatDuration because that one is built for a single job or
+ * session and falls back to `"5400 seconds (01:30:00)"` whenever the value is
+ * not a clean multiple of an hour or minute. Reserved totals are millions of
+ * seconds, where that output is unreadable — so this abbreviates through
+ * formatNumber instead ("1.2K hrs").
+ *
+ * The word "reserved" is deliberate: this is PURCHASED time, not time a
+ * container actually ran. The node does not record the latter.
+ */
+export const formatReservedHours = (totalSeconds: number | null | undefined): string => {
+  const sec = totalSeconds ?? 0;
+  if (!Number.isFinite(sec) || sec <= 0) {
+    return '0 hrs';
+  }
+  const hours = sec / 3600;
+  // Sub-hour totals would abbreviate to "0 hrs" and read as "nothing happened".
+  if (hours < 1) {
+    return '< 1 hr';
+  }
+  return `${formatNumber(Math.round(hours))} hrs`;
+};
+
+/**
  * Total wall-clock duration of a compute job (in seconds): dateFinished - dateCreated.
  * Timestamps arrive as unix-seconds strings (e.g. "1784196420.452"), so they are
  * coerced to numbers. Returns null while the job is unfinished or the values are invalid.

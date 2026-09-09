@@ -1,5 +1,6 @@
 import { ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
+import { isInferenceNode } from '@/constants/nodes';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
@@ -64,7 +65,12 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
     // Aborts the in-flight request on effect re-run / unmount (modal closed, package switched), on top
     // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
     const cleanupController = new AbortController();
-    const peerIds = Array.from(new Set(pkg.sourcePeerIds ?? []));
+    // The package names its own source nodes, but only the allowlisted ones may be launched on — a
+    // package seeded from a node that has since dropped off ON_INFERENCE_NODES must offer nothing
+    // rather than an env whose booking fails after payment.
+    // TODO: remove this allowlist once community nodes are allowed to run inference services. Drop
+    // the `.filter` — `sourcePeerIds` is then the only scope, which is what a package already means.
+    const peerIds = Array.from(new Set(pkg.sourcePeerIds ?? [])).filter(isInferenceNode);
     const sizing = recommendedSizing(pkg);
 
     async function resolve() {
@@ -108,7 +114,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
         });
 
         // Error only when nothing came back at all — a partial result still gives the user something
-        // bookable.
+        // bookable. Also covers an allowlist that filtered every source node out.
         if (nodes.length === 0) {
           throw new Error('The nodes for this package are not reachable right now.');
         }
@@ -118,6 +124,13 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
         const candidates = nodes.flatMap((node) =>
           (node.computeEnvironments.environments ?? [])
             .filter((environment) => {
+              // `/envs` ignores the `id` filter sent above (no node-id case in `getEnvs`), so the
+              // node identity is re-checked here rather than trusted from the query.
+              // TODO: remove this allowlist once community nodes are allowed to run inference
+              // services. This guard goes with it; the per-peerId lookup above already scopes the node.
+              if (!isInferenceNode(node.id)) {
+                return false;
+              }
               if (!environment.features?.services) {
                 return false;
               }

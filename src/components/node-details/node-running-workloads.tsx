@@ -15,13 +15,20 @@ import styles from './node-running-workloads.module.css';
 
 type NodeRunningWorkloadsProps = {
   node: Node;
+  /**
+   * Which card to render. The services and jobs cards are independent (separate state and
+   * loaders), so the node details page renders them into different sections: services under
+   * inference, jobs under jobs. Only the shown workload type is loaded — the page mounts this
+   * component twice, so loading both in each instance would double the node calls.
+   */
+  show?: 'services' | 'jobs' | 'both';
 };
 
 // Node owners can see everything running on their hardware — services (getServices) and compute jobs
 // (getNodeJobs), both node-wide across all owners. Only in-flight items are shown (status logic lives
 // in services/service-status). Jobs load automatically (unauthenticated); services need a signature,
 // so they load only on button press.
-const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
+const NodeRunningWorkloads = ({ node, show = 'both' }: NodeRunningWorkloadsProps) => {
   const { account } = useOceanAccount();
   const { getServices, getNodeJobs, isReady } = useP2P();
   const { withNodeAuth, hasValidNodeToken } = useNodeTokensContext();
@@ -76,11 +83,14 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
 
   // Auto-load services only when a valid node token is already cached (no signature prompt). If not,
   // the user must press the button — which mints a token via the signature flow.
+  const showServices = show === 'services' || show === 'both';
+  const showJobs = show === 'jobs' || show === 'both';
+
   useEffect(() => {
-    if (!servicesLoaded && isReady && isOwner && nodeId && hasValidNodeToken(nodeId)) {
+    if (showServices && !servicesLoaded && isReady && isOwner && nodeId && hasValidNodeToken(nodeId)) {
       loadServices();
     }
-  }, [servicesLoaded, isReady, isOwner, nodeId, hasValidNodeToken, loadServices]);
+  }, [showServices, servicesLoaded, isReady, isOwner, nodeId, hasValidNodeToken, loadServices]);
 
   // --- Compute jobs ---
   const [jobs, setJobs] = useState<NodeComputeJob[]>([]);
@@ -111,8 +121,11 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
 
   // Jobs need no signature — load them as soon as the node is reachable and the viewer is an owner.
   useEffect(() => {
+    if (!showJobs) {
+      return;
+    }
     loadJobs();
-  }, [loadJobs]);
+  }, [showJobs, loadJobs]);
 
   if (!isOwner) {
     return null;
@@ -120,99 +133,103 @@ const NodeRunningWorkloads = ({ node }: NodeRunningWorkloadsProps) => {
 
   return (
     <>
-      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-        <div className={styles.head}>
-          <div className={styles.title}>
-            <h3>Running services</h3>
-            {servicesLoading ? (
-              <span className="textSecondary flexRow alignItemsCenter gapXs">
-                <CircularProgress size={12} />
-                Loading services…
-              </span>
-            ) : services.length > 0 ? (
-              <span className="textSecondary">Service-on-demand containers currently active on this node</span>
-            ) : servicesLoaded ? (
-              <span className="textSecondary">No services currently running on this node</span>
-            ) : null}
+      {showServices ? (
+        <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+          <div className={styles.head}>
+            <div className={styles.title}>
+              <h3>Running services</h3>
+              {servicesLoading ? (
+                <span className="textSecondary flexRow alignItemsCenter gapXs">
+                  <CircularProgress size={12} />
+                  Loading services…
+                </span>
+              ) : services.length > 0 ? (
+                <span className="textSecondary">Service-on-demand containers currently active on this node</span>
+              ) : servicesLoaded ? (
+                <span className="textSecondary">No services currently running on this node</span>
+              ) : null}
+            </div>
+            <Button
+              color="accent2"
+              disabled={!isReady || servicesLoading}
+              loading={servicesLoading}
+              onClick={loadServices}
+              size="md"
+              variant="filled"
+            >
+              {servicesLoaded ? 'Refresh' : 'Load services'}
+            </Button>
           </div>
-          <Button
-            color="accent2"
-            disabled={!isReady || servicesLoading}
-            loading={servicesLoading}
-            onClick={loadServices}
-            size="md"
-            variant="filled"
-          >
-            {servicesLoaded ? 'Refresh' : 'Load services'}
-          </Button>
-        </div>
 
-        {servicesError && (
-          <p className="textErrorDarker flexRow alignItemsCenter gapXs">
-            <span className="textBold">Failed to load services</span>
-            <Tooltip title={servicesError}>
-              <InfoOutlinedIcon fontSize="small" />
-            </Tooltip>
-          </p>
-        )}
+          {servicesError && (
+            <p className="textErrorDarker flexRow alignItemsCenter gapXs">
+              <span className="textBold">Failed to load services</span>
+              <Tooltip title={servicesError}>
+                <InfoOutlinedIcon fontSize="small" />
+              </Tooltip>
+            </p>
+          )}
 
-        {services.length > 0 && (
-          <Table<ServiceJobListed>
-            autoHeight
-            data={services}
-            getRowId={(row) => row.serviceId}
-            paginationType="none"
-            tableType={TableTypeEnum.NODE_SERVICES}
-          />
-        )}
-      </Card>
+          {services.length > 0 && (
+            <Table<ServiceJobListed>
+              autoHeight
+              data={services}
+              getRowId={(row) => row.serviceId}
+              paginationType="none"
+              tableType={TableTypeEnum.NODE_SERVICES}
+            />
+          )}
+        </Card>
+      ) : null}
 
-      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-        <div className={styles.head}>
-          <div className={styles.title}>
-            <h3>Running jobs</h3>
-            {jobsLoading ? (
-              <span className="textSecondary flexRow alignItemsCenter gapXs">
-                <CircularProgress size={12} />
-                Loading jobs…
-              </span>
-            ) : jobs.length > 0 ? (
-              <span className="textSecondary">Compute jobs currently running or starting up on this node</span>
-            ) : jobsLoaded ? (
-              <span className="textSecondary">No jobs currently running on this node</span>
-            ) : null}
+      {showJobs ? (
+        <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+          <div className={styles.head}>
+            <div className={styles.title}>
+              <h3>Running jobs</h3>
+              {jobsLoading ? (
+                <span className="textSecondary flexRow alignItemsCenter gapXs">
+                  <CircularProgress size={12} />
+                  Loading jobs…
+                </span>
+              ) : jobs.length > 0 ? (
+                <span className="textSecondary">Compute jobs currently running or starting up on this node</span>
+              ) : jobsLoaded ? (
+                <span className="textSecondary">No jobs currently running on this node</span>
+              ) : null}
+            </div>
+            <Button
+              color="accent2"
+              disabled={!isReady || jobsLoading}
+              loading={jobsLoading}
+              onClick={loadJobs}
+              size="md"
+              variant="filled"
+            >
+              Refresh
+            </Button>
           </div>
-          <Button
-            color="accent2"
-            disabled={!isReady || jobsLoading}
-            loading={jobsLoading}
-            onClick={loadJobs}
-            size="md"
-            variant="filled"
-          >
-            Refresh
-          </Button>
-        </div>
 
-        {jobsError && (
-          <p className="textErrorDarker flexRow alignItemsCenter gapXs">
-            <span className="textBold">Failed to load jobs</span>
-            <Tooltip title={jobsError}>
-              <InfoOutlinedIcon fontSize="small" />
-            </Tooltip>
-          </p>
-        )}
+          {jobsError && (
+            <p className="textErrorDarker flexRow alignItemsCenter gapXs">
+              <span className="textBold">Failed to load jobs</span>
+              <Tooltip title={jobsError}>
+                <InfoOutlinedIcon fontSize="small" />
+              </Tooltip>
+            </p>
+          )}
 
-        {jobs.length > 0 && (
-          <Table<NodeComputeJob>
-            autoHeight
-            data={jobs}
-            getRowId={(row) => row.jobId}
-            paginationType="none"
-            tableType={TableTypeEnum.NODE_JOBS}
-          />
-        )}
-      </Card>
+          {jobs.length > 0 && (
+            <Table<NodeComputeJob>
+              autoHeight
+              data={jobs}
+              getRowId={(row) => row.jobId}
+              paginationType="none"
+              tableType={TableTypeEnum.NODE_JOBS}
+            />
+          )}
+        </Card>
+      ) : null}
     </>
   );
 };

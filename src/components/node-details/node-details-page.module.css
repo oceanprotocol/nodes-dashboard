@@ -1,0 +1,40 @@
+/* Group rhythm, mirroring the stats page. `pageContentWrapper`'s single 24px gap spaced a
+   section heading exactly like two adjacent cards, which is what made the page read as a
+   flat stack. Between groups is deliberately more than twice the gap between cards inside one. */
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  /* Heading sits closer to the cards it introduces than to the group above it. */
+  gap: 20px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Hide a whole group when no card inside it rendered, so a heading never introduces empty space.
+   Several children return null on conditions the page cannot see (no metrics snapshot, non-owner,
+   missing node id) and one of them owns a live polling hook, so hoisting those conditions here
+   would mean duplicating the hook. This keys off the rendered result instead.
+
+   Deliberately `not(:has(> .group > *))` rather than `:empty`: `:empty` is defeated by a
+   whitespace text node, which would leave an orphan heading on screen, whereas this only asks
+   whether any element child rendered. The leading `:has(> .group)` keeps the rule off the
+   NodeInfo section, which holds its card directly and has no group wrapper. */
+.section:has(> .group):not(:has(> .group > *)) {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sections {
+    gap: 72px;
+  }
+}

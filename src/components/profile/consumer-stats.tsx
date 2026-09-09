@@ -32,7 +32,7 @@ const ConsumerStats = () => {
         barKey="totalPaidAmount"
         chartType={ChartTypeEnum.REVENUE_PER_EPOCH}
         data={consumerStatsPerEpoch}
-        title="Amount paid per epoch"
+        title="Jobs spend"
         footer={{
           amount: formatNumber(totalPaidAmount),
           currency: 'USDC',
@@ -45,7 +45,7 @@ const ConsumerStats = () => {
         barKey="totalJobs"
         chartType={ChartTypeEnum.JOBS_PER_EPOCH}
         data={consumerStatsPerEpoch}
-        title="Jobs run per epoch"
+        title="Jobs run"
         footer={{
           amount: formatNumber(totalJobs),
           label: 'Total jobs',

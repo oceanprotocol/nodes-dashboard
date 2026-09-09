@@ -1,10 +1,10 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
-import { getSupportedTokens } from '@/constants/tokens';
+import { getSupportedTokens, usdcToCompy } from '@/constants/tokens';
 import { useSwapTokens } from '@/lib/use-swap-tokens';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
-import { formatNumber } from '@/utils/formatters';
+import { formatNumber, formatTokenAmount, tokenAmountDecimals } from '@/utils/formatters';
 import { useFormik } from 'formik';
 import { useMemo } from 'react';
 import * as Yup from 'yup';
@@ -63,6 +63,13 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
     }),
   });
 
+  // Previewed output, at the rate mirrored from the swap contract in `COMPY_PER_USDC`. Formatted
+  // with its own decimals rather than `formatNumber`, which would abbreviate 1250 to "1.3K" and
+  // understate what the swap pays out.
+  const compyAddress = getSupportedTokens().COMPY.address;
+  const compyOutput = usdcToCompy(Number(formik.values.amount) || 0);
+  const compyOutputLabel = formatTokenAmount(compyOutput, compyAddress, tokenAmountDecimals(compyOutput, compyAddress));
+
   return (
     <>
       <Card className={styles.balancesCard} radius="md" variant="accent1-outline">
@@ -82,11 +89,7 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
         <Input
           endAdornment="USDC"
           errorText={formik.touched.amount && formik.errors.amount ? formik.errors.amount : undefined}
-          hint={
-            formik.values.amount && formik.values.amount > 0
-              ? `You will receive ${formik.values.amount} COMPY`
-              : undefined
-          }
+          hint={compyOutput > 0 ? `You will receive ${compyOutputLabel} COMPY` : undefined}
           label="Amount to convert"
           name="amount"
           onBlur={formik.handleBlur}
