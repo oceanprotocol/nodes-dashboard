@@ -1,5 +1,6 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
+import { isInferenceNode } from '@/constants/nodes';
 import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
@@ -174,6 +175,28 @@ function templateIdOf(query: NextRouter['query']): string | null {
   return firstQueryValue(query.templateId) ?? firstQueryValue(query.template) ?? null;
 }
 
+/**
+ * The session length an EDIT url describes, or null when the url is not an edit or carries no usable
+ * duration.
+ *
+ * In edit mode the duration is not the user's to pick: a relaunch reuses the service's already-paid
+ * window (serviceRestart keeps the same expiry) and the edit stepper has no duration control. The
+ * manage page stamps that real window onto the Edit link, so the URL is the source of truth.
+ *
+ * Context's `jobDurationSeconds` is NOT, because it holds whatever the last flow left behind — after
+ * a Prolong that is the extension's increment, so a 15 min service would read "5 minutes". It cannot
+ * be fixed by re-hydrating either: `duration` is deliberately excluded from the hydration signature
+ * (it is a tweak within a selection, not a new one), so a client-side nav that only changes it must
+ * not refetch the models and environment.
+ */
+export function editSessionDurationFromQuery(query: NextRouter['query']): number | null {
+  if (!firstQueryValue(query.edit)) {
+    return null;
+  }
+  const seconds = Number(firstQueryValue(query.duration));
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+}
+
 const InferenceContext = createContext<InferenceContextType | undefined>(undefined);
 
 export const InferenceProvider = ({ children }: { children: React.ReactNode }) => {
@@ -342,6 +365,11 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     setModelParamsByModel((current) => ({ ...current, [modelId]: params }));
   }, []);
 
+  // Read outside the callback so its dep list can stay on the individual query fields it actually
+  // uses — depending on the whole `router.query` object would rebuild this (and every callback
+  // memoized on it) far more often than the selection changes.
+  const editSessionDuration = editSessionDurationFromQuery(router.query);
+
   const buildSelectionQuery = useCallback(
     (overrides?: SelectionOverrides): InferenceSelectionQuery => {
       const peerId = overrides?.peerId ?? selectedEnv?.nodeInfo.id;
@@ -351,7 +379,11 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const tokenAddress = overrides?.tokenAddress ?? selectedToken?.address;
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
       const models = overrides?.models ?? selectedModels;
-      const duration = overrides?.durationSeconds ?? jobDurationSeconds;
+      // An explicit override wins (that is how the manage page passes the real window in), then the
+      // edit URL, then context. See editSessionDurationFromQuery for why context cannot be trusted
+      // here in edit mode.
+      const editFlagValue = firstQueryValue(router.query.edit);
+      const duration = overrides?.durationSeconds ?? editSessionDuration ?? jobDurationSeconds;
       const selectedEngine = overrides?.engine ?? engine;
       const templateId = overrides?.templateId ?? selectedTemplate?.id;
       const bucketId = overrides?.bucketId ?? selectedBucketId;
@@ -394,9 +426,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         query.params = encodedParams;
       }
       // Carry the edit flag forward so every step keeps its edit-mode behavior across navigations.
-      const editFlag = firstQueryValue(router.query.edit);
-      if (editFlag) {
-        query.edit = editFlag;
+      if (editFlagValue) {
+        query.edit = editFlagValue;
       }
       // Carry the target service id forward too — edit/prolong need it at the payment step to
       // stop/extend the running service.
@@ -421,6 +452,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       modelParamsByModel,
       selectedTemplate,
       selectedBucketId,
+      editSessionDuration,
       router.query.edit,
       router.query.serviceId,
       router.query.appType,
@@ -497,6 +529,15 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const envId = firstQueryValue(q.env);
       if (!peerId || !envId) {
         return true;
+      }
+      // A deep link can name any node. The pickers only ever offer ON_INFERENCE_NODES, so a URL
+      // pointing elsewhere is treated as an unrestorable selection (surfaces the hydration error)
+      // rather than silently reinstating an env the flow can't launch on.
+      // TODO: remove this allowlist once community nodes are allowed to run inference services. Drop
+      // this guard with it, or it keeps rejecting deep links to community-node envs that the pickers
+      // have by then started offering.
+      if (!isInferenceNode(peerId)) {
+        return false;
       }
       const response = await axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
         params: {

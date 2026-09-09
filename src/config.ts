@@ -20,7 +20,8 @@ export const API_ROOTS: {
 } =
   process.env.NEXT_PUBLIC_APP_ENV === 'production'
     ? {
-      analytics: 'https://analytics.oncompute.ai',
+      // analytics: 'https://analytics.oncompute.ai',
+      analytics: 'https://analytics-dev.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
       // incentive: 'https://api.oncompute.ai',
       incentive: 'https://api-dev.oncompute.ai/',
@@ -28,7 +29,8 @@ export const API_ROOTS: {
     }
     : {
       // analytics: 'https://analytics.nodes.oceanprotocol.io',
-      analytics: 'https://analytics.oncompute.ai',
+      // analytics: 'https://analytics.oncompute.ai',
+      analytics: 'https://analytics-dev.oncompute.ai',
       ens: 'https://ens-proxy.oceanprotocol.com/api',
       // incentive: 'https://incentive-backend.oceanprotocol.io',
       incentive: 'https://api-dev.oncompute.ai/',
@@ -154,6 +156,14 @@ const apiRoutes = {
   nodeStats: { root: 'analytics', path: '/nodes' },
   consumerStats: { root: 'analytics', path: '/consumers' },
   ownerStats: { root: 'analytics', path: '/owners' },
+
+  // Analytics API routes - inference / Service-on-Demand stats
+  serviceGlobalStats: { root: 'analytics', path: '/services/global-stats' },
+  serviceConsumerStats: { root: 'analytics', path: '/services/consumers' },
+  serviceOwnerStats: { root: 'analytics', path: '/services/owners' },
+  serviceNodeStats: { root: 'analytics', path: '/services/nodes' },
+  modelPopularity: { root: 'analytics', path: '/services/model-popularity' },
+  appPopularity: { root: 'analytics', path: '/services/app-popularity' },
 
   // ENS API routes
   ensAddress: { root: 'ens', path: '/address' },

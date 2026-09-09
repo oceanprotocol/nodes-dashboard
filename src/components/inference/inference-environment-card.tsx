@@ -18,6 +18,7 @@ import { checkEnvAccess } from '@/utils/check-env-access';
 import { DeclaredRequirement, declaredGpuOptions, preferredGpuOption } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
@@ -81,6 +82,12 @@ type InferenceEnvironmentCardProps = {
    * existing hard floor of 1, so this stays false there.
    */
   allowZeroGpu?: boolean;
+  /**
+   * Hide the price. Set on a card that summarises a launch which costs nothing — an Edit relaunch
+   * reuses the running service's already-paid window (serviceRestart keeps the same expiry and never
+   * touches escrow), so quoting this env's rate would name a charge that is never made.
+   */
+  hidePrice?: boolean;
 };
 
 function formatGb(value: number): string {
@@ -95,6 +102,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   environment: listedEnvironment,
   nodeInfo,
   durationSeconds,
+  hidePrice,
   defaultToken,
   selected = false,
   onSelect,
@@ -227,22 +235,21 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   const editable = !isControlled && !!onSelect;
 
-  // Paid service-on-demand job-duration window (inference always uses a paid token → top-level bounds).
+  // Paid service-on-demand duration window (inference always uses a paid token → top-level bounds).
   // Shown next to the select button so the user knows the valid range.
   const durationRangeText = useMemo(() => {
-    const min = environment.minJobDuration;
-    const max = environment.maxJobDuration;
-    if (min && max) {
+    const { min, max } = serviceDurationBounds(environment);
+    if (min && Number.isFinite(max)) {
       return `${formatDuration(min)} – ${formatDuration(max)}`;
     }
     if (min) {
       return `min ${formatDuration(min)}`;
     }
-    if (max) {
+    if (Number.isFinite(max)) {
       return `max ${formatDuration(max)}`;
     }
     return null;
-  }, [environment.minJobDuration, environment.maxJobDuration]);
+  }, [environment]);
 
   const setTypeCount = (key: string, count: number) => {
     setOwnSelection((prev) => ({ ...(prev ?? {}), [key]: count }));
@@ -493,7 +500,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         </div>
 
         <div className="actionsGroupMdEnd">
-          {onSelect && durationRangeText && <span className="textSecondary">Job duration: {durationRangeText}</span>}
+          {onSelect && durationRangeText && <span className="textSecondary">Service duration: {durationRangeText}</span>}
           {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
             <Select
               onChange={(e) => setTokenAddress(e.target.value)}
@@ -527,7 +534,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                 </Button>
               </span>
             </Tooltip>
-          ) : (
+          ) : hidePrice ? null : (
             <span className={styles.price}>
               {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
             </span>

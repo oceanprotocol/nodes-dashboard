@@ -1,5 +1,5 @@
-import addresses from '@oceanprotocol/contracts/addresses/address.json';
 import { BASE_CHAIN_ID, CHAIN_ID, ETH_SEPOLIA_CHAIN_ID } from '@/constants/chains';
+import addresses from '@oceanprotocol/contracts/addresses/address.json';
 
 export const tokenAddressesByChainId = {
   [BASE_CHAIN_ID]: {
@@ -15,6 +15,11 @@ export const tokenAddressesByChainId = {
 export const getSupportedTokens = () => {
   return tokenAddressesByChainId[CHAIN_ID];
 };
+
+export const COMPY_PER_USDC = Number(process.env.NEXT_PUBLIC_COMPY_PER_USDC) || 5;
+
+/** COMPY a given USDC input converts to, at `COMPY_PER_USDC`. */
+export const usdcToCompy = (usdcAmount: number) => usdcAmount * COMPY_PER_USDC;
 
 /** Native ETH — not an ERC20, so it has no contract address. */
 export const NATIVE_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';

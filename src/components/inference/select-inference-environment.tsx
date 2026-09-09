@@ -6,6 +6,7 @@ import InferenceEnvironmentCard from '@/components/inference/inference-environme
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
 import { CHAIN_ID } from '@/constants/chains';
+import { isInferenceNode } from '@/constants/nodes';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
@@ -18,25 +19,29 @@ import { isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
+import { serviceDurationBounds } from '@/utils/service-duration';
 import { useFormik } from 'formik';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
 
-/** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). Inference always
- *  uses a paid token, so the top-level bounds apply (not the `free.*` ones). */
+/** Paid service-on-demand duration bounds for an env. Inference always uses a paid token, so the
+ *  top-level bounds apply (not the `free.*` ones). */
 function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
-  return {
-    min: env.minJobDuration ?? 0,
-    max: env.maxJobDuration ?? Infinity,
-  };
+  return serviceDurationBounds(env);
 }
 
-/** An env is bookable for inference when it (a) advertises service-on-demand support — the node
- *  rejects serviceStart with 403 otherwise — (b) isn't the node's own benchmark environment, and
- *  (c) accepts a paid token we support (USDC / COMPY). */
-function isBookableEnv(env: ComputeEnvironment): boolean {
+/** An env is bookable for inference when its node is on the inference allowlist and it (a) advertises
+ *  service-on-demand support — the node rejects serviceStart with 403 otherwise — (b) isn't the node's
+ *  own benchmark environment, and (c) accepts a paid token we support (USDC / COMPY). */
+function isBookableEnv(env: ComputeEnvironment, node: NodeEnvironments): boolean {
+  // TODO: remove this allowlist once community nodes are allowed to run inference services. Dropping
+  // this check is all that's needed here — the three tests below are capability tests, not policy.
+  // See ON_INFERENCE_NODES.
+  if (!isInferenceNode(node.id)) {
+    return false;
+  }
   if (!env.features?.services) {
     return false;
   }
@@ -199,7 +204,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   const filteredNodeEnvs = useMemo(() => {
     const result: NodeEnvironments[] = [];
     nodeEnvs.forEach((nodeEnv) => {
-      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter(isBookableEnv);
+      // Explicit callback rather than passing `isBookableEnv` straight to `filter` — its second
+      // parameter is the owning node, not Array#filter's index.
+      const filteredEnvs = nodeEnv.computeEnvironments.environments.filter((env) => isBookableEnv(env, nodeEnv));
       if (filteredEnvs.length > 0) {
         result.push({
           ...nodeEnv,
