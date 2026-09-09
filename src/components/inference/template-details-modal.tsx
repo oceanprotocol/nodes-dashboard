@@ -104,6 +104,28 @@ const NOT_DECLARED = 'Not declared';
  */
 const AUDIENCE_LINE = /^this template is built for\b/i;
 
+/**
+ * Splits a paragraph on bare URLs and renders each as a link, so credited sources are clickable.
+ * Trailing sentence punctuation (the period ending "...MinimaxH3.") is not part of the URL — strip
+ * it from the href and display it as plain text after the link, or the link 404s.
+ */
+const URL_PATTERN = /(https?:\/\/\S+)/g;
+const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]+$/;
+const linkify = (text: string): React.ReactNode =>
+  text.split(URL_PATTERN).map((part, i) => {
+    if (!/^https?:\/\//.test(part)) return part;
+    const trail = part.match(TRAILING_PUNCTUATION)?.[0] ?? '';
+    const url = trail ? part.slice(0, -trail.length) : part;
+    return (
+      <Fragment key={i}>
+        <a href={url} target="_blank" rel="noreferrer" className={styles.proseLink}>
+          {url}
+        </a>
+        {trail}
+      </Fragment>
+    );
+  });
+
 const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text, style }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -119,11 +141,11 @@ const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text
   return (
     // `--accent` is set per template on the header, so the audience rule needs it carried here too.
     <div className={styles.overview} style={style}>
-      <p className={styles.lead}>{paragraphs[0]}</p>
+      <p className={styles.lead}>{linkify(paragraphs[0])}</p>
       {expanded &&
         middle.map((paragraph, i) => (
           <p className={styles.bodyProse} key={i}>
-            {paragraph}
+            {linkify(paragraph)}
           </p>
         ))}
       {middle.length > 0 && (
@@ -134,7 +156,7 @@ const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text
           <ExpandMoreIcon className={cx(styles.moreChevron, { [styles.moreChevronOpen]: expanded })} />
         </button>
       )}
-      {audience && <p className={styles.audience}>{audience}</p>}
+      {audience && <p className={styles.audience}>{linkify(audience)}</p>}
     </div>
   );
 };
