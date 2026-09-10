@@ -23,21 +23,10 @@ const StatsPage = () => {
         the same breathing room as two adjacent cards.
       */}
       <div className={styles.sections}>
-        <section className={styles.section}>
-          <SectionTitle
-            secondary
-            title="Job stats"
-            subTitle="Compute jobs, spend and success rates across the network"
-          />
-          <div className={styles.group}>
-            <JobsRevenueStats />
-          </div>
-        </section>
-
         {/*
-          Services get their own section rather than being folded into the jobs KPIs above:
-          those numbers are compute-job revenue and have been read as such, and service
-          economics are priced on reserved time, not work done.
+          Services lead the page and keep their own section rather than being folded into
+          the jobs KPIs below: those numbers are compute-job revenue and have been read as
+          such, and service economics are priced on reserved time, not work done.
         */}
         <section className={styles.section}>
           <SectionTitle
@@ -51,6 +40,17 @@ const StatsPage = () => {
               <TopModels />
               <TopApps />
             </div>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <SectionTitle
+            secondary
+            title="Job stats"
+            subTitle="Compute jobs, spend and success rates across the network"
+          />
+          <div className={styles.group}>
+            <JobsRevenueStats />
           </div>
         </section>
 

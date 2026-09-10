@@ -13,24 +13,25 @@ const itemsList: {
   description: string;
 }[] = [
   {
-    title: 'Select Environment',
-    description: 'Use the Smart Compute Wizard to filter by GPU/CPU, RAM, storage, location, and price.',
+    title: 'Pick a Model',
+    description:
+      'Browse the Hugging Face Hub from the wizard: search by name, filter by pipeline tag, sort by trending.',
   },
   {
-    title: 'Define Resources',
-    description: 'Pick container or template, set params and choose the resources you need.',
+    title: 'Choose Resources',
+    description: 'Pick vLLM or llama.cpp, set the session length, then search environments by GPU type and price.',
   },
   {
-    title: 'Fund the Job',
-    description: 'Allocate funds in escrow. See a clear cost estimate before launch.',
+    title: 'Configure Launch',
+    description: 'Set the engine flags: context window, quantization, tensor parallelism, or any flag of your own.',
   },
   {
-    title: 'Run Job',
-    description: 'Execution on Ocean Nodes with live status and logs.',
+    title: 'Fund the Session',
+    description: 'The quoted cost goes into escrow for the window you booked, in a single confirmation.',
   },
   {
-    title: 'Get Results',
-    description: 'The logs and outputs of your algorithm are returned.',
+    title: 'Call the Endpoint',
+    description: 'The node pulls the weights and serves an OpenAI-compatible API, with live status and logs.',
   },
 ];
 
@@ -49,7 +50,7 @@ export default function HowItWorksSection() {
       <Container className={styles.container}>
         <SectionTitle
           title="How It works"
-          subTitle="Run compute jobs and train AI models in a few simple steps"
+          subTitle="Serve any open model from the Hugging Face Hub in a few simple steps"
           subTitleClassName="textAccent1Contrast"
           titleClassName="textAccent2"
         />

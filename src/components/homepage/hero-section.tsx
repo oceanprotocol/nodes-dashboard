@@ -10,7 +10,12 @@ import LegacyEscrowBanner from './legacy-escrow-banner';
 const videoSrc = '/hero.mp4';
 // const posterSrc = '/hero.jpg';
 
-const subtitles = ['ON: Code-to-Node in just one click', 'ON: Run pay-per-use compute jobs', 'ON: Earn with your GPUs'];
+const subtitles = [
+  'Code to node in one click',
+  'Run any open model by the hour',
+  'Point your agent at real hardware',
+  'Earn with the GPUs you already own',
+];
 
 export default function HeroSection() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -42,11 +47,17 @@ export default function HeroSection() {
             Compute <br />
             <span>Power</span>
           </h1>
+          <p className={styles.description}>
+            A peer to peer GPU cloud for AI: Inference and compute jobs booked by the hour and yours alone while it
+            runs.
+          </p>
           <TransitionGroup>
             {subtitles.map((subtitle, index) =>
               index === activeIndex ? (
                 <Collapse key={`${index}-${subtitle}`}>
-                  <div className={styles.subTitle}>{subtitle}</div>
+                  <div className={styles.subTitle}>
+                    <span>{subtitle}</span>
+                  </div>
                 </Collapse>
               ) : null
             )}
@@ -54,11 +65,11 @@ export default function HeroSection() {
         </div>
         <div className={styles.actionsAndTextWrapper}>
           <div className={styles.actions}>
-            <Button color="accent1" href={getRoutes().runJob.path} size="lg">
-              Run a job
+            <Button color="accent1" href={getRoutes().inference.path} size="lg">
+              Use a model
             </Button>
-            <Button color="accent1" href={getRoutes().runNode.path} size="lg" variant="outlined">
-              Run a node
+            <Button color="accent1" href={getRoutes().runJob.path} size="lg" variant="outlined">
+              Run a job
             </Button>
           </div>
           {/* <div className={styles.textBadge}>

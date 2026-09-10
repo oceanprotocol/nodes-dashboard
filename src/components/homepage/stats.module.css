@@ -14,6 +14,13 @@
   }
 }
 
+/* Same 24px rhythm the /stats page uses between stacked stat Cards. */
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .footer {
   margin-top: 32px;
   display: flex;
