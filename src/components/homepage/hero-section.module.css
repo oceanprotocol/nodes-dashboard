@@ -3,7 +3,7 @@
   position: relative;
   --nav-overlap: 120px;
   margin-top: calc(var(--nav-overlap) * -1);
-  padding: calc(140px + var(--nav-overlap)) 0 120px;
+  padding: calc(60px + var(--nav-overlap)) 0 120px;
   overflow: hidden;
 }
 
