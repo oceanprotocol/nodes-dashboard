@@ -624,4 +624,66 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       disk: { min: 210, recommended: 280 },
     }),
   },
+  // The same 1T model as agentic-code-flagship, but as Unsloth's dynamic 2-bit GGUF served by
+  // llama.cpp instead of the raw INT4 checkpoint by vLLM — 339.5 GB of weights over 8 shards
+  // instead of 595 GB, so it holds on 4 GPUs rather than 8. UD-Q2_K_XL is Unsloth's recommended
+  // tier for this model: their dynamic quants keep the attention/dense layers at higher precision
+  // and push only the 384 routed experts down to 2 bits, where a flat Q2_K would degrade badly.
+  // The GGUF declares arch `deepseek2` (the K2 family's layout in llama.cpp), which mainline
+  // already loads — no custom image tag needed, unlike the vLLM entries.
+  {
+    id: 'agentic-code-flagship-gguf',
+    model: {
+      // The GGUF repo, not moonshotai/Kimi-K2.7-Code — llama.cpp has no raw-weights id, and
+      // modelIdFromCommand recovers exactly this from `-hf`, so the card must agree with it.
+      id: 'unsloth/Kimi-K2.7-Code-GGUF',
+      author: 'unsloth',
+      pipelineTag: 'image-text-to-text',
+    },
+    description:
+      "Unsloth's dynamic 2-bit GGUF of the 1T-parameter coding agent: ~32B active per token, native 256k context, multimodal — the flagship coder on 4 GPUs instead of 8.",
+    params: {
+      engine: 'llamacpp',
+      servedModelName: 'kimi-k2.7-code-gguf',
+      customParams: [
+        // MoonViT (the 400M vision encoder) ships as a separate projector in this repo, so the
+        // weights alone are text-only. Pinned by URL rather than relying on llama.cpp's mmproj
+        // auto-detection, which does not fire for every multimodal repo. F16 over BF16/F32: same
+        // accuracy in practice at 0.95 GB.
+        {
+          key: 'mmproj-url',
+          value: 'https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/mmproj-F16.gguf',
+        },
+      ],
+      ggufRepo: 'unsloth/Kimi-K2.7-Code-GGUF',
+      // Directory name inside the repo — llama.cpp resolves the whole 8-shard split set from it.
+      ggufQuant: 'UD-Q2_K_XL',
+      // The model's trained 256k. MLA keeps the cache small enough that the ~220 GB left over
+      // after the weights covers it.
+      contextLength: 262144,
+      // Offload everything (61 layers + output); this also selects the CUDA image. llama.cpp
+      // splits the layers across all 4 booked GPUs on its own — there is no tensor-parallel flag.
+      gpuLayers: 99,
+      // Required: K2.7 Code's tool calls and forced-thinking turns only format correctly through
+      // the repo's own Jinja chat template.
+      jinja: true,
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 4,
+      // ~85 GB of weights per GPU plus KV/compute headroom. Rules out 80 GB cards, where the
+      // weights alone would not fit the 4-way split.
+      vramGb: 100,
+      // llama.cpp's CUDA kernels need no FP8 or BF16 tensor cores for K-quants, so the real gate
+      // here is the 100 GB/GPU VRAM floor above, not the arch.
+      computeCapability: 7.0,
+      // Weights are mmapped from disk, so the host floor covers the download and page cache
+      // rather than staging the full checkpoint in RAM.
+      cpu: { min: 16, recommended: 32 },
+      ram: { min: 64, recommended: 128 },
+      // 339.5 GB of shards + the 0.95 GB projector, plus download headroom.
+      disk: { min: 400, recommended: 450 },
+    }),
+  },
 ];
