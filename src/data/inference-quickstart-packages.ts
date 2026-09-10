@@ -19,7 +19,10 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
 // Add more peer ids here to offer the packages on more nodes.
 // Order matters: use-package-env resolves these in sequence, so the first reachable node's
 // environments are the ones the modal offers first.
-const NODE_IDS = ['16Uiu2HAm94yL3Sjem2piKmGkiHCdJyTn3F3aWueZTXKT38ekjuzr', '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'];
+const NODE_IDS = [
+  '16Uiu2HAm94yL3Sjem2piKmGkiHCdJyTn3F3aWueZTXKT38ekjuzr',
+  '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
+];
 
 /**
  * Resource floors for a package, built from its VRAM footprint and GPU count. `vramGb` is the
@@ -70,7 +73,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
-    description: 'A smaller footprint and wider hardware reach — int4 weights fit a single 16 GB GPU, down to a T4. Start here if you are unsure a node can hold anything bigger.',
+    description:
+      'A smaller footprint and wider hardware reach — int4 weights fit a single 16 GB GPU, down to a T4. Start here if you are unsure a node can hold anything bigger.',
     params: {
       engine: 'vllm',
       servedModelName: 'qwen2.5-7b-instruct',
@@ -107,7 +111,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
-    description: 'Fast general chat at full precision, with reasoning built in. A sharper pick than the lightweight tier wherever a 24 GB GPU is free.',
+    description:
+      'Fast general chat at full precision, with reasoning built in. A sharper pick than the lightweight tier wherever a 24 GB GPU is free.',
     params: {
       engine: 'vllm',
       servedModelName: 'qwen3-8b',
@@ -142,7 +147,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
-    description: 'Noticeably sharper answers than the 8B at the cost of a bigger GPU. Best dense model that still fits one GPU at full precision.',
+    description:
+      'Noticeably sharper answers than the 8B at the cost of a bigger GPU. Best dense model that still fits one GPU at full precision.',
     params: {
       engine: 'vllm',
       servedModelName: 'qwen3-32b',
@@ -251,7 +257,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'openai',
       pipelineTag: 'text-generation',
     },
-    description: "OpenAI's open flagship — the highest quality on this list, and it still runs on a single GPU thanks to native MXFP4 weights.",
+    description:
+      "OpenAI's open flagship — the highest quality on this list, and it still runs on a single GPU thanks to native MXFP4 weights.",
     params: {
       engine: 'vllm',
       servedModelName: 'gpt-oss-120b',
@@ -286,7 +293,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
-    description: 'Built for coding and agentic tool use, with a 64k context for whole-repo work. Fast: only ~3B active parameters per token.',
+    description:
+      'Built for coding and agentic tool use, with a 64k context for whole-repo work. Fast: only ~3B active parameters per token.',
     params: {
       engine: 'vllm',
       servedModelName: 'qwen3-coder-30b-a3b',
@@ -322,7 +330,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
-    description: "Qwen's newest coding architecture, sharded across two GPUs. Stronger than the 30B coder on large, multi-file work.",
+    description:
+      "Qwen's newest coding architecture, sharded across two GPUs. Stronger than the 30B coder on large, multi-file work.",
     params: {
       engine: 'vllm',
       servedModelName: 'qwen3-coder-next',
@@ -373,7 +382,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'Qwen',
       pipelineTag: 'text-generation',
     },
-    description: 'Agentic coding model with 80B total but only ~3B active parameters per token. Official FP8 weights and a native 256k context, on a single GPU.',
+    description:
+      'Agentic coding model with 80B total but only ~3B active parameters per token. Official FP8 weights and a native 256k context, on a single GPU.',
     params: {
       engine: 'vllm',
       servedModelName: 'qwen3-coder-next-fp8',
@@ -479,7 +489,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'deepseek-ai',
       pipelineTag: 'text-generation',
     },
-    description: 'Frontier-grade reasoning for hard, multi-step problems. Thinks longer than the chat models, and spans two GPUs.',
+    description:
+      'Frontier-grade reasoning for hard, multi-step problems. Thinks longer than the chat models, and spans two GPUs.',
     params: {
       engine: 'vllm',
       servedModelName: 'deepseek-v4-flash',
@@ -541,7 +552,8 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       author: 'zai-org',
       pipelineTag: 'image-text-to-text',
     },
-    description: "Zhipu's flagship multimodal MoE — 320B total, 18B active per token, natively reads text, images and video, sharded across 4 GPUs.",
+    description:
+      "Zhipu's flagship multimodal MoE — 320B total, 18B active per token, natively reads text, images and video, sharded across 4 GPUs.",
     params: {
       engine: 'vllm',
       // v0.28.0 (the stable fallback) doesn't recognize this architecture; vLLM's own model-specific
@@ -622,68 +634,6 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       cpu: { min: 24, recommended: 48 },
       ram: { min: 220, recommended: 320 },
       disk: { min: 210, recommended: 280 },
-    }),
-  },
-  // The same 1T model as agentic-code-flagship, but as Unsloth's dynamic 2-bit GGUF served by
-  // llama.cpp instead of the raw INT4 checkpoint by vLLM — 339.5 GB of weights over 8 shards
-  // instead of 595 GB, so it holds on 4 GPUs rather than 8. UD-Q2_K_XL is Unsloth's recommended
-  // tier for this model: their dynamic quants keep the attention/dense layers at higher precision
-  // and push only the 384 routed experts down to 2 bits, where a flat Q2_K would degrade badly.
-  // The GGUF declares arch `deepseek2` (the K2 family's layout in llama.cpp), which mainline
-  // already loads — no custom image tag needed, unlike the vLLM entries.
-  {
-    id: 'agentic-code-flagship-gguf',
-    model: {
-      // The GGUF repo, not moonshotai/Kimi-K2.7-Code — llama.cpp has no raw-weights id, and
-      // modelIdFromCommand recovers exactly this from `-hf`, so the card must agree with it.
-      id: 'unsloth/Kimi-K2.7-Code-GGUF',
-      author: 'unsloth',
-      pipelineTag: 'image-text-to-text',
-    },
-    description:
-      "Unsloth's dynamic 2-bit GGUF of the 1T-parameter coding agent: ~32B active per token, native 256k context, multimodal — the flagship coder on 4 GPUs instead of 8.",
-    params: {
-      engine: 'llamacpp',
-      servedModelName: 'kimi-k2.7-code-gguf',
-      customParams: [
-        // MoonViT (the 400M vision encoder) ships as a separate projector in this repo, so the
-        // weights alone are text-only. Pinned by URL rather than relying on llama.cpp's mmproj
-        // auto-detection, which does not fire for every multimodal repo. F16 over BF16/F32: same
-        // accuracy in practice at 0.95 GB.
-        {
-          key: 'mmproj-url',
-          value: 'https://huggingface.co/unsloth/Kimi-K2.7-Code-GGUF/resolve/main/mmproj-F16.gguf',
-        },
-      ],
-      ggufRepo: 'unsloth/Kimi-K2.7-Code-GGUF',
-      // Directory name inside the repo — llama.cpp resolves the whole 8-shard split set from it.
-      ggufQuant: 'UD-Q2_K_XL',
-      // The model's trained 256k. MLA keeps the cache small enough that the ~220 GB left over
-      // after the weights covers it.
-      contextLength: 262144,
-      // Offload everything (61 layers + output); this also selects the CUDA image. llama.cpp
-      // splits the layers across all 4 booked GPUs on its own — there is no tensor-parallel flag.
-      gpuLayers: 99,
-      // Required: K2.7 Code's tool calls and forced-thinking turns only format correctly through
-      // the repo's own Jinja chat template.
-      jinja: true,
-    },
-    type: 'quickstart',
-    sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 4,
-      // ~85 GB of weights per GPU plus KV/compute headroom. Rules out 80 GB cards, where the
-      // weights alone would not fit the 4-way split.
-      vramGb: 100,
-      // llama.cpp's CUDA kernels need no FP8 or BF16 tensor cores for K-quants, so the real gate
-      // here is the 100 GB/GPU VRAM floor above, not the arch.
-      computeCapability: 7.0,
-      // Weights are mmapped from disk, so the host floor covers the download and page cache
-      // rather than staging the full checkpoint in RAM.
-      cpu: { min: 16, recommended: 32 },
-      ram: { min: 64, recommended: 128 },
-      // 339.5 GB of shards + the 0.95 GB projector, plus download headroom.
-      disk: { min: 400, recommended: 450 },
     }),
   },
 ];
