@@ -33,9 +33,11 @@ export const TOOL_CALL_PARSERS = [
   { label: 'llama3_json — Llama 3.x', value: 'llama3_json' },
   { label: 'llama4_json — Llama 4', value: 'llama4_json' },
   { label: 'llama4_pythonic — Llama 4 (pythonic)', value: 'llama4_pythonic' },
+  // V4 has its own parser — deepseek_v3 does NOT cover it, despite what this list used to claim.
+  { label: 'deepseek_v4 — DeepSeek V4 (Flash / Pro)', value: 'deepseek_v4' },
   { label: 'deepseek_v32 — DeepSeek V3.2', value: 'deepseek_v32' },
   { label: 'deepseek_v31 — DeepSeek V3.1', value: 'deepseek_v31' },
-  { label: 'deepseek_v3 — DeepSeek V3 / V4', value: 'deepseek_v3' },
+  { label: 'deepseek_v3 — DeepSeek V3', value: 'deepseek_v3' },
   { label: 'mistral — Mistral, Mixtral, Ministral', value: 'mistral' },
   { label: 'glm47 — GLM-5.3', value: 'glm47' },
   { label: 'glm45 — GLM-4.5 / 4.6 / 4.7', value: 'glm45' },
