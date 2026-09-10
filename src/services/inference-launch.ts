@@ -15,6 +15,16 @@ import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from
  */
 export const VLLM_IMAGE = 'vllm/vllm-openai';
 export const VLLM_TAG = process.env.NEXT_PUBLIC_VLLM_TAG ?? 'v0.28.0';
+
+/**
+ * NCCL's own log level, sent as container env. INFO by default, and deliberately so: a multi-GPU
+ * launch that cannot build its communicator dies inside a paid window with one generic line
+ * ("unhandled cuda error"), and WARN prints nothing that says which transport failed. At INFO, NCCL
+ * echoes every NCCL_* variable it actually read — which is also the only way to tell a bad launch
+ * flag apart from an env that never reached the container — plus the topology and transport it
+ * chose. Lower it with NEXT_PUBLIC_NCCL_DEBUG=WARN once multi-GPU launches are boring.
+ */
+export const NCCL_DEBUG_LEVEL = process.env.NEXT_PUBLIC_NCCL_DEBUG ?? 'INFO';
 export const VLLM_PORT = 8000;
 
 /**
@@ -419,7 +429,10 @@ export function parseEngineCommand(
  * multicast reduction offload is skipped.
  */
 export function buildUserData(hfToken: string): Record<string, string> {
-  return { NCCL_NVLS_ENABLE: '0', ...(hfToken ? { HF_TOKEN: hfToken } : {}) };
+  return {
+    NCCL_NVLS_ENABLE: '0',
+    ...(hfToken ? { HF_TOKEN: hfToken } : {}),
+  };
 }
 
 /**
