@@ -45,7 +45,9 @@
   gap: 15px;
   flex-direction: column;
   align-items: flex-start;
-  margin-bottom: 100px;
+  /* Keeps the CTAs within reach of the rotating line rather than pushed to the fold: the title
+     block grew a description paragraph, so the old 100px pushed the buttons off a laptop screen. */
+  margin-bottom: 40px;
 }
 
 .description {
