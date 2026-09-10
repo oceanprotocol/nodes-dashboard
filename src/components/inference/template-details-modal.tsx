@@ -104,6 +104,28 @@ const NOT_DECLARED = 'Not declared';
  */
 const AUDIENCE_LINE = /^this template is built for\b/i;
 
+/**
+ * Renders `[text](url)` markdown-style links in a paragraph, so a credited source can show as a
+ * name instead of a bare URL. Anything outside that syntax passes through as plain text.
+ */
+const MARKDOWN_LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const linkify = (text: string): React.ReactNode => {
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  for (const match of text.matchAll(MARKDOWN_LINK)) {
+    const index = match.index ?? 0;
+    if (index > lastIndex) nodes.push(text.slice(lastIndex, index));
+    nodes.push(
+      <a key={index} href={match[2]} target="_blank" rel="noreferrer" className={styles.proseLink}>
+        {match[1]}
+      </a>,
+    );
+    lastIndex = index + match[0].length;
+  }
+  nodes.push(text.slice(lastIndex));
+  return nodes;
+};
+
 const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text, style }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -119,11 +141,11 @@ const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text
   return (
     // `--accent` is set per template on the header, so the audience rule needs it carried here too.
     <div className={styles.overview} style={style}>
-      <p className={styles.lead}>{paragraphs[0]}</p>
+      <p className={styles.lead}>{linkify(paragraphs[0])}</p>
       {expanded &&
         middle.map((paragraph, i) => (
           <p className={styles.bodyProse} key={i}>
-            {paragraph}
+            {linkify(paragraph)}
           </p>
         ))}
       {middle.length > 0 && (
@@ -134,7 +156,7 @@ const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text
           <ExpandMoreIcon className={cx(styles.moreChevron, { [styles.moreChevronOpen]: expanded })} />
         </button>
       )}
-      {audience && <p className={styles.audience}>{audience}</p>}
+      {audience && <p className={styles.audience}>{linkify(audience)}</p>}
     </div>
   );
 };

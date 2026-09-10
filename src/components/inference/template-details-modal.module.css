@@ -239,6 +239,12 @@
   text-wrap: pretty;
 }
 
+.proseLink {
+  color: var(--accent);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
 .bodyProse {
   margin: 0;
   font-size: 12.5px;
