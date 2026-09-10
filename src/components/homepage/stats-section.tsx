@@ -1,4 +1,5 @@
 import Button from '@/components/button/button';
+import InferenceStats from '@/components/stats/inference-stats';
 import JobsRevenueStats from '@/components/stats/jobs-revenue-stats';
 import { getRoutes } from '@/config';
 import Container from '../container/container';
@@ -10,7 +11,10 @@ const StatsSection: React.FC = () => {
   return (
     <div className={styles.root}>
       <Container className={styles.relative}>
-        <JobsRevenueStats />
+        <div className={styles.cards}>
+          <InferenceStats />
+          <JobsRevenueStats />
+        </div>
         <div className={styles.footer}>
           <Button color="accent2" href={routes.stats.path} size="lg" variant="filled">
             View full stats
