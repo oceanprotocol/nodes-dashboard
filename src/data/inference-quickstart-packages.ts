@@ -533,4 +533,89 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       disk: { min: 200, recommended: 280 },
     }),
   },
+  // Zhipu's flagship, natively multimodal. Native FP8, ~299 GiB, TP=4 per Zhipu's own recipe (80 GB/GPU shard).
+  {
+    id: 'flagship-multimodal-chat',
+    model: {
+      id: 'zai-org/GLM-5.3-Flash',
+      author: 'zai-org',
+      pipelineTag: 'image-text-to-text',
+    },
+    description: "Zhipu's flagship multimodal MoE — 320B total, 18B active per token, natively reads text, images and video, sharded across 4 GPUs.",
+    params: {
+      engine: 'vllm',
+      servedModelName: 'glm-5.3-flash',
+      customParams: [{ key: 'reasoning-parser', value: 'glm45' }],
+      maxContext: 262144,
+      tensorParallelSize: 4,
+      gpuMemoryUtilization: 0.9,
+      // 'none': let vLLM read the checkpoint's own FP8 quantization_config.
+      quantization: 'none',
+      dtype: 'auto',
+      // Zhipu's recipe: Hopper has no FP8 KV cache for this model, must run BF16.
+      kvCacheDtype: 'auto',
+      // Custom architecture (Glm5NextForConditionalGeneration).
+      trustRemoteCode: true,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      toolCallParser: 'glm47',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 4,
+      // 80 GB/GPU shard — a 96 GB card leaves only ~6 GB for KV; 141 GB is the comfortable floor.
+      vramGb: 120,
+      computeCapability: 8.9,
+      cpu: { min: 24, recommended: 48 },
+      ram: { min: 320, recommended: 420 },
+      disk: { min: 340, recommended: 420 },
+    }),
+  },
+  // Qwen4-preview MoE, official FP8 checkpoint (~176 GiB). TP=4 on H200 is not vendor-verified —
+  // needs real-world confirmation it loads.
+  {
+    id: 'agentic-multimodal-flagship',
+    model: {
+      id: 'Qwen/Qwen3.8-Flash-Next-FP8',
+      author: 'Qwen',
+      pipelineTag: 'image-text-to-text',
+    },
+    description:
+      "Preview of Qwen's next-generation architecture: 125B MoE + a 51B n-gram table, only ~6B active per token, native 256k context, multimodal. Sharded across 4 GPUs.",
+    params: {
+      engine: 'vllm',
+      servedModelName: 'qwen3.8-flash-next-fp8',
+      customParams: [
+        { key: 'reasoning-parser', value: 'qwen3' },
+        { key: 'enable-prefix-caching', value: '' },
+        { key: 'no-enable-flashinfer-autotune', value: '' },
+        { key: 'moe-backend', value: 'triton' },
+        { key: 'max-num-seqs', value: '256' },
+      ],
+      maxContext: 262144,
+      tensorParallelSize: 4,
+      gpuMemoryUtilization: 0.9,
+      quantization: 'none',
+      dtype: 'auto',
+      kvCacheDtype: 'auto',
+      // model_type qwen4_exp — preview architecture, not yet in mainline transformers/vLLM.
+      trustRemoteCode: true,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      toolCallParser: 'qwen3_xml',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 4,
+      vramGb: 130,
+      computeCapability: 8.9,
+      cpu: { min: 24, recommended: 48 },
+      ram: { min: 220, recommended: 320 },
+      disk: { min: 210, recommended: 280 },
+    }),
+  },
 ];
