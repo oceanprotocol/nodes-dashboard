@@ -65,6 +65,16 @@ function resources({
   ];
 }
 
+/**
+ * Ordered by hardware tier: ascending `(gpus, vramGb)` taken from each entry's `requiredResources`.
+ * This array's order IS the render order — nothing sorts downstream (use-default-model-packages
+ * concatenates it after the node-advertised templates, default-models-page maps it straight into a
+ * two-column grid) — so each tier reads as one row and the widest-runnable packages come first.
+ * That matters because a card advertises no availability: a package whose floors no reachable node
+ * meets looks identical in the grid and only reveals itself as an empty environment list once the
+ * details modal filters envs against `requiredResources`. Keep new entries in tier order, and keep
+ * quantized siblings of one model adjacent so the trade-off between them is visible side by side.
+ */
 export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
   {
     id: 'advanced-multimodal-chat',
@@ -104,51 +114,6 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       cpu: { min: 8, recommended: 16 },
       ram: { min: 64, recommended: 96 },
       disk: { min: 70, recommended: 90 },
-    }),
-  },
-  // Code, 2 GPUs — sharded with --tensor-parallel-size 2. Needs a vLLM build carrying the qwen3_next
-  // architecture; on an older image the server exits at startup with an unknown-arch error.
-  {
-    id: 'code-assistant-xl',
-    model: {
-      id: 'Qwen/Qwen3-Coder-Next',
-      author: 'Qwen',
-      pipelineTag: 'text-generation',
-    },
-    description:
-      "Qwen's newest coding architecture, sharded across two GPUs. Stronger than the 30B coder on large, multi-file work.",
-    params: {
-      engine: 'vllm',
-      servedModelName: 'qwen3-coder-next',
-      customParams: [],
-      // The model's native window (config.json: max_position_embeddings 262144, rope_scaling null —
-      // no YaRN needed). Cheap here because only 12 of the 48 layers hold a KV cache at all
-      // (full_attention_interval 4; the other 36 are Gated DeltaNet, a fixed per-sequence state):
-      // 2 kv heads x 256 head_dim at fp8, head-sharded over TP=2, is ~1.5 GiB per rank for a
-      // full-length sequence against ~44 GiB free on a 141 GB card.
-      maxContext: 262144,
-      tensorParallelSize: 2,
-      gpuMemoryUtilization: 0.9,
-      quantization: 'none',
-      dtype: 'bfloat16',
-      kvCacheDtype: 'fp8',
-      trustRemoteCode: false,
-      enforceEager: false,
-      revision: '',
-      toolCalling: true,
-      toolCallParser: 'qwen3_coder',
-    },
-    type: 'quickstart',
-    sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 2,
-      // 40 bf16 shards, 159.4 GB. TP=2 puts 74.2 GiB of weights on each GPU, which an 80 GB card
-      // cannot hold (67.1 GiB usable at util 0.9), so this floor admits only 96 and 141 GB cards.
-      vramGb: 90,
-      computeCapability: 8.0,
-      cpu: { min: 12, recommended: 24 },
-      ram: { min: 200, recommended: 320 },
-      disk: { min: 200, recommended: 280 },
     }),
   },
   // Official fine-grained FP8 checkpoint of Coder Next, on ONE card. The model is MoE: all 80B
@@ -208,54 +173,49 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       disk: { min: 100, recommended: 140 },
     }),
   },
-  // Moonshot's verified vLLM layout is one 8x H200 node with TP=8. This is a 1T-parameter MoE:
-  // every expert's weights remain resident (~595 GB checkpoint), while the router activates only
-  // 8 of 384 routed experts plus one shared expert, for roughly 32B active parameters per token.
+  // Code, 2 GPUs — sharded with --tensor-parallel-size 2. Needs a vLLM build carrying the qwen3_next
+  // architecture; on an older image the server exits at startup with an unknown-arch error.
   {
-    id: 'agentic-code-flagship',
+    id: 'code-assistant-xl',
     model: {
-      id: 'moonshotai/Kimi-K2.7-Code',
-      author: 'moonshotai',
-      pipelineTag: 'image-text-to-text',
+      id: 'Qwen/Qwen3-Coder-Next',
+      author: 'Qwen',
+      pipelineTag: 'text-generation',
     },
     description:
-      'Flagship multimodal coding agent: 1T total parameters, ~32B active per token, native 256k context, sharded across 8 H200 GPUs.',
+      "Qwen's newest coding architecture, sharded across two GPUs. Stronger than the 30B coder on large, multi-file work.",
     params: {
       engine: 'vllm',
-      servedModelName: 'kimi-k2.7-code',
-      customParams: [
-        // Moonshot requires this parser because K2.7 Code always reasons before answering.
-        { key: 'reasoning-parser', value: 'kimi_k2' },
-        // Replicate the small vision encoder across ranks instead of tensor-sharding it.
-        { key: 'mm-encoder-tp-mode', value: 'data' },
-      ],
+      servedModelName: 'qwen3-coder-next',
+      customParams: [],
+      // The model's native window (config.json: max_position_embeddings 262144, rope_scaling null —
+      // no YaRN needed). Cheap here because only 12 of the 48 layers hold a KV cache at all
+      // (full_attention_interval 4; the other 36 are Gated DeltaNet, a fixed per-sequence state):
+      // 2 kv heads x 256 head_dim at fp8, head-sharded over TP=2, is ~1.5 GiB per rank for a
+      // full-length sequence against ~44 GiB free on a 141 GB card.
       maxContext: 262144,
-      tensorParallelSize: 8,
+      tensorParallelSize: 2,
       gpuMemoryUtilization: 0.9,
-      // The repository carries native compressed-tensors INT4 metadata; vLLM detects it from the
-      // checkpoint. Passing one of the unrelated fp8/awq/gptq flags would select the wrong loader.
       quantization: 'none',
-      dtype: 'auto',
-      // Match Moonshot's verified command. MLA already makes this cache far smaller than standard
-      // multi-head attention; users can opt into FP8 KV cache after validating their vLLM build.
-      kvCacheDtype: 'auto',
-      trustRemoteCode: true,
+      dtype: 'bfloat16',
+      kvCacheDtype: 'fp8',
+      trustRemoteCode: false,
       enforceEager: false,
       revision: '',
       toolCalling: true,
-      toolCallParser: 'kimi_k2',
+      toolCallParser: 'qwen3_coder',
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
     requiredResources: resources({
-      gpus: 8,
-      // The official recipe targets 141 GB H200s; this floor excludes marginal 80 GB layouts.
-      vramGb: 130,
-      computeCapability: 9.0,
-      cpu: { min: 48, recommended: 96 },
-      ram: { min: 512, recommended: 768 },
-      // The Hub repository is ~595 GB, plus download/runtime staging headroom.
-      disk: { min: 650, recommended: 750 },
+      gpus: 2,
+      // 40 bf16 shards, 159.4 GB. TP=2 puts 74.2 GiB of weights on each GPU, which an 80 GB card
+      // cannot hold (67.1 GiB usable at util 0.9), so this floor admits only 96 and 141 GB cards.
+      vramGb: 90,
+      computeCapability: 8.0,
+      cpu: { min: 12, recommended: 24 },
+      ram: { min: 200, recommended: 320 },
+      disk: { min: 200, recommended: 280 },
     }),
   },
   // General, 2 GPUs — frontier-family reasoning at the cheapest multi-GPU tier. The checkpoint is
@@ -419,6 +379,56 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       cpu: { min: 24, recommended: 48 },
       ram: { min: 220, recommended: 320 },
       disk: { min: 210, recommended: 280 },
+    }),
+  },
+  // Moonshot's verified vLLM layout is one 8x H200 node with TP=8. This is a 1T-parameter MoE:
+  // every expert's weights remain resident (~595 GB checkpoint), while the router activates only
+  // 8 of 384 routed experts plus one shared expert, for roughly 32B active parameters per token.
+  {
+    id: 'agentic-code-flagship',
+    model: {
+      id: 'moonshotai/Kimi-K2.7-Code',
+      author: 'moonshotai',
+      pipelineTag: 'image-text-to-text',
+    },
+    description:
+      'Flagship multimodal coding agent: 1T total parameters, ~32B active per token, native 256k context, sharded across 8 H200 GPUs.',
+    params: {
+      engine: 'vllm',
+      servedModelName: 'kimi-k2.7-code',
+      customParams: [
+        // Moonshot requires this parser because K2.7 Code always reasons before answering.
+        { key: 'reasoning-parser', value: 'kimi_k2' },
+        // Replicate the small vision encoder across ranks instead of tensor-sharding it.
+        { key: 'mm-encoder-tp-mode', value: 'data' },
+      ],
+      maxContext: 262144,
+      tensorParallelSize: 8,
+      gpuMemoryUtilization: 0.9,
+      // The repository carries native compressed-tensors INT4 metadata; vLLM detects it from the
+      // checkpoint. Passing one of the unrelated fp8/awq/gptq flags would select the wrong loader.
+      quantization: 'none',
+      dtype: 'auto',
+      // Match Moonshot's verified command. MLA already makes this cache far smaller than standard
+      // multi-head attention; users can opt into FP8 KV cache after validating their vLLM build.
+      kvCacheDtype: 'auto',
+      trustRemoteCode: true,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      toolCallParser: 'kimi_k2',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 8,
+      // The official recipe targets 141 GB H200s; this floor excludes marginal 80 GB layouts.
+      vramGb: 130,
+      computeCapability: 9.0,
+      cpu: { min: 48, recommended: 96 },
+      ram: { min: 512, recommended: 768 },
+      // The Hub repository is ~595 GB, plus download/runtime staging headroom.
+      disk: { min: 650, recommended: 750 },
     }),
   },
 ];
