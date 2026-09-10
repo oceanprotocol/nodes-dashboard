@@ -544,6 +544,9 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     description: "Zhipu's flagship multimodal MoE — 320B total, 18B active per token, natively reads text, images and video, sharded across 4 GPUs.",
     params: {
       engine: 'vllm',
+      // v0.28.0 (the stable fallback) doesn't recognize this architecture; vLLM's own model-specific
+      // tag does.
+      vllmTag: 'glm53-flash',
       servedModelName: 'glm-5.3-flash',
       customParams: [{ key: 'reasoning-parser', value: 'glm45' }],
       maxContext: 262144,
@@ -586,6 +589,9 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       "Preview of Qwen's next-generation architecture: 125B MoE + a 51B n-gram table, only ~6B active per token, native 256k context, multimodal. Sharded across 4 GPUs.",
     params: {
       engine: 'vllm',
+      // v0.28.0 doesn't recognize qwen4_exp. The auto-derived tag would be 'qwen38-flash-next-fp8'
+      // (from the -FP8 repo id), which 404s — vLLM tags the base model name, not the quant suffix.
+      vllmTag: 'qwen38-flash-next',
       servedModelName: 'qwen3.8-flash-next-fp8',
       customParams: [
         { key: 'reasoning-parser', value: 'qwen3' },
