@@ -48,9 +48,29 @@
   margin-bottom: 100px;
 }
 
+.description {
+  font-size: 24px;
+  line-height: 1.4;
+  max-width: 640px;
+  margin: 0;
+}
+
 .subTitle {
   font-size: 24px;
   max-width: 580px;
+}
+
+/* The accent ground goes on an inline span, not on .subTitle itself: that div is the Collapse
+   child and stretches the full column, which would paint a full-width band instead of a
+   highlight around the words. `box-decoration-break` keeps the padding on both halves when the
+   line wraps at narrow widths. */
+.subTitle span {
+  background: var(--accent2);
+  color: var(--accent2-contrast);
+  padding: 4px 12px;
+  border-radius: 6px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .actionsAndTextWrapper {
@@ -112,6 +132,10 @@
     font-size: 64px;
   }
 
+  .description {
+    font-size: 22px;
+  }
+
   .subTitle {
     font-size: 22px;
   }
@@ -145,6 +169,10 @@
 @media (max-width: 640px) {
   .title {
     font-size: 48px;
+  }
+
+  .description {
+    font-size: 18px;
   }
 
   .subTitle {

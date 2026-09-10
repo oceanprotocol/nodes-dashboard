@@ -10,8 +10,8 @@ const OwnerSection = () => {
 
   return (
     <MyNodesTableContextProvider ownerId={account.address}>
-      <OwnerStats className={styles.statsCard} gaugeClassName={styles.sideSlot} />
       <OwnerServiceStats className={styles.statsCard} tileClassName={styles.sideSlot} />
+      <OwnerStats className={styles.statsCard} gaugeClassName={styles.sideSlot} />
       <OwnerNodes />
     </MyNodesTableContextProvider>
   );

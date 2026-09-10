@@ -49,6 +49,16 @@
   max-width: 780px;
 }
 
+/* The two CTAs need a row of their own: .container is a 40px-gap column, which would otherwise
+   stack them a paragraph's distance apart. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
 .socialLinks {
   display: flex;
   flex-wrap: wrap;
@@ -105,6 +115,11 @@
       var(--accent1-lighter-surface) 45%,
       var(--accent1-lightest-surface)
     );
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
   }
 
   .socialLinks {

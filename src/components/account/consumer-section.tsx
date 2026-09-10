@@ -11,8 +11,8 @@ const ConsumerSection = () => {
 
   return (
     <MyJobsTableProvider consumer={account.address}>
-      <ConsumerStats />
       <ConsumerServiceStats />
+      <ConsumerStats />
       <ConsumerBalance />
       <ConsumerJobs />
       <ExistingServicesTable />

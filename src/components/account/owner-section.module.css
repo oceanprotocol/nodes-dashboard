@@ -4,8 +4,8 @@
 
    The count is stated here rather than left to each Card's own `auto-fit`, which is what these used
    to do: `auto-fit` counts only that Card's children, so the jobs Card resolved to three tracks and
-   the inference Card to two — rendering the inference bars ~50% wider than the jobs bars directly
-   above them. Fixing the count keeps both Cards on the same columns whatever each one contains. */
+   the inference Card to two — rendering the inference bars ~50% wider than the jobs bars in the
+   adjacent Card. Fixing the count keeps both Cards on the same columns whatever each one contains. */
 .statsCard {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
