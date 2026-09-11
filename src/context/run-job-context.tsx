@@ -25,6 +25,7 @@ import {
   SelectedGpu,
 } from '@/types/environments';
 import { ComputeJob } from '@/types/jobs';
+import { COMPUTE_JOBS_DISABLED_REASON, supportsComputeJobs } from '@/utils/env-resources';
 import { roundTokenAmount } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
 import type { ComputeAsset } from '@oceanprotocol/lib';
@@ -32,6 +33,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { useSearchParams } from 'next/navigation';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 
 export type SelectedToken = {
   symbol: string;
@@ -278,6 +280,12 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     async ({ authToken }: { authToken: string; consumerAddress: string }): Promise<ComputeJob> => {
       if (!selectedEnv || !selectedResources || !multiaddrsOrPeerId) {
         throw new Error('Missing job configuration. Select an environment and resources first.');
+      }
+      // Backstop for a selection that reached here without passing a capability check. Reads the
+      // cached env, so it can't catch an operator flipping the flag mid-flow — the node's own 403
+      // covers that. This turns a dashboard bug into a readable message instead of a raw 403.
+      if (!supportsComputeJobs(selectedEnv)) {
+        throw new Error(`${COMPUTE_JOBS_DISABLED_REASON}. Pick a different environment.`);
       }
       // Algorithm code is required unless the image is self-contained (its own entrypoint runs
       // baked-in code, so rawcode may be empty).
@@ -558,7 +566,12 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         (node) => node.id === queryPeerId && node.computeEnvironments.environments.find((env) => env.id === queryEnv)
       );
       const foundEnv = foundNode?.computeEnvironments.environments.find((env) => env.id === queryEnv);
-      if (foundNode && foundEnv) {
+      // A deep link can name any env, including one that has opted out of compute jobs. Treat that as
+      // unrestorable rather than silently reinstating a selection the node will reject at submit —
+      // leaving selectedEnv null lets the resources/payment page guards bounce back to the picker.
+      if (foundEnv && !supportsComputeJobs(foundEnv)) {
+        toast.error(COMPUTE_JOBS_DISABLED_REASON);
+      } else if (foundNode && foundEnv) {
         const queryFree = searchParams.get('free') === 'true';
         const qJobDuration = searchParams.get('maxJobDuration');
         const queryGpusArray = searchParams.getAll('gpus[]');
