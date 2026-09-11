@@ -12,6 +12,7 @@ import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
+import { COMPUTE_JOBS_DISABLED_REASON, supportsComputeJobs } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -127,6 +128,10 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     tokenAddress: selectedTokenAddress,
   });
   const usageMode = Array.isArray(usedResources);
+  // An env can opt out of compute jobs while still running services. The node rejects both the paid
+  // and the free start with a 403, so every job-launching control on this card is blocked, not just
+  // the paid one. Null when the env accepts jobs.
+  const computeJobsBlocked = supportsComputeJobs(environment) ? null : COMPUTE_JOBS_DISABLED_REASON;
   const usedAmount = (id?: string | null): number | undefined =>
     usageMode && id ? usedResources!.find((r) => r.id === id)?.amount : undefined;
   const noResourcesAvailable = usageMode
@@ -557,7 +562,11 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       return null;
     }
     const isLoggedIn = freeAccess !== null;
-    const isDisabled = !isLoggedIn || !freeAccess;
+    const isDisabled = !!computeJobsBlocked || !isLoggedIn || !freeAccess;
+    // Capability first: logging in or getting allowlisted can't make this env run a job.
+    const reason =
+      computeJobsBlocked ??
+      (isLoggedIn ? "Your wallet address is not in this environment's access list" : 'You need to log in to continue');
     const label = 'Test compute';
     return (
       <Checkbox
@@ -567,13 +576,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           isDisabled ? (
             <div className="flexRow alignItemsCenter gapSm">
               {label}
-              <Tooltip
-                title={
-                  isLoggedIn
-                    ? "Your wallet address is not in this environment's access list"
-                    : 'You need to log in to continue'
-                }
-              >
+              <Tooltip title={reason}>
                 <InfoOutlinedIcon className={styles.infoIcon} />
               </Tooltip>
             </div>
@@ -614,7 +617,19 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
 
   const getRunJobButton = () => {
     const isLoggedIn = freeAccess !== null && paidAccess !== null;
-    const isDisabled = !isLoggedIn || (isFreeCompute && !freeAccess) || (!isFreeCompute && !paidAccess);
+    const accessBlockedReason = !isLoggedIn
+      ? 'You need to login to continue'
+      : isFreeCompute
+        ? freeAccess
+          ? null
+          : "Your wallet address is not in this environment's test compute access list"
+        : paidAccess
+          ? null
+          : "Your wallet address is not in this environment's paid compute access list";
+    // One reason drives both the disabled state and the tooltip, so the two can't drift apart. The
+    // capability block wins: no login and no allowlist change can make this env run a job.
+    const blockedReason = computeJobsBlocked ?? accessBlockedReason;
+    const isDisabled = !!blockedReason;
     const button = (
       <Button
         className={styles.selectEnvButton}
@@ -628,18 +643,14 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           : `From ${formatTokenAmount(startingFee, selectedTokenAddress)} ${selectedTokenSymbol}/min`}
       </Button>
     );
-    if (isDisabled) {
+    if (blockedReason) {
       return (
-        <Tooltip
-          title={
-            isLoggedIn
-              ? isFreeCompute
-                ? "Your wallet address is not in this environment's test compute access list"
-                : "Your wallet address is not in this environment's paid compute access list"
-              : 'You need to login to continue'
-          }
-        >
-          <div className="flexColumn">{button}</div>
+        <Tooltip title={blockedReason}>
+          {/* A disabled button swallows focus/pointer events — a focusable, labelled wrapper keeps the
+              reason reachable by keyboard and screen readers, not just on hover. */}
+          <span className="flexColumn" tabIndex={0} aria-label={blockedReason}>
+            {button}
+          </span>
         </Tooltip>
       );
     }

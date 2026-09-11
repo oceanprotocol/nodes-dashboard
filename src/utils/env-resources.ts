@@ -26,6 +26,29 @@ export function isBenchmarkEnv(environment: ComputeEnvironment): boolean {
   return environment.description === BENCHMARK_ENV_DESCRIPTION;
 }
 
+/** Shown wherever a compute-job control is disabled because the env opted out. Mirrors the node's own
+ *  403 message so the UI and a raw API error read the same. */
+export const COMPUTE_JOBS_DISABLED_REASON = 'Compute jobs are not enabled on this environment';
+
+/**
+ * Whether an environment accepts one-shot compute jobs. Gates BOTH paid and free — the node applies
+ * the same guard to COMPUTE_START and FREE_COMPUTE_START, returning 403
+ * {@link COMPUTE_JOBS_DISABLED_REASON} from either (ocean-node `startCompute.ts`).
+ *
+ * Absent/undefined means CAPABLE, hence `!== false` rather than `=== true`: the node defaults the flag
+ * to true both at config parse and at runtime construction, and every node predating the flag sends no
+ * `features` key at all — testing for `=== true` would disable the control on essentially every env.
+ *
+ * Says nothing about `features.services`, which is an independent capability: an env may legitimately
+ * be services-only. Note the asymmetry with the inference flow's `!env.features?.services` checks,
+ * where absent means NOT bookable — that gating is policy-conservative (paired with the
+ * ON_INFERENCE_NODES allowlist), while this one mirrors a node guard whose default is true. The two
+ * are deliberately different; don't unify them.
+ */
+export function supportsComputeJobs(environment: ComputeEnvironment): boolean {
+  return environment.features?.computeJobs !== false;
+}
+
 /** A declared resource floor: `cpu`/`ram`/`disk` by id, or GPU units by `type: 'gpu'`. */
 export type DeclaredRequirement = {
   id?: string;

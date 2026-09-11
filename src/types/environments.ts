@@ -60,6 +60,10 @@ export type ComputeEnvironment = {
   enableNetwork?: boolean;
   /** Capability flags enabled on the node */
   features?: {
+    /** `computeJobs` gates one-shot compute jobs (COMPUTE_START / FREE_COMPUTE_START). Node-side
+     *  default is true; only an explicit `false` disables it. Read it through `supportsComputeJobs()`
+     *  in `@/utils/env-resources`, never directly — the default-true semantics are easy to invert. */
+    computeJobs?: boolean
     /** `services` gates service-on-demand (long-lived containers, e.g. vLLM inference) */
     services?: boolean
   };
