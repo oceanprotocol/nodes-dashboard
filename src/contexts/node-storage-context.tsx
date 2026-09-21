@@ -36,13 +36,17 @@ type NodeStorageContextType = {
   /**
    * Open a download stream for a bucket file. Resolves once the node accepts the request, so an auth
    * or not-found failure surfaces here rather than mid-drain; the caller consumes the returned
-   * iterable to get the bytes.
+   * iterable to get the bytes. The stream holds its slot in the node-call queue until iteration ends,
+   * so callers must drain it, `break` out of it, or abort the signal — leaking a half-read stream
+   * parks every later node call behind it.
    */
   downloadFile: (args: {
     bucketId: string;
     nodeId: string;
     nodeUri: NodeUri;
     fileName: string;
+    /** Byte offset to resume a partial download from. Omit (or 0) to start from the beginning. */
+    offset?: number;
     signal?: AbortSignal;
   }) => Promise<AsyncIterable<Uint8Array>>;
   /** Create a bucket on a node. Resolves with the created bucket (so a caller can e.g. auto-select it). */
@@ -294,21 +298,103 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       nodeId,
       nodeUri,
       fileName,
+      offset,
       signal,
     }: {
       bucketId: string;
       nodeId: string;
       nodeUri: NodeUri;
       fileName: string;
+      /** Byte offset to resume a partial download from. */
+      offset?: number;
       signal?: AbortSignal;
-    }) => {
-      // Only opening the stream is queued. The body is drained by the caller, outside the queue, so a
-      // large file can't park every other node call behind it for the length of its transfer.
-      return enqueue(() =>
-        withNodeAuth(nodeId, nodeUri, (token) =>
-          downloadBucketFile({ authToken: token, bucketId, fileName, nodeUri, signal })
-        )
-      );
+    }): Promise<AsyncIterable<Uint8Array>> => {
+      // The whole transfer holds the queue slot, not just the request that opens it. The bytes come
+      // over the same single libp2p connection every other node call dials on, so releasing the slot
+      // once the stream is merely open would put the rest of the queue back into the "Cannot dial
+      // peer … Active connections: 1" contention the queue exists to prevent. A large file does park
+      // the queue for the length of its transfer — that's the trade, and it's why the slot must be
+      // released on EVERY way the stream can end: drained, thrown, or abandoned by the consumer.
+      let release!: () => void;
+      const drained = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+
+      // The queued job stays pending until `drained` settles, so the next caller waits for the drain.
+      // The stream itself escapes early via `opening`, which is what this function returns.
+      let settleOpen!: (stream: AsyncIterable<Uint8Array>) => void;
+      let failOpen!: (e: unknown) => void;
+      const opening = new Promise<AsyncIterable<Uint8Array>>((resolve, reject) => {
+        settleOpen = resolve;
+        failOpen = reject;
+      });
+
+      void enqueue(async () => {
+        let stream: AsyncIterable<Uint8Array>;
+        try {
+          stream = await withNodeAuth(nodeId, nodeUri, (token) =>
+            downloadBucketFile({ authToken: token, bucketId, fileName, nodeUri, offset, signal })
+          );
+        } catch (e) {
+          // Opening failed, so there is nothing to drain: free the slot and surface the error.
+          release();
+          failOpen(e);
+          return;
+        }
+        settleOpen(stream);
+        await drained;
+      });
+
+      const stream = await opening;
+
+      // Nothing drains a stream the caller never iterates, so an abort frees the slot too.
+      if (signal) {
+        if (signal.aborted) {
+          release();
+        } else {
+          signal.addEventListener('abort', () => release(), { once: true });
+        }
+      }
+
+      // Release the slot the moment iteration ends, however it ends. A consumer's `break`/`return`
+      // calls the iterator's return(), and a `throw` inside its loop body calls throw() — both are
+      // covered, as is a normal drain and a mid-stream error.
+      const iterator = stream[Symbol.asyncIterator]();
+      return {
+        [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
+          return {
+            async next() {
+              try {
+                const result = await iterator.next();
+                if (result.done) {
+                  release();
+                }
+                return result;
+              } catch (e) {
+                release();
+                throw e;
+              }
+            },
+            async return(value?: any) {
+              try {
+                return (await iterator.return?.(value)) ?? { done: true, value };
+              } finally {
+                release();
+              }
+            },
+            async throw(e?: any) {
+              try {
+                if (iterator.throw) {
+                  return await iterator.throw(e);
+                }
+                throw e;
+              } finally {
+                release();
+              }
+            },
+          };
+        },
+      };
     },
     [downloadBucketFile, enqueue, withNodeAuth]
   );
