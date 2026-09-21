@@ -5,6 +5,7 @@ import ModelCell from '@/components/inference/model-cell';
 import ServiceStatusChip, { JobStatusChip } from '@/components/service-status-chip/service-status-chip';
 import { CHAIN_ID } from '@/constants/chains';
 import { tokenAddressesByChainId } from '@/constants/tokens';
+import { useTokenSymbol } from '@/lib/token-symbol';
 import { modelIdFromCommand } from '@/services/inference-launch';
 import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
@@ -17,6 +18,7 @@ import {
   formatDateTime,
   formatDuration,
   formatNumber,
+  formatTokenAmount,
   formatWalletAddress,
   getJobDurationSeconds,
 } from '@/utils/formatters';
@@ -861,6 +863,30 @@ function renderEnvironment(value?: string) {
   );
 }
 
+// What a service has actually cost: the initial escrow lock plus every extension. Extensions are
+// separate lock/claim pairs, and the Duration column already covers them, so the amount has to as
+// well or the two columns disagree. `cost` arrives in human units, not wei.
+const servicePaidTotal = (row: ServiceJobListed): number =>
+  [row.payment, ...(row.extendPayments ?? [])].reduce((sum, p) => sum + (Number(p?.cost) || 0), 0);
+
+// Symbol resolution is async (static token map first, then an ERC20 call), so the cell is a
+// component. useTokenSymbol reads through the module-level cache — one lookup per token address,
+// not per row.
+const ServicePaidCell = ({ row }: { row: ServiceJobListed }) => {
+  const token = row.payment?.token;
+  const symbol = useTokenSymbol(token);
+
+  if (!token) {
+    return <span>-</span>;
+  }
+
+  return (
+    <span title={token}>
+      {formatTokenAmount(servicePaidTotal(row), token)} {symbol ?? ''}
+    </span>
+  );
+};
+
 // Services running on a node, listed node-wide across all owners (ProviderInstance.getServices).
 // The listed shape strips dockerCmd/dockerfile, so identity is the container image, not the model.
 export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
@@ -929,6 +955,15 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     headerName: 'End time',
     sortable: true,
     renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+  {
+    field: 'paid',
+    filterable: false,
+    flex: 1,
+    headerName: 'Paid',
+    sortable: true,
+    valueGetter: (_value, row) => servicePaidTotal(row),
+    renderCell: ({ row }) => <ServicePaidCell row={row} />,
   },
 ];
 
