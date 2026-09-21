@@ -3,6 +3,7 @@ import { SignMessageFn } from '@/lib/use-ocean-account';
 import {
   createNodeBucket as createNodeBucketService,
   deleteBucketFile as deleteBucketFileService,
+  downloadBucketFile as downloadBucketFileService,
   fetchNodeConfig,
   getComputeJobResult,
   getComputeStatus,
@@ -152,6 +153,18 @@ interface P2PContextType {
     fileName: string;
     nodeUri: NodeUri;
   }) => Promise<PersistentStorageDeleteFileResponse>;
+  /**
+   * Open a download stream for a bucket file. Resolves once the node accepts the request; the
+   * returned iterable yields the bytes. `offset` resumes a partial download.
+   */
+  downloadBucketFile: (args: {
+    authToken: string;
+    bucketId: string;
+    fileName: string;
+    nodeUri: NodeUri;
+    offset?: number;
+    signal?: AbortSignal;
+  }) => Promise<AsyncIterable<Uint8Array>>;
   getPeerMultiaddr: (peerId: string) => Promise<string>;
   sendCommand: (nodeUri: NodeUri, command: any) => Promise<any>;
   streamComputeResult: (
@@ -592,6 +605,30 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  const downloadBucketFile = useCallback(
+    async ({
+      authToken,
+      bucketId,
+      fileName,
+      nodeUri,
+      offset,
+      signal,
+    }: {
+      authToken: string;
+      bucketId: string;
+      fileName: string;
+      nodeUri: NodeUri;
+      offset?: number;
+      signal?: AbortSignal;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return downloadBucketFileService({ authToken, bucketId, fileName, nodeUri, offset, signal });
+    },
+    [isReady]
+  );
+
   const serviceStart = useCallback(
     async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, params: ServiceStartParams) => {
       if (!isReady) {
@@ -732,6 +769,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         createNodeBucket,
         renameBucket,
         deleteBucketFile,
+        downloadBucketFile,
         error,
         fetchConfig: fetchConfigCtx,
         getComputeResult,

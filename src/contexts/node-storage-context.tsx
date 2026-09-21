@@ -33,6 +33,18 @@ type NodeStorageContextType = {
   uploadFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; file: File }) => Promise<void>;
   /** Delete file from a bucket */
   deleteFile: (args: { bucketId: string; nodeId: string; nodeUri: NodeUri; fileName: string }) => Promise<void>;
+  /**
+   * Open a download stream for a bucket file. Resolves once the node accepts the request, so an auth
+   * or not-found failure surfaces here rather than mid-drain; the caller consumes the returned
+   * iterable to get the bytes.
+   */
+  downloadFile: (args: {
+    bucketId: string;
+    nodeId: string;
+    nodeUri: NodeUri;
+    fileName: string;
+    signal?: AbortSignal;
+  }) => Promise<AsyncIterable<Uint8Array>>;
   /** Create a bucket on a node. Resolves with the created bucket (so a caller can e.g. auto-select it). */
   createBucket: (args: {
     access: BucketAccessState;
@@ -63,6 +75,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     createNodeBucket,
     renameBucket: renameBucketP2P,
     deleteBucketFile,
+    downloadBucketFile,
     getNodeBuckets,
     listBucketFiles,
     uploadBucketFile,
@@ -275,6 +288,31 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     [deleteBucketFile, enqueue, withNodeAuth]
   );
 
+  const downloadFile = useCallback(
+    async ({
+      bucketId,
+      nodeId,
+      nodeUri,
+      fileName,
+      signal,
+    }: {
+      bucketId: string;
+      nodeId: string;
+      nodeUri: NodeUri;
+      fileName: string;
+      signal?: AbortSignal;
+    }) => {
+      // Only opening the stream is queued. The body is drained by the caller, outside the queue, so a
+      // large file can't park every other node call behind it for the length of its transfer.
+      return enqueue(() =>
+        withNodeAuth(nodeId, nodeUri, (token) =>
+          downloadBucketFile({ authToken: token, bucketId, fileName, nodeUri, signal })
+        )
+      );
+    },
+    [downloadBucketFile, enqueue, withNodeAuth]
+  );
+
   return (
     <NodeStorageContext.Provider
       value={{
@@ -288,6 +326,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         fetchBucketFiles,
         uploadFile,
         deleteFile,
+        downloadFile,
         createBucket,
         renameBucket,
         getAccessListAddresses: getAccessListAddresses,

@@ -977,3 +977,33 @@ export async function deleteBucketFile({
 }): Promise<PersistentStorageDeleteFileResponse> {
   return ProviderInstance.deletePersistentStorageFile(normalizeNodeUri(nodeUri), authToken, bucketId, fileName);
 }
+
+/**
+ * Open a download stream for a file stored in a bucket. Resolves once the node has accepted the
+ * request (so an auth/not-found failure throws here, not mid-drain); the returned iterable yields the
+ * file bytes. `offset` resumes a partial download.
+ */
+export async function downloadBucketFile({
+  authToken,
+  bucketId,
+  fileName,
+  nodeUri,
+  offset = 0,
+  signal,
+}: {
+  authToken: string;
+  bucketId: string;
+  fileName: string;
+  nodeUri: NodeUri;
+  offset?: number;
+  signal?: AbortSignal;
+}): Promise<AsyncIterable<Uint8Array>> {
+  return ProviderInstance.downloadPersistentStorageFile(
+    normalizeNodeUri(nodeUri),
+    authToken,
+    bucketId,
+    fileName,
+    offset,
+    signal
+  );
+}
