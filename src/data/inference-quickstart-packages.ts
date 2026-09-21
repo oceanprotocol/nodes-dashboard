@@ -76,6 +76,62 @@ function resources({
  * quantized siblings of one model adjacent so the trade-off between them is visible side by side.
  */
 export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
+  // The cheapest entry in the catalogue, and deliberately first: 30B of bf16 weights is the whole
+  // cost, because the cache is nearly free (see below). v0.28.0 registers
+  // MuseGlimmerForConditionalGeneration, so no vllmTag.
+  //
+  // The repo also publishes a DFlash drafter (Muse-Glimmer-30B-assistant) for speculative decoding.
+  // It is deliberately not wired up here — it needs a --speculative-config JSON blob and a second
+  // set of weights resident, which the quick-start flow has nowhere to put.
+  {
+    id: 'compact-agentic-chat',
+    model: {
+      id: 'meta-models/Muse-Glimmer-30B',
+      author: 'meta-models',
+      pipelineTag: 'image-text-to-text',
+    },
+    description:
+      'Agentic 30B model built for long tool-using workflows, with image understanding and four reasoning strengths, on one GPU.',
+    params: {
+      engine: 'vllm',
+      servedModelName: 'muse-glimmer-30b',
+      // The model answers on a separate reasoning channel; without the parser that text arrives as
+      // ordinary content. Reasoning STRENGTH is not a flag — the caller writes
+      // `Reasoning strength: low|medium|high|xhigh` into the system prompt.
+      customParams: [{ key: 'reasoning-parser', value: 'muse_glimmer' }],
+      // config.json text_config: max_position_embeddings 131072, plain rope, no scaling.
+      maxContext: 131072,
+      gpuMemoryUtilization: 0.9,
+      // Weights are plain BF16: 59.55 GB (55.46 GiB), no quantization_config.
+      quantization: 'none',
+      dtype: 'bfloat16',
+      // 'auto' (bf16). FP8 would save ~0.9 GiB on a full-length sequence — not worth the risk on a
+      // cache this small, and the global layers are NoPE (layer_rope_theta 0), an unusual path.
+      kvCacheDtype: 'auto',
+      // Native vLLM architecture, and the repo ships no Python.
+      trustRemoteCode: false,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      // ATEM protocol — vLLM registers this parser as 'muse_glimmer'.
+      toolCallParser: 'muse_glimmer',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 1,
+      // 55.46 GiB of weights against 67.10 GiB usable on an 80 GB card at util 0.9 — 11.6 GiB left,
+      // which is plenty here: only 13 of 52 layers are full attention, at 2 kv heads x 128 head_dim
+      // (13 KiB/token in bf16 = 1.66 GiB for a full 131,072-token sequence), and the other 39 slide
+      // at a 2048-token window for ~78 MiB total. That is ~6 concurrent max-length requests on the
+      // smallest card that holds the weights at all — a 64 GB card (53.6 GiB usable) cannot.
+      vramGb: 80,
+      computeCapability: 8.0,
+      cpu: { min: 8, recommended: 16 },
+      ram: { min: 64, recommended: 96 },
+      disk: { min: 75, recommended: 95 },
+    }),
+  },
   {
     id: 'advanced-multimodal-chat',
     model: {
@@ -114,6 +170,117 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       cpu: { min: 8, recommended: 16 },
       ram: { min: 64, recommended: 96 },
       disk: { min: 70, recommended: 90 },
+    }),
+  },
+  // Dense 31B, one card. vLLM v0.28.0 — the stable fallback tag — already registers
+  // Gemma4ForConditionalGeneration (-> gemma4_mm), so no vllmTag is needed here.
+  //
+  // The cache is hybrid: of 60 layers only 10 are full attention (layer_types, every 6th, last
+  // layer always global), the other 50 are sliding with a 1024-token window. The global layers use
+  // 4 KV heads x 512 head_dim, the sliding ones 16 x 256.
+  {
+    id: 'multilingual-multimodal-chat',
+    model: {
+      id: 'google/gemma-4-31B-it',
+      author: 'google',
+      pipelineTag: 'image-text-to-text',
+    },
+    description:
+      'Dense 31B multimodal chat model reading text and images across 140+ languages, with a 256k context on a single GPU.',
+    params: {
+      engine: 'vllm',
+      servedModelName: 'gemma-4-31b-it',
+      // Gemma 4 thinks before answering; without the parser the thinking text comes back as
+      // ordinary content. Registered as 'gemma4' in vLLM's reasoning registry since v0.28.0.
+      customParams: [{ key: 'reasoning-parser', value: 'gemma4' }],
+      // config.json text_config: max_position_embeddings 262144, no rope scaling needed.
+      maxContext: 262144,
+      gpuMemoryUtilization: 0.9,
+      // Official checkpoint is plain BF16 (no quantization_config): 62.55 GB of weights (58.25 GiB).
+      quantization: 'none',
+      dtype: 'bfloat16',
+      // 'auto' (bf16): FP8 KV is not verified against this hybrid sliding/global cache, and the
+      // weights leave enough room at 141 GB without it. Opt in after validating your vLLM build.
+      kvCacheDtype: 'auto',
+      // Native vLLM architecture, and the repo carries no Python — nothing to trust.
+      trustRemoteCode: false,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      toolCallParser: 'gemma4',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 1,
+      // 58.25 GiB of weights against 118.20 GiB usable on a 141 GB card at util 0.9 — ~59.9 GiB for
+      // KV. At bf16 a full 262,144-token sequence costs 80 KiB/token across the 10 global layers
+      // (2 x 4 kv heads x 512 head_dim) = 20.0 GiB, plus ~0.8 GiB for the 50 sliding layers (capped
+      // at their 1024-token window), so ~2.8 concurrent max-length requests. A 96 GB card leaves
+      // 22.2 GiB and serves one; an 80 GB card leaves 8.9 GiB and cannot hold a full-length
+      // sequence at all. Hence the same 90 GB floor as the 27B entry above.
+      vramGb: 90,
+      computeCapability: 8.0,
+      cpu: { min: 8, recommended: 16 },
+      ram: { min: 80, recommended: 112 },
+      disk: { min: 80, recommended: 100 },
+    }),
+  },
+  // MoE on ONE card: 128 experts of which the router picks 4 per token, so 116.8B parameters stay
+  // resident but only ~5B are active. v0.28.0 registers GptOssForCausalLM — no vllmTag.
+  {
+    id: 'fast-reasoning-moe',
+    model: {
+      id: 'openai/gpt-oss-120b',
+      author: 'openai',
+      pipelineTag: 'text-generation',
+    },
+    description:
+      'Sparse 117B reasoning model with only ~5B parameters active per token — low/medium/high effort and tool use, fast on one GPU.',
+    params: {
+      engine: 'vllm',
+      servedModelName: 'gpt-oss-120b',
+      // 'openai_gptoss', not 'gpt_oss' — that is the key vLLM's reasoning registry uses (the TOOL
+      // parser for the same harmony format is the one called 'openai'). Without it the chain of
+      // thought comes back as ordinary content.
+      customParams: [{ key: 'reasoning-parser', value: 'openai_gptoss' }],
+      // config.json: max_position_embeddings 131072 via YaRN (factor 32 over a 4096 base window).
+      maxContext: 131072,
+      gpuMemoryUtilization: 0.9,
+      // 'none' so vLLM reads the checkpoint's own quantization_config. The experts are MXFP4 and
+      // its modules_to_not_convert keeps attention, the routers, embeddings and lm_head in bf16;
+      // ModelQuantization has no 'mxfp4' member anyway, and naming one of the others would be wrong.
+      quantization: 'none',
+      dtype: 'auto',
+      kvCacheDtype: 'auto',
+      // Native vLLM architecture, no Python in the repo.
+      trustRemoteCode: false,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      // harmony format. Named 'openai' in vLLM, which reads like a generic default but is not.
+      toolCallParser: 'openai',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 1,
+      // 65.25 GB resident (60.77 GiB): 114.66B MXFP4 expert values packed two per byte, their e8m0
+      // scales at one byte per 32 values, plus 2.17B bf16 parameters. The cache barely registers —
+      // of 36 layers only the 18 full-attention ones hold a real cache, at 2 x 8 kv heads x 64
+      // head_dim = 36 KiB/token in bf16, so a full 131,072-token sequence is 4.5 GiB and the 18
+      // sliding layers add ~5 MB at their 128-token window. A 96 GB card leaves 19.7 GiB for KV
+      // (~4 max-length requests) and a 141 GB one 57.4 GiB (~12). An 80 GB card leaves 6.3 GiB
+      // BEFORE activations, which will not reliably hold one full-length sequence — hence 90.
+      vramGb: 90,
+      // vLLM's Mxfp4Config declares min capability 80 and falls back to the Marlin kernels, which
+      // keep the weights packed; Hopper and Blackwell get the Triton/FlashInfer paths instead.
+      computeCapability: 8.0,
+      cpu: { min: 8, recommended: 16 },
+      ram: { min: 72, recommended: 104 },
+      // Only the 14 top-level shards are fetched (65.25 GB) — the loader resolves `*.safetensors`
+      // through the index file, which skips the identical `original/` copy and metal/model.bin.
+      disk: { min: 80, recommended: 100 },
     }),
   },
   // Official fine-grained FP8 checkpoint of Coder Next, on ONE card. The model is MoE: all 80B
@@ -287,6 +454,76 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       cpu: { min: 12, recommended: 24 },
       ram: { min: 200, recommended: 320 },
       disk: { min: 200, recommended: 280 },
+    }),
+  },
+  // Dense 128B, official FP8 checkpoint (121.8B params fp8 + 5.9B bf16 = 133.61 GB / 124.4 GiB).
+  // v0.28.0 registers Mistral3ForConditionalGeneration, so no vllmTag.
+  //
+  // Mistral's published recipe is TP=8 at util 0.8. That is far more than the weights need — see
+  // the arithmetic below — so this runs at TP=4, which still holds a full-length sequence on the
+  // smallest card FP8 admits. Everything else here is the recipe verbatim.
+  {
+    id: 'hybrid-reasoning-chat',
+    model: {
+      id: 'mistralai/Mistral-Medium-3.5-128B',
+      author: 'mistralai',
+      pipelineTag: 'image-text-to-text',
+    },
+    description:
+      'Dense 128B model that switches between instant replies and deep reasoning per request, reads images, and holds a 256k context across 4 GPUs.',
+    params: {
+      engine: 'vllm',
+      servedModelName: 'mistral-medium-3.5',
+      customParams: [
+        // Reasoning is per-request (reasoning_effort 'none' | 'high'), so the parser must be on for
+        // the 'high' path to come back as `message.reasoning` instead of inline content.
+        { key: 'reasoning-parser', value: 'mistral' },
+        // Both from Mistral's own vLLM command.
+        { key: 'max-num-batched-tokens', value: '16384' },
+        { key: 'max-num-seqs', value: '128' },
+      ],
+      // text_config: max_position_embeddings 262144 via YaRN (factor 64 over a 4096 base window).
+      // Note the README warning: an earlier config commit degraded long-context quality — this is
+      // the fixed one, so do not pin `revision`.
+      maxContext: 262144,
+      tensorParallelSize: 4,
+      // The recipe says 0.8; 0.9 matches the rest of this catalogue and the KV pool below is sized
+      // at 0.9. Drop it to 0.8 if a launch OOMs during the vision tower's warmup.
+      gpuMemoryUtilization: 0.9,
+      // 'none' so vLLM reads the checkpoint's own quantization_config, whose modules_to_not_convert
+      // keeps the vision tower, the multimodal projector and lm_head in bf16. Naming fp8 here would
+      // hand those to the fp8 path too.
+      quantization: 'none',
+      dtype: 'auto',
+      // The recipe passes no --kv-cache-dtype. bf16 it is; fp8 would halve the figures below.
+      kvCacheDtype: 'auto',
+      // Native vLLM architecture, no Python in the repo.
+      trustRemoteCode: false,
+      enforceEager: false,
+      revision: '',
+      toolCalling: true,
+      toolCallParser: 'mistral',
+    },
+    type: 'quickstart',
+    sourcePeerIds: NODE_IDS,
+    requiredResources: resources({
+      gpus: 4,
+      // TP=4 puts 31.1 GiB of weights on each card and shards the KV heads 8 -> 2 per rank. The
+      // cache is the binding constraint, not the weights: 88 layers with no sliding window, at
+      // 2 x 8 kv heads x 128 head_dim in bf16, cost 352 KiB/token, so one full 262,144-token
+      // sequence is 88 GiB across the four ranks. An 80 GB card (the smallest FP8 weights allow at
+      // all) leaves 36.0 GiB free per rank at util 0.9 = 144 GiB of pool, i.e. one max-length
+      // request plus headroom; a 141 GB card leaves 87.1 GiB per rank = 348 GiB, about four.
+      vramGb: 80,
+      // FP8 weights — Hopper/Ada only.
+      computeCapability: 8.9,
+      cpu: { min: 24, recommended: 48 },
+      ram: { min: 220, recommended: 320 },
+      // 133.61 GB of weights. The repo ships them twice (HF `model-*` shards AND Mistral's
+      // `consolidated-*` ones, 267.25 GB together), but only one set is fetched: the loader
+      // resolves `*.safetensors` through model.safetensors.index.json precisely to skip the
+      // duplicates. Headroom on top is for the download's staging copy.
+      disk: { min: 170, recommended: 220 },
     }),
   },
   // Zhipu's flagship, natively multimodal. Native FP8, ~299 GiB, TP=4 per Zhipu's own recipe (80 GB/GPU shard).

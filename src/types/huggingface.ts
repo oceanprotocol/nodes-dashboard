@@ -44,6 +44,8 @@ export const TOOL_CALL_PARSERS = [
   { label: 'kimi_k2 — Moonshot Kimi K2', value: 'kimi_k2' },
   { label: 'minimax_m2 — MiniMax M2', value: 'minimax_m2' },
   { label: 'gemma4 — Gemma 3 / 4', value: 'gemma4' },
+  // Muse Glimmer emits its own XML protocol (<atem:invoke name=…>), which no other parser reads.
+  { label: 'muse_glimmer — Muse Glimmer (ATEM)', value: 'muse_glimmer' },
   { label: 'phi4_mini_json — Phi-4-mini', value: 'phi4_mini_json' },
   { label: 'seed_oss — ByteDance Seed-OSS', value: 'seed_oss' },
   { label: 'granite4 — IBM Granite 4', value: 'granite4' },
