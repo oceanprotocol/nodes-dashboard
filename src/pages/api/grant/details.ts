@@ -131,13 +131,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(403).json({ message: 'Email already associated with another account' });
     }
 
-    // One handle per service maps to one account. Same rule as the wallet check: PENDING rows stay
-    // overwritable so nobody can squat a handle they never verified.
+    // One handle per service maps to one account. Same rule as the email check, and deliberately NOT
+    // the wallet rule: a PENDING row keyed to someone else's wallet can be taken over (the update below
+    // is keyed by wallet), but a foreign handle can't be — insertGrantInSheet would reject the duplicate.
+    // So this has to block here, with a 403 that says why.
     if (
       byHandle &&
       byHandle.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase() &&
-      byHandle.email.toLowerCase() !== data.email.toLowerCase() &&
-      byHandle.status !== GrantStatus.PENDING
+      byHandle.email.toLowerCase() !== data.email.toLowerCase()
     ) {
       return response.status(403).json({ message: 'Handle already associated with another account' });
     }

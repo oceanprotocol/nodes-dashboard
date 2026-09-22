@@ -57,7 +57,8 @@ export const GRANT_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: GrantHa
 
 /**
  * Per-service handle rules.
- * Discord: 2-32 chars, letters/digits/dot/underscore. The legacy "#1234" discriminator is rejected —
+ * Discord: 2-32 chars, letters/digits/dot/underscore, no consecutive dots (Discord forbids them).
+ * The legacy "#1234" discriminator is rejected —
  * Discord retired it, current usernames cannot contain "#", and accepting both forms would let the
  * same person pass the uniqueness check twice.
  * Telegram: 5-32 chars, letters/digits/underscore.
@@ -65,8 +66,8 @@ export const GRANT_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: GrantHa
  */
 export const GRANT_HANDLE_RULES: Record<GrantHandleService, { message: string; regex: RegExp }> = {
   discord: {
-    message: 'Enter a valid Discord handle (2-32 characters: letters, digits, "." or "_")',
-    regex: /^[a-zA-Z0-9._]{2,32}$/,
+    message: 'Enter a valid Discord handle (2-32 characters: letters, digits, "." or "_", no consecutive dots)',
+    regex: /^(?!.*\.\.)[a-zA-Z0-9._]{2,32}$/,
   },
   telegram: {
     message: 'Enter a valid Telegram handle (5-32 characters: letters, digits or "_")',

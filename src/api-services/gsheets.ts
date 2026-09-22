@@ -203,9 +203,9 @@ export async function findGrantByHandle({
 }): Promise<GrantWithStatus | null> {
   const rows = await getAllRows();
   if (rows.length === 0) return null;
-  const rowIndex = rows.findIndex((row) => rowMatchesHandle(row, handle, handleService));
-  if (rowIndex === -1) return null;
-  return rowToGrant(rows[rowIndex]);
+  const matches = rows.filter((row) => rowMatchesHandle(row, handle, handleService)).map(rowToGrant);
+  if (matches.length === 0) return null;
+  return matches.find((match) => match.status !== GrantStatus.PENDING) ?? matches[0];
 }
 
 export async function findGrantByTxHash(txHash: string): Promise<GrantWithStatus | null> {
