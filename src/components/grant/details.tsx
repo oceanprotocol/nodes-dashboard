@@ -123,8 +123,8 @@ const Details: React.FC = () => {
     }),
   });
 
-  // Collapse pasted profile links, stray "@" and whitespace as soon as the field loses focus,
-  // so what the user sees matches what gets stored and deduped.
+  // Collapse a stray "@" and whitespace as soon as the field loses focus, so what the user sees
+  // matches what gets stored and deduped.
   const handleHandleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const normalized = normalizeHandle(e.target.value);
     if (normalized !== formik.values.handle) {

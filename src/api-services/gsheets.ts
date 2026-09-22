@@ -156,8 +156,8 @@ async function getAllRows(): Promise<string[][]> {
  * A row matches a handle when the column for that service matches, or when the legacy
  * (service-unknown) column does. Legacy rows predate the split, so a match there is treated
  * as the same person regardless of the service now selected.
- * Comparison goes through getHandleComparisonKey, so stored rows that kept an "@", surrounding
- * whitespace or a pasted profile link still match a bare handle.
+ * Comparison goes through getHandleComparisonKey, so stored rows that kept an "@" or surrounding
+ * whitespace still match a bare handle.
  */
 function rowMatchesHandle(row: string[], handle: string, handleService: GrantHandleService): boolean {
   const key = getHandleComparisonKey(handle);

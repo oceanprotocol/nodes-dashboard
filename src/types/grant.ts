@@ -74,15 +74,16 @@ export const GRANT_HANDLE_RULES: Record<GrantHandleService, { message: string; r
   },
 };
 
-/** Profile links people paste instead of the bare handle. */
-const HANDLE_URL_PREFIX_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:t(?:elegram)?\.me|discord(?:app)?\.com\/users)\//i;
-
+/**
+ * Only whitespace and a leading "@" are forgiven. A pasted profile URL is left intact on purpose,
+ * so it fails validation and the user retypes the bare handle rather than us guessing at the link.
+ */
 export function normalizeHandle(handle: string): string {
   if (typeof handle !== 'string') {
     return '';
   }
   // Handles never contain whitespace, so stripping it fixes paste artifacts instead of failing validation.
-  return handle.replace(/\s+/g, '').replace(HANDLE_URL_PREFIX_REGEX, '').replace(/^@+/, '');
+  return handle.replace(/\s+/g, '').replace(/^@+/, '');
 }
 
 /** Key used to decide whether two handles are the same account. Both platforms are case-insensitive. */
