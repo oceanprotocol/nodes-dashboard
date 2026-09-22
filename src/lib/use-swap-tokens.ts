@@ -1,10 +1,7 @@
-import { CHAIN_ID } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
+import { getGrantsSwap } from '@/lib/grants-swap';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import Address from '@oceanprotocol/contracts/addresses/address.json';
-import CompySwapArtifact from '@oceanprotocol/contracts/artifacts/contracts/grants/GrantsSwap.sol/GrantsSwap.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ethers } from 'ethers';
 import { useCallback, useState } from 'react';
@@ -44,52 +41,39 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
         return;
       }
 
-      const config = Object.values(Address).find((chainConfig: any) => chainConfig.chainId === CHAIN_ID);
-      const compySwapAddress = (config as any)?.COMPYSwap;
-      if (!compySwapAddress) {
-        const message = 'No swap address found for chainId';
-        setError(message);
-        toast.error(message);
-        onError?.(new Error(message));
-        return;
-      }
-
-      const usdcAddress = getSupportedTokens().USDC.address;
-      if (!usdcAddress) {
-        const message = 'USDC token address not found';
-        setError(message);
-        toast.error(message);
-        onError?.(new Error(message));
-        return;
-      }
-
       try {
         setIsSwapping(true);
         setError(undefined);
 
-        const usdcDecimals = await getTokenDecimals(usdcAddress);
-        const amountBigInt = ethers.parseUnits(amount, Number(usdcDecimals));
+        if (!provider) {
+          throw new Error('No crypto wallet found');
+        }
 
         if (user?.type === 'eoa') {
           // The connected wallet's provider: with EIP-6963 that is not necessarily
           // whichever extension won window.ethereum.
-          if (!provider) {
-            throw new Error('No crypto wallet found');
-          }
           const signer = await provider.getSigner();
+          const grantsSwap = getGrantsSwap(signer);
 
-          const usdcWithSigner = new ethers.Contract(usdcAddress, ERC20Template.abi, signer);
-          const compySwapWithSigner = new ethers.Contract(compySwapAddress, CompySwapArtifact.abi, signer);
+          // Which token the swap takes comes from the contract, not from a local address table.
+          const inputToken = await grantsSwap.getInputToken();
+          const amountBigInt = ethers.parseUnits(amount, await getTokenDecimals(inputToken));
 
-          const allowance = await usdcWithSigner.allowance(await signer.getAddress(), compySwapAddress);
+          const inputTokenWithSigner = new ethers.Contract(inputToken, ERC20Template.abi, signer);
+          const allowance = await inputTokenWithSigner.allowance(await signer.getAddress(), grantsSwap.address);
           if (allowance < amountBigInt) {
-            const approveTx = await usdcWithSigner.approve(compySwapAddress, amountBigInt);
+            const approveTx = await inputTokenWithSigner.approve(grantsSwap.address, amountBigInt);
             await approveTx.wait();
             toast.info('Approval successful. Proceeding to swap...');
           }
 
-          const swapTx = await compySwapWithSigner.swapToCOMPY(amountBigInt);
-          await swapTx.wait();
+          // ocean.js catches send failures and resolves to null instead of throwing, so a rejected
+          // signature would otherwise fall through to the success path below.
+          const receipt = await grantsSwap.swapToCOMPY(amount);
+          if (!receipt) {
+            throw new Error('Swap transaction failed');
+          }
+
           setIsSwapping(false);
           setError(undefined);
           toast.success('Swap successful!');
@@ -101,9 +85,14 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
           throw new Error('Account address not found');
         }
 
-        // Already the RPC provider on the SCA path.
-        const usdcContract = new ethers.Contract(usdcAddress, ERC20Template.abi, provider);
-        const currentAllowance = await usdcContract.allowance(account.address, compySwapAddress);
+        // Already the RPC provider on the SCA path — there is no ethers signer here, so the wrapper
+        // gets a VoidSigner. That covers the reads and the ABI; the send stays on the Alchemy batch.
+        const grantsSwap = getGrantsSwap(new ethers.VoidSigner(account.address, provider));
+        const inputToken = await grantsSwap.getInputToken();
+        const amountBigInt = ethers.parseUnits(amount, await getTokenDecimals(inputToken));
+
+        const inputTokenContract = new ethers.Contract(inputToken, ERC20Template.abi, provider);
+        const currentAllowance = await inputTokenContract.allowance(account.address, grantsSwap.address);
 
         const uos: { to: `0x${string}`; data: `0x${string}` }[] = [];
 
@@ -111,17 +100,15 @@ export const useSwapTokens = ({ onSuccess, onError }: UseSwapTokensParams = {}):
           const approveData = encodeFunctionData({
             abi: ERC20Template.abi,
             functionName: 'approve',
-            args: [compySwapAddress, amountBigInt],
+            args: [grantsSwap.address, amountBigInt],
           });
-          uos.push({ to: usdcAddress as `0x${string}`, data: approveData as `0x${string}` });
+          uos.push({ to: inputToken as `0x${string}`, data: approveData as `0x${string}` });
         }
 
-        const swapData = encodeFunctionData({
-          abi: CompySwapArtifact.abi,
-          functionName: 'swapToCOMPY',
-          args: [amountBigInt],
-        });
-        uos.push({ to: compySwapAddress as `0x${string}`, data: swapData as `0x${string}` });
+        // Not `swapToCOMPYTx()`: it estimates gas up front, which reverts while the approve batched
+        // alongside it has not landed yet. Encoding off the wrapper's own ABI keeps the single UserOp.
+        const swapData = grantsSwap.contract.interface.encodeFunctionData('swapToCOMPY', [amountBigInt]);
+        uos.push({ to: grantsSwap.address as `0x${string}`, data: swapData as `0x${string}` });
 
         await sendTransaction(uos.length === 1 ? uos[0] : uos);
 
