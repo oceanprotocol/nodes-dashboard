@@ -6,9 +6,14 @@ import { useGrantContext } from '@/context/grant-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
   GRANT_GOAL_CHOICES,
+  GRANT_HANDLE_RULES,
+  GRANT_HANDLE_SERVICE_CHOICES,
   GRANT_HARDWARE_CHOICES,
   GRANT_OS_CHOICES,
   GRANT_ROLE_CHOICES,
+  GrantHandleService,
+  isValidHandle,
+  normalizeHandle,
   SubmitGrantDetailsResponse,
 } from '@/types/grant';
 import axios from 'axios';
@@ -26,6 +31,7 @@ type DetailsFormValues = {
   email: string;
   goal: string | null;
   handle: string;
+  handleService: GrantHandleService;
   hardware: string[];
   name: string;
   os: string | null;
@@ -49,6 +55,7 @@ const Details: React.FC = () => {
       email: '',
       goal: null,
       handle: '',
+      handleService: GRANT_HANDLE_SERVICE_CHOICES[0].value,
       hardware: [],
       name: '',
       os: null,
@@ -63,7 +70,8 @@ const Details: React.FC = () => {
         const details = {
           email: values.email,
           goal: values.goal!,
-          handle: values.handle,
+          handle: normalizeHandle(values.handle),
+          handleService: values.handleService,
           hardware: values.hardware,
           name: values.name,
           os: values.os!,
@@ -73,6 +81,7 @@ const Details: React.FC = () => {
         const response = await axios.post<SubmitGrantDetailsResponse>('/api/grant/details', details);
         setGrantDetails(details);
         posthog.capture('grant_form_completed', {
+          handleService: values.handleService,
           role: values.role,
           goal: values.goal,
           hardware: values.hardware,
@@ -95,13 +104,34 @@ const Details: React.FC = () => {
     validationSchema: Yup.object({
       email: Yup.string().email('Invalid email').required('Required'),
       goal: Yup.string().required('Selection required'),
-      handle: Yup.string().required('Required'),
+      handle: Yup.string()
+        .required('Required')
+        .test('handle-format', function (value) {
+          const service = (this.parent as DetailsFormValues).handleService;
+          if (!value || isValidHandle(value, service)) {
+            return true;
+          }
+          return this.createError({ message: GRANT_HANDLE_RULES[service].message });
+        }),
+      handleService: Yup.string()
+        .oneOf(GRANT_HANDLE_SERVICE_CHOICES.map((c) => c.value))
+        .required('Required'),
       hardware: Yup.array().min(1, 'Selection required'),
       name: Yup.string().required('Required'),
       os: Yup.string().required('Selection required'),
       role: Yup.string().required('Selection required'),
     }),
   });
+
+  // Collapse pasted profile links, stray "@" and whitespace as soon as the field loses focus,
+  // so what the user sees matches what gets stored and deduped.
+  const handleHandleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const normalized = normalizeHandle(e.target.value);
+    if (normalized !== formik.values.handle) {
+      formik.setFieldValue('handle', normalized);
+    }
+    formik.handleBlur(e);
+  };
 
   const handleVerifySuccess = () => {
     setIsVerifyModalOpen(false);
@@ -133,10 +163,28 @@ const Details: React.FC = () => {
           />
           <Input
             errorText={formik.touched.handle && formik.errors.handle ? formik.errors.handle : undefined}
-            label="Discord handle"
+            label="Handle"
             name="handle"
-            onBlur={formik.handleBlur}
+            onBlur={handleHandleBlur}
             onChange={formik.handleChange}
+            startAdornment={
+              <div className={styles.handleAdornment}>
+                <select
+                  aria-label="Handle service"
+                  className={styles.handleServiceSelect}
+                  name="handleService"
+                  onChange={formik.handleChange}
+                  value={formik.values.handleService}
+                >
+                  {GRANT_HANDLE_SERVICE_CHOICES.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+                <span className={styles.handlePrefix}>@</span>
+              </div>
+            }
             type="text"
             value={formik.values.handle}
           />

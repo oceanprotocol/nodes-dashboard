@@ -1,15 +1,18 @@
 import { sendOTP } from '@/api-services/email';
 import { validateGrantDataWithAI } from '@/api-services/gemini';
-import { findGrantInSheet, insertGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
+import { findGrantByHandle, findGrantInSheet, insertGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
 import {
   GRANT_GOAL_CHOICES,
+  GRANT_HANDLE_SERVICE_CHOICES,
   GRANT_HARDWARE_CHOICES,
   GRANT_OS_CHOICES,
   GRANT_ROLE_CHOICES,
   GrantDetails,
   GrantStatus,
   GrantWithStatus,
+  isValidHandle,
+  normalizeHandle,
   SubmitGrantDetailsResponse,
 } from '@/types/grant';
 import { isBlacklistedEmail, normalizeEmail } from '@/utils/email';
@@ -28,6 +31,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     'email',
     'goal',
     'handle',
+    'handleService',
     'name',
     'os',
     'role',
@@ -50,8 +54,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
   // Input validation
   const nameRegex = /^[\p{L}\s.'-]{1,100}$/u;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const handleRegex = /^[a-zA-Z0-9@\._\-]{1,100}$/;
-
   if (!ethers.isAddress(data.walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
   }
@@ -70,7 +72,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(400).json({ message: 'Invalid email address' });
   }
 
-  if (!handleRegex.test(data.handle)) {
+  const validHandleServices = GRANT_HANDLE_SERVICE_CHOICES.map((c) => c.value);
+  if (!validHandleServices.includes(data.handleService)) {
+    return response.status(400).json({ message: 'Invalid handle service' });
+  }
+
+  data.handle = normalizeHandle(data.handle);
+
+  if (!isValidHandle(data.handle, data.handleService)) {
     return response.status(400).json({ message: 'Invalid handle format or length' });
   }
 
@@ -101,9 +110,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
   // Existence checks run BEFORE the (paid) Gemini call so spammers can't burn AI quota
   // by re-submitting against already-CLAIMED / already-verified rows.
   try {
-    const [byEmail, byWallet] = await Promise.all([
+    const [byEmail, byWallet, byHandle] = await Promise.all([
       findGrantInSheet({ email: data.email }),
       findGrantInSheet({ walletAddress: data.walletAddress }),
+      findGrantByHandle({ handle: data.handle, handleService: data.handleService }),
     ]);
 
     // Block wallet already registered under a different email — but only after email verification.
@@ -119,6 +129,17 @@ export default async function handler(request: NextApiRequest, response: NextApi
     // Reject submissions that target a foreign email's row — prevents OTP email bombing of third parties
     if (byEmail && byEmail.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase()) {
       return response.status(403).json({ message: 'Email already associated with another account' });
+    }
+
+    // One handle per service maps to one account. Same rule as the wallet check: PENDING rows stay
+    // overwritable so nobody can squat a handle they never verified.
+    if (
+      byHandle &&
+      byHandle.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase() &&
+      byHandle.email.toLowerCase() !== data.email.toLowerCase() &&
+      byHandle.status !== GrantStatus.PENDING
+    ) {
+      return response.status(403).json({ message: 'Handle already associated with another account' });
     }
 
     // Prefer wallet match over email match when both exist, so we update the row keyed by wallet
