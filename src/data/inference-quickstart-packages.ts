@@ -456,15 +456,28 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       disk: { min: 200, recommended: 280 },
     }),
   },
-  // The same checkpoint as `hybrid-reasoning-chat` below, on half the GPUs. Only a 141 GB card makes
-  // TP=2 possible: 124.4 GiB of weights split two ways is 62.2 GiB a rank, against the 118.2 GiB
-  // such a card grants at util 0.9 — 56.0 GiB left per rank, a 112 GiB pool. The same split on an
-  // 80 GB card leaves 4.9 GiB a rank (~29k tokens of context, useless here), so this entry is H200
-  // and up, and `computeCapability: 9.0` says so — it drops the Ada cards that FP8 alone admits.
-  // TP=1 is out of reach at any utilisation: the weights alone are 124.4 GiB of a 131.34 GiB card.
+  // Mistral Medium 3.5 for a single user, on the cheapest hardware that holds it. The numbers below
+  // are measured on an H200 pair under vLLM v0.28.0, not derived: the 124.43 GiB FP8 checkpoint
+  // lands as 62.52 GiB of weights per rank, and what util 0.9 leaves for KV after torch.compile,
+  // the CUDA-graph capture set, the Pixtral encoder's profiling run and the all-reduce workspace is
+  // 40.22 GiB a rank -- an 80.4 GiB pool, not the 112 GiB that budget-minus-weights predicts. The
+  // gap is ~16 GiB a rank; size this entry from the measurement, never from the subtraction.
   //
-  // Pick this over the 4-GPU entry to halve the bill; pick that one for long-context concurrency.
-  // Launch params are identical — only the tensor-parallel width differs.
+  // That pool is why `kvCacheDtype` is 'fp8' here and 'auto' everywhere else in this catalogue. At
+  // bf16 the cache costs 352 KiB/token (88 layers, no sliding window, 2 x 8 kv heads x 128
+  // head_dim), so ONE full 262,144-token sequence needs 44.0 GiB a rank against the 40.22
+  // available. That 9% miss is not a slow launch, it is a dead one, inside the paid window:
+  //   ValueError: To serve at least one request with the model's max seq len (262144), (44.0 GiB
+  //   KV cache is needed, which is larger than the available KV cache memory (40.22 GiB).
+  // FP8 halves the cache to 22.0 GiB a rank, clearing by 18 GiB. Prefer that margin to a context
+  // cut: vLLM's own suggestion (239,600 tokens) fits only the 40.22 GiB this driver and this vLLM
+  // build happened to leave, and a 44.0 GiB requirement has no room to absorb the drift. Mistral's
+  // recipe passes no --kv-cache-dtype, so this one flag is our deviation from it.
+  //
+  // Single-stream tier, and sized as one. The two cards hold ~479k tokens of FP8 cache in total --
+  // one 256k conversation with room to spare, not 128 concurrent ones. For real concurrency at this
+  // context, run TP=4 on four cards instead; only the tensor-parallel width differs.
+  // TP=1 is out of reach at any utilisation: the weights alone are 124.4 GiB of a 131.34 GiB card.
   {
     id: 'hybrid-reasoning-chat-h200',
     model: {
@@ -473,23 +486,33 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       pipelineTag: 'image-text-to-text',
     },
     description:
-      'The 128B hybrid-reasoning model on two 141 GB GPUs — same 256k context and image understanding, half the hardware.',
+      'The 128B hybrid-reasoning model on two 141 GB GPUs — a full 256k context and image understanding for a single user.',
     params: {
       engine: 'vllm',
       servedModelName: 'mistral-medium-3.5',
-      // Verbatim from the 4-GPU entry, including Mistral's own batching numbers: 128 sequences still
-      // fit the smaller pool (112 GiB = 333,638 tokens, ~2.6k per sequence when all 128 are live).
       customParams: [
+        // Reasoning is per-request (reasoning_effort 'none' | 'high'), so the parser must be on for
+        // the 'high' path to come back as `message.reasoning` instead of inline content.
         { key: 'reasoning-parser', value: 'mistral' },
+        // Mistral's own number. It also sets the vision encoder's cache budget and the
+        // chunked-prefill chunk that gives a 256k prompt a usable TTFT, so it stays -- the FP8 KV
+        // cache above is what pays for keeping it.
         { key: 'max-num-batched-tokens', value: '16384' },
-        { key: 'max-num-seqs', value: '128' },
+        // 8, not Mistral's 128. Their figure is for a throughput deployment; 128 live sequences
+        // against this pool would cap each at ~3.7k tokens, which is not what this entry sells.
+        { key: 'max-num-seqs', value: '8' },
       ],
       maxContext: 262144,
       tensorParallelSize: 2,
       gpuMemoryUtilization: 0.9,
+      // 'none' so vLLM reads the checkpoint's own quantization_config, whose modules_to_not_convert
+      // keeps the vision tower, the multimodal projector and lm_head in bf16. Naming fp8 here would
+      // hand those to the fp8 path too. (Confirmed live: vLLM resolves quantization=fp8 by itself.)
       quantization: 'none',
       dtype: 'auto',
-      kvCacheDtype: 'auto',
+      // Load-bearing, unlike every other entry here -- see the KV arithmetic above.
+      kvCacheDtype: 'fp8',
+      // Native vLLM architecture (resolves to PixtralForConditionalGeneration), no Python in the repo.
       trustRemoteCode: false,
       enforceEager: false,
       revision: '',
@@ -500,17 +523,18 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     sourcePeerIds: NODE_IDS,
     requiredResources: resources({
       gpus: 2,
-      // 141 GB is a floor here, not a preference — see the note above. The KV cache is unchanged from
-      // the 4-GPU entry (88 layers, no sliding window, 2 x 8 kv heads x 128 head_dim in bf16 =
-      // 352 KiB/token, 88 GiB for a full 262,144-token sequence), but it now comes out of a 112 GiB
-      // pool rather than 348 GiB: one max-length request in flight, where four GPUs hold about four.
+      // 141 GB is a floor here, not a preference. The measured 62.52 GiB shard leaves ~4.9 GiB for
+      // KV on an 80 GB card -- about 57k tokens even at FP8, useless at this context -- against the
+      // 40.22 GiB a 141 GB card leaves.
       vramGb: 141,
-      // Hopper and up. FP8 needs >= 8.9; the 141 GB floor above is what actually rules out Ada.
+      // Hopper and up. FP8 weights alone need >= 8.9; the 141 GB floor is what rules out Ada.
       computeCapability: 9.0,
-      // vLLM runs one worker process per rank, so half the ranks need half the cores. Host RAM and
-      // disk are unchanged: the same 133.61 GB of weights is staged and cached either way.
+      // vLLM runs one worker process per rank, so half the ranks need half the cores.
       cpu: { min: 12, recommended: 24 },
       ram: { min: 220, recommended: 320 },
+      // 124.43 GiB of weights plus staging. Note this is re-fetched per launch on nodes without a
+      // persistent model cache: an observed run reported `Filesystem type for checkpoints: OVERLAY`
+      // and spent 264 s downloading before compilation started, all of it billed GPU time.
       disk: { min: 170, recommended: 220 },
     }),
   },
