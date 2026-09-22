@@ -456,48 +456,40 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       disk: { min: 200, recommended: 280 },
     }),
   },
-  // Dense 128B, official FP8 checkpoint (121.8B params fp8 + 5.9B bf16 = 133.61 GB / 124.4 GiB).
-  // v0.28.0 registers Mistral3ForConditionalGeneration, so no vllmTag.
+  // The same checkpoint as `hybrid-reasoning-chat` below, on half the GPUs. Only a 141 GB card makes
+  // TP=2 possible: 124.4 GiB of weights split two ways is 62.2 GiB a rank, against the 118.2 GiB
+  // such a card grants at util 0.9 — 56.0 GiB left per rank, a 112 GiB pool. The same split on an
+  // 80 GB card leaves 4.9 GiB a rank (~29k tokens of context, useless here), so this entry is H200
+  // and up, and `computeCapability: 9.0` says so — it drops the Ada cards that FP8 alone admits.
+  // TP=1 is out of reach at any utilisation: the weights alone are 124.4 GiB of a 131.34 GiB card.
   //
-  // Mistral's published recipe is TP=8 at util 0.8. That is far more than the weights need — see
-  // the arithmetic below — so this runs at TP=4, which still holds a full-length sequence on the
-  // smallest card FP8 admits. Everything else here is the recipe verbatim.
+  // Pick this over the 4-GPU entry to halve the bill; pick that one for long-context concurrency.
+  // Launch params are identical — only the tensor-parallel width differs.
   {
-    id: 'hybrid-reasoning-chat',
+    id: 'hybrid-reasoning-chat-h200',
     model: {
       id: 'mistralai/Mistral-Medium-3.5-128B',
       author: 'mistralai',
       pipelineTag: 'image-text-to-text',
     },
     description:
-      'Dense 128B model that switches between instant replies and deep reasoning per request, reads images, and holds a 256k context across 4 GPUs.',
+      'The 128B hybrid-reasoning model on two 141 GB GPUs — same 256k context and image understanding, half the hardware.',
     params: {
       engine: 'vllm',
       servedModelName: 'mistral-medium-3.5',
+      // Verbatim from the 4-GPU entry, including Mistral's own batching numbers: 128 sequences still
+      // fit the smaller pool (112 GiB = 333,638 tokens, ~2.6k per sequence when all 128 are live).
       customParams: [
-        // Reasoning is per-request (reasoning_effort 'none' | 'high'), so the parser must be on for
-        // the 'high' path to come back as `message.reasoning` instead of inline content.
         { key: 'reasoning-parser', value: 'mistral' },
-        // Both from Mistral's own vLLM command.
         { key: 'max-num-batched-tokens', value: '16384' },
         { key: 'max-num-seqs', value: '128' },
       ],
-      // text_config: max_position_embeddings 262144 via YaRN (factor 64 over a 4096 base window).
-      // Note the README warning: an earlier config commit degraded long-context quality — this is
-      // the fixed one, so do not pin `revision`.
       maxContext: 262144,
-      tensorParallelSize: 4,
-      // The recipe says 0.8; 0.9 matches the rest of this catalogue and the KV pool below is sized
-      // at 0.9. Drop it to 0.8 if a launch OOMs during the vision tower's warmup.
+      tensorParallelSize: 2,
       gpuMemoryUtilization: 0.9,
-      // 'none' so vLLM reads the checkpoint's own quantization_config, whose modules_to_not_convert
-      // keeps the vision tower, the multimodal projector and lm_head in bf16. Naming fp8 here would
-      // hand those to the fp8 path too.
       quantization: 'none',
       dtype: 'auto',
-      // The recipe passes no --kv-cache-dtype. bf16 it is; fp8 would halve the figures below.
       kvCacheDtype: 'auto',
-      // Native vLLM architecture, no Python in the repo.
       trustRemoteCode: false,
       enforceEager: false,
       revision: '',
@@ -507,22 +499,18 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
     requiredResources: resources({
-      gpus: 4,
-      // TP=4 puts 31.1 GiB of weights on each card and shards the KV heads 8 -> 2 per rank. The
-      // cache is the binding constraint, not the weights: 88 layers with no sliding window, at
-      // 2 x 8 kv heads x 128 head_dim in bf16, cost 352 KiB/token, so one full 262,144-token
-      // sequence is 88 GiB across the four ranks. An 80 GB card (the smallest FP8 weights allow at
-      // all) leaves 36.0 GiB free per rank at util 0.9 = 144 GiB of pool, i.e. one max-length
-      // request plus headroom; a 141 GB card leaves 87.1 GiB per rank = 348 GiB, about four.
-      vramGb: 80,
-      // FP8 weights — Hopper/Ada only.
-      computeCapability: 8.9,
-      cpu: { min: 24, recommended: 48 },
+      gpus: 2,
+      // 141 GB is a floor here, not a preference — see the note above. The KV cache is unchanged from
+      // the 4-GPU entry (88 layers, no sliding window, 2 x 8 kv heads x 128 head_dim in bf16 =
+      // 352 KiB/token, 88 GiB for a full 262,144-token sequence), but it now comes out of a 112 GiB
+      // pool rather than 348 GiB: one max-length request in flight, where four GPUs hold about four.
+      vramGb: 141,
+      // Hopper and up. FP8 needs >= 8.9; the 141 GB floor above is what actually rules out Ada.
+      computeCapability: 9.0,
+      // vLLM runs one worker process per rank, so half the ranks need half the cores. Host RAM and
+      // disk are unchanged: the same 133.61 GB of weights is staged and cached either way.
+      cpu: { min: 12, recommended: 24 },
       ram: { min: 220, recommended: 320 },
-      // 133.61 GB of weights. The repo ships them twice (HF `model-*` shards AND Mistral's
-      // `consolidated-*` ones, 267.25 GB together), but only one set is fetched: the loader
-      // resolves `*.safetensors` through model.safetensors.index.json precisely to skip the
-      // duplicates. Headroom on top is for the download's staging copy.
       disk: { min: 170, recommended: 220 },
     }),
   },
