@@ -9,6 +9,7 @@ import { useTokenSymbol } from '@/lib/token-symbol';
 import { modelIdFromCommand } from '@/services/inference-launch';
 import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
+import { getServiceReadiness } from '@/types/service-readiness';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
@@ -794,7 +795,12 @@ export const existingServicesColumns: GridColDef<
       flex: 1,
       headerName: 'Status',
       sortable: false,
-      renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+      // `readiness` rides on the job record as an extra key the node adds (see
+      // types/service-readiness): Running means the container is up, ready means the workload
+      // inside it actually answers. Read defensively, so a node that reports none renders as before.
+      renderCell: ({ row }) => (
+        <ServiceStatusChip readiness={getServiceReadiness(row)} status={row.status} statusText={row.statusText} />
+      ),
     },
     {
       field: 'dateCreated',
@@ -927,7 +933,12 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     flex: 1,
     headerName: 'Status',
     sortable: false,
-    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+    // `readiness` rides on the job record as an extra key the node adds (see
+    // types/service-readiness): Running means the container is up, ready means the workload
+    // inside it actually answers. Read defensively, so a node that reports none renders as before.
+    renderCell: ({ row }) => (
+      <ServiceStatusChip readiness={getServiceReadiness(row)} status={row.status} statusText={row.statusText} />
+    ),
   },
   {
     field: 'dateCreated',

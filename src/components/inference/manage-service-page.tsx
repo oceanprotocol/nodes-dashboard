@@ -9,6 +9,7 @@ import InferenceModelList, { ServiceModel } from '@/components/inference/inferen
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ProvisioningProgress from '@/components/inference/provisioning-progress';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import { ServiceStartupIndicator } from '@/components/inference/service-startup-progress';
 import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
 import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
@@ -36,6 +37,7 @@ import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlo
 import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
+import { getServiceReadiness, isServiceReady } from '@/types/service-readiness';
 import { isBundle } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
@@ -630,8 +632,36 @@ const ManageServicePage: React.FC = () => {
     return workflow ? templateOpenUrl(url, workflow.id) : url;
   }, [template, job]);
 
+  /**
+   * Whether the workload can actually take a request, per the node's own probe of the engine (see
+   * types/service-readiness). `Running` only says the container started: vLLM reports it minutes
+   * before the weights are loaded, and the endpoint 503s for that whole window. Nodes that don't
+   * report readiness answer `true`, so they behave exactly as before.
+   */
+  const readiness = getServiceReadiness(job);
+  const isReady = isServiceReady(job);
+  // How long the user actually waited between paying and being able to call the endpoint — the
+  // number this whole feature exists to make visible, and which nothing measured before. Fired once
+  // per service (ref-guarded: the status poll re-renders every 4s), from the node's own readySince
+  // against the container's start, so a page opened late still reports the real figure.
+  const readyReportedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (readiness?.state !== 'ready' || !job || readyReportedRef.current === id) {
+      return;
+    }
+    readyReportedRef.current = id;
+    const startedMs = new Date(job.dateCreated).getTime();
+    posthog.capture('inference_service_ready', {
+      serviceId: id,
+      branch,
+      secondsToReady:
+        readiness.readySince && Number.isFinite(startedMs)
+          ? Math.max(0, Math.round((readiness.readySince - startedMs) / 1000))
+          : undefined,
+    });
+  }, [readiness?.state, readiness?.readySince, job, id, branch]);
   const status = job
-    ? getServiceStatusView(job.status, job.statusText)
+    ? getServiceStatusView(job.status, job.statusText, readiness)
     : { kind: 'pending' as const, label: jobLoading ? 'Loading…' : 'Unknown' };
   const isRunning = job?.status === ServiceStatusNumber.Running;
   // The node refuses serviceRestart once the paid window is up — rejecting both the Expired status AND
@@ -899,10 +929,15 @@ const ManageServicePage: React.FC = () => {
                     so the label has to be true for both rather than claim a custom selection. */}
                 <div className={styles.meta}>{isTemplate ? 'Template app' : 'Model service'}</div>
               </div>
-              <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
-                {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
-                {status.label}
-              </span>
+              <div className={styles.headerStatus}>
+                {/* How far along the startup is, next to what the status says it is. Renders
+                    nothing once the engine answers, or on a node that reports no readiness. */}
+                <ServiceStartupIndicator className={styles.headerProgress} job={job} />
+                <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
+                  {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
+                  {status.label}
+                </span>
+              </div>
             </div>
 
             {jobError && <div className="textAccent1">{jobError}</div>}
@@ -1086,7 +1121,9 @@ const ManageServicePage: React.FC = () => {
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <div className={styles.howToHead}>
               <h3>How to use</h3>
-              {!isTemplate && baseUrl && !isExpired ? (
+              {/* The engine's own Swagger page is served by the engine, so it 503s for exactly as
+                  long as the endpoint does — offering it while warming up is another dead link. */}
+              {!isTemplate && baseUrl && !isExpired && isReady ? (
                 <div className={styles.docsActions}>
                   <Button
                     color="accent1"
@@ -1120,30 +1157,44 @@ const ManageServicePage: React.FC = () => {
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
                     <div className={`chip chipGlass ${styles.endpointChip}`}>App URL</div>
                     <span className={styles.endpointPath}>{templateUiUrl}</span>
-                    <span className={styles.endpointDescription}>Open this app&apos;s web UI in a new tab</span>
-                    <a
-                      className={styles.endpointAction}
-                      href={templateUiUrl}
-                      onClick={() =>
-                        posthog.capture('inference_service_consumed', {
-                          serviceId: id,
-                          kind: 'open_ui',
-                          templateId: template?.id,
-                          branch,
-                        })
-                      }
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <Button
-                        color="accent1"
-                        contentAfter={<OpenInNewIcon fontSize="inherit" />}
-                        size="sm"
-                        variant="filled"
+                    <span className={styles.endpointDescription}>
+                      {isReady
+                        ? "Open this app's web UI in a new tab"
+                        : 'Not serving requests yet — the app is still starting up'}
+                    </span>
+                    {/* The URL stays visible while the app warms up (it IS this service's address,
+                        and hiding it reads as "something went wrong"), but the button is a plain
+                        disabled button rather than a link: a disabled link here still navigates,
+                        which is the dead tab this whole gate exists to prevent. */}
+                    {isReady ? (
+                      <a
+                        className={styles.endpointAction}
+                        href={templateUiUrl}
+                        onClick={() =>
+                          posthog.capture('inference_service_consumed', {
+                            serviceId: id,
+                            kind: 'open_ui',
+                            templateId: template?.id,
+                            branch,
+                          })
+                        }
+                        rel="noreferrer"
+                        target="_blank"
                       >
-                        Open UI
+                        <Button
+                          color="accent1"
+                          contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                          size="sm"
+                          variant="filled"
+                        >
+                          Open UI
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button className={styles.endpointAction} color="accent1" disabled size="sm" variant="filled">
+                        Starting…
                       </Button>
-                    </a>
+                    )}
                   </Card>
                 </div>
               ) : (
@@ -1162,7 +1213,9 @@ const ManageServicePage: React.FC = () => {
                     <div className={`chip chipGlass ${styles.endpointChip}`}>Base URL</div>
                     <span className={styles.endpointPath}>{baseUrl}</span>
                     <span className={styles.endpointDescription}>
-                      OpenAI-compatible. Append a route from the references above
+                      {isReady
+                        ? 'OpenAI-compatible. Append a route from the references above'
+                        : 'Not accepting requests yet — calls fail until the engine finishes loading'}
                     </span>
                     {/* CopyButton takes no click callback, so wrap it — analytics only, copy
                         behaviour is unchanged. */}
