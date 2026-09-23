@@ -1,5 +1,6 @@
 import { ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
+import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
@@ -86,7 +87,10 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               (timeoutSignal) =>
                 axios.get<{ envs: NodeEnvironments[] }>(getApiRoute('environments'), {
                   params: {
-                    filters: JSON.stringify({ id: { operator: 'eq', value: peerId } }),
+                    filters: JSON.stringify({
+                      id: { operator: 'eq', value: peerId },
+                      network: { operator: 'eq', value: String(CHAIN_ID) },
+                    }),
                     size: 1000,
                   },
                   // Abort on whichever fires first: the timeout, or effect cleanup.
@@ -95,17 +99,23 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               ENV_FETCH_TIMEOUT_MS,
               'Package environment lookup'
             );
-            const node = response.data.envs.find((n) => n.id === peerId);
-            if (!node) {
+            // `/envs` returns ONE row per environment, and every row of a node carries that node's
+            // peer id. So all of the node's rows have to be kept: matching the peer id with `.find()`
+            // returns row 0 alone, which offers the node's FIRST environment and hides every other —
+            // on a node whose first row is an exhausted single-GPU env, that reads as "no environment
+            // available for this package" while the picker (use-template-envs, which flatMaps) shows
+            // the same node's real one. Same rule as inference-context's `restoreEnv`.
+            const rows = response.data.envs.filter((n) => n.id === peerId);
+            if (rows.length === 0) {
               throw new Error(`Node ${peerId} is not reachable right now.`);
             }
-            return node;
+            return rows;
           })
         );
 
         const nodes = nodeResults
-          .filter((result): result is PromiseFulfilledResult<NodeEnvironments> => result.status === 'fulfilled')
-          .map((result) => result.value);
+          .filter((result): result is PromiseFulfilledResult<NodeEnvironments[]> => result.status === 'fulfilled')
+          .flatMap((result) => result.value);
 
         nodeResults.forEach((result, index) => {
           if (result.status === 'rejected') {
@@ -120,7 +130,8 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
         }
 
         // Keep only envs that can run the package: service-on-demand + a supported paid token + the
-        // package's resource floors. Flattened across nodes, each env keeping its own node.
+        // package's resource floors. Flattened across every row of every node (one env per row), each
+        // env keeping its own node.
         const candidates = nodes.flatMap((node) =>
           (node.computeEnvironments.environments ?? [])
             .filter((environment) => {

@@ -497,10 +497,12 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         <div className={styles.envResources}>
           {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
           {computeText && <div className={styles.compute}>{computeText}</div>}
+          {onSelect && durationRangeText && (
+            <div className={styles.duration}>Service duration: {durationRangeText}</div>
+          )}
         </div>
 
         <div className="actionsGroupMdEnd">
-          {onSelect && durationRangeText && <span className="textSecondary">Service duration: {durationRangeText}</span>}
           {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
             <Select
               onChange={(e) => setTokenAddress(e.target.value)}
