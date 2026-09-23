@@ -1,4 +1,4 @@
-import { GrantDetails, GrantStatus, GrantWithStatus } from '@/types/grant';
+import { getHandleComparisonKey, GrantDetails, GrantHandleService, GrantStatus, GrantWithStatus } from '@/types/grant';
 import { google } from 'googleapis';
 
 /**
@@ -8,23 +8,25 @@ import { google } from 'googleapis';
  * A: Name
  * B: Email (normalized)
  * C: Wallet address
- * D: Handle
- * E: Role
- * F: Hardware
- * G: OS
- * H: Goal
- * I: Application date
- * J: Claim date
- * K: Status
- * L: Amount
- * M: Raw amount
- * N: Nonce
- * O: Signed faucet message
- * P: Transaction hash
- * Q: OTP
- * R: OTP expiry date
- * S: OTP attempts
- * T: OTP last resent
+ * D: Handle (legacy — service unknown, only written before the Discord/Telegram split)
+ * E: Discord handle
+ * F: Telegram handle
+ * G: Role
+ * H: Hardware
+ * I: OS
+ * J: Goal
+ * K: Application date
+ * L: Claim date
+ * M: Status
+ * N: Amount
+ * O: Raw amount
+ * P: Nonce
+ * Q: Signed faucet message
+ * R: Transaction hash
+ * S: OTP
+ * T: OTP expiry date
+ * U: OTP attempts
+ * V: OTP last resent
  *
  * Row 1: This sheet is auto-generated.
  * Row 2: Headers
@@ -33,11 +35,16 @@ import { google } from 'googleapis';
 
 const SPREADSHEET_ID = process.env.GRANT_GSHEETS_SPREADSHEET_ID;
 
+const LEGACY_HANDLE_COLUMN = 3;
+const DISCORD_HANDLE_COLUMN = 4;
+const TELEGRAM_HANDLE_COLUMN = 5;
+const TX_HASH_COLUMN = 17;
+
 function getRange(row?: number) {
   if (row || row === 0) {
-    return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${row}:T${row}`;
+    return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${row}:V${row}`;
   }
-  return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A3:T`;
+  return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A3:V`;
 }
 
 async function getSheetsService() {
@@ -50,28 +57,120 @@ async function getSheetsService() {
 }
 
 function rowToGrant(row: string[]): GrantWithStatus {
+  const discordHandle = row[DISCORD_HANDLE_COLUMN];
+  const telegramHandle = row[TELEGRAM_HANDLE_COLUMN];
+  const legacyHandle = row[LEGACY_HANDLE_COLUMN];
+  // Legacy rows only have the service-agnostic column, so they resolve to an undefined service.
+  const handleService: GrantHandleService | undefined = discordHandle
+    ? 'discord'
+    : telegramHandle
+      ? 'telegram'
+      : undefined;
   return {
     name: row[0],
     email: row[1],
     walletAddress: row[2],
-    handle: row[3],
-    role: row[4],
-    hardware: row[5] ? row[5].split(', ') : [],
-    os: row[6],
-    goal: row[7],
-    applicationDate: new Date(row[8]),
-    claimDate: row[9] ? new Date(row[9]) : undefined,
-    status: row[10] as GrantStatus,
-    amount: row[11],
-    rawAmount: row[12],
-    nonce: row[13] ? Number(row[13]) : undefined,
-    signedFaucetMessage: row[14],
-    txHash: row[15],
-    otp: row[16],
-    otpExpires: row[17] ? Number(row[17]) : undefined,
-    otpAttempts: row[18] ? Number(row[18]) : 0,
-    otpLastResent: row[19] ? Number(row[19]) : undefined,
+    legacyHandle,
+    handle: discordHandle || telegramHandle || legacyHandle,
+    handleService,
+    role: row[6],
+    hardware: row[7] ? row[7].split(', ') : [],
+    os: row[8],
+    goal: row[9],
+    applicationDate: new Date(row[10]),
+    claimDate: row[11] ? new Date(row[11]) : undefined,
+    status: row[12] as GrantStatus,
+    amount: row[13],
+    rawAmount: row[14],
+    nonce: row[15] ? Number(row[15]) : undefined,
+    signedFaucetMessage: row[16],
+    txHash: row[TX_HASH_COLUMN],
+    otp: row[18],
+    otpExpires: row[19] ? Number(row[19]) : undefined,
+    otpAttempts: row[20] ? Number(row[20]) : 0,
+    otpLastResent: row[21] ? Number(row[21]) : undefined,
   };
+}
+
+function grantToRow(data: GrantWithStatus): string[] {
+  // Sheets drops `undefined` cells, which would shift the row — coerce every cell to a string.
+  const cells: Array<string | number | undefined> = [
+    // A: Name
+    data.name,
+    // B: Email (normalized)
+    data.email,
+    // C: Wallet address
+    data.walletAddress,
+    // D: Handle (legacy — preserved as-is, never populated for new submissions)
+    data.legacyHandle ?? '',
+    // E: Discord handle
+    data.handleService === 'discord' ? data.handle : '',
+    // F: Telegram handle
+    data.handleService === 'telegram' ? data.handle : '',
+    // G: Role
+    data.role,
+    // H: Hardware
+    data.hardware.join(', '),
+    // I: OS
+    data.os,
+    // J: Goal
+    data.goal,
+    // K: Application date
+    data.applicationDate.toISOString(),
+    // L: Claim date
+    data.claimDate ? data.claimDate.toISOString() : '',
+    // M: Status
+    data.status,
+    // N: Amount
+    data.amount,
+    // O: Raw amount
+    data.rawAmount,
+    // P: Nonce
+    data.nonce,
+    // Q: Signed faucet message
+    data.signedFaucetMessage,
+    // R: Transaction hash
+    data.txHash,
+    // S: OTP
+    data.otp,
+    // T: OTP expiry date
+    data.otpExpires,
+    // U: OTP attempts
+    data.otpAttempts ?? 0,
+    // V: OTP last resent
+    data.otpLastResent ?? '',
+  ];
+  return cells.map((cell) => (cell === undefined || cell === null ? '' : String(cell)));
+}
+
+async function getAllRows(): Promise<string[][]> {
+  const service = await getSheetsService();
+  const response = await service.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: getRange(),
+  });
+  return response.data.values ?? [];
+}
+
+/**
+ * A row matches a handle when the column for that service matches, or when the legacy
+ * (service-unknown) column does. Legacy rows predate the split, so a match there is treated
+ * as the same person regardless of the service now selected.
+ * Comparison goes through getHandleComparisonKey, so stored rows that kept an "@" or surrounding
+ * whitespace still match a bare handle.
+ */
+function rowMatchesHandle(row: string[], handle: string, handleService: GrantHandleService): boolean {
+  const key = getHandleComparisonKey(handle);
+  if (!key) {
+    return false;
+  }
+  return [row[serviceHandleColumn(handleService)], row[LEGACY_HANDLE_COLUMN]].some(
+    (value) => !!value && getHandleComparisonKey(value) === key
+  );
+}
+
+function serviceHandleColumn(handleService: GrantHandleService): number {
+  return handleService === 'discord' ? DISCORD_HANDLE_COLUMN : TELEGRAM_HANDLE_COLUMN;
 }
 
 export async function findGrantInSheet({
@@ -84,13 +183,8 @@ export async function findGrantInSheet({
   if (!email && !walletAddress) {
     throw new Error('Missing required fields');
   }
-  const service = await getSheetsService();
-  const response = await service.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: getRange(),
-  });
-  const rows = response.data.values;
-  if (!rows || rows.length === 0) return null;
+  const rows = await getAllRows();
+  if (rows.length === 0) return null;
   const rowIndex = rows.findIndex(
     (row) =>
       (email && row[1]?.toLowerCase() === email.toLowerCase()) ||
@@ -100,15 +194,24 @@ export async function findGrantInSheet({
   return rowToGrant(rows[rowIndex]);
 }
 
+export async function findGrantByHandle({
+  handle,
+  handleService,
+}: {
+  handle: string;
+  handleService: GrantHandleService;
+}): Promise<GrantWithStatus | null> {
+  const rows = await getAllRows();
+  if (rows.length === 0) return null;
+  const matches = rows.filter((row) => rowMatchesHandle(row, handle, handleService)).map(rowToGrant);
+  if (matches.length === 0) return null;
+  return matches.find((match) => match.status !== GrantStatus.PENDING) ?? matches[0];
+}
+
 export async function findGrantByTxHash(txHash: string): Promise<GrantWithStatus | null> {
-  const service = await getSheetsService();
-  const response = await service.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: getRange(),
-  });
-  const rows = response.data.values;
-  if (!rows || rows.length === 0) return null;
-  const rowIndex = rows.findIndex((row) => row[15]?.toLowerCase() === txHash.toLowerCase());
+  const rows = await getAllRows();
+  if (rows.length === 0) return null;
+  const rowIndex = rows.findIndex((row) => row[TX_HASH_COLUMN]?.toLowerCase() === txHash.toLowerCase());
   if (rowIndex === -1) return null;
   return rowToGrant(rows[rowIndex]);
 }
@@ -118,63 +221,28 @@ export async function insertGrantInSheet(
 ) {
   const service = await getSheetsService();
   // Late dedupe check — tightens (but does not eliminate) the race window between two
-  // parallel first-time submits for the same wallet/email. Sheets has no atomic upsert,
+  // parallel first-time submits for the same wallet/email/handle. Sheets has no atomic upsert,
   // so this is a best-effort safeguard against duplicate rows.
-  const existing = await service.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: getRange(),
-  });
-  const existingRows = existing.data.values ?? [];
+  const existingRows = await getAllRows();
   const dup = existingRows.some(
     (row) =>
-      row[1]?.toLowerCase() === data.email.toLowerCase() || row[2]?.toLowerCase() === data.walletAddress.toLowerCase()
+      row[1]?.toLowerCase() === data.email.toLowerCase() ||
+      row[2]?.toLowerCase() === data.walletAddress.toLowerCase() ||
+      rowMatchesHandle(row, data.handle, data.handleService)
   );
   if (dup) {
-    throw new Error('Grant row already exists for this wallet or email');
+    throw new Error('Grant row already exists for this wallet, email or handle');
   }
   const values = [
-    [
-      // A: Name
-      data.name,
-      // B: Email (normalized)
-      data.email,
-      // C: Wallet address
-      data.walletAddress,
-      // D: Handle
-      data.handle,
-      // E: Role
-      data.role,
-      // F: Hardware
-      data.hardware.join(', '),
-      // G: OS
-      data.os,
-      // H: Goal
-      data.goal,
-      // I: Application date
-      new Date().toISOString(),
-      // J: Claim date
-      '',
-      // K: Status
-      GrantStatus.PENDING,
-      // L: Amount
-      '',
-      // M: Raw amount
-      '',
-      // N: Nonce
-      '',
-      // O: Signed faucet message
-      '',
-      // P: Transaction hash
-      '',
-      // Q: OTP
-      data.otp,
-      // R: OTP expiry date
-      data.otpExpires,
-      // S: OTP attempts
-      data.otpAttempts ?? 0,
-      // T: OTP last resent
-      data.otpLastResent ?? '',
-    ],
+    grantToRow({
+      ...data,
+      applicationDate: new Date(),
+      status: GrantStatus.PENDING,
+      amount: '',
+      rawAmount: '',
+      signedFaucetMessage: '',
+      txHash: '',
+    }),
   ];
   await service.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -186,60 +254,13 @@ export async function insertGrantInSheet(
 
 export async function updateGrantInSheet(data: GrantWithStatus): Promise<boolean> {
   const service = await getSheetsService();
-  const response = await service.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: getRange(),
-  });
-  const rows = response.data.values;
-  if (!rows) return false;
+  const rows = await getAllRows();
+  if (rows.length === 0) return false;
   const rowIndex = rows.findIndex((row) => row[2]?.toLowerCase() === data.walletAddress.toLowerCase());
   if (rowIndex === -1) return false;
   const rowNumber = rowIndex + 3; // +3 because of header rows and 1-based indexing
   const updateRange = getRange(rowNumber);
-  const values = [
-    [
-      // A: Name
-      data.name,
-      // B: Email (normalized)
-      data.email,
-      // C: Wallet address
-      data.walletAddress,
-      // D: Handle
-      data.handle,
-      // E: Role
-      data.role,
-      // F: Hardware
-      data.hardware.join(', '),
-      // G: OS
-      data.os,
-      // H: Goal
-      data.goal,
-      // I: Application date
-      data.applicationDate.toISOString(),
-      // J: Claim date
-      data.claimDate ? data.claimDate.toISOString() : '',
-      // K: Status
-      data.status,
-      // L: Amount
-      data.amount,
-      // M: Raw amount
-      data.rawAmount,
-      // N: Nonce
-      data.nonce,
-      // O: Signed faucet message
-      data.signedFaucetMessage,
-      // P: Transaction hash
-      data.txHash,
-      // Q: OTP
-      data.otp,
-      // R: OTP expiry date
-      data.otpExpires,
-      // S: OTP attempts
-      data.otpAttempts ?? 0,
-      // T: OTP last resent
-      data.otpLastResent ?? '',
-    ],
-  ];
+  const values = [grantToRow({ ...data, legacyHandle: data.legacyHandle ?? rows[rowIndex][LEGACY_HANDLE_COLUMN] })];
   await service.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: updateRange,

@@ -171,6 +171,17 @@ export const formatDuration = (totalSeconds: number | null | undefined, short?: 
   return `${sec} ${sUnit} (${formatHMS(sec)})`;
 };
 
+export const formatDurationCompact = (totalSeconds: number | null | undefined): string => {
+  const sec = Math.max(0, Math.round(totalSeconds ?? 0));
+  if (sec < 60) {
+    return `${sec}s`;
+  }
+  const totalMinutes = Math.round(sec / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours ? (minutes ? `${hours}h ${minutes}m` : `${hours}h`) : `${minutes}m`;
+};
+
 /**
  * An AGGREGATE reserved duration, rendered in hours.
  *
@@ -222,6 +233,15 @@ export const formatDateTime = (timestamp: number): string => {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ');
+
+export const formatDateTimeShort = (timestamp: number): string => {
+  if (!timestamp) return '-';
+  const date = new Date(timestamp * 1000);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${pad(date.getDate())} ${MONTHS[date.getMonth()]} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
 /**

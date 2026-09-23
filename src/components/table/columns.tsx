@@ -1,3 +1,4 @@
+import CopyButton from '@/components/button/copy-button';
 import InfoButton from '@/components/button/info-button';
 import JobInfoButton from '@/components/button/job-info-button';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
@@ -16,7 +17,9 @@ import {
   formatAccessLists,
   formatBytes,
   formatDateTime,
+  formatDateTimeShort,
   formatDuration,
+  formatDurationCompact,
   formatNumber,
   formatTokenAmount,
   formatWalletAddress,
@@ -880,11 +883,29 @@ const ServicePaidCell = ({ row }: { row: ServiceJobListed }) => {
     return <span>-</span>;
   }
 
+  const total = servicePaidTotal(row);
+
   return (
-    <span title={token}>
-      {formatTokenAmount(servicePaidTotal(row), token)} {symbol ?? ''}
+    <span title={`${total} ${symbol ?? ''} (${token})`}>
+      {formatTokenAmount(total, token, 2)} {symbol ?? ''}
     </span>
   );
+};
+
+const RESOURCE_LABELS = { gpu: 'GPU', cpu: 'CPU', ram: 'GB RAM', disk: 'GB disk' } as const;
+const RESOURCE_KINDS = Object.keys(RESOURCE_LABELS) as (keyof typeof RESOURCE_LABELS)[];
+
+const formatServiceResources = (resources: { id?: string; amount?: number }[] = []): string => {
+  const totals: Record<keyof typeof RESOURCE_LABELS, number> = { gpu: 0, cpu: 0, ram: 0, disk: 0 };
+  for (const { id = '', amount } of resources) {
+    const kind = RESOURCE_KINDS.find((k) => id.toLowerCase().includes(k));
+    if (kind) {
+      totals[kind] += Number(amount) || 0;
+    }
+  }
+  return RESOURCE_KINDS.filter((kind) => totals[kind])
+    .map((kind) => `${Number(totals[kind].toFixed(2))} ${RESOURCE_LABELS[kind]}`)
+    .join(' \u00b7 ');
 };
 
 // Services running on a node, listed node-wide across all owners (ProviderInstance.getServices).
@@ -893,74 +914,105 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
   {
     field: 'image',
     filterable: true,
-    flex: 1,
+    flex: 1.5,
     headerName: 'Image',
+    minWidth: 210,
     sortable: true,
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'startsWith' || operator.value === 'equals'
     ),
     valueGetter: (_value, row) => (row.tag ? `${row.image}:${row.tag}` : row.image),
-    renderCell: ({ value }) => <span title={value}>{value || '-'}</span>,
+    renderCell: ({ row, value }) => (
+      <span className="flexRow alignItemsCenter gapXs">
+        <ServiceStatusChip compact status={row.status} statusText={row.statusText} />
+        <span title={value}>{value || '-'}</span>
+      </span>
+    ),
   },
   {
     field: 'owner',
     filterable: true,
     flex: 1,
     headerName: 'Owner',
+    minWidth: 165,
     sortable: false,
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'equals'
     ),
-    renderCell: ({ value }) => (value ? <span title={value}>{formatWalletAddress(value)}</span> : '-'),
+    renderCell: ({ value }) =>
+      value ? (
+        <span className="flexRow alignItemsCenter gapXs" title={value}>
+          {formatWalletAddress(value)}
+          <CopyButton
+            aria-label={`Copy owner address ${value}`}
+            color="accent1"
+            contentToCopy={value}
+            label=""
+            labelCopied=""
+            size="xs"
+            variant="transparent"
+          />
+        </span>
+      ) : (
+        <span className="textSecondary">-</span>
+      ),
+  },
+  {
+    field: 'resources',
+    filterable: false,
+    flex: 1.3,
+    headerName: 'Resources',
+    minWidth: 205,
+    sortable: false,
+    valueGetter: (_value, row) => formatServiceResources(row.resources),
+    renderCell: ({ value }) => (value ? <span title={value}>{value}</span> : <span className="textSecondary">-</span>),
+  },
+  {
+    field: 'dateCreated',
+    filterable: false,
+    flex: 1,
+    headerName: 'Started',
+    minWidth: 120,
+    sortable: true,
+    valueGetter: (_value, row) => (row.dateCreated ? Math.floor(new Date(row.dateCreated).getTime() / 1000) : 0),
+    renderCell: ({ value }) => (value ? <span title={formatDateTime(value)}>{formatDateTimeShort(value)}</span> : '-'),
+  },
+  {
+    field: 'duration',
+    filterable: false,
+    flex: 0.7,
+    headerName: 'Duration',
+    minWidth: 100,
+    sortable: true,
+    renderCell: ({ row, value }) =>
+      value ? (
+        <span title={row.expiresAt ? `Ends ${formatDateTime(row.expiresAt / 1000)}` : undefined}>
+          {formatDurationCompact(value)}
+        </span>
+      ) : (
+        '-'
+      ),
   },
   {
     field: 'environment',
     filterable: false,
     flex: 1,
     headerName: 'Environment',
+    minWidth: 130,
     sortable: false,
-    renderCell: ({ value }) => renderEnvironment(value),
-  },
-  {
-    field: 'statusText',
-    filterable: false,
-    flex: 1,
-    headerName: 'Status',
-    sortable: false,
-    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
-  },
-  {
-    field: 'dateCreated',
-    filterable: false,
-    flex: 1,
-    headerName: 'Start time',
-    sortable: true,
-    renderCell: ({ value }) => {
-      if (!value) return '-';
-      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
-    },
-  },
-  {
-    field: 'duration',
-    filterable: false,
-    flex: 1,
-    headerName: 'Duration',
-    sortable: true,
-    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
-  },
-  {
-    field: 'expiresAt',
-    filterable: false,
-    flex: 1,
-    headerName: 'End time',
-    sortable: true,
-    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+    renderCell: ({ value }) =>
+      value ? (
+        <span title={value}>{formatWalletAddress(value.split('-').slice(1).join('-') || value)}</span>
+      ) : (
+        <span className="textSecondary">-</span>
+      ),
   },
   {
     field: 'paid',
     filterable: false,
     flex: 1,
     headerName: 'Paid',
+    minWidth: 140,
     sortable: true,
     valueGetter: (_value, row) => servicePaidTotal(row),
     renderCell: ({ row }) => <ServicePaidCell row={row} />,
