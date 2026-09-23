@@ -56,18 +56,10 @@ export const readSwapContractState = async (provider: ethers.Provider): Promise<
         return COMPY_PER_USDC;
       }),
     grantsSwap
-      .getCompyToken()
-      .then(async (compyToken) => {
-        const units: bigint = await grantsSwap.contract.getCOMPYBalance();
-        const decimals: bigint = await new ethers.Contract(
-          compyToken,
-          ['function decimals() view returns (uint8)'],
-          provider
-        ).decimals();
-        return Number(ethers.formatUnits(units, Number(decimals)));
-      })
+      .getCompyBalance()
+      .then((value) => Number(value))
       .catch(() => undefined),
-    grantsSwap.contract.paused().catch(() => false) as Promise<boolean>,
+    grantsSwap.paused().catch(() => false),
   ]);
 
   return { rate, compyLiquidity, paused };
