@@ -9,6 +9,49 @@
     gap: 24px;
   }
 
+  .handleAdornment {
+    align-items: center;
+    display: flex;
+
+    .handleServiceSelect {
+      background: transparent;
+      border: none;
+      border-radius: 16px;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-family: var(--font-inter), sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      /* Pulled left by its own padding so the label still lines up with the field's text origin,
+         while the hover fill has room to breathe around it. */
+      margin-left: -8px;
+      margin-right: 12px;
+      padding: 4px;
+      transition: background 0.2s ease;
+
+      &:hover {
+        background: var(--background-glass-secondary);
+      }
+
+      /* Pointer focus stays chromeless; keyboard focus needs a visible ring. */
+      &:focus {
+        outline: none;
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--accent1);
+        outline-offset: 2px;
+      }
+    }
+
+    .handlePrefix {
+      color: var(--text-secondary);
+      font-size: 16px;
+      line-height: 18px;
+      padding-right: 2px;
+    }
+  }
+
   .walletAddress {
     display: flex;
     flex-direction: column;

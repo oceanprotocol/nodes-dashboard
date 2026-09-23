@@ -133,6 +133,16 @@
         color: var(--text-secondary);
         font-size: 14px;
       }
+
+      /* Env metadata, not an action — so it lives here rather than in the actions group. As a third
+         child of that group it was subject to its `flex-wrap`: a card whose env supports several fee
+         tokens renders the token select too, the row overflows, and the duration drops onto its own
+         full-width line — while a single-token card keeps it inline next to the price button. Two
+         envs on one node then read as two different layouts. */
+      .duration {
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
     }
   }
 }

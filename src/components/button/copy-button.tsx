@@ -3,13 +3,14 @@ import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useState } from 'react';
 
-type CopyButtonProps = Pick<ButtonProps, 'className' | 'color' | 'size' | 'variant'> & {
+type CopyButtonProps = Pick<ButtonProps, 'aria-label' | 'className' | 'color' | 'size' | 'variant'> & {
   contentToCopy: string;
   label?: string;
   labelCopied?: string;
 };
 
 const CopyButton: React.FC<CopyButtonProps> = ({
+  'aria-label': ariaLabel,
   className,
   color = 'accent2',
   contentToCopy,
@@ -30,6 +31,7 @@ const CopyButton: React.FC<CopyButtonProps> = ({
 
   return (
     <Button
+      aria-label={ariaLabel}
       className={className}
       color={color}
       contentBefore={copied ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
