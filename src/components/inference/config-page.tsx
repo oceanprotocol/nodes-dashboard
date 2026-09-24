@@ -11,6 +11,8 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { firstQueryValue } from '@/services/inference-url';
+import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
@@ -81,11 +83,19 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     }
     return `Relaunching re-downloads all ${included}, inside the session you have already paid for.`;
   }, [selectedTemplate]);
+  // Edit: the node doesn't echo a service's env, so the non-secret values this browser launched it
+  // with (see template-env-memory) prefill the fields; anything already typed this session wins.
+  const editServiceId = isEditMode ? firstQueryValue(router.query.serviceId) : undefined;
   useEffect(() => {
-    if (isTemplateFlow) {
-      setEnvInputs(templateEnvValues);
+    if (!isTemplateFlow) {
+      return;
     }
-  }, [isTemplateFlow, templateEnvValues]);
+    const recalled =
+      editServiceId && selectedTemplate
+        ? recallTemplateEnv({ serviceId: editServiceId, template: selectedTemplate })
+        : {};
+    setEnvInputs({ ...recalled, ...templateEnvValues });
+  }, [isTemplateFlow, templateEnvValues, editServiceId, selectedTemplate]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
   // without a complete selection: no models → picker, models but no env → resources. Skipped when
@@ -398,7 +408,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
               ) : null}
               {isEditMode && (
                 <div className="textSecondary">
-                  Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens you need.
+                  Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens and passwords
+                  you need.
                 </div>
               )}
               {/* A relaunch recreates the container from the image, and service containers get no

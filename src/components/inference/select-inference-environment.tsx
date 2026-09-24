@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import DeclaredResources from '@/components/inference/declared-resources';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
@@ -15,7 +16,7 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
-import { isBenchmarkEnv } from '@/utils/env-resources';
+import { DeclaredRequirement, isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
@@ -138,19 +139,25 @@ type SelectInferenceEnvironmentProps = {
   ) => void;
   /** Which flow is using the picker — tags the analytics events with the right branch. */
   flowType: InferenceFlowType;
+  /**
+   * The minimum/recommended resources of the template or package being launched, shown above the
+   * list. Left out of a custom-model flow started from the model picker, which has none.
+   */
+  declaredResources?: {
+    required: DeclaredRequirement[] | null | undefined;
+    recommended?: DeclaredRequirement[] | null;
+  };
 };
 
-const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({ onEnvSelected, flowType }) => {
+const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
+  onEnvSelected,
+  flowType,
+  declaredResources,
+}) => {
   const { loading, loadMoreEnvs, nodeEnvs, paginationResponse, filters, setFilters, setSort, sort } =
     useRunJobEnvsContext();
-  const {
-    jobDurationSeconds,
-    setJobDurationSeconds,
-    setSelectedEnv,
-    selectedEnv,
-    setSelectedToken,
-    selectedTemplate,
-  } = useInferenceContext();
+  const { jobDurationSeconds, setJobDurationSeconds, setSelectedEnv, selectedEnv, setSelectedToken, selectedTemplate } =
+    useInferenceContext();
 
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
   // min/max job-duration window. Cleared on the next valid pick or duration change.
@@ -339,6 +346,10 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         <h3>Environments</h3>
+
+        {declaredResources && (
+          <DeclaredResources recommended={declaredResources.recommended} required={declaredResources.required} />
+        )}
 
         <form onSubmit={formik.handleSubmit}>
           <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">

@@ -1,0 +1,309 @@
+/* `--accent` is a template's category colour, set inline by the modal; packages have none and take
+   the brand accent. Everything tinted in the banner derives from this one value. */
+.banner {
+  --qs-accent: var(--accent, var(--accent1));
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--qs-accent) 32%, var(--border-glass));
+  background:
+    radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--qs-accent) 15%, transparent) 0%, transparent 62%),
+    var(--background-glass);
+  box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
+  /* The banner sits in modals of different widths, so its layout follows its own width, not the
+     viewport's. */
+  container: quickStart / inline-size;
+
+  @media (min-width: 576px) {
+    padding: 18px 20px 14px;
+  }
+}
+
+.body {
+  display: grid;
+  gap: 16px;
+
+  /* Side by side only once the readout keeps enough room for the specs on one line. */
+  @container quickStart (min-width: 720px) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 28px;
+  }
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--qs-accent);
+}
+
+/* The pick */
+
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  animation: pickIn 280ms ease-out both;
+}
+
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+
+  .gpuCount {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gpuName {
+    min-width: 0;
+  }
+}
+
+/* Each spec stays whole: a narrow banner wraps between specs, never inside one. */
+.specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+
+  .spec {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .specIcon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+    color: var(--qs-accent);
+  }
+
+  .specValue {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .specUnit {
+    color: var(--text-secondary);
+  }
+}
+
+/* One line: a long node name ellipsizes rather than pushing the verified mark onto a line of its own. */
+.node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+
+  .nodeName {
+    display: flex;
+    min-width: 0;
+  }
+
+  .nodeLink {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .verified {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    font-size: 15px;
+    color: var(--success-darker);
+  }
+}
+
+.note {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--warning-darker);
+  text-wrap: pretty;
+}
+
+/* Loading / problem states */
+
+.searching {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.problem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.problemIcon {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  margin-top: 1px;
+  color: var(--text-secondary);
+}
+
+.problemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.problemTitle {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.problemText {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.problemReason {
+  margin-right: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* Controls */
+
+/* Whether Start fits beside the duration depends on the price's length, so the row wraps on its own
+   instead of at a fixed width. On a narrow banner both grow, so wrapped they each span it; once there's
+   room they keep their own sizes, duration at one end and Start at the other, and beside the readout
+   they pack together. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+
+  .duration {
+    flex: 1 1 140px;
+  }
+
+  .startWrap {
+    flex: 1 1 auto;
+  }
+
+  @container quickStart (min-width: 480px) {
+    .duration {
+      flex: 0 0 150px;
+    }
+
+    .startWrap {
+      flex: 0 1 auto;
+    }
+  }
+
+  @container quickStart (min-width: 720px) {
+    flex-wrap: nowrap;
+
+    .duration {
+      flex-basis: 140px;
+    }
+  }
+}
+
+.startWrap {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* The price rides on the button as its own segment, so "what it costs" and "do it" read as one act. */
+.startPrice {
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px solid color-mix(in srgb, var(--accent1-contrast) 40%, transparent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* On the narrowest phones the priced button is wider than the banner: the price drops under "Start". */
+@container quickStart (max-width: 260px) {
+  .start {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .startPrice {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+  }
+}
+
+/* Small print */
+
+.smallPrint {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-glass);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+@keyframes pickIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pick {
+    animation: none;
+  }
+}

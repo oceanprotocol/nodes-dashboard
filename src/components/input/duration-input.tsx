@@ -29,6 +29,27 @@ type DurationInputProps = {
   value: number; // seconds
 };
 
+/** `seconds` in `unit`, trimmed to 4 decimals for the field (5 s is 0.0014 hrs). Display only. */
+const displayIn = (seconds: number, unit: DurationUnit) => Number(fromSeconds(seconds, unit).toFixed(4));
+
+/** Whether `unit` reads `seconds` cleanly: a whole number or a short decimal (1.5 hrs, not 0.1667). */
+const readsCleanly = (seconds: number, unit: DurationUnit) => {
+  const hundredths = fromSeconds(seconds, unit) * 100;
+  return Math.abs(hundredths - Math.round(hundredths)) < 1e-6;
+};
+
+/**
+ * The unit to show a value set from outside in: `preferred` when it reads cleanly there, else the
+ * largest available unit that does (600 s reads as 10 min, not 0.1667 hrs).
+ */
+function unitShowing(seconds: number, preferred: DurationUnit, units: DurationUnitOption[]): DurationUnit {
+  if (readsCleanly(seconds, preferred)) {
+    return preferred;
+  }
+  const clean = [...units].reverse().find((opt) => readsCleanly(seconds, opt.value));
+  return clean?.value ?? preferred;
+}
+
 const DurationInput: React.FC<DurationInputProps> = ({
   availableUnits,
   className,
@@ -48,16 +69,20 @@ const DurationInput: React.FC<DurationInputProps> = ({
   topRight,
   value,
 }) => {
-  const [unit, setUnit] = useState<DurationUnit>(defaultUnit);
-  const [displayValue, setDisplayValue] = useState<number | ''>(fromSeconds(value, defaultUnit));
+  const [unit, setUnit] = useState<DurationUnit>(() => unitShowing(value, defaultUnit, availableUnits));
+  const [displayValue, setDisplayValue] = useState<number | ''>(() =>
+    displayIn(value, unitShowing(value, defaultUnit, availableUnits))
+  );
   const sentSecondsRef = useRef<number>(value);
 
   useEffect(() => {
     if (value !== sentSecondsRef.current) {
       sentSecondsRef.current = value;
-      setDisplayValue(fromSeconds(value, unit));
+      const nextUnit = unitShowing(value, unit, availableUnits);
+      setUnit(nextUnit);
+      setDisplayValue(displayIn(value, nextUnit));
     }
-  }, [value, unit]);
+  }, [value, unit, availableUnits]);
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.target.value === '') {
@@ -73,10 +98,11 @@ const DurationInput: React.FC<DurationInputProps> = ({
     onChange(seconds);
   };
 
+  // Switching the unit only changes how the duration reads, never the duration itself: convert the
+  // seconds last sent, not the (4-decimal) number on screen.
   const handleUnitChange = (newUnit: DurationUnit) => {
-    const currentSeconds = toSeconds(Number(displayValue) || 0, unit);
     setUnit(newUnit);
-    setDisplayValue(fromSeconds(currentSeconds, newUnit));
+    setDisplayValue(displayValue === '' ? '' : displayIn(sentSecondsRef.current, newUnit));
   };
 
   return (

@@ -42,3 +42,23 @@ export async function checkEnvAccess(
 
   return false;
 }
+
+/**
+ * Whether an environment restricts who may use it (an address allowlist or an access-list contract on
+ * this chain), readable without a wallet. `accessLists` arrives both as an array of per-chain maps and
+ * as a single per-chain map, so both shapes count.
+ */
+export function hasAccessRestriction(access: EnvironmentAccess | undefined): boolean {
+  if (!access) {
+    return false;
+  }
+  if (Array.isArray(access.addresses) && access.addresses.length > 0) {
+    return true;
+  }
+  const lists: unknown = access.accessLists;
+  const maps = Array.isArray(lists) ? lists : lists && typeof lists === 'object' ? [lists] : [];
+  return maps.some((map) => {
+    const contracts = (map as Record<string, string[] | undefined>)[String(CHAIN_ID)];
+    return Array.isArray(contracts) && contracts.length > 0;
+  });
+}

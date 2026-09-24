@@ -10,6 +10,7 @@ import SelectInferenceEnvironment, {
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { decodeDeclaredResources } from '@/services/inference-url';
 import { templateFloorSizing, templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { isBundle } from '@/types/templates';
@@ -37,6 +38,22 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
   } = useInferenceContext();
   // Computed once — reused by the stepper and the next-step routing below.
   const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
+
+  // What the template or package declares it needs, shown above the env list. A custom-model flow only
+  // has this when a package handed off to it (`reqs`); one started from the model picker never does.
+  const reqsParam = router.query.reqs;
+  const declaredResources = useMemo(() => {
+    if (isTemplateFlow) {
+      return selectedTemplate
+        ? { required: selectedTemplate.requiredResources, recommended: selectedTemplate.recommendedResources }
+        : undefined;
+    }
+    if (isCustomModelFlow) {
+      const required = decodeDeclaredResources(reqsParam);
+      return required ? { required } : undefined;
+    }
+    return undefined;
+  }, [isTemplateFlow, isCustomModelFlow, selectedTemplate, reqsParam]);
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
   // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
@@ -173,7 +190,11 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
             ) : (
               hasSelectionForFlow && (
                 <>
-                  <SelectInferenceEnvironment flowType={flowType} onEnvSelected={goToNextStep} />
+                  <SelectInferenceEnvironment
+                    declaredResources={declaredResources}
+                    flowType={flowType}
+                    onEnvSelected={goToNextStep}
+                  />
                   <InferenceNavigation
                     nextLabel="Skip"
                     onNext={selectedEnv ? () => goToNextStep() : undefined}

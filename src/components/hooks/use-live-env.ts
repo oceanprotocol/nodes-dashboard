@@ -73,7 +73,7 @@ export type LiveEnvRead = {
  * Hence: exact first, then the single-environment case, then give up. Returning a guess here would
  * price and launch against another environment's free units.
  */
-function findEnvById(envs: ComputeEnvironment[], id: string): ComputeEnvironment | null {
+export function findEnvById(envs: ComputeEnvironment[], id: string): ComputeEnvironment | null {
   const exact = envs.find((env) => env.id === id);
   if (exact) {
     return exact;
@@ -82,6 +82,29 @@ function findEnvById(envs: ComputeEnvironment[], id: string): ComputeEnvironment
   // its fees did to the id. With more than one there is nothing left in the id to tell them apart.
   const sameNode = envs.filter((env) => env.id.split('-')[0] === id.split('-')[0]);
   return sameNode.length === 1 ? sameNode[0] : null;
+}
+
+/**
+ * One read of an environment from its own node, with none of the hook's caching, coalescing or
+ * staleness guards, for a caller that has to check several environments in a row (quick start walks
+ * its candidates until one is confirmed free). `reached: false` is a node that never answered;
+ * `reached: true` with `env: null` is a node that answered without this environment in its list.
+ */
+export async function fetchNodeEnvironment({
+  getEnvs,
+  nodeInfo,
+  envId,
+}: {
+  getEnvs: ReturnType<typeof useP2P>['getEnvs'];
+  nodeInfo: Pick<EnvNodeInfo, 'id' | 'multiaddrs'>;
+  envId: string;
+}): Promise<{ env: ComputeEnvironment | null; reached: boolean }> {
+  try {
+    const envs = (await getEnvs(toNodeUri(nodeInfo))) as ComputeEnvironment[];
+    return { env: findEnvById(envs ?? [], envId), reached: true };
+  } catch {
+    return { env: null, reached: false };
+  }
 }
 
 export default function useLiveEnv(
@@ -175,22 +198,19 @@ export default function useLiveEnv(
       // first (pick another environment) and only retry the second.
       const seq = ++dialSeqRef.current;
       const request = (async (): Promise<{ env: ComputeEnvironment | null; reached: boolean }> => {
-        try {
-          const envs = (await getEnvs(toNodeUri(nodeInfo))) as ComputeEnvironment[];
-          const fresh = findEnvById(envs ?? [], environment.id);
-          if (fresh && activeKeyRef.current === callKey && seq > publishedSeqRef.current) {
-            publishedSeqRef.current = seq;
-            latestRef.current = fresh;
-            fetchedAtRef.current = Date.now();
-            setLiveEnv(fresh);
-          }
-          return { env: fresh, reached: true };
-        } catch {
-          // Node unreachable — keep the snapshot rather than stranding the user on a dial failure.
-          // Reported as `live: false` by the caller below, so a commit point can tell this apart from
-          // a real answer instead of validating the stale snapshot against itself.
-          return { env: null, reached: false };
+        // An unreachable node resolves to `reached: false` rather than throwing: keep the snapshot
+        // rather than stranding the user on a dial failure. Reported as `live: false` by the caller
+        // below, so a commit point can tell this apart from a real answer instead of validating the
+        // stale snapshot against itself.
+        const read = await fetchNodeEnvironment({ getEnvs, nodeInfo, envId: environment.id });
+        const fresh = read.env;
+        if (fresh && activeKeyRef.current === callKey && seq > publishedSeqRef.current) {
+          publishedSeqRef.current = seq;
+          latestRef.current = fresh;
+          fetchedAtRef.current = Date.now();
+          setLiveEnv(fresh);
         }
+        return read;
       })();
       // Publish first, THEN attach the cleanup. Clearing from inside the body's own `finally` would
       // run before this assignment for anything that threw synchronously ahead of the first `await`
