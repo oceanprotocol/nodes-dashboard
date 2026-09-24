@@ -41,7 +41,7 @@ export const SERVICES_CATALOGUE: CatalogueConfig = {
   select: selectServices,
   pathname: '/inference/services',
   heading: 'Pick a service',
-  lead: 'Ready-made containerized apps. Pick one, review what’s inside, choose an environment, pay and launch. Models are yours to add from the app once it’s running.',
+  lead: 'Ready-made containerized apps. Pick one, review what’s inside, set a session length, pay and launch. Models are yours to add from the app once it’s running.',
   noun: 'service',
   nounPlural: 'services',
   searchPlaceholder: 'Search services',

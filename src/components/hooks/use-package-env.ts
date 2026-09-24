@@ -6,48 +6,41 @@ import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
+import { recommendedSizing } from '@/services/quick-start';
 import { NodeEnvironments } from '@/types/environments';
 import { InferencePackage } from '@/types/inference';
 import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Cap the environments lookup so a hung indexer can't keep the package modal on "loading" forever.
 const ENV_FETCH_TIMEOUT_MS = 30000;
 
-/** One environment of the package's source node, resolved and ready to book (recommended sizing +
- *  auto GPU selection + seeded fee token). The modal renders one card + Continue per entry. */
+/** One environment of the package's source node, resolved and ready to book (recommended sizing + auto GPU
+ *  selection + seeded fee token). The modal's quick start picks one of these entries to launch on. */
 export type ResolvedPackageEnv = {
   env: SelectedInferenceEnv;
   /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
   token: SelectedToken | null;
 };
 
-// Quick start pins each package's recommended CPU/RAM/disk (fixed, not GPU-fraction-derived), floored
-// at the package's per-resource min so the effective lower bound is max(envMin, packageMin) — a
-// constraint ceiling can't trim the booked amount below what the model needs. GPU is handled separately
-// by gpuSelection. Missing/omitted resources fall back to 0 → the allocation hook then floors them at
-// the env's own min.
-function recommendedSizing(pkg: InferencePackage): ResourceSizing {
-  const req = (id: string) => pkg.requiredResources.find((r) => r.id === id);
-  const recommended = (id: string) => req(id)?.recommended ?? 0;
-  const min = (id: string) => req(id)?.min ?? 0;
-  return {
-    mode: 'pinned',
-    cpu: recommended('cpu'),
-    ram: recommended('ram'),
-    disk: recommended('disk'),
-    floor: { cpu: min('cpu'), ram: min('ram'), disk: min('disk') },
-  };
+/**
+ * The package's per-resource MIN (cpu/ram/disk) as a floor under the GPU-fraction slice, the same
+ * `floor` sizing templates use (templateFloorSizing). Used by the advanced handoff, where it floors the
+ * custom flow's slice. The quick start books the package's recommended amounts instead (recommendedSizing).
+ */
+export function packageFloorSizing(pkg: InferencePackage): ResourceSizing {
+  const min = (id: string) => pkg.requiredResources.find((r) => r.id === id)?.min ?? 0;
+  return { mode: 'floor', cpu: min('cpu'), ram: min('ram'), disk: min('disk') };
 }
 
 /**
  * Resolve the environments a package can run on. The package carries only its source nodes' peer ids;
  * this fetches those nodes' environments, keeps the ones that (a) advertise service-on-demand, (b)
  * accept a supported paid token (USDC/COMPY), and (c) can currently satisfy the package's resource
- * floors, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU
- * selection + seeded token). The modal renders one card + Continue per entry, across all nodes.
+ * floors, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
+ * seeded token), across all nodes. The modal's quick start ranks them and launches on the best fit.
  * Only when EVERY listed node is unreachable does this surface an error.
  */
 const usePackageEnvs = (pkg: InferencePackage | null) => {
@@ -55,8 +48,18 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fetchEpoch, setFetchEpoch] = useState(0);
+  // The id of the pkg the last lookup settled for. Until the effect has started one for a new pkg,
+  // `loading` alone still reads false with nothing resolved, which the quick start would show as
+  // "nothing fits".
+  const [settledFor, setSettledFor] = useState<string | null>(null);
+  // Keyed on the id: the catalogue re-serves the same packages as new objects (e.g. once P2P is ready),
+  // and re-running on identity alone re-fetched every environment and flashed the banner to loading.
+  const pkgId = pkg?.id ?? null;
+  const pkgRef = useRef(pkg);
+  pkgRef.current = pkg;
 
   useEffect(() => {
+    const pkg = pkgRef.current;
     if (!pkg) {
       setResolved([]);
       setLoadError(null);
@@ -72,7 +75,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
     // TODO: remove this allowlist once community nodes are allowed to run inference services. Drop
     // the `.filter` — `sourcePeerIds` is then the only scope, which is what a package already means.
     const peerIds = Array.from(new Set(pkg.sourcePeerIds ?? [])).filter(isInferenceNode);
-    const sizing = recommendedSizing(pkg);
+    const sizing = recommendedSizing(pkg.requiredResources);
 
     async function resolve() {
       setLoading(true);
@@ -118,7 +121,8 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
           .flatMap((result) => result.value);
 
         nodeResults.forEach((result, index) => {
-          if (result.status === 'rejected') {
+          // Skipped once cancelled: every lookup then rejects with the abort, which is no failure.
+          if (result.status === 'rejected' && !cancelled) {
             console.error(`Failed to fetch environments from ${peerIds[index]}:`, result.reason);
           }
         });
@@ -179,6 +183,8 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
                   id: node.id,
                   latestBenchmarkResults: node.latestBenchmarkResults,
                   multiaddrs: node.multiaddrs,
+                  // Quick start prefers verified nodes when several can host the package.
+                  verified: node.verified,
                 },
               },
               token: tokenAddress ? { address: tokenAddress, symbol: symbol ?? '' } : null,
@@ -190,13 +196,15 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
           setResolved(entries);
         }
       } catch (error) {
-        console.error('Failed to resolve package environments:', error);
+        // A cancelled lookup (modal closed, package switched, or the effect re-run) is not a failure.
         if (!cancelled) {
+          console.error('Failed to resolve package environments:', error);
           setLoadError(error instanceof Error ? error.message : 'Failed to resolve the environments.');
         }
       } finally {
         if (!cancelled) {
           setLoading(false);
+          setSettledFor(pkgId);
         }
       }
     }
@@ -206,13 +214,13 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
       cancelled = true;
       cleanupController.abort();
     };
-  }, [pkg, fetchEpoch]);
+  }, [pkgId, fetchEpoch]);
 
   const retry = useCallback(() => {
     setFetchEpoch((epoch) => epoch + 1);
   }, []);
 
-  return { resolved, loading, loadError, retry };
+  return { resolved, loading: loading || (!!pkgId && settledFor !== pkgId), loadError, retry };
 };
 
 export default usePackageEnvs;

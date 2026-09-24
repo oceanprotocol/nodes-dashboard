@@ -1,18 +1,17 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
-import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
-import usePackageEnvs, { ResolvedPackageEnv } from '@/components/hooks/use-package-env';
+import usePackageEnvs, { packageFloorSizing, ResolvedPackageEnv } from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
+import { QuickStartPick } from '@/components/hooks/use-quick-start';
 import useUrlSelection from '@/components/hooks/use-url-selection';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import PackageCard from '@/components/inference/package-card';
 import PackageDetailsModal from '@/components/inference/package-details-modal';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
-import { SelectedToken } from '@/context/run-job-context';
 import { InferenceOpenedVia, trackInferenceSelection } from '@/lib/inference-analytics';
-import { ComputeEnvironment } from '@/types/environments';
+import { encodeDeclaredResources } from '@/services/inference-url';
 import { InferenceFlowType, InferencePackage } from '@/types/inference';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
@@ -20,20 +19,12 @@ import { useEffect, useState } from 'react';
 import styles from './default-models-page.module.css';
 
 /**
- * Quick start: pick a curated package (model + engine preset), review it, pick one of the source
- * node's environments in the modal, go straight to payment. The package carries a model stub (grid
- * renders with no fetch); the full model is fetched by id on pick. Envs are resolved live from the
- * package's source node and filtered to those that satisfy its resource floors; the fee token is
- * picked per env card. "Advanced flow" hands the model/params to the custom-model flow for full control.
+ * Quick start: pick a curated package (model + engine preset), review it, press Start in the modal,
+ * go straight to payment. The package carries a model stub (grid renders with no fetch); the full
+ * model is fetched by id on pick. Envs are resolved live from the package's source node and filtered
+ * to those that satisfy its resource floors, and the modal's quick start picks one of them (and its
+ * fee token). "Advanced setup" hands the model/params to the custom-model flow for full control.
  */
-
-// Advanced handoff floor: the package's per-resource MIN (cpu/ram/disk) becomes a lower bound on the
-// custom flow's GPU-fraction-derived slice. Combined with the env's own min via max downstream in the
-// allocation hook, so it only bites where the package minimum is stricter than the environment's.
-function packageFloorSizing(pkg: InferencePackage): ResourceSizing {
-  const min = (id: string) => pkg.requiredResources.find((r) => r.id === id)?.min ?? 0;
-  return { mode: 'floor', cpu: min('cpu'), ram: min('ram'), disk: min('disk') };
-}
 
 const DefaultModelsPage: React.FC = () => {
   const router = useRouter();
@@ -95,21 +86,20 @@ const DefaultModelsPage: React.FC = () => {
   const model = usePackageModel(selectedPackage);
 
   // Commit the picked bundle (model + params + duration + engine) to context and hand off. The query
-  // is built from overrides so it doesn't depend on setState timing. `pickedEnv`/`token` are set only
-  // for the Continue → payment path; the advanced handoff commits none (the custom flow starts at
-  // env-selection). `sizing` differs by target: payment pins the package's recommended CPU/RAM/disk
-  // (sizing.mode='pinned', carried on pickedEnv); the advanced handoff carries the package's per-resource
-  // MIN as a floor under the custom flow's GPU-fraction slice (sizing.mode='floor', only where stricter
-  // than the env's own min — the allocation hook takes max(envMin, floor)).
+  // is built from overrides so it doesn't depend on setState timing. `pick` is set only for the Start →
+  // payment path; the advanced handoff commits no env (the custom flow starts at env-selection). A pick
+  // carries the recommended CPU/RAM/disk it was priced on (recommendedSizing); the advanced handoff
+  // carries the package's per-resource MIN as a floor under the custom flow's GPU-fraction slice
+  // (packageFloorSizing, only where stricter than the env's own min, as the allocation hook takes
+  // max(envMin, floor)). The handoff also carries the package's declared resources (`reqs`), which the
+  // custom flow's env picker shows so a hand-picked env can be sized against them.
   const commitAndPush = (
     pathname: string,
-    pickedEnv?: ResolvedPackageEnv,
-    token?: SelectedToken,
-    // What the env card actually priced and validated the pick against, when the commit came from one:
-    // the units it drew, and the node's own freshly re-read environment. `pickedEnv` carries the
-    // resolver's older snapshot and the package's default units, so committing that instead booked a
-    // slice the node had already given away — the contention the card's live read exists to catch.
-    picked?: { gpuSelection: GpuSelection; environment: ComputeEnvironment }
+    // What the quick start confirmed, when the commit came from it: the units it books, the node's own
+    // freshly re-read environment and the sizing it was priced on. `pick.entry` carries the resolver's
+    // older snapshot and the package's default units, so committing that instead would book a slice
+    // the node may already have given away.
+    pick?: QuickStartPick<ResolvedPackageEnv>
   ) => {
     if (!selectedPackage || !model) {
       return;
@@ -120,46 +110,39 @@ const DefaultModelsPage: React.FC = () => {
     // Carry the package's engine into the flow so the Advanced handoff lands on the custom flow with
     // it preselected (still changeable), and payment launches on the right runtime.
     setEngine(selectedPackage.params.engine);
-    if (pickedEnv) {
-      setSelectedEnv({
-        ...pickedEnv.env,
-        ...(picked ? { environment: picked.environment, gpuSelection: picked.gpuSelection } : {}),
-      });
-      setSelectedToken(token ?? pickedEnv.token);
+    const sizing = pick ? pick.sizing : packageFloorSizing(selectedPackage);
+    if (pick) {
+      setSelectedEnv({ ...pick.entry.env, environment: pick.environment, gpuSelection: pick.gpuSelection, sizing });
+      setSelectedToken(pick.token);
     }
-    const sizing = pickedEnv ? pickedEnv.env.sizing : packageFloorSizing(selectedPackage);
+    const declaredResources = pick ? undefined : encodeDeclaredResources(selectedPackage.requiredResources);
     router.push({
       pathname,
-      query: buildSelectionQuery({
-        models: [model],
-        durationSeconds,
-        engine: selectedPackage.params.engine,
-        modelParamsByModel: { [model.id]: selectedPackage.params },
-        ...(pickedEnv
-          ? {
-              peerId: pickedEnv.env.nodeInfo.id,
-              envId: (picked?.environment ?? pickedEnv.env.environment).id,
-              gpuSelection: picked?.gpuSelection ?? pickedEnv.env.gpuSelection,
-              sizing,
-              ...((token ?? pickedEnv.token) ? { tokenAddress: (token ?? pickedEnv.token)!.address } : {}),
-            }
-          : { sizing }),
-      }),
+      query: {
+        ...buildSelectionQuery({
+          models: [model],
+          durationSeconds,
+          engine: selectedPackage.params.engine,
+          modelParamsByModel: { [model.id]: selectedPackage.params },
+          ...(pick
+            ? {
+                peerId: pick.entry.env.nodeInfo.id,
+                envId: pick.environment.id,
+                gpuSelection: pick.gpuSelection,
+                sizing,
+                tokenAddress: pick.token.address,
+              }
+            : { sizing }),
+        }),
+        ...(declaredResources ? { reqs: declaredResources } : {}),
+      },
     });
   };
 
-  // Continue from a specific env card → straight to payment with that env + the card's fee token.
-  const goToPayment = (
-    pickedEnv: ResolvedPackageEnv,
-    token: SelectedToken,
-    gpuSelection: GpuSelection,
-    environment: ComputeEnvironment
-  ) => {
+  // Quick start confirmed a pick → straight to payment with that env + its fee token.
+  const goToPayment = (pick: QuickStartPick<ResolvedPackageEnv>) => {
     if (selectedPackage) {
-      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`, pickedEnv, token, {
-        gpuSelection,
-        environment,
-      });
+      commitAndPush(`/inference/default-models/${encodeURIComponent(selectedPackage.id)}/payment`, pick);
     }
   };
 
@@ -204,7 +187,7 @@ const DefaultModelsPage: React.FC = () => {
         durationSeconds={durationSeconds}
         onDurationChange={setDurationSeconds}
         onClose={closeDetails}
-        onCustomize={goToAdvancedFlow}
+        onAdvanced={goToAdvancedFlow}
         onContinue={goToPayment}
       />
     </Container>

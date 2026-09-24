@@ -4,7 +4,6 @@ import { buildEscrowBundleArgs, getEscrowAddressForChain } from '@/lib/escrow-bu
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { formatWalletAddress } from '@/utils/formatters';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import BigNumber from 'bignumber.js';
@@ -33,6 +32,8 @@ export interface PaySessionParams {
    * the `payment_*` events can't be attributed to a flow in PostHog.
    */
   flow?: PaymentFlow;
+  /** The success toast, naming what happens next. Defaults to a bare "Payment authorized." */
+  successMessage?: string;
 }
 
 export interface UsePaySessionParams {
@@ -70,6 +71,7 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
       maxLockSeconds,
       maxLockCount,
       flow,
+      successMessage,
     }: PaySessionParams) => {
       if (!tokenAddress || !spender) {
         setError('Missing required parameters');
@@ -142,9 +144,7 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           posthog.capture('payment_authorize', { flow });
         }
 
-        toast.success(paySuccessMessage(
-          // spender, peerId
-        ));
+        toast.success(successMessage ?? 'Payment authorized.');
         onSuccess?.();
         return true;
       } catch (err) {
@@ -168,15 +168,4 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
   );
 
   return { isPaying, handlePay, error };
-};
-
-const paySuccessMessage = (
-  // consumerAddress: string, 
-  // peerId?: string
-) => {
-  return "Payment authorized. Your updated service will be available shortly.";
-  // const target = peerId
-  // ? `node ${formatWalletAddress(peerId)} (consumer ${formatWalletAddress(consumerAddress)})`
-  // : `consumer ${formatWalletAddress(consumerAddress)}`;
-  // return `Payment authorized for ${target}. Your updated service will be available shortly.`;
 };
