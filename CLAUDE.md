@@ -48,7 +48,6 @@ Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `
 - **Node version disagreement**: `.nvmrc` pins `v24.15.0`, but README and `ci.yml` both say `20.16.0`. Trust `.nvmrc`.
 - **Wagmi is not actually used**, despite being a dependency and mentioned in the README's stack table — there are no `from 'wagmi'` imports anywhere in `src/`. The real wallet abstraction is `src/lib/use-ocean-account.tsx`.
 - **`src/lib/config.ts` exports an unused second `QueryClient`** — the one actually wired into the app is created separately in `_app.tsx`. Likely dead code; don't build on the one in `lib/config.ts`.
-- **`src/lib/alchemy-provider.tsx` installs a "TEMP DIAGNOSTIC" fetch logger** (`installPrivyAlchemyFetchLogger()`) at module load — leftover debug instrumentation from a Privy/Alchemy migration, not something to extend.
 - `tsconfig.json` declares `@Types/*` → `src/shared/types/*` and `@utils/*` → `src/shared/utils/*`, but only `src/shared/consts/` actually exists — those two aliases don't currently resolve to anything.
 - Production builds require `NODE_OPTIONS=--max-old-space-size=4096` (already set in the `build` script) — the build is memory-constrained.
 

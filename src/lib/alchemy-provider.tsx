@@ -1,14 +1,9 @@
 'use client';
 
-import { installPrivyAlchemyFetchLogger } from '@/lib/debug-fetch';
 import { alchemy, base, sepolia } from '@account-kit/infra';
 import { createMigrationConfig, MigrationProvider } from '@privy-io/alchemy-migration';
 import '@privy-io/alchemy-migration/styles.css';
 import { createWalletCreationOnLoginPlugin, PrivyProvider, type User } from '@privy-io/react-auth';
-
-// TEMP DIAGNOSTIC: install the Privy/Alchemy network logger as early as possible (module load,
-// client only) so we capture the auth + migration API traffic.
-installPrivyAlchemyFetchLogger();
 
 const chain = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? base : sepolia;
 
