@@ -1,4 +1,4 @@
-import { readEnvResources } from '@/components/hooks/use-env-resources';
+import { EnvResources, readEnvResources } from '@/components/hooks/use-env-resources';
 import {
   computeInferenceAllocation,
   GpuSelection,
@@ -6,6 +6,8 @@ import {
   mergeGpuTypes,
   ResourceAmounts,
   ResourceSizing,
+  sliceFor,
+  totalUnitsOf,
 } from '@/components/hooks/use-inference-allocation';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
@@ -104,8 +106,9 @@ export function declaredGpuRange(
  * A template's or package's quick-start sizing: its RECOMMENDED CPU/RAM/disk, floored at its declared
  * MIN (a resource declaring no recommendation books its min). The allocation clamps a pinned amount to
  * what the environment can grant, down to the floor, so an environment short of the recommendation
- * books less rather than being skipped. Undefined when no CPU/RAM/disk is declared (the GPU slice then
- * sizes them).
+ * books less rather than being skipped. A resource it declares nothing for is marked `slice`: the
+ * planner books the GPU slice of it, as `floor` sizing would. Undefined when no CPU/RAM/disk is
+ * declared at all (the GPU slice then sizes them).
  */
 export function recommendedSizing(required: DeclaredRequirement[] | null | undefined): ResourceSizing | undefined {
   const find = (id: string) => required?.find((r) => r.id === id);
@@ -114,31 +117,52 @@ export function recommendedSizing(required: DeclaredRequirement[] | null | undef
   }
   const min = (id: string) => find(id)?.min ?? 0;
   const recommended = (id: string) => Math.max(min(id), find(id)?.recommended ?? 0);
+  const slice = (['cpu', 'ram', 'disk'] as const).filter((key) => !find(key));
   return {
     mode: 'pinned',
     cpu: recommended('cpu'),
     ram: recommended('ram'),
     disk: recommended('disk'),
     floor: { cpu: min('cpu'), ram: min('ram'), disk: min('disk') },
+    ...(slice.length > 0 ? { slice } : {}),
   };
 }
 
 /**
- * The entry's sizing for `units` GPUs. Recommended CPU/RAM/disk are stated for the recommended GPU
- * count, so booking fewer units scales them down in proportion, never below the floor.
+ * The entry's sizing for `units` GPUs on one environment. Recommended CPU/RAM/disk are stated for the
+ * recommended GPU count, so booking fewer units scales them down in proportion, never below the floor.
+ * A resource marked `slice` books this environment's GPU slice of it instead. The result carries
+ * plain numbers, so it survives the URL and the payment step as it is.
  */
-function sizingFor(
-  sizing: ResourceSizing | undefined,
-  units: number,
-  gpuRange: GpuRange | null
-): ResourceSizing | undefined {
-  if (sizing?.mode !== 'pinned' || !gpuRange || gpuRange.recommended <= 0 || units >= gpuRange.recommended) {
+function sizingFor({
+  sizing,
+  units,
+  gpuRange,
+  resources,
+  totalGpus,
+}: {
+  sizing: ResourceSizing | undefined;
+  units: number;
+  gpuRange: GpuRange | null;
+  resources: EnvResources;
+  totalGpus: number;
+}): ResourceSizing | undefined {
+  if (sizing?.mode !== 'pinned') {
     return sizing;
   }
+  const { slice = [], ...pinned } = sizing;
   const floor = sizing.floor ?? { cpu: 0, ram: 0, disk: 0 };
-  const scale = (key: keyof ResourceAmounts) =>
-    Math.max(floor[key], Math.round((sizing[key] * units) / gpuRange.recommended));
-  return { ...sizing, cpu: scale('cpu'), ram: scale('ram'), disk: scale('disk') };
+  const recommendedUnits = gpuRange?.recommended ?? 0;
+  const amount = (key: keyof ResourceAmounts) => {
+    if (slice.includes(key)) {
+      return sliceFor(resources[key], units, totalGpus);
+    }
+    if (recommendedUnits > 0 && units < recommendedUnits) {
+      return Math.max(floor[key], Math.round((sizing[key] * units) / recommendedUnits));
+    }
+    return sizing[key];
+  };
+  return { ...pinned, cpu: amount('cpu'), ram: amount('ram'), disk: amount('disk') };
 }
 
 /**
@@ -174,6 +198,7 @@ function evaluate<T extends QuickStartEntry>({
   gpuKey,
   units,
   gpuRange,
+  envResources,
   durationSeconds,
 }: {
   candidate: QuickStartCandidate<T>;
@@ -181,11 +206,19 @@ function evaluate<T extends QuickStartEntry>({
   gpuKey: string | null;
   units: number;
   gpuRange: GpuRange | null;
+  /** The environment's CPU/RAM/disk/GPUs as read for this token, for the GPU slice of `slice` resources. */
+  envResources: EnvResources;
   durationSeconds: number;
 }): QuickStartOption<T> | null {
   const { environment, token } = candidate;
   const gpuSelection: GpuSelection = Object.fromEntries(types.map((t) => [t.key, t.key === gpuKey ? units : 0]));
-  const sizing = sizingFor(candidate.entry.env.sizing, units, gpuRange);
+  const sizing = sizingFor({
+    sizing: candidate.entry.env.sizing,
+    units,
+    gpuRange,
+    resources: envResources,
+    totalGpus: totalUnitsOf(types),
+  });
   const result = computeInferenceAllocation({
     environment,
     tokenAddress: token.address,
@@ -273,7 +306,7 @@ function bestFitOn<T extends QuickStartEntry>({
     if ((gpuRange?.min ?? 0) > 0) {
       return null;
     }
-    return evaluate({ candidate, types, gpuKey: null, units: 0, gpuRange, durationSeconds });
+    return evaluate({ candidate, types, gpuKey: null, units: 0, gpuRange, envResources: resources, durationSeconds });
   }
 
   // Zero units only where the flow permits it (templates) AND every GPU type of the env allows it,
@@ -284,7 +317,15 @@ function bestFitOn<T extends QuickStartEntry>({
   const high = Math.max(gpuRange?.recommended ?? floor, low);
   for (let units = high; units >= low; units--) {
     if (units === 0) {
-      const option = evaluate({ candidate, types, gpuKey: null, units: 0, gpuRange, durationSeconds });
+      const option = evaluate({
+        candidate,
+        types,
+        gpuKey: null,
+        units: 0,
+        gpuRange,
+        envResources: resources,
+        durationSeconds,
+      });
       if (option) {
         return option;
       }
@@ -292,7 +333,9 @@ function bestFitOn<T extends QuickStartEntry>({
     }
     const options = types
       .filter((t) => t.available >= units)
-      .map((t) => evaluate({ candidate, types, gpuKey: t.key, units, gpuRange, durationSeconds }))
+      .map((t) =>
+        evaluate({ candidate, types, gpuKey: t.key, units, gpuRange, envResources: resources, durationSeconds })
+      )
       .filter((option): option is QuickStartOption<T> => option !== null)
       .sort((a, b) => Number(b.fullSizing) - Number(a.fullSizing) || a.price - b.price);
     if (options.length > 0) {

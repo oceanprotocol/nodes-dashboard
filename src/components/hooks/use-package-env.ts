@@ -12,7 +12,7 @@ import { InferencePackage } from '@/types/inference';
 import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Cap the environments lookup so a hung indexer can't keep the package modal on "loading" forever.
 const ENV_FETCH_TIMEOUT_MS = 30000;
@@ -48,11 +48,18 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fetchEpoch, setFetchEpoch] = useState(0);
-  // The pkg the last lookup settled for. Until the effect has started one for a new pkg, `loading`
-  // alone still reads false with nothing resolved, which the quick start would show as "nothing fits".
-  const [settledFor, setSettledFor] = useState<InferencePackage | null>(null);
+  // The id of the pkg the last lookup settled for. Until the effect has started one for a new pkg,
+  // `loading` alone still reads false with nothing resolved, which the quick start would show as
+  // "nothing fits".
+  const [settledFor, setSettledFor] = useState<string | null>(null);
+  // Keyed on the id: the catalogue re-serves the same packages as new objects (e.g. once P2P is ready),
+  // and re-running on identity alone re-fetched every environment and flashed the banner to loading.
+  const pkgId = pkg?.id ?? null;
+  const pkgRef = useRef(pkg);
+  pkgRef.current = pkg;
 
   useEffect(() => {
+    const pkg = pkgRef.current;
     if (!pkg) {
       setResolved([]);
       setLoadError(null);
@@ -197,7 +204,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
       } finally {
         if (!cancelled) {
           setLoading(false);
-          setSettledFor(pkg);
+          setSettledFor(pkgId);
         }
       }
     }
@@ -207,13 +214,13 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
       cancelled = true;
       cleanupController.abort();
     };
-  }, [pkg, fetchEpoch]);
+  }, [pkgId, fetchEpoch]);
 
   const retry = useCallback(() => {
     setFetchEpoch((epoch) => epoch + 1);
   }, []);
 
-  return { resolved, loading: loading || (!!pkg && settledFor !== pkg), loadError, retry };
+  return { resolved, loading: loading || (!!pkgId && settledFor !== pkgId), loadError, retry };
 };
 
 export default usePackageEnvs;

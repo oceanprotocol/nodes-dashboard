@@ -1,6 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Breakpoint, Dialog, styled } from '@mui/material';
-import { ReactNode, useRef } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import styles from './modal.module.css';
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
@@ -41,10 +41,13 @@ const Modal = ({ children, fullWidth, hideCloseButton, isOpen, onClose, title, w
   // Callers usually clear the data a modal renders (`{item && …}`) in the same update that closes it,
   // while the Dialog is still fading out, so the content vanished and the dialog shrank to its header
   // mid-transition. While closing, render what was last shown open; the Dialog unmounts it on exit.
+  // Saved after commit, not during render, so a render React throws away can't become what's shown.
   const lastOpen = useRef({ children, title });
-  if (isOpen) {
-    lastOpen.current = { children, title };
-  }
+  useEffect(() => {
+    if (isOpen) {
+      lastOpen.current = { children, title };
+    }
+  }, [isOpen, children, title]);
   const shown = isOpen ? { children, title } : lastOpen.current;
 
   return (

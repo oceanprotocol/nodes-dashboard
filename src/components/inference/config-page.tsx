@@ -273,12 +273,12 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         return;
       }
       // Commit only non-empty values — an empty optional field must not overwrite a fixed var or ship
-      // an empty string to the container.
-      const committed = Object.fromEntries(
-        envSpecs.map((spec) => [spec.key, (envInputs[spec.key] ?? '').trim()]).filter(([, value]) => value)
-      );
+      // an empty string to the container. On Edit a cleared field is kept as '' instead, so coming back
+      // from payment doesn't bring its remembered value back; buildTemplateUserData still drops it.
+      const values = envSpecs.map((spec) => [spec.key, (envInputs[spec.key] ?? '').trim()] as const);
+      const committed = Object.fromEntries(isEditMode ? values : values.filter(([, value]) => value));
       setTemplateEnvValues(committed);
-      goToNextStep(undefined, Object.keys(committed).length);
+      goToNextStep(undefined, values.filter(([, value]) => value).length);
       return;
     }
     goToNextStep();

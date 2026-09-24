@@ -64,7 +64,12 @@ const clampNum = (value: number, min: number, max: number) => Math.min(Math.max(
  * min/floor); `exact` is the one mode that isn't clamped.
  */
 export type ResourceSizing =
-  | ({ mode: 'pinned'; floor?: ResourceAmounts } & ResourceAmounts)
+  | ({
+      mode: 'pinned';
+      floor?: ResourceAmounts;
+      /** Resources the target declares nothing for: the quick start books the GPU slice of those. */
+      slice?: (keyof ResourceAmounts)[];
+    } & ResourceAmounts)
   | ({ mode: 'floor' } & ResourceAmounts)
   | ({ mode: 'exact' } & ResourceAmounts);
 
@@ -101,7 +106,7 @@ function jobCapacityOf(resource: Pick<ComputeResource, 'total' | 'max'> | undefi
  * A resource that exists is never sliced to 0 (the node rejects an amount:0 request), and an env
  * with no GPUs isn't fractioned at all — it's booked whole.
  */
-function sliceFor(
+export function sliceFor(
   resource: Pick<ComputeResource, 'total' | 'max'> | undefined,
   units: number,
   totalGpus: number
@@ -238,7 +243,7 @@ export function mergeGpuTypes({
   }, [] as MergedGpu[]);
 }
 
-function totalUnitsOf(mergedGpus: MergedGpu[]): number {
+export function totalUnitsOf(mergedGpus: MergedGpu[]): number {
   return mergedGpus.reduce((sum, g) => sum + g.max, 0);
 }
 

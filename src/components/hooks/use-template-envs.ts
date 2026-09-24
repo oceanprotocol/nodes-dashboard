@@ -13,7 +13,7 @@ import { AppTemplate } from '@/types/templates';
 import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Cap the environments lookup so a hung indexer can't keep the details modal on "loading" forever.
 const ENV_FETCH_TIMEOUT_MS = 30000;
@@ -70,11 +70,18 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fetchEpoch, setFetchEpoch] = useState(0);
-  // The template the last lookup settled for. Until the effect has started one for a new template, `loading`
-  // alone still reads false with nothing resolved, which the quick start would show as "nothing fits".
-  const [settledFor, setSettledFor] = useState<AppTemplate | null>(null);
+  // The id of the template the last lookup settled for. Until the effect has started one for a new template,
+  // `loading` alone still reads false with nothing resolved, which the quick start would show as
+  // "nothing fits".
+  const [settledFor, setSettledFor] = useState<string | null>(null);
+  // Keyed on the id: the catalogue re-serves the same templates as new objects (e.g. once P2P is ready),
+  // and re-running on identity alone re-fetched every environment and flashed the banner to loading.
+  const templateId = template?.id ?? null;
+  const templateRef = useRef(template);
+  templateRef.current = template;
 
   useEffect(() => {
+    const template = templateRef.current;
     if (!template) {
       setResolved([]);
       setLoadError(null);
@@ -177,7 +184,7 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
       } finally {
         if (!cancelled) {
           setLoading(false);
-          setSettledFor(template);
+          setSettledFor(templateId);
         }
       }
     }
@@ -187,13 +194,13 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
       cancelled = true;
       cleanupController.abort();
     };
-  }, [template, fetchEpoch]);
+  }, [templateId, fetchEpoch]);
 
   const retry = useCallback(() => {
     setFetchEpoch((epoch) => epoch + 1);
   }, []);
 
-  return { resolved, loading: loading || (!!template && settledFor !== template), loadError, retry };
+  return { resolved, loading: loading || (!!templateId && settledFor !== templateId), loadError, retry };
 };
 
 export default useTemplateEnvs;
