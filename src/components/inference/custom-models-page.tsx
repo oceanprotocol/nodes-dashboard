@@ -10,6 +10,7 @@ import Modal from '@/components/modal/modal';
 import SectionTitle from '@/components/section-title/section-title';
 import config from '@/config';
 import { useInferenceContext } from '@/context/inference-context';
+import { ensureInferenceFlowStarted } from '@/lib/inference-analytics';
 import {
   DEFAULT_MODEL_SORT,
   FALLBACK_PIPELINE_TAGS,
@@ -126,6 +127,11 @@ const CustomModelsPage: React.FC = () => {
     // Read before selectSingleModel — it toggles, so afterwards this would report the new state.
     const deselected = isModelSelected(model.id);
     selectSingleModel(model);
+    // A direct visit to this page skips the hub's entry event. Edit mode continues an existing service
+    // and a deselect picks nothing, so neither opens the funnel.
+    if (!isEditMode && !deselected) {
+      ensureInferenceFlowStarted('custom', 'direct');
+    }
     posthog.capture('inference_model_selected', {
       modelId: model.id,
       pipelineTag: model.pipelineTag,

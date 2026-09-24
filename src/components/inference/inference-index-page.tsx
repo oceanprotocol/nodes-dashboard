@@ -3,17 +3,16 @@ import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import ExistingServicesTable from '@/components/inference/existing-services-table';
 import SectionTitle from '@/components/section-title/section-title';
-import { InferenceBranch } from '@/lib/inference-analytics';
+import { InferenceBranch, trackInferenceFlowStarted } from '@/lib/inference-analytics';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import WidgetsOutlinedIcon from '@mui/icons-material/WidgetsOutlined';
 import classNames from 'classnames';
-import posthog from 'posthog-js';
 import styles from './inference-index-page.module.css';
 
 const trackEntry = (branch: InferenceBranch) => {
-  posthog.capture('inference_flow_started', { branch });
+  trackInferenceFlowStarted(branch, 'index');
 };
 
 const InferenceIndexPage: React.FC = () => {
