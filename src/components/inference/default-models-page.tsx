@@ -4,17 +4,18 @@ import useDefaultModelPackages from '@/components/hooks/use-default-model-packag
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import usePackageEnvs, { ResolvedPackageEnv } from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
+import useUrlSelection from '@/components/hooks/use-url-selection';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import PackageCard from '@/components/inference/package-card';
 import PackageDetailsModal from '@/components/inference/package-details-modal';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
+import { InferenceOpenedVia, trackInferenceSelection } from '@/lib/inference-analytics';
 import { ComputeEnvironment } from '@/types/environments';
 import { InferenceFlowType, InferencePackage } from '@/types/inference';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import styles from './default-models-page.module.css';
 
@@ -49,7 +50,6 @@ const DefaultModelsPage: React.FC = () => {
 
   // Packages come from the configured nodes' advertised service templates (getServiceTemplates).
   const { packages, loading: loadingPackages, error: packagesError } = useDefaultModelPackages();
-  const [selectedPackage, setSelectedPackage] = useState<InferencePackage | null>(null);
   // Duration edited in the modal but stays local until a Continue/Customize — a pick commits nothing.
   const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
 
@@ -59,16 +59,36 @@ const DefaultModelsPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const trackOpened = (pkg: InferencePackage, openedVia: InferenceOpenedVia) => {
+    setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+    trackInferenceSelection({
+      event: 'inference_package_selected',
+      branch: 'quickstart',
+      itemId: pkg.id,
+      openedVia,
+      properties: {
+        packageId: pkg.id,
+        engine: pkg.params.engine,
+        durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
+      },
+    });
+  };
+
+  // The package whose details are open, mirrored into `?view=` so the modal can be shared by link.
+  const {
+    selected: selectedPackage,
+    open: openInUrl,
+    close: closeDetails,
+  } = useUrlSelection({
+    items: packages,
+    loaded: !loadingPackages && !packagesError,
+    onOpenFromUrl: (pkg) => trackOpened(pkg, 'link'),
+  });
+
   // Picking a package only opens its details — commits nothing until a Continue/Customize.
   const selectPackage = (pkg: InferencePackage) => {
-    setSelectedPackage(pkg);
-    setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
-    posthog.capture('inference_package_selected', {
-      packageId: pkg.id,
-      engine: pkg.params.engine,
-      durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
-      branch: 'quickstart',
-    });
+    trackOpened(pkg, 'click');
+    openInUrl(pkg);
   };
 
   const envs = usePackageEnvs(selectedPackage);
@@ -121,7 +141,7 @@ const DefaultModelsPage: React.FC = () => {
               envId: (picked?.environment ?? pickedEnv.env.environment).id,
               gpuSelection: picked?.gpuSelection ?? pickedEnv.env.gpuSelection,
               sizing,
-              ...(token ?? pickedEnv.token ? { tokenAddress: (token ?? pickedEnv.token)!.address } : {}),
+              ...((token ?? pickedEnv.token) ? { tokenAddress: (token ?? pickedEnv.token)!.address } : {}),
             }
           : { sizing }),
       }),
@@ -183,7 +203,7 @@ const DefaultModelsPage: React.FC = () => {
         envs={envs}
         durationSeconds={durationSeconds}
         onDurationChange={setDurationSeconds}
-        onClose={() => setSelectedPackage(null)}
+        onClose={closeDetails}
         onCustomize={goToAdvancedFlow}
         onContinue={goToPayment}
       />

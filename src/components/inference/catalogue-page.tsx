@@ -3,6 +3,7 @@ import Container from '@/components/container/container';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import useServiceTemplates from '@/components/hooks/use-service-templates';
 import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-template-envs';
+import useUrlSelection from '@/components/hooks/use-url-selection';
 import CatalogueBrowser from '@/components/inference/catalogue-browser';
 import { CatalogueConfig } from '@/components/inference/catalogue-config';
 import InferenceStepper from '@/components/inference/inference-stepper';
@@ -11,13 +12,12 @@ import { templateHardware, templateVendor } from '@/components/inference/templat
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
-import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { InferenceOpenedVia, resolveInferenceBranch, trackInferenceSelection } from '@/lib/inference-analytics';
 import { templateFloorSizing, templateNeedsConfigStep } from '@/services/template-launch';
 import { ComputeEnvironment } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, isBundle } from '@/types/templates';
 import { useRouter } from 'next/router';
-import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 
 /**
@@ -44,10 +44,6 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
 
   const { templates, loading, error } = useServiceTemplates();
   const entries = useMemo(() => catalogue.select(templates), [catalogue, templates]);
-  // The entry whose details are open. Picking one commits nothing — only a Continue/Advanced does.
-  const [openTemplate, setOpenTemplate] = useState<AppTemplate | null>(null);
-  // Session length edited in the modal but kept local until a Continue/Advanced handoff.
-  const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
 
   // Always start fresh (new entry or Back-nav from a later step): clear leftover selection once, on mount.
   useEffect(() => {
@@ -55,21 +51,44 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Session length edited in the modal but kept local until a Continue/Advanced handoff.
+  const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
+
+  const trackOpened = (tpl: AppTemplate, openedVia: InferenceOpenedVia) => {
+    setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+    trackInferenceSelection({
+      event: 'inference_template_selected',
+      branch: resolveInferenceBranch(InferenceFlowType.Template, tpl),
+      itemId: tpl.id,
+      openedVia,
+      properties: {
+        templateId: tpl.id,
+        templateName: tpl.name ?? tpl.id,
+        category: tpl.category,
+        gpu: templateHardware(tpl).gpu,
+        vendor: templateVendor(tpl.image),
+        isBundle: isBundle(tpl),
+        durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
+      },
+    });
+  };
+
+  // The entry whose details are open, mirrored into `?view=` so the modal can be shared by link. Picking one commits nothing — only a Continue/Advanced does.
+  const {
+    selected: openTemplate,
+    open: openInUrl,
+    close: closeDetails,
+  } = useUrlSelection({
+    items: entries,
+    loaded: !loading && !error,
+    onOpenFromUrl: (tpl) => trackOpened(tpl, 'link'),
+  });
+
   const templateEnvs = useTemplateEnvs(openTemplate);
 
   const openDetails = (tpl: AppTemplate) => {
-    setOpenTemplate(tpl);
-    setDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
-    posthog.capture('inference_template_selected', {
-      templateId: tpl.id,
-      templateName: tpl.name ?? tpl.id,
-      category: tpl.category,
-      gpu: templateHardware(tpl).gpu,
-      vendor: templateVendor(tpl.image),
-      isBundle: isBundle(tpl),
-      durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
-      branch: resolveInferenceBranch(InferenceFlowType.Template, tpl),
-    });
+    trackOpened(tpl, 'click');
+    openInUrl(tpl);
   };
 
   /**
@@ -150,7 +169,7 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
         durationSeconds={durationSeconds}
         envs={templateEnvs}
         onAdvanced={goToAdvanced}
-        onClose={() => setOpenTemplate(null)}
+        onClose={closeDetails}
         onContinue={continueToPayment}
         onDurationChange={setDurationSeconds}
         template={openTemplate}

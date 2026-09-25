@@ -17,7 +17,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SearchIcon from '@mui/icons-material/Search';
 import cx from 'classnames';
 import { useRouter } from 'next/router';
-import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
 import styles from './catalogue.module.css';
 
 type HardwareFilter = 'all' | 'gpu' | 'cpu';
@@ -95,12 +95,14 @@ const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, err
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
   // Restore the filter combination from the URL once the router is ready (refresh / shared link).
-  const filtersHydratedRef = useRef(false);
+  // State, not a ref: the mirror effect below must wait for the render that carries the restored
+  // filters. With a ref it ran in the same commit, still on the defaults, and replaced the URL without them.
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   useEffect(() => {
-    if (!router.isReady || filtersHydratedRef.current) {
+    if (!router.isReady || filtersHydrated) {
       return;
     }
-    filtersHydratedRef.current = true;
+    setFiltersHydrated(true);
     const category = firstQueryValue(router.query.category);
     const hardware = firstQueryValue(router.query.hardware);
     setFilters({
@@ -108,15 +110,19 @@ const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, err
       hardware: hardware === 'gpu' || hardware === 'cpu' ? hardware : 'all',
       query: firstQueryValue(router.query.q) ?? '',
     });
-  }, [router.isReady, router.query.category, router.query.hardware, router.query.q]);
+  }, [router.isReady, filtersHydrated, router.query.category, router.query.hardware, router.query.q]);
 
   // Mirror the active combination into the URL (shallow — no data fetching), so the summary line under
   // the toolbar and the address bar always agree and the state survives a reload.
   useEffect(() => {
-    if (!router.isReady || !filtersHydratedRef.current) {
+    if (!router.isReady || !filtersHydrated) {
       return;
     }
-    const query: Record<string, string> = {};
+    // Keep params this component doesn't own (the open modal's `view`), only the filters are rebuilt.
+    const query = { ...router.query };
+    delete query.category;
+    delete query.hardware;
+    delete query.q;
     if (filters.category !== 'all') {
       query.category = filters.category;
     }
@@ -137,7 +143,7 @@ const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, err
     router.replace({ pathname, query }, undefined, { shallow: true });
     // router is intentionally not a dep: including it re-runs on every query change we just made.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, router.isReady, pathname]);
+  }, [filters, filtersHydrated, router.isReady, pathname]);
 
   const decorated = useMemo(() => items.map(decorate), [items]);
 
