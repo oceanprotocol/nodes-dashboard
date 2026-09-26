@@ -81,6 +81,7 @@ const SelectEnvironment = () => {
   }, []);
 
   const formik = useFormik<FilterFormValues>({
+    enableReinitialize: true,
     initialValues: {
       feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
       free: false,
