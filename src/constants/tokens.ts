@@ -16,10 +16,11 @@ export const getSupportedTokens = () => {
   return tokenAddressesByChainId[CHAIN_ID];
 };
 
+/**
+ * Fallback conversion rate, used only where the GrantsSwap contract cannot report its own — the
+ * pre-2.10.0 deployments (Sepolia today) have no `getRate()`. See `readSwapRate`.
+ */
 export const COMPY_PER_USDC = Number(process.env.NEXT_PUBLIC_COMPY_PER_USDC) || 5;
-
-/** COMPY a given USDC input converts to, at `COMPY_PER_USDC`. */
-export const usdcToCompy = (usdcAmount: number) => usdcAmount * COMPY_PER_USDC;
 
 /** Native ETH — not an ERC20, so it has no contract address. */
 export const NATIVE_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000000';

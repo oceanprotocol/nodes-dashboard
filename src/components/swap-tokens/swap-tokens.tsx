@@ -1,7 +1,8 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
-import { getSupportedTokens, usdcToCompy } from '@/constants/tokens';
+import { getSupportedTokens } from '@/constants/tokens';
+import { useSwapRate } from '@/lib/use-swap-rate';
 import { useSwapTokens } from '@/lib/use-swap-tokens';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
 import { formatNumber, formatTokenAmount, tokenAmountDecimals } from '@/utils/formatters';
@@ -23,6 +24,7 @@ type SwapTokensFormValues = {
 
 const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, refetchOnSuccess }) => {
   const { balances, loading: loadingBalances, refetch: refetchBalances } = useWalletBalances();
+  const { rate, compyLiquidity, paused } = useSwapRate();
   const { handleSwap, isSwapping } = useSwapTokens({
     onSuccess: async () => {
       if (refetchOnSuccess) {
@@ -47,6 +49,19 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
     return filteredBalances.find((b) => b.token === 'USDC')?.amount ?? 0;
   }, [filteredBalances]);
 
+  // The contract pays out of its own COMPY balance, so a swap larger than `compyLiquidity / rate`
+  // reverts however much USDC the user holds. Unknown liquidity (legacy deployment) means no cap.
+  const maxSwappableUsdc = useMemo(() => {
+    if (compyLiquidity === undefined || rate <= 0) {
+      return undefined;
+    }
+    return compyLiquidity / rate;
+  }, [compyLiquidity, rate]);
+
+  const maxAmount = useMemo(() => {
+    return maxSwappableUsdc === undefined ? usdcBalance : Math.min(usdcBalance, maxSwappableUsdc);
+  }, [maxSwappableUsdc, usdcBalance]);
+
   const formik = useFormik<SwapTokensFormValues>({
     initialValues: {
       amount: '',
@@ -54,20 +69,26 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
     onSubmit: async (values) => {
       await handleSwap({ amount: values.amount.toString() });
     },
+    enableReinitialize: true,
     validateOnMount: true,
     validationSchema: Yup.object({
       amount: Yup.number()
         .required('Amount is required')
-        .min(0, 'Amount must be greater than 0')
-        .max(usdcBalance, 'Insufficient USDC balance'),
+        .moreThan(0, 'Amount must be greater than 0')
+        .max(maxAmount, () => {
+          if (maxSwappableUsdc !== undefined && maxSwappableUsdc < usdcBalance) {
+            return `Only ${formatNumber(maxSwappableUsdc)} USDC can be converted right now`;
+          }
+          return 'Insufficient USDC balance';
+        }),
     }),
   });
 
-  // Previewed output, at the rate mirrored from the swap contract in `COMPY_PER_USDC`. Formatted
-  // with its own decimals rather than `formatNumber`, which would abbreviate 1250 to "1.3K" and
-  // understate what the swap pays out.
+  // Previewed output, at the rate read from the swap contract. Formatted with its own decimals
+  // rather than `formatNumber`, which would abbreviate 1250 to "1.3K" and understate what the swap
+  // pays out.
   const compyAddress = getSupportedTokens().COMPY.address;
-  const compyOutput = usdcToCompy(Number(formik.values.amount) || 0);
+  const compyOutput = (Number(formik.values.amount) || 0) * rate;
   const compyOutputLabel = formatTokenAmount(compyOutput, compyAddress, tokenAmountDecimals(compyOutput, compyAddress));
 
   return (
@@ -96,8 +117,11 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
           onChange={formik.handleChange}
           type="number"
           value={formik.values.amount}
-          disabled={isSwapping}
+          disabled={isSwapping || paused}
         />
+        {paused ? (
+          <p className={styles.pausedNotice}>Conversions are temporarily paused. Please try again later.</p>
+        ) : null}
         <div className="actionsGroupLgEnd">
           {onCancel ? (
             <Button color="accent1" onClick={onCancel} size="lg" type="button" variant="outlined" disabled={isSwapping}>
@@ -109,7 +133,7 @@ const SwapTokens: React.FC<SwapTokensProps> = ({ onCancel, onError, onSuccess, r
             size="lg"
             type="submit"
             loading={isSwapping}
-            disabled={!formik.isValid || !formik.dirty}
+            disabled={!formik.isValid || !formik.dirty || paused}
           >
             {isSwapping ? 'Converting...' : 'Convert'}
           </Button>
