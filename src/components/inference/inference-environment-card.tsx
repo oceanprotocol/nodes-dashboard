@@ -15,9 +15,9 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { assertAllocationAvailable, buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
-import { DeclaredRequirement, declaredGpuOptions, preferredGpuOption } from '@/utils/env-resources';
+import { declaredGpuOptions, DeclaredRequirement, preferredGpuOption } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
-import { formatDuration, formatTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatGb, formatTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -89,14 +89,6 @@ type InferenceEnvironmentCardProps = {
    */
   hidePrice?: boolean;
 };
-
-function formatGb(value: number): string {
-  const rounded = Math.round(value);
-  if (rounded >= 1000 && rounded % 1000 === 0) {
-    return `${rounded / 1000} TB`;
-  }
-  return `${rounded} GB`;
-}
 
 const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   environment: listedEnvironment,

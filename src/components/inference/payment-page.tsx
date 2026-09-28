@@ -28,6 +28,7 @@ import {
 } from '@/services/inference-launch';
 import { decodeGpuSelection, decodeResourceSizing, firstQueryValue } from '@/services/inference-url';
 import { isModelAppType, parseServiceAppType, resolveServiceAppType } from '@/services/service-metadata';
+import { rememberTemplateEnv } from '@/services/template-env-memory';
 import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
@@ -275,6 +276,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       maxLockedAmount: requirement.maxLockedAmount.toString(),
       maxLockSeconds: requirement.maxLockSeconds.toString(),
       maxLockCount: requirement.maxLockCount.toString(),
+      successMessage: isProlongMode
+        ? 'Payment authorized. Extending your session…'
+        : 'Payment authorized. Starting your service…',
     });
     if (!paid) {
       const err = new Error('Escrow payment was not completed.') as Error & { stage?: string };
@@ -282,7 +286,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       throw err;
     }
     return true;
-  }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay]);
+  }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay, isProlongMode]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
   // without a complete selection. Skipped when hydration failed — we show a retry instead of
@@ -782,6 +786,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
       }
+      rememberTemplateEnv({ serviceId: job.serviceId, template: selectedTemplate, values: templateEnvValues });
       const gpuCount = Object.values(selectedByKey).reduce((sum, count) => sum + count, 0);
       posthog.capture('inference_service_started', {
         serviceId: job.serviceId,
@@ -862,6 +867,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
       }
+      rememberTemplateEnv({ serviceId: job.serviceId, template: selectedTemplate, values: templateEnvValues });
       posthog.capture('inference_service_relaunched', {
         serviceId: job.serviceId,
         mode: 'template_edit',

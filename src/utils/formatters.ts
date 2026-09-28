@@ -105,6 +105,15 @@ export const formatBytes = (bytes: number): string => {
   return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 };
 
+/** A whole number of GB as env resources are sized (decimal: 1000 GB reads as 1 TB). */
+export const formatGb = (value: number): string => {
+  const rounded = Math.round(value);
+  if (rounded >= 1000 && rounded % 1000 === 0) {
+    return `${rounded / 1000} TB`;
+  }
+  return `${rounded} GB`;
+};
+
 export const formatWalletAddress = (address: string): string => {
   if (address.length <= 10) {
     return address;

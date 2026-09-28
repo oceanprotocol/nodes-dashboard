@@ -149,6 +149,8 @@ export const DEFAULT_JOB_DURATION_SECONDS = 3600;
 // The HF token is kept out of the URL (it's a secret) but persisted per-tab so a refresh mid-flow
 // doesn't force the user to re-enter it for gated models. sessionStorage clears when the tab closes.
 const HF_TOKEN_STORAGE_KEY = 'inference:hfToken';
+/** Stable empty env values, so a scope mismatch doesn't hand consumers a new object each render. */
+const NO_ENV_VALUES: Record<string, string> = {};
 
 function readStoredHfToken(): string {
   if (typeof window === 'undefined') {
@@ -212,7 +214,19 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
   const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
-  const [templateEnvValues, setTemplateEnvValues] = useState<Record<string, string>>({});
+  // Env values are only ever meant for the launch they were typed for: the template, and on Edit the
+  // service being relaunched. Stored with that scope, and read back only while the scope still matches,
+  // so values committed for one service never reach another's serviceRestart.
+  const [templateEnv, setTemplateEnv] = useState<{ scope: string; values: Record<string, string> }>({
+    scope: '',
+    values: NO_ENV_VALUES,
+  });
+  const templateEnvScope = `${selectedTemplate?.id ?? ''}:${firstQueryValue(router.query.serviceId) ?? 'new'}`;
+  const templateEnvValues = templateEnv.scope === templateEnvScope ? templateEnv.values : NO_ENV_VALUES;
+  const setTemplateEnvValues = useCallback(
+    (values: Record<string, string>) => setTemplateEnv({ scope: templateEnvScope, values }),
+    [templateEnvScope]
+  );
   /**
    * The URL signature the context state currently DESCRIBES — not a "did hydration run" boolean.
    *
@@ -772,6 +786,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedTemplate,
       selectedBucketId,
       templateEnvValues,
+      setTemplateEnvValues,
       hydrateFromUrlFinished,
       hydrationFailed,
       retryHydration,

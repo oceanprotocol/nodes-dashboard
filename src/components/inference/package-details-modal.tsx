@@ -1,20 +1,20 @@
-import Button from '@/components/button/button';
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import usePackageEnvs, { ResolvedPackageEnv } from '@/components/hooks/use-package-env';
-import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
+import useQuickStart, { QuickStartPick } from '@/components/hooks/use-quick-start';
+import {
+  DetailsActions,
+  DetailsChip,
+  DetailsHeader,
+  DetailsSection,
+  DetailsTile,
+} from '@/components/inference/details-modal';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
-import DurationInput from '@/components/input/duration-input';
+import QuickStartBanner from '@/components/inference/quick-start-banner';
 import Modal from '@/components/modal/modal';
-import { ComputeEnvironment } from '@/types/environments';
+import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
+import { declaredGpuRange } from '@/services/quick-start';
 import { InferencePackage } from '@/types/inference';
-import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
-import { formatDuration } from '@/utils/formatters';
-import { serviceDurationBounds } from '@/utils/service-duration';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
-import { CircularProgress } from '@mui/material';
-import cx from 'classnames';
-import { useMemo } from 'react';
-import styles from './package-details-modal.module.css';
+import { formatPipelineTag } from '@/utils/formatters';
+import { useMemo, useState } from 'react';
 
 interface PackageDetailsModalProps {
   pkg: InferencePackage | null;
@@ -22,31 +22,39 @@ interface PackageDetailsModalProps {
   durationSeconds: number;
   onDurationChange: (seconds: number) => void;
   onClose: () => void;
-  onCustomize: () => void;
-  /** Continue from a specific env card → commit that env (with the card's fee token) + go to payment. */
+  /** Advanced setup: hand the model and its preset to the custom flow, where the env is picked by hand. */
+  onAdvanced: () => void;
   /**
-   * `gpuSelection` and `environment` come from the card that priced this pick: the units it drew and
-   * the node's own freshly re-read env. Both were dropped here, so the flow committed the resolver's
-   * older snapshot and the package's default units instead of what was actually validated.
+   * Quick start confirmed a pick: commit that env (with its fee token) and go to payment.
+   * `gpuSelection`, `environment` and `sizing` are what the pick was confirmed against: the units it
+   * books, the node's own freshly re-read env and the CPU/RAM/disk it was priced on. The entry carries
+   * the resolver's older snapshot and the package's default units, so committing those instead would
+   * book what wasn't checked.
    */
-  onContinue: (
-    resolvedEnv: ResolvedPackageEnv,
-    token: { address: string; symbol: string },
-    gpuSelection: GpuSelection,
-    environment: ComputeEnvironment
-  ) => void;
+  onContinue: (pick: QuickStartPick<ResolvedPackageEnv>) => void;
 }
 
-/** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). */
-function durationBounds(environment: ComputeEnvironment): { min: number; max: number } {
-  return serviceDurationBounds(environment);
-}
+/** The model's avatar in the header tile, falling back to its author's initial. */
+const PackageMark: React.FC<{ pkg: InferencePackage }> = ({ pkg }) => {
+  const [failed, setFailed] = useState(false);
+  const avatarUrl = getModelAvatarUrl(pkg.model);
+  if (avatarUrl && !failed) {
+    return (
+      <DetailsTile image>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img alt="" onError={() => setFailed(true)} src={avatarUrl} />
+      </DetailsTile>
+    );
+  }
+  return <DetailsTile>{(pkg.model.author ?? pkg.model.id).charAt(0).toUpperCase()}</DetailsTile>;
+};
 
 /**
- * "What's included" details for a picked package: model & engine preset, runtime, and the list of the
- * source node's environments that can run it (filtered to those satisfying the package's resource
- * floors). Each env is a read-only card with its own Continue → payment. Selection lives in the
- * parent — closing this keeps the package selected.
+ * "What's included" details for a picked package, laid out like the template modal (see
+ * details-modal.tsx): the model as the header, the quick start banner that picks one of the source
+ * nodes' environments by itself (see useQuickStart), then the launch preset. Advanced setup hands the
+ * model to the custom flow for anyone who wants to choose the environment or resources. Selection
+ * lives in the parent, and closing this keeps the package selected.
  */
 const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
   pkg,
@@ -54,128 +62,69 @@ const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
   durationSeconds,
   onDurationChange,
   onClose,
-  onCustomize,
+  onAdvanced,
   onContinue,
 }) => {
-  const { resolved, loading: resolvingEnvs, loadError: envError, retry } = envs;
+  const { resolved, loading, loadError, retry } = envs;
   const serviceModels: ServiceModel[] = useMemo(() => (pkg ? [{ model: pkg.model, params: pkg.params }] : []), [pkg]);
   const engineLabel = pkg?.params.engine === 'llamacpp' ? 'llama.cpp' : 'vLLM';
 
-  // The shared duration must land inside EVERY env's own window — validated per card so a card whose
-  // env can't fit the current duration disables its Continue (with a reason). Same rule as the custom flow.
-  const durationErrorFor = (environment: ComputeEnvironment): string | undefined => {
-    const { min, max } = durationBounds(environment);
-    if (durationSeconds < min) {
-      return `This environment needs at least ${formatDuration(min)}.`;
-    }
-    if (durationSeconds > max) {
-      return `This environment allows at most ${formatDuration(max)}.`;
-    }
-    return undefined;
-  };
+  // A package states its GPU count as both min and recommended today, so this rarely scales; the
+  // range still lets a package that declares one fall back instead of failing.
+  const gpuRange = useMemo(() => (pkg ? declaredGpuRange(pkg.requiredResources) : null), [pkg]);
 
-  const renderEnvsSection = () => {
-    if (envError) {
-      return (
-        <div className={styles.stateBox}>
-          <span className="textErrorDarker">{envError}</span>
-          <Button color="accent2" onClick={retry} size="sm" variant="filled">
-            Retry
-          </Button>
-        </div>
-      );
-    }
-    if (resolvingEnvs) {
-      return (
-        <div className={cx(styles.stateBox, 'textSecondary')}>
-          <CircularProgress size={16} />
-          Loading environments…
-        </div>
-      );
-    }
-    if (resolved.length === 0) {
-      return (
-        <div className={cx(styles.stateBox, 'textSecondary')}>No environment available for this package right now.</div>
-      );
-    }
-    return (
-      <div className={styles.envList}>
-        {/* Controlled gpuSelection → static chips (read-only, auto recommended). onSelect drives its
-            own play/price button; disabledReason force-disables it (with a tooltip reason) when the
-            shared duration is out of this env's bounds. */}
-        {resolved.map((entry) => (
-          <InferenceEnvironmentCard
-            declaredRequirements={pkg?.requiredResources}
-            disabledReason={durationErrorFor(entry.env.environment)}
-            durationSeconds={durationSeconds}
-            environment={entry.env.environment}
-            gpuSelection={entry.env.gpuSelection}
-            key={entry.env.environment.id}
-            nodeInfo={entry.env.nodeInfo}
-            onSelect={(address, symbol, gpuSelection, environment) =>
-              onContinue(entry, { address, symbol }, gpuSelection, environment)
-            }
-            sizing={entry.env.sizing}
-          />
-        ))}
-      </div>
-    );
-  };
+  const quickStart = useQuickStart({
+    entries: resolved,
+    loading,
+    loadError,
+    retry,
+    gpuRange,
+    // Packages never launch without a GPU (the model has to fit in VRAM), whatever the env allows.
+    allowZeroGpu: false,
+    durationSeconds,
+    onStart: onContinue,
+  });
 
   return (
     <Modal isOpen={!!pkg} onClose={onClose} title="What's included" width="md">
       {pkg && (
         <>
-          <div>Everything below is included in the package.</div>
+          <DetailsHeader
+            chips={
+              <>
+                <DetailsChip tone="accent">{formatPipelineTag(pkg.model.pipelineTag, 'Model')}</DetailsChip>
+                <DetailsChip>{engineLabel}</DetailsChip>
+              </>
+            }
+            mark={<PackageMark pkg={pkg} />}
+            meta={pkg.model.id}
+            name={getModelShortName(pkg.model.id)}
+          />
 
-          <div className={styles.section}>
-            <div>
-              <h4>Model &amp; engine</h4>
-              <div>
+          <QuickStartBanner
+            durationSeconds={durationSeconds}
+            onAdvanced={onAdvanced}
+            onDurationChange={onDurationChange}
+            quickStart={quickStart}
+          />
+
+          <DetailsSection
+            hint={
+              <>
                 Runs on <strong>{engineLabel}</strong>. Expand for the full launch preset.
-              </div>
-            </div>
+              </>
+            }
+            title="Model & engine"
+          >
             <InferenceModelList models={serviceModels} />
-          </div>
+          </DetailsSection>
 
-          <div className={styles.section}>
-            <div>
-              <h4>Runtime</h4>
-              <div>
-                You can prolong a running session later from its manage page.
-                <br />
-                Prices below are shown for this <strong>selected duration</strong>
-              </div>
-            </div>
-            <div className={styles.durationRow}>
-              <DurationInput
-                availableUnits={DURATION_UNIT_OPTIONS}
-                defaultUnit="hours"
-                label="Session length"
-                min={1}
-                onChange={onDurationChange}
-                size="sm"
-                value={durationSeconds}
-              />
-            </div>
-          </div>
-
-          <div className={styles.section}>
-            <div>
-              <h4>Environment</h4>
-              <div>Pick an environment to launch on. Continue takes you straight to payment.</div>
-            </div>
-            {renderEnvsSection()}
-          </div>
-
-          <div className="actionsGroupMdBetween">
-            <Button color="accent1" onClick={onClose} variant="outlined">
-              Close
-            </Button>
-            <Button color="accent1" contentBefore={<TuneOutlinedIcon />} onClick={onCustomize} variant="outlined">
-              Customize
-            </Button>
-          </div>
+          <DetailsActions
+            durationSeconds={durationSeconds}
+            onAdvanced={onAdvanced}
+            onClose={onClose}
+            quickStart={quickStart}
+          />
         </>
       )}
     </Modal>

@@ -5,29 +5,26 @@ import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
 import { getTokenSymbol } from '@/lib/token-symbol';
-import { templateFloorSizing } from '@/services/template-launch';
 import { withTimeout } from '@/lib/with-timeout';
+import { recommendedSizing } from '@/services/quick-start';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
 import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Cap the environments lookup so a hung indexer can't keep the details modal on "loading" forever.
 const ENV_FETCH_TIMEOUT_MS = 30000;
 // One page holding every row, then narrowed client-side to the inference allowlist. `/envs` has no
 // node-id filter (see the FilterField switch in incentive-backend `getEnvs`), so a small
 // benchmark-ranked page could rank the allowlisted nodes off the end and leave the modal empty —
-// the same reason use-package-env and inference-context's `restoreEnv` over-fetch. The modal still
-// shows only the best TEMPLATE_ENV_DISPLAY_LIMIT of what survives.
+// the same reason use-package-env and inference-context's `restoreEnv` over-fetch.
 const ENV_PAGE_SIZE = 1000;
-/** Env cards rendered in the modal. Above this, the modal says so and points at Advanced setup. */
-export const TEMPLATE_ENV_DISPLAY_LIMIT = 8;
 
-/** One environment that can run the template, resolved and ready to book (pinned sizing + auto GPU
- *  selection + seeded fee token). The modal renders one card + Continue per entry. */
+/** One environment that can run the template, resolved and ready to book (recommended sizing + auto GPU
+ *  selection + seeded fee token). The modal's quick start picks one of these entries to launch on. */
 export type ResolvedTemplateEnv = {
   env: SelectedInferenceEnv;
   /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
@@ -35,10 +32,12 @@ export type ResolvedTemplateEnv = {
 };
 
 export type TemplateEnvsState = {
-  /** Best-ranked environments that can run the template, capped at {@link TEMPLATE_ENV_DISPLAY_LIMIT}. */
+  /**
+   * Every environment that can run the template, benchmark-ranked. Uncapped: nothing lists them any
+   * more: the quick start ranks all of them (verified, then price, then score) and picks one, and
+   * Advanced setup has its own full picker.
+   */
   resolved: ResolvedTemplateEnv[];
-  /** How many matched in total — greater than `resolved.length` when the display cap kicked in. */
-  totalMatched: number;
   loading: boolean;
   loadError: string | null;
   retry: () => void;
@@ -63,20 +62,28 @@ function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate):
  * Resolve the environments a template can launch on, across every node the indexer knows — unlike a
  * quick-start package (pinned to its source nodes), a template is just an image, so any service-capable
  * environment that meets its floors can run it. Fetches one benchmark-ranked page, keeps the envs that
- * qualify, and rebuilds a bookable SelectedInferenceEnv for each (pinned sizing + auto GPU selection +
+ * qualify, and rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
  * seeded token). Null template → idle.
  */
 const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
   const [resolved, setResolved] = useState<ResolvedTemplateEnv[]>([]);
-  const [totalMatched, setTotalMatched] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fetchEpoch, setFetchEpoch] = useState(0);
+  // The id of the template the last lookup settled for. Until the effect has started one for a new template,
+  // `loading` alone still reads false with nothing resolved, which the quick start would show as
+  // "nothing fits".
+  const [settledFor, setSettledFor] = useState<string | null>(null);
+  // Keyed on the id: the catalogue re-serves the same templates as new objects (e.g. once P2P is ready),
+  // and re-running on identity alone re-fetched every environment and flashed the banner to loading.
+  const templateId = template?.id ?? null;
+  const templateRef = useRef(template);
+  templateRef.current = template;
 
   useEffect(() => {
+    const template = templateRef.current;
     if (!template) {
       setResolved([]);
-      setTotalMatched(0);
       setLoadError(null);
       return;
     }
@@ -84,13 +91,12 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
     // Aborts the in-flight request on effect re-run / unmount (modal closed, template switched), on top
     // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
     const cleanupController = new AbortController();
-    const sizing = templateFloorSizing(template);
+    const sizing = recommendedSizing(template.requiredResources);
 
     async function resolve() {
       setLoading(true);
       setLoadError(null);
       setResolved([]);
-      setTotalMatched(0);
       try {
         const response = await withTimeout(
           (timeoutSignal) =>
@@ -124,7 +130,7 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
           );
 
         const entries = await Promise.all(
-          candidates.slice(0, TEMPLATE_ENV_DISPLAY_LIMIT).map(async ({ node, environment }): Promise<ResolvedTemplateEnv> => {
+          candidates.map(async ({ node, environment }): Promise<ResolvedTemplateEnv> => {
             const tokenAddress = pickDefaultToken(getEnvSupportedTokens(environment, true));
             let symbol: string | null = null;
             if (tokenAddress) {
@@ -140,8 +146,8 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
                 // Prefer recommendedResources for the GPU COUNT (null on every live template today,
                 // but this stays right if that changes) — meetsMinResources above stays on
                 // requiredResources since that's the actual floor, not the recommendation. The shared
-                // CPU/RAM/disk are sized separately by templateFloorSizing, which reads the required
-                // mins and lets the GPU pick drive the rest proportionally.
+                // CPU/RAM/disk are sized separately by recommendedSizing: the recommended amounts,
+                // floored at the required mins.
                 // Templates are one of the two zero-GPU-permitting flows (see env-resources.ts spec) — a
                 // template declaring no GPU requirement (jupyterlab, hermes) must seed 0 rather than the
                 // old blanket "nothing declared -> 1", on an env whose GPU min actually allows it.
@@ -157,6 +163,8 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
                   id: node.id,
                   latestBenchmarkResults: node.latestBenchmarkResults,
                   multiaddrs: node.multiaddrs,
+                  // Quick start prefers verified nodes when several can host the template.
+                  verified: node.verified,
                 },
               },
               token: tokenAddress ? { address: tokenAddress, symbol: symbol ?? '' } : null,
@@ -166,16 +174,17 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
 
         if (!cancelled) {
           setResolved(entries);
-          setTotalMatched(candidates.length);
         }
       } catch (error) {
-        console.error('Failed to resolve template environments:', error);
+        // A cancelled lookup (modal closed, template switched, or the effect re-run) is not a failure.
         if (!cancelled) {
+          console.error('Failed to resolve template environments:', error);
           setLoadError(error instanceof Error ? error.message : 'Failed to resolve the environments.');
         }
       } finally {
         if (!cancelled) {
           setLoading(false);
+          setSettledFor(templateId);
         }
       }
     }
@@ -185,13 +194,13 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
       cancelled = true;
       cleanupController.abort();
     };
-  }, [template, fetchEpoch]);
+  }, [templateId, fetchEpoch]);
 
   const retry = useCallback(() => {
     setFetchEpoch((epoch) => epoch + 1);
   }, []);
 
-  return { resolved, totalMatched, loading, loadError, retry };
+  return { resolved, loading: loading || (!!templateId && settledFor !== templateId), loadError, retry };
 };
 
 export default useTemplateEnvs;

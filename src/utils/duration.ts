@@ -16,8 +16,7 @@ export function toSeconds(value: number, unit: DurationUnit): number {
 }
 
 export function fromSeconds(seconds: number, unit: DurationUnit): number {
-  const value = dayjs.duration(seconds, 'seconds').as(unit);
-  return unit === 'hours' ? Math.ceil(value) : value;
+  return dayjs.duration(seconds, 'seconds').as(unit);
 }
 
 /**

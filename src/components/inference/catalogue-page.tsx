@@ -1,6 +1,6 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { QuickStartPick } from '@/components/hooks/use-quick-start';
 import useServiceTemplates from '@/components/hooks/use-service-templates';
 import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-template-envs';
 import useUrlSelection from '@/components/hooks/use-url-selection';
@@ -11,10 +11,8 @@ import TemplateDetailsModal from '@/components/inference/template-details-modal'
 import { templateHardware, templateVendor } from '@/components/inference/template-visual';
 import SectionTitle from '@/components/section-title/section-title';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
-import { SelectedToken } from '@/context/run-job-context';
 import { InferenceOpenedVia, resolveInferenceBranch, trackInferenceSelection } from '@/lib/inference-analytics';
-import { templateFloorSizing, templateNeedsConfigStep } from '@/services/template-launch';
-import { ComputeEnvironment } from '@/types/environments';
+import { templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, isBundle } from '@/types/templates';
 import { useRouter } from 'next/router';
@@ -23,7 +21,7 @@ import { useEffect, useMemo, useState } from 'react';
 /**
  * Both catalogue pages: /inference/services (bare apps) and /inference/templates (the same apps with
  * models pre-loaded — `kind: 'bundle'` on the wire). Pick an entry, review it in the details modal,
- * then launch straight onto one of the environments that can run it — or hand off to the full env
+ * then Start it on the environment the modal's quick start picks — or hand off to the full env
  * picker ("Advanced setup").
  *
  * The two pages differ only in which entries they list and what they're called, so that lives in
@@ -92,26 +90,28 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
   };
 
   /**
-   * Continue from an env card: commit template + env + token + duration, then step forward. The
-   * resources step is skipped (this modal already picked the env), and so is config unless the template
+   * Quick start confirmed a pick: commit template + env + token + duration, then step forward. The
+   * resources step is skipped (the modal already picked the env), and so is config unless the template
    * declares a required env var (without it the container starts and fails) or needs the bucket picker
    * (templateNeedsConfigStep — that pick must happen before the escrow claim). The query is built
-   * from overrides so it doesn't depend on setState timing, and carries the template's pinned
-   * CPU/RAM/disk so payment books that allocation (a bundle's disk floor covers its weights).
+   * from overrides so it doesn't depend on setState timing, and carries the CPU/RAM/disk the pick was
+   * priced on so payment books that allocation (a bundle's disk floor covers its weights).
    */
-  const continueToPayment = (
-    entry: ResolvedTemplateEnv,
-    token: SelectedToken,
-    gpuSelection: GpuSelection,
-    // The env the card priced and validated this pick against — the node's own, re-read at click time.
+  const continueToPayment = ({
+    entry,
+    token,
+    gpuSelection,
+    // The env the quick start confirmed this pick against — the node's own, re-read at click time.
     // `entry.env.environment` is the resolver's older snapshot, so committing that carried a slice the
     // node may already have handed to someone else into payment and launch.
-    environment: ComputeEnvironment
-  ) => {
+    environment,
+    // The CPU/RAM/disk the pick was priced on: the template's recommended amounts, scaled to its GPUs.
+    sizing,
+  }: QuickStartPick<ResolvedTemplateEnv>) => {
     if (!openTemplate) {
       return;
     }
-    const env = { ...entry.env, gpuSelection, environment };
+    const env = { ...entry.env, gpuSelection, environment, sizing };
     setSelectedTemplate(openTemplate);
     setSelectedEnv(env);
     setSelectedToken(token);
@@ -124,7 +124,7 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
         peerId: env.nodeInfo.id,
         envId: env.environment.id,
         gpuSelection,
-        sizing: env.sizing ?? templateFloorSizing(openTemplate),
+        sizing: env.sizing,
         tokenAddress: token.address,
         durationSeconds,
       }),

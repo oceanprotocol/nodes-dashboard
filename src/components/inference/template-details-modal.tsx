@@ -1,10 +1,19 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
-import Button from '@/components/button/button';
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import useQuickStart, { QuickStartPick } from '@/components/hooks/use-quick-start';
 import { ResolvedTemplateEnv, TemplateEnvsState } from '@/components/hooks/use-template-envs';
 import BundleIncludes, { IncludesAvatarCluster } from '@/components/inference/bundle-includes';
-import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
-import TemplateDisclosure from '@/components/inference/template-disclosure';
+import {
+  DetailsActions,
+  DetailsChip,
+  DetailsDisclosure,
+  DetailsDisclosureIcon,
+  DetailsDisclosureLabel,
+  DetailsHeader,
+  DetailsNote,
+  DetailsSection,
+  DetailsTile,
+} from '@/components/inference/details-modal';
+import QuickStartBanner from '@/components/inference/quick-start-banner';
 import { templateLogo } from '@/components/inference/template-logos';
 import TemplateMark from '@/components/inference/template-mark';
 import {
@@ -12,15 +21,14 @@ import {
   templateGpuLabel,
   templateHardware,
   templateImageRef,
+  TemplateVisual,
   visualFor,
 } from '@/components/inference/template-visual';
 import TemplateWorkflows from '@/components/inference/template-workflows';
-import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
-import { SelectedToken } from '@/context/run-job-context';
 import { useTheme } from '@/lib/use-theme';
+import { declaredGpuRange } from '@/services/quick-start';
 import { templateNeedsConfigStep } from '@/services/template-launch';
-import { ComputeEnvironment } from '@/types/environments';
 import {
   AppTemplate,
   INCLUDES_EXPAND_MAX,
@@ -29,25 +37,13 @@ import {
   SHAPE_LABEL,
   templateShape,
 } from '@/types/templates';
-import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
-import { formatDuration } from '@/utils/formatters';
-import { serviceDurationBounds } from '@/utils/service-duration';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
-import CloudOffIcon from '@mui/icons-material/CloudOff';
-import DnsIcon from '@mui/icons-material/Dns';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import LockIcon from '@mui/icons-material/Lock';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PublicIcon from '@mui/icons-material/Public';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import SdStorageIcon from '@mui/icons-material/SdStorage';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
-import { CircularProgress } from '@mui/material';
-import cx from 'classnames';
-import { CSSProperties, Fragment, useState } from 'react';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { CSSProperties, useMemo } from 'react';
 import styles from './template-details-modal.module.css';
 
 type TemplateDetailsModalProps = {
@@ -58,49 +54,20 @@ type TemplateDetailsModalProps = {
   onClose: () => void;
   /** Hand off to the full env picker (resources step) instead of launching from here. */
   onAdvanced: () => void;
-  /** Continue from a specific env card → commit that env (with its fee token + GPU units) → payment. */
   /**
-   * `environment` is the copy the card actually priced and validated the pick against — the node's
-   * own, freshly re-read at click time. Forwarded so the flow stores and launches from the same
-   * availability the user was shown; the entry's own `env.environment` is the resolver's older
-   * snapshot, and committing that re-introduced the contention this whole path exists to catch.
+   * Quick start confirmed a pick: commit that env (with its fee token, GPU units and CPU/RAM/disk
+   * sizing) and step forward. `environment` is the node's own copy the pick was confirmed against,
+   * re-read at click time, so the flow stores and launches from the availability that was actually
+   * checked; the entry's own `env.environment` is the resolver's older snapshot.
    */
-  onContinue: (
-    resolvedEnv: ResolvedTemplateEnv,
-    token: SelectedToken,
-    gpuSelection: GpuSelection,
-    environment: ComputeEnvironment
-  ) => void;
+  onContinue: (pick: QuickStartPick<ResolvedTemplateEnv>) => void;
 };
-
-/** Paid service-on-demand duration bounds for an env (0 / Infinity when unset). */
-function durationBounds(environment: ComputeEnvironment): { min: number; max: number } {
-  return serviceDurationBounds(environment);
-}
-
-/** One row of the required-vs-recommended resources table. */
-type ResourceRow = {
-  label: string;
-  Icon: React.ComponentType<{ className?: string }>;
-  required: string;
-  recommended: string;
-};
-
-const NOT_DECLARED = 'Not declared';
 
 /**
- * The published `description`, as the paragraphs its author wrote. Split on blank lines because the
- * catalogue stores it as plain text: rendered into one <p>, HTML collapses the breaks and four
- * paragraphs arrive as a single block.
- *
- * Catalogue descriptions run to four paragraphs in a fixed shape — what it is, then two of operating
- * detail, then who it is for. Only the first and last are read while deciding, so those two stay
- * open and the middle sits behind the same More toggle the workflow cards use; all four at once is a
- * screen of grey between the header and "What you can run", which is the thing being chosen.
- *
- * The closing paragraph carries the template's own accent rule, since it is a different kind of
- * sentence from the spec above it. It is detected from the text rather than declared, so copy that
- * doesn't follow the pattern simply reads as body and nothing is hidden.
+ * Catalogue descriptions run to four paragraphs in a fixed shape: what it is, two of operating detail,
+ * then who it is for. The first and last stay open and the middle sits in a "How it runs" card. The closing
+ * paragraph is detected from the text rather than declared, so copy that doesn't follow the pattern
+ * simply reads as body and nothing is hidden.
  */
 const AUDIENCE_LINE = /^this template is built for\b/i;
 
@@ -114,11 +81,13 @@ const linkify = (text: string): React.ReactNode => {
   let lastIndex = 0;
   for (const match of text.matchAll(MARKDOWN_LINK)) {
     const index = match.index ?? 0;
-    if (index > lastIndex) nodes.push(text.slice(lastIndex, index));
+    if (index > lastIndex) {
+      nodes.push(text.slice(lastIndex, index));
+    }
     nodes.push(
       <a key={index} href={match[2]} target="_blank" rel="noreferrer" className={styles.proseLink}>
         {match[1]}
-      </a>,
+      </a>
     );
     lastIndex = index + match[0].length;
   }
@@ -126,9 +95,11 @@ const linkify = (text: string): React.ReactNode => {
   return nodes;
 };
 
-const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text, style }) => {
-  const [expanded, setExpanded] = useState(false);
-
+/**
+ * The published `description`, as the paragraphs its author wrote. Split on blank lines because the
+ * catalogue stores it as plain text, and one <p> would collapse the breaks.
+ */
+const TemplateProse: React.FC<{ text: string }> = ({ text }) => {
   const paragraphs = text
     .split(/\n\s*\n/)
     .map((p) => p.trim())
@@ -139,84 +110,79 @@ const TemplateProse: React.FC<{ text: string; style?: CSSProperties }> = ({ text
   const middle = paragraphs.slice(1, hasAudience ? last : undefined);
 
   return (
-    // `--accent` is set per template on the header, so the audience rule needs it carried here too.
-    <div className={styles.overview} style={style}>
-      <p className={styles.lead}>{linkify(paragraphs[0])}</p>
-      {expanded &&
-        middle.map((paragraph, i) => (
-          <p className={styles.bodyProse} key={i}>
-            {linkify(paragraph)}
-          </p>
-        ))}
+    <>
+      <div className={styles.prose}>
+        <p className={styles.lead}>{linkify(paragraphs[0])}</p>
+        {audience && <p className={styles.audience}>{linkify(audience)}</p>}
+      </div>
       {middle.length > 0 && (
-        // Named rather than "More": a bare red word between two paragraphs reads as a warning, and
-        // says nothing about what opens. The chevron matches the modal's other disclosures.
-        <button className={styles.moreButton} onClick={() => setExpanded((open) => !open)} type="button">
-          {expanded ? 'Hide how it runs' : 'How it runs'}
-          <ExpandMoreIcon className={cx(styles.moreChevron, { [styles.moreChevronOpen]: expanded })} />
-        </button>
+        <DetailsDisclosure
+          summary={
+            <>
+              <DetailsDisclosureIcon Icon={SettingsOutlinedIcon} />
+              <DetailsDisclosureLabel title="How it runs" />
+            </>
+          }
+        >
+          <div className={styles.prose}>
+            {middle.map((paragraph, i) => (
+              <p className={styles.body} key={i}>
+                {linkify(paragraph)}
+              </p>
+            ))}
+          </div>
+        </DetailsDisclosure>
       )}
-      {audience && <p className={styles.audience}>{linkify(audience)}</p>}
-    </div>
+    </>
   );
 };
 
-function resourceRows(template: AppTemplate): ResourceRow[] {
-  const required = template.requiredResources ?? [];
-  const recommended = template.recommendedResources ?? [];
-  const declared = (id: string, unit: string) => {
-    const req = required.find((r) => r.id === id);
-    const rec = recommended.find((r) => r.id === id);
-    return {
-      required: req?.min != null ? `${req.min}${unit}` : NOT_DECLARED,
-      // The node may publish recommendations either as a separate list or as `recommended` on the
-      // requirement itself — take whichever is present.
-      recommended:
-        rec?.recommended != null
-          ? `${rec.recommended}${unit}`
-          : rec?.min != null
-            ? `${rec.min}${unit}`
-            : req?.recommended != null
-              ? `${req.recommended}${unit}`
-              : NOT_DECLARED,
-    };
-  };
-  const gpuRequired = required.find((r) => r.type === 'gpu' || r.id === 'gpu');
-  const gpuRecommended = recommended.find((r) => r.type === 'gpu' || r.id === 'gpu');
-  const gpuUnits = gpuRecommended?.recommended ?? gpuRecommended?.min ?? gpuRequired?.recommended;
-  // Icons match the environment cards: chip/memory glyph for CPU, SD-storage for RAM, DNS for disk,
-  // generic GPU glyph for an unspecified GPU.
-  return [
-    { label: 'CPU', Icon: MemoryIcon, ...declared('cpu', ' cores') },
-    { label: 'RAM', Icon: SdStorageIcon, ...declared('ram', ' GB') },
-    { label: 'Disk', Icon: DnsIcon, ...declared('disk', ' GB') },
-    {
-      label: 'GPU',
-      Icon: GpuIcon,
-      required: gpuRequired ? `${gpuRequired.min}× GPU` : 'None',
-      recommended: gpuRequired ? `${gpuUnits ?? gpuRequired.min}× GPU` : 'None',
-    },
-  ];
-}
+/** The manifest's disclosure summary: avatar cluster, what it holds, and where it comes from. */
+const IncludesSummary: React.FC<{ template: AppTemplate; downloaded?: boolean }> = ({
+  template,
+  downloaded = false,
+}) => {
+  const publishers = includesPublishers(template);
+  const origin = [downloaded && 'Downloaded into the app on first launch', publishers && `from ${publishers}`]
+    .filter(Boolean)
+    .join(', ');
+  return (
+    <>
+      <IncludesAvatarCluster template={template} />
+      <DetailsDisclosureLabel
+        sub={origin ? origin.charAt(0).toUpperCase() + origin.slice(1) : undefined}
+        title={includesBreakdown(template)}
+      />
+    </>
+  );
+};
 
 /**
- * "What's included" details for a picked app template: what the app is, how it's used (browser UI vs
- * HTTP API), its configurable env vars, the resources it asks for, the session length, and the
- * environments that can currently run it. Each env is a read-only card with its own Continue → payment (the resources step is
- * skipped); "Advanced setup" hands off to the full env picker instead. Selection lives in the parent —
- * closing this commits nothing.
+ * How you reach the running app. No port number: the node allocates a host port from 30000-32767 at
+ * launch and the URL carries that one, so the container port would appear nowhere the user looks.
+ */
+const AccessNote: React.FC<{ visual: TemplateVisual }> = ({ visual }) => (
+  <DetailsNote Icon={PublicIcon} title={visual.meta.interaction}>
+    {visual.meta.interactionHint}.
+  </DetailsNote>
+);
+
+/**
+ * "What's included" details for a picked app template, laid out like the package modal (see
+ * details-modal.tsx): identity header, quick start banner, then the same sections in the same order
+ * for every template:
  *
- * The first section varies by `templateShape`, and nothing else does — a returning user never has to
- * re-learn the modal:
+ * 1. **What it is**: the published description.
+ * 2. **What you can run / What you get**: the only section that varies by `templateShape`. A recipe
+ *    lists its graphs, a model pack its models plus the absence of a workflow, a service its
+ *    capabilities. Each ends with how the running app is reached.
+ * 3. **Under the hood**: what the app downloads (recipe), or that it ships empty (service). A model
+ *    pack has none, since its models are already the offer above.
+ * 4. **Configurable variables**: only when the template declares some.
  *
- * - **recipe** — the published `description` opens the modal as "What it is", then the graphs it
- *   ships, one bordered card each. The description used to be collapsed into "Good to know" because
- *   it restated those cards; catalogue copy is now written per template and says more than they do,
- *   so it leads — with only its opening and closing paragraphs open, so the graphs stay in view.
- * - **modelPack** — the manifest promoted into that same slot, annotated but visibly quieter, plus
- *   the absence of a workflow said out loud.
- * - **service** — plain prose and no panel at all. A bordered panel is this modal's way of saying
- *   "assets are included", so an empty app must not have one.
+ * The banner picks the environment itself (see useQuickStart), so the user only sets a session length
+ * and presses Start; Advanced setup hands off to the full env picker. Selection lives in the parent,
+ * and closing this commits nothing.
  */
 const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   template,
@@ -227,128 +193,137 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   onAdvanced,
   onContinue,
 }) => {
-  const { resolved, totalMatched, loading, loadError, retry } = envs;
+  const { resolved, loading, loadError, retry } = envs;
   const { resolvedTheme } = useTheme();
   const visual = template ? visualFor(template.id, template.category) : null;
   const hw = template ? templateHardware(template) : null;
   const logo = template ? templateLogo(template) : null;
   const shape = template ? templateShape(template) : null;
 
-  // The shared duration must land inside EVERY env's own window — validated per card so a card whose
-  // env can't fit the current duration disables its Continue (with a reason). Same rule as quick start.
-  const durationErrorFor = (environment: ComputeEnvironment): string | undefined => {
-    const { min, max } = durationBounds(environment);
-    if (durationSeconds < min) {
-      return `This environment needs at least ${formatDuration(min)}.`;
+  // The GPU count the quick start aims for (recommended) and may scale down to (required min).
+  const gpuRange = useMemo(
+    () => (template ? declaredGpuRange(template.requiredResources, template.recommendedResources) : null),
+    [template]
+  );
+
+  // Templates are one of the two zero-GPU flows (see env-resources.ts): an app declaring no GPU
+  // (jupyterlab, hermes) launches without one wherever the environment allows that.
+  const quickStart = useQuickStart({
+    entries: resolved,
+    loading,
+    loadError,
+    retry,
+    gpuRange,
+    allowZeroGpu: true,
+    durationSeconds,
+    onStart: onContinue,
+  });
+
+  const renderOverview = (tpl: AppTemplate) => {
+    const description = tpl.description?.trim();
+    if (description) {
+      return (
+        <DetailsSection title="What it is">
+          <TemplateProse text={description} />
+        </DetailsSection>
+      );
     }
-    if (durationSeconds > max) {
-      return `This environment allows at most ${formatDuration(max)}.`;
+    // A bare service has nothing else describing it, so its missing description is said out loud.
+    if (shape === 'service') {
+      return (
+        <DetailsSection title="What it is">
+          <p className={styles.empty}>No description published for this image.</p>
+        </DetailsSection>
+      );
     }
-    return undefined;
+    return null;
   };
 
-  // recommendedResources when the node published one, else requiredResources — recommendedResources is
-  // null on every live template today, but the fallback keeps the offered GPU counts agreeing with the
-  // seeded pick (use-template-envs reads the same preference for autoGpuSelection).
-  const declaredResources = template?.recommendedResources ?? template?.requiredResources;
+  const renderOffer = (tpl: AppTemplate, meta: TemplateVisual) => {
+    const workflows = tpl.workflows ?? [];
+    const includes = tpl.includes ?? [];
 
-  const renderEnvsSection = () => {
-    if (loadError) {
+    if (shape === 'recipe') {
       return (
-        <div className={styles.errorBox}>
-          <ErrorOutlineIcon className={styles.errorIcon} />
-          <div className={styles.errorText}>
-            <div className={styles.errorTitle}>Couldn&apos;t load environments</div>
-            <div className={styles.errorDetail}>
-              Nothing has been committed. Retry, or close and pick another template.
-            </div>
-            <div className={styles.errorReason}>{loadError}</div>
-          </div>
-          <Button color="accent1" contentBefore={<RefreshIcon />} onClick={retry} size="sm" variant="filled">
-            Retry
-          </Button>
-        </div>
+        <DetailsSection
+          hint={
+            workflows.length === 1
+              ? 'One graph, already loaded in the app.'
+              : `${workflows.length} graphs, already loaded in the app.`
+          }
+          title="What you can run"
+        >
+          <TemplateWorkflows workflows={workflows} />
+          <AccessNote visual={meta} />
+        </DetailsSection>
       );
     }
-    if (loading) {
+
+    if (shape === 'modelPack') {
       return (
-        <div className={styles.skeletonList}>
-          <div className={styles.skeletonCard}>
-            <div className="shimmer" style={{ height: 12, width: 190 }} />
-            <div className={styles.skeletonRow}>
-              <div className="shimmer" style={{ height: 26, width: 150, borderRadius: 100 }} />
-              <div className={styles.spacer} />
-              <div className="shimmer" style={{ height: 34, width: 120, borderRadius: 100 }} />
-            </div>
-          </div>
-          <div className={cx(styles.skeletonCard, styles.skeletonCardFaded)}>
-            <div className="shimmer" style={{ height: 12, width: 150 }} />
-            <div className="shimmer shimmerSoft" style={{ height: 34, borderRadius: 12 }} />
-          </div>
-          <div className={styles.loadingNote}>
-            <CircularProgress className={styles.spinner} size={13} />
-            Resolving environments that can run this image…
-          </div>
-        </div>
+        <DetailsSection
+          hint={`${meta.meta.purpose} The models below are already downloaded, but no workflow is preloaded, so you build your own.`}
+          title="What you get"
+        >
+          {/* A few annotated items help when wiring your own graph; past that the list collapses. */}
+          {includes.length <= INCLUDES_EXPAND_MAX ? (
+            <BundleIncludes showRoles template={tpl} />
+          ) : (
+            <DetailsDisclosure summary={<IncludesSummary template={tpl} />}>
+              <BundleIncludes showRoles template={tpl} />
+            </DetailsDisclosure>
+          )}
+          <DetailsNote Icon={AccountTreeOutlinedIcon} title="No workflows included.">
+            The app opens empty, so build a graph or bring your own. The models above are already in place, so they show
+            up in the app straight away.
+          </DetailsNote>
+          <AccessNote visual={meta} />
+        </DetailsSection>
       );
     }
-    if (resolved.length === 0) {
-      return (
-        <div className={styles.stateBox}>
-          <CloudOffIcon className={styles.stateBoxIcon} />
-          <div className={styles.stateBoxTitle}>No environment can run this template right now</div>
-          <div className={styles.stateBoxText}>
-            Every matching environment is busy or below this template&apos;s requirements. Try again shortly, or pick
-            another template.
-          </div>
-        </div>
-      );
-    }
+
     return (
-      <div className={styles.envList}>
-        {/* Uncontrolled GPU chips: `initialSelection` seeds the auto-recommended pick (autoGpuSelection,
-            via use-template-envs) and the card owns it from there, so the user can change the unit count
-            without leaving for Advanced setup. onSelect hands back whatever they settled on — the same
-            selection the card priced — which is what onContinue books. `sizing` is the template's PINNED
-            CPU/RAM/disk, so a different GPU count moves the GPU units and the price, not the shared
-            slice; same behavior as this template in the Advanced picker. disabledReason force-disables
-            the play/price button (with a tooltip reason) when the shared duration is out of bounds. */}
-        {resolved.map((entry) => (
-          <InferenceEnvironmentCard
-            allowZeroGpu
-            declaredRequirements={declaredResources}
-            disabledReason={durationErrorFor(entry.env.environment)}
-            durationSeconds={durationSeconds}
-            environment={entry.env.environment}
-            initialSelection={entry.env.gpuSelection}
-            key={`${entry.env.nodeInfo.id}-${entry.env.environment.id}`}
-            nodeInfo={entry.env.nodeInfo}
-            onSelect={(address, symbol, gpuSelection, environment) =>
-              onContinue(entry, { address, symbol }, gpuSelection, environment)
-            }
-            sizing={entry.env.sizing}
-          />
-        ))}
-        {totalMatched > resolved.length && (
-          <div className={styles.envCapNote}>
-            Showing the {resolved.length} best-scoring of {totalMatched} matching environments. Advanced setup lists
-            them all.
+      <DetailsSection hint={`${meta.meta.purpose} You bring the models.`} title="What you get">
+        {(tpl.capabilities?.length ?? 0) > 0 && (
+          <div className={styles.chipList}>
+            {tpl.capabilities?.map((capability) => (
+              <DetailsChip key={capability} tone="quiet">
+                {capability}
+              </DetailsChip>
+            ))}
           </div>
         )}
-      </div>
+        <AccessNote visual={meta} />
+      </DetailsSection>
     );
   };
 
+  const renderUnderTheHood = (tpl: AppTemplate) => {
+    if (shape === 'service') {
+      return (
+        <DetailsSection title="Under the hood">
+          <DetailsNote Icon={Inventory2OutlinedIcon} title="Ships empty - no models, no workflows.">
+            Fetch what you need from inside the app once it is running.
+          </DetailsNote>
+        </DetailsSection>
+      );
+    }
+    if (shape === 'recipe' && (tpl.includes?.length ?? 0) > 0) {
+      return (
+        <DetailsSection hint="What the graphs load." title="Under the hood">
+          <DetailsDisclosure summary={<IncludesSummary downloaded template={tpl} />}>
+            <BundleIncludes template={tpl} />
+          </DetailsDisclosure>
+        </DetailsSection>
+      );
+    }
+    return null;
+  };
+
   /**
-   * The configurable-variable chips. Placement differs by shape, the markup doesn't. Rendered only
-   * when the template actually declares variables — "declares no configurable variables" is a line
-   * about the template's schema, not about anything the user can act on, and for a bare service it
-   * was the whole of the section.
-   *
-   * The hint tracks routing rather than asserting it: only a launch that stops at the config step
-   * (a required var, or a bucket picker — templateNeedsConfigStep) reaches the form from here, and a
-   * template whose vars are all optional goes straight to payment, so "set on the next step" would
-   * be pointing at a step this pick skips. Advanced setup always routes through config.
+   * The hint tracks routing: only a launch that stops at the config step (a required var, or a bucket
+   * picker, see templateNeedsConfigStep) reaches the form from here. A template whose vars are all
+   * optional goes straight to payment, where Advanced setup is the way to set them.
    */
   const renderEnvVars = (tpl: AppTemplate) => {
     const specs = tpl.userConfigurableEnvVars ?? [];
@@ -356,372 +331,86 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
       return null;
     }
     return (
-      <div className={styles.envVars}>
-        <div className={styles.envVarsHead}>
-          <span className={styles.overline}>Configurable env vars</span>
-          <span className="textSecondary text12">
-            {templateNeedsConfigStep(tpl) ? 'set on the next step' : 'optional · set under Advanced setup'}
-          </span>
-        </div>
-        <div className={styles.envVarList}>
+      <DetailsSection
+        hint={templateNeedsConfigStep(tpl) ? 'Set on the next step.' : 'Optional, set under Advanced setup.'}
+        title="Configurable variables"
+      >
+        <div className={styles.chipList}>
           {specs.map((spec) => (
-            <span className={cx('chip', 'chipGlass', styles.chip, styles.envVarChip)} key={spec.key}>
+            <DetailsChip className={styles.envVarChip} key={spec.key}>
               {spec.sensitive && <LockIcon className={styles.envVarLock} />}
               {spec.key}
               {spec.sensitive && <span className={styles.envVarMask}>••••••</span>}
-            </span>
+            </DetailsChip>
           ))}
         </div>
-      </div>
+      </DetailsSection>
     );
   };
 
-  /**
-   * How you reach the running app. No port number: the node allocates a host port from 30000-32767 at
-   * launch and the URL carries that one, so naming the container port here would show a number that
-   * appears nowhere in the endpoint the user is given.
-   */
-  const renderPortRow = () =>
-    visual && (
-      <div className={styles.portRow}>
-        <span className={cx('chip chipAccent2', styles.chip)}>
-          <PublicIcon className={styles.chipIcon} />
-          {visual.meta.interaction}
-        </span>
-        <span className="textSecondary text12">{visual.meta.interactionHint}</span>
-      </div>
-    );
-
-  /**
-   * The overview, first thing under the header. It used to sit inside "Good to know", collapsed, on
-   * the reasoning that for a bundle it restated the workflow descriptions — that stopped being true
-   * once the catalogue started publishing a full description per template, and a paragraph nobody
-   * opens is a paragraph nobody reads. Workflows still follow: overview first, then the detail.
-   */
-  const renderOverview = (tpl: AppTemplate) => {
-    const description = tpl.description?.trim();
-    if (!description || !visual) {
-      return null;
-    }
-    return (
-      <div className={styles.section}>
-        <div className={styles.sectionHead}>
-          <h4>What it is</h4>
-        </div>
-        <TemplateProse style={accentVars(visual.meta.accent, resolvedTheme) as CSSProperties} text={description} />
-      </div>
-    );
-  };
-
-  /**
-   * The env vars, behind one row: which variables exist is a launch-time detail, not something read
-   * while deciding. Available, out of the way — and keeping them here stops the header carrying two
-   * competing chip rows.
-   */
-  const renderGoodToKnow = (tpl: AppTemplate) => {
-    if ((tpl.userConfigurableEnvVars?.length ?? 0) === 0) {
-      return null;
-    }
-    return (
-      <div className={styles.section}>
-        <TemplateDisclosure Icon={InfoOutlinedIcon} summary="Good to know: the variables you can set">
-          {renderEnvVars(tpl)}
-        </TemplateDisclosure>
-      </div>
-    );
-  };
-
-  /**
-   * The manifest — what the graphs load. Collapsed by default: today this list outranks the recipe,
-   * and six near-identical checkpoint names are not what anyone is deciding on. The avatar cluster
-   * keeps the provenance signal while closed and the publisher names do the credibility work the list
-   * was doing, which buys Resources/Runtime/Environment roughly a screen of scroll.
-   */
-  const renderUnderTheHood = (tpl: AppTemplate) => {
-    const breakdown = includesBreakdown(tpl);
-    const publishers = includesPublishers(tpl);
-    return (
-      <div className={styles.section}>
-        <div className={styles.overlineHead}>
-          <span className={styles.overline}>Under the hood</span>
-          <span className="textSecondary text12">what the graphs load</span>
-        </div>
-        <TemplateDisclosure
-          closeLabel="Hide"
-          openLabel={`Show all ${tpl.includes?.length ?? 0}`}
-          raised
-          contentIsPanel
-          summary={
-            <span className={styles.clusterSummary}>
-              <IncludesAvatarCluster template={tpl} />
-              <span>
-                {breakdown}, downloaded into the app on first launch
-                {publishers ? `, from ${publishers}` : ''}
-              </span>
-            </span>
-          }
-        >
-          <BundleIncludes template={tpl} />
-        </TemplateDisclosure>
-      </div>
-    );
-  };
-
-  /**
-   * The first section — the only thing that varies between the three shapes. See the component
-   * docblock for why each one looks the way it does.
-   */
-  const renderOfferSection = (tpl: AppTemplate) => {
-    if (!visual) {
-      return null;
-    }
-    const workflows = tpl.workflows ?? [];
-    const includes = tpl.includes ?? [];
-
-    if (shape === 'recipe') {
-      return (
-        <div className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h4>What you can run</h4>
-            {/* No entry point named here either — see TemplateWorkflows on why position isn't rank. */}
-            <div>
-              {workflows.length === 1
-                ? 'One graph, already loaded in the app.'
-                : `${workflows.length} graphs, already loaded in the app.`}
-            </div>
-          </div>
-          <TemplateWorkflows workflows={workflows} />
-          {renderPortRow()}
-        </div>
-      );
-    }
-
-    if (shape === 'modelPack') {
-      const breakdown = includesBreakdown(tpl);
-      const publishers = includesPublishers(tpl);
-      return (
-        <div className={styles.section}>
-          <div className={styles.sectionHead}>
-            <h4>What you get</h4>
-            <div>
-              {visual.meta.purpose} The models below are already downloaded, but no workflow is preloaded, so you build
-              your own.
-            </div>
-          </div>
-          <div className={styles.panel}>
-            {/* Three annotated items answer a real question when you're wiring your own graph; past
-                that the list is noise whichever way you cut it, so it collapses. */}
-            {includes.length <= INCLUDES_EXPAND_MAX ? (
-              <BundleIncludes showRoles template={tpl} />
-            ) : (
-              <TemplateDisclosure
-                closeLabel="Hide"
-                contentIsPanel
-                openLabel={`Show all ${includes.length}`}
-                raised
-                summary={
-                  <span className={styles.clusterSummary}>
-                    <IncludesAvatarCluster template={tpl} />
-                    <span>
-                      {breakdown}
-                      {publishers ? `, from ${publishers}` : ''}
-                    </span>
-                  </span>
-                }
-              >
-                <BundleIncludes showRoles template={tpl} />
-              </TemplateDisclosure>
-            )}
-            {/* Said out loud, not left to be discovered after paying. */}
-            <div className={styles.absence}>
-              <AccountTreeOutlinedIcon className={styles.absenceIcon} />
-              <div>
-                <strong>No workflows included.</strong> The app opens empty, so build a graph or bring your own. The
-                models above are already in place, so they show up in the app straight away.
-              </div>
-            </div>
-            {renderPortRow()}
-          </div>
-        </div>
-      );
-    }
-
-    // service — plain prose, no panel. The shortness is itself the signal that this is a bare app.
-    return (
-      <div className={styles.section}>
-        <div className={styles.sectionHead}>
-          <h4>What you get</h4>
-          <div>{visual.meta.purpose} You bring the models.</div>
-        </div>
-        {tpl.description ? (
-          <TemplateProse text={tpl.description} />
-        ) : (
-          <p className={cx(styles.prose, styles.descriptionEmpty)}>No description published for this image.</p>
-        )}
-        {(tpl.capabilities?.length ?? 0) > 0 && (
-          <div className={styles.capabilities}>
-            {tpl.capabilities?.map((capability) => (
-              <span className={cx('chip', styles.chip, styles.capabilityChip)} key={capability}>
-                {capability}
-              </span>
-            ))}
-          </div>
-        )}
-        {renderPortRow()}
-        {/* Renders as a stated absence rather than not at all: the heading keeps the section rhythm
-            of a bundle's modal, and silence here would read as an oversight instead of a choice. */}
-        <div className={styles.overlineHead}>
-          <span className={styles.overline}>Under the hood</span>
-        </div>
-        <div className={styles.absence}>
-          <Inventory2OutlinedIcon className={styles.absenceIcon} />
-          <div>
-            <strong>Ships empty - no models, no workflows.</strong> Fetch what you need from inside the app once it is
-            running.
-          </div>
-        </div>
-        {renderEnvVars(tpl)}
-      </div>
-    );
-  };
+  // The template's category colour, carried by the header, the banner and the prose accents alike.
+  const accentStyle = visual ? (accentVars(visual.meta.accent, resolvedTheme) as CSSProperties) : undefined;
 
   return (
     <Modal isOpen={!!template} onClose={onClose} title="What's included" width="md">
       {template && visual && hw && (
-        <>
-          <div className={styles.header} style={accentVars(visual.meta.accent, resolvedTheme) as CSSProperties}>
-            {/* The brand mark REPLACES the category glyph — see the same note in template-card. */}
-            <TemplateMark
-              fallback={
-                <span className={styles.tile}>
-                  {logo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img alt="" className={styles.tileLogo} src={logo} />
-                  ) : visual.mono ? (
-                    <span className={styles.tileMono}>{visual.mono}</span>
-                  ) : (
-                    <visual.meta.Icon className={styles.tileIcon} />
-                  )}
-                </span>
-              }
-              size={38}
-              template={template}
-            />
-            <div className={styles.headerText}>
-              <h2 className={styles.name}>{template.name ?? template.id}</h2>
-              {/* Templates only: the one concrete thing this gets done. The catalogue card leads with
-                  the app's name (same tile as a service), so this is where the outcome is read. */}
-              {template.outcome && <div className={styles.outcome}>{template.outcome}</div>}
-              <div className={cx(styles.headerChips, 'gapSm')}>
-                <span className={cx('chip', styles.chip, styles.categoryChip)}>{visual.meta.label}</span>
-                {/* Same chip as the catalogue card — same icon, same words for the same ask. */}
-                <span className={cx('chip', 'chipGlass', styles.chip)}>
-                  {hw.gpu ? (
-                    <GpuIcon className={styles.chipIcon} />
-                  ) : (
-                    <MemoryIcon className={styles.chipIcon} fontSize="small" />
-                  )}
+        // `--accent` is set once for the whole body, so every section inherits the category colour.
+        <div className={styles.root} style={accentStyle}>
+          <DetailsHeader
+            chips={
+              <>
+                <DetailsChip tone="accent">{visual.meta.label}</DetailsChip>
+                {/* Same chip as the catalogue card: same icon, same words for the same ask. */}
+                <DetailsChip>
+                  {hw.gpu ? <GpuIcon /> : <MemoryIcon />}
                   {templateGpuLabel(hw)}
-                </span>
-                {/* Three tiers, one word each — a buyer who expects a runnable recipe and gets three
-                    checkpoints will ask for a refund, so the distinction is worth a chip. */}
-                {shape && <span className={cx('chip', styles.chip, styles.shapeChip)}>{SHAPE_LABEL[shape]}</span>}
-              </div>
-              <div className={styles.mono} title={templateImageRef(template)}>
-                {templateImageRef(template)}
-              </div>
-            </div>
-          </div>
+                </DetailsChip>
+                {shape && <DetailsChip tone="quiet">{SHAPE_LABEL[shape]}</DetailsChip>}
+              </>
+            }
+            mark={
+              // The brand mark replaces the category glyph (same as template-card).
+              <TemplateMark
+                fallback={
+                  <DetailsTile>
+                    {logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="" className={styles.tileLogo} src={logo} />
+                    ) : visual.mono ? (
+                      <span className={styles.tileMono}>{visual.mono}</span>
+                    ) : (
+                      <visual.meta.Icon className={styles.tileIcon} />
+                    )}
+                  </DetailsTile>
+                }
+                size={38}
+                template={template}
+              />
+            }
+            meta={templateImageRef(template)}
+            name={template.name ?? template.id}
+            subtitle={template.outcome}
+          />
 
-          {shape !== 'service' && renderOverview(template)}
+          <QuickStartBanner
+            durationSeconds={durationSeconds}
+            onAdvanced={onAdvanced}
+            onDurationChange={onDurationChange}
+            quickStart={quickStart}
+          />
 
-          {renderOfferSection(template)}
+          {renderOverview(template)}
+          {renderOffer(template, visual)}
+          {renderUnderTheHood(template)}
+          {renderEnvVars(template)}
 
-          {shape !== 'service' && renderGoodToKnow(template)}
-
-          {shape === 'recipe' && (template.includes?.length ?? 0) > 0 && renderUnderTheHood(template)}
-
-          {/* Resources table (Resource / Required / Recommended) — commented out. It printed the
-              template's declared CPU/RAM/disk as the amounts a launch would book, which stopped being
-              true once the shared slice became proportional to the GPU count picked below
-              (templateFloorSizing): the declared figures are now a FLOOR, not the booking. The env
-              cards under "Environment" show the real amounts for the current pick, and the card's GPU
-              chip carries the declared ask. Kept rather than deleted — `resourceRows`/`NOT_DECLARED`
-              and the resourceTable styles are still here if a declared-vs-booked table is wanted back.
-          <div className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h4>Resources</h4>
-              <div>What the template asks for. The environment you pick must meet the required column.</div>
-            </div>
-            <div className={styles.resourceTable}>
-              <div className={styles.resourceHeadCell}>Resource</div>
-              <div className={styles.resourceHeadCell}>Required</div>
-              <div className={cx(styles.resourceHeadCell, styles.resourceHeadCellAccent)}>Recommended</div>
-              {resourceRows(template).map((row) => (
-                <Fragment key={row.label}>
-                  <div className={styles.resourceLabelCell}>
-                    <row.Icon className={styles.resourceIcon} />
-                    {row.label}
-                  </div>
-                  <div
-                    className={cx(styles.resourceCell, { [styles.resourceCellEmpty]: row.required === NOT_DECLARED })}
-                  >
-                    {row.required}
-                  </div>
-                  <div
-                    className={cx(styles.resourceCell, {
-                      [styles.resourceCellAccent]: row.recommended !== NOT_DECLARED,
-                      [styles.resourceCellEmpty]: row.recommended === NOT_DECLARED,
-                    })}
-                  >
-                    {row.recommended}
-                  </div>
-                </Fragment>
-              ))}
-            </div>
-          </div>
-          */}
-
-          <div className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h4>Runtime</h4>
-              <div>
-                You can prolong a running session later from its manage page.
-                <br />
-                Prices below are shown for this <strong>selected duration</strong>
-              </div>
-            </div>
-            <DurationInput
-              availableUnits={DURATION_UNIT_OPTIONS}
-              className={styles.durationInput}
-              defaultUnit="hours"
-              label="Session length"
-              min={1}
-              onChange={onDurationChange}
-              size="sm"
-              value={durationSeconds}
-            />
-          </div>
-
-          <div className={styles.section}>
-            <div className={styles.sectionHeadRow}>
-              <div className={styles.sectionHead}>
-                <h4>Environment</h4>
-                <div>Pick an environment to launch on. Continue takes you straight to payment.</div>
-              </div>
-            </div>
-            {renderEnvsSection()}
-          </div>
-
-          <div className="actionsGroupMdBetween">
-            <Button color="accent1" onClick={onClose} variant="outlined">
-              Close
-            </Button>
-            <Button color="accent1" contentBefore={<TuneOutlinedIcon />} onClick={onAdvanced} variant="outlined">
-              Advanced setup
-            </Button>
-          </div>
-        </>
+          <DetailsActions
+            durationSeconds={durationSeconds}
+            onAdvanced={onAdvanced}
+            onClose={onClose}
+            quickStart={quickStart}
+          />
+        </div>
       )}
     </Modal>
   );
