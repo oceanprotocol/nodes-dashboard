@@ -10,15 +10,15 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
  * `model` holds only what the card + modal render (id, author, pipelineTag); the full HF model is
  * fetched by id when a package is opened.
  *
- * Each package carries `sourcePeerIds` — the nodes it may be run on. The details modal lists every
+ * Each package carries `sourcePeerIds` — the nodes it may be run on. The details page lists every
  * one of those nodes' environments, filtered to those that satisfy `requiredResources`, and the user
  * picks one there.
  */
 
-// Service-on-demand nodes these packages can run on — the modal lists their environments.
+// Service-on-demand nodes these packages can run on — the details page lists their environments.
 // Add more peer ids here to offer the packages on more nodes.
 // Order matters: use-package-env resolves these in sequence, so the first reachable node's
-// environments are the ones the modal offers first.
+// environments are the ones the details page offers first.
 const NODE_IDS = [
   '16Uiu2HAm94yL3Sjem2piKmGkiHCdJyTn3F3aWueZTXKT38ekjuzr',
   '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
@@ -72,7 +72,7 @@ function resources({
  * two-column grid) — so each tier reads as one row and the widest-runnable packages come first.
  * That matters because a card advertises no availability: a package whose floors no reachable node
  * meets looks identical in the grid and only reveals itself as an empty environment list once the
- * details modal filters envs against `requiredResources`. Keep new entries in tier order, and keep
+ * details page filters envs against `requiredResources`. Keep new entries in tier order, and keep
  * quantized siblings of one model adjacent so the trade-off between them is visible side by side.
  */
 export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [

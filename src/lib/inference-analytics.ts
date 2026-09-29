@@ -26,13 +26,13 @@ export const resolveInferenceBranch = (flowType: InferenceFlowType, template?: A
 
 /**
  * How the user got into a branch's funnel, sent as `entry` on `inference_flow_started`: the /inference
- * hub's cards (`index`), a shared/reloaded link that opened a details modal (`link`), or a catalogue
+ * hub's cards (`index`), a shared/reloaded link to a details page (`link`), or a catalogue
  * page reached any other way (`direct`).
  */
 export type InferenceEntry = 'index' | 'link' | 'direct';
 
 /**
- * How a details modal was opened, sent as `openedVia`: a card click, or the URL (shared link, reload,
+ * How a details page was opened, sent as `openedVia`: a card click, or the URL (shared link, reload,
  * Back/Forward). Not `source` — `inference_model_selected` already sends `source: 'custom'`.
  */
 export type InferenceOpenedVia = 'click' | 'link';

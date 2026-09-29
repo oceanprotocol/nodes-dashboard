@@ -20,6 +20,7 @@ import {
   ModelSort,
   PipelineTag,
 } from '@/services/huggingface-service';
+import { INFERENCE_PATHS } from '@/services/inference-url';
 import {
   getModelCompatibility,
   IncompatibilityKind,
@@ -449,7 +450,7 @@ const CustomModelsPage: React.FC = () => {
             </p>
             <div className="actionsGroupMdEnd">
               {rejected.compatibility.kind === 'generative-media' && (
-                <Button color="accent1" href="/inference/services" size="md" variant="outlined">
+                <Button color="accent1" href={INFERENCE_PATHS.services} size="md" variant="outlined">
                   Browse services
                 </Button>
               )}

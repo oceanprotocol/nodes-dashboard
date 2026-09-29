@@ -82,7 +82,7 @@ function describePick<T extends QuickStartEntry>(option: QuickStartOption<T>): s
 }
 
 /**
- * Drives a details modal's quick start: plans the best environment for the target from what the
+ * Drives a details page's quick start: plans the best environment for the target from what the
  * resolver listed (see planQuickStart), and on Start confirms it against the node itself before
  * handing it on: the listed `inUse` comes from the backend's cached index and can be out of date.
  *

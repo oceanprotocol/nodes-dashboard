@@ -10,20 +10,19 @@ import styles from './package-card.module.css';
 
 type PackageCardProps = {
   pkg: InferencePackage;
-  selected?: boolean;
-  onToggle?: (pkg: InferencePackage) => void;
+  onOpen: (pkg: InferencePackage) => void;
 };
 
-/** Quick-start package tile: same shape as ModelCard, with the bundle's hardware/engine specs. */
-const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onToggle }) => {
+/** Quick-start package tile: same shape as ModelCard, with the bundle's hardware/engine specs. Opens its details page. */
+const PackageCard: React.FC<PackageCardProps> = ({ pkg, onOpen }) => {
   const [avatarFailed, setAvatarFailed] = useState(false);
   const { model, params, requiredResources, description } = pkg;
   const avatarUrl = getModelAvatarUrl(model);
   const modelName = getModelShortName(model.id);
   const initial = (model.author ?? model.id).charAt(0).toUpperCase();
 
-  // GPU footprint the package targets. The concrete GPU model isn't known until an env is picked in
-  // the modal, so the card shows the recommended unit count against a generic "GPU" label.
+  // GPU footprint the package targets. The concrete GPU model isn't known until an env is picked on
+  // the details page, so the card shows the recommended unit count against a generic "GPU" label.
   const gpuCount = requiredResources.find((r) => r.type === 'gpu')?.recommended ?? 0;
 
   // Engine-specific chips: vLLM exposes tool calling + a context ceiling; llama.cpp shows its context.
@@ -33,15 +32,15 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
 
   return (
     <Card
-      ariaPressed={onToggle ? selected : undefined}
-      className={classNames(styles.card, { [styles.selectable]: !!onToggle, [styles.selected]: selected })}
+      ariaLabel={`Open details for ${modelName}`}
+      className={styles.card}
       direction="column"
       innerShadow="black"
-      onClick={onToggle ? () => onToggle(pkg) : undefined}
+      onClick={() => onOpen(pkg)}
       padding="sm"
       radius="md"
       spacing="sm"
-      variant={selected ? 'accent2' : 'glass-shaded'}
+      variant="glass-shaded"
     >
       <div className={styles.header}>
         <div className={styles.avatar}>
@@ -65,7 +64,9 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, selected = false, onTogg
         </p>
       )}
       <div className={styles.chips}>
-        <span className={classNames('chip', 'chipGlass', styles.chip)}>{formatPipelineTag(model.pipelineTag, 'Other')}</span>
+        <span className={classNames('chip', 'chipGlass', styles.chip)}>
+          {formatPipelineTag(model.pipelineTag, 'Other')}
+        </span>
         <span className={classNames('chip', 'chipGlass', styles.chip)}>{engineLabel}</span>
         {showToolChip && <span className={classNames('chip', 'chipAccent2', styles.chip)}>Tools</span>}
       </div>

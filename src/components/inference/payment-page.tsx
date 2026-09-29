@@ -26,7 +26,13 @@ import {
   gpuSelectionMessage,
   toNodeUri,
 } from '@/services/inference-launch';
-import { decodeGpuSelection, decodeResourceSizing, firstQueryValue } from '@/services/inference-url';
+import {
+  decodeGpuSelection,
+  decodeResourceSizing,
+  detailsPath,
+  firstQueryValue,
+  INFERENCE_PATHS,
+} from '@/services/inference-url';
 import { isModelAppType, parseServiceAppType, resolveServiceAppType } from '@/services/service-metadata';
 import { rememberTemplateEnv } from '@/services/template-env-memory';
 import {
@@ -48,6 +54,8 @@ import styles from './payment-page.module.css';
 const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
+  // Quick start's way back: the package's details page (`[modelId]` names the package).
+  const packagePath = detailsPath(INFERENCE_PATHS.packages, params.modelId ?? '');
   // Editing a running service: same env, no re-pay — hide the payment summary and relaunch instead.
   const isEditMode = router.query.edit === '1';
   // Prolonging a running service: same selection, pay only for the extra runtime. Skips the earlier
@@ -302,7 +310,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     switch (flowType) {
       case InferenceFlowType.DefaultModel: {
         if (selectedModels.length === 0 || !selectedEnv) {
-          router.replace({ pathname: '/inference/default-models', query: router.query });
+          router.replace(packagePath);
         }
         break;
       }
@@ -330,7 +338,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           router.replace('/inference');
         } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({
-            pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
             query: router.query,
           });
         }
@@ -348,6 +356,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     isEditMode,
     isProlongMode,
     params.templateId,
+    packagePath,
     router,
   ]);
 
@@ -363,9 +372,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         break;
       }
       case InferenceFlowType.DefaultModel: {
-        // Quick start has no resources step — back to the package picker; the query keeps the
-        // selection so the picker restores the chosen package.
-        router.replace({ pathname: '/inference/default-models', query: router.query });
+        // Quick start has no resources step — back to the package's details page.
+        router.replace(packagePath);
         break;
       }
       case InferenceFlowType.Template: {
@@ -374,7 +382,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // step the forward path just made the user fill in.
         const showConfig = isEditMode || needsConfigStep;
         router.replace({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${showConfig ? 'config' : 'resources'}`,
+          pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/${showConfig ? 'config' : 'resources'}`,
           query: router.query,
         });
         break;

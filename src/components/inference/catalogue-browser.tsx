@@ -86,7 +86,7 @@ type CatalogueBrowserProps = {
  * the URL. Each axis counts against the OTHER axis's current result, so a count always answers "how
  * many would I get if I clicked this" rather than "how many exist".
  *
- * Selecting a card commits nothing — the page owns the details modal and launch.
+ * Selecting a card commits nothing — it opens the entry's details page, which owns the launch.
  */
 const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, error, onOpen, copy }) => {
   const { heading, lead, noun, nounPlural, searchPlaceholder, pathname, empty } = copy;
@@ -118,11 +118,7 @@ const CatalogueBrowser: React.FC<CatalogueBrowserProps> = ({ items, loading, err
     if (!router.isReady || !filtersHydrated) {
       return;
     }
-    // Keep params this component doesn't own (the open modal's `view`), only the filters are rebuilt.
-    const query = { ...router.query };
-    delete query.category;
-    delete query.hardware;
-    delete query.q;
+    const query: Record<string, string> = {};
     if (filters.category !== 'all') {
       query.category = filters.category;
     }

@@ -4,6 +4,7 @@ import Container from '@/components/container/container';
 import ExistingServicesTable from '@/components/inference/existing-services-table';
 import SectionTitle from '@/components/section-title/section-title';
 import { InferenceBranch, trackInferenceFlowStarted } from '@/lib/inference-analytics';
+import { INFERENCE_PATHS } from '@/services/inference-url';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
@@ -50,7 +51,7 @@ const InferenceIndexPage: React.FC = () => {
               </Button>
               <Button
                 color="accent1"
-                href="/inference/default-models"
+                href={INFERENCE_PATHS.packages}
                 onClick={() => trackEntry('quickstart')}
                 variant="filled"
               >
@@ -80,7 +81,7 @@ const InferenceIndexPage: React.FC = () => {
               <Button
                 contentAfter={<ArrowForwardIcon />}
                 color="accent1"
-                href="/inference/services"
+                href={INFERENCE_PATHS.services}
                 onClick={() => trackEntry('service')}
                 variant="outlined"
               >
@@ -110,7 +111,7 @@ const InferenceIndexPage: React.FC = () => {
               <Button
                 contentAfter={<ArrowForwardIcon />}
                 color="accent1"
-                href="/inference/templates"
+                href={INFERENCE_PATHS.templates}
                 onClick={() => trackEntry('template')}
                 variant="outlined"
               >

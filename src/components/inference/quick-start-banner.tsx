@@ -1,10 +1,11 @@
 import Button from '@/components/button/button';
+import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { QuickStart } from '@/components/hooks/use-quick-start';
 import DurationInput from '@/components/input/duration-input';
 import { QuickStartEntry } from '@/services/quick-start';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
-import { formatDuration, formatDurationCompact, formatGb } from '@/utils/formatters';
+import { formatDuration, formatGb } from '@/utils/formatters';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import DnsIcon from '@mui/icons-material/Dns';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -15,24 +16,11 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { CircularProgress, Tooltip } from '@mui/material';
-import cx from 'classnames';
-import { CSSProperties, ReactNode } from 'react';
+import { ReactNode } from 'react';
 import styles from './quick-start-banner.module.css';
 
-/**
- * The quick start's Start button, price included. Rendered twice per modal: in the banner and next to
- * Advanced setup at the bottom, so it's there whichever end of the modal the user is at. The bottom
- * copy is far from the Session length input, so it passes `durationSeconds` to say what the price buys.
- */
-export function QuickStartButton<T extends QuickStartEntry>({
-  className,
-  durationSeconds,
-  quickStart,
-}: {
-  className?: string;
-  durationSeconds?: number;
-  quickStart: QuickStart<T>;
-}) {
+/** The quick start's Start button, price included. */
+function QuickStartButton<T extends QuickStartEntry>({ quickStart }: { quickStart: QuickStart<T> }) {
   const { status, priceLabel, blockedReason, starting, start, needsLogin } = quickStart;
   const blocked = status !== 'ready';
   const busy = status === 'loading' || starting;
@@ -43,7 +31,7 @@ export function QuickStartButton<T extends QuickStartEntry>({
           reason reachable by hover, keyboard and screen readers (same as the env cards). */}
       <span
         aria-label={blocked && !busy ? (blockedReason ?? undefined) : undefined}
-        className={cx(styles.startWrap, className)}
+        className={styles.startWrap}
         tabIndex={blocked && !busy ? 0 : undefined}
       >
         <Button
@@ -59,7 +47,6 @@ export function QuickStartButton<T extends QuickStartEntry>({
           variant="filled"
         >
           Start
-          {durationSeconds !== undefined && ` for ${formatDurationCompact(durationSeconds)}`}
           {priceLabel && <span className={styles.startPrice}>{priceLabel}</span>}
         </Button>
       </span>
@@ -72,12 +59,10 @@ type QuickStartBannerProps<T extends QuickStartEntry> = {
   durationSeconds: number;
   onDurationChange: (seconds: number) => void;
   onAdvanced: () => void;
-  /** Sets `--accent` (a template's category colour). Without it the banner takes the brand accent. */
-  style?: CSSProperties;
 };
 
 /**
- * The top of a details modal: what a launch gets right now, for how long, and a Start with the price
+ * The top of a details page: what a launch gets right now, for how long, and a Start with the price
  * on it. The environment is picked for the user (see useQuickStart); choosing one by hand is Advanced
  * setup, which the small print points to.
  */
@@ -86,7 +71,6 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
   durationSeconds,
   onDurationChange,
   onAdvanced,
-  style,
 }: QuickStartBannerProps<T>) {
   const { status, option, recommendedGpus, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } =
     quickStart;
@@ -246,7 +230,18 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
   };
 
   return (
-    <section aria-label="Quick start" className={styles.banner} style={style}>
+    // Same card as the details page's other sections, tinted with the accent.
+    <Card
+      ariaLabel="Quick start"
+      className={styles.banner}
+      direction="column"
+      padding="md"
+      radius="lg"
+      role="region"
+      shadow="black"
+      spacing="sm"
+      variant="glass-shaded"
+    >
       <div className={styles.body}>
         <div aria-live="polite" className={styles.readout}>
           <span className={styles.eyebrow}>Quick start</span>
@@ -272,6 +267,6 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
           Use Advanced setup
         </Button>
       </p>
-    </section>
+    </Card>
   );
 }

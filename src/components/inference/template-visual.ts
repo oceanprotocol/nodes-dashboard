@@ -27,7 +27,7 @@ export interface TemplateCategoryMeta {
    */
   accent: { dark: string; light: string };
   Icon: SvgIconComponent;
-  /** "What you get" lead line in the details modal — the node publishes no such field per template. */
+  /** "What you get" lead line on the details page — the node publishes no such field per template. */
   purpose: string;
   /**
    * How you interact with the running app, for the card's highlighted chip. Every template exposes at
@@ -35,7 +35,7 @@ export interface TemplateCategoryMeta {
    * what differs is whether that port serves a browser app or an HTTP API, which only the category knows.
    */
   interaction: string;
-  /** Trailing hint next to the port row in the details modal — what to do with that port. */
+  /** Trailing hint next to the port row on the details page — what to do with that port. */
   interactionHint: string;
 }
 
@@ -221,7 +221,7 @@ export function templateHardware(tpl: AppTemplate): TemplateHardware {
 /**
  * The hardware chip's label — the GPU ask alone: the declared range ("2-4 GPUs"), a single count
  * ("1 GPU") when min and recommended agree, or "CPU only" when no GPU is declared. Shared so the
- * catalogue card and the details modal name the same ask in the same words.
+ * catalogue card and the details page name the same ask in the same words.
  */
 export function templateGpuLabel(hw: TemplateHardware): string {
   if (!hw.gpu) {
@@ -248,7 +248,7 @@ export function templateVendor(image: string): string {
   return /^(ghcr\.io|docker\.io|quay\.io|registry\.[^/]+|.*\..*:\d+)$/.test(namespace) ? 'registry' : namespace;
 }
 
-/** `image:tag` (or `image@checksum`) as published by the node — shown verbatim in the details modal. */
+/** `image:tag` (or `image@checksum`) as published by the node — shown verbatim on the details page. */
 export function templateImageRef(tpl: AppTemplate): string {
   if (tpl.tag) {
     return `${tpl.image}:${tpl.tag}`;

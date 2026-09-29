@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
+import { INFERENCE_PATHS } from '@/services/inference-url';
 import { selectBundles, selectServices } from '@/services/service-templates';
-import { AppTemplate } from '@/types/templates';
+import { AppTemplate, isBundle } from '@/types/templates';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import cx from 'classnames';
@@ -39,7 +40,7 @@ export const SERVICES_CATALOGUE: CatalogueConfig = {
   kindLabel: 'Service',
   // Bundles have their own page — one listed here too would appear twice.
   select: selectServices,
-  pathname: '/inference/services',
+  pathname: INFERENCE_PATHS.services,
   heading: 'Pick a service',
   lead: 'Ready-made containerized apps. Pick one, review what’s inside, set a session length, pay and launch. Models are yours to add from the app once it’s running.',
   noun: 'service',
@@ -51,7 +52,7 @@ export const SERVICES_CATALOGUE: CatalogueConfig = {
 export const BUNDLES_CATALOGUE: CatalogueConfig = {
   kindLabel: 'Template',
   select: selectBundles,
-  pathname: '/inference/templates',
+  pathname: INFERENCE_PATHS.templates,
   heading: 'Pick a template',
   lead: 'An app with its models already included. Pick what you want to get done and launch. The models download in the background while the app comes up.',
   noun: 'template',
@@ -70,7 +71,7 @@ export const BUNDLES_CATALOGUE: CatalogueConfig = {
         className={styles.emptyReset}
         color="accent1"
         contentAfter={<ArrowForwardIcon />}
-        href="/inference/services"
+        href={INFERENCE_PATHS.services}
         size="sm"
       >
         Browse services
@@ -78,3 +79,7 @@ export const BUNDLES_CATALOGUE: CatalogueConfig = {
     </div>
   ),
 };
+
+/** The catalogue that lists a template: a bundle is only on Templates, everything else only on Services. */
+export const catalogueFor = (tpl: AppTemplate): CatalogueConfig =>
+  isBundle(tpl) ? BUNDLES_CATALOGUE : SERVICES_CATALOGUE;
