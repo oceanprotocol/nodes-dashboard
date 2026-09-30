@@ -481,6 +481,20 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       });
     } catch (error) {
       console.error('Failed to prolong inference service:', error);
+      if (isEscrowJobIdConflict(error)) {
+        // The manage page disables Prolong while the node holds a lock under this service's escrow id
+        // (see service-escrow-lock); this catches the lock appearing after that check, or a deep link
+        // that skipped it. Its own stage so it isn't counted with generic node failures.
+        setLaunchError(
+          serviceEscrowLockMessage({
+            lock: null,
+            tokenAddress: selectedToken.address,
+            tokenSymbol: selectedToken.symbol,
+          })
+        );
+        captureError('inference_service_prolong_failed', error, { stage: 'escrow_lock_conflict', branch });
+        return;
+      }
       setLaunchError(error instanceof Error ? error.message : 'Failed to prolong service.');
       const stage = (error as Error & { stage?: string })?.stage ?? 'node_call';
       captureError('inference_service_prolong_failed', error, { stage, branch });

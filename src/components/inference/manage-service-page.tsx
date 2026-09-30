@@ -19,6 +19,7 @@ import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { captureError } from '@/lib/analytics';
+import { findServiceEscrowLock, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -35,6 +36,7 @@ import { branchForAppType, isModelAppType, readServiceMetadata } from '@/service
 import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
+import { EscrowLock } from '@/types/payment';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { isBundle } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
@@ -95,6 +97,9 @@ const POLL_INTERVAL_MS = 4000;
 // A P2P round-trip can hang indefinitely if the node/relay is unreachable (no built-in timeout).
 // Cap each status fetch so a hung dial surfaces as an error + retry instead of an eternal spinner.
 const STATUS_TIMEOUT_MS = 30000;
+// While the node holds an earlier extension payment for this service, how often to re-read escrow to
+// notice it being released.
+const LOCK_RECHECK_MS = 60000;
 // `sizing`'s ram/disk are GB (decimal-named, binary-sized to match formatBytes' 1024 base) — convert
 // to bytes for the resource usage card's booked-allocation fallback.
 const GIB = 1024 ** 3;
@@ -191,7 +196,7 @@ const ManageServicePage: React.FC = () => {
     hydrationFailed,
     buildSelectionQuery,
   } = useInferenceContext();
-  const { account } = useOceanAccount();
+  const { account, ocean } = useOceanAccount();
   const { getServiceStatus, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeTokensContext();
 
@@ -634,11 +639,75 @@ const ManageServicePage: React.FC = () => {
     ? getServiceStatusView(job.status, job.statusText)
     : { kind: 'pending' as const, label: jobLoading ? 'Loading…' : 'Unknown' };
   const isRunning = job?.status === ServiceStatusNumber.Running;
+  const jobServiceIdForLock = job?.serviceId;
   // The node refuses serviceRestart once the paid window is up — rejecting both the Expired status AND
   // any job past expiresAt (the expiry cron flips status asynchronously, so a service can be past
   // expiresAt while still reading Running). Mirror it so Edit/Restart aren't offered when doomed to
   // fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
+  /**
+   * An earlier extension payment the node still holds under this service's escrow id. The node takes
+   * every payment for a service under that one id (see service-escrow-lock), so while it holds one,
+   * any new extension reverts with "JobId already exists" — after the user has signed the deposit.
+   * A free view call, so read it up front and keep Prolong disabled instead. Best-effort: a failed
+   * read leaves Prolong enabled, and the payment page still maps the node's revert to the same message.
+   * Re-read every minute while a lock is held, so Prolong comes back once the node releases it.
+   */
+  const [heldLock, setHeldLock] = useState<EscrowLock | null>(null);
+  const lockPayee = environment?.consumerAddress;
+  const lockToken = selectedToken?.address;
+  useEffect(() => {
+    setHeldLock(null);
+    if (!ocean || !account.address || !lockPayee || !lockToken || !id || !jobServiceIdForLock) {
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = async () => {
+      try {
+        const lock = await findServiceEscrowLock({
+          ocean,
+          payee: lockPayee,
+          payer: account.address!,
+          serviceId: id,
+          tokenAddress: lockToken,
+        });
+        if (cancelled) {
+          return;
+        }
+        setHeldLock(lock);
+        if (lock) {
+          timer = setTimeout(check, LOCK_RECHECK_MS);
+        }
+      } catch (error) {
+        console.warn('Could not check escrow locks for this service:', error);
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ocean, account.address, lockPayee, lockToken, id, jobServiceIdForLock]);
+  // Same event the payment page sends when its pay button is blocked, so one breakdown by `reason`
+  // covers both. Once per service, not per re-check: it's a state the service is in, not an attempt.
+  const lockReportedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!heldLock || lockReportedRef.current === id) {
+      return;
+    }
+    lockReportedRef.current = id;
+    posthog.capture('inference_payment_blocked', {
+      reason: 'escrow_lock_conflict',
+      mode: 'prolong',
+      serviceId: id,
+      lock_expiry: heldLock.expiry,
+      heldAmount: heldLock.amount,
+      tokenSymbol: selectedToken?.symbol,
+      branch,
+    });
+  }, [heldLock, id, branch, selectedToken?.symbol]);
+
   // The statuses the node refuses a restart under — Expired, plus everything that holds its
   // per-service lifecycle lock (mid-start / restarting / stopping), which comes back as
   // "has a start/stop/restart operation in progress — retry shortly". See `isRestartBlocked`.
@@ -732,7 +801,13 @@ const ManageServicePage: React.FC = () => {
   // model one, and picking that branch before the match settles sends a template service to the model
   // picker instead of to payment.
   const canProlong =
-    !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!selectedToken && !!bookedResources;
+    !!job &&
+    templateKnown &&
+    !isExpired &&
+    !isProlongBlocked(job.status) &&
+    !!selectedToken &&
+    !!bookedResources &&
+    !heldLock;
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
@@ -845,7 +920,13 @@ const ManageServicePage: React.FC = () => {
       setJobError(
         !selectedToken || !templateKnown
           ? 'Loading service details. Try again in a moment.'
-          : 'This service can no longer be extended.'
+          : heldLock
+            ? serviceEscrowLockMessage({
+                lock: heldLock,
+                tokenAddress: selectedToken.address,
+                tokenSymbol: selectedToken.symbol,
+              })
+            : 'This service can no longer be extended.'
       );
       return;
     }
@@ -914,6 +995,17 @@ const ManageServicePage: React.FC = () => {
                 {isUnpaid
                   ? 'This service’s payment was never claimed (unpaid or refunded), so it can’t be restarted or edited. Start a new service instead.'
                   : `Service is ${status.label.toLowerCase()}. Restart and Edit become available once the node finishes this operation.`}
+              </div>
+            )}
+
+            {/* Say why Prolong is greyed out while the node holds an earlier top-up for this service. */}
+            {job && !isExpired && heldLock && selectedToken && (
+              <div className="textSecondary">
+                {serviceEscrowLockMessage({
+                  lock: heldLock,
+                  tokenAddress: selectedToken.address,
+                  tokenSymbol: selectedToken.symbol,
+                })}
               </div>
             )}
 
