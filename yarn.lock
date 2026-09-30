@@ -4595,22 +4595,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/ddo-js@npm:^0.4.1":
-  version: 0.4.1
-  resolution: "@oceanprotocol/ddo-js@npm:0.4.1"
+"@oceanprotocol/ddo-js@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@oceanprotocol/ddo-js@npm:1.0.0"
   dependencies:
     ethers: "npm:^6.17.0"
     jsonld: "npm:^9.0.0"
     n3: "npm:^2.2.0"
     rdf-literal: "npm:^2.0.0"
     rdf-validate-shacl: "npm:^0.6.5"
-  checksum: 10c0/ac18e1f5c9e6c070f08ea51d49d253ac3b9980a42409b16c129459c3e5d157ca44157f84adcadecd2384890f21ea267079ad0cb5ccb45e47a33c1191a54d1054
+  checksum: 10c0/2862470970c0615a85ad9480657b5f53aa9826afd3ca899ba4812b96c2d612034e091433a685d2af7142439fe4fa4207ba4062b3a7acde9bd66dde8fda2a0862
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:9.2.1":
-  version: 9.2.1
-  resolution: "@oceanprotocol/lib@npm:9.2.1"
+"@oceanprotocol/lib@npm:9.2.2-next.0":
+  version: 9.2.2-next.0
+  resolution: "@oceanprotocol/lib@npm:9.2.2-next.0"
   dependencies:
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
@@ -4626,7 +4626,7 @@ __metadata:
     "@libp2p/websockets": "npm:^10.1.21"
     "@multiformats/multiaddr": "npm:^13.0.3"
     "@oasisprotocol/sapphire-ethers-v6": "npm:^6.0.1"
-    "@oceanprotocol/ddo-js": "npm:^0.4.1"
+    "@oceanprotocol/ddo-js": "npm:^1.0.0"
     bignumber.js: "npm:^11.1.5"
     cross-fetch: "npm:^4.1.0"
     crypto-js: "npm:^4.2.0"
@@ -4637,7 +4637,7 @@ __metadata:
     libp2p: "npm:^3.3.10"
     multiformats: "npm:^14.0.5"
     uint8arrays: "npm:^6.1.1"
-  checksum: 10c0/2ba28c3854523687232e85176c5a2389f4e1ccbced3f04bc92803adac043663c61b6be77088be072896df38a3c42bf9c5fc8edd2df5f1720f8fa5ea94dad77e0
+  checksum: 10c0/4dce3b4a94a7cf7d3c7b6ad211fc99edda7f19a35a917abf8c1619da96e882cca92d3b9bd9ccf82aafcec5b6792162df20760db5e9830386b8a811c67b09791c
   languageName: node
   linkType: hard
 
@@ -18153,7 +18153,7 @@ __metadata:
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
     "@oceanprotocol/contracts": "npm:^2.10.0"
-    "@oceanprotocol/lib": "npm:9.2.1"
+    "@oceanprotocol/lib": "npm:9.2.2-next.0"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.22.2"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"

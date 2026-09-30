@@ -5,6 +5,7 @@ import { useNodeTokensContext } from '@/context/node-tokens';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { getNodeBucketSharing } from '@/services/nodeService';
 import { BucketAccessState } from '@/types/node-storage';
 import { rowsToAccessLists } from '@/utils/access-list';
 import { formatError } from '@/utils/formatters';
@@ -201,6 +202,17 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     }): Promise<{ bucketId: string }> => {
       if (!account.address) {
         throw new Error('Wallet not connected');
+      }
+      // A node with bucket sharing off refuses a bucket with an access list (400) — but only after a
+      // 'new' access list was already deployed and paid for. Ask the node first. A failed lookup
+      // doesn't block: the node is the one that enforces it.
+      if (access.mode !== 'none') {
+        const sharing = await enqueue(() => getNodeBucketSharing(nodeUri)).catch(() => undefined);
+        if (sharing === 'disabled') {
+          throw new Error(
+            "This node doesn't allow shared buckets. Create an owner-only bucket (no access list) instead."
+          );
+        }
       }
       let accessLists: PersistentStorageAccessList[];
       switch (access.mode) {

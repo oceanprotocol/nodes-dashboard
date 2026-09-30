@@ -1,6 +1,7 @@
 'use client';
 
 import Button from '@/components/button/button';
+import { useNodeBucketSharing } from '@/components/hooks/use-node-bucket-sharing';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import BucketAccess from '@/components/node-storage/bucket-access';
@@ -11,7 +12,7 @@ import { formatError } from '@/utils/formatters';
 import { peerIdToStorageNode } from '@/utils/node-storage';
 import { isAddress } from 'ethers';
 import { useFormik } from 'formik';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import styles from './create-bucket-modal.module.css';
@@ -34,6 +35,15 @@ type CreateBucketFormValues = {
 const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();
   const { createBucket } = useNodeStorage();
+  // A typed peer ID is looked up once the field loses focus, not on every keystroke: each lookup dials
+  // the node.
+  const [typedNodeId, setTypedNodeId] = useState('');
+  const sharingNode = useMemo(
+    () => node ?? (typedNodeId ? peerIdToStorageNode(typedNodeId) : null),
+    [node, typedNodeId]
+  );
+  const { sharing } = useNodeBucketSharing(sharingNode);
+  const sharingDisabled = sharing === 'disabled';
 
   const formik = useFormik<CreateBucketFormValues>({
     initialValues: {
@@ -116,6 +126,15 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
     },
   });
 
+  // The node refuses a bucket with an access list while sharing is off, so fall back to owner-only.
+  const { setFieldValue } = formik;
+  const accessMode = formik.values.access.mode;
+  useEffect(() => {
+    if (sharingDisabled && accessMode !== 'none') {
+      setFieldValue('access', { mode: 'none' });
+    }
+  }, [accessMode, setFieldValue, sharingDisabled]);
+
   const accessError = formik.touched.access && formik.errors.access ? (formik.errors.access as string) : undefined;
 
   return (
@@ -141,7 +160,10 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
           size="md"
           value={formik.values.nodeId}
           onChange={formik.handleChange}
-          onBlur={formik.handleBlur}
+          onBlur={(e) => {
+            formik.handleBlur(e);
+            setTypedNodeId(formik.values.nodeId.trim());
+          }}
           errorText={formik.touched.nodeId && formik.errors.nodeId ? (formik.errors.nodeId as string) : undefined}
         />
       )}
@@ -164,6 +186,7 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
         }}
         currentAccount={account?.address}
         error={accessError}
+        sharingDisabled={sharingDisabled}
       />
       <div className="actionsGroupMdEnd">
         <Button
