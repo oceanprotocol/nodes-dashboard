@@ -42,6 +42,8 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
 
   const { templates, loading, error } = useServiceTemplates();
   const entries = useMemo(() => catalogue.select(templates), [catalogue, templates]);
+  // Unlisted entries stay in `entries`, so a `?view=<id>` link still opens them.
+  const listed = useMemo(() => entries.filter((tpl) => !tpl.unlisted), [entries]);
 
   // Always start fresh (new entry or Back-nav from a later step): clear leftover selection once, on mount.
   useEffect(() => {
@@ -161,7 +163,7 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
       />
       <div className="pageContentWrapper">
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-          <CatalogueBrowser copy={catalogue} error={error} items={entries} loading={loading} onOpen={openDetails} />
+          <CatalogueBrowser copy={catalogue} error={error} items={listed} loading={loading} onOpen={openDetails} />
         </Card>
       </div>
 
