@@ -1,3 +1,4 @@
+import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import useInferenceAllocation from '@/components/hooks/use-inference-allocation';
@@ -16,6 +17,7 @@ import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
@@ -196,6 +198,72 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   );
 
   /**
+   * Whether the pay button can run at all. The button tops escrow up from the wallet itself, so an
+   * empty escrow is fine; what it can't fix is a wallet that doesn't cover the deposit, or balances
+   * that haven't been read. Block both before the click, rather than after it (ensureEscrowForSelection
+   * re-checks at click time with a fresh read either way). Edit reuses the paid window: no payment.
+   */
+  const paymentInfoReady = escrowBalance !== null && walletBalance !== null;
+  // How much more the wallet needs to cover the deposit; 0 when it already does (or isn't read yet).
+  const walletShortfall = useMemo(() => {
+    if (!selectedToken || escrowBalance === null || walletBalance === null) {
+      return 0;
+    }
+    const requirement = computeEscrowRequirement({
+      snapshot: { authorizations, escrowBalance, walletBalance },
+      totalCost,
+      tokenAddress: selectedToken.address,
+      requiredLockSeconds: escrowLockSeconds,
+    });
+    if (!requirement.insufficientWalletFunds) {
+      return 0;
+    }
+    return roundTokenAmount(requirement.depositAmount - walletBalance, selectedToken.address, 'up');
+  }, [authorizations, escrowBalance, walletBalance, totalCost, selectedToken, escrowLockSeconds]);
+  const paymentBlocked =
+    !isEditMode && !!selectedEnv && !!selectedToken && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
+
+  // Launch mode in the `inference_launch_clicked` vocabulary, shared with inference_payment_blocked.
+  const launchMode = isProlongMode
+    ? 'prolong'
+    : flowType === InferenceFlowType.Template
+      ? isEditMode
+        ? 'template_edit'
+        : 'template_fresh'
+      : isEditMode
+        ? 'model_edit'
+        : 'model_fresh';
+
+  /**
+   * A blocked pay button produces no click, so without this the users it stops never reach
+   * `inference_launch_clicked` and read as plain drop-offs on the payment page. Fires once per reason
+   * per page view; "Checking balance…" is a transient load state, not a block, so it never fires.
+   */
+  const reportedBlocksRef = useRef<Set<string>>(new Set());
+  const blockReason = !paymentBlocked
+    ? null
+    : walletShortfall > 0
+      ? 'wallet_shortfall'
+      : paymentInfoError
+        ? 'balance_unavailable'
+        : null;
+  useEffect(() => {
+    if (!blockReason || reportedBlocksRef.current.has(blockReason)) {
+      return;
+    }
+    reportedBlocksRef.current.add(blockReason);
+    posthog.capture('inference_payment_blocked', {
+      reason: blockReason,
+      mode: launchMode,
+      branch,
+      totalCost,
+      tokenSymbol: selectedToken?.symbol,
+      shortfall: blockReason === 'wallet_shortfall' ? walletShortfall : undefined,
+      durationSeconds: jobDurationSeconds,
+    });
+  }, [blockReason, launchMode, branch, totalCost, selectedToken?.symbol, walletShortfall, jobDurationSeconds]);
+
+  /**
    * The env to launch from, re-read from the node. Both fresh-launch paths resolve GPU ids out of it,
    * so this is the last chance to notice that the units this page priced were taken in the meantime.
    */
@@ -285,6 +353,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       err.stage = 'escrow';
       throw err;
     }
+    // The summary still shows the pre-payment snapshot. Re-read now, so a failure in the node call
+    // that follows leaves the page showing what escrow actually holds (the deposit stays there).
+    void loadPaymentInfo();
     return true;
   }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay, isProlongMode]);
 
@@ -920,17 +991,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       return;
     }
     launchInFlightRef.current = true;
-    const mode = isProlongMode
-      ? 'prolong'
-      : flowType === InferenceFlowType.Template
-        ? isEditMode
-          ? 'template_edit'
-          : 'template_fresh'
-        : isEditMode
-          ? 'model_edit'
-          : 'model_fresh';
     posthog.capture('inference_launch_clicked', {
-      mode,
+      mode: launchMode,
       flowType,
       totalCost,
       tokenSymbol: selectedToken?.symbol,
@@ -975,6 +1037,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     isEditMode,
     relaunchService,
     runFreshLaunch,
+    launchMode,
     totalCost,
     selectedToken,
     jobDurationSeconds,
@@ -1024,7 +1087,19 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                   loadingPaymentInfo && escrowBalance === null && walletBalance === null ? (
                     <CircularProgress className="alignSelfCenter" />
                   ) : paymentInfoError ? (
-                    <div className="textAccent1">{paymentInfoError}</div>
+                    <div className="flexColumn gapSm">
+                      <div className="textAccent1">Unable to read your balances: {paymentInfoError}</div>
+                      <Button
+                        className="alignSelfStart"
+                        color="accent1"
+                        onClick={() => loadPaymentInfo()}
+                        size="sm"
+                        type="button"
+                        variant="outlined"
+                      >
+                        Retry
+                      </Button>
+                    </div>
                   ) : (
                     <PaymentSummary
                       authorizations={authorizations}
@@ -1091,15 +1166,17 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               // Launch/extend/restart all need the wallet (auth token signature + escrow tx). When it
               // isn't connected, prompt the login modal instead of stranding the user on a dead button;
               // once connected, gate only on the P2P layer being ready.
-              nextDisabled={account.address ? !isReady : false}
+              nextDisabled={account.address ? !isReady || paymentBlocked : false}
               nextLabel={
                 !account.address
                   ? 'Connect wallet'
-                  : isProlongMode
-                    ? 'Pay & prolong'
-                    : isEditMode
-                      ? 'Relaunch'
-                      : 'Pay & launch'
+                  : paymentBlocked && !paymentInfoReady && !paymentInfoError
+                    ? 'Checking balance…'
+                    : isProlongMode
+                      ? 'Pay & prolong'
+                      : isEditMode
+                        ? 'Relaunch'
+                        : 'Pay & launch'
               }
               nextLoading={launching}
               onNext={account.address ? goToNextStep : login}
