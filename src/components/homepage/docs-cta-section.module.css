@@ -68,20 +68,9 @@
 }
 
 .socialLinkIcon {
-  width: 28px;
-  height: 28px;
-  display: inline-block;
-  background-color: currentColor;
-}
-
-.discordIcon {
-  -webkit-mask: url('/icons/discord.svg') no-repeat center/contain;
-  mask: url('/icons/discord.svg') no-repeat center/contain;
-}
-
-.xIcon {
-  -webkit-mask: url('/icons/x.svg') no-repeat center/contain;
-  mask: url('/icons/x.svg') no-repeat center/contain;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 900px) {

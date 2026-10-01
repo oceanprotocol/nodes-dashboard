@@ -1,3 +1,5 @@
+import DiscordIcon from '@/assets/discord.svg';
+import XIcon from '@/assets/x.svg';
 import Button from '@/components/button/button';
 import config, { getRoutes } from '@/config';
 import Container from '../container/container';
@@ -25,7 +27,7 @@ const DocsCtaSection = () => {
         <div className={styles.socialLinks}>
           <Button
             color="accent2"
-            contentAfter={<span className={`${styles.socialLinkIcon} ${styles.discordIcon}`} />}
+            contentAfter={<DiscordIcon className={styles.socialLinkIcon} />}
             href={config.socialMedia.discord}
             size="lg"
             target="_blank"
@@ -35,7 +37,7 @@ const DocsCtaSection = () => {
           </Button>
           <Button
             color="accent2"
-            contentAfter={<span className={`${styles.socialLinkIcon} ${styles.xIcon}`} />}
+            contentAfter={<XIcon className={styles.socialLinkIcon} />}
             href={config.socialMedia.twitter}
             size="lg"
             target="_blank"
