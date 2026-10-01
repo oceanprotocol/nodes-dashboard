@@ -663,6 +663,8 @@ const ManageServicePage: React.FC = () => {
     }
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
+    // Whether the last successful read found a lock — a failed re-read says nothing about it.
+    let lockHeld = false;
     const check = async () => {
       try {
         const lock = await findServiceEscrowLock({
@@ -675,12 +677,17 @@ const ManageServicePage: React.FC = () => {
         if (cancelled) {
           return;
         }
+        lockHeld = !!lock;
         setHeldLock(lock);
         if (lock) {
           timer = setTimeout(check, LOCK_RECHECK_MS);
         }
       } catch (error) {
         console.warn('Could not check escrow locks for this service:', error);
+        // Keep re-checking while a lock is held, or one failed read leaves Prolong disabled for good.
+        if (!cancelled && lockHeld) {
+          timer = setTimeout(check, LOCK_RECHECK_MS);
+        }
       }
     };
     check();
