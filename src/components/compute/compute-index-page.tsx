@@ -2,8 +2,11 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import inferenceStyles from '@/components/inference/inference-index-page.module.css';
+import ConsumerJobs from '@/components/profile/consumer-jobs';
 import SectionTitle from '@/components/section-title/section-title';
 import { getRoutes } from '@/config';
+import { MyJobsTableProvider } from '@/context/table/my-jobs-table-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
@@ -12,6 +15,7 @@ import styles from './compute-index-page.module.css';
 
 const ComputeIndexPage: React.FC = () => {
   const routes = getRoutes();
+  const { account } = useOceanAccount();
 
   return (
     <Container className="pageRoot">
@@ -65,6 +69,11 @@ const ComputeIndexPage: React.FC = () => {
             </div>
           </Card>
         </div>
+        {account.address ? (
+          <MyJobsTableProvider consumer={account.address}>
+            <ConsumerJobs />
+          </MyJobsTableProvider>
+        ) : null}
       </div>
     </Container>
   );
