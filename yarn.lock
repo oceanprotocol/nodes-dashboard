@@ -17365,17 +17365,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"main-event@npm:^1.0.0":
+"main-event@npm:^1.0.5":
   version: 1.0.5
   resolution: "main-event@npm:1.0.5"
   checksum: 10c0/dc8ca99043dca967b783658323d87c3db1e826bb31153c385aa2974390c741726cef7d256510d4da6ae99b4893c6e6a9bb64fda4fb58b9d6150d5d19a35d6418
-  languageName: node
-  linkType: hard
-
-"main-event@npm:^1.0.1":
-  version: 1.0.4
-  resolution: "main-event@npm:1.0.4"
-  checksum: 10c0/20626538375735269e01a306e6ea0b6e80928c265252b486b965c0520c9bf31c46592e14a46fd5ec65fc0ed0f434d00d5d40993872704d339df864b7dda8be21
   languageName: node
   linkType: hard
 
