@@ -222,6 +222,7 @@ const Navigation = () => {
       <div className={styles.bgBlur} />
       <Container className={classNames(styles.container, { [styles.containerScrolledBottom]: isScrolledBottom })}>
         <div className={styles.logoWrapper}>
+          <div aria-hidden className={styles.logoHalo} />
           <Link href="/" aria-label="Home">
             <Logo
               className={classNames(styles.logo, { [styles.logoScrolledBottom]: isScrolledBottom })}
