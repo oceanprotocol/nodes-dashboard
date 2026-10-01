@@ -1,0 +1,176 @@
+/* Registered so they interpolate: the slot's scale and crop animate through these, and the shadow and
+   chip, which are counter-scaled to stay at their real size, read the same in-between values. */
+@property --scale {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+@property --inset-x {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --inset-y {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+/* The parent gives the deck its size; the component sizes and places each slot from its centre. */
+.root {
+  --radius: 22px;
+
+  animation: enter 1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  border-radius: var(--radius);
+  outline: none;
+  position: relative;
+  touch-action: pan-y;
+  user-select: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: 6px;
+  }
+
+  @media (max-width: 767px) {
+    --radius: 14px;
+  }
+}
+
+/* Hidden until the first measurement places the slots. */
+.measuring .slot {
+  opacity: 0;
+  transition: none;
+}
+
+/* Moves animate transform and opacity on the slot, plus the card's crop (clip and shadow). */
+.slot {
+  --ease: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration: 0.8s;
+
+  left: 50%;
+  position: absolute;
+  top: 0;
+  /* z-index animates in whole steps on the same curve as the move, so two crossing tiles swap order
+     halfway through it rather than the moment it starts. */
+  transition:
+    transform var(--duration) var(--ease),
+    z-index var(--duration) var(--ease),
+    --scale var(--duration) var(--ease),
+    --inset-x var(--duration) var(--ease),
+    --inset-y var(--duration) var(--ease),
+    opacity 0.5s ease;
+  will-change: transform;
+
+  /* A move the user made, or the spread: quicker, and easing out so it starts at once. */
+  .manual &,
+  .spread & {
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --duration: 0.5s;
+  }
+}
+
+/* Sized to the visible card and scaled back up against the slot's scale, so --drop-shadow-black renders
+   at its real size on every card (and white media still reads against a white page). */
+.shadow {
+  border-radius: var(--radius);
+  box-shadow: var(--drop-shadow-black);
+  height: calc((100% - 2 * var(--inset-y)) * var(--scale));
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(calc(1 / var(--scale)));
+  width: calc((100% - 2 * var(--inset-x)) * var(--scale));
+}
+
+.clip {
+  height: 100%;
+  position: relative;
+  transition: clip-path var(--duration) var(--ease);
+  width: 100%;
+
+  /* Dims tiles with depth so the front reads first. */
+  &::after {
+    background: var(--terminal-bg);
+    content: '';
+    inset: 0;
+    opacity: calc(var(--depth, 0) * 0.12);
+    pointer-events: none;
+    position: absolute;
+    transition: opacity 0.5s ease;
+  }
+}
+
+/* The tile is the uncropped, scaled media, so its chip is moved inside the cropped card and scaled back
+   to its normal size; otherwise the crop would cut it off and the scale would blow it up. */
+.clip figcaption {
+  --chip-edge: 10px;
+
+  bottom: calc(var(--inset-y, 0px) + var(--chip-edge) / var(--scale, 1));
+  left: calc(var(--inset-x, 0px) + var(--chip-edge) / var(--scale, 1));
+  max-width: calc((100% - 2 * var(--inset-x, 0px)) * var(--scale, 1) - 2 * var(--chip-edge));
+  transform: scale(calc(1 / var(--scale, 1)));
+  transform-origin: bottom left;
+  transition: opacity 0.4s ease;
+
+  @media (max-width: 767px) {
+    --chip-edge: 8px;
+  }
+}
+
+/* The slot has the media's shape already, so the tile just fills it. */
+.tile {
+  aspect-ratio: auto;
+  height: 100%;
+  width: 100%;
+}
+
+/* Only part of a tile behind shows, so its chip waits for the spread. */
+.slotBack {
+  cursor: pointer;
+
+  figcaption {
+    opacity: 0;
+  }
+
+  .spread & {
+    .clip::after {
+      opacity: 0;
+    }
+
+    figcaption {
+      opacity: 1;
+    }
+  }
+}
+
+.slotHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    animation: none;
+  }
+
+  .slot,
+  .clip {
+    transition: none;
+  }
+}

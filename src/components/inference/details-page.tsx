@@ -1,12 +1,14 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import ShowcaseRow, { buildShowcaseRows } from '@/components/showcase/showcase-row';
+import { ShowcaseItem } from '@/types/showcase';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
-import { CSSProperties, ReactNode, useId, useState } from 'react';
+import { CSSProperties, ReactNode, useId, useMemo, useState } from 'react';
 import catalogueStyles from './catalogue.module.css';
 import styles from './details-page.module.css';
 
@@ -45,35 +47,41 @@ type DetailsLayoutProps = {
   header: ReactNode;
   /** The quick start banner. */
   launch: ReactNode;
+  /** Generations made with the entry, scrolling under the header. Only for entries that make images or video. */
+  showcase?: ShowcaseItem[];
   /** The sections. */
   children: ReactNode;
   /** Sets `--accent` for everything inside. Without it the page takes the brand accent. */
   style?: CSSProperties;
 };
 
-export const DetailsLayout: React.FC<DetailsLayoutProps> = ({ back, header, launch, children, style }) => (
-  <div className={styles.layout} style={style}>
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
-      <div>
-        <Button
-          className={styles.back}
-          color="accent1"
-          contentBefore={<ArrowBackIcon />}
-          href={catalogueBackHref(back.pathname)}
-          size="sm"
-          variant="transparent"
-        >
-          {back.label}
-        </Button>
-      </div>
-      {header}
-    </Card>
-    {launch}
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      {children}
-    </Card>
-  </div>
-);
+export const DetailsLayout: React.FC<DetailsLayoutProps> = ({ back, header, launch, showcase, children, style }) => {
+  const [showcaseRow] = useMemo(() => (showcase?.length ? buildShowcaseRows(showcase, 1) : []), [showcase]);
+  return (
+    <div className={styles.layout} style={style}>
+      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
+        <div>
+          <Button
+            className={styles.back}
+            color="accent1"
+            contentBefore={<ArrowBackIcon />}
+            href={catalogueBackHref(back.pathname)}
+            size="sm"
+            variant="transparent"
+          >
+            {back.label}
+          </Button>
+        </div>
+        {header}
+      </Card>
+      {showcaseRow && <ShowcaseRow className={styles.showcase} index={0} row={showcaseRow} />}
+      {launch}
+      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+        {children}
+      </Card>
+    </div>
+  );
+};
 
 /** The layout's shape while the catalogue loads, so nothing jumps when the entry arrives. */
 export const DetailsSkeleton: React.FC = () => (

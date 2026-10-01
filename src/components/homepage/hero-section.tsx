@@ -1,69 +1,26 @@
 import { getRoutes } from '@/config';
-import { Collapse } from '@mui/material';
-import { useEffect, useState } from 'react';
-import { TransitionGroup } from 'react-transition-group';
+import { SHOWCASE_ITEMS } from '@/mock/showcase-items';
 import Button from '../button/button';
 import Container from '../container/container';
+import ShowcaseStack from '../showcase/showcase-stack';
 import styles from './hero-section.module.css';
 import LegacyEscrowBanner from './legacy-escrow-banner';
 
-const videoSrc = '/hero.mp4';
-// const posterSrc = '/hero.jpg';
-
-const subtitles = [
-  'Code to node in one click',
-  'Run any open model by the hour',
-  'Point your agent at real hardware',
-  'Earn with the GPUs you already own',
-];
-
 export default function HeroSection() {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveIndex((prevIndex) => (prevIndex + 1) % subtitles.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <div className={styles.root}>
-      <video
-        autoPlay
-        className={styles.video}
-        loop
-        muted
-        playsInline
-        // poster={posterSrc}
-        preload="auto"
-        src={videoSrc}
-      />
-      <Container className={styles.relative}>
+    <section className={styles.root}>
+      <Container className={styles.introBand}>
         <LegacyEscrowBanner className={styles.legacyEscrowBanner} escrowPageLink />
-        <div className={styles.titleWrapper}>
-          <h1 className={styles.title}>
-            Global <br />
-            Compute <br />
-            <span>Power</span>
-          </h1>
-          <p className={styles.description}>
-            A peer to peer GPU cloud for AI: Inference and compute jobs booked by the hour and yours alone while it
-            runs.
-          </p>
-          <TransitionGroup>
-            {subtitles.map((subtitle, index) =>
-              index === activeIndex ? (
-                <Collapse key={`${index}-${subtitle}`}>
-                  <div className={styles.subTitle}>
-                    <span>{subtitle}</span>
-                  </div>
-                </Collapse>
-              ) : null
-            )}
-          </TransitionGroup>
-        </div>
-        <div className={styles.actionsAndTextWrapper}>
+        <div className={styles.intro}>
+          <div className={styles.introText}>
+            <h1 className={styles.title}>
+              <span className={styles.titleLead}>Start creating</span>
+              <span className={styles.titleRest}>
+                your next <em>viral video</em>
+              </span>
+            </h1>
+            <p className={styles.subtitle}>Generate images and video on GPUs booked by the hour.</p>
+          </div>
           <div className={styles.actions}>
             <Button color="accent1" href={getRoutes().inference.path} size="lg">
               Use a model
@@ -72,13 +29,11 @@ export default function HeroSection() {
               Run a job
             </Button>
           </div>
-          {/* <div className={styles.textBadge}>
-            ONE <br />
-            <span>NETWORK</span>
-          </div> */}
         </div>
       </Container>
-      {/* <LogoSlider /> */}
-    </div>
+      <Container>
+        <ShowcaseStack aria-label="Made on Ocean Network" className={styles.showcase} items={SHOWCASE_ITEMS} />
+      </Container>
+    </section>
   );
 }
