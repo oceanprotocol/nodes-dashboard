@@ -203,16 +203,13 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       if (!account.address) {
         throw new Error('Wallet not connected');
       }
-      // A node with bucket sharing off refuses a bucket with an access list (400) — but only after a
-      // 'new' access list was already deployed and paid for. Ask the node first. A failed lookup
-      // doesn't block: the node is the one that enforces it.
-      if (access.mode !== 'none') {
-        const sharing = await enqueue(() => getNodeBucketSharing(nodeUri)).catch(() => undefined);
-        if (sharing === 'disabled') {
-          throw new Error(
-            "This node doesn't allow shared buckets. Create an owner-only bucket (no access list) instead."
-          );
-        }
+      // Check before deploying a paid access-list contract. Never deploy on a failed lookup.
+      const sharing = await enqueue(() => getNodeBucketSharing(nodeUri));
+      if (sharing === 'unavailable') {
+        throw new Error('Persistent storage is not available on this node.');
+      }
+      if (sharing === 'disabled') {
+        access = { mode: 'none' };
       }
       let accessLists: PersistentStorageAccessList[];
       switch (access.mode) {

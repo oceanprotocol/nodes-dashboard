@@ -35,19 +35,18 @@ type CreateBucketFormValues = {
 const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClose, onSave }) => {
   const { account, provider } = useOceanAccount();
   const { createBucket } = useNodeStorage();
-  // A typed peer ID is looked up once the field loses focus, not on every keystroke: each lookup dials
-  // the node.
+  // Debounce dialing while typing; pasting a peer ID does not require leaving the field.
   const [typedNodeId, setTypedNodeId] = useState('');
   const sharingNode = useMemo(
     () => node ?? (typedNodeId ? peerIdToStorageNode(typedNodeId) : null),
     [node, typedNodeId]
   );
-  const { sharing } = useNodeBucketSharing(sharingNode);
+  const { sharing, loading: checkingSharing, error: sharingError, retry } = useNodeBucketSharing(sharingNode);
   const sharingDisabled = sharing === 'disabled';
 
   const formik = useFormik<CreateBucketFormValues>({
     initialValues: {
-      access: { mode: 'new', wallets: [account.address!] },
+      access: { mode: 'none' },
       label: '',
       nodeId: '',
     },
@@ -109,12 +108,13 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
     validateOnBlur: true,
     validateOnChange: false,
     onSubmit: async (values) => {
+      if (!sharingReady) return;
       const target = node ?? peerIdToStorageNode(values.nodeId.trim());
       try {
         const bucket = await createBucket({
           nodeId: target.nodeId,
           nodeUri: target.nodeUri,
-          access: values.access,
+          access: sharingDisabled ? { mode: 'none' } : values.access,
           label: values.label.trim() || undefined,
         });
         toast.success('Bucket created');
@@ -125,6 +125,15 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
       }
     },
   });
+
+  const enteredNodeId = formik.values.nodeId.trim();
+  useEffect(() => {
+    const timer = setTimeout(() => setTypedNodeId(enteredNodeId), 450);
+    return () => clearTimeout(timer);
+  }, [enteredNodeId]);
+  const waitingForNode = !node && (!enteredNodeId || enteredNodeId !== typedNodeId);
+  const sharingReady =
+    !waitingForNode && !checkingSharing && !sharingError && (sharing === 'allowed' || sharing === 'disabled');
 
   // The node refuses a bucket with an access list while sharing is off, so fall back to owner-only.
   const { setFieldValue } = formik;
@@ -160,10 +169,7 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
           size="md"
           value={formik.values.nodeId}
           onChange={formik.handleChange}
-          onBlur={(e) => {
-            formik.handleBlur(e);
-            setTypedNodeId(formik.values.nodeId.trim());
-          }}
+          onBlur={formik.handleBlur}
           errorText={formik.touched.nodeId && formik.errors.nodeId ? (formik.errors.nodeId as string) : undefined}
         />
       )}
@@ -178,16 +184,33 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
         onBlur={formik.handleBlur}
         errorText={formik.touched.label && formik.errors.label ? (formik.errors.label as string) : undefined}
       />
-      <BucketAccess
-        value={formik.values.access}
-        onChange={(v) => {
-          formik.setFieldValue('access', v);
-          formik.setFieldTouched('access', true, false);
-        }}
-        currentAccount={account?.address}
-        error={accessError}
-        sharingDisabled={sharingDisabled}
-      />
+      {!sharingReady ? (
+        <div role="status" className="textSecondary">
+          {waitingForNode
+            ? 'Enter a node ID to check bucket access.'
+            : sharingError
+              ? 'Could not check this node’s storage settings.'
+              : sharing === 'unavailable'
+                ? 'Persistent storage is not available on this node.'
+                : 'Checking bucket access…'}
+          {sharingError && !waitingForNode ? (
+            <Button onClick={retry} size="sm" variant="transparent">
+              Try again
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <BucketAccess
+          value={formik.values.access}
+          onChange={(v) => {
+            formik.setFieldValue('access', v);
+            formik.setFieldTouched('access', true, false);
+          }}
+          currentAccount={account?.address}
+          error={accessError}
+          sharingDisabled={sharingDisabled}
+        />
+      )}
       <div className="actionsGroupMdEnd">
         <Button
           color="accent1"
@@ -199,7 +222,14 @@ const CreateBucketModalInner: React.FC<CreateBucketModalProps> = ({ node, onClos
         >
           Cancel
         </Button>
-        <Button color="accent1" loading={formik.isSubmitting} size="md" variant="filled" type="submit">
+        <Button
+          color="accent1"
+          disabled={!sharingReady}
+          loading={formik.isSubmitting}
+          size="md"
+          variant="filled"
+          type="submit"
+        >
           {formik.isSubmitting ? 'Creating…' : 'Create bucket'}
         </Button>
       </div>

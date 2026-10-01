@@ -8,6 +8,7 @@ import { formatBytes, formatError } from '@/utils/formatters';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import styles from './service-results-panel.module.css';
 
 type DownloadServiceResultButtonProps = {
   /** An archive's size (from `outputArchives`), or 0 for a live zip — whose size isn't known up front. */
@@ -62,7 +63,7 @@ const DownloadServiceResultButton: React.FC<DownloadServiceResultButtonProps> = 
   const isLive = index === 'live';
 
   const handleDownload = async () => {
-    if (downloading) {
+    if (abortRef.current) {
       return;
     }
     const abortController = new AbortController();
@@ -114,11 +115,14 @@ const DownloadServiceResultButton: React.FC<DownloadServiceResultButtonProps> = 
         while (attempts < (isLive ? 1 : MAX_RESUME_ATTEMPTS)) {
           attempts += 1;
           const before = received;
+          abortController.signal.throwIfAborted();
           for await (const chunk of await open(received)) {
+            abortController.signal.throwIfAborted();
             await sink(chunk);
             received += chunk.byteLength;
             setBytesReceived(received);
           }
+          abortController.signal.throwIfAborted();
           if (isLive || filesize <= 0 || received >= filesize) {
             return received;
           }
@@ -154,7 +158,13 @@ const DownloadServiceResultButton: React.FC<DownloadServiceResultButtonProps> = 
       }
 
       const chunks: Uint8Array[] = [];
+      let bufferedBytes = 0;
       const received = await drain((chunk) => {
+        bufferedBytes += chunk.byteLength;
+        if (bufferedBytes > MAX_BUFFERED_DOWNLOAD_BYTES) {
+          abortController.abort();
+          throw new Error('These results are too large to buffer. Use Chrome or Edge and choose a save location.');
+        }
         chunks.push(chunk);
       });
       if (incomplete(received)) {
@@ -169,7 +179,8 @@ const DownloadServiceResultButton: React.FC<DownloadServiceResultButtonProps> = 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('Results sent to your downloads.');
     } catch (e: any) {
       if (e instanceof Error && e.name === 'AbortError') {
         return;
@@ -187,17 +198,49 @@ const DownloadServiceResultButton: React.FC<DownloadServiceResultButtonProps> = 
   const progressLabel = isLive ? formatBytes(bytesReceived) : `${percent}%`;
 
   return (
-    <Button
-      color="accent1"
-      contentBefore={downloading ? null : <DownloadIcon />}
-      disabled={!isReady}
-      loading={downloading}
-      onClick={handleDownload}
-      size="sm"
-      variant="outlined"
-    >
-      {downloading ? progressLabel : label}
-    </Button>
+    <div className={styles.download}>
+      <div className={styles.downloadActions}>
+        <Button
+          aria-label={`Download ${suggestedName}`}
+          color="accent1"
+          contentBefore={downloading ? null : <DownloadIcon />}
+          disabled={!isReady}
+          loading={downloading}
+          onClick={handleDownload}
+          size="sm"
+          variant="filled"
+        >
+          {downloading ? (bytesReceived ? 'Downloading…' : 'Preparing ZIP…') : label}
+        </Button>
+        {downloading ? (
+          <Button
+            aria-label={`Cancel download of ${suggestedName}`}
+            onClick={() => abortRef.current?.abort()}
+            size="sm"
+            variant="transparent"
+          >
+            Cancel
+          </Button>
+        ) : null}
+      </div>
+      {downloading ? (
+        <>
+          <progress
+            className={styles.progress}
+            aria-label="Download progress"
+            max={100}
+            value={isLive ? undefined : percent}
+          />
+          <span className={styles.transferStatus} role="status">
+            {bytesReceived
+              ? isLive
+                ? `${progressLabel} received`
+                : `${formatBytes(bytesReceived)} of ${formatBytes(filesize)} · ${progressLabel}`
+              : 'Connecting to node…'}
+          </span>
+        </>
+      ) : null}
+    </div>
   );
 };
 
