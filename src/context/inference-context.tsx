@@ -726,7 +726,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
 
   // Retry a failed hydration: reset the finished/failed flags and re-run against the current URL.
   const retryHydration = useCallback(() => {
-    if (!router.query.models && !router.query.peerId && !router.query.template) {
+    if (!router.query.models && !router.query.peerId && !templateIdOf(router)) {
       return;
     }
     setHydrationFailed(false);
@@ -736,7 +736,16 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     // (the effect already set it) so the guard stays synced — clearing it would make a later
     // non-signature URL change (env/serviceId) re-trigger an unnecessary re-hydration.
     hydrateFromQueryParams();
-  }, [hydrateFromQueryParams, router.query.models, router.query.peerId, router.query.template]);
+    // `router` is read whole (through templateIdOf) but only these fields decide the guard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    hydrateFromQueryParams,
+    router.query.models,
+    router.query.peerId,
+    router.query.template,
+    router.query.templateId,
+    router.pathname,
+  ]);
 
   const value = useMemo<InferenceContextType>(
     () => ({

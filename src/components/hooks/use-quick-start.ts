@@ -15,6 +15,7 @@ import { ComputeEnvironment } from '@/types/environments';
 import { checkEnvAccess, hasAccessRestriction } from '@/utils/check-env-access';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { ethers } from 'ethers';
+import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -121,6 +122,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
 }): QuickStart<T> {
   const { account, provider, login } = useOceanAccount();
   const { getEnvs, isReady } = useP2P();
+  const router = useRouter();
 
   // What earlier Starts learned, keyed by envKey: the node's fresh copies, and the entries it no longer
   // offers (an access list refusing the wallet lands in `access`). Only true of these entries: a refetch
@@ -131,6 +133,20 @@ export default function useQuickStart<T extends QuickStartEntry>({
   const [starting, setStarting] = useState(false);
   // Start stays mounted across its node reads, and a second click must not run a second walk.
   const startingRef = useRef(false);
+  // Bumped when the user navigates away or the page unmounts: a Start still awaiting its node reads
+  // then belongs to a page the user has left, and must not carry them on from wherever they are now.
+  const startGenerationRef = useRef(0);
+
+  useEffect(() => {
+    const invalidate = () => {
+      startGenerationRef.current += 1;
+    };
+    router.events.on('routeChangeStart', invalidate);
+    return () => {
+      router.events.off('routeChangeStart', invalidate);
+      invalidate();
+    };
+  }, [router.events]);
 
   useEffect(() => {
     setFresh({});
@@ -191,6 +207,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
       return;
     }
     const shown = plan.option;
+    const generation = startGenerationRef.current;
+    const isStale = () => generation !== startGenerationRef.current;
     startingRef.current = true;
     setStarting(true);
 
@@ -250,6 +268,9 @@ export default function useQuickStart<T extends QuickStartEntry>({
             const node = entry.env.nodeInfo.friendlyName || entry.env.nodeInfo.id;
             toast.info(`Your first match was just booked, so this starts on ${node} instead.`);
           }
+          if (isStale()) {
+            return;
+          }
           onStart({
             entry,
             token: option.candidate.token,
@@ -264,6 +285,9 @@ export default function useQuickStart<T extends QuickStartEntry>({
           break;
         }
         const allowed = await accessFor(option.candidate.environment, account.address, provider);
+        if (isStale()) {
+          return;
+        }
         if (allowed === false) {
           denied = true;
           nextAccess[key] = false;
@@ -280,6 +304,9 @@ export default function useQuickStart<T extends QuickStartEntry>({
           nodeInfo: entry.env.nodeInfo,
           envId: option.candidate.environment.id,
         });
+        if (isStale()) {
+          return;
+        }
         if (!read.reached) {
           unreachable = true;
           skipped[key] = true;
