@@ -18,7 +18,6 @@ import {
   DetailsSkeleton,
   DetailsTile,
 } from '@/components/inference/details-page';
-import InferenceStepper from '@/components/inference/inference-stepper';
 import QuickStartBanner from '@/components/inference/quick-start-banner';
 import { templateLogo } from '@/components/inference/template-logos';
 import TemplateMark from '@/components/inference/template-mark';
@@ -538,19 +537,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
   };
 
   return (
-    <DetailsPage
-      stepper={
-        <InferenceStepper
-          currentStep="template"
-          flowType={InferenceFlowType.Template}
-          kindLabel={catalogue.kindLabel}
-          template={template}
-        />
-      }
-      subTitle="Launch an app on an Ocean Node"
-    >
-      {renderBody()}
-    </DetailsPage>
+    <DetailsPage>{renderBody()}</DetailsPage>
   );
 };
 

@@ -1,7 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
-import SectionTitle from '@/components/section-title/section-title';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
@@ -33,14 +32,9 @@ export const rememberCatalogueUrl = (url: string) => {
 const catalogueBackHref = (pathname: string): string =>
   openedFromUrl?.split('?')[0] === pathname ? openedFromUrl : pathname;
 
-/** The page frame: the flow's title and stepper. */
-export const DetailsPage: React.FC<{ subTitle: string; stepper: ReactNode; children: ReactNode }> = ({
-  subTitle,
-  stepper,
-  children,
-}) => (
+/** The page frame. */
+export const DetailsPage: React.FC<{ children: ReactNode }> = ({ children }) => (
   <Container className="pageRoot">
-    <SectionTitle contentBetween={stepper} moreReadable subTitle={subTitle} title="Inference" />
     <div className="pageContentWrapper">{children}</div>
   </Container>
 );

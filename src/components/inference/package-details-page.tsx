@@ -13,14 +13,13 @@ import {
   DetailsTile,
 } from '@/components/inference/details-page';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
-import InferenceStepper from '@/components/inference/inference-stepper';
 import QuickStartBanner from '@/components/inference/quick-start-banner';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { InferenceOpenedVia, trackInferenceSelection } from '@/lib/inference-analytics';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { detailsPath, encodeDeclaredResources, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { declaredGpuRange } from '@/services/quick-start';
-import { InferenceFlowType, InferencePackage } from '@/types/inference';
+import { InferencePackage } from '@/types/inference';
 import { formatPipelineTag } from '@/utils/formatters';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
@@ -244,12 +243,7 @@ const PackageDetailsPage: React.FC = () => {
   };
 
   return (
-    <DetailsPage
-      stepper={<InferenceStepper currentStep="model" flowType={InferenceFlowType.DefaultModel} />}
-      subTitle="Launch a model on an Ocean Node"
-    >
-      {renderBody()}
-    </DetailsPage>
+    <DetailsPage>{renderBody()}</DetailsPage>
   );
 };
 
