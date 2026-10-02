@@ -18,6 +18,27 @@
   min-width: 0;
 }
 
+/* Status chip + the startup readout beside it. Kept on one row and never allowed to shrink, so a
+   long service name wraps or ellipsises instead of squeezing the readout. */
+.headerStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+/* The readout itself: bar + label on one line, hidden on narrow screens where the header stacks
+   and the chip alone has to carry the status. */
+.headerProgress {
+  display: none;
+  align-items: center;
+  gap: 6px;
+
+  @media (min-width: 560px) {
+    display: flex;
+  }
+}
+
 .meta {
   color: var(--text-secondary);
   font-size: 14px;
@@ -41,6 +62,11 @@
 .status_running {
   background: var(--success);
   color: var(--success-contrast);
+}
+
+.status_warming {
+  background: var(--warning);
+  color: var(--warning-contrast);
 }
 
 .status_pending {
