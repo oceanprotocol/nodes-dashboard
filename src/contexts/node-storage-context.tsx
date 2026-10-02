@@ -208,8 +208,13 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
       if (sharing === 'unavailable') {
         throw new Error('Persistent storage is not available on this node.');
       }
-      if (sharing === 'disabled') {
-        access = { mode: 'none' };
+      // Refuse rather than quietly create an owner-only bucket: that choice is permanent (a bucket
+      // without an access list can never be shared), so it must stay the user's to make.
+      if (sharing === 'disabled' && access.mode !== 'none') {
+        throw new Error(
+          'This node has turned bucket sharing off, so it only accepts buckets without an access list. ' +
+            'Choose "No access list" to create the bucket.'
+        );
       }
       let accessLists: PersistentStorageAccessList[];
       switch (access.mode) {

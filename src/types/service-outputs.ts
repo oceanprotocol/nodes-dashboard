@@ -1,11 +1,12 @@
 /**
  * What a service left in /data/outputs, as ocean-node reports it on SERVICE_GET_STATUS. A service
  * started with an output bucket writes straight into the bucket; one without gets a zip of the folder
- * each time a container of it is removed (stop, session end, restart, recovery after a node crash),
- * kept until the environment's storage period after the session ends.
+ * each time a container of it is removed for good (stop, session end, recovery after a node crash, or
+ * a restart that couldn't carry the folder over), kept until the environment's storage period after
+ * the session ends.
  *
- * None of this is typed by the pinned @oceanprotocol/lib (9.2.1), and older nodes omit it, hence the
- * guards: absence and any malformed entry read as "nothing", never throw.
+ * Older nodes omit these fields, hence the guards: absence and any malformed entry read as "nothing",
+ * never throw.
  */
 export type ServiceOutputArchive = {
   index: number;

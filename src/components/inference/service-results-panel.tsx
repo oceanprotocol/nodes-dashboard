@@ -3,7 +3,6 @@
 import Button from '@/components/button/button';
 import DownloadServiceResultButton from '@/components/inference/download-service-result-button';
 import { NodeUri } from '@/contexts/P2PContext';
-import { isServiceResultDownloadSupported } from '@/services/nodeService';
 import { getOutputArchives, getOutputBucketId } from '@/types/service-outputs';
 import { formatBytes, formatDateTime } from '@/utils/formatters';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
@@ -48,16 +47,13 @@ const ServiceResultsPanel: React.FC<ServiceResultsPanelProps> = ({ isExpired, jo
     );
   }
 
-  if (!isServiceResultDownloadSupported()) {
-    return (
-      <div className="textSecondary">Downloading results isn&apos;t available in this version of the app yet.</div>
-    );
-  }
-
   const archives = getOutputArchives(job);
   // The node zips the live folder only while the container exists: Running, or Error before teardown.
+  // A failed restart leaves Error with no container, which the node refuses (409).
   const canDownloadLive =
-    !isExpired && (job.status === ServiceStatusNumber.Running || job.status === ServiceStatusNumber.Error);
+    !isExpired &&
+    !!job.containerId &&
+    (job.status === ServiceStatusNumber.Running || job.status === ServiceStatusNumber.Error);
 
   return (
     <div className={styles.panel}>

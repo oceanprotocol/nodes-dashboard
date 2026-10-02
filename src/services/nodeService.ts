@@ -730,33 +730,6 @@ export function demuxDockerLogs(bytes: Uint8Array): string {
 }
 
 /**
- * Extend a running service's lifetime by `additionalDuration` seconds. The node charges the extra
- * runtime against the same escrow flow as the initial start and records it in `extendPayments`.
- */
-// `serviceGetResult` ships in the next @oceanprotocol/lib release; the pinned 9.2.1 doesn't have it.
-// Reached through a cast, and callers check isServiceResultDownloadSupported() first. Drop the cast
-// (and the check) once a release that includes it is pinned.
-type ServiceResultProvider = {
-  serviceGetResult?: (
-    nodeUri: OceanNode,
-    signerOrAuthToken: SignerOrAuthTokenOrSignature,
-    serviceId: string,
-    index: number | 'live',
-    offset?: number,
-    signal?: AbortSignal
-  ) => Promise<AsyncIterable<Uint8Array>>;
-};
-
-function serviceResultProvider(): ServiceResultProvider {
-  return ProviderInstance as unknown as ServiceResultProvider;
-}
-
-/** Whether the resolved @oceanprotocol/lib can download service results at all. */
-export function isServiceResultDownloadSupported(): boolean {
-  return typeof serviceResultProvider().serviceGetResult === 'function';
-}
-
-/**
  * Open a download stream for a service's /data/outputs zip (services without an output bucket).
  * `index` is one of the job's `outputArchives` — resumable from `offset` — or `'live'` for a zip of
  * the running container, built as it's read (no known size, not resumable). Resolves once the node
@@ -777,13 +750,13 @@ export async function streamServiceResult({
   serviceId: string;
   signal?: AbortSignal;
 }): Promise<AsyncIterable<Uint8Array>> {
-  const provider = serviceResultProvider();
-  if (typeof provider.serviceGetResult !== 'function') {
-    throw new Error('Downloading service results needs a newer @oceanprotocol/lib.');
-  }
-  return provider.serviceGetResult(normalizeNodeUri(nodeUri), authToken, serviceId, index, offset, signal);
+  return ProviderInstance.serviceGetResult(normalizeNodeUri(nodeUri), authToken, serviceId, index, offset, signal);
 }
 
+/**
+ * Extend a running service's lifetime by `additionalDuration` seconds. The node charges the extra
+ * runtime against the same escrow flow as the initial start and records it in `extendPayments`.
+ */
 export async function serviceExtend(
   nodeUri: NodeUri,
   signerOrAuthToken: SignerOrAuthTokenOrSignature,
@@ -933,14 +906,12 @@ export async function getPeerMultiaddr(peerId: string): Promise<string> {
  * - `allowed` — sharing is on, or the node predates the toggle (older nodes always honoured access lists).
  * - `disabled` — the node explicitly turned sharing off.
  * - `unavailable` — the node reports no persistent storage at all.
- *
- * Not typed by @oceanprotocol/lib yet (its `NodeStatus.persistentStorage` only has `accessLists`).
  */
 export type BucketSharing = 'allowed' | 'disabled' | 'unavailable';
 
 export async function getNodeBucketSharing(nodeUri: NodeUri, signal?: AbortSignal): Promise<BucketSharing> {
   const status = await ProviderInstance.getNodeStatus(normalizeNodeUri(nodeUri), signal);
-  const storage = status?.persistentStorage as { allowBucketSharing?: unknown } | undefined;
+  const storage = status?.persistentStorage;
   if (!storage) {
     return 'unavailable';
   }
