@@ -14,6 +14,7 @@ export type ErrorType =
   | 'timeout'
   | 'oom'
   | 'user_rejected'
+  | 'contract_revert'
   | 'unknown';
 
 export const classifyError = (error: unknown): ErrorType => {
@@ -37,9 +38,16 @@ export const classifyError = (error: unknown): ErrorType => {
   if (
     message.includes('insufficient') ||
     message.includes('not enough') ||
+    message.includes('enough funds') ||
     message.includes('exceeds balance')
   )
     return 'insufficient_funds';
+  // A contract revert relayed by the node (ethers CALL_EXCEPTION). Checked before `auth` because
+  // ethers serialises the decoded revert as `"signature": "Error(string)"`, which the auth bucket's
+  // 'signature' match would otherwise claim — e.g. "JobId already exists" landed there.
+  if (code === 'CALL_EXCEPTION' || message.includes('execution reverted') || message.includes('call_exception')) {
+    return 'contract_revert';
+  }
   if (
     message.includes('unauthorized') ||
     message.includes('signature') ||
@@ -57,8 +65,7 @@ export const classifyError = (error: unknown): ErrorType => {
     message.includes('required')
   )
     return 'validation';
-  if (message.includes('timeout') || message.includes('timed out') || name.includes('timeout'))
-    return 'timeout';
+  if (message.includes('timeout') || message.includes('timed out') || name.includes('timeout')) return 'timeout';
   if (
     message.includes('network') ||
     message.includes('failed to fetch') ||
@@ -82,11 +89,7 @@ export const classifyError = (error: unknown): ErrorType => {
  * `*_failed` events across the run-job / claim / node-config flows so the shape
  * (source / reason / error_type / error_name) stays consistent.
  */
-export const captureError = (
-  event: string,
-  error: unknown,
-  extraProps: Record<string, unknown> = {}
-): void => {
+export const captureError = (event: string, error: unknown, extraProps: Record<string, unknown> = {}): void => {
   const err = error as Error | undefined;
   posthog.capture(event, {
     source: 'dashboard',
