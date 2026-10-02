@@ -9,6 +9,7 @@ import InferenceModelList, { ServiceModel } from '@/components/inference/inferen
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ProvisioningProgress from '@/components/inference/provisioning-progress';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import ServiceResultsPanel from '@/components/inference/service-results-panel';
 import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
 import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
@@ -1212,6 +1213,14 @@ const ManageServicePage: React.FC = () => {
               </div>
             )}
           </Card>
+
+          {/* Results — what the service wrote to /data/outputs: its bucket, or the node's zips of the folder. */}
+          {job && nodeUri && nodePeerId ? (
+            <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+              <h3>Results</h3>
+              <ServiceResultsPanel isExpired={isExpired} job={job} nodePeerId={nodePeerId} nodeUri={nodeUri} />
+            </Card>
+          ) : null}
 
           {/* Logs — container stdout/stderr; the crash reason when a container exits unexpectedly. */}
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">

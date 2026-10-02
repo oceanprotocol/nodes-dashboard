@@ -1,0 +1,129 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.notice {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--background-glass);
+}
+.liveRow {
+  border-color: var(--accent1);
+  background: color-mix(in srgb, var(--accent1) 5%, transparent);
+}
+.icon {
+  color: var(--accent1);
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.rowInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.rowInfo strong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.filename {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sectionLabel span {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 20px;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+.empty > svg {
+  color: var(--text-secondary);
+  font-size: 32px;
+}
+.download {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 160px;
+}
+.downloadActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.progress {
+  width: 100%;
+  height: 5px;
+  accent-color: var(--accent1);
+}
+.transferStatus {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .row {
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 12px;
+  }
+  .rowInfo {
+    flex-basis: calc(100% - 48px);
+  }
+  .download {
+    width: 100%;
+  }
+  .downloadActions > :first-child {
+    flex: 1;
+  }
+}

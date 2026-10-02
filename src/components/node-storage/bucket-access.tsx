@@ -18,9 +18,14 @@ type BucketAccessProps = {
   onChange: (value: BucketAccessState) => void;
   currentAccount?: string;
   error?: string;
+  /**
+   * The node has bucket sharing turned off: it refuses a bucket with an access list, so only the
+   * owner-only option is offered.
+   */
+  sharingDisabled?: boolean;
 };
 
-const BucketAccess: React.FC<BucketAccessProps> = ({ value, onChange, currentAccount, error }) => {
+const BucketAccess: React.FC<BucketAccessProps> = ({ value, onChange, currentAccount, error, sharingDisabled }) => {
   function handleModeChange(mode: BucketAccessStateType) {
     switch (mode) {
       case 'existing': {
@@ -42,65 +47,75 @@ const BucketAccess: React.FC<BucketAccessProps> = ({ value, onChange, currentAcc
     <div className={styles.section}>
       <span className={styles.sectionTitle}>Access list</span>
 
-      {/* New access list */}
-      <Card className={styles.option} direction="column" padding="sm" radius="sm" variant="glass">
-        <Checkbox
-          checked={value.mode === 'new'}
-          className="alignSelfStart"
-          label="New access list"
-          onChange={() => handleModeChange('new')}
-          type="single"
-        />
-        <div className={classNames(styles.optionContent, styles.optionDesc)}>
-          Deploy a new access list contract with allowed wallet addresses
+      {sharingDisabled ? (
+        <div className={styles.notice}>
+          This node doesn&apos;t allow shared buckets, so only you can access buckets you create on it.
         </div>
-        <TransitionGroup className={styles.optionContent}>
-          {value.mode === 'new' ? (
-            <Collapse>
-              <div className={styles.optionExtra}>
-                <AccessListEditor
-                  currentAccount={currentAccount}
-                  error={error}
-                  onChange={(wallets) => onChange({ mode: 'new', wallets })}
-                  wallets={value.wallets}
-                />
-              </div>
-            </Collapse>
-          ) : null}
-        </TransitionGroup>
-      </Card>
+      ) : null}
+
+      {/* New access list */}
+      {sharingDisabled ? null : (
+        <Card className={styles.option} direction="column" padding="sm" radius="sm" variant="glass">
+          <Checkbox
+            checked={value.mode === 'new'}
+            className="alignSelfStart"
+            label="New access list"
+            onChange={() => handleModeChange('new')}
+            type="single"
+          />
+          <div className={classNames(styles.optionContent, styles.optionDesc)}>
+            Deploy a new access list contract with allowed wallet addresses
+          </div>
+          <TransitionGroup className={styles.optionContent}>
+            {value.mode === 'new' ? (
+              <Collapse>
+                <div className={styles.optionExtra}>
+                  <AccessListEditor
+                    currentAccount={currentAccount}
+                    error={error}
+                    onChange={(wallets) => onChange({ mode: 'new', wallets })}
+                    wallets={value.wallets}
+                  />
+                </div>
+              </Collapse>
+            ) : null}
+          </TransitionGroup>
+        </Card>
+      )}
 
       {/* Existing access list */}
-      <Card className={styles.option} direction="column" padding="sm" radius="sm" variant="glass">
-        <Checkbox
-          checked={value.mode === 'existing'}
-          className="alignSelfStart"
-          label="Existing access list"
-          onChange={() => handleModeChange('existing')}
-          type="single"
-        />
-        <div className={classNames(styles.optionContent, styles.optionDesc)}>
-          Use an already deployed access list contract
-        </div>
-        <TransitionGroup className={styles.optionContent}>
-          {value.mode === 'existing' ? (
-            <Collapse>
-              <div className={styles.optionExtra}>
-                <Input
-                  hint={`Chain: ${formatChainLabel(CHAIN_ID)}`}
-                  errorText={error}
-                  label="Access list contract address"
-                  onChange={(e) => onChange({ mode: 'existing', address: e.target.value })}
-                  placeholder="0x..."
-                  size="sm"
-                  type="text"
-                  value={value.address}
-                />
-              </div>
-            </Collapse>
-          ) : null}
-        </TransitionGroup>
-      </Card>
+      {sharingDisabled ? null : (
+        <Card className={styles.option} direction="column" padding="sm" radius="sm" variant="glass">
+          <Checkbox
+            checked={value.mode === 'existing'}
+            className="alignSelfStart"
+            label="Existing access list"
+            onChange={() => handleModeChange('existing')}
+            type="single"
+          />
+          <div className={classNames(styles.optionContent, styles.optionDesc)}>
+            Use an already deployed access list contract
+          </div>
+          <TransitionGroup className={styles.optionContent}>
+            {value.mode === 'existing' ? (
+              <Collapse>
+                <div className={styles.optionExtra}>
+                  <Input
+                    hint={`Chain: ${formatChainLabel(CHAIN_ID)}`}
+                    errorText={error}
+                    label="Access list contract address"
+                    onChange={(e) => onChange({ mode: 'existing', address: e.target.value })}
+                    placeholder="0x..."
+                    size="sm"
+                    type="text"
+                    value={value.address}
+                  />
+                </div>
+              </Collapse>
+            ) : null}
+          </TransitionGroup>
+        </Card>
+      )}
 
       {/* No access list */}
       <Card className={styles.option} direction="column" padding="sm" radius="sm" variant="glass">
@@ -112,7 +127,9 @@ const BucketAccess: React.FC<BucketAccessProps> = ({ value, onChange, currentAcc
           type="single"
         />
         <div className={classNames(styles.optionContent, styles.optionDesc)}>
-          Only you can access this bucket. It cannot be shared later.
+          {sharingDisabled
+            ? 'Only you can access this bucket.'
+            : 'Only you can access this bucket. It cannot be shared later.'}
         </div>
       </Card>
     </div>
