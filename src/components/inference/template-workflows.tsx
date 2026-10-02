@@ -28,7 +28,7 @@ function useIsClamped(text: string | undefined) {
     }
     const measure = () => setClamped(element.scrollHeight > COLLAPSED_HEIGHT + 1);
     measure();
-    // Width changes move where the clamp falls (the modal is responsive).
+    // Width changes move where the clamp falls (the page is responsive).
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     let stale = false;
@@ -47,7 +47,7 @@ function useIsClamped(text: string | undefined) {
 }
 
 /**
- * One graph the bundle installs, unboxed: in the details modals a card means "opens". The body is the
+ * One graph the bundle installs, unboxed: on the details pages a card means "opens". The body is the
  * node's own `description`, unedited. It already says what goes in and what comes out in its first
  * sentence, so it is clamped to three lines with the rest behind "Show more". The supply → output
  * strip is the one thing the schema can't derive; a workflow that declares neither doesn't get it.

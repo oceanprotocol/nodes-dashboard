@@ -121,8 +121,8 @@
   fill: currentColor;
 }
 
-/* Same accent treatment as the details modal's category chip, so the card carries the category colour
-   before the modal is ever opened — and the tile and the pill read as one mark. */
+/* Same accent treatment as the details page's category chip, so the card carries the category colour
+   before the details page is ever opened — and the tile and the pill read as one mark. */
 .categoryChip {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);

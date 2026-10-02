@@ -15,9 +15,7 @@ import {
 } from '@/components/inference/template-visual';
 import { useTheme } from '@/lib/use-theme';
 import { AppTemplate, includesSummary } from '@/types/templates';
-import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
-import SdStorageIcon from '@mui/icons-material/SdStorage';
 import cx from 'classnames';
 import { CSSProperties } from 'react';
 import styles from './template-card.module.css';
@@ -102,7 +100,7 @@ type TemplateCardProps = {
 const VISIBLE_INCLUDES = 3;
 
 /**
- * Catalogue tile for one entry, used by BOTH catalogues: category-accented, opens the details modal
+ * Catalogue tile for one entry, used by BOTH catalogues: category-accented, opens the details page
  * (it never launches). A bundle renders one extra block listing the models it brings; a bare service
  * has nothing to list, so the same card covers both and the two pages read as one system.
  */
@@ -154,7 +152,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
       {/* `outcome` first: it is the one-line version the catalogue writes for exactly this slot, and
           the card clamps to two lines — a full description truncated mid-sentence tells you less
           than the sentence written to fit. The description is the fallback, and the whole of it is
-          in the details modal either way. */}
+          on the details page either way. */}
       <p className={cx(styles.desc, { [styles.descEmpty]: !item.tpl.outcome && !item.tpl.description })}>
         {item.tpl.outcome || item.tpl.description || 'No description published for this image.'}
       </p>

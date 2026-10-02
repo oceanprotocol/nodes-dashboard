@@ -250,7 +250,7 @@ export async function buildTemplateRestartParams(
  * resources the same way.
  *
  * Deliberately NOT `pinned` (which booked the template's `recommended` amounts as fixed figures): the
- * GPU unit count is user-selectable in the details modal and the Advanced picker, and pinned amounts
+ * GPU unit count is user-selectable on the details page and the Advanced picker, and pinned amounts
  * ignore it — picking 1 GPU out of 8 booked the same CPU/RAM/disk as picking all 8, and the price with
  * it. Under `floor` the slice stays proportional to the GPU units actually picked and only stops
  * falling at the template's declared minimum, so a bigger pick buys proportionally more shared compute

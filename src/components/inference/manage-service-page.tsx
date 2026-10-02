@@ -30,7 +30,7 @@ import {
   parseServiceResources,
   toNodeUri,
 } from '@/services/inference-launch';
-import { firstQueryValue } from '@/services/inference-url';
+import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { branchForAppType, isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
@@ -757,7 +757,7 @@ const ManageServicePage: React.FC = () => {
         branch,
       });
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(template.id)}/config`,
+        pathname: `${detailsPath(INFERENCE_PATHS.services, template.id)}/config`,
         query: { ...buildSelectionQuery(selectionOverrides), edit: '1', serviceId: id },
       });
       return;
@@ -864,7 +864,7 @@ const ManageServicePage: React.FC = () => {
     // the service's real identity, not a not-yet-known one.
     if (template) {
       router.push({
-        pathname: `/inference/services/${encodeURIComponent(template.id)}/payment`,
+        pathname: `${detailsPath(INFERENCE_PATHS.services, template.id)}/payment`,
         query,
       });
       return;

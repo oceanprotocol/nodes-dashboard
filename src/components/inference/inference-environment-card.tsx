@@ -77,7 +77,7 @@ type InferenceEnvironmentCardProps = {
    * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
    * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually
    * appears on a type's row the env itself lets you book none of (`MergedGpu.allowsZero`) — an env whose
-   * GPU resources require at least one unit keeps blocking zero regardless of this flag. Set true only for the template flows (details modal + Advanced env picker
+   * GPU resources require at least one unit keeps blocking zero regardless of this flag. Set true only for the template flows (details page + Advanced env picker
    * in Template mode); custom-model, default-model, and quick-start-package flows must keep the
    * existing hard floor of 1, so this stays false there.
    */

@@ -18,7 +18,7 @@ import { serviceDurationBounds } from '@/utils/service-duration';
 
 /**
  * Quick start: pick the environment a template or package launches on, so the user only chooses a
- * session length. Pure: the modal's useQuickStart hook feeds it the resolved environments (and, once
+ * session length. Pure: the details page's useQuickStart hook feeds it the resolved environments (and, once
  * Start is pressed, the node's own fresh copies of them) and re-plans whenever any of that changes.
  *
  * How a pick is made:

@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const ENV_FETCH_TIMEOUT_MS = 30000;
 
 /** One environment of the package's source node, resolved and ready to book (recommended sizing + auto GPU
- *  selection + seeded fee token). The modal's quick start picks one of these entries to launch on. */
+ *  selection + seeded fee token). The details page's quick start picks one of these entries to launch on. */
 export type ResolvedPackageEnv = {
   env: SelectedInferenceEnv;
   /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
@@ -40,7 +40,7 @@ export function packageFloorSizing(pkg: InferencePackage): ResourceSizing {
  * this fetches those nodes' environments, keeps the ones that (a) advertise service-on-demand, (b)
  * accept a supported paid token (USDC/COMPY), and (c) can currently satisfy the package's resource
  * floors, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
- * seeded token), across all nodes. The modal's quick start ranks them and launches on the best fit.
+ * seeded token), across all nodes. The details page's quick start ranks them and launches on the best fit.
  * Only when EVERY listed node is unreachable does this surface an error.
  */
 const usePackageEnvs = (pkg: InferencePackage | null) => {
@@ -67,7 +67,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
     }
     let cancelled = false;
     // Aborts the in-flight request on effect re-run / unmount (modal closed, package switched), on top
-    // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
+    // of withTimeout — so a hung indexer can't keep the page spinning after the user moved on.
     const cleanupController = new AbortController();
     // The package names its own source nodes, but only the allowlisted ones may be launched on — a
     // package seeded from a node that has since dropped off ON_INFERENCE_NODES must offer nothing
