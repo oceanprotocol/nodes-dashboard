@@ -6,6 +6,7 @@ import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { streamServiceResult } from '@/services/nodeService';
 import { formatBytes, formatError } from '@/utils/formatters';
 import DownloadIcon from '@mui/icons-material/Download';
+import { classifyP2pError, isRetryableP2pError } from '@oceanprotocol/lib';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './service-results-panel.module.css';
@@ -26,7 +27,7 @@ type DownloadServiceResultButtonProps = {
 /** Same threshold as the bucket file download: above it, buffering the zip would cost ~2× its size in tab memory. */
 const MAX_BUFFERED_DOWNLOAD_BYTES = 512 * 1024 * 1024;
 
-/** How many times a short archive read is reopened from its byte offset before giving up. */
+/** How many times an archive that stops early is reopened from its byte offset before giving up. */
 const MAX_RESUME_ATTEMPTS = 3;
 
 /**
@@ -108,27 +109,52 @@ const DownloadServiceResultButton: React.FC<DownloadServiceResultButtonProps> = 
         );
 
       // Drains the zip into `sink`. An archive that stops early is reopened from where it stopped (the
-      // node takes a byte offset); a live zip is one pass, since each request builds a new one.
+      // node takes a byte offset): the stream either ends short, or throws a transport error or an idle
+      // timeout (the lib reports a cut P2P response that way). A refusal by the node (401, 404, …), a
+      // failed write to the sink and Cancel are never retried. A live zip is one pass, since each
+      // request builds a new one.
       const drain = async (sink: (chunk: Uint8Array) => Promise<void> | void) => {
         let received = 0;
         let attempts = 0;
+        let lastError: unknown = null;
         while (attempts < (isLive ? 1 : MAX_RESUME_ATTEMPTS)) {
           attempts += 1;
           const before = received;
+          lastError = null;
+          let sinkFailed = false;
           abortController.signal.throwIfAborted();
-          for await (const chunk of await open(received)) {
-            abortController.signal.throwIfAborted();
-            await sink(chunk);
-            received += chunk.byteLength;
-            setBytesReceived(received);
+          try {
+            for await (const chunk of await open(received)) {
+              abortController.signal.throwIfAborted();
+              try {
+                await sink(chunk);
+              } catch (e) {
+                sinkFailed = true;
+                throw e;
+              }
+              received += chunk.byteLength;
+              setBytesReceived(received);
+            }
+          } catch (e) {
+            // Checked before classifying: Cancel arrives as an AbortError, which reads as a timeout.
+            if (isLive || sinkFailed || abortController.signal.aborted || !isRetryableP2pError(classifyP2pError(e))) {
+              throw e;
+            }
+            lastError = e;
           }
           abortController.signal.throwIfAborted();
-          if (isLive || filesize <= 0 || received >= filesize) {
+          // Every byte the archive record promised has arrived, even if the connection dropped after.
+          if (filesize > 0 && received >= filesize) {
             return received;
           }
-          if (received === before) {
-            break;
+          // A clean end is the whole zip when its size is unknown. A short one is worth another pass
+          // only if this one made progress.
+          if (!lastError && (isLive || filesize <= 0 || received === before)) {
+            return received;
           }
+        }
+        if (lastError) {
+          throw lastError;
         }
         return received;
       };

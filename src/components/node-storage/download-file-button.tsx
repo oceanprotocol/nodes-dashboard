@@ -5,7 +5,7 @@ import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
 import { formatError } from '@/utils/formatters';
 import DownloadIcon from '@mui/icons-material/Download';
-import { PersistentStorageFileEntry } from '@oceanprotocol/lib';
+import { classifyP2pError, isRetryableP2pError, PersistentStorageFileEntry } from '@oceanprotocol/lib';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -29,7 +29,7 @@ type DownloadFileButtonProps = {
  */
 const MAX_BUFFERED_DOWNLOAD_BYTES = 512 * 1024 * 1024;
 
-/** How many times a short read is reopened from its byte offset before giving up. */
+/** How many times a download that stops early is reopened from its byte offset before giving up. */
 const MAX_RESUME_ATTEMPTS = 3;
 
 /**
@@ -94,8 +94,7 @@ const DownloadFileButton: React.FC<DownloadFileButtonProps> = ({
       const needsStreamingSave = file.size > MAX_BUFFERED_DOWNLOAD_BYTES;
 
       const showSaveFilePicker = (window as any).showSaveFilePicker as
-        | ((options?: any) => Promise<FileSystemFileHandle>)
-        | undefined;
+        ((options?: any) => Promise<FileSystemFileHandle>) | undefined;
 
       let fileHandle: FileSystemFileHandle | null = null;
       if (needsStreamingSave && typeof showSaveFilePicker === 'function') {
@@ -120,38 +119,60 @@ const DownloadFileButton: React.FC<DownloadFileButtonProps> = ({
         return;
       }
 
-      // Drains the stream into `sink`, resuming from a short read: the node accepts a byte offset, so
-      // a stream that stops early is reopened from where it stopped instead of saving a truncated
-      // file. Bounded so a node that keeps returning nothing can't spin here forever.
+      // Drains the stream into `sink`, resuming a download that stops early: the node accepts a byte
+      // offset, so the stream is reopened from where it stopped instead of saving a truncated file. It
+      // stops early either by ending short, or by throwing a transport error or an idle timeout (the
+      // lib reports a cut P2P response that way). A refusal by the node, a failed write to the sink and
+      // an abort are never retried. Bounded so a node that keeps failing can't spin here forever.
       const drainWithResume = async (sink: (chunk: Uint8Array) => Promise<void> | void) => {
         let received = 0;
         let attempts = 0;
+        let lastError: unknown = null;
         while (attempts < MAX_RESUME_ATTEMPTS) {
           attempts += 1;
           const before = received;
-          const stream = await downloadFile({
-            bucketId,
-            fileName: file.name,
-            nodeId,
-            nodeUri,
-            offset: received,
-            signal: abortController.signal,
-          });
+          lastError = null;
+          let sinkFailed = false;
+          try {
+            const stream = await downloadFile({
+              bucketId,
+              fileName: file.name,
+              nodeId,
+              nodeUri,
+              offset: received,
+              signal: abortController.signal,
+            });
 
-          for await (const chunk of stream) {
-            await sink(chunk);
-            received += chunk.byteLength;
-            setBytesReceived(received);
+            for await (const chunk of stream) {
+              try {
+                await sink(chunk);
+              } catch (e) {
+                sinkFailed = true;
+                throw e;
+              }
+              received += chunk.byteLength;
+              setBytesReceived(received);
+            }
+          } catch (e) {
+            // Checked before classifying: an abort arrives as an AbortError, which reads as a timeout.
+            if (sinkFailed || abortController.signal.aborted || !isRetryableP2pError(classifyP2pError(e))) {
+              throw e;
+            }
+            lastError = e;
           }
 
-          // Size unknown, or everything the listing promised has arrived.
-          if (file.size <= 0 || received >= file.size) {
+          // Everything the listing promised has arrived, even if the connection dropped after.
+          if (file.size > 0 && received >= file.size) {
             return received;
           }
-          // A resume that yielded nothing new won't do better on another pass.
-          if (received === before) {
-            break;
+          // A clean end is the whole file when its size is unknown. A short one is worth another pass
+          // only if this one made progress: a resume that yielded nothing new won't do better.
+          if (!lastError && (file.size <= 0 || received === before)) {
+            return received;
           }
+        }
+        if (lastError) {
+          throw lastError;
         }
         return received;
       };
