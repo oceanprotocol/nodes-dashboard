@@ -68,6 +68,8 @@ type BundleFields = {
    * bundle's workflow cards. Absent, the prose alone carries the section.
    */
   capabilities?: string[];
+  /** Left out of the catalogue grid; still opens from a direct `?view=<id>` link (work in progress). */
+  unlisted?: boolean;
 };
 
 /** One user-supplied env var, plus the node's `required` hint (also missing from the ocean.js type). */

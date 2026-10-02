@@ -30,6 +30,9 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
 
   const { templates, loading, error } = useServiceTemplates();
   const entries = useMemo(() => catalogue.select(templates), [catalogue, templates]);
+  // Unlisted entries are only hidden from the grid; their details page (and a legacy `?view=<id>` link,
+  // which redirects there) still opens them.
+  const listed = useMemo(() => entries.filter((tpl) => !tpl.unlisted), [entries]);
   useLegacyViewRedirect(catalogue.pathname);
 
   // Always start fresh (new entry or Back-nav from a later step): clear leftover selection once, on mount.
@@ -60,7 +63,7 @@ const CataloguePage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) 
       />
       <div className="pageContentWrapper">
         <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-          <CatalogueBrowser copy={catalogue} error={error} items={entries} loading={loading} onOpen={openDetails} />
+          <CatalogueBrowser copy={catalogue} error={error} items={listed} loading={loading} onOpen={openDetails} />
         </Card>
       </div>
     </Container>
