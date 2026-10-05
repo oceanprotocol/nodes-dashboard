@@ -31,7 +31,7 @@ import { getAvailableAmount } from '@/utils/resources';
 import type { ComputeAsset } from '@oceanprotocol/lib';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -218,6 +218,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const { initializeCompute, isReady: p2pIsReady } = useP2P();
 
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [estimatedTotalCost, setEstimatedTotalCost] = useState<number | null>(null);
   const [freeCompute, setFreeCompute] = useState<boolean>(false);
   // const [gpus, setGpus] = useState<GPUPopularityDisplay>([]);
@@ -681,8 +682,15 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
    * If free compute was selected, we don't need to wait for the p2p node/ provider, but otherwise we need it to calculate cost
    */
   useEffect(() => {
+    if (!pathname) {
+      return;
+    }
     if (!hydrateFromUrlStarted) {
-      if (!searchParams.size) {
+      // The provider is mounted app-wide, but only run-job routes carry its selection. The inference
+      // flow uses the same `peerId`/`env` query names, so hydrating there fetched the whole env list
+      // for nothing and toasted "Compute jobs are not enabled" on service-only envs. A first load
+      // elsewhere is treated like one without a query: hydration is over, as it always was.
+      if (!searchParams.size || !pathname.startsWith('/run-job')) {
         setHydrateFromUrlStarted(true);
         setHydrateFromUrlFinished(true);
       } else {
@@ -695,7 +703,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     }
-  }, [hydrateContextFromQueryParams, hydrateFromUrlStarted, p2pIsReady, provider, searchParams]);
+  }, [hydrateContextFromQueryParams, hydrateFromUrlStarted, p2pIsReady, provider, searchParams, pathname]);
 
   return (
     <RunJobContext.Provider
