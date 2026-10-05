@@ -74,7 +74,7 @@ export const DetailsLayout: React.FC<DetailsLayoutProps> = ({ back, header, laun
         </div>
         {header}
       </Card>
-      {showcaseRow && <ShowcaseRow className={styles.showcase} index={0} row={showcaseRow} />}
+      {showcaseRow && <ShowcaseRow chips={false} className={styles.showcase} index={0} row={showcaseRow} />}
       {launch}
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         {children}

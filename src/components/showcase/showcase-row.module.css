@@ -62,8 +62,8 @@
   }
 }
 
-/* Band of blur and grain over the edge where tiles enter, so each one resolves from noise as it
-   scrolls in. Sits on the right of leftward rows and the left of rightward ones. */
+/* Bands of blur and grain over both edges, so tiles resolve from noise as they scroll in and dissolve
+   back into it as they scroll out. */
 .denoise {
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   backdrop-filter: blur(18px) saturate(1.4);
@@ -72,7 +72,7 @@
   mask-image: linear-gradient(to left, #000 20%, transparent);
   pointer-events: none;
   position: absolute;
-  width: clamp(72px, 16vw, 280px);
+  width: clamp(40px, 8vw, 140px);
 
   &::after {
     animation: grain 0.6s steps(1) infinite;
@@ -84,7 +84,7 @@
     position: absolute;
   }
 
-  .rowReverse & {
+  &.denoiseStart {
     inset: 0 auto 0 0;
     -webkit-mask-image: linear-gradient(to right, #000 20%, transparent);
     mask-image: linear-gradient(to right, #000 20%, transparent);

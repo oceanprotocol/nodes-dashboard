@@ -79,6 +79,8 @@ const ShowcaseVideo = ({
 type ShowcaseTileProps = {
   /** Plays its video; inactive tiles keep theirs paused. */
   active?: boolean;
+  /** Shows the chip naming the template or model. Off where every tile comes from the same one. */
+  chip?: boolean;
   className?: string;
   /** Loads the media up front instead of when it nears the viewport, for tiles that move into view. */
   eager?: boolean;
@@ -98,6 +100,7 @@ type ShowcaseTileProps = {
  */
 const ShowcaseTile = ({
   active = true,
+  chip = true,
   className,
   eager,
   inert,
@@ -138,15 +141,17 @@ const ShowcaseTile = ({
           unoptimized={/^https?:\/\//.test(item.src)}
         />
       )}
-      <figcaption className={classNames('chip chipPrimaryOutlined', styles.chip)}>
-        {item.href ? (
-          <Link className={styles.chipLink} href={item.href} tabIndex={inert ? -1 : undefined}>
-            {chipContent}
-          </Link>
-        ) : (
-          chipContent
-        )}
-      </figcaption>
+      {chip && (
+        <figcaption className={classNames('chip chipPrimaryOutlined', styles.chip)}>
+          {item.href ? (
+            <Link className={styles.chipLink} href={item.href} tabIndex={inert ? -1 : undefined}>
+              {chipContent}
+            </Link>
+          ) : (
+            chipContent
+          )}
+        </figcaption>
+      )}
     </figure>
   );
 };

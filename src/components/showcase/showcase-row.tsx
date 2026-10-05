@@ -37,6 +37,8 @@ export function buildShowcaseRows(items: ShowcaseItem[], rowCount: number): Show
 }
 
 type ShowcaseRowProps = {
+  /** Shows each tile's chip. Off where every tile comes from the same template or model. */
+  chips?: boolean;
   className?: string;
   /** Position among sibling rows; staggers the entrance. */
   index: number;
@@ -48,7 +50,7 @@ type ShowcaseRowProps = {
  * copy, so the loop is seamless; the second copy is hidden from assistive tech. Tiles take the row's
  * full height, which the parent decides.
  */
-const ShowcaseRow = ({ className, index, row }: ShowcaseRowProps) => (
+const ShowcaseRow = ({ chips = true, className, index, row }: ShowcaseRowProps) => (
   <div
     className={classNames(styles.row, row.reverse && styles.rowReverse, className)}
     style={
@@ -66,11 +68,12 @@ const ShowcaseRow = ({ className, index, row }: ShowcaseRowProps) => (
           key={String(clone)}
         >
           {row.tiles.map((item, tileIndex) => (
-            <ShowcaseTile inert={clone} item={item} key={`${item.id}-${tileIndex}`} />
+            <ShowcaseTile chip={chips} inert={clone} item={item} key={`${item.id}-${tileIndex}`} />
           ))}
         </div>
       ))}
     </div>
+    <span aria-hidden className={classNames(styles.denoise, styles.denoiseStart)} />
     <span aria-hidden className={styles.denoise} />
   </div>
 );
