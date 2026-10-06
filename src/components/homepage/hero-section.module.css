@@ -140,7 +140,7 @@
   line-height: 1.05;
   margin: 0;
 
-  span {
+  > span {
     display: block;
   }
 

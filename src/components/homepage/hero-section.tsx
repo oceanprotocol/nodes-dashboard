@@ -2,9 +2,12 @@ import { getRoutes } from '@/config';
 import { SHOWCASE_ITEMS } from '@/services/showcase';
 import Button from '../button/button';
 import Container from '../container/container';
+import RotatingText from '../rotating-text/rotating-text';
 import ShowcaseStack from '../showcase/showcase-stack';
 import styles from './hero-section.module.css';
 import LegacyEscrowBanner from './legacy-escrow-banner';
+
+const CREATIONS = ['viral video', 'cinematic short', 'product shot', 'training job', 'AI chatbot', 'big hit'];
 
 export default function HeroSection() {
   return (
@@ -16,7 +19,10 @@ export default function HeroSection() {
             <h1 className={styles.title}>
               <span className={styles.titleLead}>Start creating</span>
               <span className={styles.titleRest}>
-                your next <em>viral video</em>
+                your next{' '}
+                <em>
+                  <RotatingText words={CREATIONS} />
+                </em>
               </span>
             </h1>
             <p className={styles.subtitle}>Generate images and video on GPUs booked by the hour.</p>
