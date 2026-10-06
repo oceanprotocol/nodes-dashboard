@@ -9,13 +9,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPublicClient, erc20Abi, formatUnits, http } from 'viem';
 import { base } from 'viem/chains';
 
-// Card -> USDC on Base through Privy's fiat on-ramp (Stripe). See docs/specs/privy-fiat-onramp.md.
-
-/** Gates only the /dev/fiat-topup test page; the profile top-up is available to every SCA user. */
-export const FIAT_TOPUP_ENABLED = process.env.NEXT_PUBLIC_FIAT_TOPUP === '1';
+// Card -> USDC on Base through Privy's fiat on-ramp (Stripe).
 
 // Stripe's EU Travel Rule check starts at 1,000 EUR and asks the destination to prove ownership with a
-// signature. Until we know the smart account passes it (R2 in the spec), prefill below the threshold.
+// signature. Until we know the smart account passes it, prefill below the threshold.
 // Only a prefill: the user can still change the amount inside Privy's modal.
 export const MAX_TOPUP_USDC = 950;
 
