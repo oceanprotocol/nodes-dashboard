@@ -1,3 +1,5 @@
+import useServiceTemplates from '@/components/hooks/use-service-templates';
+import TemplateAvatar from '@/components/inference/template-avatar';
 import { templateLogoForName, templateLogoSrc } from '@/components/inference/template-logos';
 import { showcaseSourceHref } from '@/services/showcase';
 import { ShowcaseItem } from '@/types/showcase';
@@ -11,8 +13,36 @@ import styles from './showcase-tile.module.css';
 
 export const ratioOf = (item: ShowcaseItem) => item.width / item.height;
 
-const chipMarkSrc = ({ source }: ShowcaseItem): string | null =>
-  templateLogoSrc(source.id) ?? templateLogoForName(source.label);
+const CHIP_AVATAR_SIZE = 20;
+
+/**
+ * The source's avatar as the catalogue shows it, once the node's catalogue has it; until then, or for a
+ * package, the mark matched from the source's id or label.
+ */
+const ShowcaseChipMark = ({ item }: { item: ShowcaseItem }) => {
+  const { templates } = useServiceTemplates();
+  const { source } = item;
+  const template = source.kind === 'package' ? undefined : templates.find((candidate) => candidate.id === source.id);
+
+  if (template) {
+    return <TemplateAvatar className={styles.chipAvatar} size={CHIP_AVATAR_SIZE} template={template} />;
+  }
+
+  const markSrc = templateLogoSrc(source.id) ?? templateLogoForName(source.label);
+  if (markSrc) {
+    return (
+      <span className={styles.chipMark}>
+        <Image alt="" height={12} src={markSrc} width={12} />
+      </span>
+    );
+  }
+
+  return (
+    <span className={classNames(styles.chipMark, styles.chipMarkIcon)}>
+      {item.type === 'video' ? <PlayArrowRoundedIcon /> : <ImageOutlinedIcon />}
+    </span>
+  );
+};
 
 /**
  * Plays only while active and on (or near) screen, so a wall of looping videos doesn't decode off-screen
@@ -122,19 +152,9 @@ const ShowcaseTile = ({
   sizeVh = 45,
   style,
 }: ShowcaseTileProps) => {
-  const markSrc = chipMarkSrc(item);
-
   const chipContent = (
     <>
-      {markSrc ? (
-        <span className={styles.chipMark}>
-          <Image alt="" height={12} src={markSrc} width={12} />
-        </span>
-      ) : (
-        <span className={classNames(styles.chipMark, styles.chipMarkIcon)}>
-          {item.type === 'video' ? <PlayArrowRoundedIcon /> : <ImageOutlinedIcon />}
-        </span>
-      )}
+      <ShowcaseChipMark item={item} />
       <span className={styles.chipLabel}>{item.source.label}</span>
     </>
   );

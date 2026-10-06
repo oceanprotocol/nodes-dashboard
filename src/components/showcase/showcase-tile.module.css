@@ -42,7 +42,7 @@
   }
 
   /* Tighter at the mark's side, so the round mark sits in the chip's curve. */
-  &:has(.chipMark) {
+  &:has(.chipMark, .chipAvatar) {
     padding-left: 3px;
   }
 
@@ -65,11 +65,12 @@
 
   /* Portrait tiles are too narrow for mark and name side by side; the name wins. */
   @container (max-width: 150px) {
-    &:has(.chipMark) {
+    &:has(.chipMark, .chipAvatar) {
       padding-left: 16px;
     }
 
-    .chipMark {
+    .chipMark,
+    .chipAvatar {
       display: none;
     }
   }
