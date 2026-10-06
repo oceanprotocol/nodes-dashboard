@@ -164,6 +164,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [videoEndedStep, setVideoEndedStep] = useState<number | null>(null);
 
   useEffect(() => {
     setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -180,17 +181,25 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
 
   const paused = hovered || focused || reducedMotion;
 
-  // Restarts on every step, so a manual move gets a full interval before the next automatic one.
+  const frontIsVideo =
+    items.length > 0 && items[((step % items.length) + items.length) % items.length].type === 'video';
+  const waitingOnVideo = frontIsVideo && videoEndedStep !== step;
+
+  // Restarts on every step, so a manual move gets a full interval before the next automatic one. A video
+  // in front holds the deck until it has played to the end.
   useEffect(() => {
-    if (paused || items.length < 2) {
+    if (paused || items.length < 2 || waitingOnVideo) {
       return;
     }
-    const timer = window.setTimeout(() => {
-      setManual(false);
-      setStep((current) => current + 1);
-    }, CYCLE_MS);
+    const timer = window.setTimeout(
+      () => {
+        setManual(false);
+        setStep((current) => current + 1);
+      },
+      frontIsVideo ? 0 : CYCLE_MS
+    );
     return () => window.clearTimeout(timer);
-  }, [paused, items.length, step]);
+  }, [paused, items.length, step, waitingOnVideo, frontIsVideo]);
 
   const placements = useMemo(() => {
     if (!deck || items.length === 0) {
@@ -313,6 +322,15 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
                 eager
                 inert={!visible}
                 item={item}
+                onVideoEnded={
+                  items.length > 1
+                    ? () => {
+                        if (relative === 0) {
+                          setVideoEndedStep(step);
+                        }
+                      }
+                    : undefined
+                }
                 sizeVh={60}
               />
             </div>

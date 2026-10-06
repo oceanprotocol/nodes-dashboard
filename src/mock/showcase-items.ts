@@ -1,8 +1,8 @@
-import { ShowcaseItem, ShowcaseMedia } from '@/types/showcase';
+import { ShowcaseItem } from '@/types/showcase';
 
 /**
- * Example generations for the homepage hero and the media templates' details pages. MOCK DATA:
- * placeholders until real generations (and a source for them per template) are supplied.
+ * Placeholder generations shown next to the real ones in `src/data/showcase.ts`, on the homepage hero
+ * and the inference index. MOCK DATA: remove once enough real generations are supplied.
  */
 
 // Swap `src`/`width`/`height` per item; the showcases lay out any mix of ratios.
@@ -12,7 +12,7 @@ const placeholderImage = (seed: string, width: number, height: number) =>
 const PLACEHOLDER_VIDEO = '/hero.mp4';
 const PLACEHOLDER_VIDEO_ALT = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
 
-export const SHOWCASE_ITEMS: ShowcaseItem[] = [
+export const PLACEHOLDER_SHOWCASE_ITEMS: ShowcaseItem[] = [
   {
     id: 'flux-portrait',
     type: 'image',
@@ -20,7 +20,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 800,
     height: 1000,
     alt: 'Portrait generated with FLUX.1',
-    model: 'FLUX.1 [dev]',
+    source: { kind: 'template', id: 'flux-1-dev', label: 'FLUX.1 [dev]' },
   },
   {
     id: 'ltx-wide',
@@ -29,7 +29,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1920,
     height: 1080,
     alt: 'Video generated with LTX-Video',
-    model: 'LTX-Video',
+    source: { kind: 'template', id: 'ltx-video', label: 'LTX-Video' },
   },
   {
     id: 'qwen-square',
@@ -38,7 +38,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 900,
     height: 900,
     alt: 'Image generated with Qwen-Image',
-    model: 'Qwen-Image',
+    source: { kind: 'template', id: 'qwen-image', label: 'Qwen-Image' },
   },
   {
     id: 'sdxl-tall',
@@ -47,8 +47,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 800,
     height: 1200,
     alt: 'Image generated with SDXL on ComfyUI',
-    model: 'ComfyUI · SDXL',
-    templateId: 'comfyui-sdxl',
+    source: { kind: 'template', id: 'comfyui-sdxl', label: 'ComfyUI · SDXL' },
   },
   {
     id: 'wan-vertical',
@@ -57,7 +56,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1080,
     height: 1920,
     alt: 'Video generated with Wan 2.2',
-    model: 'Wan 2.2',
+    source: { kind: 'template', id: 'wan-2-2', label: 'Wan 2.2' },
   },
   {
     id: 'sd35-landscape',
@@ -66,7 +65,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1200,
     height: 800,
     alt: 'Image generated with Stable Diffusion 3.5',
-    model: 'Stable Diffusion 3.5',
+    source: { kind: 'template', id: 'stable-diffusion-3-5', label: 'Stable Diffusion 3.5' },
   },
   {
     id: 'hunyuan-square',
@@ -75,7 +74,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1080,
     height: 1080,
     alt: 'Video generated with HunyuanVideo',
-    model: 'HunyuanVideo',
+    source: { kind: 'template', id: 'hunyuanvideo', label: 'HunyuanVideo' },
   },
   {
     id: 'flux-schnell',
@@ -84,7 +83,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 900,
     height: 1200,
     alt: 'Image generated with FLUX.1 schnell',
-    model: 'FLUX.1 [schnell]',
+    source: { kind: 'template', id: 'flux-1-schnell', label: 'FLUX.1 [schnell]' },
   },
   {
     id: 'ltx-cinema',
@@ -93,7 +92,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 2390,
     height: 1000,
     alt: 'Cinematic video generated with LTX-Video',
-    model: 'LTX-Video',
+    source: { kind: 'template', id: 'ltx-video', label: 'LTX-Video' },
   },
   {
     id: 'qwen-edit',
@@ -102,7 +101,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1200,
     height: 900,
     alt: 'Image edited with Qwen-Image-Edit',
-    model: 'Qwen-Image-Edit',
+    source: { kind: 'template', id: 'qwen-image-edit', label: 'Qwen-Image-Edit' },
   },
   {
     id: 'sdxl-turbo',
@@ -111,8 +110,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 720,
     height: 1280,
     alt: 'Image generated with SDXL Turbo on ComfyUI',
-    model: 'ComfyUI · SDXL Turbo',
-    templateId: 'comfyui-sdxl',
+    source: { kind: 'template', id: 'comfyui-sdxl', label: 'ComfyUI · SDXL Turbo' },
   },
   {
     id: 'wan-portrait',
@@ -121,7 +119,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1080,
     height: 1350,
     alt: 'Video generated with Wan 2.2',
-    model: 'Wan 2.2',
+    source: { kind: 'template', id: 'wan-2-2', label: 'Wan 2.2' },
   },
   {
     id: 'hidream-wide',
@@ -130,7 +128,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1600,
     height: 900,
     alt: 'Image generated with HiDream-I1',
-    model: 'HiDream-I1',
+    source: { kind: 'template', id: 'hidream-i1', label: 'HiDream-I1' },
   },
   {
     id: 'flux-kontext',
@@ -139,7 +137,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1000,
     height: 1000,
     alt: 'Image edited with FLUX.1 Kontext',
-    model: 'FLUX.1 Kontext',
+    source: { kind: 'template', id: 'flux-1-kontext', label: 'FLUX.1 Kontext' },
   },
   {
     id: 'ltx-portrait',
@@ -148,7 +146,7 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1080,
     height: 1440,
     alt: 'Video generated with LTX-Video',
-    model: 'LTX-Video',
+    source: { kind: 'template', id: 'ltx-video', label: 'LTX-Video' },
   },
   {
     id: 'qwen-landscape',
@@ -157,13 +155,6 @@ export const SHOWCASE_ITEMS: ShowcaseItem[] = [
     width: 1250,
     height: 1000,
     alt: 'Image generated with Qwen-Image',
-    model: 'Qwen-Image',
+    source: { kind: 'template', id: 'qwen-image', label: 'Qwen-Image' },
   },
 ];
-
-/**
- * Generations to show for a catalogue entry that makes images or video. Until entries carry their own
- * examples, this returns the placeholders of the matching type.
- */
-export const showcaseItemsFor = (media: ShowcaseMedia): ShowcaseItem[] =>
-  SHOWCASE_ITEMS.filter((item) => item.type === media);

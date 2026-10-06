@@ -16,12 +16,11 @@ import InferenceModelList, { ServiceModel } from '@/components/inference/inferen
 import QuickStartBanner from '@/components/inference/quick-start-banner';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { InferenceOpenedVia, trackInferenceSelection } from '@/lib/inference-analytics';
-import { showcaseItemsFor } from '@/mock/showcase-items';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { detailsPath, encodeDeclaredResources, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { declaredGpuRange } from '@/services/quick-start';
+import { showcaseItemsForSource } from '@/services/showcase';
 import { InferencePackage } from '@/types/inference';
-import { showcaseMediaForPipeline } from '@/types/showcase';
 import { formatPipelineTag } from '@/utils/formatters';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
@@ -105,10 +104,7 @@ const PackageDetailsPage: React.FC = () => {
   const model = usePackageModel(pkg);
   const serviceModels: ServiceModel[] = useMemo(() => (pkg ? [{ model: pkg.model, params: pkg.params }] : []), [pkg]);
   const engineLabel = pkg?.params.engine === 'llamacpp' ? 'llama.cpp' : 'vLLM';
-  const showcase = useMemo(() => {
-    const media = showcaseMediaForPipeline(pkg?.model.pipelineTag);
-    return media ? showcaseItemsFor(media) : undefined;
-  }, [pkg]);
+  const showcase = useMemo(() => (pkg ? showcaseItemsForSource('package', pkg.id) : undefined), [pkg]);
 
   // Commit the package (model + params + duration + engine) to context and hand off. The query is built
   // from overrides so it doesn't depend on setState timing. `pick` is set only for the Start → payment

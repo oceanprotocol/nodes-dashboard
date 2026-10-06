@@ -34,10 +34,10 @@ import TemplateWorkflows from '@/components/inference/template-workflows';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { InferenceOpenedVia, resolveInferenceBranch, trackInferenceSelection } from '@/lib/inference-analytics';
 import { useTheme } from '@/lib/use-theme';
-import { showcaseItemsFor } from '@/mock/showcase-items';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { declaredGpuRange } from '@/services/quick-start';
 import { findTemplateById } from '@/services/service-templates';
+import { showcaseItemsForSource } from '@/services/showcase';
 import { templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import {
@@ -527,11 +527,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
             quickStart={quickStart}
           />
         }
-        showcase={
-          template.category === 'image' || template.category === 'video'
-            ? showcaseItemsFor(template.category)
-            : undefined
-        }
+        showcase={showcaseItemsForSource(isBundle(template) ? 'template' : 'service', template.id)}
         style={accentStyle}
       >
         {renderOverview(template)}

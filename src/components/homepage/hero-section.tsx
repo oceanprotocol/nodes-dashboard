@@ -1,5 +1,5 @@
 import { getRoutes } from '@/config';
-import { SHOWCASE_ITEMS } from '@/mock/showcase-items';
+import { SHOWCASE_ITEMS } from '@/services/showcase';
 import Button from '../button/button';
 import Container from '../container/container';
 import ShowcaseStack from '../showcase/showcase-stack';

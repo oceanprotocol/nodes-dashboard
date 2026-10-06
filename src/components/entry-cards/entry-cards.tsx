@@ -18,26 +18,84 @@ export const EntryCardsLayout: React.FC<EntryCardsLayoutProps> = ({ children, fe
 const BACKDROP_CYCLE_MS = 6000;
 const PAN_RATIO_TOLERANCE = 0.05;
 
-export type BackdropImage = {
+export type BackdropMedia = {
+  type: 'image' | 'video';
   src: string;
+  poster?: string;
   width: number;
   height: number;
 };
 
-const FeaturedBackdrop: React.FC<{ images: BackdropImage[] }> = ({ images }) => {
+/**
+ * Plays from the start while active. With `onEnded` it plays once and reports the end, or reports right
+ * away when it can't play; without, it loops.
+ */
+const BackdropVideo: React.FC<{ active: boolean; className?: string; media: BackdropMedia; onEnded?: () => void }> = ({
+  active,
+  className,
+  media,
+  onEnded,
+}) => {
+  const ref = useRef<HTMLVideoElement>(null);
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) {
+      return;
+    }
+    if (!active) {
+      video.pause();
+      video.currentTime = 0;
+      return;
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    video.play().catch(() => onEndedRef.current?.());
+  }, [active]);
+
+  return (
+    <video
+      className={className}
+      loop={!onEnded}
+      muted
+      onEnded={() => onEndedRef.current?.()}
+      onError={() => {
+        if (active) {
+          onEndedRef.current?.();
+        }
+      }}
+      playsInline
+      poster={media.poster}
+      preload="metadata"
+      ref={ref}
+      src={media.src.includes('#') ? media.src : `${media.src}#t=0.001`}
+    />
+  );
+};
+
+const FeaturedBackdrop: React.FC<{ media: BackdropMedia[] }> = ({ media }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [boxRatio, setBoxRatio] = useState<number | null>(null);
 
+  const next = () => {
+    setActive((current) => (current + 1) % media.length);
+  };
+
+  // A video holds the backdrop until it has played to the end (see BackdropVideo).
+  const activeIsVideo = media[active]?.type === 'video';
   useEffect(() => {
-    if (images.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (activeIsVideo || media.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       return;
     }
-    const timer = window.setInterval(() => {
-      setActive((current) => (current + 1) % images.length);
+    const timer = window.setTimeout(() => {
+      setActive((current) => (current + 1) % media.length);
     }, BACKDROP_CYCLE_MS);
-    return () => window.clearInterval(timer);
-  }, [images.length]);
+    return () => window.clearTimeout(timer);
+  }, [active, activeIsVideo, media.length]);
 
   useEffect(() => {
     const element = ref.current;
@@ -53,7 +111,7 @@ const FeaturedBackdrop: React.FC<{ images: BackdropImage[] }> = ({ images }) => 
     return () => observer.disconnect();
   }, []);
 
-  const panClass = (image: BackdropImage, index: number) => {
+  const panClass = (image: BackdropMedia, index: number) => {
     if (!boxRatio) {
       return undefined;
     }
@@ -69,22 +127,34 @@ const FeaturedBackdrop: React.FC<{ images: BackdropImage[] }> = ({ images }) => 
 
   return (
     <div aria-hidden className={styles.featuredBackdrop} ref={ref}>
-      {images.map((image, index) => (
-        <div
-          className={classNames(styles.featuredImage, panClass(image, index), {
-            [styles.featuredImageActive]: index === active,
-          })}
-          key={image.src}
-          style={{ backgroundImage: `url(${image.src})` }}
-        />
-      ))}
+      {media.map((item, index) =>
+        item.type === 'video' ? (
+          <BackdropVideo
+            active={index === active}
+            className={classNames(styles.featuredImage, styles.featuredVideo, {
+              [styles.featuredImageActive]: index === active,
+            })}
+            key={item.src}
+            media={item}
+            onEnded={media.length > 1 ? next : undefined}
+          />
+        ) : (
+          <div
+            className={classNames(styles.featuredImage, panClass(item, index), {
+              [styles.featuredImageActive]: index === active,
+            })}
+            key={item.src}
+            style={{ backgroundImage: `url(${item.src})` }}
+          />
+        )
+      )}
     </div>
   );
 };
 
 type FeaturedEntryCardProps = {
   actions: ReactNode;
-  backgroundImages?: BackdropImage[];
+  backgroundMedia?: BackdropMedia[];
   badge?: string;
   description: string;
   icon: ReactNode;
@@ -93,15 +163,15 @@ type FeaturedEntryCardProps = {
 
 export const FeaturedEntryCard: React.FC<FeaturedEntryCardProps> = ({
   actions,
-  backgroundImages,
+  backgroundMedia,
   badge,
   description,
   icon,
   title,
 }) => (
   <Card className={styles.featured} direction="column" padding="md" radius="lg" shadow="accent1">
-    {backgroundImages?.length ? (
-      <FeaturedBackdrop images={backgroundImages} />
+    {backgroundMedia?.length ? (
+      <FeaturedBackdrop media={backgroundMedia} />
     ) : (
       <div aria-hidden className={styles.featuredPattern} />
     )}

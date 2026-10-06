@@ -90,6 +90,12 @@
   }
 }
 
+.featuredVideo {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 @keyframes pan-x {
   from {
     background-position-x: 0%;

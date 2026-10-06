@@ -5,8 +5,8 @@ import FlowSteps, { FlowStep } from '@/components/flow-steps/flow-steps';
 import ExistingServicesTable from '@/components/inference/existing-services-table';
 import SectionTitle from '@/components/section-title/section-title';
 import { InferenceBranch, trackInferenceFlowStarted } from '@/lib/inference-analytics';
-import { SHOWCASE_ITEMS } from '@/mock/showcase-items';
 import { INFERENCE_PATHS } from '@/services/inference-url';
+import { SHOWCASE_ITEMS } from '@/services/showcase';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import WidgetsOutlinedIcon from '@mui/icons-material/WidgetsOutlined';
@@ -19,9 +19,13 @@ const FLOW_STEPS: FlowStep[] = [
   { title: 'Call the Endpoint', description: 'OpenAI-compatible API, live logs' },
 ];
 
-const BACKGROUND_IMAGES = SHOWCASE_ITEMS.filter((item) => item.type === 'image')
-  .slice(0, 6)
-  .map(({ src, width, height }) => ({ src, width, height }));
+const BACKGROUND_MEDIA = SHOWCASE_ITEMS.slice(0, 6).map(({ type, src, poster, width, height }) => ({
+  type,
+  src,
+  poster,
+  width,
+  height,
+}));
 
 const trackEntry = (branch: InferenceBranch) => {
   trackInferenceFlowStarted(branch, 'index');
@@ -50,7 +54,7 @@ const InferenceIndexPage: React.FC = () => {
               badge="Fastest way to start"
               description="Ready-made bundles of an app and the models it needs. Pick one and start it in a few clicks, on a GPU picked for you."
               icon={<Inventory2OutlinedIcon />}
-              backgroundImages={BACKGROUND_IMAGES}
+              backgroundMedia={BACKGROUND_MEDIA}
               title="Templates"
             />
           }

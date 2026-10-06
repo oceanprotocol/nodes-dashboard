@@ -1,4 +1,5 @@
 import { templateLogoForName, templateLogoSrc } from '@/components/inference/template-logos';
+import { showcaseSourceHref } from '@/services/showcase';
 import { ShowcaseItem } from '@/types/showcase';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
@@ -10,30 +11,34 @@ import styles from './showcase-tile.module.css';
 
 export const ratioOf = (item: ShowcaseItem) => item.width / item.height;
 
-function chipMarkSrc(item: ShowcaseItem): string | null {
-  if (item.templateId) {
-    return templateLogoSrc(item.templateId);
-  }
-  return templateLogoForName(item.model);
-}
+const chipMarkSrc = ({ source }: ShowcaseItem): string | null =>
+  templateLogoSrc(source.id) ?? templateLogoForName(source.label);
 
 /**
  * Plays only while active and on (or near) screen, so a wall of looping videos doesn't decode off-screen
  * copies. Every video loads enough to show its first frame (the `#t` fragment makes Safari paint it too),
  * so a paused tile still shows its media rather than an empty card. Without motion it never plays.
+ *
+ * With `onEnded` it plays once from the start each time it becomes active instead of looping, and
+ * reports the end; a video that can't play reports it right away, so whoever waits on it moves on.
  */
 const ShowcaseVideo = ({
   active,
   eager,
+  onEnded,
   poster,
   src,
 }: {
   active: boolean;
   eager?: boolean;
+  onEnded?: () => void;
   poster?: string;
   src: string;
 }) => {
   const ref = useRef<HTMLVideoElement>(null);
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+  const playOnce = !!onEnded;
 
   useEffect(() => {
     const video = ref.current;
@@ -45,13 +50,16 @@ const ShowcaseVideo = ({
     }
     if (!active) {
       video.pause();
+      if (playOnce) {
+        video.currentTime = 0;
+      }
       return;
     }
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           // Rejected when the browser blocks autoplay; the poster/first frame stays up instead.
-          video.play().catch(() => {});
+          video.play().catch(() => onEndedRef.current?.());
         } else {
           video.pause();
         }
@@ -60,13 +68,15 @@ const ShowcaseVideo = ({
     );
     observer.observe(video);
     return () => observer.disconnect();
-  }, [active]);
+  }, [active, playOnce]);
 
   return (
     <video
       className={styles.media}
-      loop
+      loop={!playOnce}
       muted
+      onEnded={() => onEndedRef.current?.()}
+      onError={() => onEndedRef.current?.()}
       playsInline
       poster={poster}
       preload={eager ? 'auto' : 'metadata'}
@@ -87,6 +97,8 @@ type ShowcaseTileProps = {
   item: ShowcaseItem;
   /** Takes the chip link out of the tab order, for copies hidden from assistive tech. */
   inert?: boolean;
+  /** Plays a video once instead of looping and reports when it ends (or can't play). */
+  onVideoEnded?: () => void;
   /** Overrides the media's own ratio, e.g. to give a slot a fixed shape. The media is cropped to fit. */
   ratio?: number;
   /** Rough rendered height as a share of the viewport height, for the image's `sizes`. */
@@ -105,6 +117,7 @@ const ShowcaseTile = ({
   eager,
   inert,
   item,
+  onVideoEnded,
   ratio = ratioOf(item),
   sizeVh = 45,
   style,
@@ -122,14 +135,14 @@ const ShowcaseTile = ({
           {item.type === 'video' ? <PlayArrowRoundedIcon /> : <ImageOutlinedIcon />}
         </span>
       )}
-      <span className={styles.chipLabel}>{item.model}</span>
+      <span className={styles.chipLabel}>{item.source.label}</span>
     </>
   );
 
   return (
     <figure className={classNames(styles.tile, className)} style={{ '--ratio': ratio, ...style } as CSSProperties}>
       {item.type === 'video' ? (
-        <ShowcaseVideo active={active} eager={eager} poster={item.poster} src={item.src} />
+        <ShowcaseVideo active={active} eager={eager} onEnded={onVideoEnded} poster={item.poster} src={item.src} />
       ) : (
         <Image
           alt={item.alt}
@@ -143,13 +156,9 @@ const ShowcaseTile = ({
       )}
       {chip && (
         <figcaption className={classNames('chip chipPrimaryOutlined', styles.chip)}>
-          {item.href ? (
-            <Link className={styles.chipLink} href={item.href} tabIndex={inert ? -1 : undefined}>
-              {chipContent}
-            </Link>
-          ) : (
-            chipContent
-          )}
+          <Link className={styles.chipLink} href={showcaseSourceHref(item.source)} tabIndex={inert ? -1 : undefined}>
+            {chipContent}
+          </Link>
         </figcaption>
       )}
     </figure>

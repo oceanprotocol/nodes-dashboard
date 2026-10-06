@@ -1,31 +1,35 @@
-/** One generated image or video shown as an example of what a template or model makes. */
-export type ShowcaseItem = {
+/**
+ * What a showcase item was generated with: a catalogue entry on the platform. `id` is the entry's id as
+ * the nodes advertise it (template/service id, or package id), so its details page can be linked and
+ * filtered by it.
+ */
+export type ShowcaseSource = {
+  kind: 'template' | 'service' | 'package';
+  id: string;
+  /** Name shown on the tile's chip. Stored here because catalogue entries are only known at runtime. */
+  label: string;
+};
+
+/** One showcase entry as authored in `src/data/showcase.ts`. */
+export type ShowcaseEntry = {
+  /** Unique slug; also the media's filename stem in `public/showcase/`. */
   id: string;
   type: 'image' | 'video';
-  src: string;
-  /** Still shown before a video has loaded a frame. */
+  /** Filename in `public/showcase/`. */
+  file: string;
+  /** Still shown before a video has loaded a frame, filename in `public/showcase/`. */
   poster?: string;
   /** Intrinsic size of the media. Only the ratio is used, to size the tile. */
   width: number;
   height: number;
   alt: string;
-  /** Template or model name shown on the tile's chip. */
-  model: string;
-  /** Template id used to pick the chip's brand mark. Falls back to matching on `model`. */
-  templateId?: string;
-  /** Makes the chip a link, e.g. to the template's page. */
-  href?: string;
+  source: ShowcaseSource;
+  /** Prompt used for the generation. */
+  prompt?: string;
 };
 
-export type ShowcaseMedia = 'image' | 'video';
-
-/** HF pipeline tags whose output is an image or a video; anything else (text, audio) has nothing to show. */
-const PIPELINE_MEDIA: Record<string, ShowcaseMedia> = {
-  'image-to-image': 'image',
-  'image-to-video': 'video',
-  'text-to-image': 'image',
-  'text-to-video': 'video',
+/** One generated image or video shown as an example of what a template, service or package makes. */
+export type ShowcaseItem = Omit<ShowcaseEntry, 'file' | 'poster'> & {
+  src: string;
+  poster?: string;
 };
-
-export const showcaseMediaForPipeline = (pipelineTag?: string): ShowcaseMedia | null =>
-  (pipelineTag && PIPELINE_MEDIA[pipelineTag]) || null;
