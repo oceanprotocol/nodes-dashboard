@@ -70,6 +70,8 @@ type BundleFields = {
   capabilities?: string[];
   /** Left out of the catalogue grid; still opens from a direct `?view=<id>` link (work in progress). */
   unlisted?: boolean;
+  /** Catalogue position, lowest first. Entries without one follow, in the node's order. */
+  order?: number;
 };
 
 /** One user-supplied env var, plus the node's `required` hint (also missing from the ocean.js type). */
