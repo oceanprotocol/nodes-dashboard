@@ -1,0 +1,237 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 900px) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  > * {
+    flex: 1;
+  }
+}
+
+.featured {
+  background-color: var(--accent1-surface);
+  color: var(--accent1-contrast);
+  gap: 24px;
+  isolation: isolate;
+  min-height: 320px;
+  position: relative;
+  z-index: 1;
+}
+
+.featuredPattern {
+  border-radius: inherit;
+  background: url('/footer.svg') no-repeat right -40px top -20px;
+  background-size: min(460px, 75%);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.featuredBackdrop {
+  border-radius: inherit;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+
+  &::after {
+    background: linear-gradient(
+      30deg,
+      var(--accent1-surface) 0%,
+      color-mix(in srgb, var(--accent1-surface) 85%, transparent) 35%,
+      color-mix(in srgb, var(--accent1-surface) 30%, transparent) 65%,
+      transparent 90%
+    );
+    content: '';
+    inset: 0;
+    position: absolute;
+  }
+}
+
+.featuredImage {
+  background-position: center;
+  background-size: cover;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  transition: opacity 1.5s ease;
+
+  &.featuredImageActive {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    &.panDown {
+      animation: pan-y 24s ease-in-out infinite alternate;
+    }
+
+    &.panLtr,
+    &.panRtl {
+      animation: pan-x 24s ease-in-out infinite alternate;
+    }
+
+    &.panRtl {
+      animation-direction: alternate-reverse;
+    }
+  }
+}
+
+@keyframes pan-x {
+  from {
+    background-position-x: 0%;
+  }
+
+  to {
+    background-position-x: 100%;
+  }
+}
+
+@keyframes pan-y {
+  from {
+    background-position-y: 0%;
+  }
+
+  to {
+    background-position-y: 100%;
+  }
+}
+
+.featuredIcon {
+  align-items: center;
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--accent1-contrast) 18%, transparent);
+  border-radius: 14px;
+  display: flex;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.featuredBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.featuredTitle {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+
+  @media (min-width: 576px) {
+    font-size: 48px;
+  }
+}
+
+.featuredDescription {
+  color: color-mix(in srgb, var(--accent1-contrast) 85%, transparent);
+  font-size: 16px;
+  max-width: 46ch;
+}
+
+.featuredFooter {
+  align-items: center;
+  border-top: 1px solid color-mix(in srgb, var(--accent1-contrast) 22%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 20px;
+}
+
+.badge {
+  align-items: center;
+  color: color-mix(in srgb, var(--accent1-contrast) 90%, transparent);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 8px;
+
+  &::before {
+    background: var(--accent2);
+    border-radius: 50%;
+    content: '';
+    height: 8px;
+    width: 8px;
+  }
+}
+
+.featuredActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.iconBox {
+  align-items: center;
+  background: var(--background-glass-secondary);
+  border-radius: 10px;
+  display: flex;
+  flex: 0 0 auto;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.card {
+  gap: 16px;
+}
+
+.cardHead {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.cardTitle {
+  font-size: 18px;
+}
+
+.cardDescription {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: auto;
+  border-top: 1px solid var(--border-glass);
+  padding-top: 16px;
+}
+
+.featured,
+.card {
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.03);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}

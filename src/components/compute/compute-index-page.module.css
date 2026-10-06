@@ -1,5 +1,29 @@
-.cards {
-  @media (min-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
+.nodeSteps {
+  counter-reset: node-step;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+
+  li {
+    align-items: center;
+    counter-increment: node-step;
+    display: flex;
+    font-size: 14px;
+    gap: 10px;
+
+    &::before {
+      align-items: center;
+      background: var(--background-glass-secondary);
+      border-radius: 50%;
+      content: counter(node-step);
+      display: inline-flex;
+      flex: 0 0 auto;
+      font-size: 12px;
+      font-weight: 600;
+      height: 22px;
+      justify-content: center;
+      width: 22px;
+    }
   }
 }

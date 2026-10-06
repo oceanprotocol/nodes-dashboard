@@ -1,0 +1,90 @@
+.root {
+  align-self: center;
+  margin-bottom: 16px;
+  max-width: 880px;
+  width: 100%;
+}
+
+.steps {
+  --marker-size: 28px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  list-style: none;
+
+  @media (min-width: 1000px) {
+    display: grid;
+    grid-template-columns: repeat(var(--steps-count), minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+
+.step {
+  display: grid;
+  align-content: start;
+  grid-template-columns: var(--marker-size) 1fr;
+  gap: 12px;
+  position: relative;
+
+  &:not(:last-child)::after {
+    background: var(--border);
+    content: '';
+    left: calc(var(--marker-size) / 2);
+    position: absolute;
+    top: calc(var(--marker-size) + 4px);
+    bottom: -12px;
+    width: 1px;
+  }
+
+  @media (min-width: 1000px) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    justify-items: center;
+    text-align: center;
+
+    &:not(:last-child)::after {
+      bottom: auto;
+      height: 1px;
+      left: calc(50% + var(--marker-size) / 2 + 8px);
+      right: calc(-50% - 12px + var(--marker-size) / 2);
+      top: calc(var(--marker-size) / 2);
+      width: auto;
+    }
+  }
+}
+
+.marker {
+  align-items: center;
+  border: 1px solid var(--accent1);
+  border-radius: 50%;
+  color: var(--accent1);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  height: var(--marker-size);
+  justify-content: center;
+  width: var(--marker-size);
+
+  .step:first-child & {
+    background: var(--accent1);
+    color: var(--accent1-contrast);
+  }
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stepTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stepDescription {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
