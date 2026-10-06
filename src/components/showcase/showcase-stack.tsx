@@ -52,13 +52,19 @@ const relativeIndex = (index: number, step: number, count: number) => {
 
 /**
  * A tile's size at a depth: its own ratio (or `ratio`, for the collapsed card), scaled down with depth
- * and capped in width.
+ * from `maxHeight` and capped in width.
  */
-const tileSize = (item: ShowcaseItem, depth: number, deck: Size, ratio = ratioOf(item)): Size => {
+const tileSize = (
+  item: ShowcaseItem,
+  depth: number,
+  deck: Size,
+  ratio = ratioOf(item),
+  maxHeight = deck.height
+): Size => {
   const scale = SCALES[Math.min(depth, SCALES.length - 1)];
   const frontShare = deck.width <= MOBILE_MAX_WIDTH ? MOBILE_FRONT_WIDTH_SHARE : MAX_WIDTH_SHARE[0];
   const maxWidth = deck.width * (depth === 0 ? frontShare : MAX_WIDTH_SHARE[1]) * scale;
-  let height = deck.height * scale;
+  let height = maxHeight * scale;
   let width = height * ratio;
   if (width > maxWidth) {
     width = maxWidth;
@@ -88,15 +94,19 @@ const layout = ({
 }): Placement[] => {
   const count = items.length;
   const relative = items.map((_, index) => relativeIndex(index, step, count));
-  // Collapsed, tiles behind the front take the card shape; spread, every tile shows its own.
+  const frontIndex = relative.indexOf(0);
+  const frontRatio = spread || deck.width > MOBILE_MAX_WIDTH ? ratioOf(items[frontIndex]) : CARD_RATIO;
+  const front = tileSize(items[frontIndex], 0, deck, frontRatio);
+  // Collapsed, tiles behind the front take the card shape; spread, every tile shows its own. None is
+  // taller than the front one.
   const sizes = items.map((item, index) => {
+    if (index === frontIndex) {
+      return front;
+    }
     const depth = Math.abs(relative[index]);
-    const ownShape = spread || (depth === 0 && deck.width > MOBILE_MAX_WIDTH);
-    return tileSize(item, depth, deck, ownShape ? ratioOf(item) : CARD_RATIO);
+    return tileSize(item, depth, deck, spread ? ratioOf(item) : CARD_RATIO, front.height);
   });
   const placements: Placement[] = new Array(count);
-  const frontIndex = relative.indexOf(0);
-  const front = sizes[frontIndex];
   // Collapsed, the outermost tiles end exactly at the deck's edges, so the stack spans its container.
   const peek = Math.max(0, (deck.width / 2 - front.width / 2) / maxDepth);
   const gap = Math.max(10, deck.height * 0.04);
