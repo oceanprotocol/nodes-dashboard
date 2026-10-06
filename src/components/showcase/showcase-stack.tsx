@@ -344,6 +344,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
                 sizeVh={60}
               />
             </div>
+            <span aria-hidden className={styles.glass} />
           </div>
         );
       })}

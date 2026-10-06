@@ -23,6 +23,16 @@
       transform: scale(1.04);
     }
   }
+
+  /* Sits over the media, so the glass edge stays visible on top of it. */
+  &::after {
+    border-radius: inherit;
+    box-shadow: var(--inner-shadow-glass);
+    content: '';
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+  }
 }
 
 /* Positions the global `chip chipPrimaryOutlined` (globals.css) on the media and lays out its mark and
@@ -32,6 +42,7 @@
   left: 10px;
   max-width: calc(100% - 20px);
   position: absolute;
+  z-index: 1;
 
   &,
   .chipLink {

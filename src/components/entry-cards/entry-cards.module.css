@@ -28,6 +28,17 @@
   min-height: 320px;
   position: relative;
   z-index: 1;
+
+  /* Above the backdrop, which would otherwise cover the glass edge, and below the content. */
+  &::after {
+    border-radius: inherit;
+    box-shadow: var(--inner-shadow-glass);
+    content: '';
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+    z-index: -1;
+  }
 }
 
 .featuredPattern {
@@ -120,6 +131,7 @@
   align-items: center;
   align-self: flex-start;
   background: color-mix(in srgb, var(--accent1-contrast) 18%, transparent);
+  backdrop-filter: blur(4px);
   border-radius: 14px;
   display: flex;
   height: 52px;

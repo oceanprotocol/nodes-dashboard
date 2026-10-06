@@ -74,9 +74,9 @@
 
 /* Sized to the visible card and scaled back up against the slot's scale, so --drop-shadow-black renders
    at its real size on every card (and white media still reads against a white page). */
-.shadow {
+.shadow,
+.glass {
   border-radius: var(--radius);
-  box-shadow: var(--drop-shadow-black);
   height: calc((100% - 2 * var(--inset-y)) * var(--scale));
   left: 50%;
   pointer-events: none;
@@ -84,6 +84,15 @@
   top: 50%;
   transform: translate(-50%, -50%) scale(calc(1 / var(--scale)));
   width: calc((100% - 2 * var(--inset-x)) * var(--scale));
+}
+
+.shadow {
+  box-shadow: var(--drop-shadow-black);
+}
+
+/* The tile's own glass edge would be cropped with the media, so the card gets one over the clip instead. */
+.glass {
+  box-shadow: var(--inner-shadow-glass);
 }
 
 .clip {
@@ -126,6 +135,10 @@
   aspect-ratio: auto;
   height: 100%;
   width: 100%;
+
+  &::after {
+    display: none;
+  }
 }
 
 /* Only part of a tile behind shows, so its chip waits for the spread. */
