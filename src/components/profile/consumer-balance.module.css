@@ -1,7 +1,21 @@
 .header {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: space-between;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topupHint {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
 }
 
 .balanceList {

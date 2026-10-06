@@ -6,11 +6,20 @@ import TransferModal from '@/components/profile/transfer-modal';
 import { getExplorerUrl } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useTransferHistory } from '@/lib/use-transfer-history';
+import {
+  DEFAULT_TOPUP_USDC,
+  FiatTopupError,
+  getTopupErrorMessage,
+  TOPUP_USER_EXITED,
+  useUsdcArrival,
+  useUsdcTopup,
+} from '@/lib/use-usdc-topup';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
 import { formatNumber, formatWalletAddress } from '@/utils/formatters';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
 import SendIcon from '@mui/icons-material/Send';
 import { CircularProgress } from '@mui/material';
 import { toast } from 'react-toastify';
@@ -29,8 +38,41 @@ const ConsumerBalance = () => {
   const { balances, loading: loadingBalances, refetch: refetchBalances } = useWalletBalances();
   const { transfers, loading: loadingHistory, refetch: refetchHistory } = useTransferHistory();
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isToppingUp, setIsToppingUp] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [page, setPage] = useState(0);
+
+  // Card top-up (Privy fiat on-ramp): USDC on Base, delivered straight to the smart account.
+  const { canTopup, scaAddress, topup } = useUsdcTopup();
+  const { watch: watchUsdcArrival, watching: waitingForUsdc } = useUsdcArrival(scaAddress, {
+    onArrived: (delta) => {
+      toast.success(`${delta} USDC arrived in your wallet`);
+      refetchBalances();
+      refetchHistory();
+    },
+    onTimeout: () => toast.info('Your top-up is still processing. Your balance will update once it arrives.'),
+  });
+
+  const handleTopup = async () => {
+    setIsToppingUp(true);
+    try {
+      const { result } = await topup({ amountUsdc: DEFAULT_TOPUP_USDC, destination: 'sca', source: 'profile' });
+      if (result === 'confirmed') {
+        toast.success('Payment received. Your USDC is on its way, usually within a few minutes.');
+      } else {
+        toast.info('Purchase submitted. Your USDC will appear here once it arrives.');
+      }
+      watchUsdcArrival();
+    } catch (error) {
+      const code = error instanceof FiatTopupError ? error.code : undefined;
+      // Closing Privy's modal is a choice, not a failure.
+      if (code !== TOPUP_USER_EXITED) {
+        toast.error(getTopupErrorMessage(code));
+      }
+    } finally {
+      setIsToppingUp(false);
+    }
+  };
 
   // COMPY is not transferable between wallets.
   const transferableBalances = useMemo(
@@ -50,18 +92,34 @@ const ConsumerBalance = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Account balance</h3>
-        {isConnected && transferableBalances.length > 0 && (
-          <Button
-            color="accent1"
-            contentBefore={<SendIcon />}
-            onClick={() => setIsTransferModalOpen(true)}
-            size="md"
-            variant="outlined"
-          >
-            Transfer
-          </Button>
-        )}
+        <div className={styles.headerActions}>
+          {isConnected && canTopup && (
+            <Button
+              color="accent1"
+              contentBefore={isToppingUp ? null : <CreditCardIcon />}
+              loading={isToppingUp}
+              onClick={handleTopup}
+              size="md"
+              variant="outlined"
+            >
+              Top up
+            </Button>
+          )}
+          {isConnected && transferableBalances.length > 0 && (
+            <Button
+              color="accent1"
+              contentBefore={<SendIcon />}
+              onClick={() => setIsTransferModalOpen(true)}
+              size="md"
+              variant="outlined"
+            >
+              Transfer
+            </Button>
+          )}
+        </div>
       </div>
+
+      {waitingForUsdc && <p className={styles.topupHint}>Waiting for your USDC to arrive on Base…</p>}
 
       <div className={styles.balanceList}>
         {!isConnected ? (

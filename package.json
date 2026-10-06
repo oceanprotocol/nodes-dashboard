@@ -30,8 +30,10 @@
     "@oceanprotocol/contracts": "^2.10.0",
     "@oceanprotocol/lib": "9.2.1",
     "@privy-io/alchemy-migration": "^0.0.5",
-    "@privy-io/react-auth": "^3.22.2",
+    "@privy-io/react-auth": "^3.47.0",
     "@ramp-network/ramp-instant-sdk": "^6.2.0",
+    "@stripe/crypto": "^1.1.3",
+    "@stripe/stripe-js": "^1.46.0",
     "@tanstack/react-query": "^5.28.4",
     "@vercel/functions": "^3.6.0",
     "alchemy-sdk": "3.6.5",
@@ -88,6 +90,6 @@
     "uuid": "^8.3.2",
     "@reown/appkit-wallet": "1.7.8",
     "@solana/errors": "6.10.0",
-    "@privy-io/react-auth": "3.22.2"
+    "@privy-io/react-auth": "3.47.0"
   }
 }

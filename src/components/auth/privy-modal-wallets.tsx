@@ -5,7 +5,7 @@ import styles from './privy-modal-wallets.module.css';
 import WalletList, { type WalletListProps } from './wallet-list';
 
 // ponytail: anchored to Privy's private modal DOM. Verified against @privy-io/react-auth
-// 3.22.2, laid out as #privy-dialog > [backdrop, wrapper > [id^=headlessui-dialog-panel] >
+// 3.47.0, laid out as #privy-dialog > [backdrop, wrapper > [id^=headlessui-dialog-panel] >
 // #privy-modal-content]. We attach to the panel: #privy-modal-content is a fixed-height
 // `overflow: hidden auto` box that would clip us, and <body> is click-blocked by the backdrop.
 // If Privy renames these the section silently stops rendering, and there is no automatic
