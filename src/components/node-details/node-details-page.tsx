@@ -12,8 +12,10 @@ import { useNodesContext } from '@/context/nodes-context';
 import { useUnbanRequestsContext } from '@/context/unban-requests-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { directNodeCommand } from '@/lib/direct-node-command';
+import { useNodeAdmins } from '@/lib/use-node-admins';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
+import { isAddressInAdmins } from '@/utils/node-admin';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './node-details-page.module.css';
@@ -55,14 +57,8 @@ const NodeDetailsPage: React.FC = () => {
    * so the "Running now" heading is hidden on exactly the same condition as the content it
    * introduces. Kept in sync with that component's own check.
    */
-  const isOwner = useMemo(() => {
-    const addr = account.address?.toLowerCase();
-    if (!addr || !node) {
-      return false;
-    }
-    const admins = node.allowedAdmins?.map((a) => a.toLowerCase()) ?? [];
-    return admins.includes(addr) || node.address?.toLowerCase() === addr;
-  }, [account.address, node]);
+  const { isAdmin } = useNodeAdmins(node);
+  const isOwner = isAdmin || isAddressInAdmins(node?.address ? [node.address] : [], account.address);
 
   /**
    * Check node connectivity by p2p and direct node command by loading its envs

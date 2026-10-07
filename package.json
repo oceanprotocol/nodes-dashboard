@@ -81,7 +81,7 @@
     "prettier-plugin-organize-imports": "^4.3.0",
     "typescript": "^5"
   },
-  "packageManager": "yarn@4.5.1+sha512.341db9396b6e289fecc30cd7ab3af65060e05ebff4b3b47547b278b9e67b08f485ecd8c79006b405446262142c7a38154445ef7f17c1d5d1de7d90bf9ce7054d",
+  "packageManager": "yarn@4.18.1+sha512.b2e1e7524f654f2749d32b4ebcb4622473cb5bcbc485df2007e12a154e50162a4d795526768bc5f5b8f81717bfd79deb2472813d86fb5ae2eb551fa9c872b08f",
   "resolutions": {
     "axios": "1.20.0",
     "@solana/codecs-core": "5.5.1",

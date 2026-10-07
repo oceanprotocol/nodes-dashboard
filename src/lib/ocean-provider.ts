@@ -73,37 +73,35 @@ export class OceanProvider {
     try {
       const balancesMap = new Map<string, string[]>();
       const addressMap = new Map<string, string>();
+      const countedBalances = new Set<string>();
+      const addBalance = (symbol: string, tokenAddress: string, balance: string) => {
+        if (!addressMap.has(symbol)) {
+          addressMap.set(symbol, tokenAddress);
+        }
+        balancesMap.set(symbol, [...(balancesMap.get(symbol) ?? []), balance]);
+      };
       for (const env of environments) {
+        const consumerAddress = env.consumerAddress.toLowerCase();
         const fees = await this.getFeesByChainId(this.chainId, env);
-        // Add balance for each fee token
         for (const fee of fees) {
+          const balanceKey = `${consumerAddress}-${fee.feeToken.toLowerCase()}`;
+          if (countedBalances.has(balanceKey)) {
+            continue;
+          }
+          countedBalances.add(balanceKey);
           const balance = await this.getBalance(fee.feeToken, env.consumerAddress);
           const symbol = await getTokenSymbol(fee.feeToken);
           if (symbol) {
-            if (!addressMap.has(symbol)) {
-              addressMap.set(symbol, fee.feeToken);
-            }
-            if (balancesMap.has(symbol)) {
-              const balances = balancesMap.get(symbol) || [];
-              balances.push(balance);
-              balancesMap.set(symbol, balances);
-              continue;
-            }
-            balancesMap.set(symbol, [balance]);
+            addBalance(symbol, fee.feeToken, balance);
           }
         }
-        // Add ETH balance
-        const ethBalance = await this.getEthBalance(environments[0].consumerAddress);
-        if (!addressMap.has('ETH')) {
-          addressMap.set('ETH', '');
-        }
-        if (balancesMap.has('ETH')) {
-          const balances = balancesMap.get('ETH') || [];
-          balances.push(ethBalance);
-          balancesMap.set('ETH', balances);
+        const ethBalanceKey = `${consumerAddress}-eth`;
+        if (countedBalances.has(ethBalanceKey)) {
           continue;
         }
-        balancesMap.set('ETH', [ethBalance]);
+        countedBalances.add(ethBalanceKey);
+        const ethBalance = await this.getEthBalance(env.consumerAddress);
+        addBalance('ETH', '', ethBalance);
       }
       for (const [key, value] of balancesMap) {
         const sum = value.map((val) => new BigNumber(val)).reduce((acc, val) => acc.plus(val), new BigNumber(0));

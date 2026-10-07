@@ -18,7 +18,6 @@ import {
   DetailsSkeleton,
   DetailsTile,
 } from '@/components/inference/details-page';
-import InferenceStepper from '@/components/inference/inference-stepper';
 import QuickStartBanner from '@/components/inference/quick-start-banner';
 import { templateLogo } from '@/components/inference/template-logos';
 import TemplateMark from '@/components/inference/template-mark';
@@ -38,6 +37,7 @@ import { useTheme } from '@/lib/use-theme';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { declaredGpuRange } from '@/services/quick-start';
 import { findTemplateById } from '@/services/service-templates';
+import { showcaseItemsForSource } from '@/services/showcase';
 import { templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import {
@@ -527,6 +527,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
             quickStart={quickStart}
           />
         }
+        showcase={showcaseItemsForSource(isBundle(template) ? 'template' : 'service', template.id)}
         style={accentStyle}
       >
         {renderOverview(template)}
@@ -537,21 +538,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     );
   };
 
-  return (
-    <DetailsPage
-      stepper={
-        <InferenceStepper
-          currentStep="template"
-          flowType={InferenceFlowType.Template}
-          kindLabel={catalogue.kindLabel}
-          template={template}
-        />
-      }
-      subTitle="Launch an app on an Ocean Node"
-    >
-      {renderBody()}
-    </DetailsPage>
-  );
+  return <DetailsPage>{renderBody()}</DetailsPage>;
 };
 
 export default TemplateDetailsPage;

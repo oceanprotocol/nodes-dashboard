@@ -1,6 +1,8 @@
+import { CHAIN_ID } from '@/constants/chains';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import {
+  collectNodeFees as collectNodeFeesService,
   createNodeBucket as createNodeBucketService,
   deleteBucketFile as deleteBucketFileService,
   downloadBucketFile as downloadBucketFileService,
@@ -59,6 +61,19 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 export type NodeUri = OceanNode | string[];
 
 interface P2PContextType {
+  /**
+   *
+   * This is a request that uses admin signature validation on the ocean-node.
+   * Transfers tokens from the node's wallet to `destinationAddress`.
+   */
+  collectNodeFees: (args: {
+    amount: string;
+    consumerAddress?: string;
+    destinationAddress: string;
+    nodeUri: NodeUri;
+    signMessage: SignMessageFn;
+    tokenAddress: string;
+  }) => Promise<{ tx: string; message: string }>;
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
   computeStatus: Record<string, any> | null;
@@ -379,6 +394,41 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         nodeUri,
         params,
         signMessage,
+      });
+    },
+    [isReady]
+  );
+
+  const collectNodeFees = useCallback(
+    async ({
+      amount,
+      consumerAddress,
+      destinationAddress,
+      nodeUri,
+      signMessage,
+      tokenAddress,
+    }: {
+      amount: string;
+      consumerAddress?: string;
+      destinationAddress: string;
+      nodeUri: NodeUri;
+      signMessage: SignMessageFn;
+      tokenAddress: string;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      if (!consumerAddress) {
+        throw new Error('Missing consumer address');
+      }
+      return collectNodeFeesService({
+        amount,
+        chainId: CHAIN_ID,
+        consumerAddress,
+        destinationAddress,
+        nodeUri,
+        signMessage,
+        tokenAddress,
       });
     },
     [isReady]
@@ -762,6 +812,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   return (
     <P2PContext.Provider
       value={{
+        collectNodeFees,
         computeLogs,
         computeResult,
         computeStatus,

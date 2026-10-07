@@ -57,7 +57,10 @@
   --inner-shadow-error: inset 0 8px 80px -20px var(--error);
   --inner-shadow-success: inset 0 8px 80px -20px var(--success);
   --inner-shadow-warning: inset 0 8px 80px -20px var(--warning);
-  --inner-shadow-glass: inset 0 0 0 1px var(--border-glass), inset 0 0 1px 1px #ffffffd0, inset 0 0 16px 1px #00000007;
+  --inner-shadow-glass:
+    0 0 0 1px #00000017, inset 0 1px 0 0 #ffffffe6, inset 0 -1px 0 0 #ffffff4d, inset 1px 0 0 0 #ffffff4d,
+    inset -1px 0 0 0 #ffffff4d, inset 0 32px 40px -32px #ffffff66, inset 0 -32px 40px -32px #00000012;
+  /* inset 0 0 0 1px var(--border-glass), inset 0 0 1px 1px #ffffffd0, inset 0 0 16px 1px #00000007; */
   /* inset 0 0 0 1px var(--border-glass), inset 1px 1px 2px -1px #ffffffaa, inset -1px -1px 2px -1px #000000aa; */
   --input-shadow-error: 0 4px 32px -18px var(--error), inset 0 4px 32px -24px var(--error);
   --input-shadow-focus: inset 0 4px 32px -8px #00000025;
@@ -90,9 +93,9 @@
      chips/toasts that pair with dark text in both themes, so flipping them would break that
      pairing. Their `-darker` siblings are used as *text* and *do* brighten, since they now
      sit on dark surfaces and have to clear contrast against them instead of against white.
-   - --inner-shadow-glass carries a near-white inner rim that reads as a light source catching
-     a panel edge. At full strength on a dark surface that becomes a hard glowing line, so the
-     rim drops to a low-alpha white and the inner darkening is dialled back.
+   - --inner-shadow-glass carries a light rim that reads as a light source catching a panel edge. At
+     full strength on a dark surface that becomes a hard glowing line, so only the horizontal
+     edges keep a low-alpha white rim and the sides turn dark (see --dark-inner-shadow-glass).
    - Drop shadows gain opacity. A 30%-black shadow is invisible against a dark background;
      depth in dark comes from a heavier, tighter shadow plus the lighter surface itself. */
 /* The dark palette itself lives in the `--dark-*` tokens defined here on :root, so the values are
@@ -145,7 +148,9 @@
   --dark-drop-shadow-black: 0 8px 32px -12px #00000090;
   --dark-inner-shadow-black: inset 0 8px 32px -12px #00000060;
   --dark-inner-shadow-glass:
-    inset 0 0 0 1px var(--border-glass), inset 0 0 1px 1px #ffffff18, inset 0 0 16px 1px #00000030;
+    inset 0 1px 0 0 #ffffff33, inset 0 -1px 0 0 #ffffff33, inset 1px 0 0 0 #0000008c, inset -1px 0 0 0 #0000008c,
+    inset 0 8px 8px -8px #ffffff1f, inset 0 -8px 8px -8px #ffffff1f;
+  /* inset 0 0 0 1px var(--border-glass), inset 0 0 1px 1px #ffffff18, inset 0 0 16px 1px #00000030; */
   --dark-input-shadow-focus: inset 0 4px 32px -8px #00000070;
 
   /* Status text tones — brightened so they read on dark surfaces. */

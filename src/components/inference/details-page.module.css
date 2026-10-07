@@ -13,6 +13,17 @@
   }
 }
 
+/* Bleeds to the page container's edges like the cards beside it; the tiles' edge band softens the cut. */
+.showcase {
+  border-radius: 24px;
+  height: 220px;
+
+  @media (max-width: 575px) {
+    border-radius: 16px;
+    height: 180px;
+  }
+}
+
 /* Pulled out by its own padding, so the arrow lines up with the tile under it. */
 .back {
   margin-left: -12px;
