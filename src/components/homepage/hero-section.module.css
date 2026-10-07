@@ -117,7 +117,7 @@
 
 /* Headline block on the left, actions on the right centred on the title's first line; stacks on narrow screens. */
 .intro {
-  align-items: flex-start;
+  align-items: center;
   animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s both;
   display: flex;
   gap: 24px 48px;
@@ -181,8 +181,7 @@
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: calc((64px * 1.05 - 50px) / 2);
+  gap: 16px;
 
   @media (max-width: 992px) {
     margin-top: 0;
