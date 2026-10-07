@@ -88,3 +88,15 @@
   font-size: 12px;
   line-height: 1.45;
 }
+
+@media (min-width: 1000px) and (max-height: 900px) {
+  .root {
+    margin-bottom: 0;
+  }
+}
+
+@media (min-width: 1000px) and (max-height: 720px) {
+  .stepDescription {
+    display: none;
+  }
+}

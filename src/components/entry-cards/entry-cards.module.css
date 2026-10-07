@@ -253,3 +253,45 @@
     }
   }
 }
+
+@media (min-width: 900px) and (max-height: 900px) {
+  .layout .featured {
+    gap: 16px;
+    min-height: 280px;
+    padding: 24px;
+  }
+
+  .featuredTitle {
+    font-size: 40px;
+  }
+
+  .featuredFooter {
+    padding-top: 16px;
+  }
+
+  .side .card {
+    align-content: start;
+    column-gap: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 18px;
+    row-gap: 10px;
+
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    .cardHead {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .cardActions {
+      border-top: none;
+      grid-column: 2;
+      grid-row: 1;
+      margin-top: 0;
+      padding-top: 0;
+    }
+  }
+}
