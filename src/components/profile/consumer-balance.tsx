@@ -7,7 +7,7 @@ import { getExplorerUrl } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useTransferHistory } from '@/lib/use-transfer-history';
 import {
-  DEFAULT_TOPUP_USDC,
+  DEFAULT_TOPUP_EUR,
   FiatTopupError,
   getTopupErrorMessage,
   TOPUP_USER_EXITED,
@@ -44,7 +44,11 @@ const ConsumerBalance = () => {
 
   // Card top-up (Privy fiat on-ramp): USDC on Base, delivered straight to the smart account.
   const { canTopup, scaAddress, topup } = useUsdcTopup();
-  const { watch: watchUsdcArrival, watching: waitingForUsdc } = useUsdcArrival(scaAddress, {
+  const {
+    readBaseline: readUsdcBaseline,
+    watch: watchUsdcArrival,
+    watching: waitingForUsdc,
+  } = useUsdcArrival(scaAddress, {
     onArrived: (delta) => {
       toast.success(`${delta} USDC arrived in your wallet`);
       refetchBalances();
@@ -56,13 +60,15 @@ const ConsumerBalance = () => {
   const handleTopup = async () => {
     setIsToppingUp(true);
     try {
-      const { result } = await topup({ amountUsdc: DEFAULT_TOPUP_USDC, destination: 'sca', source: 'profile' });
+      // Before the checkout opens: the USDC can land before topup() resolves.
+      const usdcBefore = await readUsdcBaseline();
+      const { result } = await topup({ amountEur: DEFAULT_TOPUP_EUR, destination: 'sca', source: 'profile' });
       if (result === 'confirmed') {
         toast.success('Payment received. Your USDC is on its way, usually within a few minutes.');
       } else {
         toast.info('Purchase submitted. Your USDC will appear here once it arrives.');
       }
-      watchUsdcArrival();
+      watchUsdcArrival(usdcBefore);
     } catch (error) {
       const code = error instanceof FiatTopupError ? error.code : undefined;
       // Closing Privy's modal is a choice, not a failure.

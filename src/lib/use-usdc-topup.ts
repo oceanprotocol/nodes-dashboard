@@ -11,13 +11,18 @@ import { base } from 'viem/chains';
 
 // Card -> USDC on Base through Privy's fiat on-ramp (Stripe).
 
+// Privy reads `defaultAmount` as the fiat amount the user pays, in the selected source currency (checked in
+// 3.47.0: it is sent as the quote's source amount), not as the USDC received. So every amount below is EUR,
+// and the USDC that lands is whatever the provider quotes for it.
+const TOPUP_FIAT_CURRENCY = 'eur';
+
 // Stripe's EU Travel Rule check starts at 1,000 EUR and asks the destination to prove ownership with a
 // signature. Until we know the smart account passes it, prefill below the threshold.
 // Only a prefill: the user can still change the amount inside Privy's modal.
-export const MAX_TOPUP_USDC = 950;
+export const MAX_TOPUP_EUR = 950;
 
 /** Amount the profile top-up opens with when there is no shortfall to cover. */
-export const DEFAULT_TOPUP_USDC = 20;
+export const DEFAULT_TOPUP_EUR = 20;
 
 // Stripe has no testnets, so the on-ramp always delivers on Base mainnet, even when the app runs on Sepolia.
 // Outside production the purchase itself runs in Privy's sandbox environment.
@@ -35,6 +40,7 @@ export type TopupSource = 'profile' | 'dev_page';
 
 export type TopupResult = {
   address: string;
+  /** The EUR amount prefilled in Privy's checkout. The USDC received is the provider's quote for it. */
   amount: number;
   /** 'confirmed' means the user reached the provider's success step, NOT that the USDC is on-chain. */
   result: 'submitted' | 'confirmed';
@@ -97,11 +103,11 @@ export function useUsdcTopup() {
 
   const topup = useCallback(
     async ({
-      amountUsdc,
+      amountEur,
       destination,
       source,
     }: {
-      amountUsdc: number;
+      amountEur: number;
       destination: TopupDestination;
       source: TopupSource;
     }): Promise<TopupResult> => {
@@ -109,20 +115,21 @@ export function useUsdcTopup() {
       if (!canTopup || !address) {
         throw new FiatTopupError('Card top-up is not available for this account', 'topup_unavailable');
       }
-      if (!(amountUsdc > 0)) {
+      if (!(amountEur > 0)) {
         throw new FiatTopupError('Amount must be greater than 0', 'invalid_amount');
       }
-      const amount = Math.min(Math.ceil(amountUsdc), MAX_TOPUP_USDC);
+      const amount = Math.min(Math.ceil(amountEur), MAX_TOPUP_EUR);
+      const currency = TOPUP_FIAT_CURRENCY;
 
-      posthog.capture('fiat_topup_started', { destination, amount, source });
+      posthog.capture('fiat_topup_started', { destination, amount, currency, source });
       try {
         const { status } = await fund({
-          source: { assets: ['usd', 'eur'], defaultAsset: 'eur' },
+          source: { assets: ['usd', 'eur'], defaultAsset: TOPUP_FIAT_CURRENCY },
           destination: { chain: BASE_CAIP2, asset: BASE_USDC.address, address },
           environment: ONRAMP_ENVIRONMENT,
           defaultAmount: String(amount),
         });
-        posthog.capture('fiat_topup_result', { result: status, destination, amount, source });
+        posthog.capture('fiat_topup_result', { result: status, destination, amount, currency, source });
         return { address, amount, result: status };
       } catch (error) {
         const code = getErrorCode(error);
@@ -172,8 +179,10 @@ const ARRIVAL_TIMEOUT_MS = 3 * 60 * 1000;
 
 /**
  * Watches an address's Base USDC balance after a purchase. fund() resolving says nothing about delivery,
- * so the chain is the only signal: `watch()` takes the last known balance as the baseline, polls, and
- * calls `onArrived` on the first increase or `onTimeout` once the window closes.
+ * so the chain is the only signal. Call `readBaseline()` before opening the checkout and pass its result to
+ * `watch()` after: the USDC can land before fund() resolves, so any balance read after the checkout opened
+ * may already include it. `watch()` then polls and calls `onArrived` on the first increase, or `onTimeout`
+ * once the window closes.
  */
 export function useUsdcArrival(
   address: string | undefined,
@@ -181,7 +190,7 @@ export function useUsdcArrival(
 ) {
   const [deadline, setDeadline] = useState<number | null>(null);
   const baseline = useRef<bigint | undefined>(undefined);
-  const { balance } = useBaseUsdcBalance(address, {
+  const { balance, refetch } = useBaseUsdcBalance(address, {
     refetchInterval: deadline === null ? undefined : ARRIVAL_POLL_INTERVAL_MS,
   });
 
@@ -191,14 +200,23 @@ export function useUsdcArrival(
     callbacks.current = { onArrived, onTimeout };
   });
 
-  // The pre-purchase balance, read on mount: a fresh read now could already include the delivery.
-  const watch = useCallback(() => {
-    baseline.current = balance;
+  /** The pre-purchase balance: the cached read if there is one, else a fresh one (undefined if it fails). */
+  const readBaseline = useCallback(async (): Promise<bigint | undefined> => {
+    if (balance !== undefined) return balance;
+    const { data } = await refetch();
+    return data;
+  }, [balance, refetch]);
+
+  // Takes the snapshot explicitly rather than reading `balance` here, which may already include the delivery.
+  const watch = useCallback((from: bigint | undefined) => {
+    baseline.current = from;
     setDeadline(Date.now() + ARRIVAL_TIMEOUT_MS);
-  }, [balance]);
+  }, []);
 
   useEffect(() => {
     if (deadline === null || balance === undefined) return;
+    // No pre-purchase balance could be read (RPC down): the first one seen becomes the baseline. Best effort
+    // only: if the USDC already landed by then, this misses it and the caller gets onTimeout instead.
     if (baseline.current === undefined) {
       baseline.current = balance;
       return;
@@ -220,5 +238,5 @@ export function useUsdcArrival(
     return () => clearTimeout(timer);
   }, [deadline]);
 
-  return { watch, watching: deadline !== null };
+  return { readBaseline, watch, watching: deadline !== null };
 }

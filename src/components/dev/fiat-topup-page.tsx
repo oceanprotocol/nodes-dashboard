@@ -8,7 +8,7 @@ import {
   BASE_CAIP2,
   BASE_USDC,
   FiatTopupError,
-  MAX_TOPUP_USDC,
+  MAX_TOPUP_EUR,
   ONRAMP_ENVIRONMENT,
   useBaseUsdcBalance,
   useUsdcTopup,
@@ -85,15 +85,15 @@ const FiatTopupPage = () => {
 
   const amountValue = Number(amount);
   const amountError =
-    amount === '' || !(amountValue > 0) || amountValue > MAX_TOPUP_USDC
-      ? `Enter an amount between 1 and ${MAX_TOPUP_USDC}`
+    amount === '' || !(amountValue > 0) || amountValue > MAX_TOPUP_EUR
+      ? `Enter an amount between 1 and ${MAX_TOPUP_EUR}`
       : undefined;
 
   const handleBuy = async () => {
     setIsBuying(true);
-    addLog('topup_started', { destination, requestedAmount: amountValue });
+    addLog('topup_started', { destination, requestedAmountEur: amountValue });
     try {
-      const result = await topup({ amountUsdc: amountValue, destination, source: 'dev_page' });
+      const result = await topup({ amountEur: amountValue, destination, source: 'dev_page' });
       addLog('topup_result', { ...result, destination });
     } catch (error) {
       addLog('topup_error', {
@@ -181,9 +181,9 @@ const FiatTopupPage = () => {
             <h3 className={styles.heading}>Buy USDC</h3>
             <Input
               errorText={amountError}
-              hint={`Rounded up to whole USDC, max ${MAX_TOPUP_USDC}. Sandbox: card 4242 4242 4242 4242, any CVC, future expiry, under $200.`}
-              label="Amount (USDC)"
-              max={MAX_TOPUP_USDC}
+              hint={`Prefilled in EUR in Privy's checkout, max ${MAX_TOPUP_EUR}. The USDC you receive is the provider's quote. Sandbox: card 4242 4242 4242 4242, any CVC, future expiry, under $200.`}
+              label="Amount (EUR)"
+              max={MAX_TOPUP_EUR}
               min={1}
               onChange={(e) => setAmount(e.target.value)}
               step={1}
