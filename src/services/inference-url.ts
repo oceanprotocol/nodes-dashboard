@@ -24,6 +24,22 @@ import { DeclaredRequirement } from '@/utils/env-resources';
  *              package needs; a custom flow started from the model picker never carries it
  */
 
+/** The inference catalogues. An entry's details page hangs off its catalogue (see detailsPath). */
+export const INFERENCE_PATHS = {
+  services: '/inference/services',
+  templates: '/inference/templates',
+  packages: '/inference/default-models',
+} as const;
+
+/**
+ * A catalogue entry's details page, `<catalogue>/<id>`; its wizard steps hang off it (`…/payment`).
+ * Templates of both catalogues take their steps under `INFERENCE_PATHS.services`: a bundle is a
+ * template on the wire.
+ */
+export function detailsPath(catalogue: string, id: string): string {
+  return `${catalogue}/${encodeURIComponent(id)}`;
+}
+
 /**
  * First value of a Next.js router query field. A repeated key (`?a=1&a=2`) arrives as `string[]`;
  * the wizard only ever carries single values, so collapse to the first entry (undefined when empty).

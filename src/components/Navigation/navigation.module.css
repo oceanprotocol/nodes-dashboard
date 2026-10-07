@@ -19,7 +19,7 @@
   width: 350px;
   z-index: -1;
 
-  @media (min-width: 940px) {
+  @media (min-width: 870px) {
     /* background: linear-gradient(to top, transparent, var(--background-glass)); */
     height: 80px;
     mask-image: linear-gradient(
@@ -61,9 +61,9 @@
   padding-top: env(safe-area-inset-top);
 
   .container {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
     align-items: center;
-    justify-content: space-between;
     gap: 24px;
     padding: 22px 0;
 
@@ -78,6 +78,31 @@
     flex: 0 0 auto;
     flex-direction: column;
     gap: 8px;
+    justify-self: start;
+    position: relative;
+
+    /* Frosted halo so the mark stays legible over busy content. Mostly blur with only a faint tint,
+       so it smooths noise without painting a pale blob over colored sections; an eased radial mask
+       fades it out with no visible edge. Sized off the wrapper, so it tracks the logo shrinking on
+       scroll and works the same on mobile and desktop. Lightning CSS adds the -webkit- prefix. */
+    .logoHalo {
+      backdrop-filter: blur(24px);
+      background: transparent;
+      inset: -30px -90px;
+      mask-image: radial-gradient(
+        closest-side,
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 1) 40%,
+        rgba(0, 0, 0, 0.9) 55%,
+        rgba(0, 0, 0, 0.6) 70%,
+        rgba(0, 0, 0, 0.3) 82%,
+        rgba(0, 0, 0, 0.1) 92%,
+        rgba(0, 0, 0, 0) 100%
+      );
+      pointer-events: none;
+      position: absolute;
+      z-index: -1;
+    }
 
     .betaChip {
       font-size: 10px;
@@ -97,10 +122,13 @@
     gap: 12px;
     align-items: center;
     justify-content: flex-end;
+    justify-self: end;
   }
 
   .menuToggle {
     display: none;
+    grid-column: 3;
+    justify-self: end;
   }
 
   /* Avatar + stacked label, so the button keeps a single row with two lines of text on the right */
@@ -124,20 +152,23 @@
   }
 
   .mobileMenu {
+    --menu-offset: 12px;
     position: fixed;
-    top: 0;
-    right: 0;
-    /* The sheet bleeds into the right inset, so its own padding keeps content clear of it */
-    width: min(calc(300px + env(safe-area-inset-right)), 100dvw);
-    height: 100dvh;
-    padding: calc(30px + env(safe-area-inset-top)) calc(28px + env(safe-area-inset-right))
-      calc(30px + env(safe-area-inset-bottom)) 28px;
+    top: calc(var(--menu-offset) + env(safe-area-inset-top));
+    right: calc(var(--menu-offset) + env(safe-area-inset-right));
+    width: min(300px, calc(100dvw - 2 * var(--menu-offset) - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    max-height: calc(100dvh - 2 * var(--menu-offset) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 24px;
-    transform: translateX(100%);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(calc(100% + var(--menu-offset)));
     transition:
       transform 0.3s ease,
+      opacity 0.3s ease,
+      visibility 0.3s ease,
       box-shadow 0.3s ease;
     z-index: 95;
     /* Scrolls on its own when the links plus actions outgrow the viewport, without chaining to the page */
@@ -152,6 +183,8 @@
   }
 
   .mobileMenuOpen {
+    opacity: 1;
+    visibility: visible;
     transform: translateX(0);
   }
 
@@ -205,7 +238,7 @@
     visibility: visible;
   }
 
-  @media (max-width: 940px) {
+  @media (max-width: 870px) {
     .desktopNav,
     .sideActions {
       display: none;

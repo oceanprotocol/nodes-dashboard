@@ -1,8 +1,8 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import Card from '@/components/card/card';
 import BundleIncludes from '@/components/inference/bundle-includes';
+import TemplateAvatar from '@/components/inference/template-avatar';
 import { templateLogo } from '@/components/inference/template-logos';
-import TemplateMark from '@/components/inference/template-mark';
 import {
   accentVars,
   CATEGORY_META,
@@ -15,9 +15,7 @@ import {
 } from '@/components/inference/template-visual';
 import { useTheme } from '@/lib/use-theme';
 import { AppTemplate, includesSummary } from '@/types/templates';
-import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
-import SdStorageIcon from '@mui/icons-material/SdStorage';
 import cx from 'classnames';
 import { CSSProperties } from 'react';
 import styles from './template-card.module.css';
@@ -102,7 +100,7 @@ type TemplateCardProps = {
 const VISIBLE_INCLUDES = 3;
 
 /**
- * Catalogue tile for one entry, used by BOTH catalogues: category-accented, opens the details modal
+ * Catalogue tile for one entry, used by BOTH catalogues: category-accented, opens the details page
  * (it never launches). A bundle renders one extra block listing the models it brings; a bare service
  * has nothing to list, so the same card covers both and the two pages read as one system.
  */
@@ -125,22 +123,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
       <div className={styles.cardTop}>
         {/* The brand mark REPLACES the category glyph rather than covering it — the marks are
           transparent artwork, so anything drawn underneath shows through the shape. */}
-        <TemplateMark
-          fallback={
-            <span className={styles.tile}>
-              {item.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img alt="" className={styles.tileLogo} src={item.logo} />
-              ) : item.mono ? (
-                <span className={styles.tileMono}>{item.mono}</span>
-              ) : (
-                <item.CategoryIcon className={styles.tileIcon} />
-              )}
-            </span>
-          }
-          size={30}
-          template={item.tpl}
-        />
+        <TemplateAvatar size={38} template={item.tpl} />
         <span className={styles.titleWrap}>
           <span className={styles.name} title={item.name}>
             {item.name}
@@ -154,7 +137,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
       {/* `outcome` first: it is the one-line version the catalogue writes for exactly this slot, and
           the card clamps to two lines — a full description truncated mid-sentence tells you less
           than the sentence written to fit. The description is the fallback, and the whole of it is
-          in the details modal either way. */}
+          on the details page either way. */}
       <p className={cx(styles.desc, { [styles.descEmpty]: !item.tpl.outcome && !item.tpl.description })}>
         {item.tpl.outcome || item.tpl.description || 'No description published for this image.'}
       </p>

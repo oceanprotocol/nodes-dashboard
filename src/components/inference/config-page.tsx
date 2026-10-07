@@ -11,7 +11,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
-import { firstQueryValue } from '@/services/inference-url';
+import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
@@ -122,7 +122,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         // without it (deep link / refresh with no peerId/env) this page would show an empty card that
         // still lets Next through to payment with no bucket. Back to resources to pick an env first.
         router.replace({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
+          pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
           query: router.query,
         });
       }
@@ -157,7 +157,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           router.replace(`/inference/instances/${encodeURIComponent(serviceId)}`);
         } else {
           router.replace({
-            pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
             query: router.query,
           });
         }
@@ -200,7 +200,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           branch,
         });
         router.push({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/payment`,
+          pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/payment`,
           query: { ...router.query, ...buildSelectionQuery() },
         });
         break;

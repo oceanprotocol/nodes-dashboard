@@ -3,11 +3,13 @@ import { AppTemplate } from '@/types/templates';
 import type { SvgIconComponent } from '@mui/icons-material';
 import AppsOutlined from '@mui/icons-material/AppsOutlined';
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
+import CodeOutlined from '@mui/icons-material/CodeOutlined';
 import DnsOutlined from '@mui/icons-material/DnsOutlined';
 import GrainOutlined from '@mui/icons-material/GrainOutlined';
 import ImageOutlined from '@mui/icons-material/ImageOutlined';
 import MenuBook from '@mui/icons-material/MenuBook';
 import MovieOutlined from '@mui/icons-material/MovieOutlined';
+import MusicNoteOutlined from '@mui/icons-material/MusicNoteOutlined';
 
 /**
  * Visual identity of an app template: its category (the picker's primary filter axis), the accent that
@@ -17,7 +19,8 @@ import MovieOutlined from '@mui/icons-material/MovieOutlined';
  * with a 2-letter monogram — nothing breaks, it just reads as "uncategorised".
  */
 
-export type TemplateCategory = 'image' | 'video' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
+export type TemplateCategory =
+  'image' | 'video' | 'audio' | 'code' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
 
 export interface TemplateCategoryMeta {
   label: string;
@@ -27,7 +30,7 @@ export interface TemplateCategoryMeta {
    */
   accent: { dark: string; light: string };
   Icon: SvgIconComponent;
-  /** "What you get" lead line in the details modal — the node publishes no such field per template. */
+  /** "What you get" lead line on the details page — the node publishes no such field per template. */
   purpose: string;
   /**
    * How you interact with the running app, for the card's highlighted chip. Every template exposes at
@@ -35,7 +38,7 @@ export interface TemplateCategoryMeta {
    * what differs is whether that port serves a browser app or an HTTP API, which only the category knows.
    */
   interaction: string;
-  /** Trailing hint next to the port row in the details modal — what to do with that port. */
+  /** Trailing hint next to the port row on the details page — what to do with that port. */
   interactionHint: string;
 }
 
@@ -48,7 +51,7 @@ export interface TemplateCategoryMeta {
  */
 export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
   image: {
-    label: 'Image gen',
+    label: 'Image generation',
     accent: { dark: '#f2776c', light: '#d54335' },
     Icon: ImageOutlined,
     purpose: 'For generating and editing images.',
@@ -56,15 +59,31 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
     interactionHint: 'opens in your browser once the session is running',
   },
   video: {
-    label: 'Video gen',
+    label: 'Video generation',
     accent: { dark: '#b69bff', light: '#7b3fe4' },
     Icon: MovieOutlined,
     purpose: 'For generating short video clips.',
     interaction: 'Web UI',
     interactionHint: 'opens in your browser once the session is running',
   },
+  audio: {
+    label: 'Music & audio',
+    accent: { dark: '#ff86c0', light: '#c2286f' },
+    Icon: MusicNoteOutlined,
+    purpose: 'For generating music, speech and other audio.',
+    interaction: 'Web UI',
+    interactionHint: 'opens in your browser once the session is running',
+  },
+  code: {
+    label: 'Coding',
+    accent: { dark: '#7ab8ff', light: '#1f6fd1' },
+    Icon: CodeOutlined,
+    purpose: 'For writing and running code with an AI assistant.',
+    interaction: 'Web UI',
+    interactionHint: 'opens in your browser once the session is running',
+  },
   llm: {
-    label: 'LLM chat',
+    label: 'Chat',
     accent: { dark: '#9ae84f', light: '#4f9a10' },
     Icon: ChatBubbleOutline,
     purpose: 'For chatting with a model in your browser.',
@@ -72,7 +91,7 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
     interactionHint: 'opens in your browser once the session is running',
   },
   serving: {
-    label: 'LLM serving',
+    label: 'LLM API',
     accent: { dark: '#4fd6bd', light: '#0f7b6c' },
     Icon: DnsOutlined,
     purpose: 'For serving an OpenAI-compatible model endpoint.',
@@ -97,7 +116,7 @@ export const CATEGORY_META: Record<TemplateCategory, TemplateCategoryMeta> = {
     interactionHint: 'call it from your code once the session is running',
   },
   app: {
-    label: 'App',
+    label: 'Other',
     accent: { dark: '#9aa9b8', light: '#5a6b7a' },
     Icon: AppsOutlined,
     purpose: 'This node published the image without a recognised category.',
@@ -118,8 +137,18 @@ export function accentVars(accent: TemplateCategoryMeta['accent'], theme: Resolv
   return { '--accent': theme === 'dark' ? accent.dark : accent.light };
 }
 
-/** Pill order in the filter toolbar (buckets with no templates are still rendered, dimmed, at 0). */
-export const CATEGORY_ORDER: TemplateCategory[] = ['image', 'video', 'llm', 'serving', 'notebook', 'embeddings', 'app'];
+/** Pill order in the filter toolbar. Only buckets the catalogue actually has are rendered. */
+export const CATEGORY_ORDER: TemplateCategory[] = [
+  'image',
+  'video',
+  'audio',
+  'code',
+  'llm',
+  'serving',
+  'notebook',
+  'embeddings',
+  'app',
+];
 
 /** id-substring → category. Extend as new templates ship; unknown ids fall back to `app`. */
 const CATEGORY_BY_ID_PART: Record<string, TemplateCategory> = {
@@ -221,7 +250,7 @@ export function templateHardware(tpl: AppTemplate): TemplateHardware {
 /**
  * The hardware chip's label — the GPU ask alone: the declared range ("2-4 GPUs"), a single count
  * ("1 GPU") when min and recommended agree, or "CPU only" when no GPU is declared. Shared so the
- * catalogue card and the details modal name the same ask in the same words.
+ * catalogue card and the details page name the same ask in the same words.
  */
 export function templateGpuLabel(hw: TemplateHardware): string {
   if (!hw.gpu) {
@@ -248,7 +277,7 @@ export function templateVendor(image: string): string {
   return /^(ghcr\.io|docker\.io|quay\.io|registry\.[^/]+|.*\..*:\d+)$/.test(namespace) ? 'registry' : namespace;
 }
 
-/** `image:tag` (or `image@checksum`) as published by the node — shown verbatim in the details modal. */
+/** `image:tag` (or `image@checksum`) as published by the node — shown verbatim on the details page. */
 export function templateImageRef(tpl: AppTemplate): string {
   if (tpl.tag) {
     return `${tpl.image}:${tpl.tag}`;

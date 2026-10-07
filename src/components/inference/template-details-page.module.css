@@ -1,32 +1,40 @@
-/* Template-only pieces. Header, sections, boxes and notes are shared (details-modal.module.css).
-   `--accent` is set inline on .root per template from its category meta. */
+/* Template-only pieces. Header, sections, boxes and notes are shared (details-page.module.css).
+   `--accent` is set inline on the layout per template from its category meta. */
 
-/* Carries `--accent` for the whole body, and takes the modal body's own spacing for its children. */
-.root {
-  display: flex;
-  flex-direction: column;
-  gap: inherit;
-}
-
-/* Header tile fallbacks */
+/* Header tile fallbacks, at the tile's own proportions (56px, then 72px) */
 
 .tileIcon {
-  width: 24px;
-  height: 24px;
-  font-size: 24px;
+  width: 28px;
+  height: 28px;
+  font-size: 28px;
   fill: currentColor;
+
+  @media (min-width: 576px) {
+    width: 36px;
+    height: 36px;
+    font-size: 36px;
+  }
 }
 
 .tileLogo {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
+
+  @media (min-width: 576px) {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 .tileMono {
   font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
+
+  @media (min-width: 576px) {
+    font-size: 22px;
+  }
 }
 
 /* Description */

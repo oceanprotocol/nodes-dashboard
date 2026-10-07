@@ -2,176 +2,168 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Modal from '@/components/modal/modal';
-import { useWithdrawTokens, UseWithdrawTokensReturn } from '@/lib/use-withdraw-tokens';
+import { NATIVE_TOKEN_ADDRESS } from '@/constants/tokens';
+import { NodeUri, useP2P } from '@/contexts/P2PContext';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { NodeBalance } from '@/types/nodes';
+import { ethers } from 'ethers';
 import { useFormik } from 'formik';
+import { useState } from 'react';
+import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
-interface WithdrawModalProps {
+type WithdrawModalProps = {
   balances: NodeBalance[];
   isOpen: boolean;
+  nodeUri: NodeUri;
   onClose: () => void;
-}
+  onSuccess?: () => void;
+};
 
 type WithdrawModalFormValues = {
-  amounts: Record<string, string>;
-  tokens: string[];
+  amount: string;
+  toAddress: string;
+  token: string;
 };
 
 const WithdrawModalContent = ({
   balances,
+  isWithdrawing,
   onClose,
-  withdrawTokens,
-}: WithdrawModalProps & { withdrawTokens: UseWithdrawTokensReturn }) => {
+  onSubmit,
+}: Pick<WithdrawModalProps, 'balances' | 'onClose'> & {
+  isWithdrawing: boolean;
+  onSubmit: (values: WithdrawModalFormValues) => Promise<void>;
+}) => {
+  const { account } = useOceanAccount();
+
   const formik = useFormik<WithdrawModalFormValues>({
     initialValues: {
-      amounts: {},
-      tokens: [],
+      amount: '',
+      toAddress: account?.address ?? '',
+      token: balances.find((balance) => balance.token === 'USDC')?.token ?? balances[0]?.token ?? '',
     },
-    onSubmit: (values) => {
-      const tokenAddresses = values.tokens
-        .map((token) => balances.find((b) => b.token === token)?.address)
-        .filter((addr): addr is string => !!addr);
-      const amounts = values.tokens.map((token) => values.amounts[token] ?? '0');
-      if (tokenAddresses.length > 0 && amounts.every((amt) => parseFloat(amt) > 0)) {
-        withdrawTokens.handleWithdraw({
-          tokenAddresses,
-          amounts,
-        });
-      }
-    },
+    onSubmit,
     validationSchema: Yup.object({
-      tokens: Yup.array().min(1, 'Select at least one token'),
-      amounts: Yup.object().test(
-        'amounts-validation',
-        'Invalid amounts',
-        (amounts: Record<string, string>, context) => {
-          const tokens = (context.parent.tokens as string[]) || [];
-          if (tokens.length === 0) {
-            return true;
+      amount: Yup.number()
+        .required('Amount is required')
+        .positive('Amount must be greater than 0')
+        .typeError('Amount must be a number')
+        .test('max-balance', 'Insufficient node balance', (value, context) => {
+          const selected = balances.find((balance) => balance.token === context.parent.token);
+          return !selected || value === undefined || value <= selected.amount;
+        }),
+      toAddress: Yup.string()
+        .required('Recipient address is required')
+        .test('is-valid-address', 'Invalid Ethereum address', (value) => {
+          if (!value) {
+            return false;
           }
-          const errors: Yup.ValidationError[] = [];
-          for (const token of tokens) {
-            const amount = amounts?.[token];
-            if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-              errors.push(
-                context.createError({
-                  path: `amounts.${token}`,
-                  message: `${token} amount required`,
-                })
-              );
-            }
-          }
-          if (errors.length > 0) {
-            return new Yup.ValidationError(errors, amounts, 'amounts');
-          }
-          return true;
-        }
-      ),
+          return ethers.isAddress(value);
+        }),
+      token: Yup.string().required('Select a token'),
     }),
   });
 
-  const setMaxAmount = (token: string) => {
-    const balance = balances.find((b) => b.token === token)?.amount;
-    if (balance) {
-      formik.setFieldValue(`amounts.${token}`, balance);
-    }
-  };
+  const selectedBalance = balances.find((balance) => balance.token === formik.values.token);
 
-  /**
-   * Handles token selection change
-   * When a token is removed from the selection, the corresponding amount is also removed
-   */
-  const handleTokensChange = (newTokens: string[]) => {
-    formik.setFieldValue('tokens', newTokens);
-    const newAmounts = { ...formik.values.amounts };
-    // Remove amounts for deselected tokens
-    Object.keys(newAmounts).forEach((token) => {
-      if (!newTokens.includes(token)) {
-        newAmounts[token] = '';
-      }
-    });
-    // Initialize amounts for newly selected tokens
-    newTokens.forEach((token) => {
-      if (!(token in newAmounts)) {
-        newAmounts[token] = '';
-      }
-    });
-    formik.setFieldValue('amounts', newAmounts);
+  const setMaxAmount = () => {
+    if (selectedBalance) {
+      formik.setFieldValue('amount', String(selectedBalance.amount));
+    }
   };
 
   return (
     <form className="flexColumn gapLg" onSubmit={formik.handleSubmit}>
       <Select
-        errorText={formik.touched.tokens && formik.errors.tokens ? formik.errors.tokens : undefined}
-        label="Tokens to withdraw"
-        multiple
-        name="tokens"
+        errorText={formik.touched.token && formik.errors.token ? formik.errors.token : undefined}
+        label="Token"
+        name="token"
         onBlur={formik.handleBlur}
-        onChange={(e) => handleTokensChange(e.target.value)}
+        onChange={(e: any) => formik.setFieldValue('token', e.target.value)}
         options={balances.map((balance) => ({
-          label: balance.token,
+          label: `${balance.token} (${balance.amount})`,
           value: balance.token,
         }))}
-        value={formik.values.tokens}
+        value={formik.values.token}
       />
-      {formik.values.tokens.map((token) => {
-        const maxAmount = balances.find((b) => b.token === token)?.amount;
-        return (
-          <Input
-            errorText={
-              formik.touched.amounts?.[token] && formik.errors.amounts?.[token]
-                ? formik.errors.amounts?.[token]
-                : undefined
-            }
-            endAdornment={
-              <Button color="accent2" size="sm" onClick={() => setMaxAmount(token)} type="button" variant="filled">
-                Set max
-              </Button>
-            }
-            key={token}
-            label={`${token} amount`}
-            name={`amounts.${token}`}
-            onBlur={formik.handleBlur}
-            onChange={formik.handleChange}
-            topRight={`Max ${maxAmount}`}
-            type="number"
-            value={formik.values.amounts[token] ?? ''}
-          />
-        );
-      })}
+      <Input
+        errorText={formik.touched.amount && formik.errors.amount ? formik.errors.amount : undefined}
+        endAdornment={
+          <Button color="accent2" size="sm" onClick={setMaxAmount} type="button" variant="filled">
+            Set max
+          </Button>
+        }
+        label="Amount"
+        name="amount"
+        onBlur={formik.handleBlur}
+        onChange={formik.handleChange}
+        topRight={selectedBalance ? `Balance: ${selectedBalance.amount}` : undefined}
+        type="number"
+        value={formik.values.amount}
+      />
+      <Input
+        errorText={formik.touched.toAddress && formik.errors.toAddress ? formik.errors.toAddress : undefined}
+        label="Recipient address"
+        name="toAddress"
+        onBlur={formik.handleBlur}
+        onChange={formik.handleChange}
+        placeholder="0x..."
+        type="text"
+        value={formik.values.toAddress}
+      />
       <div className="actionsGroupMdEnd">
-        <Button
-          color="accent1"
-          disabled={withdrawTokens.isWithdrawing}
-          onClick={onClose}
-          size="md"
-          type="button"
-          variant="outlined"
-        >
+        <Button color="accent1" disabled={isWithdrawing} onClick={onClose} size="md" type="button" variant="outlined">
           Cancel
         </Button>
-        <Button color="accent1" loading={withdrawTokens.isWithdrawing} size="md" type="submit">
-          {withdrawTokens.isWithdrawing ? 'Withdrawing...' : 'Withdraw'}
+        <Button color="accent1" loading={isWithdrawing} size="md" type="submit">
+          {isWithdrawing ? 'Withdrawing...' : 'Withdraw'}
         </Button>
       </div>
     </form>
   );
 };
 
-const WithdrawModal = ({ balances, isOpen, onClose }: WithdrawModalProps) => {
-  const withdrawTokens = useWithdrawTokens({
-    onSuccess: onClose,
-  });
+const WithdrawModal = ({ balances, isOpen, nodeUri, onClose, onSuccess }: WithdrawModalProps) => {
+  const { account, signMessage } = useOceanAccount();
+  const { collectNodeFees } = useP2P();
+
+  const [isWithdrawing, setIsWithdrawing] = useState<boolean>(false);
+
+  const handleWithdraw = async ({ amount, toAddress, token }: WithdrawModalFormValues) => {
+    const selectedBalance = balances.find((balance) => balance.token === token);
+    if (!selectedBalance) {
+      return;
+    }
+    setIsWithdrawing(true);
+    try {
+      await collectNodeFees({
+        amount: String(amount),
+        consumerAddress: account?.address,
+        destinationAddress: toAddress,
+        nodeUri,
+        signMessage,
+        tokenAddress: selectedBalance.address || NATIVE_TOKEN_ADDRESS,
+      });
+      toast.success('Withdraw successful!');
+      onSuccess?.();
+      onClose();
+    } catch (error) {
+      console.error('Withdraw error:', error);
+      toast.error(error instanceof Error ? error.message : 'Withdraw failed');
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
   return (
-    <Modal
-      hideCloseButton={withdrawTokens.isWithdrawing}
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Withdraw funds"
-      width="xs"
-    >
-      <WithdrawModalContent balances={balances} isOpen={isOpen} onClose={onClose} withdrawTokens={withdrawTokens} />
+    <Modal hideCloseButton={isWithdrawing} isOpen={isOpen} onClose={onClose} title="Withdraw funds" width="sm">
+      <WithdrawModalContent
+        balances={balances}
+        isWithdrawing={isWithdrawing}
+        onClose={onClose}
+        onSubmit={handleWithdraw}
+      />
     </Modal>
   );
 };

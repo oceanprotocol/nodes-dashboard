@@ -2,6 +2,7 @@ import { getRpc } from '@/lib/constants';
 import { getEmbeddedWallet } from '@/lib/embedded-wallet';
 import { alchemyWalletTransport, createSmartWalletClient, type SmartWalletClient } from '@alchemy/wallet-apis';
 import { toViemAccount, useWallets } from '@privy-io/react-auth';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { createPublicClient, http, zeroAddress, type LocalAccount } from 'viem';
 import { base, sepolia } from 'viem/chains';
@@ -26,6 +27,13 @@ async function deployAccount(client: SmartWalletClient, account: `0x${string}`):
   if (result.status !== 'success') {
     throw new Error(`Could not activate your wallet (status: ${result.status}). Please try again.`);
   }
+}
+
+// Bundler rejection for a UserOp submitted after its validUntil, e.g. "validation simulation failed:
+// User Operation expired or has an invalid time range." Safe to resend: it never reached the chain.
+function isUserOpExpired(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /user operation expired|invalid time range/i.test(message);
 }
 
 // One deploy per account per session: concurrent signers await the same promise instead of each
@@ -106,7 +114,27 @@ export function useAlchemySendTransaction() {
       setIsLoading(true);
       try {
         // Execute from the smart account, not the default EIP-7702 signer address.
-        const { id } = await (client as any).sendCalls({ calls, account: accountAddress });
+        let id: string;
+        try {
+          ({ id } = await (client as any).sendCalls({ calls, account: accountAddress }));
+        } catch (error) {
+          if (!isUserOpExpired(error)) {
+            throw error;
+          }
+          // The paymaster's sponsorship window (validUntil) closed while the signature prompt was
+          // open, so the bundler refused the op in simulation — nothing reached the chain. sendCalls
+          // re-prepares from scratch (fresh paymaster data and validUntil), so one retry fixes it
+          // without making the user start the flow over; they only get the sign prompt again.
+          // Tracked because the caller's own failure event only sees the retry's outcome: without
+          // this, a rescued expiry is invisible and a second expiry looks like a first one.
+          try {
+            ({ id } = await (client as any).sendCalls({ calls, account: accountAddress }));
+          } catch (retryError) {
+            posthog.capture('userop_expiry_retried', { succeeded: false, callCount: calls.length });
+            throw retryError;
+          }
+          posthog.capture('userop_expiry_retried', { succeeded: true, callCount: calls.length });
+        }
         const result = await client.waitForCallsStatus({ id });
         // waitForCallsStatus resolves (does not throw) on a reverted batch; surface it like tx.wait().
         if (result.status !== 'success') {

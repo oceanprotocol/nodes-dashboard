@@ -3,6 +3,7 @@ import Card from '@/components/card/card';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useUnbanRequestsContext } from '@/context/unban-requests-context';
+import { useNodeAdmins } from '@/lib/use-node-admins';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types';
 import { UnbanRequest } from '@/types/unban-requests';
@@ -21,10 +22,7 @@ const UnbanRequests = ({ node }: UnbanRequestsProps) => {
 
   const [loading, setLoading] = useState(false);
 
-  const isAdmin = useMemo(
-    () => account.address && node.allowedAdmins?.includes(account.address),
-    [node.allowedAdmins, account]
-  );
+  const { isAdmin } = useNodeAdmins(node);
 
   const { buttonDisabled, disabledReason } = useMemo(() => {
     const isPermanentBan = node.banned && node.permanent;

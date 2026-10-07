@@ -4,6 +4,7 @@ import Card from '@/components/card/card';
 import { Balance } from '@/components/node-details/balance';
 import Eligibility from '@/components/node-details/eligibility';
 import { useP2P } from '@/contexts/P2PContext';
+import { useNodeAdmins } from '@/lib/use-node-admins';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { NodeConfig } from '@/types/node-config';
@@ -17,7 +18,7 @@ import PublicIcon from '@mui/icons-material/Public';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'react-toastify';
 import ConfigModal from './config-modal';
 import DownloadLogsModal from './download-logs-modal';
@@ -40,36 +41,10 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
   const [downloadingLogs, setDownloadingLogs] = useState<boolean>(false);
   const [editedConfig, setEditedConfig] = useState<NodeConfig>({});
 
-  // TODO: replace this
-  // This is temporary, used for local testing because `node` from props was
-  // naked, as it was a local node and the request is made to elastic.
-  // In the final solution the isAdmin with useMemo from below should be used.
-
-  // const [isAdmin, setIsAdmin] = useState<boolean>(false);
-
-  // const getNodeStatus = useCallback(
-  //   async (peerId: string) => {
-  //     const res = await sendCommandToPeer(peerId, { command: 'status' });
-  //     const isInAllowedAdmins = res.allowedAdmins?.addresses.includes(account?.address as string);
-  //     node.allowedAdmins = res.allowedAdmins;
-  //     setIsAdmin(!!isInAllowedAdmins);
-  //   },
-  //   [account?.address]
-  // );
-
-  // useEffect(() => {
-  //   if (isReady && node.id) {
-  //     getNodeStatus(node.id);
-  //   }
-  // }, [isReady, node?.id, getNodeStatus]);
-
   const nodeId = node.id ?? node.nodeId;
   const ethAddress = envs.find((env) => env.consumerAddress)?.consumerAddress;
 
-  const isAdmin = useMemo(
-    () => !!(account.address && node.allowedAdmins?.includes(account.address)),
-    [node.allowedAdmins, account]
-  );
+  const { addresses: adminAddresses, isAdmin } = useNodeAdmins(node);
 
   async function handleFetchConfig() {
     if (!account.isConnected) {
@@ -285,11 +260,11 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
           ) : null}
         </div>
         <div className={styles.infoFooter}>
-          {node.allowedAdmins?.length ? (
+          {adminAddresses.length ? (
             <div>
               <strong>Admins:</strong>
               <ul>
-                {node.allowedAdmins.map((admin) => (
+                {adminAddresses.map((admin) => (
                   <li key={admin} className={styles.hash}>
                     {admin}
                   </li>
@@ -302,7 +277,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ envs, node, nodeOnline }) => {
       </div>
       <div className={styles.statusWrapper}>
         <Eligibility isAdmin={isAdmin} node={node} />
-        {isAdmin ? <Balance envs={envs} /> : null}
+        {isAdmin ? <Balance envs={envs} nodeUri={nodeId} /> : null}
       </div>
     </Card>
   );

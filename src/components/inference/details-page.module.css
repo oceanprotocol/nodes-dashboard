@@ -1,5 +1,33 @@
-/* Shared by the package and template details modals. `--accent` is a template's category colour, set
-   inline on the header; a package has none and takes the brand accent. */
+/* Shared by the package and template details pages. `--accent` is a template's category colour, set
+   inline on the layout; a package has none and takes the brand accent. */
+
+/* Layout: the identity card, the banner and the sections card, stacked. */
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 576px) {
+    gap: 24px;
+  }
+}
+
+/* Bleeds to the page container's edges like the cards beside it; the tiles' edge band softens the cut. */
+.showcase {
+  border-radius: 24px;
+  height: 220px;
+
+  @media (max-width: 575px) {
+    border-radius: 16px;
+    height: 180px;
+  }
+}
+
+/* Pulled out by its own padding, so the arrow lines up with the tile under it. */
+.back {
+  margin-left: -12px;
+}
 
 /* Header */
 
@@ -7,23 +35,39 @@
   --details-accent: var(--accent, var(--accent1));
 
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
   gap: 14px;
+
+  /* The tile sits above the text on phones, where beside it would squeeze the name into a narrow
+     column, and moves beside it once there is room. */
+  @media (min-width: 576px) {
+    flex-direction: row;
+    gap: 20px;
+  }
 }
 
 .tile {
   display: grid;
   place-items: center;
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 16px;
   color: var(--details-accent);
   background: color-mix(in srgb, var(--details-accent) 12%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--details-accent) 30%, transparent);
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
+
+  @media (min-width: 576px) {
+    flex-basis: 72px;
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    font-size: 26px;
+  }
 
   &.tileImage {
     background: var(--background-glass-secondary);
@@ -40,6 +84,7 @@
 .headerText {
   display: flex;
   flex-direction: column;
+  align-self: stretch;
   gap: 6px;
   flex: 1;
   min-width: 0;
@@ -47,15 +92,18 @@
 
 .name {
   margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
+
+  @media (min-width: 576px) {
+    font-size: 30px;
+  }
 }
 
 .subtitle {
-  margin-top: -2px;
-  font-size: 13.5px;
+  font-size: 14.5px;
   line-height: 1.45;
   color: var(--text-secondary);
   overflow-wrap: anywhere;
@@ -115,17 +163,17 @@
 .sectionHead {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .sectionTitle {
   margin: 0;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.3;
 }
 
 .sectionHint {
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--text-secondary);
   text-wrap: pretty;
@@ -245,11 +293,4 @@
   .chevron {
     transition: none;
   }
-}
-
-/* Footer */
-
-.actions {
-  padding-top: 16px;
-  border-top: 1px solid var(--border-glass);
 }

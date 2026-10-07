@@ -1,18 +1,23 @@
 import GpuIcon from '@/assets/icons/gpu.svg';
 import useQuickStart, { QuickStartPick } from '@/components/hooks/use-quick-start';
-import { ResolvedTemplateEnv, TemplateEnvsState } from '@/components/hooks/use-template-envs';
+import useServiceTemplates from '@/components/hooks/use-service-templates';
+import useTemplateEnvs, { ResolvedTemplateEnv } from '@/components/hooks/use-template-envs';
 import BundleIncludes, { IncludesAvatarCluster } from '@/components/inference/bundle-includes';
+import { CatalogueConfig, catalogueFor } from '@/components/inference/catalogue-config';
 import {
-  DetailsActions,
   DetailsChip,
   DetailsDisclosure,
   DetailsDisclosureIcon,
   DetailsDisclosureLabel,
   DetailsHeader,
+  DetailsLayout,
+  DetailsMissing,
   DetailsNote,
+  DetailsPage,
   DetailsSection,
+  DetailsSkeleton,
   DetailsTile,
-} from '@/components/inference/details-modal';
+} from '@/components/inference/details-page';
 import QuickStartBanner from '@/components/inference/quick-start-banner';
 import { templateLogo } from '@/components/inference/template-logos';
 import TemplateMark from '@/components/inference/template-mark';
@@ -21,19 +26,26 @@ import {
   templateGpuLabel,
   templateHardware,
   templateImageRef,
+  templateVendor,
   TemplateVisual,
   visualFor,
 } from '@/components/inference/template-visual';
 import TemplateWorkflows from '@/components/inference/template-workflows';
-import Modal from '@/components/modal/modal';
+import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
+import { InferenceOpenedVia, resolveInferenceBranch, trackInferenceSelection } from '@/lib/inference-analytics';
 import { useTheme } from '@/lib/use-theme';
+import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { declaredGpuRange } from '@/services/quick-start';
+import { findTemplateById } from '@/services/service-templates';
+import { showcaseItemsForSource } from '@/services/showcase';
 import { templateNeedsConfigStep } from '@/services/template-launch';
+import { InferenceFlowType } from '@/types/inference';
 import {
   AppTemplate,
   INCLUDES_EXPAND_MAX,
   includesBreakdown,
   includesPublishers,
+  isBundle,
   SHAPE_LABEL,
   templateShape,
 } from '@/types/templates';
@@ -43,24 +55,31 @@ import LockIcon from '@mui/icons-material/Lock';
 import MemoryIcon from '@mui/icons-material/Memory';
 import PublicIcon from '@mui/icons-material/Public';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import { CSSProperties, useMemo } from 'react';
-import styles from './template-details-modal.module.css';
+import { useRouter } from 'next/router';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
+import styles from './template-details-page.module.css';
 
-type TemplateDetailsModalProps = {
-  template: AppTemplate | null;
-  envs: TemplateEnvsState;
-  durationSeconds: number;
-  onDurationChange: (seconds: number) => void;
-  onClose: () => void;
-  /** Hand off to the full env picker (resources step) instead of launching from here. */
-  onAdvanced: () => void;
-  /**
-   * Quick start confirmed a pick: commit that env (with its fee token, GPU units and CPU/RAM/disk
-   * sizing) and step forward. `environment` is the node's own copy the pick was confirmed against,
-   * re-read at click time, so the flow stores and launches from the availability that was actually
-   * checked; the entry's own `env.environment` is the resolver's older snapshot.
-   */
-  onContinue: (pick: QuickStartPick<ResolvedTemplateEnv>) => void;
+/**
+ * A catalogue pick, sent as `inference_template_selected`. The card click reports `click` before
+ * navigating here, and this page reports `link` once the entry resolves, which trackInferenceSelection
+ * drops when the click already counted it (see there).
+ */
+export const trackTemplateOpened = (tpl: AppTemplate, openedVia: InferenceOpenedVia) => {
+  trackInferenceSelection({
+    event: 'inference_template_selected',
+    branch: resolveInferenceBranch(InferenceFlowType.Template, tpl),
+    itemId: tpl.id,
+    openedVia,
+    properties: {
+      templateId: tpl.id,
+      templateName: tpl.name ?? tpl.id,
+      category: tpl.category,
+      gpu: templateHardware(tpl).gpu,
+      vendor: templateVendor(tpl.image),
+      isBundle: isBundle(tpl),
+      durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
+    },
+  });
 };
 
 /**
@@ -168,9 +187,10 @@ const AccessNote: React.FC<{ visual: TemplateVisual }> = ({ visual }) => (
 );
 
 /**
- * "What's included" details for a picked app template, laid out like the package modal (see
- * details-modal.tsx): identity header, quick start banner, then the same sections in the same order
- * for every template:
+ * The details page of one catalogue entry: /inference/services/[templateId] for a service and
+ * /inference/templates/[templateId] for a template (a bundle on the wire). Laid out like the package
+ * page (see details-page.tsx): identity header, quick start banner, then the same sections in the same
+ * order for every template:
  *
  * 1. **What it is**: the published description.
  * 2. **What you can run / What you get**: the only section that varies by `templateShape`. A recipe
@@ -181,24 +201,112 @@ const AccessNote: React.FC<{ visual: TemplateVisual }> = ({ visual }) => (
  * 4. **Configurable variables**: only when the template declares some.
  *
  * The banner picks the environment itself (see useQuickStart), so the user only sets a session length
- * and presses Start; Advanced setup hands off to the full env picker. Selection lives in the parent,
- * and closing this commits nothing.
+ * and presses Start; Advanced setup hands off to the full env picker. Viewing commits nothing to the
+ * inference context, only a Start/Advanced does, and a bundle is a template on the wire, so the wizard
+ * is `/inference/services/[templateId]/…` for both catalogues.
  */
-const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
-  template,
-  envs,
-  durationSeconds,
-  onDurationChange,
-  onClose,
-  onAdvanced,
-  onContinue,
-}) => {
-  const { resolved, loading, loadError, retry } = envs;
+const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) => {
+  const router = useRouter();
+  const {
+    setSelectedTemplate,
+    setSelectedEnv,
+    setSelectedToken,
+    setJobDurationSeconds,
+    clearSelection,
+    buildSelectionQuery,
+  } = useInferenceContext();
+
+  const templateId = firstQueryValue(router.query.templateId);
+  const { templates, loading, error } = useServiceTemplates();
+  const found = useMemo(() => (templateId ? findTemplateById(templates, templateId) : null), [templates, templateId]);
+  // Listed on the other catalogue (a bundle linked under /services, or the reverse): shown only where it
+  // is listed, so the back link and stepper name the right one.
+  const misplaced = !!found && catalogueFor(found) !== catalogue;
+  const template = misplaced ? null : found;
+
+  useEffect(() => {
+    if (found && misplaced) {
+      router.replace(detailsPath(catalogueFor(found).pathname, found.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, misplaced]);
+
+  // Always start fresh (new entry or Back-nav from a later step): clear leftover selection once, on mount.
+  useEffect(() => {
+    clearSelection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (template) {
+      trackTemplateOpened(template, 'link');
+    }
+  }, [template]);
+
+  // Session length, kept local until a Start/Advanced handoff.
+  const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
+  const { resolved, loading: envsLoading, loadError, retry } = useTemplateEnvs(template);
   const { resolvedTheme } = useTheme();
   const visual = template ? visualFor(template.id, template.category) : null;
   const hw = template ? templateHardware(template) : null;
   const logo = template ? templateLogo(template) : null;
   const shape = template ? templateShape(template) : null;
+
+  /**
+   * Quick start confirmed a pick: commit template + env + token + duration, then step forward. The
+   * resources step is skipped (the banner already picked the env), and so is config unless the template
+   * declares a required env var (without it the container starts and fails) or needs the bucket picker
+   * (templateNeedsConfigStep — that pick must happen before the escrow claim). The query is built
+   * from overrides so it doesn't depend on setState timing, and carries the CPU/RAM/disk the pick was
+   * priced on so payment books that allocation (a bundle's disk floor covers its weights).
+   */
+  const continueToPayment = ({
+    entry,
+    token,
+    gpuSelection,
+    // The env the quick start confirmed this pick against — the node's own, re-read at click time.
+    // `entry.env.environment` is the resolver's older snapshot, so committing that carried a slice the
+    // node may already have handed to someone else into payment and launch.
+    environment,
+    // The CPU/RAM/disk the pick was priced on: the template's recommended amounts, scaled to its GPUs.
+    sizing,
+  }: QuickStartPick<ResolvedTemplateEnv>) => {
+    if (!template) {
+      return;
+    }
+    const env = { ...entry.env, gpuSelection, environment, sizing };
+    setSelectedTemplate(template);
+    setSelectedEnv(env);
+    setSelectedToken(token);
+    setJobDurationSeconds(durationSeconds);
+    const next = templateNeedsConfigStep(template) ? 'config' : 'payment';
+    router.push({
+      pathname: `${detailsPath(INFERENCE_PATHS.services, template.id)}/${next}`,
+      query: buildSelectionQuery({
+        templateId: template.id,
+        peerId: env.nodeInfo.id,
+        envId: env.environment.id,
+        gpuSelection,
+        sizing: env.sizing,
+        tokenAddress: token.address,
+        durationSeconds,
+      }),
+    });
+  };
+
+  // Advanced handoff: same template, full control. Lands on the resources step's env picker, so it
+  // commits no env — the user picks one there.
+  const goToAdvanced = () => {
+    if (!template) {
+      return;
+    }
+    setSelectedTemplate(template);
+    setJobDurationSeconds(durationSeconds);
+    router.push({
+      pathname: `${detailsPath(INFERENCE_PATHS.services, template.id)}/resources`,
+      query: buildSelectionQuery({ templateId: template.id, durationSeconds }),
+    });
+  };
 
   // The GPU count the quick start aims for (recommended) and may scale down to (required min).
   const gpuRange = useMemo(
@@ -210,13 +318,13 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   // (jupyterlab, hermes) launches without one wherever the environment allows that.
   const quickStart = useQuickStart({
     entries: resolved,
-    loading,
+    loading: envsLoading,
     loadError,
     retry,
     gpuRange,
     allowZeroGpu: true,
     durationSeconds,
-    onStart: onContinue,
+    onStart: continueToPayment,
   });
 
   const renderOverview = (tpl: AppTemplate) => {
@@ -351,11 +459,30 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
   // The template's category colour, carried by the header, the banner and the prose accents alike.
   const accentStyle = visual ? (accentVars(visual.meta.accent, resolvedTheme) as CSSProperties) : undefined;
 
-  return (
-    <Modal isOpen={!!template} onClose={onClose} title="What's included" width="md">
-      {template && visual && hw && (
-        // `--accent` is set once for the whole body, so every section inherits the category colour.
-        <div className={styles.root} style={accentStyle}>
+  const browse = { href: catalogue.pathname, label: `Browse ${catalogue.nounPlural}` };
+
+  const renderBody = () => {
+    // Still loading, or on its way to the catalogue that lists it.
+    if (!router.isReady || (loading && !found) || misplaced) {
+      return <DetailsSkeleton />;
+    }
+    if (!template || !visual || !hw) {
+      return error ? (
+        <DetailsMissing action={browse} title={`Couldn't load ${catalogue.nounPlural}`}>
+          {error}
+        </DetailsMissing>
+      ) : (
+        <DetailsMissing action={browse} title={`This ${catalogue.noun} isn't available`}>
+          The node you&apos;re connected to doesn&apos;t list &ldquo;{templateId}&rdquo; right now. It may have been
+          renamed or withdrawn.
+        </DetailsMissing>
+      );
+    }
+    return (
+      // `--accent` is set once for the whole layout, so every card inherits the category colour.
+      <DetailsLayout
+        back={{ pathname: catalogue.pathname, label: `Back to ${catalogue.nounPlural}` }}
+        header={
           <DetailsHeader
             chips={
               <>
@@ -383,7 +510,7 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
                     )}
                   </DetailsTile>
                 }
-                size={38}
+                size={52}
                 template={template}
               />
             }
@@ -391,29 +518,27 @@ const TemplateDetailsModal: React.FC<TemplateDetailsModalProps> = ({
             name={template.name ?? template.id}
             subtitle={template.outcome}
           />
-
+        }
+        launch={
           <QuickStartBanner
             durationSeconds={durationSeconds}
-            onAdvanced={onAdvanced}
-            onDurationChange={onDurationChange}
+            onAdvanced={goToAdvanced}
+            onDurationChange={setDurationSeconds}
             quickStart={quickStart}
           />
+        }
+        showcase={showcaseItemsForSource(isBundle(template) ? 'template' : 'service', template.id)}
+        style={accentStyle}
+      >
+        {renderOverview(template)}
+        {renderOffer(template, visual)}
+        {renderUnderTheHood(template)}
+        {renderEnvVars(template)}
+      </DetailsLayout>
+    );
+  };
 
-          {renderOverview(template)}
-          {renderOffer(template, visual)}
-          {renderUnderTheHood(template)}
-          {renderEnvVars(template)}
-
-          <DetailsActions
-            durationSeconds={durationSeconds}
-            onAdvanced={onAdvanced}
-            onClose={onClose}
-            quickStart={quickStart}
-          />
-        </div>
-      )}
-    </Modal>
-  );
+  return <DetailsPage>{renderBody()}</DetailsPage>;
 };
 
-export default TemplateDetailsModal;
+export default TemplateDetailsPage;

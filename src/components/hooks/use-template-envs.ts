@@ -15,16 +15,16 @@ import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-// Cap the environments lookup so a hung indexer can't keep the details modal on "loading" forever.
+// Cap the environments lookup so a hung indexer can't keep the details page on "loading" forever.
 const ENV_FETCH_TIMEOUT_MS = 30000;
 // One page holding every row, then narrowed client-side to the inference allowlist. `/envs` has no
 // node-id filter (see the FilterField switch in incentive-backend `getEnvs`), so a small
-// benchmark-ranked page could rank the allowlisted nodes off the end and leave the modal empty —
+// benchmark-ranked page could rank the allowlisted nodes off the end and leave the page empty —
 // the same reason use-package-env and inference-context's `restoreEnv` over-fetch.
 const ENV_PAGE_SIZE = 1000;
 
 /** One environment that can run the template, resolved and ready to book (recommended sizing + auto GPU
- *  selection + seeded fee token). The modal's quick start picks one of these entries to launch on. */
+ *  selection + seeded fee token). The details page's quick start picks one of these entries to launch on. */
 export type ResolvedTemplateEnv = {
   env: SelectedInferenceEnv;
   /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
@@ -89,7 +89,7 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
     }
     let cancelled = false;
     // Aborts the in-flight request on effect re-run / unmount (modal closed, template switched), on top
-    // of withTimeout — so a hung indexer can't keep the modal spinning after the user moved on.
+    // of withTimeout — so a hung indexer can't keep the page spinning after the user moved on.
     const cleanupController = new AbortController();
     const sizing = recommendedSizing(template.requiredResources);
 

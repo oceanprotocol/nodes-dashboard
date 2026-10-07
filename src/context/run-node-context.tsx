@@ -1,6 +1,7 @@
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { isNodeAdmin } from '@/utils/node-admin';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -43,7 +44,7 @@ export const RunNodeProvider = ({ children }: { children: ReactNode }) => {
     async (peerId: string) => {
       try {
         const response = await sendCommand(peerId, { command: 'status' });
-        if (response.allowedAdmins.addresses.includes(account?.address)) {
+        if (await isNodeAdmin(response?.allowedAdmins, account?.address)) {
           setPeerId(peerId);
         } else {
           toast.error('You are not allowed to configure this node');

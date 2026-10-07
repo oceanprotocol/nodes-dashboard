@@ -1,9 +1,9 @@
-import { useP2P } from '@/contexts/P2PContext';
-import { normalizeNodeUri } from '@/services/nodeService';
 import { CHAIN_ID } from '@/constants/chains';
+import { useP2P } from '@/contexts/P2PContext';
+import { INFERENCE_QUICKSTART_PACKAGES } from '@/data/inference-quickstart-packages';
+import { normalizeNodeUri } from '@/services/nodeService';
 import { InferencePackage } from '@/types/inference';
 import { useEffect, useState } from 'react';
-import { INFERENCE_QUICKSTART_PACKAGES } from '@/data/inference-quickstart-packages';
 
 /**
  * Nodes whose service templates seed the quick-start packages, from NEXT_PUBLIC_DEFAULT_MODEL_PEER_IDS
@@ -81,7 +81,7 @@ const useDefaultModelPackages = (): DefaultModelPackages => {
         const templates = Array.isArray(result.value) ? (result.value as unknown as InferencePackage[]) : [];
         for (const template of templates) {
           if (template.type === 'quickstart' && template?.id && !byId.has(template.id)) {
-            // Stamp the source node so the details modal knows whose environments to list — the
+            // Stamp the source node so the details page knows whose environments to list — the
             // template JSON itself carries no peer id.
             byId.set(template.id, { ...template, sourcePeerIds: [peerIds[index]] });
           }
@@ -106,7 +106,7 @@ const useDefaultModelPackages = (): DefaultModelPackages => {
     // Node-advertised templates first, then the curated static catalogue.
     packages: [...packages, ...INFERENCE_QUICKSTART_PACKAGES],
     loading,
-    error
+    error,
   };
 };
 
