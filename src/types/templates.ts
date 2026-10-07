@@ -29,7 +29,8 @@ export type TemplateWorkflow = ServiceTemplateWorkflow & {
 export type AppTemplateKind = 'service' | 'bundle';
 
 /** Filter axis of the catalogue. Closed set, so buckets stay consistent across nodes. */
-export type AppTemplateCategory = 'image' | 'video' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
+export type AppTemplateCategory =
+  'image' | 'video' | 'audio' | 'code' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
 
 /** One thing a bundle pre-downloads. Display metadata: the template's own `command` does the fetching. */
 export type TemplateIncludedItem = {
