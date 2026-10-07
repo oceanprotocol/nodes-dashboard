@@ -152,20 +152,23 @@
   }
 
   .mobileMenu {
+    --menu-offset: 12px;
     position: fixed;
-    top: 0;
-    right: 0;
-    /* The sheet bleeds into the right inset, so its own padding keeps content clear of it */
-    width: min(calc(300px + env(safe-area-inset-right)), 100dvw);
-    height: 100dvh;
-    padding: calc(30px + env(safe-area-inset-top)) calc(28px + env(safe-area-inset-right))
-      calc(30px + env(safe-area-inset-bottom)) 28px;
+    top: calc(var(--menu-offset) + env(safe-area-inset-top));
+    right: calc(var(--menu-offset) + env(safe-area-inset-right));
+    width: min(300px, calc(100dvw - 2 * var(--menu-offset) - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    max-height: calc(100dvh - 2 * var(--menu-offset) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 24px;
-    transform: translateX(100%);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(calc(100% + var(--menu-offset)));
     transition:
       transform 0.3s ease,
+      opacity 0.3s ease,
+      visibility 0.3s ease,
       box-shadow 0.3s ease;
     z-index: 95;
     /* Scrolls on its own when the links plus actions outgrow the viewport, without chaining to the page */
@@ -180,6 +183,8 @@
   }
 
   .mobileMenuOpen {
+    opacity: 1;
+    visibility: visible;
     transform: translateX(0);
   }
 

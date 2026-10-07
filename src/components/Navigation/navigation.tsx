@@ -65,9 +65,7 @@ const AccountButton = ({ onNavigate }: { onNavigate?: () => void }) => {
     <Button
       className={classNames(styles.loginButton, styles.accountButton)}
       color="accent1"
-      contentBefore={
-        account.address ? <Avatar accountId={account.address} size={28} src={ensProfile?.avatar} /> : null
-      }
+      contentBefore={account.address ? <Avatar accountId={account.address} size={28} src={ensProfile?.avatar} /> : null}
       href="/account"
       onClick={onNavigate}
     >
@@ -256,6 +254,7 @@ const Navigation = () => {
         aria-modal="true"
         className={cx(styles.mobileMenu, isMenuOpen && styles.mobileMenuOpen)}
         id="mobile-navigation"
+        radius="md"
         role="dialog"
         shadow="black"
         variant="glass-shaded"
