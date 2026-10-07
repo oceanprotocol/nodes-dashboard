@@ -1,4 +1,4 @@
-import { getRoutes } from '@/config';
+import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SHOWCASE_ITEMS } from '@/services/showcase';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import Button from '../button/button';
@@ -32,7 +32,7 @@ export default function HeroSection() {
             <Button
               color="accent1"
               contentBefore={<AutoAwesomeOutlinedIcon />}
-              href={getRoutes().inference.path}
+              href={INFERENCE_PATHS.templates}
               size="lg"
             >
               Generate now
