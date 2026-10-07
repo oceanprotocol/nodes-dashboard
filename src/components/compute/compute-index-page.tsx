@@ -31,7 +31,7 @@ const ComputeIndexPage: React.FC = () => {
 
   return (
     <Container className="pageRoot">
-      <SectionTitle moreReadable title="Compute" subTitle="Run compute jobs on Ocean Nodes, or provide your own" />
+      <SectionTitle moreReadable title="Compute" />
       <div className="pageContentWrapper">
         <FlowSteps steps={FLOW_STEPS} />
         <EntryCardsLayout

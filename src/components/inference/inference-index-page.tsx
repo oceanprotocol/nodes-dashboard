@@ -34,7 +34,7 @@ const trackEntry = (branch: InferenceBranch) => {
 const InferenceIndexPage: React.FC = () => {
   return (
     <Container className="pageRoot">
-      <SectionTitle moreReadable title="Inference" subTitle="Launch a model on an Ocean Node" />
+      <SectionTitle moreReadable title="Inference" />
       <div className="pageContentWrapper">
         <FlowSteps steps={FLOW_STEPS} />
         <EntryCardsLayout
