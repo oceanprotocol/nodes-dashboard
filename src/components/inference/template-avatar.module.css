@@ -1,0 +1,41 @@
+/* Inner sizes scale with --avatar-size, keeping the catalogue card's proportions at any size. */
+.root {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.tile {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: calc(var(--avatar-size) * 0.32);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  display: grid;
+  flex: 0 0 var(--avatar-size);
+  height: var(--avatar-size);
+  place-items: center;
+  width: var(--avatar-size);
+}
+
+.icon,
+.logo {
+  grid-area: 1 / 1;
+}
+
+.icon {
+  fill: currentColor;
+  font-size: calc(var(--avatar-size) * 0.52);
+  height: calc(var(--avatar-size) * 0.52);
+  width: calc(var(--avatar-size) * 0.52);
+}
+
+.logo {
+  height: calc(var(--avatar-size) * 0.58);
+  object-fit: contain;
+  width: calc(var(--avatar-size) * 0.58);
+}
+
+.mono {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: calc(var(--avatar-size) * 0.33);
+  font-weight: 700;
+}

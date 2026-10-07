@@ -4,7 +4,7 @@ import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
 import { Authorizations } from '@/types/payment';
-import { formatTokenAmount, sharedTokenAmountDecimals } from '@/utils/formatters';
+import { formatTokenAmount, roundTokenAmount, sharedTokenAmountDecimals } from '@/utils/formatters';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
 import classNames from 'classnames';
@@ -68,8 +68,14 @@ const PaymentSummary = ({
   const maxLocked = Number(authorizations?.maxLockedAmount ?? 0);
   const escrow = escrowBalance ?? 0;
 
-  const insufficientAutorized = (Number(authorizations?.maxLockedAmount) ?? 0) < totalCost;
+  // Both shortfalls below are handled by the pay button itself: it deposits the missing funds from
+  // the wallet and re-authorizes in the same transaction. So they're only errors when the wallet
+  // can't cover the deposit; otherwise they're what the payment is about to do, not a blocker.
+  // Rounded like computeEscrowRequirement, so this agrees with the button's own gate.
+  const insufficientAutorized = maxLocked < totalCost + currentLocked;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < totalCost;
+  const depositGap = roundTokenAmount(Math.max(0, totalCost - escrow), selectedToken.address, 'up');
+  const insufficientWallet = insufficientEscrow && walletBalance < depositGap;
 
   // The collapsed rows are limits — irrelevant while they're comfortably satisfied, worth seeing
   // up front when they aren't, or when funds are already locked from an earlier session.
@@ -100,7 +106,15 @@ const PaymentSummary = ({
       <div className={styles.hero}>
         <div className={styles.heroText}>
           <span className={styles.heroLabel}>Estimated total cost</span>
-          {insufficientEscrow ? <span className={styles.heroHint}>Top up escrow to authorize this job</span> : null}
+          {insufficientWallet ? (
+            <span className={styles.heroHint}>
+              Not enough {tokenSymbol} in your wallet: add {format(depositGap - walletBalance)} {tokenSymbol} to pay
+            </span>
+          ) : insufficientEscrow ? (
+            <span className={styles.heroHint}>
+              Paying moves {format(depositGap)} {tokenSymbol} from your wallet to escrow
+            </span>
+          ) : null}
         </div>
         <div className={styles.heroAmount}>
           <span className={styles.heroValue}>{format(totalCost)}</span>
@@ -113,8 +127,14 @@ const PaymentSummary = ({
           closes the card. */}
       <div className={styles.rows}>
         <SummaryRow
-          chip={insufficientEscrow ? <span className="chip chipError">Insufficient funds</span> : null}
-          error={insufficientEscrow}
+          chip={
+            insufficientWallet ? (
+              <span className="chip chipError">Insufficient funds</span>
+            ) : insufficientEscrow ? (
+              <span className="chip chipGlass">Topped up on pay</span>
+            ) : null
+          }
+          error={insufficientWallet}
           label="Available in escrow"
           symbol={tokenSymbol}
           value={format(escrow)}
@@ -123,8 +143,7 @@ const PaymentSummary = ({
         <Collapse in={isDetailsOpen}>
           <SummaryRow label="Locked now" symbol={tokenSymbol} value={format(currentLocked)} />
           <SummaryRow
-            chip={insufficientAutorized ? <span className="chip chipError">Insufficient authorization</span> : null}
-            error={insufficientAutorized}
+            chip={insufficientAutorized ? <span className="chip chipGlass">Raised on pay</span> : null}
             label="Max locked"
             symbol={tokenSymbol}
             value={format(maxLocked)}
@@ -140,8 +159,9 @@ const PaymentSummary = ({
               </button>
             ) : null
           }
+          error={insufficientWallet}
           label="Available in wallet"
-          muted
+          muted={!insufficientWallet}
           symbol={tokenSymbol}
           value={format(walletBalance)}
         />

@@ -1,6 +1,7 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { catalogueFor } from '@/components/inference/catalogue-config';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
@@ -10,9 +11,9 @@ import SelectInferenceEnvironment, {
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { decodeDeclaredResources, detailsPath, INFERENCE_PATHS } from '@/services/inference-url';
 import { templateFloorSizing, templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
-import { isBundle } from '@/types/templates';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -37,6 +38,22 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
   } = useInferenceContext();
   // Computed once — reused by the stepper and the next-step routing below.
   const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
+
+  // What the template or package declares it needs, shown above the env list. A custom-model flow only
+  // has this when a package handed off to it (`reqs`); one started from the model picker never does.
+  const reqsParam = router.query.reqs;
+  const declaredResources = useMemo(() => {
+    if (isTemplateFlow) {
+      return selectedTemplate
+        ? { required: selectedTemplate.requiredResources, recommended: selectedTemplate.recommendedResources }
+        : undefined;
+    }
+    if (isCustomModelFlow) {
+      const required = decodeDeclaredResources(reqsParam);
+      return required ? { required } : undefined;
+    }
+    return undefined;
+  }, [isTemplateFlow, isCustomModelFlow, selectedTemplate, reqsParam]);
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
   // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
@@ -71,11 +88,12 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        // Back to the catalogue this template actually belongs to: a bundle is listed on
-        // `/inference/templates` and never on `/inference/services` (see catalogue-config), so the
-        // fixed target used to strand a bundle launch on a grid without it. Here — unlike the bounce
-        // guard above — the template IS resolved, so `isBundle` can answer.
-        router.replace(selectedTemplate && isBundle(selectedTemplate) ? '/inference/templates' : '/inference/services');
+        // Back to the template's details page, under the catalogue that actually lists it: a bundle is
+        // on Templates and never on Services (see catalogue-config). Back only renders once the
+        // template is resolved (hasSelectionForFlow), so it can be classified.
+        if (selectedTemplate) {
+          router.replace(detailsPath(catalogueFor(selectedTemplate).pathname, selectedTemplate.id));
+        }
         break;
       }
     }
@@ -133,7 +151,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         const nextStep = needsConfigStep ? 'config' : 'payment';
         trackNextStep(nextStep);
         router.push({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/${nextStep}`,
+          pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/${nextStep}`,
           query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
         });
         break;
@@ -173,7 +191,11 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
             ) : (
               hasSelectionForFlow && (
                 <>
-                  <SelectInferenceEnvironment flowType={flowType} onEnvSelected={goToNextStep} />
+                  <SelectInferenceEnvironment
+                    declaredResources={declaredResources}
+                    flowType={flowType}
+                    onEnvSelected={goToNextStep}
+                  />
                   <InferenceNavigation
                     nextLabel="Skip"
                     onNext={selectedEnv ? () => goToNextStep() : undefined}

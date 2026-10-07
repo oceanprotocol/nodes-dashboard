@@ -1,0 +1,81 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.overline {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Narrow screens scroll the table sideways rather than squeezing four columns into unreadable cells. */
+.scroller {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border-glass);
+  background: var(--background-glass);
+  box-shadow: var(--inner-shadow-glass);
+}
+
+.table {
+  width: 100%;
+  min-width: 380px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+
+  & th,
+  & td {
+    padding: 8px 14px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  & thead th {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    background: var(--background-glass-secondary);
+  }
+
+  & thead td {
+    background: var(--background-glass-secondary);
+  }
+
+  & tbody tr + tr {
+    border-top: 1px solid var(--border-glass);
+  }
+
+  & tbody th {
+    width: 1%;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  & tbody td {
+    font-weight: 700;
+  }
+
+  /* The recommendation is the figure to aim for, so it carries the accent. */
+  & tbody tr:last-child:not(:first-child) td {
+    color: var(--accent1);
+  }
+}

@@ -1,193 +1,223 @@
+/* Fills at least the viewport below the header: the intro band, then the showcase deck. The deck takes
+   90% of what the viewport leaves after the header, intro and bottom padding (--chrome, an estimate of
+   their height per breakpoint), within --showcase-min/--showcase-max; the band absorbs the rest, with the intro
+   centred in it.
+   --nav-overlap matches the header's height at the top of the page, so the hero starts at the top of
+   the viewport and slides under the translucent header. */
 .root {
+  --nav-overlap: 151px;
+  --chrome: 448px;
+  --showcase-max: 600px;
+  --showcase-min: 260px;
+
+  /* Backdrop strength, tuned per theme (see the dark override below). */
+  --glow: 16%;
+  --traces: 0.22;
+
   background: var(--background-primary);
-  position: relative;
-  --nav-overlap: 120px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  /* Own stacking context, so the backdrop layers (z-index -1) sit above the background but under the content. */
+  isolation: isolate;
   margin-top: calc(var(--nav-overlap) * -1);
-  padding: calc(60px + var(--nav-overlap)) 0 120px;
+  min-height: 100vh;
+  min-height: 100svh;
   overflow: hidden;
+  /* Bottom padding leaves room for the floating docs button, so it never sits on the tiles. */
+  padding: calc(16px + var(--nav-overlap)) 0 72px;
+  position: relative;
+
+  @media (max-width: 992px) {
+    --chrome: 524px;
+  }
+
+  @media (max-width: 640px) {
+    --chrome: 480px;
+    --showcase-min: 240px;
+
+    padding: calc(8px + var(--nav-overlap)) 0 64px;
+  }
+
+  /* Backdrop: the deck sits on a circuit board, lit from behind. A coral glow spreads from behind the
+     deck, and the brand circuit traces show only around it. Both fade out before the headline and before
+     the hero's bottom edge, so nothing cuts off against the next section. */
+  &::before,
+  &::after {
+    animation: backdrop-in 1.6s ease-out both;
+    content: '';
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+    z-index: -1;
+  }
+
+  &::before {
+    background: radial-gradient(
+      55% 40% at 50% 62%,
+      color-mix(in srgb, var(--accent1) var(--glow), transparent),
+      transparent 100%
+    );
+  }
+
+  /* circuit.svg is a mask, so the traces take their colour from the theme's --accent1. */
+  &::after {
+    background: var(--accent1);
+    mask-composite: intersect;
+    mask-image:
+      url('/circuit.svg'), radial-gradient(62% 42% at 50% 62%, #000 30%, transparent 100%),
+      linear-gradient(transparent 38%, #000 58%, #000 78%, transparent);
+    mask-position: center;
+    mask-repeat: repeat, no-repeat, no-repeat;
+    mask-size:
+      760px auto,
+      100% 100%,
+      100% 100%;
+    opacity: var(--traces);
+
+    @media (max-width: 640px) {
+      mask-image:
+        url('/circuit.svg'), radial-gradient(90% 34% at 50% 66%, #000 30%, transparent 100%),
+        linear-gradient(transparent 45%, #000 62%, #000 80%, transparent);
+      mask-size:
+        520px auto,
+        100% 100%,
+        100% 100%;
+    }
+  }
 }
 
-.video {
-  object-fit: cover;
-  opacity: 0.25;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  filter: brightness(1.25) contrast(1.25) invert(1) saturate(0);
+/* On near-black the same alpha reads weaker, so the glow and traces open up a little. */
+:global(:root[data-theme='dark']) .root {
+  --glow: 22%;
+  --traces: 0.26;
 }
 
-/* The source footage is dark, and the invert above flips it to near-white so it reads as a
-   faint texture behind light-theme text. On a dark ground that same invert turns the hero into
-   a bright wash, so drop the invert and let the original dark footage sit behind the content. */
-:global(:root[data-theme='dark']) .video {
-  filter: brightness(1.1) contrast(1.15) saturate(0);
-  opacity: 0.35;
+.legacyEscrowBanner {
+  margin-bottom: 24px;
+}
+
+.introBand {
+  align-content: center;
+  display: grid;
+  padding: 32px 0 40px;
+
+  @media (max-width: 640px) {
+    padding: 24px 0 28px;
+  }
+}
+
+.showcase {
+  height: clamp(var(--showcase-min), (100svh - var(--chrome)) * 0.9, var(--showcase-max));
+
+  /* Phones size it from the width instead: the front card (4:5, up to 76% of the width) fills it. */
+  @media (max-width: 767px) {
+    height: calc((100vw - 40px) * 0.76 / 0.8);
+  }
+}
+
+/* Headline block on the left, actions on the right centred on the title's first line; stacks on narrow screens. */
+.intro {
+  align-items: center;
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s both;
+  display: flex;
+  gap: 24px 48px;
+  justify-content: space-between;
+
+  @media (max-width: 992px) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.introText {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .title {
-  font-size: 88px;
-  line-height: 1;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
   margin: 0;
+
+  > span {
+    display: block;
+  }
+
+  em {
+    color: var(--accent1);
+    font-style: normal;
+  }
 }
 
-.title span {
-  color: var(--accent1);
+.titleLead {
+  font-size: 64px;
+
+  @media (max-width: 992px) {
+    font-size: 48px;
+  }
+
+  @media (max-width: 640px) {
+    font-size: 40px;
+  }
 }
 
-.relative {
-  position: relative;
-}
-
-.titleWrapper {
-  display: flex;
-  gap: 15px;
-  flex-direction: column;
-  align-items: flex-start;
-  /* Keeps the CTAs within reach of the rotating line rather than pushed to the fold: the title
-     block grew a description paragraph, so the old 100px pushed the buttons off a laptop screen. */
-  margin-bottom: 40px;
-}
-
-.description {
+.titleRest {
   font-size: 24px;
-  line-height: 1.4;
-  max-width: 640px;
+  margin-top: 4px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 17px;
   margin: 0;
-}
 
-.subTitle {
-  font-size: 24px;
-  max-width: 580px;
-}
-
-/* The accent ground goes on an inline span, not on .subTitle itself: that div is the Collapse
-   child and stretches the full column, which would paint a full-width band instead of a
-   highlight around the words. `box-decoration-break` keeps the padding on both halves when the
-   line wraps at narrow widths. */
-.subTitle span {
-  background: var(--accent2);
-  color: var(--accent2-contrast);
-  padding: 4px 12px;
-  border-radius: 6px;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-.actionsAndTextWrapper {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 40px;
+  @media (max-width: 640px) {
+    font-size: 15px;
+  }
 }
 
 .actions {
   display: flex;
-  gap: 10px;
-  justify-content: flex-start;
-}
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 16px;
 
-.textBadge {
-  font-size: 70px;
-  text-align: right;
-  line-height: 1;
-  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
-}
-
-.textBadge span {
-  color: var(--accent1);
-}
-
-.legacyEscrowBanner {
-  /* The hero pads its top for the nav overlap (see hero-section.module.css); pull the banner up
-     through most of that padding so it sits just below the header. Breakpoints mirror the hero's. */
-  margin-top: -80px;
-  margin-bottom: 48px;
-
-  @media (min-width: 768px) {
-    margin-top: -90px;
+  @media (max-width: 992px) {
+    margin-top: 0;
   }
 
-  @media (min-width: 992px) {
-    margin-top: -120px;
+  @media (max-width: 640px) {
+    align-self: stretch;
+
+    > * {
+      flex: 1 1 0;
+    }
   }
 }
 
-@media (max-width: 1200px) {
-  .title {
-    font-size: 72px;
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
   }
 
-  .textBadge {
-    font-size: 60px;
-  }
-}
-
-@media (max-width: 992px) {
-  .root {
-    --nav-overlap: 100px;
-    padding: calc(110px + var(--nav-overlap)) 0 90px;
-  }
-
-  .title {
-    font-size: 64px;
-  }
-
-  .description {
-    font-size: 22px;
-  }
-
-  .subTitle {
-    font-size: 22px;
-  }
-
-  .textBadge {
-    font-size: 52px;
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
-@media (max-width: 768px) {
-  .root {
-    --nav-overlap: 90px;
-    padding: calc(100px + var(--nav-overlap)) 0 80px;
-  }
-
-  .actionsAndTextWrapper {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 30px;
-  }
-
-  .actions {
-    flex-wrap: wrap;
-  }
-
-  .textBadge {
-    text-align: left;
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
   }
 }
 
-@media (max-width: 640px) {
-  .title {
-    font-size: 48px;
-  }
-
-  .description {
-    font-size: 18px;
-  }
-
-  .subTitle {
-    font-size: 18px;
-  }
-
-  .actions {
-    width: 100%;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .textBadge {
-    font-size: 42px;
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .root::before,
+  .root::after {
+    animation: none;
   }
 }

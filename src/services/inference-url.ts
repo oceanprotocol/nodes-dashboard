@@ -1,5 +1,6 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { ModelParameters } from '@/types/huggingface';
+import { DeclaredRequirement } from '@/utils/env-resources';
 
 /**
  * Query-param (de)serializers for the inference wizard. Selection is persisted as individual,
@@ -18,7 +19,26 @@ import { ModelParameters } from '@/types/huggingface';
  * - `res`      shared-resource sizing, `mode:cpu:ram:disk` (`pinned` = quick start, `floor` = custom
  *              flow package handoff, `exact` = what a running service already booked) — absent for a
  *              pure GPU-fraction slice
+ * - `reqs`     a package's declared resources, `id:min:recommended` triples, comma-separated. Set only
+ *              by a package's Advanced setup handoff, so the custom flow's env picker can show what the
+ *              package needs; a custom flow started from the model picker never carries it
  */
+
+/** The inference catalogues. An entry's details page hangs off its catalogue (see detailsPath). */
+export const INFERENCE_PATHS = {
+  services: '/inference/services',
+  templates: '/inference/templates',
+  packages: '/inference/default-models',
+} as const;
+
+/**
+ * A catalogue entry's details page, `<catalogue>/<id>`; its wizard steps hang off it (`…/payment`).
+ * Templates of both catalogues take their steps under `INFERENCE_PATHS.services`: a bundle is a
+ * template on the wire.
+ */
+export function detailsPath(catalogue: string, id: string): string {
+  return `${catalogue}/${encodeURIComponent(id)}`;
+}
 
 /**
  * First value of a Next.js router query field. A repeated key (`?a=1&a=2`) arrives as `string[]`;
@@ -134,4 +154,43 @@ export function decodeModelParams(raw: string | string[] | undefined): Record<st
   } catch {
     return {};
   }
+}
+
+/**
+ * Serialize declared resource requirements into `id:min:recommended` triples (`recommended` left
+ * empty when not declared). A GPU requirement is written under `gpu`, whatever its own id.
+ */
+export function encodeDeclaredResources(requirements: DeclaredRequirement[] | undefined): string | undefined {
+  const parts = (requirements ?? [])
+    .map((r) => {
+      const id = r.type === 'gpu' || r.id === 'gpu' ? 'gpu' : r.id;
+      return id ? `${encodeURIComponent(id)}:${r.min}:${r.recommended ?? ''}` : null;
+    })
+    .filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(',') : undefined;
+}
+
+/** Parse the `reqs` param back into declared requirements; malformed triples are skipped. */
+export function decodeDeclaredResources(raw: string | string[] | undefined): DeclaredRequirement[] | undefined {
+  const value = firstQueryValue(raw);
+  if (!value) {
+    return undefined;
+  }
+  const requirements: DeclaredRequirement[] = [];
+  value.split(',').forEach((part) => {
+    const [rawId, rawMin, rawRecommended] = part.split(':');
+    const id = rawId ? decodeURIComponent(rawId) : '';
+    const min = Number(rawMin);
+    if (!id || rawMin === undefined || rawMin === '' || !Number.isFinite(min)) {
+      return;
+    }
+    const recommended = rawRecommended ? Number(rawRecommended) : undefined;
+    requirements.push({
+      id,
+      ...(id === 'gpu' ? { type: 'gpu' } : {}),
+      min,
+      ...(recommended !== undefined && Number.isFinite(recommended) ? { recommended } : {}),
+    });
+  });
+  return requirements.length > 0 ? requirements : undefined;
 }

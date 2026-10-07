@@ -1,0 +1,108 @@
+/* Template-only pieces. Header, sections, boxes and notes are shared (details-page.module.css).
+   `--accent` is set inline on the layout per template from its category meta. */
+
+/* Header tile fallbacks, at the tile's own proportions (56px, then 72px) */
+
+.tileIcon {
+  width: 28px;
+  height: 28px;
+  font-size: 28px;
+  fill: currentColor;
+
+  @media (min-width: 576px) {
+    width: 36px;
+    height: 36px;
+    font-size: 36px;
+  }
+}
+
+.tileLogo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+
+  @media (min-width: 576px) {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.tileMono {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+
+  @media (min-width: 576px) {
+    font-size: 22px;
+  }
+}
+
+/* Description */
+
+.prose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  .lead {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+
+  .body {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+  }
+
+  /* Who it is for, ruled in the template's own accent. */
+  .audience {
+    padding-left: 12px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+}
+
+.proseLink {
+  color: var(--accent);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chipList .envVarChip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+
+  .envVarLock {
+    width: 13px;
+    height: 13px;
+    font-size: 13px;
+    color: var(--accent1);
+  }
+
+  .envVarMask {
+    color: var(--text-secondary);
+  }
+}

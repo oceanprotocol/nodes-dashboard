@@ -43,67 +43,6 @@
   font-size: 18px;
 }
 
-/* Hardware axis — a compact segmented control, deliberately subordinate to the category pills. */
-
-.segmented {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 100px;
-  background: var(--background-glass-secondary);
-  box-shadow: inset 0 0 0 1px var(--border-glass);
-}
-
-.segment {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 30px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 100px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  background: transparent;
-  color: var(--text-secondary);
-  transition:
-    background 0.3s ease,
-    color 0.3s ease;
-}
-
-.segment:hover {
-  color: var(--text-primary);
-}
-
-.segmentActive,
-.segmentActive:hover {
-  font-weight: 700;
-  background: var(--background-primary);
-  color: var(--accent1);
-  box-shadow: var(--drop-shadow-black);
-}
-
-.segmentIcon {
-  width: 15px;
-  height: 15px;
-  font-size: 15px;
-  fill: currentColor;
-}
-
-.segmentCount {
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-}
-
-.segmentCountActive {
-  color: color-mix(in srgb, var(--accent1) 70%, transparent);
-}
-
 /* Category axis — one wrapping row of pills, every bucket and its count visible without a click. */
 
 .categoryRow {
@@ -220,13 +159,13 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(430px, 100%), 1fr));
   gap: 8px;
 }
 
 @media (max-width: 560px) {
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

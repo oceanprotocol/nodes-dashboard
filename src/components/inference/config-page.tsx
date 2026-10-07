@@ -11,6 +11,8 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
+import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
@@ -81,11 +83,19 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     }
     return `Relaunching re-downloads all ${included}, inside the session you have already paid for.`;
   }, [selectedTemplate]);
+  // Edit: the node doesn't echo a service's env, so the non-secret values this browser launched it
+  // with (see template-env-memory) prefill the fields; anything already typed this session wins.
+  const editServiceId = isEditMode ? firstQueryValue(router.query.serviceId) : undefined;
   useEffect(() => {
-    if (isTemplateFlow) {
-      setEnvInputs(templateEnvValues);
+    if (!isTemplateFlow) {
+      return;
     }
-  }, [isTemplateFlow, templateEnvValues]);
+    const recalled =
+      editServiceId && selectedTemplate
+        ? recallTemplateEnv({ serviceId: editServiceId, template: selectedTemplate })
+        : {};
+    setEnvInputs({ ...recalled, ...templateEnvValues });
+  }, [isTemplateFlow, templateEnvValues, editServiceId, selectedTemplate]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
   // without a complete selection: no models → picker, models but no env → resources. Skipped when
@@ -112,7 +122,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         // without it (deep link / refresh with no peerId/env) this page would show an empty card that
         // still lets Next through to payment with no bucket. Back to resources to pick an env first.
         router.replace({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
+          pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
           query: router.query,
         });
       }
@@ -147,7 +157,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           router.replace(`/inference/instances/${encodeURIComponent(serviceId)}`);
         } else {
           router.replace({
-            pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/resources`,
+            pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
             query: router.query,
           });
         }
@@ -190,7 +200,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           branch,
         });
         router.push({
-          pathname: `/inference/services/${encodeURIComponent(params.templateId ?? '')}/payment`,
+          pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/payment`,
           query: { ...router.query, ...buildSelectionQuery() },
         });
         break;
@@ -263,12 +273,12 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         return;
       }
       // Commit only non-empty values — an empty optional field must not overwrite a fixed var or ship
-      // an empty string to the container.
-      const committed = Object.fromEntries(
-        envSpecs.map((spec) => [spec.key, (envInputs[spec.key] ?? '').trim()]).filter(([, value]) => value)
-      );
+      // an empty string to the container. On Edit a cleared field is kept as '' instead, so coming back
+      // from payment doesn't bring its remembered value back; buildTemplateUserData still drops it.
+      const values = envSpecs.map((spec) => [spec.key, (envInputs[spec.key] ?? '').trim()] as const);
+      const committed = Object.fromEntries(isEditMode ? values : values.filter(([, value]) => value));
       setTemplateEnvValues(committed);
-      goToNextStep(undefined, Object.keys(committed).length);
+      goToNextStep(undefined, values.filter(([, value]) => value).length);
       return;
     }
     goToNextStep();
@@ -398,7 +408,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
               ) : null}
               {isEditMode && (
                 <div className="textSecondary">
-                  Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens you need.
+                  Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens and passwords
+                  you need.
                 </div>
               )}
               {/* A relaunch recreates the container from the image, and service containers get no

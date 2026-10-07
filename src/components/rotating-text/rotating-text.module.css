@@ -1,0 +1,21 @@
+.word {
+  animation: enter 400ms ease-out;
+  display: inline-block;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(40%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word {
+    animation: none;
+  }
+}

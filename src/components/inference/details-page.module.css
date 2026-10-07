@@ -1,0 +1,296 @@
+/* Shared by the package and template details pages. `--accent` is a template's category colour, set
+   inline on the layout; a package has none and takes the brand accent. */
+
+/* Layout: the identity card, the banner and the sections card, stacked. */
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 576px) {
+    gap: 24px;
+  }
+}
+
+/* Bleeds to the page container's edges like the cards beside it; the tiles' edge band softens the cut. */
+.showcase {
+  border-radius: 24px;
+  height: 220px;
+
+  @media (max-width: 575px) {
+    border-radius: 16px;
+    height: 180px;
+  }
+}
+
+/* Pulled out by its own padding, so the arrow lines up with the tile under it. */
+.back {
+  margin-left: -12px;
+}
+
+/* Header */
+
+.header {
+  --details-accent: var(--accent, var(--accent1));
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+
+  /* The tile sits above the text on phones, where beside it would squeeze the name into a narrow
+     column, and moves beside it once there is room. */
+  @media (min-width: 576px) {
+    flex-direction: row;
+    gap: 20px;
+  }
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 16px;
+  color: var(--details-accent);
+  background: color-mix(in srgb, var(--details-accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--details-accent) 30%, transparent);
+  font-size: 20px;
+  font-weight: 700;
+
+  @media (min-width: 576px) {
+    flex-basis: 72px;
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    font-size: 26px;
+  }
+
+  &.tileImage {
+    background: var(--background-glass-secondary);
+    box-shadow: inset 0 0 0 1px var(--border-glass);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+
+  @media (min-width: 576px) {
+    font-size: 30px;
+  }
+}
+
+.subtitle {
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  font-size: 12px;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    fill: currentColor;
+  }
+
+  &.chipAccent {
+    color: var(--details-accent);
+    background: color-mix(in srgb, var(--details-accent) 12%, transparent);
+  }
+
+  &.chipQuiet {
+    color: var(--text-secondary);
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--border-glass);
+  }
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sections */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.sectionHint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* Notes */
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  /* Same type as a workflow (template-workflows): title like its name, faded text like its body.
+     Line height pinned in px so the icon can be centred on the first line: (22 - 18) / 2. */
+  font-size: 13px;
+  line-height: 22px;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+
+  strong {
+    font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* Nested so it outranks MUI's own SvgIcon sizing. Same 18px column and 8px gap as a workflow's
+     icon (template-workflows), so the text beside both starts at the same x. */
+  .noteIcon {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    font-size: 18px;
+    fill: currentColor;
+  }
+}
+
+/* Disclosure: same geometry as a model row (inference-model-list), so every card that opens matches. */
+
+.disclosureRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: inherit;
+  text-align: left;
+}
+
+.disclosureSummary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.disclosureIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--accent, var(--accent1));
+  background: var(--background-glass-secondary);
+
+  svg {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    fill: currentColor;
+  }
+}
+
+.disclosureLabel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.disclosureTitle {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.disclosureSub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.disclosureContent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

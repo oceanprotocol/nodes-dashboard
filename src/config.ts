@@ -69,13 +69,23 @@ const config: Config = {
       path: '/',
       name: 'Home',
     },
-    runJob: {
-      path: '/run-job/environments',
-      name: 'Run a job',
-    },
     inference: {
       path: '/inference',
       name: 'Inference',
+    },
+    compute: {
+      path: '/compute',
+      name: 'Compute',
+    },
+    runJob: {
+      path: '/run-job/environments',
+      name: 'Run a job',
+      hideFromNavbar: true,
+    },
+    runNode: {
+      path: '/run-node/setup',
+      name: 'Run a node',
+      hideFromNavbar: true,
     },
     stats: {
       path: '/stats',
@@ -90,10 +100,6 @@ const config: Config = {
     // path: '/leaderboard',
     // name: 'Leaderboard',
     // },
-    runNode: {
-      path: '/run-node/setup',
-      name: 'Run a node',
-    },
   },
   socialMedia: {
     medium: 'https://medium.com/oceanprotocol',

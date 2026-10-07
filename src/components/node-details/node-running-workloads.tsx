@@ -4,9 +4,11 @@ import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
+import { useNodeAdmins } from '@/lib/use-node-admins';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { isComputeJobInFlight, isServiceInFlight } from '@/services/service-status';
 import { Node } from '@/types';
+import { isAddressInAdmins } from '@/utils/node-admin';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Tooltip } from '@mui/material';
 import { NodeComputeJob, ServiceJobListed } from '@oceanprotocol/lib';
@@ -35,15 +37,9 @@ const NodeRunningWorkloads = ({ node, show = 'both' }: NodeRunningWorkloadsProps
 
   const nodeId = node.id ?? node.nodeId;
 
-  // Owner/admin gate — the connected wallet must be in allowedAdmins or match the node address.
-  const isOwner = useMemo(() => {
-    const addr = account.address?.toLowerCase();
-    if (!addr) {
-      return false;
-    }
-    const admins = node.allowedAdmins?.map((a) => a.toLowerCase()) ?? [];
-    return admins.includes(addr) || node.address?.toLowerCase() === addr;
-  }, [account.address, node.allowedAdmins, node.address]);
+  // Owner/admin gate — the connected wallet must be a node admin (address or access list) or match the node address.
+  const { isAdmin } = useNodeAdmins(node);
+  const isOwner = isAdmin || isAddressInAdmins(node.address ? [node.address] : [], account.address);
 
   // Reach the node by its full multiaddrs when known (avoids a peer lookup), else by peer id.
   const nodeUri: NodeUri = useMemo(

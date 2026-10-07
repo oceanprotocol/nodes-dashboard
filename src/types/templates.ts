@@ -2,7 +2,7 @@ import type { ServiceTemplatePublic, ServiceTemplateWorkflow } from '@oceanproto
 
 /**
  * A workflow graph a template ships. `id`/`name`/`description`/`graph` come from ocean.js as of
- * 9.0.0-next.9; the supply → output strip the modal renders is not in that type (nor yet in the
+ * 9.0.0-next.9; the supply → output strip the details page renders is not in that type (nor yet in the
  * node's strict schema), so it is declared here like the other node-side-only fields below.
  */
 export type TemplateWorkflow = ServiceTemplateWorkflow & {
@@ -29,7 +29,8 @@ export type TemplateWorkflow = ServiceTemplateWorkflow & {
 export type AppTemplateKind = 'service' | 'bundle';
 
 /** Filter axis of the catalogue. Closed set, so buckets stay consistent across nodes. */
-export type AppTemplateCategory = 'image' | 'video' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
+export type AppTemplateCategory =
+  'image' | 'video' | 'audio' | 'code' | 'llm' | 'serving' | 'notebook' | 'embeddings' | 'app';
 
 /** One thing a bundle pre-downloads. Display metadata: the template's own `command` does the fetching. */
 export type TemplateIncludedItem = {
@@ -68,6 +69,10 @@ type BundleFields = {
    * bundle's workflow cards. Absent, the prose alone carries the section.
    */
   capabilities?: string[];
+  /** Left out of the catalogue grid; still opens from a direct `?view=<id>` link (work in progress). */
+  unlisted?: boolean;
+  /** Catalogue position, lowest first. Entries without one follow, in the node's order. */
+  order?: number;
 };
 
 /** One user-supplied env var, plus the node's `required` hint (also missing from the ocean.js type). */
@@ -102,7 +107,7 @@ export function isService(tpl: AppTemplate): boolean {
 }
 
 /**
- * What the details modal has to describe. Three tiers, because the honest answer to "what am I
+ * What the details page has to describe. Three tiers, because the honest answer to "what am I
  * buying?" differs: a **recipe** (graphs it opens on), **ingredients** (weights, no graph), or an
  * **empty app**. A buyer who expects a runnable recipe and gets three checkpoints asks for a refund,
  * so `modelPack` is worth deriving even though the node's `kind` only knows service-vs-bundle.
@@ -116,7 +121,7 @@ export function templateShape(tpl: AppTemplate): TemplateShape {
   return (tpl.includes?.length ?? 0) > 0 ? 'modelPack' : 'service';
 }
 
-/** The catalogue word for a shape — one per tier, so the card and the modal never disagree. */
+/** The catalogue word for a shape — one per tier, so the card and the details page never disagree. */
 export const SHAPE_LABEL: Record<TemplateShape, string> = {
   recipe: 'Template',
   modelPack: 'Model pack',

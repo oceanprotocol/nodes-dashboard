@@ -1,7 +1,9 @@
 import { NodeUri } from '@/contexts/P2PContext';
+import { NATIVE_TOKEN_ADDRESS } from '@/constants/tokens';
 import { NODE_URL } from '@/lib/constants';
 import { directNodeCommandJson, NodeCommandError } from '@/lib/direct-node-command';
 import { signNodeCommandMessage } from '@/lib/sign-message';
+import { getTokenDecimals } from '@/lib/token-symbol';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
 import { EscrowEvent } from '@/types/payment';
@@ -31,6 +33,7 @@ import {
   type ServiceTemplatePublic,
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
+import { formatUnits, parseUnits } from 'ethers';
 
 /** Pull the peer id from the `/p2p/<id>` suffix of a multiaddr string, or null when absent. */
 function peerIdFromMultiaddr(addr: string): string | null {
@@ -870,6 +873,49 @@ export async function pushNodeConfig({
   });
 }
 
+export async function collectNodeFees({
+  amount,
+  chainId,
+  consumerAddress,
+  destinationAddress,
+  nodeUri,
+  signMessage,
+  tokenAddress,
+}: {
+  amount: string;
+  chainId: number;
+  consumerAddress: string;
+  destinationAddress: string;
+  nodeUri: NodeUri;
+  signMessage: SignMessageFn;
+  tokenAddress: string;
+}): Promise<{ tx: string; message: string }> {
+  const decimals = tokenAddress === NATIVE_TOKEN_ADDRESS ? 18 : await getTokenDecimals(tokenAddress);
+  // TODO: remove scaling once ocean-node parses tokenAmount with the token's decimals
+  const tokenAmount = formatUnits(parseUnits(amount, decimals), 18);
+  const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
+  const signature = await signNodeCommandMessage({
+    command: PROTOCOL_COMMANDS.COLLECT_FEES,
+    consumerAddress,
+    incrementedNonce,
+    signMessage,
+  });
+  const response = await ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), {
+    command: PROTOCOL_COMMANDS.COLLECT_FEES,
+    address: consumerAddress,
+    chainId,
+    destinationAddress,
+    nonce: incrementedNonce.toString(),
+    signature,
+    tokenAddress,
+    tokenAmount,
+  });
+  if (!response?.tx) {
+    throw new Error(response?.error ?? 'Withdraw failed');
+  }
+  return response;
+}
+
 export async function getPeerMultiaddr(peerId: string): Promise<string> {
   return ProviderInstance.getMultiaddrFromPeerId(peerId);
 }
@@ -976,4 +1022,34 @@ export async function deleteBucketFile({
   nodeUri: NodeUri;
 }): Promise<PersistentStorageDeleteFileResponse> {
   return ProviderInstance.deletePersistentStorageFile(normalizeNodeUri(nodeUri), authToken, bucketId, fileName);
+}
+
+/**
+ * Open a download stream for a file stored in a bucket. Resolves once the node has accepted the
+ * request (so an auth/not-found failure throws here, not mid-drain); the returned iterable yields the
+ * file bytes. `offset` resumes a partial download.
+ */
+export async function downloadBucketFile({
+  authToken,
+  bucketId,
+  fileName,
+  nodeUri,
+  offset = 0,
+  signal,
+}: {
+  authToken: string;
+  bucketId: string;
+  fileName: string;
+  nodeUri: NodeUri;
+  offset?: number;
+  signal?: AbortSignal;
+}): Promise<AsyncIterable<Uint8Array>> {
+  return ProviderInstance.downloadPersistentStorageFile(
+    normalizeNodeUri(nodeUri),
+    authToken,
+    bucketId,
+    fileName,
+    offset,
+    signal
+  );
 }

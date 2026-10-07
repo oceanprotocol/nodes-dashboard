@@ -1,8 +1,11 @@
+import { CHAIN_ID } from '@/constants/chains';
 import { getTokenDecimals } from '@/lib/token-symbol';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import {
+  collectNodeFees as collectNodeFeesService,
   createNodeBucket as createNodeBucketService,
   deleteBucketFile as deleteBucketFileService,
+  downloadBucketFile as downloadBucketFileService,
   fetchNodeConfig,
   getComputeJobResult,
   getComputeStatus,
@@ -58,6 +61,19 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 export type NodeUri = OceanNode | string[];
 
 interface P2PContextType {
+  /**
+   *
+   * This is a request that uses admin signature validation on the ocean-node.
+   * Transfers tokens from the node's wallet to `destinationAddress`.
+   */
+  collectNodeFees: (args: {
+    amount: string;
+    consumerAddress?: string;
+    destinationAddress: string;
+    nodeUri: NodeUri;
+    signMessage: SignMessageFn;
+    tokenAddress: string;
+  }) => Promise<{ tx: string; message: string }>;
   computeLogs: any;
   computeResult: Record<string, any> | Uint8Array | undefined;
   computeStatus: Record<string, any> | null;
@@ -152,6 +168,18 @@ interface P2PContextType {
     fileName: string;
     nodeUri: NodeUri;
   }) => Promise<PersistentStorageDeleteFileResponse>;
+  /**
+   * Open a download stream for a bucket file. Resolves once the node accepts the request; the
+   * returned iterable yields the bytes. `offset` resumes a partial download.
+   */
+  downloadBucketFile: (args: {
+    authToken: string;
+    bucketId: string;
+    fileName: string;
+    nodeUri: NodeUri;
+    offset?: number;
+    signal?: AbortSignal;
+  }) => Promise<AsyncIterable<Uint8Array>>;
   getPeerMultiaddr: (peerId: string) => Promise<string>;
   sendCommand: (nodeUri: NodeUri, command: any) => Promise<any>;
   streamComputeResult: (
@@ -366,6 +394,41 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         nodeUri,
         params,
         signMessage,
+      });
+    },
+    [isReady]
+  );
+
+  const collectNodeFees = useCallback(
+    async ({
+      amount,
+      consumerAddress,
+      destinationAddress,
+      nodeUri,
+      signMessage,
+      tokenAddress,
+    }: {
+      amount: string;
+      consumerAddress?: string;
+      destinationAddress: string;
+      nodeUri: NodeUri;
+      signMessage: SignMessageFn;
+      tokenAddress: string;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      if (!consumerAddress) {
+        throw new Error('Missing consumer address');
+      }
+      return collectNodeFeesService({
+        amount,
+        chainId: CHAIN_ID,
+        consumerAddress,
+        destinationAddress,
+        nodeUri,
+        signMessage,
+        tokenAddress,
       });
     },
     [isReady]
@@ -592,6 +655,30 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
     [isReady]
   );
 
+  const downloadBucketFile = useCallback(
+    async ({
+      authToken,
+      bucketId,
+      fileName,
+      nodeUri,
+      offset,
+      signal,
+    }: {
+      authToken: string;
+      bucketId: string;
+      fileName: string;
+      nodeUri: NodeUri;
+      offset?: number;
+      signal?: AbortSignal;
+    }) => {
+      if (!isReady) {
+        throw new Error('Node not ready');
+      }
+      return downloadBucketFileService({ authToken, bucketId, fileName, nodeUri, offset, signal });
+    },
+    [isReady]
+  );
+
   const serviceStart = useCallback(
     async (nodeUri: NodeUri, signerOrAuthToken: SignerOrAuthTokenOrSignature, params: ServiceStartParams) => {
       if (!isReady) {
@@ -725,6 +812,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   return (
     <P2PContext.Provider
       value={{
+        collectNodeFees,
         computeLogs,
         computeResult,
         computeStatus,
@@ -732,6 +820,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
         createNodeBucket,
         renameBucket,
         deleteBucketFile,
+        downloadBucketFile,
         error,
         fetchConfig: fetchConfigCtx,
         getComputeResult,

@@ -4,6 +4,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import ConfirmModal from '@/components/modal/confirm-modal';
+import DownloadFileButton from '@/components/node-storage/download-file-button';
 import EditBucketAccessModal from '@/components/node-storage/edit-bucket-access-modal';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
@@ -231,19 +232,22 @@ const BucketFiles: React.FC<BucketFilesProps> = ({ bucketId, node }) => {
         actionsColumn={(params) => {
           const deleting = deletingFile[`${bucketId}:${params.row.name}`] ?? false;
           return (
-            <Button
-              color="accent1"
-              contentBefore={deleting ? null : <DeleteIcon />}
-              loading={deleting}
-              onClick={(e) => {
-                e.stopPropagation();
-                setPendingDelete(params.row.name);
-              }}
-              size="sm"
-              variant="transparent"
-            >
-              Delete
-            </Button>
+            <>
+              <DownloadFileButton bucketId={bucketId} file={params.row} nodeId={nodeId} nodeUri={nodeUri} />
+              <Button
+                color="accent1"
+                contentBefore={deleting ? null : <DeleteIcon />}
+                loading={deleting}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPendingDelete(params.row.name);
+                }}
+                size="sm"
+                variant="transparent"
+              >
+                Delete
+              </Button>
+            </>
           );
         }}
         loading={loading}

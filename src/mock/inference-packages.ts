@@ -8,13 +8,16 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
  * fetched by id when a package is opened. Model ids are real, ungated HF repos.
  *
  * These mocks stand in for templates fetched from a node — so each carries `sourcePeerIds`, the
- * nodes it may be run on (the list below). The details modal lists every one of those nodes'
+ * nodes it may be run on (the list below). The details page lists every one of those nodes'
  * environments, filtered to those that satisfy `requiredResources`, and the user picks one there.
  */
 
-// Real service-on-demand nodes these mock packages can run on — the modal lists their environments.
+// Real service-on-demand nodes these mock packages can run on — the details page lists their environments.
 // Add more peer ids here to offer a package on more nodes.
-const NODE_IDS = ['16Uiu2HAmVa9jQFm4SKrNtYs1QXLzwmMa8YPBCAjEBf8aR8dbLgeE', '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi'];
+const NODE_IDS = [
+  '16Uiu2HAmVa9jQFm4SKrNtYs1QXLzwmMa8YPBCAjEBf8aR8dbLgeE',
+  '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
+];
 
 // Shared resource floors/recommendations — every package targets the same single-GPU footprint.
 const REQUIRED_RESOURCES: ResourceRequirement[] = [
