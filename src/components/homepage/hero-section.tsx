@@ -1,5 +1,6 @@
 import { getRoutes } from '@/config';
 import { SHOWCASE_ITEMS } from '@/services/showcase';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import Button from '../button/button';
 import Container from '../container/container';
 import RotatingText from '../rotating-text/rotating-text';
@@ -28,12 +29,17 @@ export default function HeroSection() {
             <p className={styles.subtitle}>Generate images and video on GPUs booked by the hour.</p>
           </div>
           <div className={styles.actions}>
-            <Button color="accent1" href={getRoutes().inference.path} size="lg">
-              Use a model
+            <Button
+              color="accent1"
+              contentBefore={<AutoAwesomeOutlinedIcon />}
+              href={getRoutes().inference.path}
+              size="lg"
+            >
+              Generate now
             </Button>
-            <Button color="accent1" href={getRoutes().runJob.path} size="lg" variant="outlined">
+            {/* <Button color="accent1" href={getRoutes().runJob.path} size="lg" variant="outlined">
               Run a job
-            </Button>
+            </Button> */}
           </div>
         </div>
       </Container>
