@@ -4,7 +4,136 @@
   gap: 12px;
 }
 
+.automatic {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--background-glass);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--accent1);
+  background: color-mix(in srgb, var(--accent1) 8%, transparent);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--background-glass-secondary);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.description {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.retention {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 24px;
+  border-left: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.retention > svg {
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.retention > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.retention strong {
+  font-size: 16px;
+}
+
+.retention span,
+.note,
+.optional {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.note {
+  margin: 0;
+}
+
+.custom {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 12px;
+}
+
+.customHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.customHeader > button {
+  flex-shrink: 0;
+}
+
 .select {
-  min-width: 220px;
-  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .automatic {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .retention {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding: 14px 0 0;
+  }
+
+  .customHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
 }
