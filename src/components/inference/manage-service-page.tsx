@@ -1019,7 +1019,7 @@ const ManageServicePage: React.FC = () => {
               </div>
               <div className={styles.headerStatus}>
                 {/* How far along the startup is, next to what the status says it is. Renders
-                    nothing once the engine answers, or on a node that reports no readiness. */}
+                    nothing once the engine answers, or once a download with no readiness ends. */}
                 <ServiceStartupIndicator className={styles.headerProgress} job={job} />
                 <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
                   {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
