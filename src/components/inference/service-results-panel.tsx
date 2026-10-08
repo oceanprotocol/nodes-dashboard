@@ -65,8 +65,8 @@ const ServiceResultsPanel: React.FC<ServiceResultsPanelProps> = ({ isExpired, jo
         <span className={styles.badge}>ZIP archives</span>
       </div>
       <p className={styles.notice}>
-        Outputs are archived when the service stops or its session ends. Restarts normally keep outputs available.
-        Download files you want to keep before the node’s storage period ends.
+        Outputs are archived when the service stops or its session ends. Download files you want to keep before the
+        node’s storage period ends.
       </p>
 
       {canDownloadLive ? (

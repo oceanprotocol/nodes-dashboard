@@ -603,10 +603,7 @@ const ManageServicePage: React.FC = () => {
       : undefined;
   const defaultToken = selectedToken?.address;
   const isTemplate = !!template;
-  // Edit relaunches the SAME bundle through serviceRestart, which recreates the container from the
-  // image — service containers get no volume, so every relaunch re-downloads every bundled model on
-  // the clock the user already paid for. Worth it to fix a wrong token; pure loss when there is
-  // nothing to change, so a bundle that declares no configurable env vars doesn't offer Edit at all.
+  // A bundle without configurable env vars has no settings to edit.
   const bundleHasConfig = (template?.userConfigurableEnvVars?.length ?? 0) > 0;
   // What the container actually runs, per the node's job record — outranks the template the link
   // names, which an Edit relaunch may have swapped away from. Null until the first poll lands.

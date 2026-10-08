@@ -4,6 +4,7 @@ import CreateBucketModal from '@/components/node-storage/create-bucket-modal';
 import { useLoadNodeBuckets } from '@/contexts/node-storage-context';
 import { toNodeUri } from '@/services/inference-launch';
 import { EnvNodeInfo } from '@/types/environments';
+import { formatDuration } from '@/utils/formatters';
 import AddIcon from '@mui/icons-material/Add';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './template-bucket-picker.module.css';
@@ -11,17 +12,27 @@ import styles from './template-bucket-picker.module.css';
 type TemplateBucketPickerProps = {
   /** The environment's own node — the bucket must live where the service will run, not the app default. */
   nodeInfo: EnvNodeInfo;
+  storageExpiry?: number;
   selectedBucketId: string | null;
   onSelect: (bucketId: string | null) => void;
 };
 
 /**
- * Persistent-storage bucket picker for the template config step — the bucket this app mounts to cache
- * its model weights across relaunches. Only ever offers buckets `fetchBuckets` actually returned for
- * this node, never a free-text id: the node-side mount runs after the escrow claim, so an id the node
- * doesn't recognize would cost the user their payment rather than just fail to load.
+ * Optional output bucket for template results. Only offers buckets returned by this node:
+ * the mount happens after the escrow claim, so an unknown bucket could cost the user their payment.
  */
-const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({ nodeInfo, selectedBucketId, onSelect }) => {
+const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({
+  nodeInfo,
+  storageExpiry,
+  selectedBucketId,
+  onSelect,
+}) => {
+  const retention =
+    storageExpiry != null && Number.isFinite(storageExpiry) && storageExpiry >= 0
+      ? storageExpiry >= 86400 && storageExpiry % 86400 === 0
+        ? `${storageExpiry / 86400} ${storageExpiry === 86400 ? 'day' : 'days'}`
+        : formatDuration(storageExpiry)
+      : null;
   const [createOpen, setCreateOpen] = useState(false);
 
   const nodeId = nodeInfo.id;
@@ -42,18 +53,29 @@ const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({ nodeInfo, s
   return (
     <div className={styles.section}>
       <div>
-        <h4>Persistent storage</h4>
-        <div className="textSecondary">Caches this app&apos;s model weights so relaunches skip the download.</div>
+        <h4>Result storage</h4>
+        <div className="textSecondary">
+          The node automatically creates storage for this run&apos;s results. Without a custom bucket, results are
+          archived when the service stops or its session ends
+          {retention
+            ? ` and kept for ${retention} after the session ends.`
+            : ' and kept until the node’s storage period ends.'}{' '}
+          Download results you want to keep before they expire.
+        </div>
+        <div className="textSecondary">
+          Optionally create or select a custom bucket to store results and reuse them as input on a different run.
+          Custom buckets follow their own storage terms.
+        </div>
       </div>
       <Select
         className={styles.select}
-        label="Bucket"
+        label="Result bucket (optional)"
         onChange={(e) => onSelect((e.target.value as string) || null)}
         options={[
-          { value: '', label: 'No bucket' },
+          { value: '', label: 'Automatic result storage' },
           ...nodeBuckets.map((b) => ({ value: b.bucketId, label: b.label || b.bucketId })),
         ]}
-        placeholder={loading ? 'Loading buckets…' : 'No bucket'}
+        placeholder={loading ? 'Loading buckets…' : 'Automatic result storage'}
         size="md"
         topRight={
           <Button
@@ -69,11 +91,6 @@ const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({ nodeInfo, s
         }
         value={selectedBucketId ?? ''}
       />
-      {!selectedBucketId && (
-        <div className="textWarning">
-          Without a bucket, this app re-downloads several GB of model weights on every launch, inside your paid session.
-        </div>
-      )}
       <CreateBucketModal
         isOpen={createOpen}
         node={{ friendlyName: nodeInfo.friendlyName, nodeId, nodeUri }}
