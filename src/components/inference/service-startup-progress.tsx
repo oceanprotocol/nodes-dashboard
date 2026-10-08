@@ -3,6 +3,11 @@ import { formatBytes } from '@/utils/formatters';
 import { ServiceJob, ServiceStatusNumber } from '@oceanprotocol/lib';
 import styles from './service-startup-progress.module.css';
 
+/** The last startup step, named for engines the node identifies (`readiness.engine`). */
+const STARTING_LABELS: Record<string, string> = {
+  comfyui: 'Starting ComfyUI',
+};
+
 /**
  * What the service is doing right now, in one line — for the page header, beside the status chip.
  *
@@ -30,16 +35,22 @@ export function useStartupSummary(job: ServiceJob | null): { label: string; perc
     }
     return { label: 'Downloading image', percent: pull.percent };
   }
-  if (model && model.percent === undefined) {
-    // Bytes but no denominator (a local path, or a repo the Hub has not indexed): say how much has
-    // arrived rather than drawing a bar that cannot fill.
-    return { label: `Downloading model · ${formatBytes(model.downloadedBytes)}`, percent: null };
+  // A ComfyUI bundle lists its files up front, so it is done when every file is, and its count
+  // rides along with the bytes.
+  const filesTotal = model?.filesTotal;
+  const downloading = model && (filesTotal !== undefined ? model.filesComplete < filesTotal : model.percent !== 100);
+  if (downloading) {
+    const label =
+      filesTotal !== undefined ? `Downloading models (${model.filesComplete} of ${filesTotal})` : 'Downloading model';
+    if (model.percent === undefined) {
+      // Bytes but no denominator (a local path, or a repo the Hub has not indexed): say how much has
+      // arrived rather than drawing a bar that cannot fill.
+      return { label: `${label} · ${formatBytes(model.downloadedBytes)}`, percent: null };
+    }
+    return { label, percent: model.percent };
   }
-  if (model?.percent !== undefined && model.percent < 100) {
-    return { label: 'Downloading model', percent: model.percent };
-  }
-  // Weights are in; the engine is loading them onto the GPU. Nothing reports progress for this.
-  return { label: 'Starting engine', percent: null };
+  // Weights are in; the engine is starting up. Nothing reports progress for this.
+  return { label: STARTING_LABELS[readiness.engine ?? ''] ?? 'Starting engine', percent: null };
 }
 
 /** The header readout: a sliver of a bar when there is a real percentage, plus its label. */

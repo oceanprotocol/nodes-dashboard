@@ -41,7 +41,8 @@ export interface ServiceImagePullProgress {
 }
 
 /**
- * Model-weight download, read by the node from the container's own Hugging Face cache.
+ * Model-weight download, read by the node from the container's own Hugging Face cache — or, for a
+ * ComfyUI bundle, from the model list its script writes, which also gives `filesTotal`.
  *
  * `totalBytes`/`percent` are present only when the size could be established — the engine is
  * serving a Hub repo AND the Hub published a safetensors index for it. Pointed at a local path, an
@@ -55,6 +56,8 @@ export interface ServiceModelDownload {
   percent?: number;
   filesComplete: number;
   filesInFlight: number;
+  /** Files the service downloads, when it lists them up front (a ComfyUI bundle). */
+  filesTotal?: number;
   updatedAt: number;
 }
 
