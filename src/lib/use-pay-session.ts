@@ -32,6 +32,12 @@ export interface PaySessionParams {
    * the `payment_*` events can't be attributed to a flow in PostHog.
    */
   flow?: PaymentFlow;
+  /** Analytics only: symbol of the payment token (e.g. "COMPY", "USDC"). */
+  tokenSymbol?: string;
+  /** Analytics only: total cost of the service in token units (not wei) — what the payment summary shows. */
+  totalCost?: number;
+  /** Analytics only: length of the session being paid for (the extra time, for a prolong). */
+  durationSeconds?: number;
   /** The success toast, naming what happens next. Defaults to a bare "Payment authorized." */
   successMessage?: string;
 }
@@ -71,6 +77,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
       maxLockSeconds,
       maxLockCount,
       flow,
+      tokenSymbol,
+      totalCost,
+      durationSeconds,
       successMessage,
     }: PaySessionParams) => {
       if (!tokenAddress || !spender) {
@@ -80,6 +89,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
       }
 
       const needsDeposit = new BigNumber(depositAmount ?? 0).gt(0);
+      // Shared by `payment_deposit` and `payment_authorize` on both wallet paths, so revenue can be
+      // attributed per token/flow from either event.
+      const paymentProps = { flow, tokenAddress, tokenSymbol, totalCost, durationSeconds };
 
       setIsPaying(true);
       setError(undefined);
@@ -98,9 +110,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           });
           await bundleTx.wait();
           if (needsDeposit) {
-            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount, flow });
+            posthog.capture('payment_deposit', { ...paymentProps, amount: depositAmount });
           }
-          posthog.capture('payment_authorize', { flow });
+          posthog.capture('payment_authorize', paymentProps);
         } else {
           const escrowAddress = getEscrowAddressForChain(chainId) as `0x${string}`;
           const tokenDecimals = await getTokenDecimals(tokenAddress);
@@ -139,9 +151,9 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           await sendTransaction(calls);
 
           if (needsDeposit) {
-            posthog.capture('payment_deposit', { tokenAddress, amount: depositAmount, flow });
+            posthog.capture('payment_deposit', { ...paymentProps, amount: depositAmount });
           }
-          posthog.capture('payment_authorize', { flow });
+          posthog.capture('payment_authorize', paymentProps);
         }
 
         toast.success(successMessage ?? 'Payment authorized.');
@@ -153,6 +165,7 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           stage: 'pay_session',
           flow,
           token_address: tokenAddress,
+          token_symbol: tokenSymbol,
           peer_id: peerId,
           deposit_amount: depositAmount,
         });
