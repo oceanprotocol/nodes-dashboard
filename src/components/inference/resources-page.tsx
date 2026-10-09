@@ -143,9 +143,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        // Config is skipped on a fresh launch unless templateNeedsConfigStep — a required env var has
-        // to be filled or the container fails, and the bucket pick has to happen before payment, since
-        // a bad bucket id costs the escrow claim, not just a failed page load.
+        // Show result storage and configurable env vars before payment for every template.
         // Pin recommended CPU/RAM/disk into the URL either way (re-hydrated from the query on arrival).
         const sizing = selectedTemplate ? templateFloorSizing(selectedTemplate) : undefined;
         const nextStep = needsConfigStep ? 'config' : 'payment';

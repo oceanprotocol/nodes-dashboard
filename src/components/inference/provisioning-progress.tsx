@@ -76,8 +76,7 @@ const ProvisioningProgress: React.FC<ProvisioningProgressProps> = ({
 
   const state = useMemo(() => parseProvisioning(lines), [lines]);
 
-  // A new provisioning run: the container went away and came back (an Edit relaunch re-downloads every
-  // bundled model), or this panel is watching a different service now. Re-open so its markers are read.
+  // A new provisioning run or a different service: re-open so its markers are read.
   // Declared before the marker effect so that when both fire in one commit, "complete" is what sticks.
   useEffect(() => {
     setCompleted(false);

@@ -38,3 +38,9 @@
     }
   }
 }
+
+.notice {
+  margin: 0 16px 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}

@@ -733,6 +733,30 @@ export function demuxDockerLogs(bytes: Uint8Array): string {
 }
 
 /**
+ * Open a download stream for a service's /data/outputs zip (services without an output bucket).
+ * `index` is one of the job's `outputArchives` — resumable from `offset` — or `'live'` for a zip of
+ * the running container, built as it's read (no known size, not resumable). Resolves once the node
+ * accepts the request, so a refusal (401/404/409) throws here rather than mid-drain.
+ */
+export async function streamServiceResult({
+  authToken,
+  index,
+  nodeUri,
+  offset = 0,
+  serviceId,
+  signal,
+}: {
+  authToken: string;
+  index: number | 'live';
+  nodeUri: NodeUri;
+  offset?: number;
+  serviceId: string;
+  signal?: AbortSignal;
+}): Promise<AsyncIterable<Uint8Array>> {
+  return ProviderInstance.serviceGetResult(normalizeNodeUri(nodeUri), authToken, serviceId, index, offset, signal);
+}
+
+/**
  * Extend a running service's lifetime by `additionalDuration` seconds. The node charges the extra
  * runtime against the same escrow flow as the initial start and records it in `extendPayments`.
  */
@@ -918,6 +942,26 @@ export async function collectNodeFees({
 
 export async function getPeerMultiaddr(peerId: string): Promise<string> {
   return ProviderInstance.getMultiaddrFromPeerId(peerId);
+}
+
+/**
+ * Whether a node honours bucket access lists. ocean-node reports it as
+ * `persistentStorage.allowBucketSharing` on its status; while it is off (the node default), only a
+ * bucket's owner can use the bucket and the node refuses to create one with an access list.
+ *
+ * - `allowed` — sharing is on, or the node predates the toggle (older nodes always honoured access lists).
+ * - `disabled` — the node explicitly turned sharing off.
+ * - `unavailable` — the node reports no persistent storage at all.
+ */
+export type BucketSharing = 'allowed' | 'disabled' | 'unavailable';
+
+export async function getNodeBucketSharing(nodeUri: NodeUri, signal?: AbortSignal): Promise<BucketSharing> {
+  const status = await ProviderInstance.getNodeStatus(normalizeNodeUri(nodeUri), signal);
+  const storage = status?.persistentStorage;
+  if (!storage) {
+    return 'unavailable';
+  }
+  return storage.allowBucketSharing === false ? 'disabled' : 'allowed';
 }
 
 export async function getNodeBuckets({

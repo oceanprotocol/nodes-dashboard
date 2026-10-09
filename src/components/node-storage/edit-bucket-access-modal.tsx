@@ -2,6 +2,7 @@
 
 import Button from '@/components/button/button';
 import CopyButton from '@/components/button/copy-button';
+import { useNodeBucketSharing } from '@/components/hooks/use-node-bucket-sharing';
 import Modal from '@/components/modal/modal';
 import AccessListEditor from '@/components/node-storage/access-list-editor';
 import { useNodeStorage } from '@/contexts/node-storage-context';
@@ -60,6 +61,7 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
   const { getAccessListAddresses, addToAccessList, removeFromAccessList } = useNodeStorage();
 
   const { friendlyName, nodeId } = node;
+  const { sharing } = useNodeBucketSharing(node);
 
   const [accessListStates, setAccessListStates] = useState<Record<string, AccessListState>>(() =>
     buildAccessListsStates(bucket)
@@ -141,6 +143,13 @@ const EditBucketAccessModal: React.FC<EditBucketAccessModalProps> = ({
             <strong>{bucket.bucketId}</strong>
           </div>
         </div>
+
+        {sharing === 'disabled' ? (
+          <div className={styles.notice}>
+            This node has bucket sharing turned off, so only you can use this bucket. The wallets below keep their place
+            on the access list, and get access again if the node operator turns sharing on.
+          </div>
+        ) : null}
 
         <div className="flexColumn gapSm">
           {Object.values(accessListStates).length === 0 && (
