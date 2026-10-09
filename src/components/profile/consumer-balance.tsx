@@ -6,11 +6,13 @@ import TransferModal from '@/components/profile/transfer-modal';
 import { getExplorerUrl } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useTransferHistory } from '@/lib/use-transfer-history';
+import { DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
 import { formatNumber, formatWalletAddress } from '@/utils/formatters';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
 import SendIcon from '@mui/icons-material/Send';
 import { CircularProgress } from '@mui/material';
 import { toast } from 'react-toastify';
@@ -32,6 +34,15 @@ const ConsumerBalance = () => {
   const [mounted, setMounted] = useState(false);
   const [page, setPage] = useState(0);
 
+  // Card top-up (Privy fiat on-ramp): USDC on Base, delivered straight to the smart account.
+  const { canTopup, isToppingUp, startTopup, waitingForUsdc } = useCardTopup({
+    source: 'profile',
+    onArrived: () => {
+      refetchBalances();
+      refetchHistory();
+    },
+  });
+
   // COMPY is not transferable between wallets.
   const transferableBalances = useMemo(
     () => balances.filter((balance) => !NON_TRANSFERABLE_TOKENS.includes(balance.token)),
@@ -50,18 +61,34 @@ const ConsumerBalance = () => {
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
       <div className={styles.header}>
         <h3>Account balance</h3>
-        {isConnected && transferableBalances.length > 0 && (
-          <Button
-            color="accent1"
-            contentBefore={<SendIcon />}
-            onClick={() => setIsTransferModalOpen(true)}
-            size="md"
-            variant="outlined"
-          >
-            Transfer
-          </Button>
-        )}
+        <div className={styles.headerActions}>
+          {isConnected && canTopup && (
+            <Button
+              color="accent1"
+              contentBefore={isToppingUp ? null : <CreditCardIcon />}
+              loading={isToppingUp}
+              onClick={() => startTopup(DEFAULT_TOPUP_EUR)}
+              size="md"
+              variant="outlined"
+            >
+              Top up
+            </Button>
+          )}
+          {isConnected && transferableBalances.length > 0 && (
+            <Button
+              color="accent1"
+              contentBefore={<SendIcon />}
+              onClick={() => setIsTransferModalOpen(true)}
+              size="md"
+              variant="outlined"
+            >
+              Transfer
+            </Button>
+          )}
+        </div>
       </div>
+
+      {waitingForUsdc && <p className={styles.topupHint}>Waiting for your USDC to arrive on Base…</p>}
 
       <div className={styles.balanceList}>
         {!isConnected ? (

@@ -1,0 +1,288 @@
+import { BASE_CHAIN_ID } from '@/constants/chains';
+import { tokenAddressesByChainId } from '@/constants/tokens';
+import { getEmbeddedWallet } from '@/lib/embedded-wallet';
+import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useFiatOnramp, useWallets, type PrivyErrorCode } from '@privy-io/react-auth';
+import { useQuery } from '@tanstack/react-query';
+import posthog from 'posthog-js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
+import { createPublicClient, erc20Abi, formatUnits, http } from 'viem';
+import { base } from 'viem/chains';
+
+// Card -> USDC on Base through Privy's fiat on-ramp (Stripe).
+
+// Privy reads `defaultAmount` as the fiat amount the user pays, in the selected source currency (checked in
+// 3.47.0: it is sent as the quote's source amount), not as the USDC received. So every amount below is EUR,
+// and the USDC that lands is whatever the provider quotes for it.
+const TOPUP_FIAT_CURRENCY = 'eur';
+
+// Stripe's EU Travel Rule check starts at 1,000 EUR and asks the destination to prove ownership with a
+// signature. Until we know the smart account passes it, prefill below the threshold.
+// Only a prefill: the user can still change the amount inside Privy's modal.
+export const MAX_TOPUP_EUR = 950;
+
+/** Amount every top-up checkout opens with; the user can change it there. */
+export const DEFAULT_TOPUP_EUR = 20;
+
+// Stripe has no testnets, so the on-ramp always delivers on Base mainnet, even when the app runs on Sepolia.
+// Outside production the purchase itself runs in Privy's sandbox environment.
+export const BASE_CAIP2 = 'eip155:8453';
+export const BASE_USDC = tokenAddressesByChainId[BASE_CHAIN_ID].USDC;
+export const ONRAMP_ENVIRONMENT = process.env.NEXT_PUBLIC_APP_ENV === 'production' ? 'production' : 'sandbox';
+
+/** The user closed Privy's modal. Not a failure worth an error toast. */
+export const TOPUP_USER_EXITED = 'user_exited';
+
+export type TopupDestination = 'sca' | 'embedded';
+
+/** Where the top-up was started from, so the PostHog funnel can be split by entry point. */
+export type TopupSource = 'profile' | 'run_job' | 'inference' | 'dev_page';
+
+export type TopupResult = {
+  address: string;
+  /** The EUR amount prefilled in Privy's checkout. The USDC received is the provider's quote for it. */
+  amount: number;
+  /** 'confirmed' means the user reached the provider's success step, NOT that the USDC is on-chain. */
+  result: 'submitted' | 'confirmed';
+};
+
+export class FiatTopupError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = 'FiatTopupError';
+    this.code = code;
+  }
+}
+
+// Privy rejects a closed on-ramp modal with a bare Error('User exited flow'): no code to match on.
+const PRIVY_USER_EXITED_MESSAGE = 'User exited flow';
+
+// Privy errors carry `privyErrorCode` (e.g. onramp_payment_method_declined); RPC-style errors carry `code`.
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  if ('privyErrorCode' in error && typeof error.privyErrorCode === 'string') return error.privyErrorCode;
+  if ('code' in error && (typeof error.code === 'string' || typeof error.code === 'number')) return String(error.code);
+  if (error instanceof Error && error.message === PRIVY_USER_EXITED_MESSAGE) return TOPUP_USER_EXITED;
+  return undefined;
+}
+
+const IDENTITY_VERIFICATION_MESSAGE = 'Identity verification is needed to continue.';
+
+type PrivyErrorCodeValue = `${PrivyErrorCode}`;
+
+// PrivyErrorCode only exists in Privy's type declarations, not in its runtime exports, so the keys are its
+// string values; the type still rejects a misspelled code.
+const TOPUP_ERROR_MESSAGES: Partial<Record<PrivyErrorCodeValue, string>> = {
+  onramp_payment_method_declined: 'Your card was declined. Try another card.',
+  transaction_limit_reached: "You've reached your purchase limit. Try a smaller amount.",
+  onramp_identity_verification_required: IDENTITY_VERIFICATION_MESSAGE,
+  onramp_minimum_identity_verification_required: IDENTITY_VERIFICATION_MESSAGE,
+  onramp_document_verification_required: IDENTITY_VERIFICATION_MESSAGE,
+  onramp_wallet_ownership_required: "We couldn't verify this wallet for the purchase.",
+  onramp_quote_expired: 'The quote expired. Please try again.',
+};
+
+const hasTopupErrorMessage = (code: string): code is PrivyErrorCodeValue => code in TOPUP_ERROR_MESSAGES;
+
+export const getTopupErrorMessage = (code?: string): string =>
+  (code && hasTopupErrorMessage(code) && TOPUP_ERROR_MESSAGES[code]) ||
+  'Top-up failed. Please try again or use another payment method.';
+
+export function useUsdcTopup() {
+  const { user } = useOceanAccount();
+  const { wallets } = useWallets();
+  const embeddedWallet = getEmbeddedWallet(wallets);
+  const { fund } = useFiatOnramp();
+
+  // EOA users run without a Privy session (src/lib/use-injected-wallet.ts), which the funding flow needs.
+  const canTopup = user?.type === 'sca';
+  const scaAddress = user?.type === 'sca' ? user.address : undefined;
+  const embeddedAddress = embeddedWallet?.address;
+
+  const topup = useCallback(
+    async ({
+      amountEur,
+      destination,
+      source,
+    }: {
+      amountEur: number;
+      destination: TopupDestination;
+      source: TopupSource;
+    }): Promise<TopupResult> => {
+      const address = destination === 'sca' ? scaAddress : embeddedAddress;
+      if (!canTopup || !address) {
+        throw new FiatTopupError('Card top-up is not available for this account', 'topup_unavailable');
+      }
+      if (!(amountEur > 0)) {
+        throw new FiatTopupError('Amount must be greater than 0', 'invalid_amount');
+      }
+      const amount = Math.min(Math.ceil(amountEur), MAX_TOPUP_EUR);
+      const currency = TOPUP_FIAT_CURRENCY;
+
+      posthog.capture('fiat_topup_started', { destination, amount, currency, source });
+      try {
+        const { status } = await fund({
+          source: { assets: ['usd', 'eur'], defaultAsset: TOPUP_FIAT_CURRENCY },
+          destination: { chain: BASE_CAIP2, asset: BASE_USDC.address, address },
+          environment: ONRAMP_ENVIRONMENT,
+          defaultAmount: String(amount),
+        });
+        posthog.capture('fiat_topup_result', { result: status, destination, amount, currency, source });
+        return { address, amount, result: status };
+      } catch (error) {
+        const code = getErrorCode(error);
+        const message = error instanceof Error ? error.message : String(error);
+        posthog.capture('fiat_topup_error', { code, message, source });
+        throw new FiatTopupError(message, code);
+      }
+    },
+    [canTopup, embeddedAddress, fund, scaAddress]
+  );
+
+  return { canTopup, embeddedWallet, scaAddress, topup };
+}
+
+// Its own client on purpose: getRpc() follows NEXT_PUBLIC_APP_ENV (Sepolia in dev), but the on-ramp always
+// delivers on Base mainnet. viem's default transport for `base` is the public mainnet.base.org endpoint.
+const baseClient = createPublicClient({ chain: base, transport: http() });
+
+export function useBaseUsdcBalance(
+  address: string | undefined,
+  { refetchInterval }: { refetchInterval?: number } = {}
+) {
+  const query = useQuery({
+    queryKey: ['base-usdc-balance', address?.toLowerCase()],
+    enabled: !!address,
+    refetchInterval: refetchInterval ?? false,
+    queryFn: () =>
+      baseClient.readContract({
+        address: BASE_USDC.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [address as `0x${string}`],
+      }),
+  });
+
+  return {
+    balance: query.data,
+    error: query.error,
+    formatted: query.data === undefined ? undefined : formatUnits(query.data, BASE_USDC.decimals),
+    loading: query.isFetching,
+    refetch: query.refetch,
+  };
+}
+
+const ARRIVAL_POLL_INTERVAL_MS = 5000;
+const ARRIVAL_TIMEOUT_MS = 3 * 60 * 1000;
+
+/**
+ * Watches an address's Base USDC balance after a purchase. fund() resolving says nothing about delivery,
+ * so the chain is the only signal. Call `readBaseline()` before opening the checkout and pass its result to
+ * `watch()` after: the USDC can land before fund() resolves, so any balance read after the checkout opened
+ * may already include it. `watch()` then polls and calls `onArrived` on the first increase, or `onTimeout`
+ * once the window closes.
+ */
+export function useUsdcArrival(
+  address: string | undefined,
+  { onArrived, onTimeout }: { onArrived: (delta: string) => void; onTimeout: () => void }
+) {
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const baseline = useRef<bigint | undefined>(undefined);
+  const { balance, refetch } = useBaseUsdcBalance(address, {
+    refetchInterval: deadline === null ? undefined : ARRIVAL_POLL_INTERVAL_MS,
+  });
+
+  // Latest callbacks, so the effects below don't re-arm on every render of the caller.
+  const callbacks = useRef({ onArrived, onTimeout });
+  useEffect(() => {
+    callbacks.current = { onArrived, onTimeout };
+  });
+
+  /** The pre-purchase balance: the cached read if there is one, else a fresh one (undefined if it fails). */
+  const readBaseline = useCallback(async (): Promise<bigint | undefined> => {
+    if (balance !== undefined) return balance;
+    const { data } = await refetch();
+    return data;
+  }, [balance, refetch]);
+
+  // Takes the snapshot explicitly rather than reading `balance` here, which may already include the delivery.
+  const watch = useCallback((from: bigint | undefined) => {
+    baseline.current = from;
+    setDeadline(Date.now() + ARRIVAL_TIMEOUT_MS);
+  }, []);
+
+  useEffect(() => {
+    if (deadline === null || balance === undefined) return;
+    // No pre-purchase balance could be read (RPC down): the first one seen becomes the baseline. Best effort
+    // only: if the USDC already landed by then, this misses it and the caller gets onTimeout instead.
+    if (baseline.current === undefined) {
+      baseline.current = balance;
+      return;
+    }
+    if (balance > baseline.current) {
+      const delta = formatUnits(balance - baseline.current, BASE_USDC.decimals);
+      baseline.current = balance;
+      setDeadline(null);
+      callbacks.current.onArrived(delta);
+    }
+  }, [balance, deadline]);
+
+  useEffect(() => {
+    if (deadline === null) return;
+    const timer = setTimeout(() => {
+      setDeadline(null);
+      callbacks.current.onTimeout();
+    }, deadline - Date.now());
+    return () => clearTimeout(timer);
+  }, [deadline]);
+
+  return { readBaseline, watch, watching: deadline !== null };
+}
+
+/**
+ * The whole flow behind a "Top up" control: snapshot the balance, open Privy's checkout, toast the result,
+ * then watch for the USDC and call `onArrived` once it lands. Shared so every entry point behaves and
+ * words things the same way.
+ */
+export function useCardTopup({ source, onArrived }: { source: TopupSource; onArrived?: () => void }) {
+  const { canTopup, scaAddress, topup } = useUsdcTopup();
+  const [isToppingUp, setIsToppingUp] = useState(false);
+  const { readBaseline, watch, watching } = useUsdcArrival(scaAddress, {
+    onArrived: (delta) => {
+      toast.success(`${delta} USDC arrived in your wallet`);
+      onArrived?.();
+    },
+    onTimeout: () => toast.info('Your top-up is still processing. Your balance will update once it arrives.'),
+  });
+
+  const startTopup = useCallback(
+    async (amountEur: number) => {
+      setIsToppingUp(true);
+      try {
+        // Before the checkout opens: the USDC can land before topup() resolves.
+        const usdcBefore = await readBaseline();
+        const { result } = await topup({ amountEur, destination: 'sca', source });
+        if (result === 'confirmed') {
+          toast.success('Payment received. Your USDC is on its way, usually within a few minutes.');
+        } else {
+          toast.info('Purchase submitted. Your USDC will appear here once it arrives.');
+        }
+        watch(usdcBefore);
+      } catch (error) {
+        const code = error instanceof FiatTopupError ? error.code : undefined;
+        // Closing Privy's modal is a choice, not a failure.
+        if (code !== TOPUP_USER_EXITED) {
+          toast.error(getTopupErrorMessage(code));
+        }
+      } finally {
+        setIsToppingUp(false);
+      }
+    },
+    [readBaseline, source, topup, watch]
+  );
+
+  return { canTopup, isToppingUp, startTopup, waitingForUsdc: watching };
+}
