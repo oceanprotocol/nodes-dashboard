@@ -1,0 +1,32 @@
+/* Startup readout beside the status chip — see service-startup-progress.tsx. */
+.miniTrack {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 100px;
+  background: var(--background-glass-secondary);
+}
+
+.miniFill {
+  height: 100%;
+  border-radius: 100px;
+  /* The warming chip's amber: one colour for "up, but not serving yet". */
+  background: var(--warning-darker);
+  transition: width 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .miniFill {
+    transition: none;
+  }
+}
+
+.miniValue {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
