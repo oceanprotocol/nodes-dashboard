@@ -55,14 +55,20 @@ const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({
   const { account } = useOceanAccount();
   const nodeId = nodeInfo.id;
   const nodeUri = useMemo(() => toNodeUri(nodeInfo), [nodeInfo]);
-  const { buckets: nodeBuckets, loaded, loading, loadBuckets } = useLoadNodeBuckets({ nodeId, nodeUri });
+  const { buckets: nodeBuckets, loaded, loadFailed, loading, loadBuckets } = useLoadNodeBuckets({ nodeId, nodeUri });
 
   useEffect(() => {
-    if (loaded && selectedBucketId && !nodeBuckets.some((bucket) => bucket.bucketId === selectedBucketId)) {
+    if (
+      loaded &&
+      !loading &&
+      !loadFailed &&
+      selectedBucketId &&
+      !nodeBuckets.some((bucket) => bucket.bucketId === selectedBucketId)
+    ) {
       onSelect(null);
       setFeedback('Previous bucket is unavailable. Automatic storage selected.');
     }
-  }, [loaded, nodeBuckets, selectedBucketId, onSelect]);
+  }, [loaded, loading, loadFailed, nodeBuckets, selectedBucketId, onSelect]);
 
   const selectedBucket = nodeBuckets.find((bucket) => bucket.bucketId === selectedBucketId);
   const destination = selectedBucketId ? selectedBucket?.label || selectedBucketId : 'Automatic storage';

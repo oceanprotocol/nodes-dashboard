@@ -20,6 +20,8 @@ type NodeStorageContextType = {
   bucketFiles: Record<string, PersistentStorageFileEntry[]>;
   /** Fetching buckets by node ID */
   fetchingBuckets: Record<string, boolean>;
+  /** Whether the latest bucket load failed, by node ID */
+  bucketLoadFailed: Record<string, boolean>;
   /** Fetching bucket files by bucket ID */
   fetchingFiles: Record<string, boolean>;
   /** Uploading file by bucket ID */
@@ -92,6 +94,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
   const [buckets, setBuckets] = useState<Record<string, PersistentStorageBucket[]>>({});
   const [bucketFiles, setBucketFiles] = useState<Record<string, PersistentStorageFileEntry[]>>({});
   const [fetchingBuckets, setFetchingBuckets] = useState<Record<string, boolean>>({});
+  const [bucketLoadFailed, setBucketLoadFailed] = useState<Record<string, boolean>>({});
   const [fetchingFiles, setFetchingFiles] = useState<Record<string, boolean>>({});
   const [uploadingFile, setUploadingFile] = useState<Record<string, boolean>>({});
   const [deletingFile, setDeletingFile] = useState<Record<string, boolean>>({});
@@ -123,6 +126,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
     if (prevAddress.current !== account.address) {
       setBuckets({});
       setBucketFiles({});
+      setBucketLoadFailed({});
     }
     prevAddress.current = account.address;
   }, [account.address]);
@@ -142,7 +146,9 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
           })
         );
         setBuckets((prev) => ({ ...prev, [nodeId]: owned }));
+        setBucketLoadFailed((prev) => ({ ...prev, [nodeId]: false }));
       } catch (e) {
+        setBucketLoadFailed((prev) => ({ ...prev, [nodeId]: true }));
         setBuckets((prev) => ({ ...prev, [nodeId]: prev[nodeId] ?? [] }));
         throw e;
       } finally {
@@ -419,6 +425,7 @@ export function NodeStorageProvider({ children }: { children: ReactNode }) {
         buckets,
         bucketFiles,
         fetchingBuckets,
+        bucketLoadFailed,
         fetchingFiles,
         uploadingFile,
         deletingFile,
@@ -455,7 +462,7 @@ export function useNodeStorage() {
  */
 export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUri: NodeUri }) {
   const { account } = useOceanAccount();
-  const { buckets, fetchingBuckets, fetchBuckets } = useNodeStorage();
+  const { buckets, fetchingBuckets, bucketLoadFailed, fetchBuckets } = useNodeStorage();
   // Bucket calls go over the P2P node, which sets itself up after mount. Loading before it's up throws
   // "Node not ready" and nothing retries it — and the attempt below would already be spent — so wait
   // for it. isReady is a dependency of the effect, so this runs again once the node comes up.
@@ -490,6 +497,7 @@ export function useLoadNodeBuckets({ nodeId, nodeUri }: { nodeId: string; nodeUr
     buckets: buckets[nodeId] ?? [],
     /** True once this node's list has landed (success or failure) — vs. still loading for the first time. */
     loaded: nodeId in buckets,
+    loadFailed: bucketLoadFailed[nodeId] ?? false,
     loading: fetchingBuckets[nodeId] ?? false,
     loadBuckets,
   };
