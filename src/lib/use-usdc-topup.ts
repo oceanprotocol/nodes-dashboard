@@ -6,6 +6,7 @@ import { useFiatOnramp, useWallets, type PrivyErrorCode } from '@privy-io/react-
 import { useQuery } from '@tanstack/react-query';
 import posthog from 'posthog-js';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'react-toastify';
 import { createPublicClient, erc20Abi, formatUnits, http } from 'viem';
 import { base } from 'viem/chains';
 
@@ -21,7 +22,7 @@ const TOPUP_FIAT_CURRENCY = 'eur';
 // Only a prefill: the user can still change the amount inside Privy's modal.
 export const MAX_TOPUP_EUR = 950;
 
-/** Amount the profile top-up opens with when there is no shortfall to cover. */
+/** Amount every top-up checkout opens with; the user can change it there. */
 export const DEFAULT_TOPUP_EUR = 20;
 
 // Stripe has no testnets, so the on-ramp always delivers on Base mainnet, even when the app runs on Sepolia.
@@ -36,7 +37,7 @@ export const TOPUP_USER_EXITED = 'user_exited';
 export type TopupDestination = 'sca' | 'embedded';
 
 /** Where the top-up was started from, so the PostHog funnel can be split by entry point. */
-export type TopupSource = 'profile' | 'dev_page';
+export type TopupSource = 'profile' | 'run_job' | 'inference' | 'dev_page';
 
 export type TopupResult = {
   address: string;
@@ -239,4 +240,49 @@ export function useUsdcArrival(
   }, [deadline]);
 
   return { readBaseline, watch, watching: deadline !== null };
+}
+
+/**
+ * The whole flow behind a "Top up" control: snapshot the balance, open Privy's checkout, toast the result,
+ * then watch for the USDC and call `onArrived` once it lands. Shared so every entry point behaves and
+ * words things the same way.
+ */
+export function useCardTopup({ source, onArrived }: { source: TopupSource; onArrived?: () => void }) {
+  const { canTopup, scaAddress, topup } = useUsdcTopup();
+  const [isToppingUp, setIsToppingUp] = useState(false);
+  const { readBaseline, watch, watching } = useUsdcArrival(scaAddress, {
+    onArrived: (delta) => {
+      toast.success(`${delta} USDC arrived in your wallet`);
+      onArrived?.();
+    },
+    onTimeout: () => toast.info('Your top-up is still processing. Your balance will update once it arrives.'),
+  });
+
+  const startTopup = useCallback(
+    async (amountEur: number) => {
+      setIsToppingUp(true);
+      try {
+        // Before the checkout opens: the USDC can land before topup() resolves.
+        const usdcBefore = await readBaseline();
+        const { result } = await topup({ amountEur, destination: 'sca', source });
+        if (result === 'confirmed') {
+          toast.success('Payment received. Your USDC is on its way, usually within a few minutes.');
+        } else {
+          toast.info('Purchase submitted. Your USDC will appear here once it arrives.');
+        }
+        watch(usdcBefore);
+      } catch (error) {
+        const code = error instanceof FiatTopupError ? error.code : undefined;
+        // Closing Privy's modal is a choice, not a failure.
+        if (code !== TOPUP_USER_EXITED) {
+          toast.error(getTopupErrorMessage(code));
+        }
+      } finally {
+        setIsToppingUp(false);
+      }
+    },
+    [readBaseline, source, topup, watch]
+  );
+
+  return { canTopup, isToppingUp, startTopup, waitingForUsdc: watching };
 }

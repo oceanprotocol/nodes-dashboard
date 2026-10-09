@@ -3,6 +3,7 @@ import Card from '@/components/card/card';
 import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
+import { BASE_USDC, DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
 import { Authorizations } from '@/types/payment';
 import { formatTokenAmount, roundTokenAmount, sharedTokenAmountDecimals } from '@/utils/formatters';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -16,12 +17,14 @@ type PaymentSummaryProps = {
   escrowBalance: number | null;
   loadPaymentInfo: () => void;
   selectedToken: SelectedToken;
+  /** Which payment step renders this, for the card top-up's analytics. */
+  topupSource: 'run_job' | 'inference';
   totalCost: number;
   walletBalance: number;
 };
 
 // One label/value line in the ledger below the hero. `action` renders after the value (the
-// "Get more COMPY" link); `chip` renders before it, so warnings sit next to what they qualify.
+// "Get more COMPY" / "Top up with card" link); `chip` renders before it, so warnings sit next to what they qualify.
 const SummaryRow = ({
   action,
   chip,
@@ -57,10 +60,16 @@ const PaymentSummary = ({
   escrowBalance,
   loadPaymentInfo,
   selectedToken,
+  topupSource,
   totalCost,
   walletBalance,
 }: PaymentSummaryProps) => {
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  // Re-reading payment info once the USDC lands clears the shortfall and unblocks the pay button.
+  const { canTopup, isToppingUp, startTopup, waitingForUsdc } = useCardTopup({
+    source: topupSource,
+    onArrived: loadPaymentInfo,
+  });
 
   const tokenSymbol = selectedToken.symbol;
 
@@ -96,6 +105,28 @@ const PaymentSummary = ({
   const format = (amount: number) => formatTokenAmount(amount, selectedToken.address, decimals);
 
   const isCompy = selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase();
+
+  // The card on-ramp only delivers USDC on Base, so it can only cover a Base USDC payment. That also keeps it
+  // out of dev, where payments use Sepolia USDC. Smart-account users only (canTopup).
+  const isBaseUsdc = selectedToken.address.toLowerCase() === BASE_USDC.address.toLowerCase();
+  const showTopup = insufficientWallet && isBaseUsdc && canTopup;
+
+  const walletAction = isCompy ? (
+    <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
+      Get more COMPY
+    </button>
+  ) : waitingForUsdc ? (
+    <span className={styles.topupStatus}>Waiting for your USDC…</span>
+  ) : showTopup ? (
+    <button
+      className={styles.linkButton}
+      disabled={isToppingUp}
+      onClick={() => startTopup(DEFAULT_TOPUP_EUR)}
+      type="button"
+    >
+      {isToppingUp ? 'Opening checkout…' : 'Top up with card'}
+    </button>
+  ) : null;
 
   // No `padding` prop on the Card: the hero band spans the full width, so this component owns its
   // own insets rather than cancelling the card's with negative margins.
@@ -152,13 +183,7 @@ const PaymentSummary = ({
 
         {/* Wallet balance closes the ledger in both states — the limits above it expand in place. */}
         <SummaryRow
-          action={
-            isCompy ? (
-              <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
-                Get more COMPY
-              </button>
-            ) : null
-          }
+          action={walletAction}
           error={insufficientWallet}
           label="Available in wallet"
           muted={!insufficientWallet}

@@ -6,14 +6,7 @@ import TransferModal from '@/components/profile/transfer-modal';
 import { getExplorerUrl } from '@/constants/chains';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useTransferHistory } from '@/lib/use-transfer-history';
-import {
-  DEFAULT_TOPUP_EUR,
-  FiatTopupError,
-  getTopupErrorMessage,
-  TOPUP_USER_EXITED,
-  useUsdcArrival,
-  useUsdcTopup,
-} from '@/lib/use-usdc-topup';
+import { DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
 import { useWalletBalances } from '@/lib/use-wallet-balances';
 import { formatNumber, formatWalletAddress } from '@/utils/formatters';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -38,47 +31,17 @@ const ConsumerBalance = () => {
   const { balances, loading: loadingBalances, refetch: refetchBalances } = useWalletBalances();
   const { transfers, loading: loadingHistory, refetch: refetchHistory } = useTransferHistory();
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [isToppingUp, setIsToppingUp] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [page, setPage] = useState(0);
 
   // Card top-up (Privy fiat on-ramp): USDC on Base, delivered straight to the smart account.
-  const { canTopup, scaAddress, topup } = useUsdcTopup();
-  const {
-    readBaseline: readUsdcBaseline,
-    watch: watchUsdcArrival,
-    watching: waitingForUsdc,
-  } = useUsdcArrival(scaAddress, {
-    onArrived: (delta) => {
-      toast.success(`${delta} USDC arrived in your wallet`);
+  const { canTopup, isToppingUp, startTopup, waitingForUsdc } = useCardTopup({
+    source: 'profile',
+    onArrived: () => {
       refetchBalances();
       refetchHistory();
     },
-    onTimeout: () => toast.info('Your top-up is still processing. Your balance will update once it arrives.'),
   });
-
-  const handleTopup = async () => {
-    setIsToppingUp(true);
-    try {
-      // Before the checkout opens: the USDC can land before topup() resolves.
-      const usdcBefore = await readUsdcBaseline();
-      const { result } = await topup({ amountEur: DEFAULT_TOPUP_EUR, destination: 'sca', source: 'profile' });
-      if (result === 'confirmed') {
-        toast.success('Payment received. Your USDC is on its way, usually within a few minutes.');
-      } else {
-        toast.info('Purchase submitted. Your USDC will appear here once it arrives.');
-      }
-      watchUsdcArrival(usdcBefore);
-    } catch (error) {
-      const code = error instanceof FiatTopupError ? error.code : undefined;
-      // Closing Privy's modal is a choice, not a failure.
-      if (code !== TOPUP_USER_EXITED) {
-        toast.error(getTopupErrorMessage(code));
-      }
-    } finally {
-      setIsToppingUp(false);
-    }
-  };
 
   // COMPY is not transferable between wallets.
   const transferableBalances = useMemo(
@@ -104,7 +67,7 @@ const ConsumerBalance = () => {
               color="accent1"
               contentBefore={isToppingUp ? null : <CreditCardIcon />}
               loading={isToppingUp}
-              onClick={handleTopup}
+              onClick={() => startTopup(DEFAULT_TOPUP_EUR)}
               size="md"
               variant="outlined"
             >

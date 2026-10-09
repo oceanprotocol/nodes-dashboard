@@ -96,6 +96,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         escrowBalance={escrowBalance ?? 0}
         loadPaymentInfo={loadPaymentInfo}
         selectedToken={selectedToken}
+        topupSource="run_job"
         totalCost={totalCost}
         walletBalance={walletBalance ?? 0}
       />
