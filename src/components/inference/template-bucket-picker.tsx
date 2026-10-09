@@ -1,17 +1,18 @@
 import Button from '@/components/button/button';
-import Select from '@/components/input/select';
+import Modal from '@/components/modal/modal';
 import CreateBucketModal from '@/components/node-storage/create-bucket-modal';
 import { useLoadNodeBuckets } from '@/contexts/node-storage-context';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { toNodeUri } from '@/services/inference-launch';
 import { EnvNodeInfo } from '@/types/environments';
 import AddIcon from '@mui/icons-material/Add';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
-import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
+import SearchIcon from '@mui/icons-material/Search';
 import { useEffect, useMemo, useState } from 'react';
 import styles from './template-bucket-picker.module.css';
 
 type TemplateBucketPickerProps = {
-  /** The environment's own node — the bucket must live where the service will run, not the app default. */
   nodeInfo: EnvNodeInfo;
   storageExpiry?: number;
   selectedBucketId: string | null;
@@ -39,10 +40,7 @@ function formatStorageRetention(seconds: number | undefined): string | null {
   return parts.join(' ');
 }
 
-/**
- * Optional output bucket for template results. Only offers buckets returned by this node:
- * the mount happens after the escrow claim, so an unknown bucket could cost the user their payment.
- */
+/** Select only buckets returned by the launch node, since mounting happens after payment. */
 const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({
   nodeInfo,
   storageExpiry,
@@ -50,104 +48,178 @@ const TemplateBucketPicker: React.FC<TemplateBucketPickerProps> = ({
   onSelect,
 }) => {
   const retention = formatStorageRetention(storageExpiry);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-
+  const [search, setSearch] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const { account } = useOceanAccount();
   const nodeId = nodeInfo.id;
-  // Memoized — a fresh array every render would churn useLoadNodeBuckets' loadBuckets identity and
-  // re-run its load effect.
   const nodeUri = useMemo(() => toNodeUri(nodeInfo), [nodeInfo]);
-  const { buckets: nodeBuckets, loaded, loading } = useLoadNodeBuckets({ nodeId, nodeUri });
+  const { buckets: nodeBuckets, loaded, loading, loadBuckets } = useLoadNodeBuckets({ nodeId, nodeUri });
 
-  // A selectedBucketId that isn't in THIS node's list belongs to a different node (stale from a
-  // previously-picked template/node) — clear it once the list has landed, so the Select and the
-  // launch payload agree instead of silently sending an id this node never offered.
   useEffect(() => {
-    if (loaded && selectedBucketId && !nodeBuckets.some((b) => b.bucketId === selectedBucketId)) {
+    if (loaded && selectedBucketId && !nodeBuckets.some((bucket) => bucket.bucketId === selectedBucketId)) {
       onSelect(null);
+      setFeedback('Previous bucket is unavailable. Automatic storage selected.');
     }
   }, [loaded, nodeBuckets, selectedBucketId, onSelect]);
 
+  const selectedBucket = nodeBuckets.find((bucket) => bucket.bucketId === selectedBucketId);
+  const destination = selectedBucketId ? selectedBucket?.label || selectedBucketId : 'Automatic storage';
+  const query = search.trim().toLowerCase();
+  const matchingBuckets = nodeBuckets.filter((bucket) =>
+    `${bucket.label ?? ''} ${bucket.bucketId}`.toLowerCase().includes(query)
+  );
+  const automaticDetails =
+    storageExpiry === 0
+      ? 'Download results before the session ends.'
+      : retention
+        ? `Kept for ${retention} after the session ends.`
+        : 'Kept until the node’s storage period ends.';
+
+  const chooseStorage = (bucketId: string | null) => {
+    setFeedback(bucketId !== selectedBucketId ? 'Storage updated' : '');
+    onSelect(bucketId);
+    setPickerOpen(false);
+    setCreateOpen(false);
+  };
+
   return (
-    <div className={styles.section}>
-      <h4>Result storage</h4>
-      <div className={styles.automatic}>
+    <section className={styles.section} aria-label="Result storage">
+      <div className={styles.header}>
+        <h4>Save results to</h4>
+        <Button
+          color="accent1"
+          onClick={() => {
+            setSearch('');
+            setFeedback('');
+            setPickerOpen(true);
+          }}
+          size="sm"
+          type="button"
+          variant="transparent"
+        >
+          Change
+        </Button>
+      </div>
+      <div className={styles.destination}>
+        <span className={styles.icon}>
+          <FolderOutlinedIcon aria-hidden="true" />
+        </span>
         <div className={styles.summary}>
-          <span className={styles.icon}>
-            <FolderOutlinedIcon aria-hidden="true" />
-          </span>
-          <div>
-            <div className={styles.titleRow}>
-              <strong>{selectedBucketId ? 'Custom bucket storage' : 'Automatic storage'}</strong>
-              <span className={styles.badge}>Selected</span>
-            </div>
-            <p className={styles.description}>
-              {selectedBucketId
-                ? 'Results are saved directly to your selected bucket.'
-                : 'Your node saves this run’s results. No setup needed.'}
+          <strong>{destination}</strong>
+          <p>
+            {selectedBucketId ? 'Results reusable across runs. Your bucket’s storage terms apply.' : automaticDetails}
+          </p>
+          {!selectedBucketId && (
+            <p className={styles.hint}>
+              Storage is created automatically. Download files you want to keep before they expire.
             </p>
-          </div>
-        </div>
-        <div className={styles.retention}>
-          <ScheduleOutlinedIcon aria-hidden="true" />
-          <div>
-            <strong>{selectedBucketId ? 'Bucket storage period' : (retention ?? 'Set by the node')}</strong>
-            <span>
-              {selectedBucketId
-                ? 'Your bucket’s terms apply'
-                : storageExpiry === 0
-                  ? 'Download before the session ends'
-                  : 'after the session ends'}
-            </span>
-          </div>
+          )}
         </div>
       </div>
-      <p className={styles.note}>
-        {selectedBucketId
-          ? 'Files in this bucket can be reused as input on another run.'
-          : 'Results are archived when the service stops. Download files you want to keep before storage expires.'}
-      </p>
-      <div className={styles.custom}>
-        <div className={styles.customHeader}>
-          <div>
-            <div className={styles.titleRow}>
-              <strong>Reuse results across runs</strong>
-              <span className={styles.optional}>Optional</span>
-            </div>
-            <p className={styles.description}>Save to a custom bucket to use your results as input on another run.</p>
-          </div>
-          <Button
-            color="accent1"
-            contentBefore={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            size="sm"
+      <div className={styles.feedback} role="status" aria-live="polite" aria-atomic="true">
+        {feedback && (
+          <>
+            <CheckCircleOutlineIcon aria-hidden="true" />
+            <span>{feedback}</span>
+          </>
+        )}
+      </div>
+      <Modal isOpen={pickerOpen} onClose={() => setPickerOpen(false)} title="Change storage" width="sm" fullWidth>
+        <div className={styles.dialog}>
+          <button
+            className={`${styles.choice} ${!selectedBucketId ? styles.selected : ''}`}
+            onClick={() => chooseStorage(null)}
             type="button"
-            variant="transparent"
+            aria-label="Use automatic storage"
           >
-            Create bucket
-          </Button>
+            <FolderOutlinedIcon aria-hidden="true" />
+            <span className={styles.choiceText}>
+              <strong>
+                Automatic storage <span className={styles.badge}>Default</span>
+              </strong>
+              <span>{automaticDetails}</span>
+            </span>
+            {!selectedBucketId && <CheckCircleOutlineIcon className={styles.check} aria-label="Selected" />}
+          </button>
+          <div className={styles.bucketHeader}>
+            <strong>Custom buckets</strong>
+            <Button
+              color="accent1"
+              contentBefore={<AddIcon />}
+              size="xs"
+              type="button"
+              variant="transparent"
+              onClick={() => {
+                setPickerOpen(false);
+                setCreateOpen(true);
+              }}
+            >
+              Create bucket
+            </Button>
+          </div>
+          <p className={styles.description}>Reuse saved results as input on another run.</p>
+          <label className={styles.search}>
+            <SearchIcon aria-hidden="true" />
+            <input
+              aria-label="Search buckets"
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.preventDefault();
+              }}
+              placeholder="Search by name or ID"
+              type="search"
+              value={search}
+            />
+          </label>
+          <div className={styles.bucketList} aria-label="Available buckets" aria-busy={loading}>
+            {matchingBuckets.map((bucket) => (
+              <button
+                className={`${styles.choice} ${selectedBucketId === bucket.bucketId ? styles.selected : ''}`}
+                key={bucket.bucketId}
+                onClick={() => chooseStorage(bucket.bucketId)}
+                type="button"
+              >
+                <FolderOutlinedIcon aria-hidden="true" />
+                <span className={styles.choiceText}>
+                  <strong>{bucket.label || bucket.bucketId}</strong>
+                  {bucket.label && <span className={styles.bucketId}>{bucket.bucketId}</span>}
+                </span>
+                {selectedBucketId === bucket.bucketId && (
+                  <CheckCircleOutlineIcon className={styles.check} aria-label="Selected" />
+                )}
+              </button>
+            ))}
+            {!matchingBuckets.length && (
+              <p className={styles.empty} role="status">
+                {loading
+                  ? 'Loading buckets…'
+                  : !account.address
+                    ? 'Log in to view your buckets.'
+                    : query
+                      ? 'No buckets match your search.'
+                      : 'No buckets available on this node.'}
+              </p>
+            )}
+          </div>
+          {account.address && !loading && !nodeBuckets.length && (
+            <Button color="accent1" onClick={loadBuckets} size="xs" type="button" variant="transparent">
+              Reload buckets
+            </Button>
+          )}
         </div>
-        <Select
-          className={styles.select}
-          label="Save results to"
-          onChange={(e) => onSelect((e.target.value as string) || null)}
-          options={[
-            { value: '', label: 'Automatic storage (default)' },
-            ...nodeBuckets.map((b) => ({ value: b.bucketId, label: b.label || b.bucketId })),
-          ]}
-          placeholder={loading ? 'Loading buckets…' : 'Automatic storage (default)'}
-          size="md"
-          value={selectedBucketId ?? ''}
-        />
-      </div>
+      </Modal>
       <CreateBucketModal
         isOpen={createOpen}
         node={{ friendlyName: nodeInfo.friendlyName, nodeId, nodeUri }}
-        onClose={() => setCreateOpen(false)}
-        // createBucket already refetches internally — no need to reload here too. Auto-select the new
-        // bucket instead: it's the only reason the user opened this modal.
-        onSave={(_node, bucket) => onSelect(bucket.bucketId)}
+        onClose={() => {
+          setCreateOpen(false);
+          setPickerOpen(true);
+        }}
+        onSave={(_node, bucket) => chooseStorage(bucket.bucketId)}
       />
-    </div>
+    </section>
   );
 };
 
