@@ -76,6 +76,8 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
       handlePay({
         flow: 'run-job',
         tokenAddress: selectedToken.address,
+        tokenSymbol: selectedToken.symbol,
+        totalCost,
         peerId: selectedEnv.nodeId,
         spender: selectedEnv.consumerAddress,
         depositAmount: requirement.depositAmount.toString(),
@@ -83,7 +85,15 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         maxLockSeconds: requirement.maxLockSeconds.toString(),
         maxLockCount: requirement.maxLockCount.toString(),
       }),
-    [handlePay, selectedToken.address, selectedEnv.nodeId, selectedEnv.consumerAddress, requirement]
+    [
+      handlePay,
+      selectedToken.address,
+      selectedToken.symbol,
+      totalCost,
+      selectedEnv.nodeId,
+      selectedEnv.consumerAddress,
+      requirement,
+    ]
   );
 
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (

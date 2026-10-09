@@ -346,6 +346,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     const paid = await handlePay({
       flow: 'inference',
       tokenAddress,
+      tokenSymbol: selectedToken.symbol,
+      totalCost,
+      durationSeconds: jobDurationSeconds,
       peerId: selectedEnv.nodeInfo.id,
       spender: selectedEnv.environment.consumerAddress,
       depositAmount: requirement.depositAmount.toString(),
@@ -365,7 +368,16 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     // that follows leaves the page showing what escrow actually holds (the deposit stays there).
     void loadPaymentInfo();
     return true;
-  }, [selectedEnv, selectedToken, totalCost, escrowLockSeconds, loadPaymentInfo, handlePay, isProlongMode]);
+  }, [
+    selectedEnv,
+    selectedToken,
+    totalCost,
+    jobDurationSeconds,
+    escrowLockSeconds,
+    loadPaymentInfo,
+    handlePay,
+    isProlongMode,
+  ]);
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
   // without a complete selection. Skipped when hydration failed — we show a retry instead of
