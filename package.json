@@ -21,7 +21,7 @@
     "@chainsafe/libp2p-yamux": "^8.0.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@gitbook/embed": "^0.4.0",
+    "@gitbook/embed": "^0.5.1",
     "@google/generative-ai": "^0.24.1",
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
