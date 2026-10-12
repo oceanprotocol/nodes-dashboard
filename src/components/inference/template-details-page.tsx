@@ -254,9 +254,8 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
 
   /**
    * Quick start confirmed a pick: commit template + env + token + duration, then step forward. The
-   * resources step is skipped (the banner already picked the env), and so is config unless the template
-   * declares a required env var (without it the container starts and fails) or needs the bucket picker
-   * (templateNeedsConfigStep — that pick must happen before the escrow claim). The query is built
+   * resources step is skipped (the banner already picked the env). Config always shows result storage
+   * and any configurable env vars before payment. The query is built
    * from overrides so it doesn't depend on setState timing, and carries the CPU/RAM/disk the pick was
    * priced on so payment books that allocation (a bundle's disk floor covers its weights).
    */
@@ -428,11 +427,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     return null;
   };
 
-  /**
-   * The hint tracks routing: only a launch that stops at the config step (a required var, or a bucket
-   * picker, see templateNeedsConfigStep) reaches the form from here. A template whose vars are all
-   * optional goes straight to payment, where Advanced setup is the way to set them.
-   */
+  /** Template launches configure result storage and env vars on the next step. */
   const renderEnvVars = (tpl: AppTemplate) => {
     const specs = tpl.userConfigurableEnvVars ?? [];
     if (specs.length === 0) {
