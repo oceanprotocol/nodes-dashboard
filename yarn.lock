@@ -18,7 +18,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/core@npm:^4.88.1, @account-kit/core@npm:^4.88.4":
+"@aa-sdk/core@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@aa-sdk/core@npm:4.88.5"
+  dependencies:
+    abitype: "npm:^0.8.3"
+    eventemitter3: "npm:^5.0.1"
+    zod: "npm:^3.22.4"
+  peerDependencies:
+    viem: ^2.45.0
+  checksum: 10c0/d445b8fdb23281693aba1e66bc4035794a85e3e6f32cc9c01494f4a259bc34011150a513f8bd680aa683673608945dd7759141fcbc55be43b7ee83e93d6be8dc
+  languageName: node
+  linkType: hard
+
+"@account-kit/core@npm:^4.88.4":
   version: 4.88.4
   resolution: "@account-kit/core@npm:4.88.4"
   dependencies:
@@ -43,6 +56,31 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@account-kit/core@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/core@npm:4.88.5"
+  dependencies:
+    "@account-kit/infra": "npm:^4.88.5"
+    "@account-kit/logging": "npm:^4.88.5"
+    "@account-kit/react-native-signer": "npm:^4.88.5"
+    "@account-kit/signer": "npm:^4.88.5"
+    "@account-kit/smart-contracts": "npm:^4.88.5"
+    "@account-kit/wallet-client": "npm:^4.88.5"
+    "@solana/web3.js": "npm:^1.98.0"
+    alchemy-sdk: "npm:^3.0.0"
+    js-cookie: "npm:^3.0.5"
+    zod: "npm:^3.22.4"
+    zustand: "npm:^5.0.0-rc.2"
+  peerDependencies:
+    viem: ^2.45.0
+    wagmi: ^2.15.5
+  dependenciesMeta:
+    alchemy-sdk:
+      optional: true
+  checksum: 10c0/8deaf7e51c51f549debe35f88f5e2a0d2b5376efb9f0c1109c7755c2cb3e7b08340a4187a7eb3c5817ec3a1418fa2e920876805c7b4b9e559714bd25722e19ea
+  languageName: node
+  linkType: hard
+
 "@account-kit/infra@npm:4.84.1":
   version: 4.84.1
   resolution: "@account-kit/infra@npm:4.84.1"
@@ -61,7 +99,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/infra@npm:^4.88.1, @account-kit/infra@npm:^4.88.4":
+"@account-kit/infra@npm:^4.88.4":
   version: 4.88.4
   resolution: "@account-kit/infra@npm:4.88.4"
   dependencies:
@@ -79,13 +117,41 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/logging@npm:^4.84.1, @account-kit/logging@npm:^4.88.1, @account-kit/logging@npm:^4.88.4":
+"@account-kit/infra@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/infra@npm:4.88.5"
+  dependencies:
+    "@aa-sdk/core": "npm:^4.88.5"
+    "@account-kit/logging": "npm:^4.88.5"
+    alchemy-sdk: "npm:^3.0.0"
+    eventemitter3: "npm:^5.0.1"
+    zod: "npm:^3.22.4"
+  peerDependencies:
+    viem: ^2.45.0
+  dependenciesMeta:
+    alchemy-sdk:
+      optional: true
+  checksum: 10c0/f530ea389559de585fc0ebb5a434b5c88e9cb17d17e0e5d241189eeafec03aaae0f8b5d08f9e9e9a48a1e5d94dd31cb2402b4871012dd3fbf5d3e67cd9f5c0bf
+  languageName: node
+  linkType: hard
+
+"@account-kit/logging@npm:^4.84.1, @account-kit/logging@npm:^4.88.4":
   version: 4.88.4
   resolution: "@account-kit/logging@npm:4.88.4"
   dependencies:
     "@segment/analytics-next": "npm:1.74.0"
     uuid: "npm:^11.0.2"
   checksum: 10c0/1aced4b7fa490ac6cf322f76173bfaddf713e587c69153a157f59d014e4bcae1d2371f22584a65032796e55e434b0c8552ec7412cd7b5495898a81fcdd2a9d95
+  languageName: node
+  linkType: hard
+
+"@account-kit/logging@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/logging@npm:4.88.5"
+  dependencies:
+    "@segment/analytics-next": "npm:1.74.0"
+    uuid: "npm:^11.0.2"
+  checksum: 10c0/52f044a416a2de3aed78ad44ad58f30bcf65ef6e604d8b1342e6cce04df32f778271d9dd5337d14c4d0306b11adc83c6d18b2eb2ae28a2555cafed88452ef934
   languageName: node
   linkType: hard
 
@@ -132,15 +198,37 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/react@npm:4.88.1":
-  version: 4.88.1
-  resolution: "@account-kit/react@npm:4.88.1"
+"@account-kit/react-native-signer@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/react-native-signer@npm:4.88.5"
   dependencies:
-    "@account-kit/core": "npm:^4.88.1"
-    "@account-kit/infra": "npm:^4.88.1"
-    "@account-kit/logging": "npm:^4.88.1"
-    "@account-kit/signer": "npm:^4.88.1"
-    "@account-kit/wallet-client": "npm:^4.88.1"
+    "@aa-sdk/core": "npm:^4.88.5"
+    "@account-kit/signer": "npm:^4.88.5"
+    "@turnkey/crypto": "npm:^2.5.0"
+    "@turnkey/react-native-passkey-stamper": "npm:^1.1.4"
+    uuid: "npm:^11.1.0"
+    viem: "npm:^2.45.0"
+    zod: "npm:^3.22.4"
+  peerDependencies:
+    react: ">=18.2.0"
+    react-native: ">=0.76.0"
+    react-native-get-random-values: ^1.11.0
+    react-native-inappbrowser-reborn: ^3.7.0
+    react-native-mmkv: ^3.1.0
+    react-native-passkey: ^3.1.0
+  checksum: 10c0/a23af82cb4703de53e508d5c5091504d149c29253637b54bea3814d7cf9add52566a2b7e089ccea8d389c3fe8a2d6118b85f609a6ce456d77a8f4c3b9a632786
+  languageName: node
+  linkType: hard
+
+"@account-kit/react@npm:4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/react@npm:4.88.5"
+  dependencies:
+    "@account-kit/core": "npm:^4.88.5"
+    "@account-kit/infra": "npm:^4.88.5"
+    "@account-kit/logging": "npm:^4.88.5"
+    "@account-kit/signer": "npm:^4.88.5"
+    "@account-kit/wallet-client": "npm:^4.88.5"
     "@solana/wallet-adapter-react": "npm:^0.15.39"
     "@solana/wallet-adapter-wallets": "npm:^0.19.37"
     "@solana/web3.js": "npm:^1.98.0"
@@ -161,7 +249,7 @@ __metadata:
   dependenciesMeta:
     alchemy-sdk:
       optional: true
-  checksum: 10c0/44e1e45e01d41d804bcf40748514f5628fb6ef7200c2aa15cefe039d0d1c6fb1c7294ce22682309b05f4fefcbdf66fc6462af0df98e41a33f686581beb1dd52c
+  checksum: 10c0/88fe4ceafde4e1c5146b543e63d56b3b27abd86aeac7348c5a64bc64d54b8a99b01d89fe17a6941f25c57955cc00ec301a3ad4df6b08905f06d5ce4f1bf54d46
   languageName: node
   linkType: hard
 
@@ -198,7 +286,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/signer@npm:^4.88.1, @account-kit/signer@npm:^4.88.4":
+"@account-kit/signer@npm:^4.88.4":
   version: 4.88.4
   resolution: "@account-kit/signer@npm:4.88.4"
   dependencies:
@@ -222,6 +310,30 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@account-kit/signer@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/signer@npm:4.88.5"
+  dependencies:
+    "@aa-sdk/core": "npm:^4.88.5"
+    "@account-kit/logging": "npm:^4.88.5"
+    "@noble/curves": "npm:^1.9.2"
+    "@noble/hashes": "npm:1.7.1"
+    "@noble/secp256k1": "npm:^2.3.0"
+    "@solana/web3.js": "npm:^1.98.0"
+    "@turnkey/http": "npm:^3.11.0"
+    "@turnkey/iframe-stamper": "npm:^2.5.0"
+    "@turnkey/viem": "npm:^0.13.1"
+    "@turnkey/webauthn-stamper": "npm:^0.4.3"
+    bs58: "npm:^6.0.0"
+    jwt-decode: "npm:^4.0.0"
+    zod: "npm:^3.22.4"
+    zustand: "npm:^5.0.0-rc.2"
+  peerDependencies:
+    viem: ^2.45.0
+  checksum: 10c0/cb72dcfd09735b6a137e5a24eaf3b8a8e749478f246537ad64f261b712a76eb8ea068bd4e57ebac078e0ce92291ba17fc15a9f117d7fd3fc2918ba8f6bd0a4a8
+  languageName: node
+  linkType: hard
+
 "@account-kit/smart-contracts@npm:^4.88.4":
   version: 4.88.4
   resolution: "@account-kit/smart-contracts@npm:4.88.4"
@@ -235,7 +347,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@account-kit/wallet-client@npm:^4.88.1, @account-kit/wallet-client@npm:^4.88.4":
+"@account-kit/smart-contracts@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/smart-contracts@npm:4.88.5"
+  dependencies:
+    "@aa-sdk/core": "npm:^4.88.5"
+    "@account-kit/infra": "npm:^4.88.5"
+    webauthn-p256: "npm:^0.0.10"
+  peerDependencies:
+    viem: ^2.45.0
+  checksum: 10c0/c93ebf57178dbee6f41112ce8a056431e50418957de51abbaf902a8f815a82d3f699e2b8714be7b527a9d40ac9e9e5c7a0380563573390aea2c2155268341603
+  languageName: node
+  linkType: hard
+
+"@account-kit/wallet-client@npm:^4.88.4":
   version: 4.88.4
   resolution: "@account-kit/wallet-client@npm:4.88.4"
   dependencies:
@@ -248,6 +373,22 @@ __metadata:
   peerDependencies:
     viem: ^2.45.0
   checksum: 10c0/738fa26c88521a9ae1ec0cc077ef87d95d458d2ca2883f95af4c395fd8b2020b00117992dc6c6c95dbcc10cb9c0f5de7ece80836ded3d6ed2a9978c133d9762d
+  languageName: node
+  linkType: hard
+
+"@account-kit/wallet-client@npm:^4.88.5":
+  version: 4.88.5
+  resolution: "@account-kit/wallet-client@npm:4.88.5"
+  dependencies:
+    "@aa-sdk/core": "npm:^4.88.5"
+    "@account-kit/infra": "npm:^4.88.5"
+    "@account-kit/smart-contracts": "npm:^4.88.5"
+    "@alchemy/wallet-api-types": "npm:0.1.0-alpha.25"
+    deep-equal: "npm:^2.2.3"
+    ox: "npm:^0.6.12"
+  peerDependencies:
+    viem: ^2.45.0
+  checksum: 10c0/bb61bfe0b81dad2fdb67ccd276b9c07ea2c7a0ddae4d2637328e55ee4418af0fb2ff24f0c4dabc822b5c3fa49808adcc552fbf1598a5f872a295824a7d737466
   languageName: node
   linkType: hard
 
@@ -18160,7 +18301,7 @@ __metadata:
   dependencies:
     "@account-kit/infra": "npm:4.84.1"
     "@account-kit/privy-integration": "npm:^4.88.1"
-    "@account-kit/react": "npm:4.88.1"
+    "@account-kit/react": "npm:4.88.5"
     "@alchemy/wallet-apis": "npm:^5.0.0-beta.26"
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
