@@ -1,5 +1,10 @@
 import { GrantDetails } from '@/types/grant';
-import { GoogleGenerativeAI, GoogleGenerativeAIFetchError, SchemaType } from '@google/generative-ai';
+import {
+  GoogleGenerativeAI,
+  GoogleGenerativeAIError,
+  GoogleGenerativeAIFetchError,
+  SchemaType,
+} from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
@@ -7,7 +12,14 @@ const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 500;
 
 function isRetryableError(error: unknown) {
-  return error instanceof GoogleGenerativeAIFetchError && error.status !== undefined && error.status >= 500;
+  if (error instanceof GoogleGenerativeAIFetchError) {
+    return error.status !== undefined && error.status >= 500;
+  }
+  if (error instanceof SyntaxError) {
+    return true;
+  }
+  // The SDK wraps network failures in the base error class; its subclasses are not transient.
+  return error instanceof GoogleGenerativeAIError && error.constructor === GoogleGenerativeAIError;
 }
 
 export type GrantValidationResult = { valid: boolean; reason: string; unavailable?: boolean };
