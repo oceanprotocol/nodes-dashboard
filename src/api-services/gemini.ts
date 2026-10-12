@@ -1,9 +1,18 @@
 import { GrantDetails } from '@/types/grant';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI, GoogleGenerativeAIFetchError, SchemaType } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-export async function validateGrantDataWithAI(data: GrantDetails): Promise<{ valid: boolean; reason: string }> {
+const MAX_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 500;
+
+function isRetryableError(error: unknown) {
+  return error instanceof GoogleGenerativeAIFetchError && error.status !== undefined && error.status >= 500;
+}
+
+export type GrantValidationResult = { valid: boolean; reason: string; unavailable?: boolean };
+
+export async function validateGrantDataWithAI(data: GrantDetails): Promise<GrantValidationResult> {
   const model = genAI.getGenerativeModel({
     model: 'gemini-3.8-flash',
     systemInstruction:
@@ -33,7 +42,6 @@ export async function validateGrantDataWithAI(data: GrantDetails): Promise<{ val
   // User content is passed as a discrete user-role turn, NOT interpolated into the trusted prompt — this keeps the model's instruction/data boundary clear.
   const userTurn = JSON.stringify(userControlledFields);
 
-  const MAX_RETRIES = 2;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await model.generateContent({
@@ -43,16 +51,17 @@ export async function validateGrantDataWithAI(data: GrantDetails): Promise<{ val
       const text = response.text();
       const parsed = JSON.parse(text);
       if (typeof parsed?.valid === 'boolean' && typeof parsed?.reason === 'string') {
-        return parsed;
+        return { valid: parsed.valid, reason: parsed.reason };
       }
-      return { valid: false, reason: 'Failed to perform validation' };
+      return { valid: false, reason: 'Failed to perform validation', unavailable: true };
     } catch (error) {
       console.error(`Gemini AI validation error (attempt ${attempt + 1}):`, error);
-      if (attempt === MAX_RETRIES) {
+      if (attempt === MAX_RETRIES || !isRetryableError(error)) {
         // Fail closed on service outage — preserves spam-filtering guarantee.
-        return { valid: false, reason: 'Validation service unavailable. Please try again later.' };
+        return { valid: false, reason: 'Validation service unavailable', unavailable: true };
       }
+      await new Promise((resolve) => setTimeout(resolve, RETRY_BASE_DELAY_MS * 2 ** attempt));
     }
   }
-  return { valid: false, reason: 'Failed to perform validation' };
+  return { valid: false, reason: 'Failed to perform validation', unavailable: true };
 }
