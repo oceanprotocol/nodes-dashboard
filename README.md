@@ -24,20 +24,20 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 
 ## Tech Stack
 
-| Layer           | Technology                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Framework       | [Next.js](https://nextjs.org/) 16 (Pages Router)                                                                                |
-| Language        | TypeScript                                                                                                                      |
-| Styling         | SCSS / CSS Modules                                                                                                              |
+| Layer           | Technology                                                                                                                             |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework       | [Next.js](https://nextjs.org/) 16 (Pages Router)                                                                                       |
+| Language        | TypeScript                                                                                                                             |
+| Styling         | SCSS / CSS Modules                                                                                                                     |
 | Web3            | [Ethers.js](https://docs.ethers.org/) v6, EIP-6963, [Privy](https://privy.io/), [Alchemy Account Kit](https://accountkit.alchemy.com/) |
-| Ocean SDK       | `@oceanprotocol/lib`, `@oceanprotocol/contracts`                                                                                |
-| P2P             | [libp2p](https://libp2p.io/)                                                                                                    |
-| Data Fetching   | [TanStack Query](https://tanstack.com/query)                                                                                    |
-| Charts          | [Recharts](https://recharts.org/)                                                                                               |
-| Map             | [Leaflet](https://leafletjs.com/)                                                                                               |
-| Forms           | [Formik](https://formik.org/) + [Yup](https://github.com/jquense/yup)                                                           |
-| AI              | [Google Generative AI](https://ai.google.dev/) (Gemini)                                                                         |
-| Package Manager | Yarn 4 (Berry)                                                                                                                  |
+| Ocean SDK       | `@oceanprotocol/lib`, `@oceanprotocol/contracts`                                                                                       |
+| P2P             | [libp2p](https://libp2p.io/)                                                                                                           |
+| Data Fetching   | [TanStack Query](https://tanstack.com/query)                                                                                           |
+| Charts          | [Recharts](https://recharts.org/)                                                                                                      |
+| Map             | [Leaflet](https://leafletjs.com/)                                                                                                      |
+| Forms           | [Formik](https://formik.org/) + [Yup](https://github.com/jquense/yup)                                                                  |
+| AI              | [Google Generative AI](https://ai.google.dev/) (Gemini)                                                                                |
+| Package Manager | Yarn 4 (Berry)                                                                                                                         |
 
 ---
 
@@ -98,10 +98,10 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 
 ### App
 
-| Variable                             | Description                                                                                                                                                          |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_APP_ENV`                | `"development"` or `"production"`. Controls which backend URLs are used and which chain tokens are on (ETH Sepolia or BASE).                                         |
-| `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS`  | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia. |
+| Variable                            | Description                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_APP_ENV`               | `"development"` or `"production"`. Controls which backend URLs are used and which chain tokens are on (ETH Sepolia or BASE).                                                          |
+| `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS` | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia. |
 
 ### Alchemy
 
@@ -113,27 +113,25 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 
 ### Grant Flow
 
-| Variable                                    | Description                                                      |
-| ------------------------------------------- | ---------------------------------------------------------------- |
-| `GEMINI_API_KEY`                            | Google Gemini API key used in the grant AI flow                  |
-| `GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                   |
-| `GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account                       |
-| `GRANT_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for grant ledger                    |
-| `GRANT_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                            |
-| `GRANT_GMAIL_ADDRESS`                       | Gmail address used to send grant confirmation emails             |
-| `GRANT_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                            |
-| `GRANT_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                        |
-| `GRANT_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                        |
-| `NEXT_PUBLIC_GRANT_AMOUNT`                  | Token grant amount distributed per grant                         |
+| Variable                                    | Description                                                                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `GEMINI_API_KEY`                            | Google Gemini API key used in the grant AI flow                                                                                |
+| `GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                                                                                 |
+| `GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account                                                                                     |
+| `GRANT_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for the subsidy ledger                                                                            |
+| `GRANT_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                                                                                          |
+| `GRANT_GMAIL_ADDRESS`                       | Gmail address used to send grant confirmation emails                                                                           |
+| `GRANT_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                                                                          |
+| `GRANT_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                                                                      |
+| `GRANT_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                                                                      |
 | `NEXT_PUBLIC_COMPY_PER_USDC`                | COMPY received per 1 USDC in the "Get COMPY" swap. Must match the GrantsSwap contract rate (it has no getter). Defaults to `5` |
-| `GRANT_FAUCET_PRIVATE_KEY`                  | Private key of the faucet wallet (server-side only, keep secret) |
 
 ### Compute
 
-| Variable                | Description                                                                      |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_GPU_LIST`  | Comma-separated list of supported GPU models shown in the job wizard             |
-| `NEXT_PUBLIC_VLLM_TAG`  | Optional. Fallback Docker tag for `vllm/vllm-openai`. Defaults to pinned stable `v0.28.0`; models that require a newer architecture use their official model-specific image tag automatically. |
+| Variable               | Description                                                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_GPU_LIST` | Comma-separated list of supported GPU models shown in the job wizard                                                                                                                           |
+| `NEXT_PUBLIC_VLLM_TAG` | Optional. Fallback Docker tag for `vllm/vllm-openai`. Defaults to pinned stable `v0.28.0`; models that require a newer architecture use their official model-specific image tag automatically. |
 
 The Custom Models configuration keeps the fallback per deployment but also exposes a per-model
 vLLM runtime selector. Its automatic setting selects `qwen38-flash-next` for

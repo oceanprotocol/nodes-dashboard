@@ -105,6 +105,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         authorizations={authorizations}
         escrowBalance={escrowBalance ?? 0}
         loadPaymentInfo={loadPaymentInfo}
+        nodeAddress={selectedEnv.consumerAddress}
         selectedToken={selectedToken}
         topupSource="run_job"
         totalCost={totalCost}

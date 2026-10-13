@@ -1,10 +1,8 @@
 import AccountIdentity from '@/components/account/account-identity';
 import { ACCOUNT_SECTIONS, AccountItem, AccountSectionKey } from '@/components/account/account-sections';
 import Card from '@/components/card/card';
-import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useTheme, type ThemePreference } from '@/lib/use-theme';
-import { GrantStatus } from '@/types/grant';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -35,7 +33,6 @@ const THEME_OPTIONS: { icon: React.ReactNode; label: string; value: ThemePrefere
 
 const AccountNav = ({ activeKey, className }: AccountNavProps) => {
   const { logout, provider } = useOceanAccount();
-  const { grantStatus } = useProfileContext();
   const { preference, setPreference } = useTheme();
   const router = useRouter();
 
@@ -48,9 +45,6 @@ const AccountNav = ({ activeKey, className }: AccountNavProps) => {
   const isAvailable = (item: AccountItem) => {
     if (item.requires === 'provider') {
       return !!provider;
-    }
-    if (item.requires === 'grant-unclaimed') {
-      return grantStatus !== GrantStatus.CLAIMED;
     }
     return true;
   };

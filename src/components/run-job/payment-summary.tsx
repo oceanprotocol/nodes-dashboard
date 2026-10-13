@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import PaymentSubsidy from '@/components/run-job/payment-subsidy';
 import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
@@ -16,6 +17,8 @@ type PaymentSummaryProps = {
   authorizations: Authorizations | null;
   escrowBalance: number | null;
   loadPaymentInfo: () => void;
+  /** Node (consumer) address of the selected environment, for the subsidy row. */
+  nodeAddress?: string;
   selectedToken: SelectedToken;
   /** Which payment step renders this, for the card top-up's analytics. */
   topupSource: 'run_job' | 'inference';
@@ -37,7 +40,7 @@ const SummaryRow = ({
   action?: React.ReactNode;
   chip?: React.ReactNode;
   error?: boolean;
-  label: string;
+  label: React.ReactNode;
   muted?: boolean;
   symbol: string;
   value: string;
@@ -59,6 +62,7 @@ const PaymentSummary = ({
   authorizations,
   escrowBalance,
   loadPaymentInfo,
+  nodeAddress,
   selectedToken,
   topupSource,
   totalCost,
@@ -157,6 +161,24 @@ const PaymentSummary = ({
           escrow and wallet rows show by default; the limits sit behind the details toggle, which
           closes the card. */}
       <div className={styles.rows}>
+        <PaymentSubsidy
+          format={format}
+          nodeAddress={nodeAddress}
+          renderCostAfter={(cost) => (
+            <SummaryRow
+              label={
+                <>
+                  Your cost after subsidy <span className={styles.rowLabelHint}>(estimate)</span>
+                </>
+              }
+              symbol={tokenSymbol}
+              value={format(cost)}
+            />
+          )}
+          tokenAddress={selectedToken.address}
+          totalCost={totalCost}
+        />
+
         <SummaryRow
           chip={
             insufficientWallet ? (

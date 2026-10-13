@@ -1,8 +1,7 @@
 import { GrantDetails } from '@/types/grant';
-import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+import { createContext, ReactNode, useContext, useState } from 'react';
 
 type GrantContextType = {
-  clearGrantSelection: () => void;
   grantDetails: GrantDetails | null;
   setGrantDetails: (grantDetails: GrantDetails) => void;
 };
@@ -12,14 +11,9 @@ const GrantContext = createContext<GrantContextType | undefined>(undefined);
 export const GrantProvider = ({ children }: { children: ReactNode }) => {
   const [grantDetails, setGrantDetails] = useState<GrantDetails | null>(null);
 
-  const clearGrantSelection = useCallback(() => {
-    setGrantDetails(null);
-  }, []);
-
   return (
     <GrantContext.Provider
       value={{
-        clearGrantSelection,
         grantDetails,
         setGrantDetails,
       }}

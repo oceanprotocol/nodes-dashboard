@@ -1125,6 +1125,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                       authorizations={authorizations}
                       escrowBalance={escrowBalance ?? 0}
                       loadPaymentInfo={loadPaymentInfo}
+                      nodeAddress={selectedEnv?.environment.consumerAddress}
                       selectedToken={selectedToken}
                       topupSource="inference"
                       totalCost={totalCost}

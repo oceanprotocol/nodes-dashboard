@@ -4,6 +4,7 @@ import { AccountSectionKey, getAccountSection } from '@/components/account/accou
 import CompySection from '@/components/account/compy-section';
 import ConsumerSection from '@/components/account/consumer-section';
 import OwnerSection from '@/components/account/owner-section';
+import SubsidySection from '@/components/account/subsidy-section';
 import AuthRequiredPage from '@/components/auth/auth-required-page';
 import Container from '@/components/container/container';
 import EscrowManager from '@/components/escrow/escrow-manager';
@@ -29,6 +30,8 @@ const renderSection = (section: AccountSectionKey) => {
       return <ConsumerSection />;
     case 'escrow':
       return <EscrowManager />;
+    case 'subsidy':
+      return <SubsidySection />;
     case 'compy':
       return <CompySection />;
     case 'access-lists':

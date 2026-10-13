@@ -11,19 +11,19 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ReactNode } from 'react';
 
 /** Sections rendered inside the account layout. */
-export type AccountSectionKey = 'owner' | 'consumer' | 'escrow' | 'compy' | 'access-lists' | 'storage' | 'tokens';
+export type AccountSectionKey =
+  'owner' | 'consumer' | 'escrow' | 'subsidy' | 'compy' | 'access-lists' | 'storage' | 'tokens';
 
 /** Every entry in the account menu, including the ones that link out of the layout. */
-export type AccountItemKey = AccountSectionKey | 'claim';
+export type AccountItemKey = AccountSectionKey;
 
 export type AccountGroupKey = 'activity' | 'funds' | 'access';
 
 /**
  * Gate an item on account state the menu can only know at render time.
  * `provider` — the wallet exposes a provider (access lists need on-chain writes).
- * `grant-unclaimed` — the complimentary credits grant has not been claimed yet.
  */
-export type AccountItemRequirement = 'provider' | 'grant-unclaimed';
+export type AccountItemRequirement = 'provider';
 
 export type AccountItem = {
   /** Subtitle under the page title. Empty for items that link out of the layout. */
@@ -76,6 +76,15 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     title: 'Escrow',
   },
   {
+    description: 'Your subsidy and how much of it is left.',
+    group: 'funds',
+    href: '/account/subsidy',
+    icon: <RedeemIcon />,
+    key: 'subsidy',
+    label: 'Subsidy',
+    title: 'Subsidy',
+  },
+  {
     description: 'Convert your USDC to COMPY.',
     group: 'funds',
     href: '/account/compy',
@@ -111,17 +120,6 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     key: 'tokens',
     label: 'Node auth tokens',
     title: 'Node auth tokens',
-  },
-  {
-    description: '',
-    group: 'funds',
-    href: '/grant/details',
-    icon: <RedeemIcon />,
-    key: 'claim',
-    label: 'Claim credits',
-    linksOut: true,
-    requires: 'grant-unclaimed',
-    title: '',
   },
 ];
 

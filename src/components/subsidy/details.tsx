@@ -1,65 +1,46 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import Checkbox from '@/components/checkbox/checkbox';
+import SubsidyOffer from '@/components/grant/subsidy-offer';
 import Input from '@/components/input/input';
 import { useGrantContext } from '@/context/grant-context';
+import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
-  GRANT_GOAL_CHOICES,
   GRANT_HANDLE_RULES,
   GRANT_HANDLE_SERVICE_CHOICES,
-  GRANT_HARDWARE_CHOICES,
-  GRANT_OS_CHOICES,
-  GRANT_ROLE_CHOICES,
   GrantHandleService,
   isValidHandle,
   normalizeHandle,
   SubmitGrantDetailsResponse,
 } from '@/types/grant';
 import axios from 'axios';
-import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import styles from './details.module.css';
-import VerifyModal from './verify-modal';
 
 type DetailsFormValues = {
   email: string;
-  goal: string | null;
   handle: string;
   handleService: GrantHandleService;
-  hardware: string[];
   name: string;
-  os: string | null;
-  role: string | null;
 };
 
 const Details: React.FC = () => {
   const { account, login } = useOceanAccount();
   const router = useRouter();
 
-  const { clearGrantSelection, grantDetails, setGrantDetails } = useGrantContext();
-
-  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
-
-  useEffect(() => {
-    clearGrantSelection();
-  }, [clearGrantSelection]);
+  const { grantDetails, setGrantDetails } = useGrantContext();
+  const { fetchGrantStatus } = useProfileContext();
 
   const formik = useFormik<DetailsFormValues>({
     initialValues: {
-      email: '',
-      goal: null,
-      handle: '',
-      handleService: GRANT_HANDLE_SERVICE_CHOICES[0].value,
-      hardware: [],
-      name: '',
-      os: null,
-      role: null,
+      email: grantDetails?.email ?? '',
+      handle: grantDetails?.handle ?? '',
+      handleService: grantDetails?.handleService ?? GRANT_HANDLE_SERVICE_CHOICES[0].value,
+      name: grantDetails?.name ?? '',
     },
     onSubmit: async (values) => {
       if (!account.isConnected || !account.address) {
@@ -69,26 +50,18 @@ const Details: React.FC = () => {
       try {
         const details = {
           email: values.email,
-          goal: values.goal!,
           handle: normalizeHandle(values.handle),
           handleService: values.handleService,
-          hardware: values.hardware,
           name: values.name,
-          os: values.os!,
-          role: values.role!,
           walletAddress: account.address,
         };
         const response = await axios.post<SubmitGrantDetailsResponse>('/api/grant/details', details);
         setGrantDetails(details);
-        posthog.capture('grant_form_completed', {
-          handleService: values.handleService,
-          role: values.role,
-          goal: values.goal,
-          hardware: values.hardware,
-          os: values.os,
-        });
+        posthog.capture('grant_form_completed', { handleService: values.handleService });
+        // The step guard reads the saved status, so refresh it before moving on.
+        await fetchGrantStatus(account.address);
         if (response.data.shouldValidateEmail) {
-          setIsVerifyModalOpen(true);
+          router.push({ pathname: '/grant/verify', query: response.data.emailChanged ? { emailChanged: 1 } : {} });
         } else {
           router.push('/grant/claim');
         }
@@ -103,7 +76,6 @@ const Details: React.FC = () => {
     },
     validationSchema: Yup.object({
       email: Yup.string().email('Invalid email').required('Required'),
-      goal: Yup.string().required('Selection required'),
       handle: Yup.string()
         .required('Required')
         .test('handle-format', function (value) {
@@ -116,10 +88,7 @@ const Details: React.FC = () => {
       handleService: Yup.string()
         .oneOf(GRANT_HANDLE_SERVICE_CHOICES.map((c) => c.value))
         .required('Required'),
-      hardware: Yup.array().min(1, 'Selection required'),
       name: Yup.string().required('Required'),
-      os: Yup.string().required('Selection required'),
-      role: Yup.string().required('Selection required'),
     }),
   });
 
@@ -133,14 +102,10 @@ const Details: React.FC = () => {
     formik.handleBlur(e);
   };
 
-  const handleVerifySuccess = () => {
-    setIsVerifyModalOpen(false);
-    router.push('/grant/claim');
-  };
-
   return (
     <Card padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <form className={styles.form} onSubmit={formik.handleSubmit}>
+        <SubsidyOffer />
         <div className={styles.section}>
           <h3>User details</h3>
           <Input
@@ -154,6 +119,7 @@ const Details: React.FC = () => {
           />
           <Input
             errorText={formik.touched.email && formik.errors.email ? formik.errors.email : undefined}
+            hint="We send a 6-digit code to verify it."
             label="Email address"
             name="email"
             onBlur={formik.handleBlur}
@@ -193,103 +159,12 @@ const Details: React.FC = () => {
             <div>{account.address}</div>
           </div>
         </div>
-        <div className={styles.section}>
-          <div>
-            <h3>Which role best describes you?</h3>
-            {formik.touched.role && formik.errors.role ? <div className="textError">{formik.errors.role}</div> : null}
-          </div>
-          <div className={classNames(styles.choices, styles.choices3cols)}>
-            {GRANT_ROLE_CHOICES.map((choice) => (
-              <Checkbox
-                checked={formik.values.role === choice.value}
-                key={choice.value}
-                label={choice.label}
-                name="role"
-                onChange={formik.handleChange}
-                type="single"
-                value={choice.value}
-              />
-            ))}
-          </div>
-        </div>
-        <div className={styles.section}>
-          <div>
-            <h3>What hardware do you currently have access to?</h3>
-            {formik.touched.hardware && formik.errors.hardware ? (
-              <div className="textError">{formik.errors.hardware}</div>
-            ) : null}
-          </div>
-          <div className={classNames(styles.choices, styles.choices2cols)}>
-            {GRANT_HARDWARE_CHOICES.map((choice) => (
-              <Checkbox
-                checked={formik.values.hardware.includes(choice.value)}
-                key={choice.value}
-                label={choice.label}
-                name="hardware"
-                onChange={formik.handleChange}
-                type="multiple"
-                value={choice.value}
-              />
-            ))}
-          </div>
-        </div>
-        <div className={styles.section}>
-          <div>
-            <h3>What is your preferred Operating System?</h3>
-            {formik.touched.os && formik.errors.os ? <div className="textError">{formik.errors.os}</div> : null}
-          </div>
-          <div className={classNames(styles.choices, styles.choicesRow)}>
-            {GRANT_OS_CHOICES.map((choice) => (
-              <Checkbox
-                checked={formik.values.os === choice.value}
-                key={choice.value}
-                label={choice.label}
-                name="os"
-                onChange={formik.handleChange}
-                type="single"
-                value={choice.value}
-              />
-            ))}
-          </div>
-        </div>
-        <div className={styles.section}>
-          <div>
-            <h3>What is your primary goal for this grant?</h3>
-            {formik.touched.goal && formik.errors.goal ? <div className="textError">{formik.errors.goal}</div> : null}
-          </div>
-          <div className={styles.choices}>
-            {GRANT_GOAL_CHOICES.map((choice) => (
-              <Checkbox
-                checked={formik.values.goal === choice.value}
-                key={choice.value}
-                label={
-                  <div>
-                    <strong>{choice.label}:</strong>&nbsp;
-                    {choice.description}
-                  </div>
-                }
-                name="goal"
-                onChange={formik.handleChange}
-                type="single"
-                value={choice.value}
-              />
-            ))}
-          </div>
-        </div>
         <div className="actionsGroupLgEnd">
           <Button color="accent1" loading={formik.isSubmitting} type="submit" size="lg" variant="filled">
             Continue
           </Button>
         </div>
       </form>
-      {grantDetails ? (
-        <VerifyModal
-          isOpen={isVerifyModalOpen}
-          onClose={() => setIsVerifyModalOpen(false)}
-          onSuccess={handleVerifySuccess}
-          grantDetails={grantDetails}
-        />
-      ) : null}
     </Card>
   );
 };

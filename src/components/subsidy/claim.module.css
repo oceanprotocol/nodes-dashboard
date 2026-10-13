@@ -1,0 +1,62 @@
+.root {
+  align-self: center;
+  max-width: 100%;
+  width: 560px;
+}
+
+.heading {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+
+  h3 {
+    font-size: 24px;
+  }
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.amountCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+.values {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @media (min-width: 576px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.value {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.caption {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.note {
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}

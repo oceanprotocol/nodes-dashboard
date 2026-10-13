@@ -40,7 +40,7 @@ yarn format      # prettier --write
 
 ## Environment
 
-Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Grant-flow server secrets (`GEMINI_API_KEY`, `GRANT_GSHEETS_*`, `GRANT_GMAIL_*`, `GRANT_FAUCET_PRIVATE_KEY`), `NEXT_PUBLIC_GPU_LIST`.
+Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Subsidy-flow server secrets (`GEMINI_API_KEY`, `GRANT_GSHEETS_*`, `GRANT_GMAIL_*`), `NEXT_PUBLIC_GPU_LIST`.
 
 ## Known gotchas
 
