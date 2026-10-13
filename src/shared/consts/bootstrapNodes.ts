@@ -14,7 +14,7 @@ export const OCEAN_BOOTSTRAP_NODES = [
   // compute 1
   '/ip4/35.202.16.215/tcp/9001/tls/sni/35-202-16-215.kzwfwjn5ji4puuok23h2yyzro0fe1rqv1bqzbmrjf7uqyj504rawjl4zs68mepr.libp2p.direct/ws/p2p/16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
   // aethir
-  '/ip4/157.66.255.31/tcp/9001/tls/sni/157-66-255-31.kzwfwjn5ji4puoq3jxr1b2i9dlm9xi1d75mp458ydpslbekjybcc9p46x7n37gr.libp2p.direct/ws/p2p/16Uiu2HAm94yL3Sjem2piKmGkiHCdJyTn3F3aWueZTXKT38ekjuzr',
+  '/ip4/157.66.255.31/tcp/9001/tls/sni/157-66-255-31.kzwfwjn5ji4pupsp3gt812zxtjbdatu6wq1td627xljlk88opbf20oqz1srqljc.libp2p.direct/ws/p2p/16Uiu2HAmBxtwWEH8m9HLdCJncZGe9Ukj5xLxNhvM5KY17jjz899q',
 
   // test2.oncompute.ai
   '/ip4/34.107.108.64/tcp/9001/tls/sni/34-107-108-64.kzwfwjn5ji4puvz8g9ljbuynsva03t3iyyf5j13k0s8ixshhuj51ih78wvgqal5.libp2p.direct/ws/p2p/16Uiu2HAmUf4JpduE6CXpNMm1xdjhFUH53G4c9o37Kat3wsreUyaQ',
