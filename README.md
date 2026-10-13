@@ -124,6 +124,8 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 | `SUBSIDY_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                                                                          |
 | `SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                                                                      |
 | `SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                                                                      |
+| `SUBSIDY_ACCESS_LIST_ADDRESS`                 | Subsidy AccessList contract that claimed wallets are added to                                                                  |
+| `SUBSIDY_ACCESS_LIST_PRIVATE_KEY`             | Private key of a wallet allowed to mint on that access list (server-side only, keep secret)                                    |
 | `NEXT_PUBLIC_COMPY_PER_USDC`                  | COMPY received per 1 USDC in the "Get COMPY" swap. Must match the GrantsSwap contract rate (it has no getter). Defaults to `5` |
 
 ### Compute

@@ -1,11 +1,15 @@
 import { findSubsidyInSheet, updateSubsidyInSheet } from '@/api-services/gsheets';
+import { addToSubsidyAccessList, isOnSubsidyAccessList } from '@/api-services/subsidy-access-list';
 import { SubsidyStatus } from '@/types/subsidy';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+// Waiting for the access list mint to be mined can take a few blocks.
+export const config = { maxDuration: 60 };
+
 /**
- * Marks a verified request as claimed. Adding the wallet to the subsidy contract's access list
- * happens outside the dashboard.
+ * Adds a verified wallet to the subsidy access list, then marks the request as claimed. A wallet
+ * already on the list (an earlier claim whose sheet update failed) is not minted again.
  */
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
   if (request.method !== 'POST') {
@@ -31,6 +35,17 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     if (subsidy.status !== SubsidyStatus.EMAIL_VERIFIED) {
       return response.status(400).json({ message: 'Verify your email before claiming' });
+    }
+
+    if (!(await isOnSubsidyAccessList(subsidy.walletAddress))) {
+      try {
+        await addToSubsidyAccessList(subsidy.walletAddress);
+      } catch (error) {
+        // A parallel claim may have minted first; only fail if the wallet is still not on the list.
+        if (!(await isOnSubsidyAccessList(subsidy.walletAddress))) {
+          throw error;
+        }
+      }
     }
 
     const updated = await updateSubsidyInSheet({
