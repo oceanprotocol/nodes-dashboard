@@ -13,7 +13,7 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 - **Run a Node** – Guided setup flow for starting up a new Ocean compute node.
 - **Global Stats** – Network-wide analytics: total nodes, jobs, rewards, GPU popularity, and country distribution.
 - **Profile** – Per-wallet view of owned nodes, rewards history, and associated jobs.
-- **Grant Flow** – Token grant mechanism backed by a Google Sheets ledger and Gemini AI integration.
+- **Subsidy Flow** – Token subsidy mechanism backed by a Google Sheets ledger and Gemini AI integration.
 - **Swap Tokens / Withdraw** – Utility pages for token operations.
 - **Web3 Wallet Support** – Two independent paths: native wallets connect via EIP-6963 discovery + Ethers.js, and email magic link / passkey / Google OAuth go through Privy + Alchemy Account Kit to a smart contract account.
 - **ENS Resolution** – Display human-readable ENS names for wallet addresses.
@@ -111,20 +111,20 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 | `NEXT_PUBLIC_ALCHEMY_API_KEY`   | Alchemy API key                                                        |
 | `NEXT_PUBLIC_ALCHEMY_POLICY_ID` | Alchemy gas policy ID                                                  |
 
-### Grant Flow
+### Subsidy Flow
 
-| Variable                                    | Description                                                                                                                    |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `GEMINI_API_KEY`                            | Google Gemini API key used in the grant AI flow                                                                                |
-| `GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                                                                                 |
-| `GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account                                                                                     |
-| `GRANT_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for the subsidy ledger                                                                            |
-| `GRANT_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                                                                                          |
-| `GRANT_GMAIL_ADDRESS`                       | Gmail address used to send grant confirmation emails                                                                           |
-| `GRANT_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                                                                          |
-| `GRANT_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                                                                      |
-| `GRANT_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                                                                      |
-| `NEXT_PUBLIC_COMPY_PER_USDC`                | COMPY received per 1 USDC in the "Get COMPY" swap. Must match the GrantsSwap contract rate (it has no getter). Defaults to `5` |
+| Variable                                      | Description                                                                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `GEMINI_API_KEY`                              | Google Gemini API key used in the subsidy AI flow                                                                              |
+| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                                                                                 |
+| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account                                                                                     |
+| `SUBSIDY_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for the subsidy ledger                                                                            |
+| `SUBSIDY_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                                                                                          |
+| `SUBSIDY_GMAIL_ADDRESS`                       | Gmail address used to send subsidy confirmation emails                                                                         |
+| `SUBSIDY_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                                                                          |
+| `SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                                                                      |
+| `SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                                                                      |
+| `NEXT_PUBLIC_COMPY_PER_USDC`                  | COMPY received per 1 USDC in the "Get COMPY" swap. Must match the GrantsSwap contract rate (it has no getter). Defaults to `5` |
 
 ### Compute
 
@@ -185,7 +185,7 @@ src/
 │   ├── stats.tsx           # Global network stats
 │   ├── leaderboard.tsx     # Leaderboard
 │   ├── profile/            # Per-wallet profile
-│   ├── grant/              # Grant flow
+│   ├── subsidy/            # Subsidy flow
 │   ├── nodes/[nodeId]/storage/ # Node persistent storage (buckets & files)
 │   ├── swap-tokens.tsx     # Token swap
 │   ├── withdraw.tsx        # Token withdrawal

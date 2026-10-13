@@ -1,5 +1,5 @@
-import { findGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
-import { GrantStatus } from '@/types/grant';
+import { findSubsidyInSheet, updateSubsidyInSheet } from '@/api-services/gsheets';
+import { SubsidyStatus } from '@/types/subsidy';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -19,30 +19,30 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   try {
-    const grant = await findGrantInSheet({ walletAddress });
+    const subsidy = await findSubsidyInSheet({ walletAddress });
 
-    if (!grant || grant.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+    if (!subsidy || subsidy.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
       return response.status(404).json({ message: 'Subsidy request not found' });
     }
 
-    if (grant.status === GrantStatus.CLAIMED) {
-      return response.status(200).json({ status: GrantStatus.CLAIMED });
+    if (subsidy.status === SubsidyStatus.CLAIMED) {
+      return response.status(200).json({ status: SubsidyStatus.CLAIMED });
     }
 
-    if (grant.status !== GrantStatus.EMAIL_VERIFIED) {
+    if (subsidy.status !== SubsidyStatus.EMAIL_VERIFIED) {
       return response.status(400).json({ message: 'Verify your email before claiming' });
     }
 
-    const updated = await updateGrantInSheet({
-      ...grant,
+    const updated = await updateSubsidyInSheet({
+      ...subsidy,
       claimDate: new Date(),
-      status: GrantStatus.CLAIMED,
+      status: SubsidyStatus.CLAIMED,
     });
     if (!updated) {
       return response.status(500).json({ message: 'Failed to claim subsidy' });
     }
 
-    return response.status(200).json({ status: GrantStatus.CLAIMED });
+    return response.status(200).json({ status: SubsidyStatus.CLAIMED });
   } catch (error) {
     console.error('Error claiming subsidy:', error);
     return response.status(500).json({ message: 'Failed to claim subsidy' });

@@ -1,11 +1,11 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import TwoFactorInput from '@/components/input/two-factor-input';
-import { useGrantContext } from '@/context/grant-context';
 import { useProfileContext } from '@/context/profile-context';
+import { useSubsidyContext } from '@/context/subsidy-context';
 import useCountdown from '@/hooks/use-countdown';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { GRANT_OTP_RESEND_COOLDOWN_SECONDS, GrantVerifyError, GrantVerifyErrorResponse } from '@/types/grant';
+import { SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyVerifyError, SubsidyVerifyErrorResponse } from '@/types/subsidy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import axios from 'axios';
@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './verify.module.css';
 
-type VerifyState = { attemptsLeft?: number; error?: GrantVerifyError };
+type VerifyState = { attemptsLeft?: number; error?: SubsidyVerifyError };
 
 const secondsUntil = (timestamp: number | undefined) =>
   timestamp ? Math.max(0, Math.ceil((timestamp - Date.now()) / 1000)) : 0;
@@ -30,8 +30,8 @@ const formatMinutesSeconds = (totalSeconds: number) =>
 const Verify: React.FC = () => {
   const { account } = useOceanAccount();
   const router = useRouter();
-  const { grantDetails } = useGrantContext();
-  const { fetchGrantStatus, grantInfo } = useProfileContext();
+  const { subsidyDetails } = useSubsidyContext();
+  const { fetchSubsidyStatus, subsidyInfo } = useProfileContext();
 
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,46 +40,47 @@ const Verify: React.FC = () => {
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
 
   const expiryCountdown = useCountdown(0);
-  const resendCountdown = useCountdown(GRANT_OTP_RESEND_COOLDOWN_SECONDS);
+  const resendCountdown = useCountdown(SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS);
 
-  const email = grantDetails?.email ?? grantInfo?.maskedEmail ?? '';
+  const email = subsidyDetails?.email ?? subsidyInfo?.maskedEmail ?? '';
   const emailChanged = router.query.emailChanged === '1';
 
   const { initiateCountdown: initiateExpiry } = expiryCountdown;
   const { initiateCountdown: initiateResend } = resendCountdown;
 
   useEffect(() => {
-    if (grantInfo?.otpExpires) {
-      setExpiresAt(grantInfo.otpExpires);
-      initiateExpiry(secondsUntil(grantInfo.otpExpires));
+    if (subsidyInfo?.otpExpires) {
+      setExpiresAt(subsidyInfo.otpExpires);
+      initiateExpiry(secondsUntil(subsidyInfo.otpExpires));
     }
-    if (grantInfo?.otpLastResent) {
-      initiateResend(secondsUntil(grantInfo.otpLastResent + GRANT_OTP_RESEND_COOLDOWN_SECONDS * 1000));
+    if (subsidyInfo?.otpLastResent) {
+      initiateResend(secondsUntil(subsidyInfo.otpLastResent + SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS * 1000));
     }
-    if (grantInfo?.otpLocked) {
-      setState({ error: GrantVerifyError.LOCKED });
+    if (subsidyInfo?.otpLocked) {
+      setState({ error: SubsidyVerifyError.LOCKED });
     }
-  }, [grantInfo?.otpExpires, grantInfo?.otpLastResent, grantInfo?.otpLocked, initiateExpiry, initiateResend]);
+  }, [subsidyInfo?.otpExpires, subsidyInfo?.otpLastResent, subsidyInfo?.otpLocked, initiateExpiry, initiateResend]);
 
-  const isLocked = state.error === GrantVerifyError.LOCKED;
+  const isLocked = state.error === SubsidyVerifyError.LOCKED;
   const isExpired =
-    !isLocked && (state.error === GrantVerifyError.EXPIRED || (expiresAt !== null && !expiryCountdown.isCountingDown));
-  const isInvalid = state.error === GrantVerifyError.INVALID_CODE;
+    !isLocked &&
+    (state.error === SubsidyVerifyError.EXPIRED || (expiresAt !== null && !expiryCountdown.isCountingDown));
+  const isInvalid = state.error === SubsidyVerifyError.INVALID_CODE;
 
   const submitCode = useCallback(
     async (value: string) => {
       setIsSubmitting(true);
       try {
-        await axios.post('/api/grant/verify', {
+        await axios.post('/api/subsidy/verify', {
           code: value,
-          email: grantDetails?.email,
+          email: subsidyDetails?.email,
           walletAddress: account.address,
         });
         posthog.capture('grant_email_verified');
         // The step guard moves on to Claim once the refreshed status is verified.
-        await fetchGrantStatus(account.address!);
+        await fetchSubsidyStatus(account.address!);
       } catch (error) {
-        const body = axios.isAxiosError(error) ? (error.response?.data as GrantVerifyErrorResponse) : undefined;
+        const body = axios.isAxiosError(error) ? (error.response?.data as SubsidyVerifyErrorResponse) : undefined;
         if (body?.error) {
           setState({ attemptsLeft: body.attemptsLeft, error: body.error });
         } else {
@@ -89,7 +90,7 @@ const Verify: React.FC = () => {
         setIsSubmitting(false);
       }
     },
-    [account.address, fetchGrantStatus, grantDetails?.email]
+    [account.address, fetchSubsidyStatus, subsidyDetails?.email]
   );
 
   const handleCodeChange = (value: string) => {
@@ -106,7 +107,7 @@ const Verify: React.FC = () => {
     setIsResending(true);
     try {
       const response = await axios.post<{ otpExpires?: number; retryAfter?: number; sent: boolean }>(
-        '/api/grant/resend-otp',
+        '/api/subsidy/resend-otp',
         { walletAddress: account.address }
       );
       if (response.data.sent) {
@@ -235,7 +236,7 @@ const Verify: React.FC = () => {
             <strong>Email</strong>
             <span className={styles.muted}>
               Enter the 6-digit code sent to <strong className={styles.email}>{email}</strong>{' '}
-              <Link className={styles.link} href="/grant/details">
+              <Link className={styles.link} href="/subsidy/details">
                 Change
               </Link>
             </span>
@@ -254,7 +255,7 @@ const Verify: React.FC = () => {
         {renderStatus()}
       </Card>
 
-      <Button className={styles.back} color="accent1" href="/grant/details" size="md" variant="transparent">
+      <Button className={styles.back} color="accent1" href="/subsidy/details" size="md" variant="transparent">
         Back to details
       </Button>
     </Card>

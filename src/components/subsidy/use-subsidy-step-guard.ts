@@ -1,26 +1,26 @@
-import { GrantStep } from '@/components/stepper/get-steps';
+import { SubsidyStep } from '@/components/stepper/get-steps';
 import { useProfileContext } from '@/context/profile-context';
-import { GrantStatus } from '@/types/grant';
+import { SubsidyStatus } from '@/types/subsidy';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 
-const STEP_PATHS: Record<GrantStep, string> = {
-  claim: '/grant/claim',
-  details: '/grant/details',
-  verify: '/grant/verify',
+const STEP_PATHS: Record<SubsidyStep, string> = {
+  claim: '/subsidy/claim',
+  details: '/subsidy/details',
+  verify: '/subsidy/verify',
 };
 
-const getAllowedStep = (status: GrantStatus | null, step: GrantStep): GrantStep => {
-  if (status === GrantStatus.CLAIMED) {
+const getAllowedStep = (status: SubsidyStatus | null, step: SubsidyStep): SubsidyStep => {
+  if (status === SubsidyStatus.CLAIMED) {
     return 'claim';
   }
   if (step === 'details') {
     return 'details';
   }
-  if (status === GrantStatus.PENDING) {
+  if (status === SubsidyStatus.PENDING) {
     return 'verify';
   }
-  if (status === GrantStatus.EMAIL_VERIFIED) {
+  if (status === SubsidyStatus.EMAIL_VERIFIED) {
     return 'claim';
   }
   return 'details';
@@ -30,11 +30,11 @@ const getAllowedStep = (status: GrantStatus | null, step: GrantStep): GrantStep 
  * Sends the user to the step their saved progress allows, so the flow can be left and resumed
  * from any device. Returns whether the requested step can render.
  */
-const useGrantStepGuard = (step: GrantStep): boolean => {
+const useSubsidyStepGuard = (step: SubsidyStep): boolean => {
   const router = useRouter();
-  const { grantInfo } = useProfileContext();
+  const { subsidyInfo } = useProfileContext();
 
-  const allowedStep = grantInfo ? getAllowedStep(grantInfo.status, step) : null;
+  const allowedStep = subsidyInfo ? getAllowedStep(subsidyInfo.status, step) : null;
 
   useEffect(() => {
     if (allowedStep && allowedStep !== step) {
@@ -45,4 +45,4 @@ const useGrantStepGuard = (step: GrantStep): boolean => {
   return allowedStep === step;
 };
 
-export default useGrantStepGuard;
+export default useSubsidyStepGuard;

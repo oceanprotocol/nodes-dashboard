@@ -1,7 +1,7 @@
 import { SUBSIDY_DISCOUNT_PERCENT, SUBSIDY_ONE_TIME_CREDIT, SUBSIDY_WEEKLY_DISCOUNT_LIMIT } from '@/constants/subsidy';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { GrantStatus } from '@/types/grant';
+import { SubsidyStatus } from '@/types/subsidy';
 import { useQuery } from '@tanstack/react-query';
 
 export type SubsidyAllowance = {
@@ -72,8 +72,8 @@ const fetchMockIsNodeSubsidized = async (): Promise<boolean> => true;
 /** Subsidy limits and usage for the connected wallet. Only loads once the subsidy is claimed. */
 export const useSubsidyUsage = () => {
   const { account } = useOceanAccount();
-  const { grantStatus } = useProfileContext();
-  const isClaimed = grantStatus === GrantStatus.CLAIMED;
+  const { subsidyStatus } = useProfileContext();
+  const isClaimed = subsidyStatus === SubsidyStatus.CLAIMED;
 
   return useQuery({
     queryKey: ['subsidy-usage', account.address],

@@ -8,7 +8,7 @@ import {
 import { getSupportedTokens } from '@/constants/tokens';
 import { useProfileContext } from '@/context/profile-context';
 import { formatSubsidyReset, quoteSubsidy, useIsNodeSubsidized, useSubsidyUsage } from '@/lib/use-subsidy';
-import { GrantStatus } from '@/types/grant';
+import { SubsidyStatus } from '@/types/subsidy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PauseIcon from '@mui/icons-material/Pause';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -54,13 +54,13 @@ type PaymentSubsidyProps = {
  * doesn't apply. Display only — the amounts are estimates of what the subsidy contract pays at lock.
  */
 const PaymentSubsidy = ({ format, nodeAddress, renderCostAfter, tokenAddress, totalCost }: PaymentSubsidyProps) => {
-  const { grantInfo } = useProfileContext();
+  const { subsidyInfo } = useProfileContext();
   const { data: usage } = useSubsidyUsage();
   const { data: isNodeSubsidized } = useIsNodeSubsidized(nodeAddress);
 
   const isSubsidizedToken = tokenAddress.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase();
 
-  if (!isSubsidizedToken || !grantInfo || totalCost <= 0) {
+  if (!isSubsidizedToken || !subsidyInfo || totalCost <= 0) {
     return null;
   }
 
@@ -71,12 +71,12 @@ const PaymentSubsidy = ({ format, nodeAddress, renderCostAfter, tokenAddress, to
     </span>
   );
 
-  if (grantInfo.status === null) {
+  if (subsidyInfo.status === null) {
     return (
       <SubsidyRow
         description={`Verify your email to claim the OPF subsidy. The discount is capped at ${SUBSIDY_WEEKLY_DISCOUNT_LIMIT} ${SUBSIDY_TOKEN_SYMBOL} a week.`}
         end={
-          <Button color="accent1" href="/grant/details" size="sm" variant="outlined">
+          <Button color="accent1" href="/subsidy/details" size="sm" variant="outlined">
             Get a subsidy
           </Button>
         }
@@ -87,14 +87,14 @@ const PaymentSubsidy = ({ format, nodeAddress, renderCostAfter, tokenAddress, to
     );
   }
 
-  if (grantInfo.status !== GrantStatus.CLAIMED) {
+  if (subsidyInfo.status !== SubsidyStatus.CLAIMED) {
     return (
       <SubsidyRow
         description={`This job is charged in full. Verify your email and claim to get ${SUBSIDY_ONE_TIME_CREDIT} ${SUBSIDY_TOKEN_SYMBOL} on us and a ${SUBSIDY_DISCOUNT_PERCENT}% discount.`}
         end={
           <Button
             color="accent1"
-            href={grantInfo.status === GrantStatus.PENDING ? '/grant/verify' : '/grant/claim'}
+            href={subsidyInfo.status === SubsidyStatus.PENDING ? '/subsidy/verify' : '/subsidy/claim'}
             size="sm"
             variant="outlined"
           >

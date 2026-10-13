@@ -1,14 +1,14 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import SubsidyInfoButton from '@/components/grant/subsidy-info-button';
-import SubsidyTiles from '@/components/grant/subsidy-tiles';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
+import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { CHAIN_ID, CHAIN_LABELS } from '@/constants/chains';
 import { SUBSIDY_DISCOUNT_PERCENT, SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
 import { useProfileContext } from '@/context/profile-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatSubsidyReset, SubsidyAllowance, useSubsidyUsage } from '@/lib/use-subsidy';
-import { GrantStatus } from '@/types/grant';
+import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -123,30 +123,30 @@ const PendingSteps = () => (
 
 const SubsidySection = () => {
   const { account } = useOceanAccount();
-  const { grantInfo } = useProfileContext();
+  const { subsidyInfo } = useProfileContext();
 
   const renderContent = () => {
-    if (!grantInfo) {
+    if (!subsidyInfo) {
       return <CircularProgress className="alignSelfCenter" />;
     }
 
-    if (grantInfo.status === GrantStatus.CLAIMED) {
+    if (subsidyInfo.status === SubsidyStatus.CLAIMED) {
       return <ActiveSubsidy walletAddress={account.address ?? ''} />;
     }
 
-    const appliedOn = grantInfo.applicationDate ? dayjs(grantInfo.applicationDate).format('MMM D, YYYY') : null;
+    const appliedOn = subsidyInfo.applicationDate ? dayjs(subsidyInfo.applicationDate).format('MMM D, YYYY') : null;
 
-    if (grantInfo.status === GrantStatus.PENDING) {
+    if (subsidyInfo.status === SubsidyStatus.PENDING) {
       return (
         <>
           <SubsidyHeader
             action={
-              <Button color="accent1" href="/grant/verify" size="md">
+              <Button color="accent1" href="/subsidy/verify" size="md">
                 Verify email
               </Button>
             }
             chip={<span className="chip chipWarning">Email not verified</span>}
-            subtitle={[appliedOn ? `Applied ${appliedOn}` : null, grantInfo.maskedEmail].filter(Boolean).join(' · ')}
+            subtitle={[appliedOn ? `Applied ${appliedOn}` : null, subsidyInfo.maskedEmail].filter(Boolean).join(' · ')}
           />
           <PendingSteps />
           <SubsidyTiles muted />
@@ -157,7 +157,7 @@ const SubsidySection = () => {
       );
     }
 
-    if (grantInfo.status === GrantStatus.EMAIL_VERIFIED) {
+    if (subsidyInfo.status === SubsidyStatus.EMAIL_VERIFIED) {
       return (
         <>
           <SubsidyHeader
@@ -165,8 +165,8 @@ const SubsidySection = () => {
             subtitle={
               <>
                 Wallet <span className={styles.mono}>{formatWalletAddress(account.address ?? '')}</span> ·{' '}
-                {grantInfo.verifiedDate
-                  ? `verified ${dayjs(grantInfo.verifiedDate).format('MMM D, YYYY')}`
+                {subsidyInfo.verifiedDate
+                  ? `verified ${dayjs(subsidyInfo.verifiedDate).format('MMM D, YYYY')}`
                   : 'email verified'}
               </>
             }
@@ -176,7 +176,7 @@ const SubsidySection = () => {
             <span className={styles.small}>
               Claim to add your wallet to the subsidy contract and start using your subsidy.
             </span>
-            <Button color="accent1" href="/grant/claim" size="md">
+            <Button color="accent1" href="/subsidy/claim" size="md">
               Claim subsidy
             </Button>
           </div>
@@ -190,7 +190,7 @@ const SubsidySection = () => {
         <SubsidyTiles />
         <div className={styles.footer}>
           <span className={styles.small}>Takes a minute: your details, then a 6-digit code.</span>
-          <Button color="accent1" href="/grant/details" size="md">
+          <Button color="accent1" href="/subsidy/details" size="md">
             Get a subsidy
           </Button>
         </div>

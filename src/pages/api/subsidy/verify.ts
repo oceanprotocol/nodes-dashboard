@@ -1,6 +1,11 @@
-import { findGrantInSheet, updateGrantInSheet } from '@/api-services/gsheets';
+import { findSubsidyInSheet, updateSubsidyInSheet } from '@/api-services/gsheets';
 import { verifyOTP } from '@/api-services/otp';
-import { GRANT_MAX_OTP_ATTEMPTS, GrantStatus, GrantVerifyError, GrantVerifyErrorResponse } from '@/types/grant';
+import {
+  SUBSIDY_MAX_OTP_ATTEMPTS,
+  SubsidyStatus,
+  SubsidyVerifyError,
+  SubsidyVerifyErrorResponse,
+} from '@/types/subsidy';
 import { normalizeEmail } from '@/utils/email';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -26,25 +31,25 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   try {
-    const grant = await findGrantInSheet({ walletAddress });
+    const subsidy = await findSubsidyInSheet({ walletAddress });
 
-    if (!grant || (email && grant.email.toLowerCase() !== normalizeEmail(email).toLowerCase())) {
+    if (!subsidy || (email && subsidy.email.toLowerCase() !== normalizeEmail(email).toLowerCase())) {
       return response.status(400).json({ message: 'No pending subsidy request found' });
     }
 
-    // Only PENDING grants are eligible for OTP verification. Reject calls on already-verified/ signed/ claimed rows
-    if (grant.status !== GrantStatus.PENDING) {
+    // Only PENDING subsidies can be verified.
+    if (subsidy.status !== SubsidyStatus.PENDING) {
       return response.status(400).json({ message: 'No pending subsidy request found' });
     }
 
-    if (grant.otpExpires && Date.now() > grant.otpExpires) {
-      const body: GrantVerifyErrorResponse = { error: GrantVerifyError.EXPIRED, message: 'Code expired' };
+    if (subsidy.otpExpires && Date.now() > subsidy.otpExpires) {
+      const body: SubsidyVerifyErrorResponse = { error: SubsidyVerifyError.EXPIRED, message: 'Code expired' };
       return response.status(400).json(body);
     }
 
-    if ((grant.otpAttempts ?? 0) >= GRANT_MAX_OTP_ATTEMPTS) {
-      const body: GrantVerifyErrorResponse = {
-        error: GrantVerifyError.LOCKED,
+    if ((subsidy.otpAttempts ?? 0) >= SUBSIDY_MAX_OTP_ATTEMPTS) {
+      const body: SubsidyVerifyErrorResponse = {
+        error: SubsidyVerifyError.LOCKED,
         message: 'Too many attempts. Request a new code.',
       };
       return response.status(429).json(body);
@@ -52,24 +57,24 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     // Pre-increment the attempt counter BEFORE the comparison.
     // Reduces the race window where concurrent guesses could share the same pre-check value.
-    const nextAttempts = (grant.otpAttempts ?? 0) + 1;
-    const incremented = await updateGrantInSheet({ ...grant, otpAttempts: nextAttempts });
+    const nextAttempts = (subsidy.otpAttempts ?? 0) + 1;
+    const incremented = await updateSubsidyInSheet({ ...subsidy, otpAttempts: nextAttempts });
     if (!incremented) {
       return response.status(500).json({ message: 'Failed to verify code' });
     }
 
-    if (!verifyOTP(code, grant.otp ?? '')) {
-      const attemptsLeft = Math.max(0, GRANT_MAX_OTP_ATTEMPTS - nextAttempts);
-      const body: GrantVerifyErrorResponse = attemptsLeft
-        ? { attemptsLeft, error: GrantVerifyError.INVALID_CODE, message: 'Invalid code' }
-        : { error: GrantVerifyError.LOCKED, message: 'Too many attempts. Request a new code.' };
+    if (!verifyOTP(code, subsidy.otp ?? '')) {
+      const attemptsLeft = Math.max(0, SUBSIDY_MAX_OTP_ATTEMPTS - nextAttempts);
+      const body: SubsidyVerifyErrorResponse = attemptsLeft
+        ? { attemptsLeft, error: SubsidyVerifyError.INVALID_CODE, message: 'Invalid code' }
+        : { error: SubsidyVerifyError.LOCKED, message: 'Too many attempts. Request a new code.' };
       return response.status(400).json(body);
     }
 
     // OTP is valid, update status and clear OTP fields
-    await updateGrantInSheet({
-      ...grant,
-      status: GrantStatus.EMAIL_VERIFIED,
+    await updateSubsidyInSheet({
+      ...subsidy,
+      status: SubsidyStatus.EMAIL_VERIFIED,
       otp: '',
       otpAttempts: 0,
       otpExpires: 0,
@@ -78,7 +83,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     return response.status(200).json('');
   } catch (error) {
-    console.error('Error verifying grant:', error);
+    console.error('Error verifying subsidy:', error);
     return response.status(500).json({ message: 'Failed to verify code' });
   }
 }

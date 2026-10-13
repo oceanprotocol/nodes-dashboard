@@ -1,11 +1,11 @@
-import Details from '@/components/grant/details';
-import GrantPage from '@/components/grant/grant-page';
+import Details from '@/components/subsidy/details';
+import SubsidyPage from '@/components/subsidy/subsidy-page';
 import React from 'react';
 
 const DetailsPage: React.FC = () => (
-  <GrantPage step="details">
+  <SubsidyPage step="details">
     <Details />
-  </GrantPage>
+  </SubsidyPage>
 );
 
 export default DetailsPage;

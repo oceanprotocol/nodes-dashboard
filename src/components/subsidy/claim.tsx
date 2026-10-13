@@ -11,7 +11,7 @@ import { useProfileContext } from '@/context/profile-context';
 import { captureError } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSubsidyUsage } from '@/lib/use-subsidy';
-import { GrantStatus } from '@/types/grant';
+import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import axios from 'axios';
 import posthog from 'posthog-js';
@@ -55,11 +55,11 @@ const ClaimedSubsidy = () => {
 
 const Claim: React.FC = () => {
   const { account, login } = useOceanAccount();
-  const { fetchGrantStatus, grantStatus } = useProfileContext();
+  const { fetchSubsidyStatus, subsidyStatus } = useProfileContext();
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const isClaimed = grantStatus === GrantStatus.CLAIMED;
+  const isClaimed = subsidyStatus === SubsidyStatus.CLAIMED;
 
   const handleClaim = async () => {
     // `connected` lets us segment out clicks that just divert to login.
@@ -70,7 +70,7 @@ const Claim: React.FC = () => {
     }
     try {
       setIsLoading(true);
-      await axios.post('/api/grant/claim', { walletAddress: account.address });
+      await axios.post('/api/subsidy/claim', { walletAddress: account.address });
       posthog.capture('grant_claim_success');
       if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
         (window as any).gtag('event', 'conversion', {
@@ -80,7 +80,7 @@ const Claim: React.FC = () => {
           transaction_id: account.address,
         });
       }
-      await fetchGrantStatus(account.address);
+      await fetchSubsidyStatus(account.address);
       toast.success('Subsidy claimed');
     } catch (error) {
       captureError('grant_claim_failed', error, { reason: 'api_error', error: String(error) });

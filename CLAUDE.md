@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`nodes-dashboard` — the Next.js dashboard for Ocean Network. It shows node stats, and leaderboards, and hosts wallet-connected flows: running compute jobs, running/configuring your own node, profile/escrow management, token grants, and swapping tokens.
+`nodes-dashboard` — the Next.js dashboard for Ocean Network. It shows node stats, and leaderboards, and hosts wallet-connected flows: running compute jobs, running/configuring your own node, profile/escrow management, token subsidies, and swapping tokens.
 
 ## Stack at a glance
 
@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Yarn 4** (Berry, `node-modules` linker) — use `yarn`, not `npm`. Node version is pinned by `.nvmrc` (see gotchas — don't trust the README or CI on this).
 - **UI**: MUI v7 + Emotion are dependencies, but most components actually style via co-located CSS Modules (`*.module.css`), not MUI's `sx` prop.
 - **Server state**: TanStack Query, one `QueryClient` created via `useRef` in `src/pages/_app.tsx`.
-- **Domain state**: ~15 React Context providers nested in `_app.tsx` (nodes, stats, profile, grant, run-job, run-node, P2P, node-auth, node-storage, etc.) rather than Redux/Zustand. Order in the provider tree matters — several inner providers depend on `useOceanAccount()`, which depends on Privy, so don't reorder casually.
+- **Domain state**: ~15 React Context providers nested in `_app.tsx` (nodes, stats, profile, subsidy, run-job, run-node, P2P, node-auth, node-storage, etc.) rather than Redux/Zustand. Order in the provider tree matters — several inner providers depend on `useOceanAccount()`, which depends on Privy, so don't reorder casually.
 - **Wallet stack**, layered — use `src/lib/use-ocean-account.tsx`'s `useOceanAccount()` for "current wallet" state, not a lower-level library directly: Privy (`@privy-io/react-auth`) handles login/auth → `@privy-io/alchemy-migration` bridges to an Alchemy smart-contract account → `useOceanAccount()` branches between an `SCAHandler` (smart-account path) and an `EOAHandler` (plain wallet path, e.g. MetaMask).
 - **Direct Ocean Node calls** (bypassing the incentive-backend proxy) go through `@oceanprotocol/lib`'s `ProviderInstance` in `src/services/nodeService.ts`.
 - **Charts**: `recharts`, in `src/components/chart/`.
@@ -32,15 +32,15 @@ yarn format      # prettier --write
 
 ## Architecture, briefly
 
-- `src/pages/` — routes, plus API routes under `src/pages/api/` (`rpc.ts`, and the server-side Grant flow under `api/grant/*`).
+- `src/pages/` — routes, plus API routes under `src/pages/api/` (`rpc.ts`, and the server-side Subsidy flow under `api/subsidy/*`).
 - `src/context/` and `src/contexts/` — domain state providers (note the split across two similarly-named folders; both are wired into `_app.tsx`).
 - `src/lib/` — wallet/web3 hooks and adapters (see stack section above), plus the query client.
-- `src/services/` and `src/api-services/` — backend integration. `src/config.ts` defines `API_ROOTS`/`apiRoutes`, switching between dev/prod URLs for the incentive-backend and analytics services based on `NEXT_PUBLIC_APP_ENV`. `src/api-services/*` backs the server-only Grant flow (Google Sheets, Gmail, Gemini).
+- `src/services/` and `src/api-services/` — backend integration. `src/config.ts` defines `API_ROOTS`/`apiRoutes`, switching between dev/prod URLs for the incentive-backend and analytics services based on `NEXT_PUBLIC_APP_ENV`. `src/api-services/*` backs the server-only Subsidy flow (Google Sheets, Gmail, Gemini).
 - `src/components/` — ~35 feature folders. Filenames are kebab-case (`pie-chart.tsx`), exported components are PascalCase. Styling is co-located CSS Modules per component.
 
 ## Environment
 
-Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Subsidy-flow server secrets (`GEMINI_API_KEY`, `GRANT_GSHEETS_*`, `GRANT_GMAIL_*`), `NEXT_PUBLIC_GPU_LIST`.
+Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Subsidy-flow server secrets (`GEMINI_API_KEY`, `SUBSIDY_GSHEETS_*`, `SUBSIDY_GMAIL_*`), `NEXT_PUBLIC_GPU_LIST`.
 
 ## Known gotchas
 

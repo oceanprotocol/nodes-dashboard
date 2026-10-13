@@ -1,18 +1,18 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import SubsidyOffer from '@/components/grant/subsidy-offer';
 import Input from '@/components/input/input';
-import { useGrantContext } from '@/context/grant-context';
+import SubsidyOffer from '@/components/subsidy/subsidy-offer';
 import { useProfileContext } from '@/context/profile-context';
+import { useSubsidyContext } from '@/context/subsidy-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
-  GRANT_HANDLE_RULES,
-  GRANT_HANDLE_SERVICE_CHOICES,
-  GrantHandleService,
   isValidHandle,
   normalizeHandle,
-  SubmitGrantDetailsResponse,
-} from '@/types/grant';
+  SubmitSubsidyDetailsResponse,
+  SUBSIDY_HANDLE_RULES,
+  SUBSIDY_HANDLE_SERVICE_CHOICES,
+  SubsidyHandleService,
+} from '@/types/subsidy';
 import axios from 'axios';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
@@ -24,7 +24,7 @@ import styles from './details.module.css';
 type DetailsFormValues = {
   email: string;
   handle: string;
-  handleService: GrantHandleService;
+  handleService: SubsidyHandleService;
   name: string;
 };
 
@@ -32,15 +32,15 @@ const Details: React.FC = () => {
   const { account, login } = useOceanAccount();
   const router = useRouter();
 
-  const { grantDetails, setGrantDetails } = useGrantContext();
-  const { fetchGrantStatus } = useProfileContext();
+  const { subsidyDetails, setSubsidyDetails } = useSubsidyContext();
+  const { fetchSubsidyStatus } = useProfileContext();
 
   const formik = useFormik<DetailsFormValues>({
     initialValues: {
-      email: grantDetails?.email ?? '',
-      handle: grantDetails?.handle ?? '',
-      handleService: grantDetails?.handleService ?? GRANT_HANDLE_SERVICE_CHOICES[0].value,
-      name: grantDetails?.name ?? '',
+      email: subsidyDetails?.email ?? '',
+      handle: subsidyDetails?.handle ?? '',
+      handleService: subsidyDetails?.handleService ?? SUBSIDY_HANDLE_SERVICE_CHOICES[0].value,
+      name: subsidyDetails?.name ?? '',
     },
     onSubmit: async (values) => {
       if (!account.isConnected || !account.address) {
@@ -55,15 +55,15 @@ const Details: React.FC = () => {
           name: values.name,
           walletAddress: account.address,
         };
-        const response = await axios.post<SubmitGrantDetailsResponse>('/api/grant/details', details);
-        setGrantDetails(details);
+        const response = await axios.post<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
+        setSubsidyDetails(details);
         posthog.capture('grant_form_completed', { handleService: values.handleService });
         // The step guard reads the saved status, so refresh it before moving on.
-        await fetchGrantStatus(account.address);
+        await fetchSubsidyStatus(account.address);
         if (response.data.shouldValidateEmail) {
-          router.push({ pathname: '/grant/verify', query: response.data.emailChanged ? { emailChanged: 1 } : {} });
+          router.push({ pathname: '/subsidy/verify', query: response.data.emailChanged ? { emailChanged: 1 } : {} });
         } else {
-          router.push('/grant/claim');
+          router.push('/subsidy/claim');
         }
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.data?.message) {
@@ -83,10 +83,10 @@ const Details: React.FC = () => {
           if (!value || isValidHandle(value, service)) {
             return true;
           }
-          return this.createError({ message: GRANT_HANDLE_RULES[service].message });
+          return this.createError({ message: SUBSIDY_HANDLE_RULES[service].message });
         }),
       handleService: Yup.string()
-        .oneOf(GRANT_HANDLE_SERVICE_CHOICES.map((c) => c.value))
+        .oneOf(SUBSIDY_HANDLE_SERVICE_CHOICES.map((c) => c.value))
         .required('Required'),
       name: Yup.string().required('Required'),
     }),
@@ -142,7 +142,7 @@ const Details: React.FC = () => {
                   onChange={formik.handleChange}
                   value={formik.values.handleService}
                 >
-                  {GRANT_HANDLE_SERVICE_CHOICES.map((choice) => (
+                  {SUBSIDY_HANDLE_SERVICE_CHOICES.map((choice) => (
                     <option key={choice.value} value={choice.value}>
                       {choice.label}
                     </option>

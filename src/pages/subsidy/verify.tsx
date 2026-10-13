@@ -1,11 +1,11 @@
-import GrantPage from '@/components/grant/grant-page';
-import Verify from '@/components/grant/verify';
+import SubsidyPage from '@/components/subsidy/subsidy-page';
+import Verify from '@/components/subsidy/verify';
 import React from 'react';
 
 const VerifyPage: React.FC = () => (
-  <GrantPage step="verify">
+  <SubsidyPage step="verify">
     <Verify />
-  </GrantPage>
+  </SubsidyPage>
 );
 
 export default VerifyPage;

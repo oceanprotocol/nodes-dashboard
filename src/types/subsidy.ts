@@ -1,37 +1,37 @@
-export type GrantHandleService = 'discord' | 'telegram';
+export type SubsidyHandleService = 'discord' | 'telegram';
 
-export type GrantDetails = {
+export type SubsidyDetails = {
   email: string;
   handle: string;
-  handleService: GrantHandleService;
+  handleService: SubsidyHandleService;
   name: string;
   walletAddress: string;
 };
 
-export type GrantWithStatus = GrantDetails & {
+export type SubsidyWithStatus = SubsidyDetails & {
   applicationDate: Date;
   claimDate?: Date;
   otp?: string;
   otpAttempts?: number;
   otpExpires?: number;
   otpLastResent?: number;
-  status: GrantStatus;
+  status: SubsidyStatus;
   verifiedDate?: Date;
 };
 
-export enum GrantStatus {
+export enum SubsidyStatus {
   PENDING = 'pending',
   EMAIL_VERIFIED = 'email-verified',
   CLAIMED = 'claimed',
 }
 
-export type SubmitGrantDetailsResponse = {
+export type SubmitSubsidyDetailsResponse = {
   /** A verified row whose email was replaced, so the new address needs a code. */
   emailChanged?: boolean;
   shouldValidateEmail: boolean;
 };
 
-export type GrantStatusResponse = {
+export type SubsidyStatusResponse = {
   applicationDate?: string;
   claimDate?: string;
   /** Hint like `al***@example.com`, since the endpoint is not authenticated. */
@@ -39,26 +39,26 @@ export type GrantStatusResponse = {
   otpExpires?: number;
   otpLastResent?: number;
   otpLocked?: boolean;
-  status: GrantStatus | null;
+  status: SubsidyStatus | null;
   verifiedDate?: string;
 };
 
-export enum GrantVerifyError {
+export enum SubsidyVerifyError {
   EXPIRED = 'expired',
   INVALID_CODE = 'invalid-code',
   LOCKED = 'locked',
 }
 
-export type GrantVerifyErrorResponse = {
+export type SubsidyVerifyErrorResponse = {
   attemptsLeft?: number;
-  error?: GrantVerifyError;
+  error?: SubsidyVerifyError;
   message: string;
 };
 
-export const GRANT_MAX_OTP_ATTEMPTS = 5;
-export const GRANT_OTP_RESEND_COOLDOWN_SECONDS = 60;
+export const SUBSIDY_MAX_OTP_ATTEMPTS = 5;
+export const SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS = 60;
 
-export const GRANT_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: GrantHandleService }> = [
+export const SUBSIDY_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: SubsidyHandleService }> = [
   { label: 'Discord', value: 'discord' },
   { label: 'Telegram', value: 'telegram' },
 ];
@@ -72,7 +72,7 @@ export const GRANT_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: GrantHa
  * Telegram: 5-32 chars, letters/digits/underscore.
  * Handles are stored without the leading "@" (see normalizeHandle).
  */
-export const GRANT_HANDLE_RULES: Record<GrantHandleService, { message: string; regex: RegExp }> = {
+export const SUBSIDY_HANDLE_RULES: Record<SubsidyHandleService, { message: string; regex: RegExp }> = {
   discord: {
     message: 'Enter a valid Discord handle (2-32 characters: letters, digits, "." or "_", no consecutive dots)',
     regex: /^(?!.*\.\.)[a-zA-Z0-9._]{2,32}$/,
@@ -100,8 +100,8 @@ export function getHandleComparisonKey(handle: string): string {
   return normalizeHandle(handle).toLowerCase();
 }
 
-export function isValidHandle(handle: string, service: GrantHandleService): boolean {
-  const rule = GRANT_HANDLE_RULES[service];
+export function isValidHandle(handle: string, service: SubsidyHandleService): boolean {
+  const rule = SUBSIDY_HANDLE_RULES[service];
   if (!rule) {
     return false;
   }

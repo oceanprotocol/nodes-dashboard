@@ -1,4 +1,10 @@
-import { getHandleComparisonKey, GrantDetails, GrantHandleService, GrantStatus, GrantWithStatus } from '@/types/grant';
+import {
+  getHandleComparisonKey,
+  SubsidyDetails,
+  SubsidyHandleService,
+  SubsidyStatus,
+  SubsidyWithStatus,
+} from '@/types/subsidy';
 import { google } from 'googleapis';
 
 /**
@@ -24,7 +30,7 @@ import { google } from 'googleapis';
  * Rows 3...N: Data
  */
 
-const SPREADSHEET_ID = process.env.GRANT_GSHEETS_SPREADSHEET_ID;
+const SPREADSHEET_ID = process.env.SUBSIDY_GSHEETS_SPREADSHEET_ID;
 
 const FIRST_DATA_ROW = 3;
 const LAST_COLUMN = 'M';
@@ -36,15 +42,15 @@ const TELEGRAM_HANDLE_COLUMN = 4;
 
 function getRange(row?: number) {
   if (row || row === 0) {
-    return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${row}:${LAST_COLUMN}${row}`;
+    return `${process.env.SUBSIDY_GSHEETS_SHEET_NAME}!A${row}:${LAST_COLUMN}${row}`;
   }
-  return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${FIRST_DATA_ROW}:${LAST_COLUMN}`;
+  return `${process.env.SUBSIDY_GSHEETS_SHEET_NAME}!A${FIRST_DATA_ROW}:${LAST_COLUMN}`;
 }
 
 async function getSheetsService() {
   const auth = new google.auth.JWT({
-    email: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    email: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL,
+    key: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   return google.sheets({ version: 'v4', auth });
@@ -54,7 +60,7 @@ const parseDate = (value: string | undefined) => (value ? new Date(value) : unde
 
 const parseNumber = (value: string | undefined) => (value ? Number(value) : undefined);
 
-function rowToGrant(row: string[]): GrantWithStatus {
+function rowToSubsidy(row: string[]): SubsidyWithStatus {
   const discordHandle = row[DISCORD_HANDLE_COLUMN];
   return {
     name: row[0],
@@ -65,7 +71,7 @@ function rowToGrant(row: string[]): GrantWithStatus {
     applicationDate: new Date(row[5]),
     verifiedDate: parseDate(row[6]),
     claimDate: parseDate(row[7]),
-    status: row[8] as GrantStatus,
+    status: row[8] as SubsidyStatus,
     otp: row[9],
     otpExpires: parseNumber(row[10]),
     otpAttempts: parseNumber(row[11]) ?? 0,
@@ -73,7 +79,7 @@ function rowToGrant(row: string[]): GrantWithStatus {
   };
 }
 
-function grantToRow(data: GrantWithStatus): string[] {
+function subsidyToRow(data: SubsidyWithStatus): string[] {
   // Sheets drops `undefined` cells, which would shift the row — coerce every cell to a string.
   const cells: Array<string | number | undefined> = [
     // A: Name
@@ -119,7 +125,7 @@ async function getAllRows(): Promise<string[][]> {
  * Comparison goes through getHandleComparisonKey, so stored rows that kept an "@" or surrounding
  * whitespace still match a bare handle.
  */
-function rowMatchesHandle(row: string[], handle: string, handleService: GrantHandleService): boolean {
+function rowMatchesHandle(row: string[], handle: string, handleService: SubsidyHandleService): boolean {
   const key = getHandleComparisonKey(handle);
   if (!key) {
     return false;
@@ -128,13 +134,13 @@ function rowMatchesHandle(row: string[], handle: string, handleService: GrantHan
   return !!value && getHandleComparisonKey(value) === key;
 }
 
-export async function findGrantInSheet({
+export async function findSubsidyInSheet({
   email,
   walletAddress,
 }: {
   email?: string;
   walletAddress?: string;
-}): Promise<GrantWithStatus | null> {
+}): Promise<SubsidyWithStatus | null> {
   if (!email && !walletAddress) {
     throw new Error('Missing required fields');
   }
@@ -146,25 +152,25 @@ export async function findGrantInSheet({
       (walletAddress && row[WALLET_COLUMN]?.toLowerCase() === walletAddress.toLowerCase())
   );
   if (rowIndex === -1) return null;
-  return rowToGrant(rows[rowIndex]);
+  return rowToSubsidy(rows[rowIndex]);
 }
 
-export async function findGrantByHandle({
+export async function findSubsidyByHandle({
   handle,
   handleService,
 }: {
   handle: string;
-  handleService: GrantHandleService;
-}): Promise<GrantWithStatus | null> {
+  handleService: SubsidyHandleService;
+}): Promise<SubsidyWithStatus | null> {
   const rows = await getAllRows();
   if (rows.length === 0) return null;
-  const matches = rows.filter((row) => rowMatchesHandle(row, handle, handleService)).map(rowToGrant);
+  const matches = rows.filter((row) => rowMatchesHandle(row, handle, handleService)).map(rowToSubsidy);
   if (matches.length === 0) return null;
-  return matches.find((match) => match.status !== GrantStatus.PENDING) ?? matches[0];
+  return matches.find((match) => match.status !== SubsidyStatus.PENDING) ?? matches[0];
 }
 
-export async function insertGrantInSheet(
-  data: GrantDetails & { otp?: string; otpExpires?: number; otpAttempts?: number; otpLastResent?: number }
+export async function insertSubsidyInSheet(
+  data: SubsidyDetails & { otp?: string; otpExpires?: number; otpAttempts?: number; otpLastResent?: number }
 ) {
   const service = await getSheetsService();
   // Late dedupe check — tightens (but does not eliminate) the race window between two
@@ -180,7 +186,7 @@ export async function insertGrantInSheet(
   if (dup) {
     throw new Error('Subsidy row already exists for this wallet, email or handle');
   }
-  const values = [grantToRow({ ...data, applicationDate: new Date(), status: GrantStatus.PENDING })];
+  const values = [subsidyToRow({ ...data, applicationDate: new Date(), status: SubsidyStatus.PENDING })];
   await service.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: getRange(),
@@ -189,7 +195,7 @@ export async function insertGrantInSheet(
   });
 }
 
-export async function updateGrantInSheet(data: GrantWithStatus): Promise<boolean> {
+export async function updateSubsidyInSheet(data: SubsidyWithStatus): Promise<boolean> {
   const service = await getSheetsService();
   const rows = await getAllRows();
   if (rows.length === 0) return false;
@@ -200,7 +206,7 @@ export async function updateGrantInSheet(data: GrantWithStatus): Promise<boolean
     spreadsheetId: SPREADSHEET_ID,
     range: getRange(rowNumber),
     valueInputOption: 'RAW',
-    requestBody: { values: [grantToRow(data)] },
+    requestBody: { values: [subsidyToRow(data)] },
   });
   return true;
 }

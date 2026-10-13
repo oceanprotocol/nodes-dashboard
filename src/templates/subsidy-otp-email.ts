@@ -1,6 +1,6 @@
 import config from '@/config';
 
-export function getGrantOtpEmailTemplate({ otp }: { otp: string }) {
+export function getSubsidyOtpEmailTemplate({ otp }: { otp: string }) {
   const year = new Date().getFullYear();
   return `
 <table
@@ -17,7 +17,7 @@ export function getGrantOtpEmailTemplate({ otp }: { otp: string }) {
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
         <tr>
           <td style="text-align: left; vertical-align: bottom">
-            <h1 style="margin: 0; font-size: 24px; color: #b7fd79">Ocean Network Grant</h1>
+            <h1 style="margin: 0; font-size: 24px; color: #b7fd79">Ocean Network Subsidy</h1>
           </td>
           <td rowspan="2" style="text-align: right">
             <img

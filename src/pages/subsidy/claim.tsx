@@ -1,11 +1,11 @@
-import Claim from '@/components/grant/claim';
-import GrantPage from '@/components/grant/grant-page';
+import Claim from '@/components/subsidy/claim';
+import SubsidyPage from '@/components/subsidy/subsidy-page';
 import React from 'react';
 
 const ClaimPage: React.FC = () => (
-  <GrantPage step="claim">
+  <SubsidyPage step="claim">
     <Claim />
-  </GrantPage>
+  </SubsidyPage>
 );
 
 export default ClaimPage;

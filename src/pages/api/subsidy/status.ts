@@ -1,5 +1,5 @@
-import { findGrantInSheet } from '@/api-services/gsheets';
-import { GRANT_MAX_OTP_ATTEMPTS, GrantStatus, GrantStatusResponse, GrantWithStatus } from '@/types/grant';
+import { findSubsidyInSheet } from '@/api-services/gsheets';
+import { SUBSIDY_MAX_OTP_ATTEMPTS, SubsidyStatus, SubsidyStatusResponse, SubsidyWithStatus } from '@/types/subsidy';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -11,17 +11,17 @@ function maskEmail(email: string): string {
   return `${local.slice(0, 2)}***@${domain}`;
 }
 
-function toStatusResponse(grant: GrantWithStatus): GrantStatusResponse {
-  const isPending = grant.status === GrantStatus.PENDING;
+function toStatusResponse(subsidy: SubsidyWithStatus): SubsidyStatusResponse {
+  const isPending = subsidy.status === SubsidyStatus.PENDING;
   return {
-    applicationDate: grant.applicationDate.toISOString(),
-    claimDate: grant.claimDate?.toISOString(),
-    maskedEmail: maskEmail(grant.email),
-    otpExpires: isPending ? grant.otpExpires : undefined,
-    otpLastResent: isPending ? grant.otpLastResent : undefined,
-    otpLocked: isPending ? (grant.otpAttempts ?? 0) >= GRANT_MAX_OTP_ATTEMPTS : undefined,
-    status: grant.status,
-    verifiedDate: grant.verifiedDate?.toISOString(),
+    applicationDate: subsidy.applicationDate.toISOString(),
+    claimDate: subsidy.claimDate?.toISOString(),
+    maskedEmail: maskEmail(subsidy.email),
+    otpExpires: isPending ? subsidy.otpExpires : undefined,
+    otpLastResent: isPending ? subsidy.otpLastResent : undefined,
+    otpLocked: isPending ? (subsidy.otpAttempts ?? 0) >= SUBSIDY_MAX_OTP_ATTEMPTS : undefined,
+    status: subsidy.status,
+    verifiedDate: subsidy.verifiedDate?.toISOString(),
   };
 }
 
@@ -40,15 +40,15 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   try {
-    const grant = await findGrantInSheet({ walletAddress });
-    if (!grant) {
-      const body: GrantStatusResponse = { status: null };
+    const subsidy = await findSubsidyInSheet({ walletAddress });
+    if (!subsidy) {
+      const body: SubsidyStatusResponse = { status: null };
       return response.status(200).json(body);
     }
 
-    return response.status(200).json(toStatusResponse(grant));
+    return response.status(200).json(toStatusResponse(subsidy));
   } catch (error) {
-    console.error('Error getting grant status:', error);
-    return response.status(500).json({ message: 'Failed to get grant status' });
+    console.error('Error getting subsidy status:', error);
+    return response.status(500).json({ message: 'Failed to get subsidy status' });
   }
 }

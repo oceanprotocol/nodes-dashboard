@@ -1,7 +1,6 @@
 import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { EnvNodeInfo } from '@/types/environments';
-import { GrantStatus, GrantStatusResponse } from '@/types/grant';
 import { EnsProfile } from '@/types/profile';
 import {
   ConsumerServiceStats,
@@ -17,6 +16,7 @@ import {
   OwnerStats,
   OwnerStatsPerEpoch,
 } from '@/types/stats';
+import { SubsidyStatus, SubsidyStatusResponse } from '@/types/subsidy';
 import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -56,15 +56,15 @@ type ProfileContextType = {
   environment: any;
   nodeInfo: EnvNodeInfo;
   /** Full subsidy request status for the connected wallet; `undefined` until the first fetch settles. */
-  grantInfo: GrantStatusResponse | undefined;
-  grantStatus: GrantStatus | null;
+  subsidyInfo: SubsidyStatusResponse | undefined;
+  subsidyStatus: SubsidyStatus | null;
   // API functions
   fetchOwnerStats: () => Promise<void>;
   fetchConsumerStats: () => Promise<void>;
   fetchOwnerServiceStats: () => Promise<void>;
   fetchConsumerServiceStats: () => Promise<void>;
   fetchActiveNodes: () => Promise<void>;
-  fetchGrantStatus: (walletAddress: string) => Promise<void>;
+  fetchSubsidyStatus: (walletAddress: string) => Promise<void>;
   fetchJobsSuccessRate: () => Promise<void>;
   fetchNodeEnv: (peerId: string, envId: string) => Promise<any>;
 };
@@ -102,7 +102,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
   const [consumerReservedSeconds, setConsumerReservedSeconds] = useState<number>(0);
   const [environment, setEnvironment] = useState<any>(null);
   const [nodeInfo, setNodeInfo] = useState<any>();
-  const [grantInfo, setGrantInfo] = useState<GrantStatusResponse | undefined>(undefined);
+  const [subsidyInfo, setSubsidyInfo] = useState<SubsidyStatusResponse | undefined>(undefined);
 
   const fetchEnsName = useCallback(async (accountId: string) => {
     if (!accountId || accountId === '') {
@@ -272,17 +272,17 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const fetchGrantStatus = useCallback(async (walletAddress: string) => {
+  const fetchSubsidyStatus = useCallback(async (walletAddress: string) => {
     try {
-      const response = await axios.get<GrantStatusResponse>('/api/grant/status', {
+      const response = await axios.get<SubsidyStatusResponse>('/api/subsidy/status', {
         params: {
           walletAddress,
         },
       });
-      setGrantInfo(response.data ?? { status: null });
+      setSubsidyInfo(response.data ?? { status: null });
     } catch (err) {
-      console.error('Error fetching grant status: ', err);
-      setGrantInfo((prev) => prev ?? { status: null });
+      console.error('Error fetching subsidy status: ', err);
+      setSubsidyInfo((prev) => prev ?? { status: null });
     }
   }, []);
 
@@ -292,13 +292,13 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setEnsAddress(account.address);
       fetchEnsName(account.address);
       fetchEnsProfile(account.address);
-      setGrantInfo(undefined);
-      fetchGrantStatus(account.address);
+      setSubsidyInfo(undefined);
+      fetchSubsidyStatus(account.address);
     } else {
       setEnsAddress(undefined);
       setEnsName(undefined);
       setEnsProfile(undefined);
-      setGrantInfo(undefined);
+      setSubsidyInfo(undefined);
       // Every service metric is address-scoped; leaving any of them up after a
       // disconnect shows the previous account's revenue and spend.
       setOwnerServiceStatsPerEpoch([]);
@@ -314,7 +314,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
       setAvgServiceCostUsdc(0);
       setConsumerReservedSeconds(0);
     }
-  }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile, fetchGrantStatus]);
+  }, [account.address, account.isConnected, fetchEnsName, fetchEnsProfile, fetchSubsidyStatus]);
 
   return (
     <ProfileContext.Provider
@@ -347,14 +347,14 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
         consumerReservedSeconds,
         environment,
         nodeInfo,
-        grantInfo,
-        grantStatus: grantInfo?.status ?? null,
+        subsidyInfo,
+        subsidyStatus: subsidyInfo?.status ?? null,
         fetchOwnerStats,
         fetchConsumerStats,
         fetchOwnerServiceStats,
         fetchConsumerServiceStats,
         fetchActiveNodes,
-        fetchGrantStatus,
+        fetchSubsidyStatus,
         fetchJobsSuccessRate,
         fetchNodeEnv,
       }}

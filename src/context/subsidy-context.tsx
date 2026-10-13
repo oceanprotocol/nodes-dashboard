@@ -1,32 +1,32 @@
-import { GrantDetails } from '@/types/grant';
+import { SubsidyDetails } from '@/types/subsidy';
 import { createContext, ReactNode, useContext, useState } from 'react';
 
-type GrantContextType = {
-  grantDetails: GrantDetails | null;
-  setGrantDetails: (grantDetails: GrantDetails) => void;
+type SubsidyContextType = {
+  subsidyDetails: SubsidyDetails | null;
+  setSubsidyDetails: (subsidyDetails: SubsidyDetails) => void;
 };
 
-const GrantContext = createContext<GrantContextType | undefined>(undefined);
+const SubsidyContext = createContext<SubsidyContextType | undefined>(undefined);
 
-export const GrantProvider = ({ children }: { children: ReactNode }) => {
-  const [grantDetails, setGrantDetails] = useState<GrantDetails | null>(null);
+export const SubsidyProvider = ({ children }: { children: ReactNode }) => {
+  const [subsidyDetails, setSubsidyDetails] = useState<SubsidyDetails | null>(null);
 
   return (
-    <GrantContext.Provider
+    <SubsidyContext.Provider
       value={{
-        grantDetails,
-        setGrantDetails,
+        subsidyDetails,
+        setSubsidyDetails,
       }}
     >
       {children}
-    </GrantContext.Provider>
+    </SubsidyContext.Provider>
   );
 };
 
-export const useGrantContext = () => {
-  const context = useContext(GrantContext);
+export const useSubsidyContext = () => {
+  const context = useContext(SubsidyContext);
   if (!context) {
-    throw new Error('useGrantContext must be used within a GrantProvider');
+    throw new Error('useSubsidyContext must be used within a SubsidyProvider');
   }
   return context;
 };
