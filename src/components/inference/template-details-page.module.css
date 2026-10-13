@@ -46,28 +46,10 @@
 
   p {
     margin: 0;
-    text-wrap: pretty;
-  }
-
-  .lead {
     font-size: 14px;
     line-height: 1.6;
     color: var(--text-primary);
-  }
-
-  .body {
-    font-size: 13px;
-    line-height: 1.65;
-    color: var(--text-secondary);
-  }
-
-  /* Who it is for, ruled in the template's own accent. */
-  .audience {
-    padding-left: 12px;
-    border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--text-primary);
+    text-wrap: pretty;
   }
 }
 
