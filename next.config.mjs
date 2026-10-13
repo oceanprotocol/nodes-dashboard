@@ -50,8 +50,6 @@ const nextConfig = {
         __dirname,
         'node_modules/@walletconnect/ethereum-provider/node_modules/@walletconnect/universal-provider'
       ),
-      // Privy's Fiat Onramp uses @stripe/crypto dynamically but we don't use onramp.
-      '@stripe/crypto': false,
     };
     // viem's nested ox package uses dynamic require(variable) in its tempo module,
     // which webpack flags as a critical error. Suppress it — it doesn't affect runtime.
