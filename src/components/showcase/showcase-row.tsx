@@ -1,3 +1,4 @@
+import { showcaseSourceHref } from '@/services/showcase';
 import { ShowcaseItem } from '@/types/showcase';
 import classNames from 'classnames';
 import { CSSProperties } from 'react';
@@ -37,7 +38,7 @@ export function buildShowcaseRows(items: ShowcaseItem[], rowCount: number): Show
 }
 
 type ShowcaseRowProps = {
-  /** Shows each tile's chip. Off where every tile comes from the same template or model. */
+  /** Shows each tile's chip and links the tile to its source. Off where every tile comes from the same template or model. */
   chips?: boolean;
   className?: string;
   /** Position among sibling rows; staggers the entrance. */
@@ -68,7 +69,13 @@ const ShowcaseRow = ({ chips = true, className, index, row }: ShowcaseRowProps) 
           key={String(clone)}
         >
           {row.tiles.map((item, tileIndex) => (
-            <ShowcaseTile chip={chips} inert={clone} item={item} key={`${item.id}-${tileIndex}`} />
+            <ShowcaseTile
+              chip={chips}
+              href={chips ? showcaseSourceHref(item.source) : undefined}
+              inert={clone}
+              item={item}
+              key={`${item.id}-${tileIndex}`}
+            />
           ))}
         </div>
       ))}

@@ -139,6 +139,10 @@
   &::after {
     display: none;
   }
+
+  > a {
+    inset: var(--inset-y, 0px) var(--inset-x, 0px);
+  }
 }
 
 /* Only part of a tile behind shows, so its chip waits for the spread. */
