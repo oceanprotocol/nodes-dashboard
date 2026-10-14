@@ -92,6 +92,19 @@ const toWindow = (bucket: SubsidyBucket): SubsidyWindow => ({
   used: Number(bucket.used),
 });
 
+const DAY_SECONDS = 86400;
+const WEEK_SECONDS = 7 * DAY_SECONDS;
+const ROLLING_MONTH_SECONDS = 4 * WEEK_SECONDS;
+
+const toLimitWindow = (periodSeconds: number, limit: string): SubsidyWindow => ({
+  limit: Number(limit),
+  periodSeconds,
+  remaining: Number(limit),
+  resetsAt: null,
+  unlimited: Number(limit) === 0,
+  used: 0,
+});
+
 export const getBindingWindow = (windows: SubsidyWindow[]): SubsidyWindow | null =>
   windows
     .filter((window) => !window.unlimited)
@@ -147,14 +160,19 @@ const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> =
     return { address, credit: Number(config.defaultCredit), kind, percent: Number(config.pctBps) / 100 };
   }
   if (kind === SubsidyKind.ROLLING_WINDOW) {
-    const [limits, report] = await Promise.all([
-      new OPFSubsidyProvider(getReadSigner(), address, CHAIN_ID).getTokenLimits(token.address, token.decimals),
-      view.subsidyBuckets(ethers.ZeroAddress, token.address, token.decimals),
-    ]);
+    const limits = await new OPFSubsidyProvider(getReadSigner(), address, CHAIN_ID).getTokenLimits(
+      token.address,
+      token.decimals
+    );
     if (!limits.enabled) {
       return null;
     }
-    return { address, kind, percent: Number(limits.pctBps) / 100, windows: report.buckets.map(toWindow) };
+    const windows = [
+      toLimitWindow(DAY_SECONDS, limits.daily),
+      toLimitWindow(WEEK_SECONDS, limits.weekly),
+      toLimitWindow(ROLLING_MONTH_SECONDS, limits.monthly),
+    ];
+    return { address, kind, percent: Number(limits.pctBps) / 100, windows };
   }
   return null;
 };
