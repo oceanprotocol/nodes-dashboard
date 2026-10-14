@@ -4633,10 +4633,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/contracts@npm:^2.10.0":
-  version: 2.10.0
-  resolution: "@oceanprotocol/contracts@npm:2.10.0"
-  checksum: 10c0/49e5f97a47d702482a1ce9fc4df433235729e7421bcb60e90ed7c4a5182b52eb06d1022c1fa627f8d96dcf1ac818152fa5076964cd3fef790e89178ff74d7be5
+"@oceanprotocol/contracts@npm:3.2.0-rc.1":
+  version: 3.2.0-rc.1
+  resolution: "@oceanprotocol/contracts@npm:3.2.0-rc.1"
+  checksum: 10c0/d7189e9594486cc33483b61015133e8f5c36e4af59fc5009f40e05bd9b428fa1fc0fb9ffe11e6db9d220e249b1e9d1544c096b4f6fd388eddbf7236822764faa
   languageName: node
   linkType: hard
 
@@ -4653,9 +4653,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:9.3.0-next.4":
-  version: 9.3.0-next.4
-  resolution: "@oceanprotocol/lib@npm:9.3.0-next.4"
+"@oceanprotocol/lib@npm:9.3.0-next.5":
+  version: 9.3.0-next.5
+  resolution: "@oceanprotocol/lib@npm:9.3.0-next.5"
   dependencies:
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
@@ -4682,7 +4682,7 @@ __metadata:
     libp2p: "npm:^3.3.10"
     multiformats: "npm:^14.0.5"
     uint8arrays: "npm:^6.1.1"
-  checksum: 10c0/f0a0459157dd4b3a31b94831634dc380d2cbaaa58426dabf18f327e601dc4cbcd793d8ab23d8386f97131c2342edff06658b84552e79a2329af3e3de792a7b82
+  checksum: 10c0/a839292c296ab09be7d277150abee3ba70558b80596e31e4b54271cff9f0582602ed0656878858e08a30e85f63770fed75852ec2f745807ff470bd7bc2fc34cb
   languageName: node
   linkType: hard
 
@@ -18358,8 +18358,8 @@ __metadata:
     "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
-    "@oceanprotocol/contracts": "npm:^2.10.0"
-    "@oceanprotocol/lib": "npm:9.3.0-next.4"
+    "@oceanprotocol/contracts": "npm:3.2.0-rc.1"
+    "@oceanprotocol/lib": "npm:9.3.0-next.5"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.47.0"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"

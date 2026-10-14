@@ -35,4 +35,6 @@ export type EscrowEvent = {
   maxLockedAmount?: string;
   maxLockSeconds?: string;
   maxLockCounts?: string;
+  /** Subsidy provider of a `LockSponsored` event (Escrow v2). */
+  provider?: string;
 };

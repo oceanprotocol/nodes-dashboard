@@ -1,5 +1,5 @@
-import { NodeUri } from '@/contexts/P2PContext';
 import { NATIVE_TOKEN_ADDRESS } from '@/constants/tokens';
+import { NodeUri } from '@/contexts/P2PContext';
 import { NODE_URL } from '@/lib/constants';
 import { directNodeCommandJson, NodeCommandError } from '@/lib/direct-node-command';
 import { signNodeCommandMessage } from '@/lib/sign-message';
@@ -382,6 +382,7 @@ export async function startCompute({
   nodeUri,
   outputBucketId,
   resources,
+  subsidyProviders,
   token,
 }: {
   algorithm: ComputeAlgorithm;
@@ -394,6 +395,7 @@ export async function startCompute({
   nodeUri: NodeUri;
   outputBucketId?: string;
   resources: ComputeResourceRequest[];
+  subsidyProviders?: string[];
   token: string;
 }): Promise<ComputeJob | ComputeJob[]> {
   return ProviderInstance.computeStart(
@@ -413,7 +415,8 @@ export async function startCompute({
     undefined, // signal
     undefined, // queueMaxWaitTime
     undefined, // dockerRegistryAuth
-    outputBucketId
+    outputBucketId,
+    subsidyProviders
   );
 }
 
@@ -741,14 +744,17 @@ export async function serviceExtend(
   signerOrAuthToken: SignerOrAuthTokenOrSignature,
   serviceId: string,
   additionalDuration: number,
-  payment: ServicePayment
+  payment: ServicePayment,
+  subsidyProviders?: string[]
 ): Promise<ServiceJob[]> {
   return ProviderInstance.serviceExtend(
     normalizeNodeUri(nodeUri),
     signerOrAuthToken,
     serviceId,
     additionalDuration,
-    payment
+    payment,
+    undefined, // signal
+    subsidyProviders
   );
 }
 

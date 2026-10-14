@@ -1,16 +1,13 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import ProgressBar from '@/components/progress-bar/progress-bar';
-import {
-  SUBSIDY_DISCOUNT_PERCENT,
-  SUBSIDY_ONE_TIME_CREDIT,
-  SUBSIDY_TOKEN_SYMBOL,
-  SUBSIDY_WEEKLY_DISCOUNT_LIMIT,
-} from '@/constants/subsidy';
+import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
+import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { useProfileContext } from '@/context/profile-context';
 import { captureError } from '@/lib/analytics';
+import { formatSubsidyPeriod, getBindingWindow } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSubsidyUsage } from '@/lib/use-subsidy';
+import { useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import axios from 'axios';
@@ -23,32 +20,40 @@ import subsidyStyles from './subsidy.module.css';
 const percentUsed = (used: number, limit: number) => (limit > 0 ? (used / limit) * 100 : 0);
 
 const ClaimedSubsidy = () => {
+  const { data: program } = useSubsidyProgram();
   const { data: usage } = useSubsidyUsage();
 
-  const oneTimeUsed = usage?.oneTime.used ?? 0;
-  const oneTimeLeft = usage?.oneTime.remaining ?? SUBSIDY_ONE_TIME_CREDIT;
-  const discountUsed = usage?.discount.used ?? 0;
+  if (!program) {
+    return null;
+  }
+
+  const discountWindow = getBindingWindow(usage?.discount?.windows ?? program.discount?.windows ?? []);
 
   return (
     <div className={styles.values}>
-      <div className={styles.value}>
-        <span className={subsidyStyles.bigValue}>
-          {SUBSIDY_ONE_TIME_CREDIT}
-          <span className={subsidyStyles.bigUnit}>{SUBSIDY_TOKEN_SYMBOL}</span>
-        </span>
-        <ProgressBar value={percentUsed(oneTimeUsed, SUBSIDY_ONE_TIME_CREDIT)} />
-        <span className={styles.caption}>On us · {oneTimeLeft.toFixed(2)} left</span>
-      </div>
-      <div className={styles.value}>
-        <span className={subsidyStyles.bigValue}>
-          {SUBSIDY_WEEKLY_DISCOUNT_LIMIT}
-          <span className={subsidyStyles.bigUnit}>{SUBSIDY_TOKEN_SYMBOL}</span>
-        </span>
-        <ProgressBar value={percentUsed(discountUsed, SUBSIDY_WEEKLY_DISCOUNT_LIMIT)} />
-        <span className={styles.caption}>
-          {SUBSIDY_DISCOUNT_PERCENT}% discount · {discountUsed.toFixed(2)} used this week
-        </span>
-      </div>
+      {program.oneTime ? (
+        <div className={styles.value}>
+          <span className={subsidyStyles.bigValue}>{formatSubsidyTokenAmount(program.oneTime.credit)}</span>
+          <ProgressBar value={percentUsed(usage?.oneTime?.used ?? 0, program.oneTime.credit)} />
+          <span className={styles.caption}>
+            On us · {formatSubsidyAmount(usage?.oneTime?.remaining ?? program.oneTime.credit)} left
+          </span>
+        </div>
+      ) : null}
+      {program.discount ? (
+        <div className={styles.value}>
+          <span className={subsidyStyles.bigValue}>{formatSubsidyAmount(program.discount.percent)}% off</span>
+          {discountWindow ? (
+            <>
+              <ProgressBar value={percentUsed(discountWindow.used, discountWindow.limit)} />
+              <span className={styles.caption}>
+                {formatSubsidyAmount(discountWindow.used)} of {formatSubsidyTokenAmount(discountWindow.limit)} used this{' '}
+                {formatSubsidyPeriod(discountWindow.periodSeconds)}
+              </span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -115,25 +120,7 @@ const Claim: React.FC = () => {
       </div>
       <Card className={styles.amountCard} radius="sm" variant="accent1-outline">
         <span className={styles.muted}>Your subsidy for {formatWalletAddress(account.address ?? '')}</span>
-        {isClaimed ? (
-          <ClaimedSubsidy />
-        ) : (
-          <div className={styles.values}>
-            <div className={styles.value}>
-              <span className={subsidyStyles.bigValue}>
-                {SUBSIDY_ONE_TIME_CREDIT}
-                <span className={subsidyStyles.bigUnit}>{SUBSIDY_TOKEN_SYMBOL}</span>
-              </span>
-              <span className={styles.muted}>on us, one time</span>
-            </div>
-            <div className={styles.value}>
-              <span className={subsidyStyles.bigValue}>{SUBSIDY_DISCOUNT_PERCENT}%</span>
-              <span className={styles.muted}>
-                discount on each job, up to {SUBSIDY_WEEKLY_DISCOUNT_LIMIT} {SUBSIDY_TOKEN_SYMBOL} / week
-              </span>
-            </div>
-          </div>
-        )}
+        {isClaimed ? <ClaimedSubsidy /> : <SubsidyTiles />}
       </Card>
       {isClaimed ? (
         <div className={styles.actions}>

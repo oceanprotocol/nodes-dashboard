@@ -233,7 +233,8 @@ interface P2PContextType {
     signerOrAuthToken: SignerOrAuthTokenOrSignature,
     serviceId: string,
     additionalDuration: number,
-    payment: ServicePayment
+    payment: ServicePayment,
+    subsidyProviders?: string[]
   ) => Promise<ServiceJob[]>;
   /** Stop a running service; resolves to the updated job(s) in `Stopped` state. */
   serviceStop: (
@@ -735,12 +736,20 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       signerOrAuthToken: SignerOrAuthTokenOrSignature,
       serviceId: string,
       additionalDuration: number,
-      payment: ServicePayment
+      payment: ServicePayment,
+      subsidyProviders?: string[]
     ) => {
       if (!isReady) {
         throw new Error('Node not ready');
       }
-      return serviceExtendFromService(nodeUri, signerOrAuthToken, serviceId, additionalDuration, payment);
+      return serviceExtendFromService(
+        nodeUri,
+        signerOrAuthToken,
+        serviceId,
+        additionalDuration,
+        payment,
+        subsidyProviders
+      );
     },
     [isReady]
   );
@@ -784,19 +793,16 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   // goes to HttpProvider, a peer id / multiaddr to P2pProvider — see BaseProvider.getImpl), so gating
   // an HTTP fetch on `isReady` would block the one transport that works while libp2p is still coming
   // up. The template catalogue is fetched over HTTP first for exactly that reason.
-  const getServiceTemplates = useCallback(
-    async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
-      // Readiness is read from a ref, not from the closed-over `isReady`, and this callback has no
-      // dependencies: fetchTemplates shares ONE in-flight request between every concurrent caller, so
-      // a callback captured before libp2p came up would keep throwing 'Node not ready' for callers
-      // that arrive after it did — including the retry that becoming ready is supposed to trigger.
-      if (!isReadyRef.current && Array.isArray(nodeUri)) {
-        throw new Error('Node not ready');
-      }
-      return getServiceTemplatesFromService(nodeUri, chainId, signal);
-    },
-    []
-  );
+  const getServiceTemplates = useCallback(async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
+    // Readiness is read from a ref, not from the closed-over `isReady`, and this callback has no
+    // dependencies: fetchTemplates shares ONE in-flight request between every concurrent caller, so
+    // a callback captured before libp2p came up would keep throwing 'Node not ready' for callers
+    // that arrive after it did — including the retry that becoming ready is supposed to trigger.
+    if (!isReadyRef.current && Array.isArray(nodeUri)) {
+      throw new Error('Node not ready');
+    }
+    return getServiceTemplatesFromService(nodeUri, chainId, signal);
+  }, []);
 
   const streamServiceLogs = useCallback(
     (

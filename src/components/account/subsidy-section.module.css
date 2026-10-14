@@ -125,3 +125,43 @@
     justify-content: space-between;
   }
 }
+
+.historyTitle {
+  margin: 0;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 560px;
+  width: 100%;
+
+  th {
+    background: var(--background-table-header);
+    font-weight: 600;
+    padding: 12px 16px;
+    text-align: left;
+  }
+
+  th:first-child {
+    border-top-left-radius: 12px;
+  }
+
+  th:last-child {
+    border-top-right-radius: 12px;
+  }
+
+  td {
+    border-bottom: 1px solid var(--border-glass);
+    padding: 12px 16px;
+  }
+}
+
+.subsidized {
+  color: var(--success-darker);
+  font-weight: 600;
+}

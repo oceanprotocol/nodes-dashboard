@@ -12,6 +12,7 @@ import {
 } from '@/lib/compute-inputs';
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { generateJobName } from '@/lib/job-name';
+import { getJobSubsidyProviders, startWithSubsidy, SubsidyJobType } from '@/lib/subsidy';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { getNodeEnvs, startCompute, startFreeCompute } from '@/services/nodeService';
@@ -278,7 +279,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   // Build the compute payload from the current selection + authoring inputs and start the job.
   // Free vs paid branch mirrors the Ocean Orchestrator (vscode-extension compute.ts).
   const submitJob = useCallback(
-    async ({ authToken }: { authToken: string; consumerAddress: string }): Promise<ComputeJob> => {
+    async ({ authToken, consumerAddress }: { authToken: string; consumerAddress: string }): Promise<ComputeJob> => {
       if (!selectedEnv || !selectedResources || !multiaddrsOrPeerId) {
         throw new Error('Missing job configuration. Select an environment and resources first.');
       }
@@ -336,19 +337,30 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
             if (!selectedToken) {
               throw new Error('No fee token selected.');
             }
-            return startCompute({
-              algorithm,
-              authToken,
-              chainId: CHAIN_ID,
-              computeEnv: selectedEnv.id,
-              datasets,
-              maxJobDuration: selectedResources.maxJobDurationSeconds,
-              metadata,
-              nodeUri,
-              outputBucketId: outputBucketId ?? undefined,
-              resources,
-              token: selectedToken.address,
+            // Name the providers the payment step quoted, so the node locks with the same sponsors.
+            const subsidyProviders = await getJobSubsidyProviders({
+              cost: estimatedTotalCost ?? 0,
+              jobType: SubsidyJobType.COMPUTE,
+              nodeAddress: selectedEnv.consumerAddress,
+              payer: consumerAddress,
+              tokenAddress: selectedToken.address,
             });
+            return startWithSubsidy(subsidyProviders, () =>
+              startCompute({
+                algorithm,
+                authToken,
+                chainId: CHAIN_ID,
+                computeEnv: selectedEnv.id,
+                datasets,
+                maxJobDuration: selectedResources.maxJobDurationSeconds,
+                metadata,
+                nodeUri,
+                outputBucketId: outputBucketId ?? undefined,
+                resources,
+                subsidyProviders,
+                token: selectedToken.address,
+              })
+            );
           })();
 
       return (Array.isArray(job) ? job[0] : job) as unknown as ComputeJob;
@@ -365,6 +377,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       entryMode,
       entrypoint,
       envVars,
+      estimatedTotalCost,
       freeCompute,
       jobName,
       mountedFiles,

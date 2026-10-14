@@ -1,13 +1,22 @@
+import SubsidyHistory from '@/components/account/subsidy-history';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { CHAIN_ID, CHAIN_LABELS } from '@/constants/chains';
-import { SUBSIDY_DISCOUNT_PERCENT, SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
+import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
 import { useProfileContext } from '@/context/profile-context';
+import {
+  formatSubsidyPeriod,
+  formatSubsidyReset,
+  getBindingWindow,
+  SubsidyAllowance,
+  SubsidyWindow,
+} from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { formatSubsidyReset, SubsidyAllowance, useSubsidyUsage } from '@/lib/use-subsidy';
+import { useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import CheckIcon from '@mui/icons-material/Check';
@@ -40,7 +49,7 @@ const SubsidyHeader = ({ action, chip, subtitle }: SubsidyHeaderProps) => (
 
 type AllowanceCardProps = {
   allowance: SubsidyAllowance;
-  caption: string;
+  caption: ReactNode;
   highlighted?: boolean;
   meta: string;
   title: string;
@@ -54,32 +63,44 @@ const AllowanceCard = ({ allowance, caption, highlighted, meta, title }: Allowan
     </div>
     <div className={styles.allowanceValue}>
       <span className={styles.allowanceAmount}>{allowance.remaining.toFixed(2)}</span>
-      <span className={styles.muted}>
-        of {allowance.limit} {SUBSIDY_TOKEN_SYMBOL} left
-      </span>
+      <span className={styles.muted}>of {formatSubsidyTokenAmount(allowance.limit)} left</span>
     </div>
     <ProgressBar value={allowance.limit > 0 ? (allowance.remaining / allowance.limit) * 100 : 0} />
     <span className={styles.small}>{caption}</span>
   </Card>
 );
 
-const ActiveSubsidy = ({ walletAddress }: { walletAddress: string }) => {
-  const { data: usage, isLoading } = useSubsidyUsage();
+const otherWindowsCaption = (windows: SubsidyWindow[], binding: SubsidyWindow) =>
+  windows
+    .filter((window) => window !== binding && !window.unlimited)
+    .map(
+      (window) =>
+        `${formatSubsidyAmount(window.remaining)} of ${formatSubsidyTokenAmount(window.limit)} left this ${formatSubsidyPeriod(window.periodSeconds)}`
+    )
+    .join(' · ');
 
-  if (isLoading || !usage) {
+const ActiveSubsidy = ({ walletAddress }: { walletAddress: string }) => {
+  const { data: program, isLoading: isProgramLoading } = useSubsidyProgram();
+  const { data: usage, isLoading: isUsageLoading } = useSubsidyUsage();
+
+  if (isProgramLoading || isUsageLoading) {
     return <CircularProgress className="alignSelfCenter" />;
   }
+
+  const discountWindow = usage?.discount ? getBindingWindow(usage.discount.windows) : null;
+
+  const chip = !usage ? null : usage.paused ? (
+    <span className="chip chipError">Unavailable</span>
+  ) : !usage.userAllowed ? (
+    <span className="chip chipWarning">Not active yet</span>
+  ) : (
+    <span className="chip chipSuccess">Active</span>
+  );
 
   return (
     <>
       <SubsidyHeader
-        chip={
-          usage.paused ? (
-            <span className="chip chipError">Unavailable</span>
-          ) : (
-            <span className="chip chipSuccess">Active</span>
-          )
-        }
+        chip={chip}
         subtitle={
           <>
             Wallet <span className={styles.mono}>{formatWalletAddress(walletAddress)}</span> · {SUBSIDY_TOKEN_SYMBOL} on{' '}
@@ -87,22 +108,42 @@ const ActiveSubsidy = ({ walletAddress }: { walletAddress: string }) => {
           </>
         }
       />
-      <div className={styles.grid}>
-        <AllowanceCard
-          allowance={usage.discount}
-          caption={`${usage.discount.used.toFixed(2)} ${SUBSIDY_TOKEN_SYMBOL} used this week`}
-          highlighted
-          meta={`Resets ${formatSubsidyReset(usage.discount.resetsAt, 'short')}`}
-          title={`${SUBSIDY_DISCOUNT_PERCENT}% discount this week`}
-        />
-        <AllowanceCard
-          allowance={usage.oneTime}
-          caption={`${usage.oneTime.used.toFixed(2)} ${SUBSIDY_TOKEN_SYMBOL} used`}
-          meta="One time"
-          title={`${usage.oneTime.limit} ${SUBSIDY_TOKEN_SYMBOL} on us`}
-        />
-      </div>
-      <span className={styles.small}>Paid up front when each job starts, so it never needs to be in your escrow</span>
+      {!program || !usage ? (
+        <span className={styles.small}>The subsidy isn&apos;t available on this network right now.</span>
+      ) : (
+        <>
+          {!usage.userAllowed ? (
+            <span className={styles.small}>
+              Your wallet isn&apos;t on the subsidy list yet. Jobs and models are charged in full until it is.
+            </span>
+          ) : null}
+          <div className={styles.grid}>
+            {program.discount && usage.discount && discountWindow ? (
+              <AllowanceCard
+                allowance={discountWindow}
+                caption={
+                  otherWindowsCaption(usage.discount.windows, discountWindow) ||
+                  `${formatSubsidyTokenAmount(discountWindow.used)} used this ${formatSubsidyPeriod(discountWindow.periodSeconds)}`
+                }
+                highlighted
+                meta={discountWindow.resetsAt ? `Resets ${formatSubsidyReset(discountWindow.resetsAt)}` : ''}
+                title={`${formatSubsidyAmount(program.discount.percent)}% off this ${formatSubsidyPeriod(discountWindow.periodSeconds)}`}
+              />
+            ) : null}
+            {program.oneTime && usage.oneTime ? (
+              <AllowanceCard
+                allowance={usage.oneTime}
+                caption={`${formatSubsidyTokenAmount(usage.oneTime.used)} used`}
+                meta="One time"
+                title={`${formatSubsidyTokenAmount(usage.oneTime.limit)} on us`}
+              />
+            ) : null}
+          </div>
+          <span className={styles.small}>
+            Paid up front when each job starts, so it never needs to be in your escrow
+          </span>
+        </>
+      )}
     </>
   );
 };
@@ -124,13 +165,16 @@ const PendingSteps = () => (
 const SubsidySection = () => {
   const { account } = useOceanAccount();
   const { subsidyInfo } = useProfileContext();
+  const { data: usage, isLoading: isUsageLoading } = useSubsidyUsage();
+  // The access list decides who gets the subsidy; the sign-up progress covers everyone else.
+  const isActive = !!usage?.userAllowed || subsidyInfo?.status === SubsidyStatus.CLAIMED;
 
   const renderContent = () => {
-    if (!subsidyInfo) {
+    if (!subsidyInfo || isUsageLoading) {
       return <CircularProgress className="alignSelfCenter" />;
     }
 
-    if (subsidyInfo.status === SubsidyStatus.CLAIMED) {
+    if (isActive) {
       return <ActiveSubsidy walletAddress={account.address ?? ''} />;
     }
 
@@ -199,9 +243,12 @@ const SubsidySection = () => {
   };
 
   return (
-    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      {renderContent()}
-    </Card>
+    <>
+      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+        {renderContent()}
+      </Card>
+      {usage?.userAllowed ? <SubsidyHistory /> : null}
+    </>
   );
 };
 

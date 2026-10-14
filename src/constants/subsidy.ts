@@ -1,4 +1,1 @@
-export const SUBSIDY_ONE_TIME_CREDIT = 5;
-export const SUBSIDY_DISCOUNT_PERCENT = 50;
-export const SUBSIDY_WEEKLY_DISCOUNT_LIMIT = 10;
 export const SUBSIDY_TOKEN_SYMBOL = 'USDC';

@@ -22,7 +22,11 @@ export type EscrowAuth = {
   maxLockedAmount: bigint;
   maxLockSeconds: bigint;
   maxLockCounts: bigint;
+  expiryTimestamp: bigint;
 };
+
+/** Escrow v2 authorization expiry: `0` keeps the authorization valid until changed or revoked. */
+export const ESCROW_AUTH_NO_EXPIRY = BigInt(0);
 
 export type EscrowBundleArgs = {
   deposits: EscrowDeposit[];
@@ -77,6 +81,7 @@ export function buildEscrowBundleArgs({
         maxLockedAmount: toBaseUnits(maxLockedAmount, tokenDecimals),
         maxLockSeconds: BigInt(maxLockSeconds),
         maxLockCounts: BigInt(maxLockCount),
+        expiryTimestamp: ESCROW_AUTH_NO_EXPIRY,
       },
     ],
   };

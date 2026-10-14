@@ -1,10 +1,9 @@
 import {
-  SUBSIDY_DISCOUNT_PERCENT,
-  SUBSIDY_ONE_TIME_CREDIT,
-  SUBSIDY_TOKEN_SYMBOL,
-  SUBSIDY_WEEKLY_DISCOUNT_LIMIT,
-} from '@/constants/subsidy';
-import { formatSubsidyReset, getNextWeeklyReset } from '@/lib/use-subsidy';
+  formatSubsidyAmount,
+  formatSubsidyTokenAmount,
+  getDiscountLimitsLabel,
+} from '@/components/subsidy/subsidy-copy';
+import { useSubsidyProgram } from '@/lib/use-subsidy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useState } from 'react';
@@ -14,27 +13,39 @@ const EXAMPLE_JOB_COST = 20;
 
 const SubsidyInfoButton = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: program } = useSubsidyProgram();
+
+  if (!program) {
+    return null;
+  }
+
+  const { discount, oneTime } = program;
+  const limits = getDiscountLimitsLabel(program);
 
   const info = (
     <div className={styles.info}>
       <span className={styles.infoTitle}>How your subsidy works</span>
-      <span>
-        <strong>
-          {SUBSIDY_ONE_TIME_CREDIT} {SUBSIDY_TOKEN_SYMBOL} on us.
-        </strong>{' '}
-        Your first {SUBSIDY_ONE_TIME_CREDIT} {SUBSIDY_TOKEN_SYMBOL} of jobs and services are free. One time.
-      </span>
-      <span>
-        <strong>{SUBSIDY_DISCOUNT_PERCENT}% discount.</strong> After that, you pay half of each job or service, up to{' '}
-        {SUBSIDY_WEEKLY_DISCOUNT_LIMIT} {SUBSIDY_TOKEN_SYMBOL} of discount a week. A {EXAMPLE_JOB_COST}{' '}
-        {SUBSIDY_TOKEN_SYMBOL} job costs you {(EXAMPLE_JOB_COST * (100 - SUBSIDY_DISCOUNT_PERCENT)) / 100}{' '}
-        {SUBSIDY_TOKEN_SYMBOL}. If the {SUBSIDY_ONE_TIME_CREDIT} {SUBSIDY_TOKEN_SYMBOL} covers only part of a job, the
-        rest gets the {SUBSIDY_DISCOUNT_PERCENT}% discount.
-      </span>
-      <span className={styles.infoNote}>
-        Both are paid up front when a job starts, so you only need your part in escrow. The week resets{' '}
-        {formatSubsidyReset(getNextWeeklyReset())}.
-      </span>
+      {oneTime ? (
+        <span>
+          <strong>{formatSubsidyTokenAmount(oneTime.credit)} on us.</strong>{' '}
+          {oneTime.percent >= 100
+            ? `Your first ${formatSubsidyTokenAmount(oneTime.credit)} of jobs and services are free.`
+            : `${formatSubsidyAmount(oneTime.percent)}% of each job is covered until ${formatSubsidyTokenAmount(oneTime.credit)} is used.`}{' '}
+          One time.
+        </span>
+      ) : null}
+      {discount ? (
+        <span>
+          <strong>{formatSubsidyAmount(discount.percent)}% off.</strong> {oneTime ? 'After that, the' : 'The'} subsidy
+          pays {formatSubsidyAmount(discount.percent)}% of each job or service{limits ? `, ${limits}` : ''}. A{' '}
+          {formatSubsidyTokenAmount(EXAMPLE_JOB_COST)} job costs you{' '}
+          {formatSubsidyTokenAmount((EXAMPLE_JOB_COST * (100 - discount.percent)) / 100)}.
+          {oneTime
+            ? ` If the ${formatSubsidyTokenAmount(oneTime.credit)} covers only part of a job, the rest gets the discount.`
+            : ''}
+        </span>
+      ) : null}
+      <span className={styles.infoNote}>Paid up front when a job starts, so you only need your part in escrow.</span>
     </div>
   );
 
