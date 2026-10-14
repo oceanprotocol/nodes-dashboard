@@ -247,30 +247,41 @@ export function includedRepoId(item: TemplateIncludedItem): string | undefined {
 
 export type TemplateDescriptionSection = { title: string; paragraphs: string[] };
 
-/** A published `description`: the paragraphs before any heading, then one section per `## Title` paragraph. */
+/** A published `description`: the paragraphs before any heading, then one section per `## Title` line. */
 export type TemplateDescription = { intro: string[]; sections: TemplateDescriptionSection[] };
 
 const SECTION_HEADING = /^##\s+(.+)$/;
 
 /**
- * Split a description into paragraphs on blank lines, and into sections on `## Title` paragraphs. The
+ * Split a description into paragraphs on blank lines, and into sections on `## Title` lines. The
  * catalogue stores it as plain text, so the headings are the only structure it carries.
  */
 export function parseTemplateDescription(text: string): TemplateDescription {
   const description: TemplateDescription = { intro: [], sections: [] };
-  const paragraphs = text
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  for (const paragraph of paragraphs) {
-    const heading = SECTION_HEADING.exec(paragraph);
-    if (heading) {
-      description.sections.push({ title: heading[1].trim(), paragraphs: [] });
-      continue;
+  let lines: string[] = [];
+  const flush = () => {
+    const paragraph = lines.join('\n').trim();
+    lines = [];
+    if (!paragraph) {
+      return;
     }
     const current = description.sections[description.sections.length - 1];
     (current ? current.paragraphs : description.intro).push(paragraph);
+  };
+  for (const line of text.split('\n')) {
+    const heading = SECTION_HEADING.exec(line.trim());
+    if (heading) {
+      flush();
+      description.sections.push({ title: heading[1].trim(), paragraphs: [] });
+      continue;
+    }
+    if (!line.trim()) {
+      flush();
+      continue;
+    }
+    lines.push(line);
   }
+  flush();
   return description;
 }
 
