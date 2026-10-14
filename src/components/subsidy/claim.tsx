@@ -123,11 +123,11 @@ const Claim: React.FC = () => {
       </Card>
       {isClaimed ? (
         <div className={styles.actions}>
-          <Button color="accent2" href="/inference" size="md" variant="filled">
-            Use a model
-          </Button>
-          <Button color="accent1" href="/run-job/environments" size="md" variant="filled">
+          <Button color="accent1" href="/run-job/environments" size="md" variant="outlined">
             Run a job
+          </Button>
+          <Button color="accent1" href="/inference" size="md" variant="filled">
+            Use a model
           </Button>
         </div>
       ) : (
