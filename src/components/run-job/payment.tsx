@@ -49,7 +49,6 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
   });
 
   // Deposit + (re)authorization the session needs, and whether escrow already satisfies it.
-  // The subsidy pre-funds its share at lock, so only the payer's part has to be in escrow.
   // Same helper as the inference step; run-job floors the lock window at 1s.
   const requirement = useMemo(
     () =>

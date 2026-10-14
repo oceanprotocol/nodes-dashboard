@@ -337,7 +337,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
             if (!selectedToken) {
               throw new Error('No fee token selected.');
             }
-            // Name the providers the payment step quoted, so the node locks with the same sponsors.
             const subsidyProviders = await getJobSubsidyProviders({
               cost: estimatedTotalCost ?? 0,
               jobType: SubsidyJobType.COMPUTE,

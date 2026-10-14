@@ -31,7 +31,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(200).json({ sent: false, retryAfter: remainingSeconds });
     }
 
-    // A new code unlocks a locked one. The resend cooldown keeps guessing rate-limited.
+    // Resets attempts; the cooldown rate-limits guessing.
     const { otp, otpExpires } = generateOTP();
 
     const updated = await updateSubsidyInSheet({

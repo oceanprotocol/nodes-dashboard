@@ -67,7 +67,6 @@ const Claim: React.FC = () => {
   const isClaimed = subsidyStatus === SubsidyStatus.CLAIMED;
 
   const handleClaim = async () => {
-    // `connected` lets us segment out clicks that just divert to login.
     posthog.capture('grant_claim_clicked', { connected: account.isConnected });
     if (!account.isConnected || !account.address) {
       login();

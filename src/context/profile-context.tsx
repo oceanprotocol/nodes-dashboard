@@ -55,7 +55,7 @@ type ProfileContextType = {
   avgServiceCostUsdc: number;
   environment: any;
   nodeInfo: EnvNodeInfo;
-  /** Full subsidy request status for the connected wallet; `undefined` until the first fetch settles. */
+  /** `undefined` until the first fetch settles. */
   subsidyInfo: SubsidyStatusResponse | undefined;
   subsidyStatus: SubsidyStatus | null;
   // API functions

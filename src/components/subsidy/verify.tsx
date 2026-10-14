@@ -77,7 +77,7 @@ const Verify: React.FC = () => {
           walletAddress: account.address,
         });
         posthog.capture('grant_email_verified');
-        // The step guard moves on to Claim once the refreshed status is verified.
+        // The step guard moves on to Claim.
         await fetchSubsidyStatus(account.address!);
       } catch (error) {
         const body = axios.isAxiosError(error) ? (error.response?.data as SubsidyVerifyErrorResponse) : undefined;

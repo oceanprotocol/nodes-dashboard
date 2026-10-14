@@ -44,18 +44,14 @@ const SubsidyRow = ({ description, end, icon, title, tone }: SubsidyRowProps) =>
 type PaymentSubsidyProps = {
   format: (amount: number) => string;
   jobType: SubsidyJobType;
-  /** Node (consumer) address of the selected environment; the node decides which subsidy applies. */
+  /** The node decides which subsidy applies. */
   nodeAddress?: string;
-  /** Renders the "Your cost after subsidy" row under the subsidy row. */
   renderCostAfter: (cost: number) => ReactNode;
   tokenAddress: string;
   totalCost: number;
 };
 
-/**
- * The OPF subsidy line of the payment summary: what the subsidy pre-funds for this payment, or why
- * it doesn't apply. Amounts are the providers' own quotes; the lock settles the final figure.
- */
+/** Amounts are quotes; the lock settles the final figure. */
 const PaymentSubsidy = ({
   format,
   jobType,
@@ -84,7 +80,7 @@ const PaymentSubsidy = ({
   const summary = getProgramSummary(program);
   const limits = getDiscountLimitsLabel(program);
 
-  // The access list decides who gets the subsidy; the sign-up progress only picks the call to action.
+  // Sign-up progress only picks the call to action.
   if (!usage.userAllowed) {
     if (!subsidyInfo) {
       return null;

@@ -20,15 +20,10 @@ function getAccessListAddress(): string {
   return address;
 }
 
-/** True when `walletAddress` already holds a token on the subsidy access list. */
 export async function isOnSubsidyAccessList(walletAddress: string): Promise<boolean> {
   return checkAddressOnAccessList(getAccessListAddress(), walletAddress, getProvider());
 }
 
-/**
- * Mints a subsidy access list token to `walletAddress`, signed by the list owner key, and waits for
- * the transaction to be mined. Returns the transaction hash.
- */
 export async function addToSubsidyAccessList(walletAddress: string): Promise<string> {
   const privateKey = process.env.SUBSIDY_ACCESS_LIST_PRIVATE_KEY;
   if (!privateKey) {

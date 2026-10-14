@@ -6,7 +6,7 @@ import classNames from 'classnames';
 import styles from './subsidy.module.css';
 
 type SubsidyTilesProps = {
-  /** Not claimed yet and still blocked on an earlier step. */
+  /** Blocked on an earlier step. */
   muted?: boolean;
 };
 

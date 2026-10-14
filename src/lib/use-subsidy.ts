@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 const PROGRAM_STALE_TIME = 5 * 60_000;
 const USAGE_STALE_TIME = 30_000;
 
-/** The subsidy offer on this chain; `null` when no prepaid subsidy provider is configured. */
+/** `null` when no prepaid provider is configured. */
 export const useSubsidyProgram = () =>
   useQuery({
     queryKey: ['subsidy-program', CHAIN_ID],
@@ -22,10 +22,7 @@ export const useSubsidyProgram = () =>
     queryFn: loadSubsidyProgram,
   });
 
-/**
- * Limits and usage for the connected wallet. Its `userAllowed` — the wallet holds a token on a
- * provider's user access list — is what decides whether the wallet gets the subsidy.
- */
+/** `userAllowed` decides whether the wallet gets the subsidy. */
 export const useSubsidyUsage = () => {
   const { account } = useOceanAccount();
   const { data: program } = useSubsidyProgram();
@@ -38,7 +35,6 @@ export const useSubsidyUsage = () => {
   });
 };
 
-/** Whether the node behind `nodeAddress` accepts the subsidy. */
 export const useIsNodeSubsidized = (nodeAddress: string | undefined) => {
   const { data: program } = useSubsidyProgram();
 
@@ -50,7 +46,6 @@ export const useIsNodeSubsidized = (nodeAddress: string | undefined) => {
   });
 };
 
-/** What the subsidy would pre-fund for a payment of `cost` on `nodeAddress`. */
 export const useSubsidyQuote = ({
   cost,
   jobType,
@@ -81,7 +76,6 @@ export const useSubsidyQuote = ({
   });
 };
 
-/** Jobs and services the subsidy pre-funded for the connected wallet. */
 export const useSubsidyHistory = () => {
   const { account } = useOceanAccount();
   const { data: program } = useSubsidyProgram();
@@ -95,7 +89,7 @@ export const useSubsidyHistory = () => {
   });
 };
 
-/** The part of `cost` the payer funds from escrow once the subsidy pre-funds its quote. */
+/** `cost` minus the subsidy quote. */
 export const usePayerCost = (params: Parameters<typeof useSubsidyQuote>[0]) => {
   const { data: quote, isFetching } = useSubsidyQuote(params);
   return {

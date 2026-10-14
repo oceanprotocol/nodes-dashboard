@@ -166,7 +166,6 @@ const SubsidySection = () => {
   const { account } = useOceanAccount();
   const { subsidyInfo } = useProfileContext();
   const { data: usage, isLoading: isUsageLoading } = useSubsidyUsage();
-  // The access list decides who gets the subsidy; the sign-up progress covers everyone else.
   const isActive = !!usage?.userAllowed || subsidyInfo?.status === SubsidyStatus.CLAIMED;
 
   const renderContent = () => {

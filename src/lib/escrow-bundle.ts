@@ -25,7 +25,6 @@ export type EscrowAuth = {
   expiryTimestamp: bigint;
 };
 
-/** Escrow v2 authorization expiry: `0` keeps the authorization valid until changed or revoked. */
 export const ESCROW_AUTH_NO_EXPIRY = BigInt(0);
 
 export type EscrowBundleArgs = {

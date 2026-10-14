@@ -14,7 +14,7 @@ import {
 } from '@oceanprotocol/lib';
 import { ethers } from 'ethers';
 
-/** Job kinds the escrow passes to subsidy providers. Values are part of the on-chain ABI. */
+/** Values are part of the on-chain ABI. */
 export enum SubsidyJobType {
   COMPUTE = 1,
   SERVICE = 2,
@@ -35,35 +35,30 @@ export type SubsidyAllowance = {
   used: number;
 };
 
-/**
- * The subsidy offer itself, independent of any wallet: every prepaid provider on the chain, grouped
- * by kind. Several providers of one kind add up — credits and window limits sum, and the highest
- * percentage is shown.
- */
+/** Same-kind providers add up; the highest percentage wins. */
 export type SubsidyProgram = {
   discount: { addresses: string[]; percent: number; windows: SubsidyWindow[] } | null;
   oneTime: { addresses: string[]; credit: number; percent: number } | null;
-  /** Providers in the order the escrow consults them: the one-time credits first, then the discounts. */
+  /** Escrow lock order: one-time credits first, then discounts. */
   providers: string[];
 };
 
-/** What one wallet has used and has left. */
 export type SubsidyUsage = {
   discount: { remaining: number; windows: SubsidyWindow[] } | null;
   oneTime: SubsidyAllowance | null;
-  /** Every provider is paused or has the token disabled: nothing is drawable right now. */
+  /** Every provider is paused or has the token disabled. */
   paused: boolean;
-  /** The wallet passes at least one provider's user access list. */
+  /** On at least one provider's user access list. */
   userAllowed: boolean;
 };
 
 export type SubsidyQuote = {
   discount: number;
   oneTime: number;
-  /** Providers that would sponsor this job, in lock order. */
+  /** Lock order. */
   providers: string[];
   total: number;
-  /** What the discount would have been without its usage windows. */
+  /** Discount ignoring usage windows. */
   uncappedDiscount: number;
 };
 
@@ -76,7 +71,6 @@ const getReadSigner = () => new ethers.VoidSigner(ethers.ZeroAddress, new ethers
 
 const getView = (address: string) => new SubsidyView(getReadSigner(), address, CHAIN_ID);
 
-/** `NEXT_PUBLIC_SUBSIDY_PROVIDERS` (comma-separated) when set, else the providers deployed on the chain. */
 export const getSubsidyProviderAddresses = (): string[] => {
   const override = process.env.NEXT_PUBLIC_SUBSIDY_PROVIDERS;
   if (override) {
@@ -98,13 +92,11 @@ const toWindow = (bucket: SubsidyBucket): SubsidyWindow => ({
   used: Number(bucket.used),
 });
 
-/** The capped window with the least left: the one that limits the next job. */
 export const getBindingWindow = (windows: SubsidyWindow[]): SubsidyWindow | null =>
   windows
     .filter((window) => !window.unlimited)
     .reduce<SubsidyWindow | null>((min, window) => (!min || window.remaining < min.remaining ? window : min), null);
 
-/** Adds up same-length windows across providers; each provider keeps its own budget. */
 const mergeWindows = (windowSets: SubsidyWindow[][]): SubsidyWindow[] => {
   const byPeriod = new Map<number, SubsidyWindow>();
   for (const window of windowSets.flat()) {
@@ -133,7 +125,7 @@ type ProgramEntry =
   | { address: string; credit: number; kind: SubsidyKind.ONE_TIME; percent: number }
   | { address: string; kind: SubsidyKind.ROLLING_WINDOW; percent: number; windows: SubsidyWindow[] };
 
-// Only lock-time (prepaid) providers count: the subsidy is paid up front, so it never needs to be in escrow.
+// Only lock-time (prepaid) providers count.
 const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> => {
   const token = getToken();
   const view = getView(address);
@@ -234,16 +226,12 @@ export const loadSubsidyUsage = async (program: SubsidyProgram, payer: string): 
   };
 };
 
-/** Whether at least one subsidy provider accepts jobs on this node. */
 export const isNodeSubsidized = async (program: SubsidyProgram, nodeAddress: string): Promise<boolean> => {
   const allowed = await Promise.all(program.providers.map((address) => getView(address).isNodeAllowed(nodeAddress)));
   return allowed.some(Boolean);
 };
 
-/**
- * Asks each provider, in lock order, how much of the job it would pre-fund — the same sequence the
- * escrow runs at lock, where every provider sees what the previous ones left uncovered.
- */
+/** Mirrors the escrow lock: each provider sees what the previous ones left uncovered. */
 export const quoteSubsidy = async ({
   cost,
   jobType,
@@ -293,10 +281,7 @@ export const quoteSubsidy = async ({
   };
 };
 
-/**
- * Providers to name on job start so the node locks with the same sponsors the payment step quoted.
- * `undefined` leaves the choice to the node's own configuration.
- */
+/** `undefined` leaves the choice to the node. */
 export const getJobSubsidyProviders = async ({
   cost,
   jobType,
@@ -337,7 +322,7 @@ export type SubsidyHistoryEntry = {
 
 const HISTORY_PAGE_SIZE = 250;
 
-/** Jobs and services the subsidy pre-funded for `payer`, newest first, from the escrow's `LockSponsored` events. */
+/** Newest first, from `LockSponsored` events. */
 export const loadSubsidyHistory = async (program: SubsidyProgram, payer: string): Promise<SubsidyHistoryEntry[]> => {
   const token = getToken();
   const events = await getEscrowEvents({
@@ -393,7 +378,6 @@ const PERIOD_LABELS: Record<number, string> = {
   604800: 'week',
 };
 
-/** "day", "week", "28 days" — the length of a usage window. */
 export const formatSubsidyPeriod = (periodSeconds: number): string => {
   if (PERIOD_LABELS[periodSeconds]) {
     return PERIOD_LABELS[periodSeconds];
@@ -415,10 +399,7 @@ export const formatSubsidyReset = (resetsAt: Date): string => {
 
 const SHORTFALL_PATTERN = /does not have enough funds|Exceeds maxLockedAmount/i;
 
-/**
- * Runs a sponsored job start and, when the lock fails because the subsidy covered less than quoted
- * and escrow can't cover the rest, replaces the contract revert with an explanation.
- */
+/** Replaces a subsidy-shortfall lock revert with a readable error. */
 export const startWithSubsidy = async <T>(subsidyProviders: string[] | undefined, start: () => Promise<T>) => {
   try {
     return await start();

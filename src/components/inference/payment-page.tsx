@@ -207,7 +207,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     [price, selectedToken]
   );
 
-  // Name the providers the payment step quoted, so the node locks with the same sponsors.
   const resolveSubsidyProviders = useCallback(
     () =>
       selectedEnv && selectedToken && account.address
@@ -222,7 +221,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     [account.address, selectedEnv, selectedToken, totalCost]
   );
 
-  // The subsidy pre-funds its share at lock, so escrow only has to cover the payer's part.
   const { isQuoting: isSubsidyQuoting, payerCost } = usePayerCost({
     cost: totalCost,
     jobType: SubsidyJobType.SERVICE,

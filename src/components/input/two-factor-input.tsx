@@ -7,7 +7,7 @@ const CODE_LENGTH = 6;
 type TwoFactorInputProps = {
   'aria-label'?: string;
   disabled?: boolean;
-  /** Marks every box as wrong. The next keystroke starts a fresh code. */
+  /** The next keystroke starts a fresh code. */
   error?: boolean;
   name?: string;
   onChange: (value: string, name?: string) => void;
@@ -39,7 +39,7 @@ const TwoFactorInput: React.FC<TwoFactorInputProps> = ({
     }
   }, [crtIndex, disabled, error]);
 
-  // Typing and pasting both land here: a pasted code fills every box from the one it lands in.
+  // Also handles paste.
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const digits = e.currentTarget.value.replace(/\D/g, '');
     if (!digits) {

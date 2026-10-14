@@ -4,13 +4,9 @@ import { SubsidyStatus } from '@/types/subsidy';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Waiting for the access list mint to be mined can take a few blocks.
+// The access list mint can take a few blocks.
 export const config = { maxDuration: 60 };
 
-/**
- * Adds a verified wallet to the subsidy access list, then marks the request as claimed. A wallet
- * already on the list (an earlier claim whose sheet update failed) is not minted again.
- */
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
   if (request.method !== 'POST') {
     return response.status(405).json({ message: 'Method not allowed' });
@@ -41,7 +37,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       try {
         await addToSubsidyAccessList(subsidy.walletAddress);
       } catch (error) {
-        // A parallel claim may have minted first; only fail if the wallet is still not on the list.
+        // A parallel claim may have minted first.
         if (!(await isOnSubsidyAccessList(subsidy.walletAddress))) {
           throw error;
         }

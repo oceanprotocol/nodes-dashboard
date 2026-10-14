@@ -7,15 +7,12 @@ export const formatSubsidyTokenAmount = (amount: number) => `${formatSubsidyAmou
 
 const cappedWindows = (windows: SubsidyWindow[]) => windows.filter((window) => !window.unlimited);
 
-/** "10 USDC on us" */
 export const getOneTimeLabel = (program: SubsidyProgram) =>
   program.oneTime ? `${formatSubsidyTokenAmount(program.oneTime.credit)} on us` : null;
 
-/** "100% off each job" */
 export const getDiscountLabel = (program: SubsidyProgram) =>
   program.discount ? `${formatSubsidyAmount(program.discount.percent)}% off each job` : null;
 
-/** "up to 5 USDC / day, 10 USDC / week" */
 export const getDiscountLimitsLabel = (program: SubsidyProgram) => {
   const windows = program.discount ? cappedWindows(program.discount.windows) : [];
   if (windows.length === 0) {
@@ -26,7 +23,6 @@ export const getDiscountLimitsLabel = (program: SubsidyProgram) => {
     .join(', ')}`;
 };
 
-/** "10 USDC on us and 100% off each job", or a generic phrase when no program is known. */
 export const getProgramSummary = (program: SubsidyProgram | null | undefined) => {
   if (!program) {
     return 'a subsidy';

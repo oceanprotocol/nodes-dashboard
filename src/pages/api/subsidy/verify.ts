@@ -21,7 +21,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(400).json({ message: 'Invalid wallet address' });
   }
 
-  // Optional: a user resuming on another device only knows the masked email from /status.
+  // Optional: another device only knows the masked email.
   if (email !== undefined && (typeof email !== 'string' || email.length > 255)) {
     return response.status(400).json({ message: 'Invalid email' });
   }
@@ -37,7 +37,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(400).json({ message: 'No pending subsidy request found' });
     }
 
-    // Only PENDING subsidies can be verified.
     if (subsidy.status !== SubsidyStatus.PENDING) {
       return response.status(400).json({ message: 'No pending subsidy request found' });
     }
@@ -55,8 +54,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(429).json(body);
     }
 
-    // Pre-increment the attempt counter BEFORE the comparison.
-    // Reduces the race window where concurrent guesses could share the same pre-check value.
+    // Increment before comparing to narrow the concurrent-guess race.
     const nextAttempts = (subsidy.otpAttempts ?? 0) + 1;
     const incremented = await updateSubsidyInSheet({ ...subsidy, otpAttempts: nextAttempts });
     if (!incremented) {
@@ -71,7 +69,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(400).json(body);
     }
 
-    // OTP is valid, update status and clear OTP fields
     await updateSubsidyInSheet({
       ...subsidy,
       status: SubsidyStatus.EMAIL_VERIFIED,

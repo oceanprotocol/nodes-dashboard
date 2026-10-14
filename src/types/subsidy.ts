@@ -26,7 +26,6 @@ export enum SubsidyStatus {
 }
 
 export type SubmitSubsidyDetailsResponse = {
-  /** A verified row whose email was replaced, so the new address needs a code. */
   emailChanged?: boolean;
   shouldValidateEmail: boolean;
 };
@@ -34,7 +33,7 @@ export type SubmitSubsidyDetailsResponse = {
 export type SubsidyStatusResponse = {
   applicationDate?: string;
   claimDate?: string;
-  /** Hint like `al***@example.com`, since the endpoint is not authenticated. */
+  /** Masked: the endpoint is unauthenticated. */
   maskedEmail?: string;
   otpExpires?: number;
   otpLastResent?: number;
@@ -63,15 +62,7 @@ export const SUBSIDY_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: Subsi
   { label: 'Telegram', value: 'telegram' },
 ];
 
-/**
- * Per-service handle rules.
- * Discord: 2-32 chars, letters/digits/dot/underscore, no consecutive dots (Discord forbids them).
- * The legacy "#1234" discriminator is rejected —
- * Discord retired it, current usernames cannot contain "#", and accepting both forms would let the
- * same person pass the uniqueness check twice.
- * Telegram: 5-32 chars, letters/digits/underscore.
- * Handles are stored without the leading "@" (see normalizeHandle).
- */
+/** Discord's legacy "#1234" form is rejected so one person can't pass the uniqueness check twice. */
 export const SUBSIDY_HANDLE_RULES: Record<SubsidyHandleService, { message: string; regex: RegExp }> = {
   discord: {
     message: 'Enter a valid Discord handle (2-32 characters: letters, digits, "." or "_", no consecutive dots)',
@@ -83,19 +74,15 @@ export const SUBSIDY_HANDLE_RULES: Record<SubsidyHandleService, { message: strin
   },
 };
 
-/**
- * Only whitespace and a leading "@" are forgiven. A pasted profile URL is left intact on purpose,
- * so it fails validation and the user retypes the bare handle rather than us guessing at the link.
- */
+/** Profile URLs are left intact so they fail validation. */
 export function normalizeHandle(handle: string): string {
   if (typeof handle !== 'string') {
     return '';
   }
-  // Handles never contain whitespace, so stripping it fixes paste artifacts instead of failing validation.
   return handle.replace(/\s+/g, '').replace(/^@+/, '');
 }
 
-/** Key used to decide whether two handles are the same account. Both platforms are case-insensitive. */
+/** Both platforms are case-insensitive. */
 export function getHandleComparisonKey(handle: string): string {
   return normalizeHandle(handle).toLowerCase();
 }

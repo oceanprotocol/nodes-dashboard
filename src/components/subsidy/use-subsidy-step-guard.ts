@@ -26,10 +26,7 @@ const getAllowedStep = (status: SubsidyStatus | null, step: SubsidyStep): Subsid
   return 'details';
 };
 
-/**
- * Sends the user to the step their saved progress allows, so the flow can be left and resumed
- * from any device. Returns whether the requested step can render.
- */
+/** Redirects to the step saved progress allows. Returns whether the requested step can render. */
 const useSubsidyStepGuard = (step: SubsidyStep): boolean => {
   const router = useRouter();
   const { subsidyInfo } = useProfileContext();

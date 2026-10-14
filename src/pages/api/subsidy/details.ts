@@ -84,8 +84,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       findSubsidyByHandle({ handle: data.handle, handleService: data.handleService }),
     ]);
 
-    // Block wallet already registered under a different email once claimed. Unclaimed rows may change
-    // their email: PENDING to prevent wallet squatting denial-of-service, verified ones go back to PENDING.
+    // Unclaimed rows may change email, so a wallet can't be squatted.
     if (
       byWallet &&
       byWallet.email.toLowerCase() !== data.email.toLowerCase() &&
@@ -99,7 +98,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(403).json({ message: 'Email already associated with another account' });
     }
 
-    // One handle per service per account. Unlike PENDING wallet rows, a foreign handle can't be taken over.
+    // Unlike wallets, a foreign handle can't be taken over.
     if (
       byHandle &&
       byHandle.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase() &&
@@ -108,7 +107,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(403).json({ message: 'Handle already associated with another account' });
     }
 
-    // Prefer wallet match: updates are keyed by walletAddress.
+    // Updates are keyed by walletAddress.
     existingSubsidy = byWallet ?? byEmail;
     emailChanged = !!existingSubsidy && existingSubsidy.email.toLowerCase() !== data.email.toLowerCase();
 
@@ -117,12 +116,11 @@ export default async function handler(request: NextApiRequest, response: NextApi
         return response.status(403).json({ message: 'Subsidy already claimed' });
       }
 
-      // A verified email stays verified while it is unchanged. A new address needs its own code.
       if (
         existingSubsidy.status === SubsidyStatus.EMAIL_VERIFIED &&
         existingSubsidy.email.toLowerCase() === data.email.toLowerCase()
       ) {
-        // Keep verified walletAddress + email so the subsidy can't be redirected.
+        // Keep the verified identity so the subsidy can't be redirected.
         const updated = await updateSubsidyInSheet({
           ...existingSubsidy,
           ...data,

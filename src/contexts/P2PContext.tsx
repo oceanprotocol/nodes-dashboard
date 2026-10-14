@@ -794,10 +794,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
   // an HTTP fetch on `isReady` would block the one transport that works while libp2p is still coming
   // up. The template catalogue is fetched over HTTP first for exactly that reason.
   const getServiceTemplates = useCallback(async (nodeUri: NodeUri, chainId?: number, signal?: AbortSignal) => {
-    // Readiness is read from a ref, not from the closed-over `isReady`, and this callback has no
-    // dependencies: fetchTemplates shares ONE in-flight request between every concurrent caller, so
-    // a callback captured before libp2p came up would keep throwing 'Node not ready' for callers
-    // that arrive after it did — including the retry that becoming ready is supposed to trigger.
+    // Ref, not `isReady`: fetchTemplates shares one in-flight request, so a stale closure would keep throwing.
     if (!isReadyRef.current && Array.isArray(nodeUri)) {
       throw new Error('Node not ready');
     }

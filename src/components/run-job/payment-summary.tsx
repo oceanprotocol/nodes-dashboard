@@ -19,9 +19,7 @@ type PaymentSummaryProps = {
   authorizations: Authorizations | null;
   escrowBalance: number | null;
   loadPaymentInfo: () => void;
-  /** Which kind of job this pays for; subsidy providers can treat compute and services differently. */
   subsidyJobType: SubsidyJobType;
-  /** Node (consumer) address of the selected environment, for the subsidy row. */
   nodeAddress?: string;
   selectedToken: SelectedToken;
   /** Which payment step renders this, for the card top-up's analytics. */
@@ -96,7 +94,6 @@ const PaymentSummary = ({
   // the wallet and re-authorizes in the same transaction. So they're only errors when the wallet
   // can't cover the deposit; otherwise they're what the payment is about to do, not a blocker.
   // Rounded like computeEscrowRequirement, so this agrees with the button's own gate.
-  // The subsidy pre-funds its share at lock, so escrow only has to cover the payer's part.
   const payerCost = Math.max(0, totalCost - (subsidyQuote?.total ?? 0));
   const insufficientAutorized = maxLocked < payerCost + currentLocked;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < payerCost;

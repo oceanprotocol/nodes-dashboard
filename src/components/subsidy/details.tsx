@@ -58,7 +58,7 @@ const Details: React.FC = () => {
         const response = await axios.post<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
         setSubsidyDetails(details);
         posthog.capture('grant_form_completed', { handleService: values.handleService });
-        // The step guard reads the saved status, so refresh it before moving on.
+        // The step guard reads the saved status.
         await fetchSubsidyStatus(account.address);
         if (response.data.shouldValidateEmail) {
           router.push({ pathname: '/subsidy/verify', query: response.data.emailChanged ? { emailChanged: 1 } : {} });
@@ -92,8 +92,6 @@ const Details: React.FC = () => {
     }),
   });
 
-  // Collapse a stray "@" and whitespace as soon as the field loses focus, so what the user sees
-  // matches what gets stored and deduped.
   const handleHandleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const normalized = normalizeHandle(e.target.value);
     if (normalized !== formik.values.handle) {

@@ -128,14 +128,13 @@
   }
 }
 
-/* "(estimate)" after a ledger label. */
 .rowLabelHint {
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 400;
 }
 
-/* ── Subsidy: what the OPF subsidy covers, or why it doesn't apply ── */
+/* ── Subsidy ── */
 .subsidyRow {
   align-items: center;
   border-bottom: 1px solid var(--border);

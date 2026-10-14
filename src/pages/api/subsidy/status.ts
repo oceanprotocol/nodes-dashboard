@@ -30,7 +30,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(405).json({ message: 'Method not allowed' });
   }
 
-  // Disable caching so transient status (PENDING/EMAIL_VERIFIED) isn't served stale to other clients
   response.setHeader('Cache-Control', 'no-store');
 
   const { walletAddress } = request.query;
