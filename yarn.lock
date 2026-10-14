@@ -15790,10 +15790,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"gsap@npm:3.13.0":
-  version: 3.13.0
-  resolution: "gsap@npm:3.13.0"
-  checksum: 10c0/a42dd2e02467a4abe96409aaf6cd0e5d697c72e05ec13c18c2271330493983aa63cc717c9dd0740fda2f884d0f56c7b98fc18b13500f0c1da94864985840da7c
+"gsap@npm:3.15.0":
+  version: 3.15.0
+  resolution: "gsap@npm:3.15.0"
+  checksum: 10c0/5d86de72cb0bd6b20502c34c329a83a7d679979731bb465164407b7a5225aa61d612beee740eea36258622897c116cd2ca35320d530b7cf68bad62522361fcf7
   languageName: node
   linkType: hard
 
@@ -18275,7 +18275,7 @@ __metadata:
     formik: "npm:^2.4.9"
     google-auth-library: "npm:^10.5.0"
     googleapis: "npm:^171.3.0"
-    gsap: "npm:3.13.0"
+    gsap: "npm:3.15.0"
     it-pipe: "npm:^3.0.1"
     jparticles: "npm:^3.5.0"
     json-edit-react: "npm:^1.29.0"
