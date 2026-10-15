@@ -11,6 +11,7 @@ import {
 } from '@/lib/subsidy';
 import { useIsNodeSubsidized, useSubsidyProgram, useSubsidyQuote, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PauseIcon from '@mui/icons-material/Pause';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -61,12 +62,32 @@ const PaymentSubsidy = ({
   totalCost,
 }: PaymentSubsidyProps) => {
   const { subsidyInfo } = useProfileContext();
-  const { data: program } = useSubsidyProgram();
-  const { data: usage } = useSubsidyUsage();
+  const { data: program, isError: isProgramError } = useSubsidyProgram();
+  const { data: usage, isError: isUsageError } = useSubsidyUsage();
   const { data: isNodeSubsidized } = useIsNodeSubsidized(nodeAddress);
-  const { data: quote } = useSubsidyQuote({ cost: totalCost, jobType, nodeAddress, tokenAddress });
+  const { data: quote, isError: isQuoteError } = useSubsidyQuote({
+    cost: totalCost,
+    jobType,
+    nodeAddress,
+    tokenAddress,
+  });
 
-  if (!isSubsidyToken(tokenAddress) || !program || !usage || totalCost <= 0) {
+  if (!isSubsidyToken(tokenAddress) || totalCost <= 0) {
+    return null;
+  }
+
+  if (isProgramError || isUsageError || isQuoteError) {
+    return (
+      <SubsidyRow
+        description="This job is priced in full for now. Reload the page to try again."
+        icon={<ErrorOutlineIcon fontSize="small" />}
+        title="Couldn't check your OPF subsidy"
+        tone="error"
+      />
+    );
+  }
+
+  if (!program || !usage) {
     return null;
   }
 
@@ -197,8 +218,14 @@ const PaymentSubsidy = ({
   let title: string;
   let description: string;
   if (quote.discount <= 0) {
-    title = 'OPF subsidy: this job is on us';
-    description = `Paid up front from your one-time credit, so it doesn't need to be in your escrow. ${format(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${SUBSIDY_TOKEN_SYMBOL} of it left after this job.`;
+    const creditLeft = `${format(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${SUBSIDY_TOKEN_SYMBOL} of it left after this job.`;
+    if (costAfter <= 0) {
+      title = 'OPF subsidy: this job is on us';
+      description = `Paid up front from your one-time credit, so it doesn't need to be in your escrow. ${creditLeft}`;
+    } else {
+      title = `OPF subsidy: ${format(quote.oneTime)} ${SUBSIDY_TOKEN_SYMBOL} on us`;
+      description = `Paid up front from your one-time credit, so only your part needs to be in escrow. ${creditLeft}`;
+    }
   } else if (quote.oneTime > 0) {
     title = `OPF subsidy: ${format(quote.oneTime)} ${SUBSIDY_TOKEN_SYMBOL} on us, then ${discountPercent}% off the rest`;
     description =

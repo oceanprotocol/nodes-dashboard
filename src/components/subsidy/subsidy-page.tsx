@@ -4,7 +4,9 @@ import SectionTitle from '@/components/section-title/section-title';
 import { getSubsidySteps, SubsidyStep } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
 import { getProgramSummary } from '@/components/subsidy/subsidy-copy';
+import SubsidyStatusError from '@/components/subsidy/subsidy-status-error';
 import useSubsidyStepGuard from '@/components/subsidy/use-subsidy-step-guard';
+import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyProgram } from '@/lib/use-subsidy';
 import { CircularProgress } from '@mui/material';
 import { ReactNode } from 'react';
@@ -16,6 +18,7 @@ type SubsidyPageProps = {
 
 const SubsidyPageContent = ({ children, step }: SubsidyPageProps) => {
   const canRender = useSubsidyStepGuard(step);
+  const { subsidyInfo, subsidyInfoError } = useProfileContext();
   const { data: program } = useSubsidyProgram();
 
   return (
@@ -27,7 +30,13 @@ const SubsidyPageContent = ({ children, step }: SubsidyPageProps) => {
         contentBetween={<Stepper<SubsidyStep> currentStep={step} steps={getSubsidySteps()} />}
       />
       <div className="pageContentWrapper">
-        {canRender ? children : <CircularProgress className="alignSelfCenter" />}
+        {canRender ? (
+          children
+        ) : !subsidyInfo && subsidyInfoError ? (
+          <SubsidyStatusError />
+        ) : (
+          <CircularProgress className="alignSelfCenter" />
+        )}
       </div>
     </Container>
   );

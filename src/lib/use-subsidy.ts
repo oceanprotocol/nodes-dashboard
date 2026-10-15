@@ -7,12 +7,13 @@ import {
   loadSubsidyProgram,
   loadSubsidyUsage,
   quoteSubsidy,
+  startWithSubsidy,
   SubsidyJobType,
 } from '@/lib/subsidy';
 import { usePayerEscrowEvents } from '@/lib/use-escrow-events';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 
 const PROGRAM_STALE_TIME = 5 * 60_000;
 const USAGE_STALE_TIME = 30_000;
@@ -93,9 +94,36 @@ export const useSubsidyHistory = () => {
 
 /** `cost` minus the subsidy quote. */
 export const usePayerCost = (params: Parameters<typeof useSubsidyQuote>[0]) => {
+  const { isLoading: isProgramLoading } = useSubsidyProgram();
+  const { isLoading: isUsageLoading } = useSubsidyUsage();
   const { data: quote, isFetching } = useSubsidyQuote(params);
   return {
-    isQuoting: isFetching,
+    isQuoting: isProgramLoading || isUsageLoading || isFetching,
     payerCost: Math.max(0, params.cost - (quote?.total ?? 0)),
   };
+};
+
+/** Usage, quotes and escrow history change once a job locks funds or the wallet joins the access list. */
+export const useInvalidateSubsidyData = () => {
+  const queryClient = useQueryClient();
+  return useCallback(
+    () =>
+      Promise.all(
+        ['subsidy-usage', 'subsidy-quote', 'escrow-events'].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [key] })
+        )
+      ),
+    [queryClient]
+  );
+};
+
+export const useStartWithSubsidy = () => {
+  const invalidateSubsidyData = useInvalidateSubsidyData();
+  return useCallback(
+    <T>(start: () => Promise<T>) =>
+      startWithSubsidy(start).finally(() => {
+        invalidateSubsidyData();
+      }),
+    [invalidateSubsidyData]
+  );
 };

@@ -2,11 +2,16 @@ import { sendOTP } from '@/api-services/email';
 import { validateSubsidyDataWithAI } from '@/api-services/gemini';
 import {
   findSubsidiesByHandles,
-  findSubsidyInSheet,
+  findSubsidyByEmail,
+  findSubsidyByWallet,
   insertSubsidyInSheet,
+  isStalePendingSubsidy,
+  loadSubsidies,
+  SubsidyRecord,
   updateSubsidyInSheet,
 } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
+import { allowMethod, isWalletAddress } from '@/api-services/request';
 import {
   isValidHandle,
   normalizeHandles,
@@ -14,15 +19,13 @@ import {
   SubsidyDetails,
   SubsidyHandleService,
   SubsidyStatus,
-  SubsidyWithStatus,
 } from '@/types/subsidy';
 import { isBlacklistedEmail, normalizeEmail } from '@/utils/email';
-import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
-  if (request.method !== 'POST') {
-    return response.status(405).json({ message: 'Method not allowed' });
+  if (!allowMethod(request, response, 'POST')) {
+    return;
   }
 
   const data: SubsidyDetails = request.body;
@@ -38,7 +41,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
   // Input validation
   const nameRegex = /^[\p{L}\s.'-]{1,100}$/u;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!ethers.isAddress(data.walletAddress)) {
+  if (!isWalletAddress(data.walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
   }
 
@@ -71,42 +74,47 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(400).json({ message: 'Invalid handle format or length' });
   }
 
-  let existingSubsidy: SubsidyWithStatus | null = null;
+  const details: SubsidyDetails = {
+    email: data.email,
+    handles: data.handles,
+    name: data.name,
+    walletAddress: data.walletAddress,
+  };
+
+  let existingSubsidy: SubsidyRecord | null = null;
   // Existence checks run BEFORE the (paid) Gemini call so spammers can't burn AI quota
   // by re-submitting against already-CLAIMED / already-verified rows.
   try {
-    const [byEmail, byWallet, byHandles] = await Promise.all([
-      findSubsidyInSheet({ email: data.email }),
-      findSubsidyInSheet({ walletAddress: data.walletAddress }),
-      findSubsidiesByHandles(data.handles),
-    ]);
+    const subsidies = await loadSubsidies();
+    const byWallet = findSubsidyByWallet(subsidies, details.walletAddress);
+    const byEmail = findSubsidyByEmail(subsidies, details.email);
+    const isOtherApplicant = (subsidy: SubsidyRecord) =>
+      subsidy.walletAddress.toLowerCase() !== details.walletAddress.toLowerCase() && !isStalePendingSubsidy(subsidy);
 
     // Pending rows may change email, so a wallet can't be squatted before verification.
     if (
       byWallet &&
-      byWallet.email.toLowerCase() !== data.email.toLowerCase() &&
+      byWallet.email.toLowerCase() !== details.email.toLowerCase() &&
       byWallet.status !== SubsidyStatus.PENDING
     ) {
       return response.status(403).json({ message: 'Wallet address already associated with another account' });
     }
 
     // Reject submissions that target a foreign email's row — prevents OTP email bombing of third parties
-    if (byEmail && byEmail.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase()) {
+    if (byEmail && isOtherApplicant(byEmail)) {
       return response.status(403).json({ message: 'Email already associated with another account' });
     }
 
-    // Unlike wallets, a foreign handle can't be taken over.
+    // Unlike wallets, a handle held by another active applicant can't be taken over.
     if (
-      byHandles.some(
-        (byHandle) =>
-          byHandle.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase() &&
-          byHandle.email.toLowerCase() !== data.email.toLowerCase()
+      findSubsidiesByHandles(subsidies, details.handles).some(
+        (byHandle) => isOtherApplicant(byHandle) && byHandle.email.toLowerCase() !== details.email.toLowerCase()
       )
     ) {
       return response.status(403).json({ message: 'Handle already associated with another account' });
     }
 
-    // Updates are keyed by walletAddress.
+    // Without a row of its own, the wallet takes over a stale application for the same email.
     existingSubsidy = byWallet ?? byEmail;
 
     if (existingSubsidy) {
@@ -127,29 +135,26 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(500).json({ message: 'Failed to process subsidy details' });
   }
 
-  const validationResult = await validateSubsidyDataWithAI(data);
+  const validationResult = await validateSubsidyDataWithAI(details);
   if (!validationResult.available) {
     return response.status(503).json({ message: 'Validation service unavailable. Please try again later.' });
   }
   if (!validationResult.valid) {
-    console.warn(`Subsidy details rejected for ${data.walletAddress}: ${validationResult.reason}`);
+    console.warn(`Subsidy details rejected for ${details.walletAddress}: ${validationResult.reason}`);
     return response
       .status(400)
       .json({ message: "We couldn't verify these details. Check your name, email and handles, then try again." });
   }
 
   const { otp, otpExpires } = generateOTP();
-
-  // Reset attempts on every new OTP issuance — a fresh code is a fresh session.
-
   const otpHash = hashOTP(otp);
   try {
     if (existingSubsidy) {
-      // Update keyed by the existing walletAddress; data spreads first so other fields update.
-      const updated = await updateSubsidyInSheet({
+      const isTakeover = existingSubsidy.walletAddress.toLowerCase() !== details.walletAddress.toLowerCase();
+      await updateSubsidyInSheet(existingSubsidy.rowNumber, {
         ...existingSubsidy,
-        ...data,
-        walletAddress: existingSubsidy.walletAddress,
+        ...details,
+        applicationDate: isTakeover ? new Date() : existingSubsidy.applicationDate,
         otp: otpHash,
         otpAttempts: 0,
         otpExpires,
@@ -157,20 +162,16 @@ export default async function handler(request: NextApiRequest, response: NextApi
         status: SubsidyStatus.PENDING,
         verifiedDate: undefined,
       });
-      if (!updated) {
-        return response.status(500).json({ message: 'Failed to process subsidy details' });
-      }
     } else {
-      await insertSubsidyInSheet({ ...data, otp: otpHash, otpAttempts: 0, otpExpires, otpLastResent: Date.now() });
+      await insertSubsidyInSheet({ ...details, otp: otpHash, otpAttempts: 0, otpExpires, otpLastResent: Date.now() });
     }
   } catch (error) {
     console.error('Error saving subsidy details:', error);
     return response.status(500).json({ message: 'Failed to process subsidy details' });
   }
 
-  // Send OTP via email
   try {
-    await sendOTP(data.email, otp);
+    await sendOTP(details.email, otp);
     const responseData: SubmitSubsidyDetailsResponse = {
       shouldValidateEmail: true,
     };

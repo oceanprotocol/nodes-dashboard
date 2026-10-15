@@ -2,7 +2,7 @@ import Card from '@/components/card/card';
 import { formatSubsidyAmount } from '@/components/subsidy/subsidy-copy';
 import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
 import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
-import { formatSubsidyPeriod } from '@/lib/subsidy';
+import { cappedWindows, formatSubsidyPeriod } from '@/lib/subsidy';
 import { useSubsidyProgram } from '@/lib/use-subsidy';
 import classNames from 'classnames';
 import styles from './subsidy.module.css';
@@ -19,7 +19,7 @@ const SubsidyTiles = ({ muted }: SubsidyTilesProps) => {
     return null;
   }
 
-  const limits = program.discount?.windows.filter((window) => !window.unlimited) ?? [];
+  const limits = cappedWindows(program.discount?.windows ?? []);
 
   return (
     <div className={classNames(styles.tiles, { [styles.tileMuted]: muted })}>

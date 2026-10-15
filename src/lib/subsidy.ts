@@ -105,10 +105,13 @@ const toLimitWindow = (periodSeconds: number, limit: string): SubsidyWindow => (
   used: 0,
 });
 
+export const cappedWindows = (windows: SubsidyWindow[]) => windows.filter((window) => !window.unlimited);
+
 export const getBindingWindow = (windows: SubsidyWindow[]): SubsidyWindow | null =>
-  windows
-    .filter((window) => !window.unlimited)
-    .reduce<SubsidyWindow | null>((min, window) => (!min || window.remaining < min.remaining ? window : min), null);
+  cappedWindows(windows).reduce<SubsidyWindow | null>(
+    (min, window) => (!min || window.remaining < min.remaining ? window : min),
+    null
+  );
 
 const mergeWindows = (windowSets: SubsidyWindow[][]): SubsidyWindow[] => {
   const byPeriod = new Map<number, SubsidyWindow>();
@@ -132,7 +135,7 @@ const mergeWindows = (windowSets: SubsidyWindow[][]): SubsidyWindow[] => {
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 
 const minRemaining = (windows: SubsidyWindow[]) =>
-  windows.filter((window) => !window.unlimited).reduce((min, window) => Math.min(min, window.remaining), Infinity);
+  cappedWindows(windows).reduce((min, window) => Math.min(min, window.remaining), Infinity);
 
 type ProgramEntry =
   | { address: string; credit: number; kind: SubsidyKind.ONE_TIME; percent: number }
@@ -178,14 +181,17 @@ const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> =
 };
 
 export const loadSubsidyProgram = async (): Promise<SubsidyProgram | null> => {
-  const entries = await Promise.all(
-    getSubsidyProviderAddresses().map((address) =>
-      loadProgramEntry(address).catch((error) => {
-        console.error(`Failed to read subsidy provider ${address}`, error);
-        return null;
-      })
-    )
-  );
+  const addresses = getSubsidyProviderAddresses();
+  const results = await Promise.allSettled(addresses.map(loadProgramEntry));
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(`Failed to read subsidy provider ${addresses[index]}`, result.reason);
+    }
+  });
+  if (results.length > 0 && results.every((result) => result.status === 'rejected')) {
+    throw new Error('Failed to read subsidy providers');
+  }
+  const entries = results.map((result) => (result.status === 'fulfilled' ? result.value : null));
   const oneTimes = entries.filter(
     (entry): entry is Extract<ProgramEntry, { kind: SubsidyKind.ONE_TIME }> => entry?.kind === SubsidyKind.ONE_TIME
   );
@@ -227,10 +233,15 @@ export const loadSubsidyUsage = async (program: SubsidyProgram, payer: string): 
   ]);
   const reports = [...oneTimeReports, ...discountReports];
   const oneTimeBuckets = oneTimeReports.flatMap((report) => report.buckets.slice(0, 1));
-  const discountWindows = mergeWindows(discountReports.map((report) => report.buckets.map(toWindow)));
+  const discountWindowSets = discountReports.map((report) => report.buckets.map(toWindow));
   return {
     discount:
-      discountReports.length > 0 ? { remaining: minRemaining(discountWindows), windows: discountWindows } : null,
+      discountReports.length > 0
+        ? {
+            remaining: sum(discountWindowSets.map(minRemaining)),
+            windows: mergeWindows(discountWindowSets),
+          }
+        : null,
     oneTime:
       oneTimeBuckets.length > 0
         ? {
@@ -344,23 +355,25 @@ export type SubsidyHistoryEntry = {
   total: number;
 };
 
-/** Newest first. Canceled locks are dropped: their subsidy went back to the program. */
+/**
+ * Newest first. Canceled locks are dropped: their subsidy went back to the program.
+ * Providers no longer in the program count as discount.
+ */
 export const buildSubsidyHistory = (program: SubsidyProgram, cycles: EscrowLockCycle[]): SubsidyHistoryEntry[] => {
   const oneTimeAddresses = new Set(program.oneTime?.addresses.map((address) => address.toLowerCase()));
-  const discountAddresses = new Set(program.discount?.addresses.map((address) => address.toLowerCase()));
-  const sumProviders = (cycle: EscrowLockCycle, addresses: Set<string>) =>
+  const sumProviders = (cycle: EscrowLockCycle, isIncluded: (provider: string) => boolean) =>
     toTokenAmount(
       [...cycle.subsidyByProvider]
-        .filter(([provider]) => addresses.has(provider))
+        .filter(([provider]) => isIncluded(provider))
         .reduce((total, [, amount]) => total + amount, BigInt(0)),
       cycle.token
     );
   return cycles
     .filter((cycle) => cycle.status !== 'canceled' && isSubsidyToken(cycle.token.address))
     .map((cycle) => {
-      const oneTime = sumProviders(cycle, oneTimeAddresses);
-      const discount = sumProviders(cycle, discountAddresses);
-      const total = oneTime + discount;
+      const oneTime = sumProviders(cycle, (provider) => oneTimeAddresses.has(provider));
+      const total = sumProviders(cycle, () => true);
+      const discount = total - oneTime;
       return {
         cost: cycle.cost,
         date: cycle.timestamp ? new Date(cycle.timestamp * 1000) : null,
@@ -380,15 +393,15 @@ export const buildSubsidyHistory = (program: SubsidyProgram, cycles: EscrowLockC
 };
 
 const PERIOD_LABELS: Record<number, string> = {
-  86400: 'day',
-  604800: 'week',
+  [DAY_SECONDS]: 'day',
+  [WEEK_SECONDS]: 'week',
 };
 
 export const formatSubsidyPeriod = (periodSeconds: number): string => {
   if (PERIOD_LABELS[periodSeconds]) {
     return PERIOD_LABELS[periodSeconds];
   }
-  const days = Math.round(periodSeconds / 86400);
+  const days = Math.round(periodSeconds / DAY_SECONDS);
   return days === 1 ? 'day' : `${days} days`;
 };
 
@@ -400,15 +413,15 @@ export const formatSubsidyReset = (resetsAt: Date): string => {
 
 const SHORTFALL_PATTERN = /does not have enough funds|Exceeds maxLockedAmount/i;
 
-/** Replaces a subsidy-shortfall lock revert with a readable error. */
-export const startWithSubsidy = async <T>(subsidyProviders: string[] | undefined, start: () => Promise<T>) => {
+/** Replaces an escrow-shortfall lock revert with a readable error. */
+export const startWithSubsidy = async <T>(start: () => Promise<T>) => {
   try {
     return await start();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (subsidyProviders?.length && SHORTFALL_PATTERN.test(message)) {
+    if (SHORTFALL_PATTERN.test(message)) {
       throw new Error(
-        "Your job didn't start: the subsidy covered less than quoted and your escrow can't cover the rest. Nothing was charged. Add funds to escrow and try again."
+        "Your job didn't start: your escrow funds or authorization don't cover your share of the cost. Nothing was charged. Check your escrow and try again."
       );
     }
     throw error;

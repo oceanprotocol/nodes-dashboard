@@ -1,13 +1,14 @@
 import {
   getHandleComparisonKey,
   SUBSIDY_HANDLE_SERVICE_CHOICES,
+  SUBSIDY_PENDING_TTL_MS,
   SubsidyDetails,
   SubsidyHandles,
   SubsidyHandleService,
   SubsidyStatus,
   SubsidyWithStatus,
 } from '@/types/subsidy';
-import { google } from 'googleapis';
+import { google, sheets_v4 } from 'googleapis';
 
 /**
  * Sheet format
@@ -47,19 +48,24 @@ const HANDLE_COLUMNS: Record<SubsidyHandleService, number> = {
 };
 
 function getRange(row?: number) {
-  if (row || row === 0) {
+  if (row !== undefined) {
     return `${process.env.SUBSIDY_GSHEETS_SHEET_NAME}!A${row}:${LAST_COLUMN}${row}`;
   }
   return `${process.env.SUBSIDY_GSHEETS_SHEET_NAME}!A${FIRST_DATA_ROW}:${LAST_COLUMN}`;
 }
 
-async function getSheetsService() {
-  const auth = new google.auth.JWT({
-    email: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  return google.sheets({ version: 'v4', auth });
+let sheetsService: sheets_v4.Sheets | undefined;
+
+function getSheetsService() {
+  if (!sheetsService) {
+    const auth = new google.auth.JWT({
+      email: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL,
+      key: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    sheetsService = google.sheets({ version: 'v4', auth });
+  }
+  return sheetsService;
 }
 
 const parseDate = (value: string | undefined) => (value ? new Date(value) : undefined);
@@ -130,74 +136,66 @@ function subsidyToRow(data: SubsidyWithStatus): string[] {
 }
 
 async function getAllRows(): Promise<string[][]> {
-  const service = await getSheetsService();
-  const response = await service.spreadsheets.values.get({
+  const response = await getSheetsService().spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: getRange(),
   });
   return response.data.values ?? [];
 }
 
+export type SubsidyRecord = SubsidyWithStatus & { rowNumber: number };
+
+/** One read per request: callers look rows up with the `find*` helpers below. */
+export async function loadSubsidies(): Promise<SubsidyRecord[]> {
+  const rows = await getAllRows();
+  return rows.map((row, index) => ({ ...rowToSubsidy(row), rowNumber: index + FIRST_DATA_ROW }));
+}
+
+const sameText = (a: string | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
+
+export const findSubsidyByWallet = (subsidies: SubsidyRecord[], walletAddress: string) =>
+  subsidies.find((subsidy) => sameText(subsidy.walletAddress, walletAddress)) ?? null;
+
+export const findSubsidyByEmail = (subsidies: SubsidyRecord[], email: string) =>
+  subsidies.find((subsidy) => sameText(subsidy.email, email)) ?? null;
+
 /**
  * Comparison goes through getHandleComparisonKey, so stored rows that kept an "@" or surrounding
  * whitespace still match a bare handle.
  */
-function rowMatchesAnyHandle(row: string[], handles: SubsidyHandles): boolean {
-  return SUBSIDY_HANDLE_SERVICE_CHOICES.some(({ value: service }) => {
+const matchesAnyHandle = (subsidy: SubsidyWithStatus, handles: SubsidyHandles) =>
+  SUBSIDY_HANDLE_SERVICE_CHOICES.some(({ value: service }) => {
     const key = getHandleComparisonKey(handles[service] ?? '');
-    if (!key) {
-      return false;
-    }
-    const value = row[HANDLE_COLUMNS[service]];
-    return !!value && getHandleComparisonKey(value) === key;
+    const stored = subsidy.handles[service];
+    return !!key && !!stored && getHandleComparisonKey(stored) === key;
   });
-}
 
-export async function findSubsidyInSheet({
-  email,
-  walletAddress,
-}: {
-  email?: string;
-  walletAddress?: string;
-}): Promise<SubsidyWithStatus | null> {
-  if (!email && !walletAddress) {
-    throw new Error('Missing required fields');
-  }
-  const rows = await getAllRows();
-  if (rows.length === 0) return null;
-  const rowIndex = rows.findIndex(
-    (row) =>
-      (email && row[EMAIL_COLUMN]?.toLowerCase() === email.toLowerCase()) ||
-      (walletAddress && row[WALLET_COLUMN]?.toLowerCase() === walletAddress.toLowerCase())
-  );
-  if (rowIndex === -1) return null;
-  return rowToSubsidy(rows[rowIndex]);
-}
+export const findSubsidiesByHandles = (subsidies: SubsidyRecord[], handles: SubsidyHandles) =>
+  subsidies.filter((subsidy) => matchesAnyHandle(subsidy, handles));
 
-export async function findSubsidiesByHandles(handles: SubsidyHandles): Promise<SubsidyWithStatus[]> {
-  const rows = await getAllRows();
-  return rows.filter((row) => rowMatchesAnyHandle(row, handles)).map(rowToSubsidy);
-}
+/** An unverified application nobody touched for a while no longer reserves its wallet, email or handles. */
+export const isStalePendingSubsidy = (subsidy: SubsidyWithStatus) =>
+  subsidy.status === SubsidyStatus.PENDING &&
+  Date.now() - (subsidy.otpLastResent ?? subsidy.applicationDate.getTime()) > SUBSIDY_PENDING_TTL_MS;
 
 export async function insertSubsidyInSheet(
   data: SubsidyDetails & { otp?: string; otpExpires?: number; otpAttempts?: number; otpLastResent?: number }
 ) {
-  const service = await getSheetsService();
   // Late dedupe check — tightens (but does not eliminate) the race window between two
   // parallel first-time submits for the same wallet/email/handle. Sheets has no atomic upsert,
   // so this is a best-effort safeguard against duplicate rows.
-  const existingRows = await getAllRows();
-  const dup = existingRows.some(
-    (row) =>
-      row[EMAIL_COLUMN]?.toLowerCase() === data.email.toLowerCase() ||
-      row[WALLET_COLUMN]?.toLowerCase() === data.walletAddress.toLowerCase() ||
-      rowMatchesAnyHandle(row, data.handles)
+  const dup = (await loadSubsidies()).some(
+    (subsidy) =>
+      !isStalePendingSubsidy(subsidy) &&
+      (sameText(subsidy.email, data.email) ||
+        sameText(subsidy.walletAddress, data.walletAddress) ||
+        matchesAnyHandle(subsidy, data.handles))
   );
   if (dup) {
     throw new Error('Subsidy row already exists for this wallet, email or handle');
   }
   const values = [subsidyToRow({ ...data, applicationDate: new Date(), status: SubsidyStatus.PENDING })];
-  await service.spreadsheets.values.append({
+  await getSheetsService().spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: getRange(),
     valueInputOption: 'RAW',
@@ -205,18 +203,11 @@ export async function insertSubsidyInSheet(
   });
 }
 
-export async function updateSubsidyInSheet(data: SubsidyWithStatus): Promise<boolean> {
-  const service = await getSheetsService();
-  const rows = await getAllRows();
-  if (rows.length === 0) return false;
-  const rowIndex = rows.findIndex((row) => row[WALLET_COLUMN]?.toLowerCase() === data.walletAddress.toLowerCase());
-  if (rowIndex === -1) return false;
-  const rowNumber = rowIndex + FIRST_DATA_ROW;
-  await service.spreadsheets.values.update({
+export async function updateSubsidyInSheet(rowNumber: number, data: SubsidyWithStatus) {
+  await getSheetsService().spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: getRange(rowNumber),
     valueInputOption: 'RAW',
     requestBody: { values: [subsidyToRow(data)] },
   });
-  return true;
 }

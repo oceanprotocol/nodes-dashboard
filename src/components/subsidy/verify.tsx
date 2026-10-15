@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import TwoFactorInput from '@/components/input/two-factor-input';
+import TwoFactorInput, { CODE_LENGTH } from '@/components/input/two-factor-input';
+import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
 import useCountdown from '@/hooks/use-countdown';
@@ -74,7 +75,9 @@ const Verify: React.FC = () => {
         });
         posthog.capture('grant_email_verified');
         // The step guard moves on to Claim.
-        await fetchSubsidyStatus(account.address!);
+        if (!(await fetchSubsidyStatus(account.address!))) {
+          toast.error(SUBSIDY_STATUS_REFRESH_ERROR);
+        }
       } catch (error) {
         const body = axios.isAxiosError(error) ? (error.response?.data as SubsidyVerifyErrorResponse) : undefined;
         if (body?.error) {
@@ -94,7 +97,7 @@ const Verify: React.FC = () => {
       setState({});
     }
     setCode(value);
-    if (value.length === 6 && !isSubmitting) {
+    if (value.length === CODE_LENGTH && !isSubmitting) {
       submitCode(value);
     }
   };
@@ -204,7 +207,7 @@ const Verify: React.FC = () => {
       <div className={styles.heading}>
         <h3>Verify your email</h3>
         <span className={styles.muted}>
-          Enter the 6-digit code we emailed you. It ensures you have access to the provided email address.
+          Enter the {CODE_LENGTH}-digit code we emailed you. It ensures you have access to the provided email address.
         </span>
       </div>
 
@@ -238,7 +241,7 @@ const Verify: React.FC = () => {
         </Button>
         <Button
           color="accent1"
-          disabled={code.length !== 6 || isInvalid || isLocked || isExpired}
+          disabled={code.length !== CODE_LENGTH || isInvalid || isLocked || isExpired}
           loading={isSubmitting}
           onClick={() => submitCode(code)}
           size="md"

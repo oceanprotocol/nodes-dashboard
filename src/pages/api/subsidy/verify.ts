@@ -1,5 +1,6 @@
-import { findSubsidyInSheet, updateSubsidyInSheet } from '@/api-services/gsheets';
+import { findSubsidyByWallet, loadSubsidies, updateSubsidyInSheet } from '@/api-services/gsheets';
 import { verifyOTP } from '@/api-services/otp';
+import { allowMethod, isWalletAddress } from '@/api-services/request';
 import {
   SUBSIDY_MAX_OTP_ATTEMPTS,
   SubsidyStatus,
@@ -7,17 +8,16 @@ import {
   SubsidyVerifyErrorResponse,
 } from '@/types/subsidy';
 import { normalizeEmail } from '@/utils/email';
-import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
-  if (request.method !== 'POST') {
-    return response.status(405).json({ message: 'Method not allowed' });
+  if (!allowMethod(request, response, 'POST')) {
+    return;
   }
 
   const { walletAddress, email, code } = request.body;
 
-  if (!walletAddress || typeof walletAddress !== 'string' || !ethers.isAddress(walletAddress)) {
+  if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
   }
 
@@ -31,13 +31,13 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   try {
-    const subsidy = await findSubsidyInSheet({ walletAddress });
+    const subsidy = findSubsidyByWallet(await loadSubsidies(), walletAddress);
 
-    if (!subsidy || (email && subsidy.email.toLowerCase() !== normalizeEmail(email).toLowerCase())) {
-      return response.status(400).json({ message: 'No pending subsidy request found' });
-    }
-
-    if (subsidy.status !== SubsidyStatus.PENDING) {
+    if (
+      !subsidy ||
+      subsidy.status !== SubsidyStatus.PENDING ||
+      (email && subsidy.email.toLowerCase() !== normalizeEmail(email).toLowerCase())
+    ) {
       return response.status(400).json({ message: 'No pending subsidy request found' });
     }
 
@@ -56,10 +56,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     // Increment before comparing to narrow the concurrent-guess race.
     const nextAttempts = (subsidy.otpAttempts ?? 0) + 1;
-    const incremented = await updateSubsidyInSheet({ ...subsidy, otpAttempts: nextAttempts });
-    if (!incremented) {
-      return response.status(500).json({ message: 'Failed to verify code' });
-    }
+    await updateSubsidyInSheet(subsidy.rowNumber, { ...subsidy, otpAttempts: nextAttempts });
 
     if (!verifyOTP(code, subsidy.otp ?? '')) {
       const attemptsLeft = Math.max(0, SUBSIDY_MAX_OTP_ATTEMPTS - nextAttempts);
@@ -69,7 +66,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(400).json(body);
     }
 
-    await updateSubsidyInSheet({
+    await updateSubsidyInSheet(subsidy.rowNumber, {
       ...subsidy,
       status: SubsidyStatus.EMAIL_VERIFIED,
       otp: '',

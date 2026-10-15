@@ -18,11 +18,11 @@ import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
-import { getJobSubsidyProviders, startWithSubsidy, SubsidyJobType } from '@/lib/subsidy';
+import { getJobSubsidyProviders, SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
-import { usePayerCost } from '@/lib/use-subsidy';
+import { usePayerCost, useStartWithSubsidy } from '@/lib/use-subsidy';
 import {
   buildInferenceRestartSpec,
   buildInferenceStartParams,
@@ -206,6 +206,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     () => (selectedToken ? roundTokenAmount(price, selectedToken.address, 'up') : 0),
     [price, selectedToken]
   );
+
+  const startWithSubsidy = useStartWithSubsidy();
 
   const resolveSubsidyProviders = useCallback(
     () =>
@@ -577,7 +579,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       await ensureEscrowForSelection();
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
       const subsidyProviders = await resolveSubsidyProviders();
-      await startWithSubsidy(subsidyProviders, () =>
+      await startWithSubsidy(() =>
         withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
           serviceExtend(
             nodeUri,
@@ -625,6 +627,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
   }, [
     resolveSubsidyProviders,
+    startWithSubsidy,
     targetServiceId,
     selectedEnv,
     selectedToken,
@@ -794,7 +797,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // the current escrow state can't cover it (one bundled tx on smart accounts).
       const escrowDeposited = await ensureEscrowForSelection();
       const subsidyProviders = await resolveSubsidyProviders();
-      const [job] = await startWithSubsidy(subsidyProviders, () =>
+      const [job] = await startWithSubsidy(() =>
         withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
           serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
         )
@@ -834,6 +837,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
   }, [
     resolveSubsidyProviders,
+    startWithSubsidy,
     selectedModels,
     modelParamsByModel,
     selectedEnv,
@@ -922,7 +926,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       }
       const escrowDeposited = await ensureEscrowForSelection();
       const subsidyProviders = await resolveSubsidyProviders();
-      const [job] = await startWithSubsidy(subsidyProviders, () =>
+      const [job] = await startWithSubsidy(() =>
         withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
           serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
         )
@@ -962,6 +966,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
   }, [
     resolveSubsidyProviders,
+    startWithSubsidy,
     selectedTemplate,
     selectedEnv,
     selectedToken,

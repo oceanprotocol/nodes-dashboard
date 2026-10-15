@@ -1,6 +1,6 @@
 import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
-import { formatSubsidyPeriod } from '@/lib/subsidy';
+import { cappedWindows, formatSubsidyPeriod } from '@/lib/subsidy';
 import { useSubsidyProgram } from '@/lib/use-subsidy';
 import classNames from 'classnames';
 import styles from './subsidy.module.css';
@@ -12,7 +12,7 @@ const SubsidySummary = () => {
     return null;
   }
 
-  const limits = program.discount?.windows.filter((window) => !window.unlimited) ?? [];
+  const limits = cappedWindows(program.discount?.windows ?? []);
 
   return (
     <div className={styles.summary}>

@@ -56,6 +56,7 @@ export type SubsidyVerifyErrorResponse = {
 
 export const SUBSIDY_MAX_OTP_ATTEMPTS = 5;
 export const SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS = 60;
+export const SUBSIDY_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const SUBSIDY_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: SubsidyHandleService }> = [
   { label: 'Discord', value: 'discord' },

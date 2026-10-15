@@ -4,6 +4,7 @@ import Card from '@/components/card/card';
 import FlowSteps, { FlowStep } from '@/components/flow-steps/flow-steps';
 import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
+import SubsidyStatusError from '@/components/subsidy/subsidy-status-error';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
 import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
@@ -162,8 +163,8 @@ const SpendOrder = ({ credit, discount }: SpendOrderProps) => {
 };
 
 const ActiveSubsidy = () => {
-  const { data: program, isLoading: isProgramLoading } = useSubsidyProgram();
-  const { data: usage, isLoading: isUsageLoading } = useSubsidyUsage();
+  const { data: program, isError: isProgramError, isLoading: isProgramLoading } = useSubsidyProgram();
+  const { data: usage, isError: isUsageError, isLoading: isUsageLoading } = useSubsidyUsage();
   const { data: history } = useSubsidyHistory();
   const subsidizedTotal = history?.reduce((sum, entry) => sum + entry.total, 0) ?? 0;
 
@@ -173,7 +174,9 @@ const ActiveSubsidy = () => {
 
   const discountWindow = usage?.discount ? getBindingWindow(usage.discount.windows) : null;
   const creditLeft = (program?.oneTime && usage?.oneTime?.remaining) || 0;
-  const discountLeft = (program?.discount && discountWindow?.remaining) || 0;
+  const discountRemaining = usage?.discount?.remaining ?? 0;
+  const discountLeft =
+    program?.discount && discountWindow && Number.isFinite(discountRemaining) ? discountRemaining : 0;
   const discountUnlimited = !!program?.discount && !!usage?.discount && !discountWindow;
 
   const chip = !usage ? null : usage.paused ? (
@@ -187,7 +190,9 @@ const ActiveSubsidy = () => {
   return (
     <>
       <SubsidyHeader chip={chip} />
-      {!program || !usage ? (
+      {isProgramError || isUsageError ? (
+        <span className={styles.small}>Couldn&apos;t load your subsidy details. Try again later.</span>
+      ) : !program || !usage ? (
         <span className={styles.small}>The subsidy isn&apos;t available on this network right now.</span>
       ) : (
         <>
@@ -243,17 +248,21 @@ const getProgressSteps = (emailVerified: boolean): FlowStep[] => [
 
 const SubsidySection = () => {
   const { account } = useOceanAccount();
-  const { subsidyInfo } = useProfileContext();
+  const { subsidyInfo, subsidyInfoError } = useProfileContext();
   const { data: usage, isLoading: isUsageLoading } = useSubsidyUsage();
   const isActive = !!usage?.userAllowed || subsidyInfo?.status === SubsidyStatus.CLAIMED;
 
   const renderContent = () => {
-    if (!subsidyInfo || isUsageLoading) {
+    if (isUsageLoading) {
       return <CircularProgress className="alignSelfCenter" />;
     }
 
     if (isActive) {
       return <ActiveSubsidy />;
+    }
+
+    if (!subsidyInfo) {
+      return subsidyInfoError ? <SubsidyStatusError /> : <CircularProgress className="alignSelfCenter" />;
     }
 
     const appliedOn = subsidyInfo.applicationDate ? dayjs(subsidyInfo.applicationDate).format('MMM D, YYYY') : null;

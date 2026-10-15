@@ -14,9 +14,6 @@ import { ReactNode } from 'react';
 export type AccountSectionKey =
   'owner' | 'consumer' | 'escrow' | 'subsidy' | 'compy' | 'access-lists' | 'storage' | 'tokens';
 
-/** Every entry in the account menu, including the ones that link out of the layout. */
-export type AccountItemKey = AccountSectionKey;
-
 export type AccountGroupKey = 'activity' | 'funds' | 'access';
 
 /**
@@ -26,16 +23,14 @@ export type AccountGroupKey = 'activity' | 'funds' | 'access';
 export type AccountItemRequirement = 'provider';
 
 export type AccountItem = {
-  /** Subtitle under the page title. Empty for items that link out of the layout. */
+  /** Subtitle under the page title. */
   description: string;
   group: AccountGroupKey;
   href: string;
   icon: ReactNode;
-  key: AccountItemKey;
+  key: AccountSectionKey;
   /** Menu label. */
   label: string;
-  /** Leaves the account layout instead of swapping the section. */
-  linksOut?: boolean;
   requires?: AccountItemRequirement;
   /** Page title shown above the section. */
   title: string;
@@ -126,13 +121,13 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
 
 export const DEFAULT_ACCOUNT_SECTION: AccountSectionKey = 'consumer';
 
-const SECTION_KEYS = ACCOUNT_SECTIONS.filter((item) => !item.linksOut).map((item) => item.key);
+const SECTION_KEYS = ACCOUNT_SECTIONS.map((item) => item.key);
 
 export const isAccountSectionKey = (value: string | undefined): value is AccountSectionKey => {
   if (!value) {
     return false;
   }
-  return SECTION_KEYS.includes(value as AccountItemKey);
+  return SECTION_KEYS.includes(value as AccountSectionKey);
 };
 
 export const getAccountSection = (key: AccountSectionKey): AccountItem =>

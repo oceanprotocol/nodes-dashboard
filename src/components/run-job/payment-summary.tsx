@@ -113,7 +113,7 @@ const PaymentSummary = ({
   // Every amount renders with as many decimals as the most precise one, so the column lines up
   // without padding values to a fixed width they don't need.
   const decimals = sharedTokenAmountDecimals(
-    [totalCost, escrow, currentLocked, maxLocked, walletBalance],
+    [totalCost, escrow, currentLocked, maxLocked, walletBalance, subsidyQuote?.total ?? 0, payerCost],
     selectedToken.address
   );
   const format = (amount: number) => formatTokenAmount(amount, selectedToken.address, decimals);

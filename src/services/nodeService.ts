@@ -69,9 +69,33 @@ export async function getNodeEnvs(nodeUri: NodeUri) {
   return ProviderInstance.getComputeEnvironments(normalizeNodeUri(nodeUri));
 }
 
+const ESCROW_EVENTS_PAGE_SIZE = 250;
+
 // Every node indexes ALL on-chain escrow events (not just its own), so one node is enough.
-export async function getEscrowEvents(filter: EscrowEventsFilter): Promise<EscrowEventRecord[]> {
-  return ProviderInstance.getAllEscrowEvents(NODE_URL, filter);
+// Not via ocean.js: its fetch returns [] on failure, which would pass a node outage off as an empty history.
+export async function getEscrowEvents(
+  filter: Omit<EscrowEventsFilter, 'offset' | 'ranges' | 'size'>
+): Promise<EscrowEventRecord[]> {
+  const events = new Map<string, EscrowEventRecord>();
+  for (let offset = 0; ; offset += ESCROW_EVENTS_PAGE_SIZE) {
+    const params = new URLSearchParams({ offset: String(offset), size: String(ESCROW_EVENTS_PAGE_SIZE) });
+    for (const [key, value] of Object.entries(filter)) {
+      if (value !== undefined && value !== null) {
+        params.set(key, String(value));
+      }
+    }
+    const response = await fetch(`${NODE_URL}/api/services/escrow/events?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch escrow events: ${response.status}`);
+    }
+    const page = (await response.json()) as EscrowEventRecord[];
+    for (const event of page) {
+      events.set(event.id, event);
+    }
+    if (page.length < ESCROW_EVENTS_PAGE_SIZE) {
+      return [...events.values()];
+    }
+  }
 }
 
 // --- Node metrics (ocean-node >= 4.1.0) ---

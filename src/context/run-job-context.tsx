@@ -12,9 +12,10 @@ import {
 } from '@/lib/compute-inputs';
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { generateJobName } from '@/lib/job-name';
-import { getJobSubsidyProviders, startWithSubsidy, SubsidyJobType } from '@/lib/subsidy';
+import { getJobSubsidyProviders, SubsidyJobType } from '@/lib/subsidy';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useStartWithSubsidy } from '@/lib/use-subsidy';
 import { getNodeEnvs, startCompute, startFreeCompute } from '@/services/nodeService';
 import {
   ComputeEnvironment,
@@ -217,6 +218,7 @@ const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const { provider } = useOceanAccount();
   const { initializeCompute, isReady: p2pIsReady } = useP2P();
+  const startWithSubsidy = useStartWithSubsidy();
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -344,7 +346,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               payer: consumerAddress,
               tokenAddress: selectedToken.address,
             });
-            return startWithSubsidy(subsidyProviders, () =>
+            return startWithSubsidy(() =>
               startCompute({
                 algorithm,
                 authToken,
@@ -385,6 +387,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       selectedEnv,
       selectedResources,
       selectedToken,
+      startWithSubsidy,
     ]
   );
 

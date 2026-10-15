@@ -1,6 +1,6 @@
-import { findSubsidyInSheet } from '@/api-services/gsheets';
+import { findSubsidyByWallet, isStalePendingSubsidy, loadSubsidies } from '@/api-services/gsheets';
+import { allowMethod, isWalletAddress } from '@/api-services/request';
 import { SUBSIDY_MAX_OTP_ATTEMPTS, SubsidyStatus, SubsidyStatusResponse, SubsidyWithStatus } from '@/types/subsidy';
-import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 function maskEmail(email: string): string {
@@ -26,21 +26,21 @@ function toStatusResponse(subsidy: SubsidyWithStatus): SubsidyStatusResponse {
 }
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
-  if (request.method !== 'GET') {
-    return response.status(405).json({ message: 'Method not allowed' });
+  if (!allowMethod(request, response, 'GET')) {
+    return;
   }
 
   response.setHeader('Cache-Control', 'no-store');
 
   const { walletAddress } = request.query;
 
-  if (!walletAddress || typeof walletAddress !== 'string' || !ethers.isAddress(walletAddress)) {
+  if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
   }
 
   try {
-    const subsidy = await findSubsidyInSheet({ walletAddress });
-    if (!subsidy) {
+    const subsidy = findSubsidyByWallet(await loadSubsidies(), walletAddress);
+    if (!subsidy || isStalePendingSubsidy(subsidy)) {
       const body: SubsidyStatusResponse = { status: null };
       return response.status(200).json(body);
     }

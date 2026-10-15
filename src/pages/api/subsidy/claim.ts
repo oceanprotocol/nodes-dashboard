@@ -1,27 +1,27 @@
-import { findSubsidyInSheet, updateSubsidyInSheet } from '@/api-services/gsheets';
+import { findSubsidyByWallet, loadSubsidies, updateSubsidyInSheet } from '@/api-services/gsheets';
+import { allowMethod, isWalletAddress } from '@/api-services/request';
 import { addToSubsidyAccessList, isOnSubsidyAccessList } from '@/api-services/subsidy-access-list';
 import { SubsidyStatus } from '@/types/subsidy';
-import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 // The access list mint can take a few blocks.
 export const config = { maxDuration: 60 };
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
-  if (request.method !== 'POST') {
-    return response.status(405).json({ message: 'Method not allowed' });
+  if (!allowMethod(request, response, 'POST')) {
+    return;
   }
 
   const { walletAddress } = request.body;
 
-  if (!walletAddress || typeof walletAddress !== 'string' || !ethers.isAddress(walletAddress)) {
+  if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Wallet address is missing or invalid' });
   }
 
   try {
-    const subsidy = await findSubsidyInSheet({ walletAddress });
+    const subsidy = findSubsidyByWallet(await loadSubsidies(), walletAddress);
 
-    if (!subsidy || subsidy.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+    if (!subsidy) {
       return response.status(404).json({ message: 'Subsidy request not found' });
     }
 
@@ -44,14 +44,11 @@ export default async function handler(request: NextApiRequest, response: NextApi
       }
     }
 
-    const updated = await updateSubsidyInSheet({
+    await updateSubsidyInSheet(subsidy.rowNumber, {
       ...subsidy,
       claimDate: new Date(),
       status: SubsidyStatus.CLAIMED,
     });
-    if (!updated) {
-      return response.status(500).json({ message: 'Failed to claim subsidy' });
-    }
 
     return response.status(200).json({ status: SubsidyStatus.CLAIMED });
   } catch (error) {

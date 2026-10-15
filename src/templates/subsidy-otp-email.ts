@@ -81,15 +81,22 @@ export function getSubsidyOtpEmailTemplate({ otp }: { otp: string }) {
           📚 Explore the
           <a href="${config.links.docs}" target="_blank" style="color: #d54335; text-decoration: none"> Docs </a>
         </li>
-        <!-- add also vsx i've added only vs code marketplace -->
         <li>
-          🛠 Install
+          🛠 Install the Ocean Orchestrator extension from the
           <a
             href="https://marketplace.visualstudio.com/items?itemName=OceanProtocol.ocean-protocol-vscode-extension"
             target="_blank"
             style="color: #d54335; text-decoration: none"
           >
-            Ocean Orchestrator extension
+            VS Code Marketplace
+          </a>
+          or
+          <a
+            href="https://open-vsx.org/extension/OceanProtocol/ocean-protocol-vscode-extension"
+            target="_blank"
+            style="color: #d54335; text-decoration: none"
+          >
+            Open VSX
           </a>
         </li>
       </ul>

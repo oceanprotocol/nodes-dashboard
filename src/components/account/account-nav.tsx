@@ -8,7 +8,6 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
-import NorthEastIcon from '@mui/icons-material/NorthEast';
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 import { Collapse, useMediaQuery } from '@mui/material';
 import classNames from 'classnames';
@@ -101,7 +100,6 @@ const AccountNav = ({ activeKey, className }: AccountNavProps) => {
                 >
                   <span className={styles.itemIcon}>{item.icon}</span>
                   <span className={styles.itemLabel}>{item.label}</span>
-                  {item.linksOut ? <NorthEastIcon className={styles.itemLinksOut} /> : null}
                 </Link>
               );
             })}

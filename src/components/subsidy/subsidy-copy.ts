@@ -1,11 +1,13 @@
 import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
-import { formatSubsidyPeriod, SubsidyProgram, SubsidyWindow } from '@/lib/subsidy';
+import { cappedWindows, formatSubsidyPeriod, SubsidyProgram } from '@/lib/subsidy';
+
+export const SUBSIDY_STATUS_ERROR = "Couldn't load your subsidy progress.";
+
+export const SUBSIDY_STATUS_REFRESH_ERROR = "Couldn't refresh your subsidy progress. Reload the page to continue.";
 
 export const formatSubsidyAmount = (amount: number) => amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 export const formatSubsidyTokenAmount = (amount: number) => `${formatSubsidyAmount(amount)} ${SUBSIDY_TOKEN_SYMBOL}`;
-
-const cappedWindows = (windows: SubsidyWindow[]) => windows.filter((window) => !window.unlimited);
 
 export const getOneTimeLabel = (program: SubsidyProgram) =>
   program.oneTime ? `${formatSubsidyTokenAmount(program.oneTime.credit)} on us` : null;

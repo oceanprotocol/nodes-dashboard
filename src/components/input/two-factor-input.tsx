@@ -2,7 +2,7 @@ import classNames from 'classnames';
 import { useEffect, useRef } from 'react';
 import styles from './two-factor-input.module.css';
 
-const CODE_LENGTH = 6;
+export const CODE_LENGTH = 6;
 
 type TwoFactorInputProps = {
   'aria-label'?: string;

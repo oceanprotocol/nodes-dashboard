@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import InputWrapper from '@/components/input/input-wrapper';
+import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import SubsidySummary from '@/components/subsidy/subsidy-summary';
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
@@ -69,7 +70,10 @@ const Details: React.FC = () => {
         setSubsidyDetails(details);
         posthog.capture('grant_form_completed', { handleServices: Object.keys(handles) });
         // The step guard reads the saved status.
-        await fetchSubsidyStatus(account.address);
+        if (!(await fetchSubsidyStatus(account.address))) {
+          toast.error(SUBSIDY_STATUS_REFRESH_ERROR);
+          return;
+        }
         if (response.data.shouldValidateEmail) {
           router.push('/subsidy/verify');
         } else {

@@ -1,9 +1,11 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { useProfileContext } from '@/context/profile-context';
 import { captureError } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useInvalidateSubsidyData } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import axios from 'axios';
@@ -14,11 +16,12 @@ import styles from './claim.module.css';
 
 const Claim: React.FC = () => {
   const { account, login } = useOceanAccount();
-  const { fetchSubsidyStatus, subsidyStatus } = useProfileContext();
+  const { fetchSubsidyStatus, subsidyInfo } = useProfileContext();
+  const invalidateSubsidyData = useInvalidateSubsidyData();
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const isClaimed = subsidyStatus === SubsidyStatus.CLAIMED;
+  const isClaimed = subsidyInfo?.status === SubsidyStatus.CLAIMED;
 
   const handleClaim = async () => {
     posthog.capture('grant_claim_clicked', { connected: account.isConnected });
@@ -38,8 +41,11 @@ const Claim: React.FC = () => {
           transaction_id: account.address,
         });
       }
-      await fetchSubsidyStatus(account.address);
+      invalidateSubsidyData();
       toast.success('Subsidy claimed');
+      if (!(await fetchSubsidyStatus(account.address))) {
+        toast.error(SUBSIDY_STATUS_REFRESH_ERROR);
+      }
     } catch (error) {
       captureError('grant_claim_failed', error, { reason: 'api_error', error: String(error) });
       if (axios.isAxiosError(error) && error.response?.data?.message) {
