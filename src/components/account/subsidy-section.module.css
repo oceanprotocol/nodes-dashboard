@@ -42,38 +42,6 @@
   font-size: 14px;
 }
 
-.steps {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr);
-
-  @media (min-width: 576px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.step {
-  align-items: center;
-  background: var(--background-glass-secondary);
-  border-radius: 18px;
-  display: flex;
-  font-size: 14px;
-  font-weight: 500;
-  gap: 6px;
-  justify-content: center;
-  padding: 6px 18px;
-}
-
-.stepComplete {
-  background: var(--accent2);
-  color: var(--success-contrast);
-}
-
-.stepActive {
-  background: var(--accent1-lighter);
-  color: var(--accent1-contrast);
-}
-
 .summary {
   display: flex;
   flex-direction: column;

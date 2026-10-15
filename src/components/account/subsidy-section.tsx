@@ -1,6 +1,7 @@
 import SubsidyHistory from '@/components/account/subsidy-history';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import FlowSteps, { FlowStep } from '@/components/flow-steps/flow-steps';
 import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
@@ -18,8 +19,6 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useSubsidyHistory, useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
-import CheckIcon from '@mui/icons-material/Check';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { CircularProgress } from '@mui/material';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -228,19 +227,19 @@ const ActiveSubsidy = () => {
   );
 };
 
-const PendingSteps = () => (
-  <div className={styles.steps}>
-    <span className={classNames(styles.step, styles.stepComplete)}>
-      <CheckIcon aria-label="Done" fontSize="small" />
-      Submit
-    </span>
-    <span className={classNames(styles.step, styles.stepActive)}>
-      <ErrorOutlineIcon aria-label="Action needed" fontSize="small" />
-      Verify email
-    </span>
-    <span className={styles.step}>Claim</span>
-  </div>
-);
+const getProgressSteps = (emailVerified: boolean): FlowStep[] => [
+  { title: 'Submit', description: 'Share your details and email', status: 'complete' },
+  {
+    title: 'Verify email',
+    description: 'Enter the code we emailed you',
+    status: emailVerified ? 'complete' : 'attention',
+  },
+  {
+    title: 'Claim',
+    description: 'Add your wallet to the subsidy contract',
+    status: emailVerified ? 'attention' : undefined,
+  },
+];
 
 const SubsidySection = () => {
   const { account } = useOceanAccount();
@@ -271,7 +270,7 @@ const SubsidySection = () => {
             chip={<span className="chip chipWarning">Email not verified</span>}
             subtitle={[appliedOn ? `Applied ${appliedOn}` : null, subsidyInfo.maskedEmail].filter(Boolean).join(' · ')}
           />
-          <PendingSteps />
+          <FlowSteps steps={getProgressSteps(false)} title="Subsidy progress" />
           <SubsidyTiles muted />
           <span className={styles.small}>
             Enter the code we emailed you to claim your subsidy. Until then, jobs and models are charged in full.
@@ -294,6 +293,7 @@ const SubsidySection = () => {
               </>
             }
           />
+          <FlowSteps steps={getProgressSteps(true)} title="Subsidy progress" />
           <SubsidyTiles />
           <div className={styles.footer}>
             <span className={styles.small}>
