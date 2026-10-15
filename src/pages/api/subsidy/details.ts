@@ -72,7 +72,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   let existingSubsidy: SubsidyWithStatus | null = null;
-  let emailChanged = false;
   // Existence checks run BEFORE the (paid) Gemini call so spammers can't burn AI quota
   // by re-submitting against already-CLAIMED / already-verified rows.
   try {
@@ -82,11 +81,11 @@ export default async function handler(request: NextApiRequest, response: NextApi
       findSubsidiesByHandles(data.handles),
     ]);
 
-    // Unclaimed rows may change email, so a wallet can't be squatted.
+    // Pending rows may change email, so a wallet can't be squatted before verification.
     if (
       byWallet &&
       byWallet.email.toLowerCase() !== data.email.toLowerCase() &&
-      byWallet.status === SubsidyStatus.CLAIMED
+      byWallet.status !== SubsidyStatus.PENDING
     ) {
       return response.status(403).json({ message: 'Wallet address already associated with another account' });
     }
@@ -109,27 +108,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     // Updates are keyed by walletAddress.
     existingSubsidy = byWallet ?? byEmail;
-    emailChanged = !!existingSubsidy && existingSubsidy.email.toLowerCase() !== data.email.toLowerCase();
 
     if (existingSubsidy) {
       if (existingSubsidy.status === SubsidyStatus.CLAIMED) {
         return response.status(403).json({ message: 'Subsidy already claimed' });
       }
 
-      if (
-        existingSubsidy.status === SubsidyStatus.EMAIL_VERIFIED &&
-        existingSubsidy.email.toLowerCase() === data.email.toLowerCase()
-      ) {
-        // Keep the verified identity so the subsidy can't be redirected.
-        const updated = await updateSubsidyInSheet({
-          ...existingSubsidy,
-          ...data,
-          email: existingSubsidy.email,
-          walletAddress: existingSubsidy.walletAddress,
-        });
-        if (!updated) {
-          return response.status(500).json({ message: 'Failed to process subsidy details' });
-        }
+      // Verified details are frozen; anyone who knows the wallet and email could otherwise rewrite them.
+      if (existingSubsidy.status === SubsidyStatus.EMAIL_VERIFIED) {
         const responseData: SubmitSubsidyDetailsResponse = {
           shouldValidateEmail: false,
         };
@@ -142,8 +128,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   const validationResult = await validateSubsidyDataWithAI(data);
+  if (!validationResult.available) {
+    return response.status(503).json({ message: 'Validation service unavailable. Please try again later.' });
+  }
   if (!validationResult.valid) {
-    return response.status(400).json({ message: `Validation failed: ${validationResult.reason}` });
+    console.warn(`Subsidy details rejected for ${data.walletAddress}: ${validationResult.reason}`);
+    return response
+      .status(400)
+      .json({ message: "We couldn't verify these details. Check your name, email and handles, then try again." });
   }
 
   const { otp, otpExpires } = generateOTP();
@@ -180,7 +172,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
   try {
     await sendOTP(data.email, otp);
     const responseData: SubmitSubsidyDetailsResponse = {
-      emailChanged: emailChanged && existingSubsidy?.status === SubsidyStatus.EMAIL_VERIFIED,
       shouldValidateEmail: true,
     };
     return response.status(200).json(responseData);

@@ -11,7 +11,7 @@ const STEP_PATHS: Record<SubsidyStep, string> = {
 };
 
 const getAllowedStep = (status: SubsidyStatus | null, step: SubsidyStep): SubsidyStep => {
-  if (status === SubsidyStatus.CLAIMED) {
+  if (status === SubsidyStatus.CLAIMED || status === SubsidyStatus.EMAIL_VERIFIED) {
     return 'claim';
   }
   if (step === 'details') {
@@ -19,9 +19,6 @@ const getAllowedStep = (status: SubsidyStatus | null, step: SubsidyStep): Subsid
   }
   if (status === SubsidyStatus.PENDING) {
     return 'verify';
-  }
-  if (status === SubsidyStatus.EMAIL_VERIFIED) {
-    return 'claim';
   }
   return 'details';
 };

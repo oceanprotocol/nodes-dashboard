@@ -27,7 +27,6 @@ export enum SubsidyStatus {
 }
 
 export type SubmitSubsidyDetailsResponse = {
-  emailChanged?: boolean;
   shouldValidateEmail: boolean;
 };
 

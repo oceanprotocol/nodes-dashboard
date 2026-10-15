@@ -71,7 +71,7 @@ const Details: React.FC = () => {
         // The step guard reads the saved status.
         await fetchSubsidyStatus(account.address);
         if (response.data.shouldValidateEmail) {
-          router.push({ pathname: '/subsidy/verify', query: response.data.emailChanged ? { emailChanged: 1 } : {} });
+          router.push('/subsidy/verify');
         } else {
           router.push('/subsidy/claim');
         }

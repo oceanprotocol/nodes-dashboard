@@ -6,12 +6,10 @@ import { useSubsidyContext } from '@/context/subsidy-context';
 import useCountdown from '@/hooks/use-countdown';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyVerifyError, SubsidyVerifyErrorResponse } from '@/types/subsidy';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import axios from 'axios';
 import classNames from 'classnames';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -29,7 +27,6 @@ const formatMinutesSeconds = (totalSeconds: number) =>
 
 const Verify: React.FC = () => {
   const { account } = useOceanAccount();
-  const router = useRouter();
   const { subsidyDetails } = useSubsidyContext();
   const { fetchSubsidyStatus, subsidyInfo } = useProfileContext();
 
@@ -43,7 +40,6 @@ const Verify: React.FC = () => {
   const resendCountdown = useCountdown(SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS);
 
   const email = subsidyDetails?.email ?? subsidyInfo?.maskedEmail ?? '';
-  const emailChanged = router.query.emailChanged === '1';
 
   const { initiateCountdown: initiateExpiry } = expiryCountdown;
   const { initiateCountdown: initiateResend } = resendCountdown;
@@ -211,13 +207,6 @@ const Verify: React.FC = () => {
           Enter the 6-digit code we emailed you. It ensures you have access to the provided email address.
         </span>
       </div>
-
-      {emailChanged ? (
-        <Card className={styles.changedNote} radius="sm" variant="glass">
-          <InfoOutlinedIcon fontSize="small" />
-          <span>You changed your email, so the new address needs a code.</span>
-        </Card>
-      ) : null}
 
       <Card className={styles.codeCard} innerShadow="black" radius="sm" variant="glass">
         <div className={styles.emailRow}>

@@ -19,14 +19,6 @@
   color: var(--text-secondary);
 }
 
-.changedNote {
-  align-items: center;
-  display: flex;
-  font-size: 14px;
-  gap: 10px;
-  padding: 12px 16px;
-}
-
 .codeCard {
   display: flex;
   flex-direction: column;

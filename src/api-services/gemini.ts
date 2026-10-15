@@ -3,7 +3,9 @@ import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-export async function validateSubsidyDataWithAI(data: SubsidyDetails): Promise<{ valid: boolean; reason: string }> {
+export async function validateSubsidyDataWithAI(
+  data: SubsidyDetails
+): Promise<{ available: boolean; valid: boolean; reason: string }> {
   const model = genAI.getGenerativeModel({
     model: 'gemini-3.8-flash',
     systemInstruction:
@@ -42,16 +44,16 @@ export async function validateSubsidyDataWithAI(data: SubsidyDetails): Promise<{
       const text = response.text();
       const parsed = JSON.parse(text);
       if (typeof parsed?.valid === 'boolean' && typeof parsed?.reason === 'string') {
-        return parsed;
+        return { available: true, valid: parsed.valid, reason: parsed.reason };
       }
-      return { valid: false, reason: 'Failed to perform validation' };
+      return { available: false, valid: false, reason: 'Failed to perform validation' };
     } catch (error) {
       console.error(`Gemini AI validation error (attempt ${attempt + 1}):`, error);
       if (attempt === MAX_RETRIES) {
         // Fail closed on service outage — preserves spam-filtering guarantee.
-        return { valid: false, reason: 'Validation service unavailable. Please try again later.' };
+        return { available: false, valid: false, reason: 'Validation service unavailable' };
       }
     }
   }
-  return { valid: false, reason: 'Failed to perform validation' };
+  return { available: false, valid: false, reason: 'Failed to perform validation' };
 }
