@@ -188,8 +188,8 @@ const Verify: React.FC = () => {
         ) : null}
         <div className={styles.spread}>
           <span className={styles.muted}>
-            {expiresAt !== null ? `Expires in ${formatMinutesSeconds(expiryCountdown.remainingCountdown)} · ` : ''}
-            Can&apos;t find it? Check spam.
+            {expiresAt !== null ? `Expires in ${formatMinutesSeconds(expiryCountdown.remainingCountdown)}. ` : ''}
+            Not there? Check spam.
           </span>
           {resendCountdown.isCountingDown ? (
             <span className={styles.muted}>Resend code in {resendCountdown.remainingCountdown}s</span>
@@ -199,16 +199,6 @@ const Verify: React.FC = () => {
             </button>
           )}
         </div>
-        <Button
-          className={styles.submit}
-          color="accent1"
-          disabled={code.length !== 6 || isInvalid}
-          loading={isSubmitting}
-          onClick={() => submitCode(code)}
-          size="md"
-        >
-          Verify email
-        </Button>
       </>
     );
   };
@@ -217,7 +207,9 @@ const Verify: React.FC = () => {
     <Card className={styles.root} direction="column" padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.heading}>
         <h3>Verify your email</h3>
-        <span className={styles.muted}>One quick code. We use it only to keep one subsidy per person.</span>
+        <span className={styles.muted}>
+          Enter the 6-digit code we emailed you. It ensures you have access to the provided email address.
+        </span>
       </div>
 
       {emailChanged ? (
@@ -227,21 +219,17 @@ const Verify: React.FC = () => {
         </Card>
       ) : null}
 
-      <Card className={styles.codeCard} radius="md" variant="accent1-outline">
+      <Card className={styles.codeCard} innerShadow="black" radius="sm" variant="glass">
         <div className={styles.emailRow}>
           <span className={styles.emailIcon}>
             <MailOutlineIcon />
           </span>
-          <div className={styles.emailText}>
-            <strong>Email</strong>
-            <span className={styles.muted}>
-              Enter the 6-digit code sent to <strong className={styles.email}>{email}</strong>{' '}
-              <Link className={styles.link} href="/subsidy/details">
-                Change
-              </Link>
-            </span>
-          </div>
-          <span className="chip chipWarning">Code sent</span>
+          <span className={styles.muted}>
+            Code sent to <strong className={styles.email}>{email}</strong>
+            <Link className={styles.link} href="/subsidy/details">
+              Change
+            </Link>
+          </span>
         </div>
         {isLocked ? null : (
           <TwoFactorInput
@@ -255,9 +243,21 @@ const Verify: React.FC = () => {
         {renderStatus()}
       </Card>
 
-      <Button className={styles.back} color="accent1" href="/subsidy/details" size="md" variant="transparent">
-        Back to details
-      </Button>
+      <div className="actionsGroupMdBetween">
+        <Button color="accent1" href="/subsidy/details" size="md" variant="transparent">
+          Back to details
+        </Button>
+        <Button
+          color="accent1"
+          disabled={code.length !== 6 || isInvalid || isLocked || isExpired}
+          loading={isSubmitting}
+          onClick={() => submitCode(code)}
+          size="md"
+          variant="filled"
+        >
+          Verify email
+        </Button>
+      </div>
     </Card>
   );
 };

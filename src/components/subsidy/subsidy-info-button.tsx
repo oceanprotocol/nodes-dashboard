@@ -44,7 +44,10 @@ const SubsidyInfoButton = () => {
             : ''}
         </span>
       ) : null}
-      <span>Paid up front when a job starts, so you only need your part in escrow.</span>
+      <span>
+        Works only on nodes that support the subsidy. Paid up front when a job starts, so you only need your part in
+        escrow.
+      </span>
     </div>
   );
 

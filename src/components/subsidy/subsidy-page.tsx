@@ -23,7 +23,7 @@ const SubsidyPageContent = ({ children, step }: SubsidyPageProps) => {
       <SectionTitle
         moreReadable
         title="Get a subsidy"
-        subTitle={`Verify your email to get ${getProgramSummary(program)} on jobs and models`}
+        subTitle={`Verify your email to get ${getProgramSummary(program)} on supported nodes`}
         contentBetween={<Stepper<SubsidyStep> currentStep={step} steps={getSubsidySteps()} />}
       />
       <div className="pageContentWrapper">

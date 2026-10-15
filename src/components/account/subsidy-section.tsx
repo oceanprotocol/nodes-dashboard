@@ -86,7 +86,7 @@ type CreditBlockProps = {
 };
 
 const CreditBlock = ({ allowance, percent }: CreditBlockProps) => (
-  <div className={styles.block}>
+  <Card className={styles.block} innerShadow="black" radius="sm" variant="glass">
     <BlockHeader
       subtitle={percent < 100 ? `${formatSubsidyAmount(percent)}% of each job` : undefined}
       title="Free credit"
@@ -99,7 +99,7 @@ const CreditBlock = ({ allowance, percent }: CreditBlockProps) => (
         {allowance.remaining > 0 ? formatLeft(allowance.remaining, allowance.limit) : 'Used up'}
       </span>
     </div>
-  </div>
+  </Card>
 );
 
 type DiscountBlockProps = {
@@ -111,7 +111,7 @@ const DiscountBlock = ({ percent, windows }: DiscountBlockProps) => {
   const capped = windows.filter((window) => !window.unlimited);
 
   return (
-    <div className={styles.block}>
+    <Card className={styles.block} innerShadow="black" radius="sm" variant="glass">
       <BlockHeader
         subtitle={capped.length === 0 ? 'No limit' : undefined}
         title={`${formatSubsidyAmount(percent)}% off`}
@@ -140,7 +140,7 @@ const DiscountBlock = ({ percent, windows }: DiscountBlockProps) => {
           ))}
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 };
 
@@ -309,7 +309,7 @@ const SubsidySection = () => {
 
     return (
       <>
-        <SubsidyHeader subtitle="Apply now and get discounts on your compute jobs and inference services" />
+        <SubsidyHeader subtitle="Apply now and get discounts on compute jobs and inference services on supported nodes" />
         <SubsidyTiles />
         <div className="actionsGroupLgCenter">
           <Button color="accent1" href="/subsidy/details" size="lg">

@@ -30,7 +30,7 @@
 .codeCard {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   padding: 16px;
 
   @media (min-width: 576px) {
@@ -39,15 +39,9 @@
 }
 
 .emailRow {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-
-  @media (min-width: 576px) {
-    align-items: center;
-    flex-wrap: nowrap;
-  }
+  gap: 12px;
 }
 
 .emailIcon {
@@ -56,17 +50,9 @@
   border-radius: 50%;
   display: flex;
   flex-shrink: 0;
-  height: 44px;
+  height: 40px;
   justify-content: center;
-  width: 44px;
-}
-
-.emailText {
-  display: flex;
-  flex: 1 1 200px;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  width: 40px;
 }
 
 .email {
@@ -77,7 +63,7 @@
 .link {
   color: var(--accent1);
   font-weight: 600;
-  margin-left: 4px;
+  margin-left: 8px;
 
   &:hover {
     text-decoration: underline;
@@ -132,16 +118,4 @@
     cursor: not-allowed;
     text-decoration: none;
   }
-}
-
-.submit {
-  align-self: stretch;
-
-  @media (min-width: 576px) {
-    align-self: flex-end;
-  }
-}
-
-.back {
-  align-self: flex-start;
 }

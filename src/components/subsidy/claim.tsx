@@ -1,13 +1,9 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import ProgressBar from '@/components/progress-bar/progress-bar';
-import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { useProfileContext } from '@/context/profile-context';
 import { captureError } from '@/lib/analytics';
-import { formatSubsidyPeriod, getBindingWindow } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import axios from 'axios';
@@ -15,48 +11,6 @@ import posthog from 'posthog-js';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './claim.module.css';
-import subsidyStyles from './subsidy.module.css';
-
-const percentUsed = (used: number, limit: number) => (limit > 0 ? (used / limit) * 100 : 0);
-
-const ClaimedSubsidy = () => {
-  const { data: program } = useSubsidyProgram();
-  const { data: usage } = useSubsidyUsage();
-
-  if (!program) {
-    return null;
-  }
-
-  const discountWindow = getBindingWindow(usage?.discount?.windows ?? program.discount?.windows ?? []);
-
-  return (
-    <div className={styles.values}>
-      {program.oneTime ? (
-        <div className={styles.value}>
-          <span className={subsidyStyles.bigValue}>{formatSubsidyTokenAmount(program.oneTime.credit)}</span>
-          <ProgressBar value={percentUsed(usage?.oneTime?.used ?? 0, program.oneTime.credit)} />
-          <span className={styles.caption}>
-            On us · {formatSubsidyAmount(usage?.oneTime?.remaining ?? program.oneTime.credit)} left
-          </span>
-        </div>
-      ) : null}
-      {program.discount ? (
-        <div className={styles.value}>
-          <span className={subsidyStyles.bigValue}>{formatSubsidyAmount(program.discount.percent)}% off</span>
-          {discountWindow ? (
-            <>
-              <ProgressBar value={percentUsed(discountWindow.used, discountWindow.limit)} />
-              <span className={styles.caption}>
-                {formatSubsidyAmount(discountWindow.used)} of {formatSubsidyTokenAmount(discountWindow.limit)} used this{' '}
-                {formatSubsidyPeriod(discountWindow.periodSeconds)}
-              </span>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-};
 
 const Claim: React.FC = () => {
   const { account, login } = useOceanAccount();
@@ -99,54 +53,36 @@ const Claim: React.FC = () => {
   };
 
   return (
-    <Card
-      className={styles.root}
-      direction="column"
-      padding="md"
-      radius="lg"
-      shadow="black"
-      spacing="lg"
-      variant="glass-shaded"
-    >
+    <Card className={styles.root} direction="column" padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <div className={styles.heading}>
-        {isClaimed ? <span className="chip chipSuccess">Claimed</span> : null}
-        <h3>{isClaimed ? 'Your subsidy is active' : 'Verification successful'}</h3>
+        <div className={styles.titleRow}>
+          <h3>{isClaimed ? 'Your subsidy is active' : 'Claim your subsidy'}</h3>
+          <span className="chip chipSuccess">{isClaimed ? 'Claimed' : 'Email verified'}</span>
+        </div>
         <span className={styles.muted}>
-          {isClaimed
-            ? 'Use it on jobs and models running on subsidized nodes'
-            : 'You are eligible to claim the OPF subsidy'}
+          {isClaimed ? 'Use it on jobs and models running on supported nodes.' : 'Activate it for wallet '}
+          {isClaimed ? null : <span className={styles.wallet}>{formatWalletAddress(account.address ?? '')}</span>}
         </span>
       </div>
-      <Card className={styles.amountCard} radius="sm" variant="accent1-outline">
-        <span className={styles.muted}>Your subsidy for {formatWalletAddress(account.address ?? '')}</span>
-        {isClaimed ? <ClaimedSubsidy /> : <SubsidyTiles />}
-      </Card>
+      <SubsidyTiles />
       {isClaimed ? (
-        <div className={styles.actions}>
-          <Button color="accent1" href="/run-job/environments" size="md" variant="outlined">
+        <div className="actionsGroupLgEnd">
+          <Button color="accent1" href="/run-job/environments" size="lg" variant="outlined">
             Run a job
           </Button>
-          <Button color="accent1" href="/inference" size="md" variant="filled">
+          <Button color="accent1" href="/inference" size="lg" variant="filled">
             Use a model
           </Button>
         </div>
       ) : (
-        <>
+        <div className="actionsGroupLgBetween">
           <span className={styles.note}>
-            Claiming adds your wallet to the subsidy contract. The subsidy is paid up front when a job starts, so that
-            part never needs to be in your escrow.
+            The subsidy is paid when a job starts, so only your share needs to be in escrow.
           </span>
-          <Button
-            className="alignSelfCenter"
-            color="accent1"
-            loading={isLoading}
-            onClick={handleClaim}
-            size="lg"
-            variant="filled"
-          >
+          <Button color="accent1" loading={isLoading} onClick={handleClaim} size="lg" variant="filled">
             Claim subsidy
           </Button>
-        </>
+        </div>
       )}
     </Card>
   );
