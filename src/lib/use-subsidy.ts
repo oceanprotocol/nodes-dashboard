@@ -1,15 +1,18 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { groupLockCycles } from '@/lib/escrow-events';
 import {
+  buildSubsidyHistory,
   isNodeSubsidized,
   isSubsidyToken,
-  loadSubsidyHistory,
   loadSubsidyProgram,
   loadSubsidyUsage,
   quoteSubsidy,
   SubsidyJobType,
 } from '@/lib/subsidy';
+import { usePayerEscrowEvents } from '@/lib/use-escrow-events';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 const PROGRAM_STALE_TIME = 5 * 60_000;
 const USAGE_STALE_TIME = 30_000;
@@ -77,16 +80,15 @@ export const useSubsidyQuote = ({
 };
 
 export const useSubsidyHistory = () => {
-  const { account } = useOceanAccount();
   const { data: program } = useSubsidyProgram();
   const { data: usage } = useSubsidyUsage();
+  const { data: events, isError, isLoading } = usePayerEscrowEvents({ enabled: !!usage?.userAllowed && !!program });
+  const history = useMemo(
+    () => (program && events ? buildSubsidyHistory(program, groupLockCycles(events)) : undefined),
+    [events, program]
+  );
 
-  return useQuery({
-    queryKey: ['subsidy-history', CHAIN_ID, account.address],
-    enabled: !!account.address && !!usage?.userAllowed && !!program,
-    staleTime: USAGE_STALE_TIME,
-    queryFn: () => loadSubsidyHistory(program!, account.address!),
-  });
+  return { data: history, isError, isLoading };
 };
 
 /** `cost` minus the subsidy quote. */

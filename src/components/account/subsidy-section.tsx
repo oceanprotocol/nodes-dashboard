@@ -1,11 +1,9 @@
 import SubsidyHistory from '@/components/account/subsidy-history';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import ProgressBar from '@/components/progress-bar/progress-bar';
 import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
-import { CHAIN_ID, CHAIN_LABELS } from '@/constants/chains';
 import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
 import { useProfileContext } from '@/context/profile-context';
 import {
@@ -16,7 +14,7 @@ import {
   SubsidyWindow,
 } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
+import { useSubsidyHistory, useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import CheckIcon from '@mui/icons-material/Check';
@@ -30,7 +28,7 @@ import styles from './subsidy-section.module.css';
 type SubsidyHeaderProps = {
   action?: ReactNode;
   chip?: ReactNode;
-  subtitle: ReactNode;
+  subtitle?: ReactNode;
 };
 
 const SubsidyHeader = ({ action, chip, subtitle }: SubsidyHeaderProps) => (
@@ -41,53 +39,142 @@ const SubsidyHeader = ({ action, chip, subtitle }: SubsidyHeaderProps) => (
         {chip}
         <SubsidyInfoButton />
       </div>
-      <span className={styles.muted}>{subtitle}</span>
+      {subtitle ? <span className={styles.muted}>{subtitle}</span> : null}
     </div>
     {action}
   </div>
 );
 
-type AllowanceCardProps = {
-  allowance: SubsidyAllowance;
-  caption: ReactNode;
-  highlighted?: boolean;
-  meta: string;
-  title: string;
+type Tone = 'credit' | 'discount';
+
+type MeterProps = {
+  className?: string;
+  limit: number;
+  remaining: number;
+  tone: Tone;
 };
 
-const AllowanceCard = ({ allowance, caption, highlighted, meta, title }: AllowanceCardProps) => (
-  <Card className={styles.allowance} radius="sm" variant={highlighted ? 'accent1-outline' : 'glass'}>
-    <div className={styles.allowanceHeader}>
-      <strong>{title}</strong>
-      <span className={styles.small}>{meta}</span>
-    </div>
-    <div className={styles.allowanceValue}>
-      <span className={styles.allowanceAmount}>{allowance.remaining.toFixed(2)}</span>
-      <span className={styles.muted}>of {formatSubsidyTokenAmount(allowance.limit)} left</span>
-    </div>
-    <ProgressBar value={allowance.limit > 0 ? (allowance.remaining / allowance.limit) * 100 : 0} />
-    <span className={styles.small}>{caption}</span>
-  </Card>
+const Meter = ({ className, limit, remaining, tone }: MeterProps) => (
+  <div className={classNames(styles.meter, className)}>
+    <div
+      className={classNames(styles.meterFill, styles[tone])}
+      style={{ width: `${limit > 0 ? Math.min(100, (remaining / limit) * 100) : 0}%` }}
+    />
+  </div>
 );
 
-const otherWindowsCaption = (windows: SubsidyWindow[], binding: SubsidyWindow) =>
-  windows
-    .filter((window) => window !== binding && !window.unlimited)
-    .map(
-      (window) =>
-        `${formatSubsidyAmount(window.remaining)} of ${formatSubsidyTokenAmount(window.limit)} left this ${formatSubsidyPeriod(window.periodSeconds)}`
-    )
-    .join(' · ');
+type BlockHeaderProps = {
+  subtitle?: string;
+  title: string;
+  tone: Tone;
+};
 
-const ActiveSubsidy = ({ walletAddress }: { walletAddress: string }) => {
+const BlockHeader = ({ subtitle, title, tone }: BlockHeaderProps) => (
+  <div className={styles.blockHeader}>
+    <span className={classNames(styles.dot, styles[tone])} />
+    <strong>{title}</strong>
+    {subtitle ? <span className={styles.small}>{subtitle}</span> : null}
+  </div>
+);
+
+const formatLeft = (remaining: number, limit: number) =>
+  `${formatSubsidyAmount(remaining)} / ${formatSubsidyTokenAmount(limit)}`;
+
+type CreditBlockProps = {
+  allowance: SubsidyAllowance;
+  percent: number;
+};
+
+const CreditBlock = ({ allowance, percent }: CreditBlockProps) => (
+  <div className={styles.block}>
+    <BlockHeader
+      subtitle={percent < 100 ? `${formatSubsidyAmount(percent)}% of each job` : undefined}
+      title="Free credit"
+      tone="credit"
+    />
+    <span className={styles.limitsHead}>One-time bonus</span>
+    <div className={styles.creditRow}>
+      <Meter limit={allowance.limit} remaining={allowance.remaining} tone="credit" />
+      <span className={styles.amount}>
+        {allowance.remaining > 0 ? formatLeft(allowance.remaining, allowance.limit) : 'Used up'}
+      </span>
+    </div>
+  </div>
+);
+
+type DiscountBlockProps = {
+  percent: number;
+  windows: SubsidyWindow[];
+};
+
+const DiscountBlock = ({ percent, windows }: DiscountBlockProps) => {
+  const capped = windows.filter((window) => !window.unlimited);
+
+  return (
+    <div className={styles.block}>
+      <BlockHeader
+        subtitle={capped.length === 0 ? 'No limit' : undefined}
+        title={`${formatSubsidyAmount(percent)}% off`}
+        tone="discount"
+      />
+      {capped.length > 0 ? (
+        <div className={styles.limits}>
+          <div className={classNames(styles.limitRow, styles.limitsHead)}>
+            <span>Limit</span>
+            <span />
+            <span>Left</span>
+            <span>Resets</span>
+          </div>
+          {capped.map((window) => (
+            <div className={styles.limitRow} key={window.periodSeconds}>
+              <span className={styles.limitLabel}>Each {formatSubsidyPeriod(window.periodSeconds)}</span>
+              <Meter className={styles.limitMeter} limit={window.limit} remaining={window.remaining} tone="discount" />
+              <span className={classNames(styles.amount, styles.limitAmount)}>
+                {formatLeft(window.remaining, window.limit)}
+              </span>
+              <span className={classNames(styles.small, styles.limitReset)}>
+                <span className={styles.resetPrefix}>Resets </span>
+                {window.resetsAt ? formatSubsidyReset(window.resetsAt) : '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+type SpendOrderProps = {
+  credit: number;
+  discount: number;
+};
+
+const SpendOrder = ({ credit, discount }: SpendOrderProps) => {
+  if (credit + discount <= 0) {
+    return null;
+  }
+  return (
+    <div aria-hidden className={styles.spendOrder}>
+      {credit > 0 ? <div className={styles.credit} style={{ flexGrow: credit }} /> : null}
+      {discount > 0 ? <div className={styles.discount} style={{ flexGrow: discount }} /> : null}
+    </div>
+  );
+};
+
+const ActiveSubsidy = () => {
   const { data: program, isLoading: isProgramLoading } = useSubsidyProgram();
   const { data: usage, isLoading: isUsageLoading } = useSubsidyUsage();
+  const { data: history } = useSubsidyHistory();
+  const subsidizedTotal = history?.reduce((sum, entry) => sum + entry.total, 0) ?? 0;
 
   if (isProgramLoading || isUsageLoading) {
     return <CircularProgress className="alignSelfCenter" />;
   }
 
   const discountWindow = usage?.discount ? getBindingWindow(usage.discount.windows) : null;
+  const creditLeft = (program?.oneTime && usage?.oneTime?.remaining) || 0;
+  const discountLeft = (program?.discount && discountWindow?.remaining) || 0;
+  const discountUnlimited = !!program?.discount && !!usage?.discount && !discountWindow;
 
   const chip = !usage ? null : usage.paused ? (
     <span className="chip chipError">Unavailable</span>
@@ -99,15 +186,7 @@ const ActiveSubsidy = ({ walletAddress }: { walletAddress: string }) => {
 
   return (
     <>
-      <SubsidyHeader
-        chip={chip}
-        subtitle={
-          <>
-            Wallet <span className={styles.mono}>{formatWalletAddress(walletAddress)}</span> · {SUBSIDY_TOKEN_SYMBOL} on{' '}
-            {CHAIN_LABELS[CHAIN_ID]}
-          </>
-        }
-      />
+      <SubsidyHeader chip={chip} />
       {!program || !usage ? (
         <span className={styles.small}>The subsidy isn&apos;t available on this network right now.</span>
       ) : (
@@ -117,31 +196,31 @@ const ActiveSubsidy = ({ walletAddress }: { walletAddress: string }) => {
               Your wallet isn&apos;t on the subsidy list yet. Jobs and models are charged in full until it is.
             </span>
           ) : null}
-          <div className={styles.grid}>
-            {program.discount && usage.discount && discountWindow ? (
-              <AllowanceCard
-                allowance={discountWindow}
-                caption={
-                  otherWindowsCaption(usage.discount.windows, discountWindow) ||
-                  `${formatSubsidyTokenAmount(discountWindow.used)} used this ${formatSubsidyPeriod(discountWindow.periodSeconds)}`
-                }
-                highlighted
-                meta={discountWindow.resetsAt ? `Resets ${formatSubsidyReset(discountWindow.resetsAt)}` : ''}
-                title={`${formatSubsidyAmount(program.discount.percent)}% off this ${formatSubsidyPeriod(discountWindow.periodSeconds)}`}
-              />
-            ) : null}
+          <div className={styles.summary}>
+            <div className={styles.available}>
+              <span className={styles.availableAmount}>
+                {discountUnlimited ? 'No limit' : formatSubsidyAmount(creditLeft + discountLeft)}
+              </span>
+              {discountUnlimited ? null : (
+                <span className={styles.availableLabel}>{SUBSIDY_TOKEN_SYMBOL} available now</span>
+              )}
+            </div>
+            <SpendOrder credit={creditLeft} discount={discountLeft} />
+          </div>
+          <div className={styles.blocks}>
             {program.oneTime && usage.oneTime ? (
-              <AllowanceCard
-                allowance={usage.oneTime}
-                caption={`${formatSubsidyTokenAmount(usage.oneTime.used)} used`}
-                meta="One time"
-                title={`${formatSubsidyTokenAmount(usage.oneTime.limit)} on us`}
-              />
+              <CreditBlock allowance={usage.oneTime} percent={program.oneTime.percent} />
+            ) : null}
+            {program.discount && usage.discount ? (
+              <DiscountBlock percent={program.discount.percent} windows={usage.discount.windows} />
             ) : null}
           </div>
-          <span className={styles.small}>
-            Paid up front when each job starts, so it never needs to be in your escrow
-          </span>
+          {history && history.length > 0 ? (
+            <span className={styles.small}>
+              Subsidized so far: <strong>{formatSubsidyTokenAmount(subsidizedTotal)}</strong> across {history.length}{' '}
+              {history.length === 1 ? 'job or service' : 'jobs and services'}
+            </span>
+          ) : null}
         </>
       )}
     </>
@@ -174,7 +253,7 @@ const SubsidySection = () => {
     }
 
     if (isActive) {
-      return <ActiveSubsidy walletAddress={account.address ?? ''} />;
+      return <ActiveSubsidy />;
     }
 
     const appliedOn = subsidyInfo.applicationDate ? dayjs(subsidyInfo.applicationDate).format('MMM D, YYYY') : null;

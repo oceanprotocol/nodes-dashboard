@@ -1,7 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getSupportedTokens } from '@/constants/tokens';
 import { getRpc } from '@/lib/constants';
-import { getEscrowEvents } from '@/services/nodeService';
+import { EscrowJobRef, EscrowLockCycle, EscrowLockStatus, toTokenAmount } from '@/lib/escrow-events';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import {
   OneTimeSubsidyProvider,
@@ -330,65 +330,53 @@ export const getJobSubsidyProviders = async ({
 };
 
 export type SubsidyHistoryEntry = {
+  /** What the job or service cost in total, before the subsidy. */
+  cost: number;
   date: Date | null;
   discount: number;
+  id: string;
+  job: EscrowJobRef | null;
   jobId: string;
   node: string;
   oneTime: number;
+  paid: number;
+  status: EscrowLockStatus;
   total: number;
 };
 
-const HISTORY_PAGE_SIZE = 250;
-
-/** Newest first, from `LockSponsored` events. */
-export const loadSubsidyHistory = async (program: SubsidyProgram, payer: string): Promise<SubsidyHistoryEntry[]> => {
-  const token = getToken();
-  const events = await getEscrowEvents({
-    chainId: CHAIN_ID,
-    eventType: 'LockSponsored',
-    payer,
-    size: HISTORY_PAGE_SIZE,
-    token: token.address,
-  });
+/** Newest first. Canceled locks are dropped: their subsidy went back to the program. */
+export const buildSubsidyHistory = (program: SubsidyProgram, cycles: EscrowLockCycle[]): SubsidyHistoryEntry[] => {
   const oneTimeAddresses = new Set(program.oneTime?.addresses.map((address) => address.toLowerCase()));
   const discountAddresses = new Set(program.discount?.addresses.map((address) => address.toLowerCase()));
-  const entries = new Map<string, SubsidyHistoryEntry & { block: number }>();
-  for (const event of events) {
-    const provider = event.provider?.toLowerCase();
-    const isOneTime = !!provider && oneTimeAddresses.has(provider);
-    if (!event.jobId || !event.amount || (!isOneTime && !(provider && discountAddresses.has(provider)))) {
-      continue;
-    }
-    const key = `${event.payee}-${event.jobId}`;
-    const entry = entries.get(key) ?? {
-      block: event.block,
-      date: null,
-      discount: 0,
-      jobId: event.jobId,
-      node: event.payee ?? '',
-      oneTime: 0,
-      total: 0,
-    };
-    const amount = Number(ethers.formatUnits(event.amount, token.decimals));
-    if (isOneTime) {
-      entry.oneTime += amount;
-    } else {
-      entry.discount += amount;
-    }
-    entry.total += amount;
-    entry.block = Math.max(entry.block, event.block);
-    entries.set(key, entry);
-  }
-  const sorted = [...entries.values()].sort((a, b) => b.block - a.block);
-  const rpc = new ethers.JsonRpcProvider(getRpc());
-  const blocks = await Promise.all(
-    [...new Set(sorted.map((entry) => entry.block))].map((block) => rpc.getBlock(block).catch(() => null))
-  );
-  const timestamps = new Map(blocks.filter((block) => !!block).map((block) => [block.number, block.timestamp]));
-  return sorted.map(({ block, ...entry }) => ({
-    ...entry,
-    date: timestamps.has(block) ? new Date(timestamps.get(block)! * 1000) : null,
-  }));
+  const sumProviders = (cycle: EscrowLockCycle, addresses: Set<string>) =>
+    toTokenAmount(
+      [...cycle.subsidyByProvider]
+        .filter(([provider]) => addresses.has(provider))
+        .reduce((total, [, amount]) => total + amount, BigInt(0)),
+      cycle.token
+    );
+  return cycles
+    .filter((cycle) => cycle.status !== 'canceled' && isSubsidyToken(cycle.token.address))
+    .map((cycle) => {
+      const oneTime = sumProviders(cycle, oneTimeAddresses);
+      const discount = sumProviders(cycle, discountAddresses);
+      const total = oneTime + discount;
+      return {
+        cost: cycle.cost,
+        date: cycle.timestamp ? new Date(cycle.timestamp * 1000) : null,
+        discount,
+        id: cycle.id,
+        job: cycle.job,
+        jobId: cycle.jobId,
+        node: cycle.payee,
+        oneTime,
+        paid: Math.max(0, cycle.cost - total),
+        status: cycle.status,
+        total,
+      };
+    })
+    .filter((entry) => entry.total > 0)
+    .reverse();
 };
 
 const PERIOD_LABELS: Record<number, string> = {
@@ -405,14 +393,9 @@ export const formatSubsidyPeriod = (periodSeconds: number): string => {
 };
 
 export const formatSubsidyReset = (resetsAt: Date): string => {
-  const day = resetsAt.toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-    weekday: 'short',
-  });
-  const time = resetsAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-  return `${day}, ${time} UTC`;
+  const day = resetsAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+  const time = resetsAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `${day}, ${time}`;
 };
 
 const SHORTFALL_PATTERN = /does not have enough funds|Exceeds maxLockedAmount/i;

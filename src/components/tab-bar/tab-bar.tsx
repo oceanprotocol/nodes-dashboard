@@ -13,10 +13,11 @@ type Tab = {
 type TabBarProps = {
   activeKey: string;
   className?: string;
+  size?: 'sm' | 'md';
   tabs: Tab[];
 };
 
-const TabBar = ({ activeKey, className, tabs }: TabBarProps) => {
+const TabBar = ({ activeKey, className, size = 'md', tabs }: TabBarProps) => {
   const router = useRouter();
 
   const handleTabClick = (tab: Tab) => {
@@ -29,7 +30,12 @@ const TabBar = ({ activeKey, className, tabs }: TabBarProps) => {
   };
 
   return (
-    <Card className={classNames(styles.root, className)} radius="lg" shadow="black" variant="glass-shaded">
+    <Card
+      className={classNames(styles.root, { [styles.rootSm]: size === 'sm' }, className)}
+      radius="lg"
+      shadow="black"
+      variant="glass-shaded"
+    >
       {tabs.map((tab) => (
         <div
           className={classNames(styles.tab, { [styles.tabActive]: tab.key === activeKey })}

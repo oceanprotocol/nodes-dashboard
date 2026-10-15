@@ -65,7 +65,7 @@
 }
 
 .stepComplete {
-  background: var(--success);
+  background: var(--accent2);
   color: var(--success-contrast);
 }
 
@@ -74,43 +74,181 @@
   color: var(--accent1-contrast);
 }
 
-.grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr);
-
-  @media (min-width: 992px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.allowance {
+.summary {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 24px;
 }
 
-.allowanceHeader {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  justify-content: space-between;
-}
-
-.allowanceValue {
+.available {
   align-items: baseline;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.allowanceAmount {
+.availableAmount {
   font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
-  font-size: 44px;
+  font-size: 48px;
   font-weight: 700;
-  line-height: 1.1;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.availableLabel {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.spendOrder {
+  display: flex;
+  gap: 4px;
+  height: 10px;
+
+  > div {
+    border-radius: 6px;
+    min-width: 10px;
+  }
+}
+
+.credit {
+  background: var(--accent2);
+}
+
+.discount {
+  background: var(--accent1);
+}
+
+.blocks {
+  border-top: 1px solid var(--border-glass);
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: 20px;
+
+  @media (min-width: 992px) {
+    gap: 40px;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+.block {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.blockHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.dot {
+  border-radius: 50%;
+  height: 10px;
+  width: 10px;
+}
+
+.meter {
+  background: var(--background-glass-secondary);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.meterFill {
+  border-radius: 4px;
+  height: 100%;
+}
+
+.amount {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.creditRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.limits {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @container (min-width: 440px) {
+    gap: 10px 16px;
+    grid-template-columns: auto minmax(40px, 1fr) auto auto;
+  }
+}
+
+.limitsHead {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.limitRow {
+  align-items: center;
+  display: grid;
+  gap: 6px 12px;
+  grid-template-areas:
+    'label amount'
+    'meter meter'
+    'reset reset';
+  grid-template-columns: minmax(0, 1fr) auto;
+
+  &.limitsHead {
+    display: none;
+  }
+
+  .limitLabel {
+    grid-area: label;
+  }
+
+  .limitMeter {
+    grid-area: meter;
+  }
+
+  .limitAmount {
+    grid-area: amount;
+  }
+
+  .limitReset {
+    grid-area: reset;
+  }
+
+  @container (min-width: 440px) {
+    grid-column: 1 / -1;
+    grid-template-areas: none;
+    grid-template-columns: subgrid;
+
+    &.limitsHead {
+      display: grid;
+    }
+
+    .limitLabel,
+    .limitMeter,
+    .limitAmount,
+    .limitReset {
+      grid-area: auto;
+    }
+
+    .resetPrefix {
+      display: none;
+    }
+  }
+}
+
+.limitLabel {
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .footer {
@@ -126,42 +264,14 @@
   }
 }
 
+.historyHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+}
+
 .historyTitle {
   margin: 0;
-}
-
-.tableWrapper {
-  overflow-x: auto;
-}
-
-.table {
-  border-collapse: collapse;
-  font-size: 14px;
-  min-width: 560px;
-  width: 100%;
-
-  th {
-    background: var(--background-table-header);
-    font-weight: 600;
-    padding: 12px 16px;
-    text-align: left;
-  }
-
-  th:first-child {
-    border-top-left-radius: 12px;
-  }
-
-  th:last-child {
-    border-top-right-radius: 12px;
-  }
-
-  td {
-    border-bottom: 1px solid var(--border-glass);
-    padding: 12px 16px;
-  }
-}
-
-.subsidized {
-  color: var(--success-darker);
-  font-weight: 600;
 }

@@ -31,7 +31,6 @@ const SubsidyInfoButton = () => {
           {oneTime.percent >= 100
             ? `Your first ${formatSubsidyTokenAmount(oneTime.credit)} of jobs and services are free.`
             : `${formatSubsidyAmount(oneTime.percent)}% of each job is covered until ${formatSubsidyTokenAmount(oneTime.credit)} is used.`}{' '}
-          One time.
         </span>
       ) : null}
       {discount ? (
@@ -45,7 +44,7 @@ const SubsidyInfoButton = () => {
             : ''}
         </span>
       ) : null}
-      <span className={styles.infoNote}>Paid up front when a job starts, so you only need your part in escrow.</span>
+      <span>Paid up front when a job starts, so you only need your part in escrow.</span>
     </div>
   );
 

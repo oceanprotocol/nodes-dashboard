@@ -67,7 +67,8 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     title: 'Node owner',
   },
   {
-    description: 'Deposit and withdraw escrow funds, and manage the spending authorizations that pay for compute jobs.',
+    description:
+      'Deposit and withdraw escrow funds, manage the spending authorizations that pay for compute jobs, and review your escrow history.',
     group: 'funds',
     href: '/account/escrow',
     icon: <AccountBalanceWalletIcon />,
