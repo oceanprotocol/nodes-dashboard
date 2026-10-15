@@ -2,6 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { groupLockCycles } from '@/lib/escrow-events';
 import {
   buildSubsidyHistory,
+  getSubsidyJobTypeName,
   isNodeSubsidized,
   isSubsidyToken,
   loadSubsidyProgram,
@@ -13,6 +14,7 @@ import {
 import { usePayerEscrowEvents } from '@/lib/use-escrow-events';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import posthog from 'posthog-js';
 import { useCallback, useMemo } from 'react';
 
 const PROGRAM_STALE_TIME = 5 * 60_000;
@@ -117,13 +119,26 @@ export const useInvalidateSubsidyData = () => {
   );
 };
 
+type SubsidyStartContext = {
+  action: 'prolong' | 'start';
+  jobType: SubsidyJobType;
+  subsidyProviders: string[] | undefined;
+};
+
 export const useStartWithSubsidy = () => {
   const invalidateSubsidyData = useInvalidateSubsidyData();
   return useCallback(
-    <T>(start: () => Promise<T>) =>
-      startWithSubsidy(start).finally(() => {
+    async <T>(start: () => Promise<T>, { action, jobType, subsidyProviders }: SubsidyStartContext) => {
+      try {
+        const result = await startWithSubsidy(start);
+        if (subsidyProviders?.length) {
+          posthog.capture('subsidy_applied', { action, jobType: getSubsidyJobTypeName(jobType) });
+        }
+        return result;
+      } finally {
         invalidateSubsidyData();
-      }),
+      }
+    },
     [invalidateSubsidyData]
   );
 };

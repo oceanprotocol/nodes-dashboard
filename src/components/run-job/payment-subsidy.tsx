@@ -1,4 +1,5 @@
 import Button from '@/components/button/button';
+import { captureSubsidyCtaClick, SubsidyPaymentState } from '@/components/subsidy/subsidy-analytics';
 import { formatSubsidyAmount, getDiscountLimitsLabel, getProgramSummary } from '@/components/subsidy/subsidy-copy';
 import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
 import { useProfileContext } from '@/context/profile-context';
@@ -6,6 +7,7 @@ import {
   formatSubsidyPeriod,
   formatSubsidyReset,
   getBindingWindow,
+  getSubsidyJobTypeName,
   isSubsidyToken,
   SubsidyJobType,
 } from '@/lib/subsidy';
@@ -18,7 +20,8 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
 import classNames from 'classnames';
-import { ReactNode } from 'react';
+import posthog from 'posthog-js';
+import { ReactNode, useEffect } from 'react';
 import styles from './payment-summary.module.css';
 
 type SubsidyTone = 'accent' | 'error' | 'neutral' | 'success' | 'warning';
@@ -27,20 +30,28 @@ type SubsidyRowProps = {
   description: ReactNode;
   end?: ReactNode;
   icon: ReactNode;
+  jobType: SubsidyJobType;
+  state: SubsidyPaymentState;
   title: ReactNode;
   tone: SubsidyTone;
 };
 
-const SubsidyRow = ({ description, end, icon, title, tone }: SubsidyRowProps) => (
-  <div className={classNames(styles.subsidyRow, styles[`subsidy-${tone}`])}>
-    <span className={styles.subsidyIcon}>{icon}</span>
-    <div className={styles.subsidyText}>
-      <strong className={styles.subsidyTitle}>{title}</strong>
-      <span className={styles.subsidyDescription}>{description}</span>
+const SubsidyRow = ({ description, end, icon, jobType, state, title, tone }: SubsidyRowProps) => {
+  useEffect(() => {
+    posthog.capture('subsidy_payment_state_shown', { jobType: getSubsidyJobTypeName(jobType), state });
+  }, [jobType, state]);
+
+  return (
+    <div className={classNames(styles.subsidyRow, styles[`subsidy-${tone}`])}>
+      <span className={styles.subsidyIcon}>{icon}</span>
+      <div className={styles.subsidyText}>
+        <strong className={styles.subsidyTitle}>{title}</strong>
+        <span className={styles.subsidyDescription}>{description}</span>
+      </div>
+      {end ? <div className={styles.subsidyEnd}>{end}</div> : null}
     </div>
-    {end ? <div className={styles.subsidyEnd}>{end}</div> : null}
-  </div>
-);
+  );
+};
 
 type PaymentSubsidyProps = {
   format: (amount: number) => string;
@@ -81,6 +92,8 @@ const PaymentSubsidy = ({
       <SubsidyRow
         description="This job is priced in full for now. Reload the page to try again."
         icon={<ErrorOutlineIcon fontSize="small" />}
+        jobType={jobType}
+        state="load_error"
         title="Couldn't check your OPF subsidy"
         tone="error"
       />
@@ -111,24 +124,34 @@ const PaymentSubsidy = ({
         <SubsidyRow
           description={`Verify your email to claim the OPF subsidy.${limits ? ` The discount is capped ${limits}.` : ''}`}
           end={
-            <Button color="accent1" href="/subsidy/details" size="sm" variant="outlined">
+            <Button
+              color="accent1"
+              href="/subsidy/details"
+              onClick={() => captureSubsidyCtaClick('payment', 'details', jobType)}
+              size="sm"
+              variant="outlined"
+            >
               Get a subsidy
             </Button>
           }
           icon={<ShieldOutlinedIcon fontSize="small" />}
+          jobType={jobType}
+          state="not_signed_up"
           title={`Get ${summary} on jobs like this`}
           tone="accent"
         />
       );
     }
     if (subsidyInfo.status !== SubsidyStatus.CLAIMED) {
+      const nextStep = subsidyInfo.status === SubsidyStatus.PENDING ? 'verify' : 'claim';
       return (
         <SubsidyRow
           description={`This job is charged in full. Verify your email and claim to get ${summary}.`}
           end={
             <Button
               color="accent1"
-              href={subsidyInfo.status === SubsidyStatus.PENDING ? '/subsidy/verify' : '/subsidy/claim'}
+              href={`/subsidy/${nextStep}`}
+              onClick={() => captureSubsidyCtaClick('payment', nextStep, jobType)}
               size="sm"
               variant="outlined"
             >
@@ -136,6 +159,8 @@ const PaymentSubsidy = ({
             </Button>
           }
           icon={<ScheduleIcon fontSize="small" />}
+          jobType={jobType}
+          state="signup_incomplete"
           title="Finish getting your subsidy to use it on this job"
           tone="neutral"
         />
@@ -145,6 +170,8 @@ const PaymentSubsidy = ({
       <SubsidyRow
         description="This job is charged in full until your wallet is added to the subsidy list."
         icon={<ScheduleIcon fontSize="small" />}
+        jobType={jobType}
+        state="not_on_list"
         title="Your subsidy isn't active yet"
         tone="neutral"
       />
@@ -157,6 +184,8 @@ const PaymentSubsidy = ({
         description="The program is paused or out of funds. This job is charged in full."
         end={<span className="chip chipError">Unavailable</span>}
         icon={<PauseIcon fontSize="small" />}
+        jobType={jobType}
+        state="paused"
         title="OPF subsidy is unavailable right now"
         tone="error"
       />
@@ -172,6 +201,8 @@ const PaymentSubsidy = ({
       <SubsidyRow
         description="This job is charged in full. Pick a subsidized node to use your subsidy."
         icon={<InfoOutlinedIcon fontSize="small" />}
+        jobType={jobType}
+        state="node_not_subsidized"
         title="This node doesn't accept the OPF subsidy"
         tone="neutral"
       />
@@ -189,6 +220,8 @@ const PaymentSubsidy = ({
         description={`This job is charged in full.${resetLabel}`}
         end={<span className="chip chipWarning">Limit reached</span>}
         icon={<ScheduleIcon fontSize="small" />}
+        jobType={jobType}
+        state="limit_reached"
         title={
           discountWindow
             ? `Discount limit reached: ${format(discountWindow.limit)} of ${format(discountWindow.limit)} ${SUBSIDY_TOKEN_SYMBOL} used this ${windowLabel}`
@@ -206,6 +239,8 @@ const PaymentSubsidy = ({
           description={`This job reaches your ${windowLabel} limit (${format(discountWindow.limit)} ${SUBSIDY_TOKEN_SYMBOL}). You pay ${format(costAfter)} ${SUBSIDY_TOKEN_SYMBOL}.${resetLabel}`}
           end={amount(quote.total)}
           icon={<ScheduleIcon fontSize="small" />}
+          jobType={jobType}
+          state="capped"
           title={`OPF subsidy: ${format(quote.total)} ${SUBSIDY_TOKEN_SYMBOL} instead of ${format(quote.oneTime + quote.uncappedDiscount)}`}
           tone="warning"
         />
@@ -245,6 +280,8 @@ const PaymentSubsidy = ({
         description={description}
         end={amount(quote.total)}
         icon={<VerifiedUserOutlinedIcon fontSize="small" />}
+        jobType={jobType}
+        state="applied"
         title={title}
         tone="success"
       />

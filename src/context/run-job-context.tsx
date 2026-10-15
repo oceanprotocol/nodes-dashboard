@@ -346,21 +346,23 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               payer: consumerAddress,
               tokenAddress: selectedToken.address,
             });
-            return startWithSubsidy(() =>
-              startCompute({
-                algorithm,
-                authToken,
-                chainId: CHAIN_ID,
-                computeEnv: selectedEnv.id,
-                datasets,
-                maxJobDuration: selectedResources.maxJobDurationSeconds,
-                metadata,
-                nodeUri,
-                outputBucketId: outputBucketId ?? undefined,
-                resources,
-                subsidyProviders,
-                token: selectedToken.address,
-              })
+            return startWithSubsidy(
+              () =>
+                startCompute({
+                  algorithm,
+                  authToken,
+                  chainId: CHAIN_ID,
+                  computeEnv: selectedEnv.id,
+                  datasets,
+                  maxJobDuration: selectedResources.maxJobDurationSeconds,
+                  metadata,
+                  nodeUri,
+                  outputBucketId: outputBucketId ?? undefined,
+                  resources,
+                  subsidyProviders,
+                  token: selectedToken.address,
+                }),
+              { action: 'start', jobType: SubsidyJobType.COMPUTE, subsidyProviders }
             );
           })();
 

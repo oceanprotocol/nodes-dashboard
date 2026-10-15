@@ -20,6 +20,9 @@ export enum SubsidyJobType {
   SERVICE = 2,
 }
 
+export const getSubsidyJobTypeName = (jobType: SubsidyJobType) =>
+  jobType === SubsidyJobType.COMPUTE ? 'compute' : 'service';
+
 export type SubsidyWindow = {
   limit: number;
   periodSeconds: number;

@@ -6,6 +6,7 @@ import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy'
 import SubsidySummary from '@/components/subsidy/subsidy-summary';
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
+import { captureError, getHttpStatus } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
   isValidHandle,
@@ -68,7 +69,10 @@ const Details: React.FC = () => {
         };
         const response = await axios.post<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
         setSubsidyDetails(details);
-        posthog.capture('grant_form_completed', { handleServices: Object.keys(handles) });
+        posthog.capture('subsidy_details_submitted', {
+          handleServices: Object.keys(handles),
+          shouldValidateEmail: response.data.shouldValidateEmail,
+        });
         // The step guard reads the saved status.
         if (!(await fetchSubsidyStatus(account.address))) {
           toast.error(SUBSIDY_STATUS_REFRESH_ERROR);
@@ -80,6 +84,7 @@ const Details: React.FC = () => {
           router.push('/subsidy/claim');
         }
       } catch (error) {
+        captureError('subsidy_details_failed', error, { httpStatus: getHttpStatus(error) });
         if (axios.isAxiosError(error) && error.response?.data?.message) {
           toast.error(error.response.data.message);
         } else {

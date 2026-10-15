@@ -2,6 +2,7 @@ import SubsidyHistory from '@/components/account/subsidy-history';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import FlowSteps, { FlowStep } from '@/components/flow-steps/flow-steps';
+import { captureSubsidyCtaClick } from '@/components/subsidy/subsidy-analytics';
 import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
 import SubsidyStatusError from '@/components/subsidy/subsidy-status-error';
@@ -272,7 +273,12 @@ const SubsidySection = () => {
         <>
           <SubsidyHeader
             action={
-              <Button color="accent1" href="/subsidy/verify" size="md">
+              <Button
+                color="accent1"
+                href="/subsidy/verify"
+                onClick={() => captureSubsidyCtaClick('account', 'verify')}
+                size="md"
+              >
                 Verify email
               </Button>
             }
@@ -308,7 +314,12 @@ const SubsidySection = () => {
             <span className={styles.small}>
               Claim to add your wallet to the subsidy contract and start using your subsidy.
             </span>
-            <Button color="accent1" href="/subsidy/claim" size="md">
+            <Button
+              color="accent1"
+              href="/subsidy/claim"
+              onClick={() => captureSubsidyCtaClick('account', 'claim')}
+              size="md"
+            >
               Claim subsidy
             </Button>
           </div>
@@ -321,7 +332,12 @@ const SubsidySection = () => {
         <SubsidyHeader subtitle="Apply now and get discounts on compute jobs and inference services on supported nodes" />
         <SubsidyTiles />
         <div className="actionsGroupLgCenter">
-          <Button color="accent1" href="/subsidy/details" size="lg">
+          <Button
+            color="accent1"
+            href="/subsidy/details"
+            onClick={() => captureSubsidyCtaClick('account', 'details')}
+            size="lg"
+          >
             Get a subsidy
           </Button>
         </div>

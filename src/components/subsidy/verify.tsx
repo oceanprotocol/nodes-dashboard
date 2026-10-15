@@ -5,6 +5,7 @@ import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy'
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
 import useCountdown from '@/hooks/use-countdown';
+import { captureError, getHttpStatus } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyVerifyError, SubsidyVerifyErrorResponse } from '@/types/subsidy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
@@ -73,13 +74,18 @@ const Verify: React.FC = () => {
           email: subsidyDetails?.email,
           walletAddress: account.address,
         });
-        posthog.capture('grant_email_verified');
+        posthog.capture('subsidy_email_verified');
         // The step guard moves on to Claim.
         if (!(await fetchSubsidyStatus(account.address!))) {
           toast.error(SUBSIDY_STATUS_REFRESH_ERROR);
         }
       } catch (error) {
         const body = axios.isAxiosError(error) ? (error.response?.data as SubsidyVerifyErrorResponse) : undefined;
+        captureError('subsidy_email_verify_failed', error, {
+          attemptsLeft: body?.attemptsLeft,
+          httpStatus: getHttpStatus(error),
+          verifyError: body?.error,
+        });
         if (body?.error) {
           setState({ attemptsLeft: body.attemptsLeft, error: body.error });
         } else {
@@ -109,6 +115,7 @@ const Verify: React.FC = () => {
         '/api/subsidy/resend-otp',
         { walletAddress: account.address }
       );
+      posthog.capture('subsidy_otp_resent', { sent: response.data.sent });
       if (response.data.sent) {
         initiateResend();
         if (response.data.otpExpires) {
@@ -123,6 +130,7 @@ const Verify: React.FC = () => {
         toast.info(`Please wait ${response.data.retryAfter}s before requesting a new code`);
       }
     } catch (error) {
+      captureError('subsidy_otp_resend_failed', error, { httpStatus: getHttpStatus(error) });
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else {

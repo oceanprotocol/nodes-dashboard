@@ -579,17 +579,19 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       await ensureEscrowForSelection();
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
       const subsidyProviders = await resolveSubsidyProviders();
-      await startWithSubsidy(() =>
-        withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-          serviceExtend(
-            nodeUri,
-            token,
-            targetServiceId,
-            jobDurationSeconds,
-            { chainId: CHAIN_ID, token: selectedToken.address },
-            subsidyProviders
-          )
-        )
+      await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceExtend(
+              nodeUri,
+              token,
+              targetServiceId,
+              jobDurationSeconds,
+              { chainId: CHAIN_ID, token: selectedToken.address },
+              subsidyProviders
+            )
+          ),
+        { action: 'prolong', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       posthog.capture('inference_service_prolonged', {
         serviceId: targetServiceId,
@@ -797,10 +799,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // the current escrow state can't cover it (one bundled tx on smart accounts).
       const escrowDeposited = await ensureEscrowForSelection();
       const subsidyProviders = await resolveSubsidyProviders();
-      const [job] = await startWithSubsidy(() =>
-        withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-          serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
-        )
+      const [job] = await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
+          ),
+        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -926,10 +930,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       }
       const escrowDeposited = await ensureEscrowForSelection();
       const subsidyProviders = await resolveSubsidyProviders();
-      const [job] = await startWithSubsidy(() =>
-        withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-          serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
-        )
+      const [job] = await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
+          ),
+        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
