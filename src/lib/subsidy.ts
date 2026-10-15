@@ -70,7 +70,14 @@ const getToken = () => getSupportedTokens().USDC;
 export const isSubsidyToken = (tokenAddress: string | undefined) =>
   !!tokenAddress && tokenAddress.toLowerCase() === getToken().address.toLowerCase();
 
-const getReadSigner = () => new ethers.VoidSigner(ethers.ZeroAddress, new ethers.JsonRpcProvider(getRpc()));
+let _readSigner: ethers.VoidSigner | null = null;
+
+const getReadSigner = () => {
+  if (!_readSigner) {
+    _readSigner = new ethers.VoidSigner(ethers.ZeroAddress, new ethers.JsonRpcProvider(getRpc()));
+  }
+  return _readSigner;
+};
 
 const getView = (address: string) => new SubsidyView(getReadSigner(), address, CHAIN_ID);
 

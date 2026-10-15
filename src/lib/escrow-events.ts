@@ -45,6 +45,8 @@ export type EscrowLockCycle = {
   token: EscrowToken;
 };
 
+const BLOCK_FETCH_CHUNK_SIZE = 50;
+
 const blockTimestamps = new Map<number, number>();
 
 const loadBlockTimestamps = async (blocks: number[]) => {
@@ -53,10 +55,13 @@ const loadBlockTimestamps = async (blocks: number[]) => {
     return;
   }
   const rpc = new ethers.JsonRpcProvider(getRpc());
-  const results = await Promise.all(missing.map((block) => rpc.getBlock(block).catch(() => null)));
-  for (const result of results) {
-    if (result) {
-      blockTimestamps.set(result.number, result.timestamp);
+  for (let i = 0; i < missing.length; i += BLOCK_FETCH_CHUNK_SIZE) {
+    const chunk = missing.slice(i, i + BLOCK_FETCH_CHUNK_SIZE);
+    const results = await Promise.all(chunk.map((block) => rpc.getBlock(block).catch(() => null)));
+    for (const result of results) {
+      if (result) {
+        blockTimestamps.set(result.number, result.timestamp);
+      }
     }
   }
 };
