@@ -4,12 +4,24 @@ import AccessListABI from '@oceanprotocol/contracts/artifacts/contracts/accessli
 import { ethers } from 'ethers';
 
 let _provider: ethers.JsonRpcProvider | null = null;
+let _signer: ethers.NonceManager | null = null;
 
 function getProvider(): ethers.JsonRpcProvider {
   if (!_provider) {
     _provider = new ethers.JsonRpcProvider(getRpc());
   }
   return _provider;
+}
+
+function getSigner(): ethers.NonceManager {
+  if (!_signer) {
+    const privateKey = process.env.SUBSIDY_ACCESS_LIST_PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error('Subsidy access list signer not configured');
+    }
+    _signer = new ethers.NonceManager(new ethers.Wallet(privateKey, getProvider()));
+  }
+  return _signer;
 }
 
 function getAccessListAddress(): string {
@@ -25,13 +37,16 @@ export async function isOnSubsidyAccessList(walletAddress: string): Promise<bool
 }
 
 export async function addToSubsidyAccessList(walletAddress: string): Promise<string> {
-  const privateKey = process.env.SUBSIDY_ACCESS_LIST_PRIVATE_KEY;
-  if (!privateKey) {
-    throw new Error('Subsidy access list signer not configured');
-  }
-  const signer = new ethers.Wallet(privateKey, getProvider());
+  const signer = getSigner();
   const contract = new ethers.Contract(getAccessListAddress(), AccessListABI.abi, signer);
-  const tx = await contract.mint(walletAddress, '');
+  let tx: ethers.ContractTransactionResponse;
+  try {
+    tx = await contract.mint(walletAddress, '');
+  } catch (error) {
+    // The nonce was reserved before sending, so resync it with the chain.
+    signer.reset();
+    throw error;
+  }
   const receipt = await tx.wait();
   if (receipt?.status !== 1) {
     throw new Error(`Access list mint failed: ${tx.hash}`);
