@@ -1,7 +1,7 @@
 import { sendOTP } from '@/api-services/email';
 import { validateSubsidyDataWithAI } from '@/api-services/gemini';
 import {
-  findSubsidyByHandle,
+  findSubsidiesByHandles,
   findSubsidyInSheet,
   insertSubsidyInSheet,
   updateSubsidyInSheet,
@@ -9,10 +9,10 @@ import {
 import { generateOTP, hashOTP } from '@/api-services/otp';
 import {
   isValidHandle,
-  normalizeHandle,
+  normalizeHandles,
   SubmitSubsidyDetailsResponse,
-  SUBSIDY_HANDLE_SERVICE_CHOICES,
   SubsidyDetails,
+  SubsidyHandleService,
   SubsidyStatus,
   SubsidyWithStatus,
 } from '@/types/subsidy';
@@ -28,13 +28,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
   const data: SubsidyDetails = request.body;
 
   // Check for missing fields + enforce string-type to prevent type-confusion attacks
-  const requiredStringFields: Array<keyof SubsidyDetails> = [
-    'email',
-    'handle',
-    'handleService',
-    'name',
-    'walletAddress',
-  ];
+  const requiredStringFields: Array<keyof SubsidyDetails> = ['email', 'name', 'walletAddress'];
   for (const field of requiredStringFields) {
     if (!data[field] || typeof data[field] !== 'string') {
       return response.status(400).json({ message: 'Missing required fields' });
@@ -62,14 +56,18 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(400).json({ message: 'Invalid email address' });
   }
 
-  const validHandleServices = SUBSIDY_HANDLE_SERVICE_CHOICES.map((c) => c.value);
-  if (!validHandleServices.includes(data.handleService)) {
-    return response.status(400).json({ message: 'Invalid handle service' });
+  if (!data.handles || typeof data.handles !== 'object' || Array.isArray(data.handles)) {
+    return response.status(400).json({ message: 'Missing required fields' });
   }
 
-  data.handle = normalizeHandle(data.handle);
+  data.handles = normalizeHandles(data.handles);
 
-  if (!isValidHandle(data.handle, data.handleService)) {
+  const handleEntries = Object.entries(data.handles) as Array<[SubsidyHandleService, string]>;
+  if (handleEntries.length === 0) {
+    return response.status(400).json({ message: 'At least one handle is required' });
+  }
+
+  if (handleEntries.some(([service, handle]) => !isValidHandle(handle, service))) {
     return response.status(400).json({ message: 'Invalid handle format or length' });
   }
 
@@ -78,10 +76,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
   // Existence checks run BEFORE the (paid) Gemini call so spammers can't burn AI quota
   // by re-submitting against already-CLAIMED / already-verified rows.
   try {
-    const [byEmail, byWallet, byHandle] = await Promise.all([
+    const [byEmail, byWallet, byHandles] = await Promise.all([
       findSubsidyInSheet({ email: data.email }),
       findSubsidyInSheet({ walletAddress: data.walletAddress }),
-      findSubsidyByHandle({ handle: data.handle, handleService: data.handleService }),
+      findSubsidiesByHandles(data.handles),
     ]);
 
     // Unclaimed rows may change email, so a wallet can't be squatted.
@@ -100,9 +98,11 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
     // Unlike wallets, a foreign handle can't be taken over.
     if (
-      byHandle &&
-      byHandle.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase() &&
-      byHandle.email.toLowerCase() !== data.email.toLowerCase()
+      byHandles.some(
+        (byHandle) =>
+          byHandle.walletAddress.toLowerCase() !== data.walletAddress.toLowerCase() &&
+          byHandle.email.toLowerCase() !== data.email.toLowerCase()
+      )
     ) {
       return response.status(403).json({ message: 'Handle already associated with another account' });
     }

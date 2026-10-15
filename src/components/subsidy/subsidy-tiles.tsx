@@ -1,6 +1,8 @@
 import Card from '@/components/card/card';
-import { formatSubsidyAmount, getDiscountLimitsLabel } from '@/components/subsidy/subsidy-copy';
+import { formatSubsidyAmount } from '@/components/subsidy/subsidy-copy';
+import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
 import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
+import { formatSubsidyPeriod } from '@/lib/subsidy';
 import { useSubsidyProgram } from '@/lib/use-subsidy';
 import classNames from 'classnames';
 import styles from './subsidy.module.css';
@@ -17,23 +19,47 @@ const SubsidyTiles = ({ muted }: SubsidyTilesProps) => {
     return null;
   }
 
-  const limits = getDiscountLimitsLabel(program);
+  const limits = program.discount?.windows.filter((window) => !window.unlimited) ?? [];
 
   return (
     <div className={classNames(styles.tiles, { [styles.tileMuted]: muted })}>
       {program.oneTime ? (
-        <Card className={styles.tile} radius="sm" variant={muted ? 'glass' : 'accent1-outline'}>
-          <span className={styles.tileLabel}>{muted ? 'On us once claimed, one time' : 'On us, one time'}</span>
+        <Card className={styles.tile} innerShadow="black" radius="sm" variant="glass">
+          <span className={styles.tileTitle}>
+            <span className={classNames(toneStyles.dot, toneStyles.credit)} />
+            Free credit
+          </span>
           <span className={styles.bigValue}>
             {formatSubsidyAmount(program.oneTime.credit)}
             <span className={styles.bigUnit}>{SUBSIDY_TOKEN_SYMBOL}</span>
           </span>
+          <span className={styles.tileNote}>
+            Use across jobs until it runs out
+            {program.oneTime.percent < 100 ? `, ${formatSubsidyAmount(program.oneTime.percent)}% of each job` : ''}
+          </span>
         </Card>
       ) : null}
       {program.discount ? (
-        <Card className={styles.tile} radius="sm" variant={muted ? 'glass' : 'accent1-outline'}>
-          <span className={styles.tileLabel}>Off each job{limits ? `, ${limits}` : ''}</span>
-          <span className={styles.bigValue}>{formatSubsidyAmount(program.discount.percent)}%</span>
+        <Card className={styles.tile} innerShadow="black" radius="sm" variant="glass">
+          <span className={styles.tileTitle}>
+            <span className={classNames(toneStyles.dot, toneStyles.discount)} />
+            Discount on each job
+          </span>
+          <span className={styles.bigValue}>{formatSubsidyAmount(program.discount.percent)}% off</span>
+          {limits.length > 0 ? (
+            <div className={styles.tileLimits}>
+              {limits.map((window) => (
+                <div className={styles.tileLimit} key={window.periodSeconds}>
+                  <span>
+                    Up to {formatSubsidyAmount(window.limit)} {SUBSIDY_TOKEN_SYMBOL}
+                  </span>
+                  <span>each {formatSubsidyPeriod(window.periodSeconds)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className={styles.tileNote}>No limit</span>
+          )}
         </Card>
       ) : null}
     </div>

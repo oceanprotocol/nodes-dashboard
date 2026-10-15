@@ -4,6 +4,7 @@ import Card from '@/components/card/card';
 import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
 import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
+import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
 import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
 import { useProfileContext } from '@/context/profile-context';
 import {
@@ -57,7 +58,7 @@ type MeterProps = {
 const Meter = ({ className, limit, remaining, tone }: MeterProps) => (
   <div className={classNames(styles.meter, className)}>
     <div
-      className={classNames(styles.meterFill, styles[tone])}
+      className={classNames(styles.meterFill, toneStyles[tone])}
       style={{ width: `${limit > 0 ? Math.min(100, (remaining / limit) * 100) : 0}%` }}
     />
   </div>
@@ -71,7 +72,7 @@ type BlockHeaderProps = {
 
 const BlockHeader = ({ subtitle, title, tone }: BlockHeaderProps) => (
   <div className={styles.blockHeader}>
-    <span className={classNames(styles.dot, styles[tone])} />
+    <span className={classNames(toneStyles.dot, toneStyles[tone])} />
     <strong>{title}</strong>
     {subtitle ? <span className={styles.small}>{subtitle}</span> : null}
   </div>
@@ -92,7 +93,7 @@ const CreditBlock = ({ allowance, percent }: CreditBlockProps) => (
       title="Free credit"
       tone="credit"
     />
-    <span className={styles.limitsHead}>One-time bonus</span>
+    <span className={styles.limitsHead}>Use across jobs until it runs out</span>
     <div className={styles.creditRow}>
       <Meter limit={allowance.limit} remaining={allowance.remaining} tone="credit" />
       <span className={styles.amount}>
@@ -155,8 +156,8 @@ const SpendOrder = ({ credit, discount }: SpendOrderProps) => {
   }
   return (
     <div aria-hidden className={styles.spendOrder}>
-      {credit > 0 ? <div className={styles.credit} style={{ flexGrow: credit }} /> : null}
-      {discount > 0 ? <div className={styles.discount} style={{ flexGrow: discount }} /> : null}
+      {credit > 0 ? <div className={toneStyles.credit} style={{ flexGrow: credit }} /> : null}
+      {discount > 0 ? <div className={toneStyles.discount} style={{ flexGrow: discount }} /> : null}
     </div>
   );
 };
@@ -308,11 +309,10 @@ const SubsidySection = () => {
 
     return (
       <>
-        <SubsidyHeader subtitle="Verify your email to get it on jobs and models" />
+        <SubsidyHeader subtitle="Apply now and get discounts on your compute jobs and inference services" />
         <SubsidyTiles />
-        <div className={styles.footer}>
-          <span className={styles.small}>Takes a minute: your details, then a 6-digit code.</span>
-          <Button color="accent1" href="/subsidy/details" size="md">
+        <div className="actionsGroupLgCenter">
+          <Button color="accent1" href="/subsidy/details" size="lg">
             Get a subsidy
           </Button>
         </div>

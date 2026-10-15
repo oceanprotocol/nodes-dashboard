@@ -202,7 +202,7 @@ const PaymentSubsidy = ({
   } else if (quote.oneTime > 0) {
     title = `OPF subsidy: ${format(quote.oneTime)} ${SUBSIDY_TOKEN_SYMBOL} on us, then ${discountPercent}% off the rest`;
     description =
-      'Paid up front when the job starts, so only your part needs to be in escrow. This uses the rest of your one-time credit.';
+      'Paid up front when the job starts, so only your part needs to be in escrow. This uses the rest of your free credit.';
   } else {
     title = `OPF subsidy: ${discountPercent}% off this job`;
     description = `Paid up front when the job starts, so only your part needs to be in escrow.${

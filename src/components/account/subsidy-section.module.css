@@ -111,14 +111,6 @@
   }
 }
 
-.credit {
-  background: var(--accent2);
-}
-
-.discount {
-  background: var(--accent1);
-}
-
 .blocks {
   border-top: 1px solid var(--border-glass);
   display: grid;
@@ -144,12 +136,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 8px;
-}
-
-.dot {
-  border-radius: 50%;
-  height: 10px;
-  width: 10px;
 }
 
 .meter {

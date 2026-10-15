@@ -1,16 +1,19 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
-import SubsidyOffer from '@/components/subsidy/subsidy-offer';
+import InputWrapper from '@/components/input/input-wrapper';
+import SubsidySummary from '@/components/subsidy/subsidy-summary';
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import {
   isValidHandle,
   normalizeHandle,
+  normalizeHandles,
   SubmitSubsidyDetailsResponse,
   SUBSIDY_HANDLE_RULES,
   SUBSIDY_HANDLE_SERVICE_CHOICES,
+  SubsidyHandles,
   SubsidyHandleService,
 } from '@/types/subsidy';
 import axios from 'axios';
@@ -23,10 +26,14 @@ import styles from './details.module.css';
 
 type DetailsFormValues = {
   email: string;
-  handle: string;
-  handleService: SubsidyHandleService;
+  handles: Record<SubsidyHandleService, string>;
   name: string;
 };
+
+const handleSchema = (service: SubsidyHandleService) =>
+  Yup.string().test('handle-format', SUBSIDY_HANDLE_RULES[service].message, (value) => {
+    return !value || isValidHandle(value, service);
+  });
 
 const Details: React.FC = () => {
   const { account, login } = useOceanAccount();
@@ -38,8 +45,11 @@ const Details: React.FC = () => {
   const formik = useFormik<DetailsFormValues>({
     initialValues: {
       email: subsidyDetails?.email ?? '',
-      handle: subsidyDetails?.handle ?? '',
-      handleService: subsidyDetails?.handleService ?? SUBSIDY_HANDLE_SERVICE_CHOICES[0].value,
+      handles: {
+        discord: subsidyDetails?.handles.discord ?? '',
+        telegram: subsidyDetails?.handles.telegram ?? '',
+        x: subsidyDetails?.handles.x ?? '',
+      },
       name: subsidyDetails?.name ?? '',
     },
     onSubmit: async (values) => {
@@ -48,16 +58,16 @@ const Details: React.FC = () => {
         return;
       }
       try {
+        const handles = normalizeHandles(values.handles);
         const details = {
           email: values.email,
-          handle: normalizeHandle(values.handle),
-          handleService: values.handleService,
+          handles,
           name: values.name,
           walletAddress: account.address,
         };
         const response = await axios.post<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
         setSubsidyDetails(details);
-        posthog.capture('grant_form_completed', { handleService: values.handleService });
+        posthog.capture('grant_form_completed', { handleServices: Object.keys(handles) });
         // The step guard reads the saved status.
         await fetchSubsidyStatus(account.address);
         if (response.data.shouldValidateEmail) {
@@ -76,34 +86,34 @@ const Details: React.FC = () => {
     },
     validationSchema: Yup.object({
       email: Yup.string().email('Invalid email').required('Required'),
-      handle: Yup.string()
-        .required('Required')
-        .test('handle-format', function (value) {
-          const service = (this.parent as DetailsFormValues).handleService;
-          if (!value || isValidHandle(value, service)) {
-            return true;
-          }
-          return this.createError({ message: SUBSIDY_HANDLE_RULES[service].message });
-        }),
-      handleService: Yup.string()
-        .oneOf(SUBSIDY_HANDLE_SERVICE_CHOICES.map((c) => c.value))
-        .required('Required'),
+      handles: Yup.object({
+        discord: handleSchema('discord'),
+        telegram: handleSchema('telegram'),
+        x: handleSchema('x'),
+      }).test('at-least-one', 'Enter at least one handle', (value) => {
+        return Object.keys(normalizeHandles(value as SubsidyHandles)).length > 0;
+      }),
       name: Yup.string().required('Required'),
     }),
   });
 
-  const handleHandleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const normalized = normalizeHandle(e.target.value);
-    if (normalized !== formik.values.handle) {
-      formik.setFieldValue('handle', normalized);
-    }
-    formik.handleBlur(e);
-  };
+  const handleHandleBlur =
+    (service: SubsidyHandleService) => (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const normalized = normalizeHandle(e.target.value);
+      if (normalized !== formik.values.handles[service]) {
+        formik.setFieldValue(`handles.${service}`, normalized);
+      }
+      formik.handleBlur(e);
+    };
+
+  const handlesTouched = formik.submitCount > 0 || Object.values(formik.touched.handles ?? {}).some(Boolean);
+  const handlesGroupError =
+    handlesTouched && typeof formik.errors.handles === 'string' ? formik.errors.handles : undefined;
 
   return (
     <Card padding="md" radius="lg" shadow="black" variant="glass-shaded">
       <form className={styles.form} onSubmit={formik.handleSubmit}>
-        <SubsidyOffer />
+        <SubsidySummary />
         <div className={styles.section}>
           <h3>User details</h3>
           <Input
@@ -125,33 +135,30 @@ const Details: React.FC = () => {
             type="email"
             value={formik.values.email}
           />
-          <Input
-            errorText={formik.touched.handle && formik.errors.handle ? formik.errors.handle : undefined}
-            label="Handle"
-            name="handle"
-            onBlur={handleHandleBlur}
-            onChange={formik.handleChange}
-            startAdornment={
-              <div className={styles.handleAdornment}>
-                <select
-                  aria-label="Handle service"
-                  className={styles.handleServiceSelect}
-                  name="handleService"
-                  onChange={formik.handleChange}
-                  value={formik.values.handleService}
-                >
-                  {SUBSIDY_HANDLE_SERVICE_CHOICES.map((choice) => (
-                    <option key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-                <span className={styles.handlePrefix}>@</span>
-              </div>
-            }
-            type="text"
-            value={formik.values.handle}
-          />
+          <InputWrapper errorText={handlesGroupError} hint="Enter at least one." label="Socials">
+            <div className={styles.handles}>
+              {SUBSIDY_HANDLE_SERVICE_CHOICES.map(({ label, value: service }) => {
+                const error = typeof formik.errors.handles === 'object' ? formik.errors.handles[service] : undefined;
+                return (
+                  <Input
+                    errorText={formik.touched.handles?.[service] && error ? error : undefined}
+                    key={service}
+                    name={`handles.${service}`}
+                    onBlur={handleHandleBlur(service)}
+                    onChange={formik.handleChange}
+                    startAdornment={
+                      <div className={styles.handleAdornment}>
+                        <span className={styles.handleService}>{label}</span>
+                        <span className={styles.handlePrefix}>@</span>
+                      </div>
+                    }
+                    type="text"
+                    value={formik.values.handles[service]}
+                  />
+                );
+              })}
+            </div>
+          </InputWrapper>
           <div className={styles.walletAddress}>
             <strong>Wallet address</strong>
             <div>{account.address}</div>

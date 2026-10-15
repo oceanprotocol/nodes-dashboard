@@ -1,6 +1,8 @@
 import {
   getHandleComparisonKey,
+  SUBSIDY_HANDLE_SERVICE_CHOICES,
   SubsidyDetails,
+  SubsidyHandles,
   SubsidyHandleService,
   SubsidyStatus,
   SubsidyWithStatus,
@@ -16,14 +18,15 @@ import { google } from 'googleapis';
  * C: Wallet address
  * D: Discord handle
  * E: Telegram handle
- * F: Application date
- * G: Email verified date
- * H: Claim date
- * I: Status
- * J: OTP (hashed)
- * K: OTP expiry date
- * L: OTP attempts
- * M: OTP last resent
+ * F: X handle
+ * G: Application date
+ * H: Email verified date
+ * I: Claim date
+ * J: Status
+ * K: OTP (hashed)
+ * L: OTP expiry date
+ * M: OTP attempts
+ * N: OTP last resent
  *
  * Row 1: This sheet is auto-generated.
  * Row 2: Headers
@@ -33,12 +36,15 @@ import { google } from 'googleapis';
 const SPREADSHEET_ID = process.env.SUBSIDY_GSHEETS_SPREADSHEET_ID;
 
 const FIRST_DATA_ROW = 3;
-const LAST_COLUMN = 'M';
+const LAST_COLUMN = 'N';
 
 const EMAIL_COLUMN = 1;
 const WALLET_COLUMN = 2;
-const DISCORD_HANDLE_COLUMN = 3;
-const TELEGRAM_HANDLE_COLUMN = 4;
+const HANDLE_COLUMNS: Record<SubsidyHandleService, number> = {
+  discord: 3,
+  telegram: 4,
+  x: 5,
+};
 
 function getRange(row?: number) {
   if (row || row === 0) {
@@ -60,22 +66,31 @@ const parseDate = (value: string | undefined) => (value ? new Date(value) : unde
 
 const parseNumber = (value: string | undefined) => (value ? Number(value) : undefined);
 
+function rowToHandles(row: string[]): SubsidyHandles {
+  const handles: SubsidyHandles = {};
+  for (const { value: service } of SUBSIDY_HANDLE_SERVICE_CHOICES) {
+    const handle = row[HANDLE_COLUMNS[service]];
+    if (handle) {
+      handles[service] = handle;
+    }
+  }
+  return handles;
+}
+
 function rowToSubsidy(row: string[]): SubsidyWithStatus {
-  const discordHandle = row[DISCORD_HANDLE_COLUMN];
   return {
     name: row[0],
     email: row[EMAIL_COLUMN],
     walletAddress: row[WALLET_COLUMN],
-    handle: discordHandle || row[TELEGRAM_HANDLE_COLUMN],
-    handleService: discordHandle ? 'discord' : 'telegram',
-    applicationDate: new Date(row[5]),
-    verifiedDate: parseDate(row[6]),
-    claimDate: parseDate(row[7]),
-    status: row[8] as SubsidyStatus,
-    otp: row[9],
-    otpExpires: parseNumber(row[10]),
-    otpAttempts: parseNumber(row[11]) ?? 0,
-    otpLastResent: parseNumber(row[12]),
+    handles: rowToHandles(row),
+    applicationDate: new Date(row[6]),
+    verifiedDate: parseDate(row[7]),
+    claimDate: parseDate(row[8]),
+    status: row[9] as SubsidyStatus,
+    otp: row[10],
+    otpExpires: parseNumber(row[11]),
+    otpAttempts: parseNumber(row[12]) ?? 0,
+    otpLastResent: parseNumber(row[13]),
   };
 }
 
@@ -89,24 +104,26 @@ function subsidyToRow(data: SubsidyWithStatus): string[] {
     // C: Wallet address
     data.walletAddress,
     // D: Discord handle
-    data.handleService === 'discord' ? data.handle : '',
+    data.handles.discord,
     // E: Telegram handle
-    data.handleService === 'telegram' ? data.handle : '',
-    // F: Application date
+    data.handles.telegram,
+    // F: X handle
+    data.handles.x,
+    // G: Application date
     data.applicationDate.toISOString(),
-    // G: Email verified date
+    // H: Email verified date
     data.verifiedDate?.toISOString(),
-    // H: Claim date
+    // I: Claim date
     data.claimDate?.toISOString(),
-    // I: Status
+    // J: Status
     data.status,
-    // J: OTP (hashed)
+    // K: OTP (hashed)
     data.otp,
-    // K: OTP expiry date
+    // L: OTP expiry date
     data.otpExpires,
-    // L: OTP attempts
+    // M: OTP attempts
     data.otpAttempts ?? 0,
-    // M: OTP last resent
+    // N: OTP last resent
     data.otpLastResent,
   ];
   return cells.map((cell) => (cell === undefined || cell === null ? '' : String(cell)));
@@ -125,13 +142,15 @@ async function getAllRows(): Promise<string[][]> {
  * Comparison goes through getHandleComparisonKey, so stored rows that kept an "@" or surrounding
  * whitespace still match a bare handle.
  */
-function rowMatchesHandle(row: string[], handle: string, handleService: SubsidyHandleService): boolean {
-  const key = getHandleComparisonKey(handle);
-  if (!key) {
-    return false;
-  }
-  const value = row[handleService === 'discord' ? DISCORD_HANDLE_COLUMN : TELEGRAM_HANDLE_COLUMN];
-  return !!value && getHandleComparisonKey(value) === key;
+function rowMatchesAnyHandle(row: string[], handles: SubsidyHandles): boolean {
+  return SUBSIDY_HANDLE_SERVICE_CHOICES.some(({ value: service }) => {
+    const key = getHandleComparisonKey(handles[service] ?? '');
+    if (!key) {
+      return false;
+    }
+    const value = row[HANDLE_COLUMNS[service]];
+    return !!value && getHandleComparisonKey(value) === key;
+  });
 }
 
 export async function findSubsidyInSheet({
@@ -155,18 +174,9 @@ export async function findSubsidyInSheet({
   return rowToSubsidy(rows[rowIndex]);
 }
 
-export async function findSubsidyByHandle({
-  handle,
-  handleService,
-}: {
-  handle: string;
-  handleService: SubsidyHandleService;
-}): Promise<SubsidyWithStatus | null> {
+export async function findSubsidiesByHandles(handles: SubsidyHandles): Promise<SubsidyWithStatus[]> {
   const rows = await getAllRows();
-  if (rows.length === 0) return null;
-  const matches = rows.filter((row) => rowMatchesHandle(row, handle, handleService)).map(rowToSubsidy);
-  if (matches.length === 0) return null;
-  return matches.find((match) => match.status !== SubsidyStatus.PENDING) ?? matches[0];
+  return rows.filter((row) => rowMatchesAnyHandle(row, handles)).map(rowToSubsidy);
 }
 
 export async function insertSubsidyInSheet(
@@ -181,7 +191,7 @@ export async function insertSubsidyInSheet(
     (row) =>
       row[EMAIL_COLUMN]?.toLowerCase() === data.email.toLowerCase() ||
       row[WALLET_COLUMN]?.toLowerCase() === data.walletAddress.toLowerCase() ||
-      rowMatchesHandle(row, data.handle, data.handleService)
+      rowMatchesAnyHandle(row, data.handles)
   );
   if (dup) {
     throw new Error('Subsidy row already exists for this wallet, email or handle');

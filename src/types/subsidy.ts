@@ -1,9 +1,10 @@
-export type SubsidyHandleService = 'discord' | 'telegram';
+export type SubsidyHandleService = 'discord' | 'telegram' | 'x';
+
+export type SubsidyHandles = Partial<Record<SubsidyHandleService, string>>;
 
 export type SubsidyDetails = {
   email: string;
-  handle: string;
-  handleService: SubsidyHandleService;
+  handles: SubsidyHandles;
   name: string;
   walletAddress: string;
 };
@@ -60,6 +61,7 @@ export const SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS = 60;
 export const SUBSIDY_HANDLE_SERVICE_CHOICES: Array<{ label: string; value: SubsidyHandleService }> = [
   { label: 'Discord', value: 'discord' },
   { label: 'Telegram', value: 'telegram' },
+  { label: 'X', value: 'x' },
 ];
 
 /** Discord's legacy "#1234" form is rejected so one person can't pass the uniqueness check twice. */
@@ -72,6 +74,10 @@ export const SUBSIDY_HANDLE_RULES: Record<SubsidyHandleService, { message: strin
     message: 'Enter a valid Telegram handle (5-32 characters: letters, digits or "_")',
     regex: /^[a-zA-Z0-9_]{5,32}$/,
   },
+  x: {
+    message: 'Enter a valid X handle (1-15 characters: letters, digits or "_")',
+    regex: /^[a-zA-Z0-9_]{1,15}$/,
+  },
 };
 
 /** Profile URLs are left intact so they fail validation. */
@@ -82,9 +88,21 @@ export function normalizeHandle(handle: string): string {
   return handle.replace(/\s+/g, '').replace(/^@+/, '');
 }
 
-/** Both platforms are case-insensitive. */
+/** All platforms are case-insensitive. */
 export function getHandleComparisonKey(handle: string): string {
   return normalizeHandle(handle).toLowerCase();
+}
+
+/** Drops unknown services and empty handles. */
+export function normalizeHandles(handles: SubsidyHandles): SubsidyHandles {
+  const result: SubsidyHandles = {};
+  for (const { value: service } of SUBSIDY_HANDLE_SERVICE_CHOICES) {
+    const handle = normalizeHandle(handles?.[service] ?? '');
+    if (handle) {
+      result[service] = handle;
+    }
+  }
+  return result;
 }
 
 export function isValidHandle(handle: string, service: SubsidyHandleService): boolean {
