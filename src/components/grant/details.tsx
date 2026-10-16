@@ -11,6 +11,7 @@ import {
   GRANT_HARDWARE_CHOICES,
   GRANT_OS_CHOICES,
   GRANT_ROLE_CHOICES,
+  GRANT_VALIDATION_FAILED_MESSAGE,
   GrantHandleService,
   isValidHandle,
   normalizeHandle,
@@ -93,11 +94,21 @@ const Details: React.FC = () => {
           router.push('/grant/claim');
         }
       } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.data?.message) {
-          toast.error(error.response.data.message);
-        } else {
-          toast.error('Failed to submit form. Please try again.');
-        }
+        const responseMessage: string | undefined = axios.isAxiosError(error)
+          ? error.response?.data?.message
+          : undefined;
+        const message = responseMessage ?? 'Failed to submit form. Please try again.';
+        toast.error(message);
+        posthog.capture('grant_form_failed', {
+          // AI rejection reasons may echo the user's name, email or handle.
+          message: message.startsWith(GRANT_VALIDATION_FAILED_MESSAGE) ? GRANT_VALIDATION_FAILED_MESSAGE : message,
+          status: axios.isAxiosError(error) ? error.response?.status : undefined,
+          handleService: values.handleService,
+          role: values.role,
+          goal: values.goal,
+          hardware: values.hardware,
+          os: values.os,
+        });
         console.error('Failed to submit form', error);
       }
     },
