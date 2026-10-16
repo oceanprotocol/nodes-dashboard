@@ -1,94 +1,86 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import classNames from 'classnames';
+import { useEffect, useRef } from 'react';
 import styles from './two-factor-input.module.css';
 
+export const CODE_LENGTH = 6;
+
 type TwoFactorInputProps = {
+  'aria-label'?: string;
+  disabled?: boolean;
+  /** The next keystroke starts a fresh code. */
+  error?: boolean;
   name?: string;
   onChange: (value: string, name?: string) => void;
   value: string;
 };
 
-const TwoFactorInput: React.FC<TwoFactorInputProps> = ({ name, onChange, value }) => {
-  const [isFocused, setIsFocused] = useState<boolean>(false);
-
+const TwoFactorInput: React.FC<TwoFactorInputProps> = ({
+  'aria-label': ariaLabel,
+  disabled,
+  error,
+  name,
+  onChange,
+  value,
+}) => {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const crtIndex = value ? value.length : 0;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const inputValue = e.currentTarget.value;
-    if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(inputValue)) {
-      onChange(value + inputValue, name);
-      const nextInput = inputRefs.current[index + 1];
-      if (nextInput) {
-        setTimeout(() => {
-          nextInput.focus();
-        }, 0);
-      }
-    } else if (!inputValue) {
-      onChange(value.slice(0, -1), name);
-      const prevInput = inputRefs.current[index - 1];
-      if (prevInput) {
-        setTimeout(() => {
-          prevInput.focus();
-        }, 0);
-      }
-    }
-  };
+  const crtIndex = Math.min(value.length, CODE_LENGTH - 1);
 
   useEffect(() => {
+    if (disabled) {
+      return;
+    }
     const crtInput = inputRefs.current[crtIndex];
-    if (crtInput) {
+    if (crtInput && document.activeElement !== crtInput) {
       crtInput.focus();
     }
-  }, [crtIndex]);
+    if (crtInput && error) {
+      crtInput.select();
+    }
+  }, [crtIndex, disabled, error]);
 
-  const handleFocus = () => {
-    setIsFocused(true);
+  // Also handles paste.
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const digits = e.currentTarget.value.replace(/\D/g, '');
+    if (!digits) {
+      return;
+    }
+    if (error) {
+      onChange(digits.slice(-CODE_LENGTH), name);
+      return;
+    }
+    const typed = digits.length > 1 && index < value.length ? digits.slice(-1) : digits;
+    onChange((value.slice(0, index) + typed).slice(0, CODE_LENGTH), name);
   };
 
-  const handleBlur = () => {
-    setIsFocused(false);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key !== 'Backspace') {
+      return;
+    }
+    e.preventDefault();
+    if (error) {
+      onChange('', name);
+      return;
+    }
+    const removeAt = index < value.length ? index : index - 1;
+    if (removeAt >= 0) {
+      onChange(value.slice(0, removeAt), name);
+    }
   };
 
-  const isInputDisabled = (inputIndex: number) => {
-    if (inputIndex === crtIndex) {
-      return false;
-    }
-    if (inputIndex === 5 && value.length === 6) {
-      return false;
-    }
-    return true;
-  };
-
-  const handleBackspace = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Backspace') {
-        onChange(value.slice(0, -1), name);
-      }
-    },
-    [name, onChange, value]
-  );
-
-  useEffect(() => {
-    if (isFocused) {
-      document.addEventListener('keydown', handleBackspace);
-    } else {
-      document.removeEventListener('keydown', handleBackspace);
-    }
-    return () => {
-      document.removeEventListener('keydown', handleBackspace);
-    };
-  }, [handleBackspace, isFocused]);
-
-  const inputs = Array.from({ length: 6 }).map((_, index) => (
+  const inputs = Array.from({ length: CODE_LENGTH }).map((_, index) => (
     <input
-      key={index}
-      className={styles.input}
+      aria-invalid={error || undefined}
+      aria-label={`Digit ${index + 1}`}
+      autoComplete={index === 0 ? 'one-time-code' : 'off'}
+      className={classNames(styles.input, { [styles.inputError]: error })}
       data-index={index}
-      disabled={isInputDisabled(index)}
-      onBlur={handleBlur}
+      disabled={disabled || index !== crtIndex}
+      inputMode="numeric"
+      key={index}
       onChange={(e) => handleChange(e, index)}
-      onFocus={handleFocus}
+      onFocus={(e) => e.currentTarget.select()}
+      onKeyDown={(e) => handleKeyDown(e, index)}
       ref={(el) => {
         inputRefs.current[index] = el;
       }}
@@ -98,7 +90,7 @@ const TwoFactorInput: React.FC<TwoFactorInputProps> = ({ name, onChange, value }
   ));
 
   return (
-    <div className={styles.root}>
+    <div aria-label={ariaLabel} className={classNames(styles.root, { [styles.disabled]: disabled })} role="group">
       <div className={styles.half}>{inputs.slice(0, 3)}</div>
       <div className={styles.half}>{inputs.slice(3)}</div>
     </div>

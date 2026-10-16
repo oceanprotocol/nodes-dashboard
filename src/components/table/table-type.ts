@@ -14,4 +14,6 @@ export enum TableTypeEnum {
   NODES_TOP_REVENUE = 'nodes-top-revenue',
   UNBAN_REQUESTS = 'unban-requests',
   BENCHMARK_JOBS_HISTORY = 'benchmark-jobs-history',
+  ESCROW_HISTORY = 'escrow-history',
+  SUBSIDY_HISTORY = 'subsidy-history',
 }

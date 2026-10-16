@@ -35,7 +35,7 @@ export type EscrowSpenderInfo = {
 // matches `address` against any value in a comma-separated list (backend splits it into an
 // OR of case-insensitive matches). Returns a map keyed by lowercased wallet address;
 // wallets with no matching node are simply absent.
-const fetchNodesByWallets = async (
+export const fetchNodesByWallets = async (
   wallets: string[]
 ): Promise<Map<string, { id: string; friendlyName?: string }>> => {
   const byWallet = new Map<string, { id: string; friendlyName?: string }>();

@@ -1,0 +1,229 @@
+.header {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 576px) {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.titleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  h4 {
+    margin: 0;
+  }
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.small {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.available {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.availableAmount {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.availableLabel {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.spendOrder {
+  display: flex;
+  gap: 4px;
+  height: 10px;
+
+  > div {
+    border-radius: 6px;
+    min-width: 10px;
+  }
+}
+
+.blocks {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @media (min-width: 992px) {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
+.block {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.blockHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.meter {
+  background: var(--background-glass-secondary);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.meterFill {
+  border-radius: 4px;
+  height: 100%;
+}
+
+.amount {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.creditRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.limits {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @container (min-width: 440px) {
+    gap: 10px 16px;
+    grid-template-columns: auto minmax(40px, 1fr) auto auto;
+  }
+}
+
+.limitsHead {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.limitRow {
+  align-items: center;
+  display: grid;
+  gap: 6px 12px;
+  grid-template-areas:
+    'label amount'
+    'meter meter'
+    'reset reset';
+  grid-template-columns: minmax(0, 1fr) auto;
+
+  &.limitsHead {
+    display: none;
+  }
+
+  .limitLabel {
+    grid-area: label;
+  }
+
+  .limitMeter {
+    grid-area: meter;
+  }
+
+  .limitAmount {
+    grid-area: amount;
+  }
+
+  .limitReset {
+    grid-area: reset;
+  }
+
+  @container (min-width: 440px) {
+    grid-column: 1 / -1;
+    grid-template-areas: none;
+    grid-template-columns: subgrid;
+
+    &.limitsHead {
+      display: grid;
+    }
+
+    .limitLabel,
+    .limitMeter,
+    .limitAmount,
+    .limitReset {
+      grid-area: auto;
+    }
+
+    .resetPrefix {
+      display: none;
+    }
+  }
+}
+
+.limitLabel {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.footer {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 576px) {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.historyHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.historyTitle {
+  margin: 0;
+}

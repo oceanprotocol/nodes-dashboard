@@ -1,0 +1,149 @@
+.tiles {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @media (min-width: 576px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 24px;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summaryTitle {
+  font-weight: 600;
+}
+
+.summaryItem {
+  align-items: baseline;
+  column-gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+
+  .summaryDot {
+    align-self: center;
+  }
+
+  strong {
+    font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+    font-size: 18px;
+  }
+
+  span:last-child {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+}
+
+.tileMuted {
+  opacity: 0.56;
+}
+
+.tileTitle {
+  align-items: center;
+  display: flex;
+  font-weight: 600;
+  gap: 8px;
+}
+
+.tileNote {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.tileLimits {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tileLimit {
+  color: var(--text-secondary);
+  display: flex;
+  font-size: 12px;
+  gap: 4px;
+  justify-content: space-between;
+
+  span:first-child {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+}
+
+.bigValue {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.bigUnit {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+
+.infoButton {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s ease;
+  width: 32px;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: var(--background-glass-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: 2px;
+  }
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  gap: 10px;
+  line-height: 1.5;
+  max-width: 440px;
+  padding: 8px 6px;
+}
+
+.infoTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.infoNote {
+  color: var(--text-secondary);
+}
+
+.subsidizedChip {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 2px 10px;
+}

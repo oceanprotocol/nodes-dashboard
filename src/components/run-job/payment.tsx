@@ -2,8 +2,10 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import { SelectedToken } from '@/context/run-job-context';
+import { SubsidyJobType } from '@/lib/subsidy';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
+import { usePayerCost } from '@/lib/use-subsidy';
 import { ComputeEnvironment } from '@/types/environments';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -39,23 +41,30 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
     setPageSubtitle('Confirm and authorize your payment in order to start your job');
   }, [setPageSubtitle]);
 
+  const { isQuoting, payerCost } = usePayerCost({
+    cost: totalCost,
+    jobType: SubsidyJobType.COMPUTE,
+    nodeAddress: selectedEnv.consumerAddress,
+    tokenAddress: selectedToken.address,
+  });
+
   // Deposit + (re)authorization the session needs, and whether escrow already satisfies it.
   // Same helper as the inference step; run-job floors the lock window at 1s.
   const requirement = useMemo(
     () =>
       computeEscrowRequirement({
         snapshot: { authorizations, escrowBalance: escrowBalance ?? 0, walletBalance: walletBalance ?? 0 },
-        totalCost,
+        totalCost: payerCost,
         tokenAddress: selectedToken.address,
         requiredLockSeconds: minLockSeconds,
         minLockSecondsFloor: 1,
       }),
-    [authorizations, escrowBalance, walletBalance, totalCost, selectedToken.address, minLockSeconds]
+    [authorizations, escrowBalance, walletBalance, payerCost, selectedToken.address, minLockSeconds]
   );
 
   // Once escrow + authorization satisfy the session requirements, move on to the summary.
   useEffect(() => {
-    if (requirement.sufficient) {
+    if (requirement.sufficient && !isQuoting) {
       if (!authorizedTracked.current) {
         authorizedTracked.current = true;
         posthog.capture('payment_authorized', {
@@ -67,7 +76,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
       }
       router.push({ pathname: '/run-job/summary', query: router.query });
     }
-  }, [requirement.sufficient, router, selectedToken.symbol, selectedToken.address, totalCost]);
+  }, [isQuoting, requirement.sufficient, router, selectedToken.symbol, selectedToken.address, totalCost]);
 
   const { handlePay, isPaying } = usePaySession({ onSuccess: loadPaymentInfo });
 
@@ -105,7 +114,9 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         authorizations={authorizations}
         escrowBalance={escrowBalance ?? 0}
         loadPaymentInfo={loadPaymentInfo}
+        nodeAddress={selectedEnv.consumerAddress}
         selectedToken={selectedToken}
+        subsidyJobType={SubsidyJobType.COMPUTE}
         topupSource="run_job"
         totalCost={totalCost}
         walletBalance={walletBalance ?? 0}
@@ -123,7 +134,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         </Button>
         <Button
           color="accent1"
-          disabled={loadingPaymentInfo || isPaying || requirement.insufficientWalletFunds}
+          disabled={loadingPaymentInfo || isPaying || isQuoting || requirement.insufficientWalletFunds}
           loading={isPaying}
           onClick={handleSubmit}
           size="lg"

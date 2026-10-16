@@ -1,0 +1,80 @@
+.header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+
+  h4 {
+    margin: 0;
+  }
+}
+
+.hint {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.typeCell {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  height: 100%;
+
+  .typeIcon {
+    align-items: center;
+    border-radius: 10px;
+    display: flex;
+    flex-shrink: 0;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+
+    &.iconCredit {
+      background: color-mix(in srgb, var(--success) 30%, transparent 70%);
+      color: var(--success-darker);
+    }
+
+    &.iconDebit {
+      background: color-mix(in srgb, var(--error) 22%, transparent 78%);
+      color: var(--error-darker);
+    }
+
+    &.iconLock {
+      background: color-mix(in srgb, var(--warning) 30%, transparent 70%);
+      color: var(--warning-darker);
+    }
+
+    &.iconNeutral {
+      background: var(--background-glass-secondary);
+      color: var(--text-secondary);
+    }
+  }
+
+  .typeText {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+
+    .typeLabel {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .typeToken {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+  }
+}
+
+.txLink {
+  color: var(--accent1);
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

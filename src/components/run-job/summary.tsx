@@ -10,10 +10,13 @@ import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { IdeResourceRequest } from '@/lib/ocean-provider';
+import { SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { computeEscrowRequirement } from '@/lib/use-payment-info';
+import { usePayerCost } from '@/lib/use-subsidy';
 import { ComputeEnvironment, EnvNodeInfo, EnvResourcesSelection } from '@/types/environments';
 import { Ide } from '@/types/ide';
-import { formatDuration } from '@/utils/formatters';
+import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CodeIcon from '@mui/icons-material/Code';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -68,48 +71,51 @@ const Summary = ({
     setSelectedIde(Ide[selectedIdeKey as keyof typeof Ide]);
   }, []);
 
+  const { isQuoting, payerCost } = usePayerCost({
+    cost: estimatedTotalCost,
+    jobType: SubsidyJobType.COMPUTE,
+    nodeAddress: selectedEnv.consumerAddress,
+    tokenAddress: token?.address,
+  });
+
   const checkPaymentStatus = useCallback(async () => {
     if (freeCompute || !token) {
       setPaymentCheckFinished(true);
       return;
     }
     if (ocean && account?.address) {
-      const authorizations = await ocean.getAuthorizations(token.address, account.address, selectedEnv.consumerAddress);
-      const currentLockedAmount = Number(authorizations?.currentLockedAmount ?? 0);
-      const escrowBalanceStr = await ocean.getUserFunds(token.address, account.address);
-      const escrowBalance = Number(escrowBalanceStr);
-      const sufficientEscrow = (escrowBalance ?? 0) >= estimatedTotalCost;
-      const suffficientAuthorized =
-        Number(authorizations?.maxLockedAmount ?? 0) >= estimatedTotalCost + currentLockedAmount;
-      const enoughLockSeconds = Number(authorizations?.maxLockSeconds ?? 0) >= (minLockSeconds ?? 0);
-      const hasAvailableLockSlot =
-        Number(authorizations?.currentLocks ?? 0) < Number(authorizations?.maxLockCounts ?? 0);
-      if (sufficientEscrow && suffficientAuthorized && enoughLockSeconds && hasAvailableLockSlot) {
+      const [authorizations, escrowBalance] = await Promise.all([
+        ocean.getAuthorizations(token.address, account.address, selectedEnv.consumerAddress),
+        ocean.getUserFunds(token.address, account.address),
+      ]);
+      const { sufficient } = computeEscrowRequirement({
+        snapshot: {
+          authorizations,
+          escrowBalance: roundTokenAmount(Number(escrowBalance), token.address, 'down'),
+          walletBalance: 0,
+        },
+        totalCost: payerCost,
+        tokenAddress: token.address,
+        requiredLockSeconds: minLockSeconds ?? 0,
+        minLockSecondsFloor: 1,
+      });
+      if (sufficient) {
         setPaymentCheckFinished(true);
       } else {
         router.replace({ pathname: '/run-job/payment', query: router.query });
       }
     }
-  }, [
-    freeCompute,
-    token,
-    ocean,
-    account.address,
-    selectedEnv.consumerAddress,
-    estimatedTotalCost,
-    minLockSeconds,
-    router,
-  ]);
+  }, [freeCompute, token, ocean, account.address, selectedEnv.consumerAddress, payerCost, minLockSeconds, router]);
 
   useEffect(() => {
-    if (!ocean || !account.address) {
+    if (!ocean || !account.address || isQuoting) {
       return;
     }
     if (!paymentCheckStarted) {
       setPaymentCheckStarted(true);
       checkPaymentStatus();
     }
-  }, [account.address, checkPaymentStatus, ocean, paymentCheckStarted]);
+  }, [account.address, checkPaymentStatus, isQuoting, ocean, paymentCheckStarted]);
 
   const openIde = async (uriScheme: string) => {
     if (!authToken || !account.address || !ocean) {

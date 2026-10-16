@@ -9,6 +9,7 @@ import useInferenceAllocation, {
 } from '@/components/hooks/use-inference-allocation';
 import useLiveEnv from '@/components/hooks/use-live-env';
 import Select from '@/components/input/select';
+import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -474,6 +475,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             </Button>
             {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
           </span>
+          <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />
         </div>
         {nodeInfo.latestBenchmarkResults ? (
           <BenchmarkSummary

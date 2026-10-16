@@ -7,6 +7,8 @@ const ALLOWED_METHODS = new Set([
   'eth_getCode',
   'eth_chainId',
   'eth_blockNumber',
+  // Block timestamps for escrow and subsidy history.
+  'eth_getBlockByNumber',
   'eth_estimateGas',
   'eth_gasPrice',
   'eth_feeHistory',

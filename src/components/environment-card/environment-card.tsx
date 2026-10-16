@@ -6,6 +6,7 @@ import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import Select from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
+import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
@@ -676,6 +677,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               </Button>
               {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
             </span>
+            <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />
           </div>
           {nodeInfo.latestBenchmarkResults ? (
             <BenchmarkSummary

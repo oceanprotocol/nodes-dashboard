@@ -18,9 +18,11 @@ import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
+import { getJobSubsidyProviders, SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
+import { usePayerCost, useStartWithSubsidy } from '@/lib/use-subsidy';
 import {
   buildInferenceRestartSpec,
   buildInferenceStartParams,
@@ -205,6 +207,29 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     [price, selectedToken]
   );
 
+  const startWithSubsidy = useStartWithSubsidy();
+
+  const resolveSubsidyProviders = useCallback(
+    () =>
+      selectedEnv && selectedToken && account.address
+        ? getJobSubsidyProviders({
+            cost: totalCost,
+            jobType: SubsidyJobType.SERVICE,
+            nodeAddress: selectedEnv.environment.consumerAddress,
+            payer: account.address,
+            tokenAddress: selectedToken.address,
+          })
+        : Promise.resolve(undefined),
+    [account.address, selectedEnv, selectedToken, totalCost]
+  );
+
+  const { isQuoting: isSubsidyQuoting, payerCost } = usePayerCost({
+    cost: totalCost,
+    jobType: SubsidyJobType.SERVICE,
+    nodeAddress: selectedEnv?.environment.consumerAddress,
+    tokenAddress: selectedToken?.address,
+  });
+
   /**
    * Whether the pay button can run at all. The button tops escrow up from the wallet itself, so an
    * empty escrow is fine; what it can't fix is a wallet that doesn't cover the deposit, or balances
@@ -219,7 +244,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     const requirement = computeEscrowRequirement({
       snapshot: { authorizations, escrowBalance, walletBalance },
-      totalCost,
+      totalCost: payerCost,
       tokenAddress: selectedToken.address,
       requiredLockSeconds: escrowLockSeconds,
     });
@@ -227,7 +252,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       return 0;
     }
     return roundTokenAmount(requirement.depositAmount - walletBalance, selectedToken.address, 'up');
-  }, [authorizations, escrowBalance, walletBalance, totalCost, selectedToken, escrowLockSeconds]);
+  }, [authorizations, escrowBalance, walletBalance, payerCost, selectedToken, escrowLockSeconds]);
   const paymentBlocked =
     !isEditMode && !!selectedEnv && !!selectedToken && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
 
@@ -329,7 +354,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     const tokenAddress = selectedToken.address;
     const requirement = computeEscrowRequirement({
       snapshot: info,
-      totalCost,
+      totalCost: payerCost,
       tokenAddress,
       requiredLockSeconds: escrowLockSeconds,
     });
@@ -372,6 +397,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedEnv,
     selectedToken,
     totalCost,
+    payerCost,
     jobDurationSeconds,
     escrowLockSeconds,
     loadPaymentInfo,
@@ -552,11 +578,20 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // The node locks the extension cost in escrow — top up funds/authorization first if needed.
       await ensureEscrowForSelection();
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceExtend(nodeUri, token, targetServiceId, jobDurationSeconds, {
-          chainId: CHAIN_ID,
-          token: selectedToken.address,
-        })
+      const subsidyProviders = await resolveSubsidyProviders();
+      await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceExtend(
+              nodeUri,
+              token,
+              targetServiceId,
+              jobDurationSeconds,
+              { chainId: CHAIN_ID, token: selectedToken.address },
+              subsidyProviders
+            )
+          ),
+        { action: 'prolong', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       posthog.capture('inference_service_prolonged', {
         serviceId: targetServiceId,
@@ -593,6 +628,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
+    resolveSubsidyProviders,
+    startWithSubsidy,
     targetServiceId,
     selectedEnv,
     selectedToken,
@@ -761,8 +798,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // The node locks the service cost in escrow right after start — deposit/authorize first if
       // the current escrow state can't cover it (one bundled tx on smart accounts).
       const escrowDeposited = await ensureEscrowForSelection();
-      const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceStart(nodeUri, token, startParams)
+      const subsidyProviders = await resolveSubsidyProviders();
+      const [job] = await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
+          ),
+        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -798,6 +840,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
+    resolveSubsidyProviders,
+    startWithSubsidy,
     selectedModels,
     modelParamsByModel,
     selectedEnv,
@@ -885,8 +929,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw buildError;
       }
       const escrowDeposited = await ensureEscrowForSelection();
-      const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceStart(nodeUri, token, startParams)
+      const subsidyProviders = await resolveSubsidyProviders();
+      const [job] = await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
+          ),
+        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -922,6 +971,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
+    resolveSubsidyProviders,
+    startWithSubsidy,
     selectedTemplate,
     selectedEnv,
     selectedToken,
@@ -1125,7 +1176,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                       authorizations={authorizations}
                       escrowBalance={escrowBalance ?? 0}
                       loadPaymentInfo={loadPaymentInfo}
+                      nodeAddress={selectedEnv?.environment.consumerAddress}
                       selectedToken={selectedToken}
+                      subsidyJobType={SubsidyJobType.SERVICE}
                       topupSource="inference"
                       totalCost={totalCost}
                       walletBalance={walletBalance ?? 0}
@@ -1187,7 +1240,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               // Launch/extend/restart all need the wallet (auth token signature + escrow tx). When it
               // isn't connected, prompt the login modal instead of stranding the user on a dead button;
               // once connected, gate only on the P2P layer being ready.
-              nextDisabled={account.address ? !isReady || paymentBlocked : false}
+              nextDisabled={account.address ? !isReady || paymentBlocked || isSubsidyQuoting : false}
               nextLabel={
                 !account.address
                   ? 'Connect wallet'

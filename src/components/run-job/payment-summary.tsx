@@ -1,8 +1,11 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import PaymentSubsidy from '@/components/run-job/payment-subsidy';
 import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
 import { getSupportedTokens } from '@/constants/tokens';
 import { SelectedToken } from '@/context/run-job-context';
+import { SubsidyJobType } from '@/lib/subsidy';
+import { useSubsidyQuote } from '@/lib/use-subsidy';
 import { BASE_USDC, DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
 import { Authorizations } from '@/types/payment';
 import { formatTokenAmount, roundTokenAmount, sharedTokenAmountDecimals } from '@/utils/formatters';
@@ -16,6 +19,8 @@ type PaymentSummaryProps = {
   authorizations: Authorizations | null;
   escrowBalance: number | null;
   loadPaymentInfo: () => void;
+  subsidyJobType: SubsidyJobType;
+  nodeAddress?: string;
   selectedToken: SelectedToken;
   /** Which payment step renders this, for the card top-up's analytics. */
   topupSource: 'run_job' | 'inference';
@@ -37,7 +42,7 @@ const SummaryRow = ({
   action?: React.ReactNode;
   chip?: React.ReactNode;
   error?: boolean;
-  label: string;
+  label: React.ReactNode;
   muted?: boolean;
   symbol: string;
   value: string;
@@ -59,7 +64,9 @@ const PaymentSummary = ({
   authorizations,
   escrowBalance,
   loadPaymentInfo,
+  nodeAddress,
   selectedToken,
+  subsidyJobType,
   topupSource,
   totalCost,
   walletBalance,
@@ -72,6 +79,12 @@ const PaymentSummary = ({
   });
 
   const tokenSymbol = selectedToken.symbol;
+  const { data: subsidyQuote } = useSubsidyQuote({
+    cost: totalCost,
+    jobType: subsidyJobType,
+    nodeAddress,
+    tokenAddress: selectedToken.address,
+  });
 
   const currentLocked = Number(authorizations?.currentLockedAmount ?? 0);
   const maxLocked = Number(authorizations?.maxLockedAmount ?? 0);
@@ -81,9 +94,10 @@ const PaymentSummary = ({
   // the wallet and re-authorizes in the same transaction. So they're only errors when the wallet
   // can't cover the deposit; otherwise they're what the payment is about to do, not a blocker.
   // Rounded like computeEscrowRequirement, so this agrees with the button's own gate.
-  const insufficientAutorized = maxLocked < totalCost + currentLocked;
-  const insufficientEscrow = escrowBalance !== null && escrowBalance < totalCost;
-  const depositGap = roundTokenAmount(Math.max(0, totalCost - escrow), selectedToken.address, 'up');
+  const payerCost = Math.max(0, totalCost - (subsidyQuote?.total ?? 0));
+  const insufficientAutorized = maxLocked < payerCost + currentLocked;
+  const insufficientEscrow = escrowBalance !== null && escrowBalance < payerCost;
+  const depositGap = roundTokenAmount(Math.max(0, payerCost - escrow), selectedToken.address, 'up');
   const insufficientWallet = insufficientEscrow && walletBalance < depositGap;
 
   // The collapsed rows are limits — irrelevant while they're comfortably satisfied, worth seeing
@@ -99,7 +113,7 @@ const PaymentSummary = ({
   // Every amount renders with as many decimals as the most precise one, so the column lines up
   // without padding values to a fixed width they don't need.
   const decimals = sharedTokenAmountDecimals(
-    [totalCost, escrow, currentLocked, maxLocked, walletBalance],
+    [totalCost, escrow, currentLocked, maxLocked, walletBalance, subsidyQuote?.total ?? 0, payerCost],
     selectedToken.address
   );
   const format = (amount: number) => formatTokenAmount(amount, selectedToken.address, decimals);
@@ -157,6 +171,25 @@ const PaymentSummary = ({
           escrow and wallet rows show by default; the limits sit behind the details toggle, which
           closes the card. */}
       <div className={styles.rows}>
+        <PaymentSubsidy
+          format={format}
+          jobType={subsidyJobType}
+          nodeAddress={nodeAddress}
+          renderCostAfter={(cost) => (
+            <SummaryRow
+              label={
+                <>
+                  Your cost after subsidy <span className={styles.rowLabelHint}>(estimate)</span>
+                </>
+              }
+              symbol={tokenSymbol}
+              value={format(cost)}
+            />
+          )}
+          tokenAddress={selectedToken.address}
+          totalCost={totalCost}
+        />
+
         <SummaryRow
           chip={
             insufficientWallet ? (
