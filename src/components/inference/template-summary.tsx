@@ -3,7 +3,7 @@ import BundleIncludes from '@/components/inference/bundle-includes';
 import { decorate } from '@/components/inference/template-card';
 import { accentVars, templateImageRef } from '@/components/inference/template-visual';
 import { useTheme } from '@/lib/use-theme';
-import { AppTemplate, includesSummary } from '@/types/templates';
+import { AppTemplate, includesSummary, templateDescriptionText } from '@/types/templates';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Collapse } from '@mui/material';
 import cx from 'classnames';
@@ -121,7 +121,7 @@ const TemplateSummary: React.FC<TemplateSummaryProps> = ({ template, envValues, 
               describes the template, not what is running.
             </p>
           )}
-          {template.description && <p className={styles.desc}>{template.description}</p>}
+          {template.description && <p className={styles.desc}>{templateDescriptionText(template.description)}</p>}
 
           {includes.length > 0 && (
             // First group in the panel: on a running service this is what the user most often wants to

@@ -98,7 +98,7 @@ const InferenceIndexPage: React.FC = () => {
                 Browse services
               </Button>
             }
-            description="Start an app like ComfyUI, Open WebUI or JupyterLab and add your own models."
+            description="Start an app like ComfyUI, OpenCode or Open WebUI and add your own models."
             icon={<WidgetsOutlinedIcon />}
             title="Services"
           />
