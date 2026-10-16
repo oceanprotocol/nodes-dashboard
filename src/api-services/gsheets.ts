@@ -56,8 +56,18 @@ function getRange(row?: number) {
 
 let sheetsService: sheets_v4.Sheets | undefined;
 
+const REQUIRED_SHEETS_ENV_VARS = [
+  'SUBSIDY_GSHEETS_SPREADSHEET_ID',
+  'SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL',
+  'SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY',
+];
+
 function getSheetsService() {
   if (!sheetsService) {
+    const missingEnvVars = REQUIRED_SHEETS_ENV_VARS.filter((name) => !process.env[name]);
+    if (missingEnvVars.length > 0) {
+      throw new Error('Data service is not configured.');
+    }
     const auth = new google.auth.JWT({
       email: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL,
       key: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),

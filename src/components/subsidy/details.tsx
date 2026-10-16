@@ -84,12 +84,11 @@ const Details: React.FC = () => {
           router.push('/subsidy/claim');
         }
       } catch (error) {
-        captureError('subsidy_details_failed', error, { httpStatus: getHttpStatus(error) });
-        if (axios.isAxiosError(error) && error.response?.data?.message) {
-          toast.error(error.response.data.message);
-        } else {
-          toast.error('Failed to submit form. Please try again.');
-        }
+        const responseMessage: string | undefined = axios.isAxiosError(error)
+          ? error.response?.data?.message
+          : undefined;
+        captureError('subsidy_details_failed', error, { httpStatus: getHttpStatus(error), message: responseMessage });
+        toast.error(responseMessage ?? 'Failed to submit form. Please try again.');
         console.error('Failed to submit form', error);
       }
     },

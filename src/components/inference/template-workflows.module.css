@@ -67,6 +67,7 @@
   line-height: 21px;
   color: var(--text-secondary);
   text-wrap: pretty;
+  white-space: pre-wrap;
 }
 
 .moreButton {
