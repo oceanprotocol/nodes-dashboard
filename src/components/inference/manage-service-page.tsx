@@ -7,8 +7,9 @@ import InferenceEnvironmentCard from '@/components/inference/inference-environme
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
-import ProvisioningProgress from '@/components/inference/provisioning-progress';
+// import ProvisioningProgress from '@/components/inference/provisioning-progress';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import { ServiceStartupIndicator } from '@/components/inference/service-startup-progress';
 import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
 import TemplateSummary from '@/components/inference/template-summary';
 import ProgressBar from '@/components/progress-bar/progress-bar';
@@ -38,6 +39,7 @@ import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
 import { EscrowLock } from '@/types/payment';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
+import { getModelDownload, getServiceReadiness, isServiceReady } from '@/types/service-readiness';
 import { isBundle } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
@@ -91,6 +93,10 @@ function serviceBaseUrl(job: ServiceJob | null): string | null {
   const match = job.endpoints.find((ep) => ep.containerPort === port);
   return (match ?? job.endpoints[0]).url;
 }
+
+// How long a service may report not-ready before its app can be opened anyway: a node that cannot
+// reach the container never sees it ready, and must not lock the user out of a paid session.
+const OPEN_ANYWAY_AFTER_MS = 10 * 60 * 1000;
 
 // How often to poll the node for the service status while it's still spinning up.
 const POLL_INTERVAL_MS = 4000;
@@ -635,8 +641,65 @@ const ManageServicePage: React.FC = () => {
     return workflow ? templateOpenUrl(url, workflow.id) : url;
   }, [template, job]);
 
+  /**
+   * Whether the workload can actually take a request, per the node's own probe of the engine (see
+   * types/service-readiness). `Running` only says the container started: vLLM reports it minutes
+   * before the weights are loaded, and the endpoint 503s for that whole window. Nodes that don't
+   * report readiness answer `true`, so they behave exactly as before.
+   */
+  const readiness = getServiceReadiness(job);
+  const isReady = isServiceReady(job);
+  // A service that answered and then stopped is worth retrying at once; one still warming up after
+  // OPEN_ANYWAY_AFTER_MS may simply be unreachable from the node. Re-evaluated on every status poll.
+  const canOpenAnyway =
+    !!job &&
+    !isReady &&
+    job.status === ServiceStatusNumber.Running &&
+    (readiness?.state === 'failing' || Date.now() - new Date(job.dateCreated).getTime() >= OPEN_ANYWAY_AFTER_MS);
+  // How long the user actually waited between paying and being able to call the endpoint — the
+  // number this whole feature exists to make visible, and which nothing measured before. Fired once
+  // per service (ref-guarded: the status poll re-renders every 4s), from the node's own readySince
+  // against the container's start, so a page opened late still reports the real figure.
+  const readyReportedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (readiness?.state !== 'ready' || !job || readyReportedRef.current === id) {
+      return;
+    }
+    readyReportedRef.current = id;
+    const startedMs = new Date(job.dateCreated).getTime();
+    posthog.capture('inference_service_ready', {
+      serviceId: id,
+      branch,
+      secondsToReady:
+        readiness.readySince && Number.isFinite(startedMs)
+          ? Math.max(0, Math.round((readiness.readySince - startedMs) / 1000))
+          : undefined,
+    });
+  }, [readiness?.state, readiness?.readySince, job, id, branch]);
+  // A bundle's model downloads have ended, per the node's download report: every listed item is in
+  // place, or the app answers with some still missing (a failed download does not stop it). Once per
+  // service, like the event above.
+  const provisioningReportedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const download = getModelDownload(job);
+    if (!isBundleService || !template || download?.filesTotal === undefined || provisioningReportedRef.current === id) {
+      return;
+    }
+    if (download.filesComplete < download.filesTotal && readiness?.state !== 'ready') {
+      return;
+    }
+    provisioningReportedRef.current = id;
+    posthog.capture('inference_provisioning_completed', {
+      branch,
+      serviceId: id,
+      templateId: template.id,
+      doneCount: download.filesComplete,
+      failedCount: download.filesTotal - download.filesComplete,
+      total: download.filesTotal,
+    });
+  }, [job, isBundleService, template, readiness?.state, id, branch]);
   const status = job
-    ? getServiceStatusView(job.status, job.statusText)
+    ? getServiceStatusView(job.status, job.statusText, readiness)
     : { kind: 'pending' as const, label: jobLoading ? 'Loading…' : 'Unknown' };
   const isRunning = job?.status === ServiceStatusNumber.Running;
   const jobServiceIdForLock = job?.serviceId;
@@ -987,10 +1050,15 @@ const ManageServicePage: React.FC = () => {
                     so the label has to be true for both rather than claim a custom selection. */}
                 <div className={styles.meta}>{isTemplate ? 'Template app' : 'Model service'}</div>
               </div>
-              <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
-                {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
-                {status.label}
-              </span>
+              <div className={styles.headerStatus}>
+                {/* How far along the startup is, next to what the status says it is. Renders
+                    nothing once the engine answers, or once a download with no readiness ends. */}
+                <ServiceStartupIndicator className={styles.headerProgress} job={job} />
+                <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
+                  {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
+                  {status.label}
+                </span>
+              </div>
             </div>
 
             {jobError && <div className="textAccent1">{jobError}</div>}
@@ -1080,10 +1148,8 @@ const ManageServicePage: React.FC = () => {
                 the user into the wrong flow on a guess. Restart is unaffected: it needs no identity. */}
           </Card>
 
-          {/* A bundle's weights land minutes after the container reports Running, so say so here
-              rather than letting the user open an app with empty model pickers. Advisory only —
-              derived from the container log, gated on the container actually being up, and gone the
-              moment the script reports completion. */}
+          {/* Replaced by the node's download report in the header (ServiceStartupIndicator); its
+              completion event moved to inference_provisioning_completed above.
           {isBundleService && template && isRunning && (
             <ProvisioningProgress
               active={isRunning}
@@ -1093,7 +1159,7 @@ const ManageServicePage: React.FC = () => {
               serviceId={id}
               template={template}
             />
-          )}
+          )} */}
 
           {/* Model. Rendered even when there's no model to name: the card is the only place the model
               appears, so "unknown" must be stated rather than the card silently vanishing — otherwise
@@ -1185,7 +1251,9 @@ const ManageServicePage: React.FC = () => {
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
             <div className={styles.howToHead}>
               <h3>How to use</h3>
-              {!isTemplate && baseUrl && !isExpired ? (
+              {/* The engine's own Swagger page is served by the engine, so it 503s for exactly as
+                  long as the endpoint does — offering it while warming up is another dead link. */}
+              {!isTemplate && baseUrl && !isExpired && isReady ? (
                 <div className={styles.docsActions}>
                   <Button
                     color="accent1"
@@ -1219,30 +1287,46 @@ const ManageServicePage: React.FC = () => {
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
                     <div className={`chip chipGlass ${styles.endpointChip}`}>App URL</div>
                     <span className={styles.endpointPath}>{templateUiUrl}</span>
-                    <span className={styles.endpointDescription}>Open this app&apos;s web UI in a new tab</span>
-                    <a
-                      className={styles.endpointAction}
-                      href={templateUiUrl}
-                      onClick={() =>
-                        posthog.capture('inference_service_consumed', {
-                          serviceId: id,
-                          kind: 'open_ui',
-                          templateId: template?.id,
-                          branch,
-                        })
-                      }
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <Button
-                        color="accent1"
-                        contentAfter={<OpenInNewIcon fontSize="inherit" />}
-                        size="sm"
-                        variant="filled"
+                    <span className={styles.endpointDescription}>
+                      {isReady
+                        ? "Open this app's web UI in a new tab"
+                        : canOpenAnyway
+                          ? 'Still starting up — it may not respond yet'
+                          : 'Not serving requests yet — the app is still starting up'}
+                    </span>
+                    {/* The URL stays visible while the app warms up (it IS this service's address,
+                        and hiding it reads as "something went wrong"), but the button is a plain
+                        disabled button rather than a link: a disabled link here still navigates,
+                        which is the dead tab this whole gate exists to prevent. */}
+                    {isReady || canOpenAnyway ? (
+                      <a
+                        className={styles.endpointAction}
+                        href={templateUiUrl}
+                        onClick={() =>
+                          posthog.capture('inference_service_consumed', {
+                            serviceId: id,
+                            kind: isReady ? 'open_ui' : 'open_ui_anyway',
+                            templateId: template?.id,
+                            branch,
+                          })
+                        }
+                        rel="noreferrer"
+                        target="_blank"
                       >
-                        Open UI
+                        <Button
+                          color="accent1"
+                          contentAfter={<OpenInNewIcon fontSize="inherit" />}
+                          size="sm"
+                          variant="filled"
+                        >
+                          {isReady ? 'Open UI' : 'Open anyway'}
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button className={styles.endpointAction} color="accent1" disabled size="sm" variant="filled">
+                        Starting…
                       </Button>
-                    </a>
+                    )}
                   </Card>
                 </div>
               ) : (
@@ -1261,7 +1345,9 @@ const ManageServicePage: React.FC = () => {
                     <div className={`chip chipGlass ${styles.endpointChip}`}>Base URL</div>
                     <span className={styles.endpointPath}>{baseUrl}</span>
                     <span className={styles.endpointDescription}>
-                      OpenAI-compatible. Append a route from the references above
+                      {isReady
+                        ? 'OpenAI-compatible. Append a route from the references above'
+                        : 'Not accepting requests yet — calls fail until the engine finishes loading'}
                     </span>
                     {/* CopyButton takes no click callback, so wrap it — analytics only, copy
                         behaviour is unchanged. */}
