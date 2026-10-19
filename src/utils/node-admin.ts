@@ -2,6 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import type { NodeUri } from '@/contexts/P2PContext';
 import { getRpc } from '@/lib/constants';
 import { directNodeCommandJson } from '@/lib/direct-node-command';
+import { AdminAccessList } from '@/types/nodes';
 import { checkAddressOnAccessList } from '@/utils/access-list';
 import { ethers } from 'ethers';
 
@@ -9,6 +10,10 @@ export type NodeAdmins = {
   addresses?: string[] | null;
   accessLists?: Record<string, string[] | undefined> | null;
 };
+
+export function toNodeAdminAccessLists(lists: AdminAccessList[] | null | undefined): NodeAdmins['accessLists'] {
+  return Object.fromEntries((lists ?? []).map(({ chainId, contracts }) => [chainId, contracts]));
+}
 
 type NodeStatusAdmins = {
   allowedAdmins?: NodeAdmins;
