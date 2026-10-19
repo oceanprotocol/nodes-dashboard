@@ -1,10 +1,10 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { useP2P } from '@/contexts/P2PContext';
-import { directNodeCommandJson } from '@/lib/direct-node-command';
 import { useAccessList } from '@/lib/use-access-list';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { Node } from '@/types/nodes';
 import {
+  fetchNodeAdmins,
   getAdminAccessListContracts,
   isAddressInAdmins,
   isWalletOnAdminAccessLists,
@@ -13,10 +13,6 @@ import {
 } from '@/utils/node-admin';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-
-type NodeStatusAdmins = {
-  allowedAdmins?: NodeAdmins;
-};
 
 type NodeAdminsState = {
   addresses: string[];
@@ -45,23 +41,7 @@ export function useNodeAdmins(node: Node | null | undefined): NodeAdminsState {
       if (!nodeId) {
         return null;
       }
-      if (isP2PReady) {
-        try {
-          const status: NodeStatusAdmins = await sendCommand(currentAddrs?.length ? currentAddrs : [nodeId], {
-            command: 'status',
-          });
-          return status?.allowedAdmins ?? null;
-        } catch (error) {
-          console.error('Failed to fetch node status over P2P:', error);
-        }
-      }
-      const status = await directNodeCommandJson<NodeStatusAdmins>({
-        command: 'status',
-        label: 'Node status',
-        multiaddrs: currentAddrs,
-        peerId: nodeId,
-      });
-      return status?.allowedAdmins ?? null;
+      return fetchNodeAdmins({ currentAddrs, isP2PReady, nodeId, sendCommand });
     },
   });
 

@@ -3,17 +3,18 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
+import NodeLookupModal from '@/components/modal/node-lookup-modal';
 import BucketsTable from '@/components/node-storage/buckets-table';
 import CreateBucketModal from '@/components/node-storage/create-bucket-modal';
-import ListNodeBucketsModal from '@/components/node-storage/list-node-buckets-modal';
 import { getApiRoute } from '@/config';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { findNode } from '@/services/node-lookup';
 import { StorageNode } from '@/types/node-storage';
 import { formatError } from '@/utils/formatters';
-import { peerIdToStorageNode, tokenNodeToStorageNode } from '@/utils/node-storage';
+import { peerIdToStorageNode, tokenNodeToStorageNode, toStorageNode } from '@/utils/node-storage';
 import AddIcon from '@mui/icons-material/Add';
 import CachedIcon from '@mui/icons-material/Cached';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -156,8 +157,9 @@ const RemoteStorageManager: React.FC = () => {
     });
   }, [nodes]);
 
-  const handleListByPeerId = async (peerId: string) => {
-    const node = peerIdToStorageNode(peerId);
+  const handleListNode = async (idOrName: string) => {
+    const indexedNode = await findNode(idOrName);
+    const node = indexedNode ? toStorageNode(indexedNode) : peerIdToStorageNode(idOrName);
     setAddedNodes((prev) => (prev.some((added) => added.nodeId === node.nodeId) ? prev : [...prev, node]));
     setOpenOverrides((prev) => ({ ...prev, [node.nodeId]: true }));
     return listBuckets(node);
@@ -200,7 +202,14 @@ const RemoteStorageManager: React.FC = () => {
         }}
         onSave={(node) => setOpenOverrides((prev) => ({ ...prev, [node.nodeId]: true }))}
       />
-      <ListNodeBucketsModal isOpen={lookupOpen} onClose={() => setLookupOpen(false)} onSubmit={handleListByPeerId} />
+      <NodeLookupModal
+        description="Not seeing buckets from a node? Enter its node ID or friendly name below."
+        isOpen={lookupOpen}
+        onClose={() => setLookupOpen(false)}
+        onSubmit={handleListNode}
+        submitLabel="List buckets"
+        title="List node buckets"
+      />
       <Card direction="column" padding="md" radius="md" shadow="black" spacing="md" variant="glass-shaded">
         <div className={styles.cardHeader}>
           <h3>Buckets</h3>

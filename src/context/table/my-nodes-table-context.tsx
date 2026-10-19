@@ -1,5 +1,7 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
+import { recallAddedNodeIds } from '@/services/added-nodes-memory';
+import { fetchNodesByIds } from '@/services/node-lookup';
 import { Node } from '@/types';
 import { FilterOperator, MyNodesFilters } from '@/types/filters';
 import { GridFilterModel } from '@mui/x-data-grid';
@@ -87,18 +89,23 @@ export const MyNodesTableContextProvider = ({
     setLoading(true);
     try {
       const response = await axios.get(fetchUrl);
-      const sanitizedData = response.data.nodes.map((element: any, index: number) => ({
+      const nodes: Node[] = response.data.nodes;
+      const listedIds = new Set(nodes.map((node) => node.id));
+      const addedIds = recallAddedNodeIds(ownerId).filter((id) => !listedIds.has(id));
+      const addedNodes =
+        crtPage === 1 && filterModel.items.length === 0 ? await fetchNodesByIds(addedIds, searchTerm) : [];
+      const sanitizedData = [...nodes, ...addedNodes].map((element, index) => ({
         ...element,
         index: (crtPage - 1) * pageSize + index + 1,
       }));
       setData(sanitizedData);
-      setTotalItems(response.data.pagination.totalItems);
+      setTotalItems(response.data.pagination.totalItems + addedNodes.length);
     } catch (error) {
       setError(error);
     } finally {
       setLoading(false);
     }
-  }, [crtPage, pageSize, fetchUrl, ownerId]);
+  }, [crtPage, pageSize, fetchUrl, filterModel, ownerId, searchTerm]);
 
   useEffect(() => {
     let mounted = true;

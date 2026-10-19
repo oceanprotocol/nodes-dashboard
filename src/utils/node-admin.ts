@@ -1,5 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
+import type { NodeUri } from '@/contexts/P2PContext';
 import { getRpc } from '@/lib/constants';
+import { directNodeCommandJson } from '@/lib/direct-node-command';
 import { checkAddressOnAccessList } from '@/utils/access-list';
 import { ethers } from 'ethers';
 
@@ -7,6 +9,40 @@ export type NodeAdmins = {
   addresses?: string[] | null;
   accessLists?: Record<string, string[] | undefined> | null;
 };
+
+type NodeStatusAdmins = {
+  allowedAdmins?: NodeAdmins;
+};
+
+export async function fetchNodeAdmins({
+  currentAddrs,
+  isP2PReady,
+  nodeId,
+  sendCommand,
+}: {
+  currentAddrs?: string[];
+  isP2PReady: boolean;
+  nodeId: string;
+  sendCommand: (nodeUri: NodeUri, command: any) => Promise<any>;
+}): Promise<NodeAdmins | null> {
+  if (isP2PReady) {
+    try {
+      const status: NodeStatusAdmins = await sendCommand(currentAddrs?.length ? currentAddrs : [nodeId], {
+        command: 'status',
+      });
+      return status?.allowedAdmins ?? null;
+    } catch (error) {
+      console.error('Failed to fetch node status over P2P:', error);
+    }
+  }
+  const status = await directNodeCommandJson<NodeStatusAdmins>({
+    command: 'status',
+    label: 'Node status',
+    multiaddrs: currentAddrs,
+    peerId: nodeId,
+  });
+  return status?.allowedAdmins ?? null;
+}
 
 export function isAddressInAdmins(addresses: string[] | null | undefined, wallet: string | null | undefined): boolean {
   if (!wallet || !addresses?.length) {
