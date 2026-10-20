@@ -7,6 +7,9 @@ type NodesResponse = {
 };
 
 const NAME_SEARCH_SIZE = 10;
+const PEER_ID_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{46,}$/;
+
+export const isPeerId = (value: string) => PEER_ID_PATTERN.test(value.trim());
 
 const fetchNodes = async (params: Record<string, string | number>): Promise<Node[]> => {
   const response = await axios.get<NodesResponse>(getApiRoute('nodes'), { params });
@@ -29,13 +32,12 @@ export async function findNode(idOrName: string): Promise<Node | null> {
   return byName[0] ?? null;
 }
 
-export async function fetchNodesByIds(ids: string[], search?: string): Promise<Node[]> {
+export async function fetchNodesByIds(ids: string[]): Promise<Node[]> {
   if (ids.length === 0) {
     return [];
   }
   return fetchNodes({
     filters: JSON.stringify({ id: { value: ids.join(',') } }),
     size: ids.length,
-    ...(search ? { search } : {}),
   });
 }

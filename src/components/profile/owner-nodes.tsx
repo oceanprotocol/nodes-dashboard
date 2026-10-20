@@ -3,22 +3,47 @@ import Card from '@/components/card/card';
 import NodeLookupModal from '@/components/modal/node-lookup-modal';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
-import { useMyNodesTableContext } from '@/context/table/my-nodes-table-context';
-import { useP2P } from '@/contexts/P2PContext';
+import { getApiRoute } from '@/config';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { rememberAddedNodeId } from '@/services/added-nodes-memory';
-import { findNode } from '@/services/node-lookup';
-import { AnyNode } from '@/types/nodes';
-import { fetchNodeAdmins, isNodeAdmin } from '@/utils/node-admin';
+import { recallAddedNodeIds, rememberAddedNodeId } from '@/services/added-nodes-memory';
+import { fetchNodesByIds, findNode } from '@/services/node-lookup';
+import { AnyNode, Node } from '@/types/nodes';
+import { isNodeAdmin, toNodeAdminAccessLists } from '@/utils/node-admin';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { useState } from 'react';
 import styles from './owner-nodes.module.css';
 
+const MY_NODES_LIMIT = 1000;
+
+const fetchMyNodes = async (owner: string): Promise<Node[]> => {
+  const [adminResponse, addedNodes] = await Promise.all([
+    axios.get<{ nodes: Node[] }>(`${getApiRoute('admin')}/${owner}/myNodes`, {
+      params: { size: MY_NODES_LIMIT, sort: JSON.stringify({ totalScore: 'desc' }) },
+    }),
+    fetchNodesByIds(recallAddedNodeIds(owner)).catch((error) => {
+      console.error('Failed to fetch added nodes:', error);
+      return [] as Node[];
+    }),
+  ]);
+  const adminNodes = adminResponse.data.nodes;
+  const listedIds = new Set(adminNodes.map((node) => node.id));
+  return [...adminNodes, ...addedNodes.filter((node) => !listedIds.has(node.id))].map((node, index) => ({
+    ...node,
+    index: index + 1,
+  }));
+};
+
 const OwnerNodes = () => {
   const { account } = useOceanAccount();
-  const { isReady: isP2PReady, sendCommand } = useP2P();
-  const tableContext = useMyNodesTableContext();
 
   const [addOpen, setAddOpen] = useState(false);
+
+  const myNodesQuery = useQuery({
+    queryKey: ['my-nodes', account.address],
+    enabled: !!account.address,
+    queryFn: () => (account.address ? fetchMyNodes(account.address) : []),
+  });
 
   const handleAddNode = async (idOrName: string): Promise<string | null> => {
     if (!account.address) {
@@ -28,12 +53,12 @@ const OwnerNodes = () => {
     if (!node?.id) {
       return 'Node not found';
     }
-    const admins = await fetchNodeAdmins({ currentAddrs: node.currentAddrs, isP2PReady, nodeId: node.id, sendCommand });
+    const admins = { addresses: node.allowedAdmins, accessLists: toNodeAdminAccessLists(node.adminAccessLists) };
     if (!(await isNodeAdmin(admins, account.address))) {
       return 'Your wallet is not an admin of this node';
     }
     rememberAddedNodeId(account.address, node.id);
-    await tableContext.fetchData();
+    await myNodesQuery.refetch();
     return null;
   };
 
@@ -59,10 +84,10 @@ const OwnerNodes = () => {
         </div>
       </div>
       <Table<AnyNode>
-        context={tableContext}
         autoHeight
-        paginationType="context"
-        showToolbar
+        data={myNodesQuery.data ?? []}
+        loading={myNodesQuery.isFetching}
+        paginationType="none"
         tableType={TableTypeEnum.MY_NODES}
       />
     </Card>

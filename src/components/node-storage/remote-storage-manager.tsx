@@ -11,8 +11,9 @@ import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { findNode } from '@/services/node-lookup';
+import { findNode, isPeerId } from '@/services/node-lookup';
 import { StorageNode } from '@/types/node-storage';
+import { Node } from '@/types/nodes';
 import { formatError } from '@/utils/formatters';
 import { peerIdToStorageNode, tokenNodeToStorageNode, toStorageNode } from '@/utils/node-storage';
 import AddIcon from '@mui/icons-material/Add';
@@ -158,7 +159,17 @@ const RemoteStorageManager: React.FC = () => {
   }, [nodes]);
 
   const handleListNode = async (idOrName: string) => {
-    const indexedNode = await findNode(idOrName);
+    let indexedNode: Node | null = null;
+    try {
+      indexedNode = await findNode(idOrName);
+    } catch (error) {
+      if (!isPeerId(idOrName)) {
+        throw error;
+      }
+    }
+    if (!indexedNode && !isPeerId(idOrName)) {
+      return 'Node not found';
+    }
     const node = indexedNode ? toStorageNode(indexedNode) : peerIdToStorageNode(idOrName);
     setAddedNodes((prev) => (prev.some((added) => added.nodeId === node.nodeId) ? prev : [...prev, node]));
     setOpenOverrides((prev) => ({ ...prev, [node.nodeId]: true }));
