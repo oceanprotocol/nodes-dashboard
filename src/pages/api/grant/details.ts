@@ -8,6 +8,7 @@ import {
   GRANT_HARDWARE_CHOICES,
   GRANT_OS_CHOICES,
   GRANT_ROLE_CHOICES,
+  GRANT_VALIDATION_FAILED_MESSAGE,
   GrantDetails,
   GrantStatus,
   GrantWithStatus,
@@ -179,8 +180,11 @@ export default async function handler(request: NextApiRequest, response: NextApi
   }
 
   const validationResult = await validateGrantDataWithAI(data);
+  if (validationResult.unavailable) {
+    return response.status(503).json({ message: 'Validation service unavailable. Please try again later.' });
+  }
   if (!validationResult.valid) {
-    return response.status(400).json({ message: `Validation failed: ${validationResult.reason}` });
+    return response.status(400).json({ message: `${GRANT_VALIDATION_FAILED_MESSAGE}: ${validationResult.reason}` });
   }
 
   // Generate OTP and save with grant details

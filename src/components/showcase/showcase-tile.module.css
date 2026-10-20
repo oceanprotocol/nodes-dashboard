@@ -35,37 +35,34 @@
   }
 }
 
+.link {
+  border-radius: inherit;
+  inset: 0;
+  position: absolute;
+  z-index: 2;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: -2px;
+  }
+}
+
 /* Positions the global `chip chipPrimaryOutlined` (globals.css) on the media and lays out its mark and
    label; its look comes from there. The solid outlined variant keeps it legible over any image. */
 .chip {
+  align-items: center;
   bottom: 10px;
+  display: inline-flex;
+  gap: 6px;
   left: 10px;
   max-width: calc(100% - 20px);
+  min-width: 0;
   position: absolute;
   z-index: 1;
-
-  &,
-  .chipLink {
-    align-items: center;
-    display: inline-flex;
-    gap: 6px;
-    min-width: 0;
-  }
 
   /* Tighter at the mark's side, so the round mark sits in the chip's curve. */
   &:has(.chipMark, .chipAvatar) {
     padding-left: 3px;
-  }
-
-  .chipLink {
-    color: inherit;
-    max-width: 100%;
-
-    &:focus-visible {
-      border-radius: inherit;
-      outline: 2px solid var(--accent1);
-      outline-offset: 4px;
-    }
   }
 
   @media (max-width: 767px) {

@@ -12,6 +12,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const REQUIRED_GMAIL_ENV_VARS = [
+  'GRANT_GMAIL_ADDRESS',
+  'GRANT_GMAIL_OAUTH_CLIENT_ID',
+  'GRANT_GMAIL_OAUTH_CLIENT_SECRET',
+  'GRANT_GMAIL_OAUTH_REFRESH_TOKEN',
+];
+
 export async function sendOTP(email: string, code: string) {
   const splitCode = `${code.slice(0, 3)} ${code.slice(3, 6)}`;
   const mailOptions = {
@@ -22,6 +29,10 @@ export async function sendOTP(email: string, code: string) {
     html: getGrantOtpEmailTemplate({ otp: splitCode }),
   };
   try {
+    const missingEnvVars = REQUIRED_GMAIL_ENV_VARS.filter((name) => !process.env[name]);
+    if (missingEnvVars.length > 0) {
+      throw new Error('Mail service is not configured.');
+    }
     await transporter.sendMail(mailOptions);
   } catch (error) {
     console.error('Error sending email:', error);

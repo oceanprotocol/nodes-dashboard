@@ -1,7 +1,6 @@
 import useServiceTemplates from '@/components/hooks/use-service-templates';
 import TemplateAvatar from '@/components/inference/template-avatar';
 import { templateLogoForName, templateLogoSrc } from '@/components/inference/template-logos';
-import { showcaseSourceHref } from '@/services/showcase';
 import { ShowcaseItem } from '@/types/showcase';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
@@ -124,8 +123,8 @@ type ShowcaseTileProps = {
   className?: string;
   /** Loads the media up front instead of when it nears the viewport, for tiles that move into view. */
   eager?: boolean;
+  href?: string;
   item: ShowcaseItem;
-  /** Takes the chip link out of the tab order, for copies hidden from assistive tech. */
   inert?: boolean;
   /** Plays a video once instead of looping and reports when it ends (or can't play). */
   onVideoEnded?: () => void;
@@ -145,6 +144,7 @@ const ShowcaseTile = ({
   chip = true,
   className,
   eager,
+  href,
   inert,
   item,
   onVideoEnded,
@@ -152,13 +152,6 @@ const ShowcaseTile = ({
   sizeVh = 45,
   style,
 }: ShowcaseTileProps) => {
-  const chipContent = (
-    <>
-      <ShowcaseChipMark item={item} />
-      <span className={styles.chipLabel}>{item.source.label}</span>
-    </>
-  );
-
   return (
     <figure className={classNames(styles.tile, className)} style={{ '--ratio': ratio, ...style } as CSSProperties}>
       {item.type === 'video' ? (
@@ -176,10 +169,18 @@ const ShowcaseTile = ({
       )}
       {chip && (
         <figcaption className={classNames('chip chipPrimaryOutlined', styles.chip)}>
-          <Link className={styles.chipLink} href={showcaseSourceHref(item.source)} tabIndex={inert ? -1 : undefined}>
-            {chipContent}
-          </Link>
+          <ShowcaseChipMark item={item} />
+          <span className={styles.chipLabel}>{item.source.label}</span>
         </figcaption>
+      )}
+      {href && (
+        <Link
+          aria-label={item.source.label}
+          className={styles.link}
+          draggable={false}
+          href={href}
+          tabIndex={inert ? -1 : undefined}
+        />
       )}
     </figure>
   );

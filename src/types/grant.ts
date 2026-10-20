@@ -38,6 +38,8 @@ export enum GrantStatus {
   CLAIMED = 'claimed',
 }
 
+export const GRANT_VALIDATION_FAILED_MESSAGE = 'Validation failed';
+
 export type SubmitGrantDetailsResponse = {
   shouldValidateEmail: boolean;
 };
