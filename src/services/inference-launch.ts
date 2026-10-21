@@ -411,7 +411,9 @@ export function parseEngineCommand(
 /**
  * Container env vars, sent as plaintext userData (ocean.js ECIES-encrypts before transit).
  * HF_TOKEN unlocks gated/private repos — the user's custom key/value params are launch flags on the
- * command (see buildCustomArgs), not env vars.
+ * command (see buildCustomArgs), not env vars. HF_ENDPOINT points huggingface_hub at a mirror instead
+ * of huggingface.co, and HF_HUB_DISABLE_XET=1 makes it download over plain HTTP instead of the Xet
+ * storage backend. Each is only sent when set, so an unset field leaves the library default in place.
  *
  * NCCL_NVLS_ENABLE=0 is always sent. NVLink SHARP wants multicast objects the driver exposes through
  * /dev/nvidia-caps, and a service container never gets them: ocean-node deliberately withholds
@@ -428,10 +430,19 @@ export function parseEngineCommand(
  * without NVSwitch. Ordinary NVLink P2P and ring/tree collectives are unaffected — only the NVSwitch
  * multicast reduction offload is skipped.
  */
-export function buildUserData(hfToken: string): Record<string, string> {
+export type HfEnvSettings = {
+  hfToken: string;
+  hfEndpoint: string;
+  hfHubDisableXet: boolean;
+};
+
+export function buildUserData({ hfToken, hfEndpoint, hfHubDisableXet }: HfEnvSettings): Record<string, string> {
+  const endpoint = hfEndpoint.trim();
   return {
     NCCL_NVLS_ENABLE: '0',
     ...(hfToken ? { HF_TOKEN: hfToken } : {}),
+    ...(endpoint ? { HF_ENDPOINT: endpoint } : {}),
+    ...(hfHubDisableXet ? { HF_HUB_DISABLE_XET: '1' } : {}),
   };
 }
 
@@ -681,11 +692,12 @@ export function buildInferenceRestartSpec({
   model,
   params,
   hfToken,
+  hfEndpoint,
+  hfHubDisableXet,
   appType,
-}: {
+}: HfEnvSettings & {
   model: HuggingFaceModel;
   params: ModelParameters;
-  hfToken: string;
   /**
    * Which flow this relaunch came from, so the service's labels keep describing what it now runs.
    * An omitted `metadata` reuses the stored bag, which after a model swap would name the OLD model —
@@ -699,7 +711,7 @@ export function buildInferenceRestartSpec({
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(hfToken),
+    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet }),
     ...(metadata ? { metadata } : {}),
   };
 }
@@ -718,8 +730,10 @@ export function buildInferenceStartParams({
   durationSeconds,
   tokenAddress,
   hfToken,
+  hfEndpoint,
+  hfHubDisableXet,
   appType,
-}: {
+}: HfEnvSettings & {
   model: HuggingFaceModel;
   params: ModelParameters;
   selectedEnv: SelectedInferenceEnv;
@@ -732,7 +746,6 @@ export function buildInferenceStartParams({
   allocation: Allocation;
   durationSeconds: number;
   tokenAddress: string;
-  hfToken: string;
   /**
    * Which of the four flows launched this, stamped into the service's `metadata` alongside the model
    * id so the running service identifies itself instead of having to be matched by image/dockerCmd
@@ -763,7 +776,7 @@ export function buildInferenceStartParams({
     tag: runtime.tag,
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(hfToken),
+    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet }),
     ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,

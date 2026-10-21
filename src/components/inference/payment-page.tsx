@@ -73,6 +73,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedBucketId,
     templateEnvValues,
     hfToken,
+    hfEndpoint,
+    hfHubDisableXet,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -639,7 +641,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // anything changes), and the image/tag come from the new params' engine so an engine switch
       // (vLLM ↔ llama.cpp) relaunches on the right image.
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken, appType }))
+        serviceRestart(
+          nodeUri,
+          token,
+          targetServiceId,
+          buildInferenceRestartSpec({ model, params, hfToken, hfEndpoint, hfHubDisableXet, appType })
+        )
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -671,6 +678,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     targetServiceId,
     withNodeAuth,
     hfToken,
+    hfEndpoint,
+    hfHubDisableXet,
     serviceRestart,
     router,
     buildManageQuery,
@@ -750,6 +759,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           durationSeconds: jobDurationSeconds,
           tokenAddress: selectedToken.address,
           hfToken,
+          hfEndpoint,
+          hfHubDisableXet,
           appType,
         });
       } catch (error) {
@@ -811,6 +822,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedByKey,
     jobDurationSeconds,
     hfToken,
+    hfEndpoint,
+    hfHubDisableXet,
     serviceStart,
     totalCost,
     router,

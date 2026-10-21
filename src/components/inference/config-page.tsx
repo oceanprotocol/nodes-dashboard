@@ -8,6 +8,7 @@ import ModelParameters, { ModelParametersHandle } from '@/components/inference/m
 import TemplateBucketPicker from '@/components/inference/template-bucket-picker';
 import Input from '@/components/input/input';
 import SectionTitle from '@/components/section-title/section-title';
+import Switch from '@/components/switch/switch';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
@@ -34,6 +35,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   const {
     hfToken,
     setHfToken,
+    hfEndpoint,
+    setHfEndpoint,
+    hfHubDisableXet,
+    setHfHubDisableXet,
     setParamsForModel,
     selectedModels,
     selectedEnv,
@@ -165,6 +170,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           modelCount: modelIds.length,
           engine,
           hasHfToken: !!hfToken,
+          hasHfEndpoint: !!hfEndpoint.trim(),
+          hfHubDisableXet,
           isEditMode,
           branch,
         });
@@ -328,6 +335,38 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   type="password"
                   value={hfToken}
                 />
+                <Input
+                  name="hfEndpoint"
+                  label={
+                    <div>
+                      Hugging Face endpoint{' '}
+                      <Tooltip title="Sets HF_ENDPOINT in the container. Downloads models from a Hugging Face mirror instead of huggingface.co. Leave empty to use the default.">
+                        <InfoOutlinedIcon className="textAccent1" fontSize="small" />
+                      </Tooltip>
+                    </div>
+                  }
+                  onChange={(e) => setHfEndpoint(e.target.value)}
+                  placeholder="https://huggingface.co"
+                  size="md"
+                  type="text"
+                  value={hfEndpoint}
+                />
+                <div>
+                  <Switch
+                    checked={hfHubDisableXet}
+                    label={
+                      <div>
+                        Disable Xet downloads{' '}
+                        <Tooltip title="Sets HF_HUB_DISABLE_XET=1 in the container. Downloads model files over plain HTTP instead of the Xet storage backend — useful when a mirror or network doesn't support Xet.">
+                          <InfoOutlinedIcon className="textAccent1" fontSize="small" />
+                        </Tooltip>
+                      </div>
+                    }
+                    name="hfHubDisableXet"
+                    onChange={(_, checked) => setHfHubDisableXet(checked)}
+                  />
+                  <div className="textSecondary">HF_HUB_DISABLE_XET</div>
+                </div>
               </Card>
               {modelIds.map((id) => (
                 <ModelParameters

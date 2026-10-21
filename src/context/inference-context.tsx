@@ -87,6 +87,12 @@ type InferenceContextType = {
   /** Hugging Face access token, shared across all selected models (for gated/private repos). */
   hfToken: string;
   setHfToken: (token: string) => void;
+  /** HF_ENDPOINT for the container — a Hugging Face mirror to download from. Empty = huggingface.co. */
+  hfEndpoint: string;
+  setHfEndpoint: (endpoint: string) => void;
+  /** HF_HUB_DISABLE_XET for the container — fall back to plain HTTP downloads instead of Xet storage. */
+  hfHubDisableXet: boolean;
+  setHfHubDisableXet: (disabled: boolean) => void;
   jobDurationSeconds: number;
   setJobDurationSeconds: (seconds: number) => void;
   /**
@@ -149,18 +155,37 @@ export const DEFAULT_JOB_DURATION_SECONDS = 3600;
 
 // The HF token is kept out of the URL (it's a secret) but persisted per-tab so a refresh mid-flow
 // doesn't force the user to re-enter it for gated models. sessionStorage clears when the tab closes.
+// The other HF container env settings ride along in the same storage, so they survive a refresh too.
 const HF_TOKEN_STORAGE_KEY = 'inference:hfToken';
+const HF_ENDPOINT_STORAGE_KEY = 'inference:hfEndpoint';
+const HF_HUB_DISABLE_XET_STORAGE_KEY = 'inference:hfHubDisableXet';
 /** Stable empty env values, so a scope mismatch doesn't hand consumers a new object each render. */
 const NO_ENV_VALUES: Record<string, string> = {};
 
-function readStoredHfToken(): string {
+function readStoredValue(key: string): string {
   if (typeof window === 'undefined') {
     return '';
   }
   try {
-    return window.sessionStorage.getItem(HF_TOKEN_STORAGE_KEY) ?? '';
+    return window.sessionStorage.getItem(key) ?? '';
   } catch {
     return '';
+  }
+}
+
+/** Empty value removes the key, so a cleared field doesn't come back as '' after a refresh. */
+function writeStoredValue(key: string, value: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    if (value) {
+      window.sessionStorage.setItem(key, value);
+    } else {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Storage unavailable (private mode / quota) — value just won't survive refresh.
   }
 }
 
@@ -221,6 +246,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedEnv, setSelectedEnv] = useState<SelectedInferenceEnv | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
+  const [hfEndpoint, setHfEndpointState] = useState<string>('');
+  const [hfHubDisableXet, setHfHubDisableXetState] = useState<boolean>(false);
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
   const [engine, setEngineState] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
@@ -294,24 +321,31 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   // re-enter it for gated models. The token stays out of the URL (it's a secret).
   const setHfToken = useCallback((token: string) => {
     setHfTokenState(token);
-    if (typeof window !== 'undefined') {
-      try {
-        if (token) {
-          window.sessionStorage.setItem(HF_TOKEN_STORAGE_KEY, token);
-        } else {
-          window.sessionStorage.removeItem(HF_TOKEN_STORAGE_KEY);
-        }
-      } catch {
-        // Storage unavailable (private mode / quota) — token just won't survive refresh.
-      }
-    }
+    writeStoredValue(HF_TOKEN_STORAGE_KEY, token);
   }, []);
 
-  // Restore the stored token once on mount (in an effect so SSR/first client render both start '').
+  const setHfEndpoint = useCallback((endpoint: string) => {
+    setHfEndpointState(endpoint);
+    writeStoredValue(HF_ENDPOINT_STORAGE_KEY, endpoint);
+  }, []);
+
+  const setHfHubDisableXet = useCallback((disabled: boolean) => {
+    setHfHubDisableXetState(disabled);
+    writeStoredValue(HF_HUB_DISABLE_XET_STORAGE_KEY, disabled ? '1' : '');
+  }, []);
+
+  // Restore the stored HF settings once on mount (in an effect so SSR/first client render both start empty).
   useEffect(() => {
-    const stored = readStoredHfToken();
-    if (stored) {
-      setHfTokenState(stored);
+    const storedToken = readStoredValue(HF_TOKEN_STORAGE_KEY);
+    if (storedToken) {
+      setHfTokenState(storedToken);
+    }
+    const storedEndpoint = readStoredValue(HF_ENDPOINT_STORAGE_KEY);
+    if (storedEndpoint) {
+      setHfEndpointState(storedEndpoint);
+    }
+    if (readStoredValue(HF_HUB_DISABLE_XET_STORAGE_KEY) === '1') {
+      setHfHubDisableXetState(true);
     }
   }, []);
 
@@ -760,6 +794,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setSelectedToken,
       hfToken,
       setHfToken,
+      hfEndpoint,
+      setHfEndpoint,
+      hfHubDisableXet,
+      setHfHubDisableXet,
       jobDurationSeconds,
       setJobDurationSeconds,
       engine,
@@ -778,6 +816,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedEnv(null);
         setSelectedToken(null);
         setHfToken('');
+        setHfEndpoint('');
+        setHfHubDisableXet(false);
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
         // Raw setter: the selection is being emptied, so the lock no longer applies.
         setEngineState(DEFAULT_INFERENCE_ENGINE);
@@ -800,6 +840,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedToken,
       hfToken,
       setHfToken,
+      hfEndpoint,
+      setHfEndpoint,
+      hfHubDisableXet,
+      setHfHubDisableXet,
       jobDurationSeconds,
       engine,
       setEngine,
