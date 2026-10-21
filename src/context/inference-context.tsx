@@ -93,6 +93,12 @@ type InferenceContextType = {
   /** HF_HUB_DISABLE_XET for the container — fall back to plain HTTP downloads instead of Xet storage. */
   hfHubDisableXet: boolean;
   setHfHubDisableXet: (disabled: boolean) => void;
+  /** HF_HUB_ENABLE_HF_TRANSFER for the container — download through the Rust-based hf_transfer client. */
+  hfHubEnableHfTransfer: boolean;
+  setHfHubEnableHfTransfer: (enabled: boolean) => void;
+  /** HF_XET_HIGH_PERFORMANCE for the container — let the Xet client use more bandwidth/CPU for downloads. */
+  hfXetHighPerformance: boolean;
+  setHfXetHighPerformance: (enabled: boolean) => void;
   jobDurationSeconds: number;
   setJobDurationSeconds: (seconds: number) => void;
   /**
@@ -159,6 +165,8 @@ export const DEFAULT_JOB_DURATION_SECONDS = 3600;
 const HF_TOKEN_STORAGE_KEY = 'inference:hfToken';
 const HF_ENDPOINT_STORAGE_KEY = 'inference:hfEndpoint';
 const HF_HUB_DISABLE_XET_STORAGE_KEY = 'inference:hfHubDisableXet';
+const HF_HUB_ENABLE_HF_TRANSFER_STORAGE_KEY = 'inference:hfHubEnableHfTransfer';
+const HF_XET_HIGH_PERFORMANCE_STORAGE_KEY = 'inference:hfXetHighPerformance';
 /** Stable empty env values, so a scope mismatch doesn't hand consumers a new object each render. */
 const NO_ENV_VALUES: Record<string, string> = {};
 
@@ -248,6 +256,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [hfToken, setHfTokenState] = useState<string>('');
   const [hfEndpoint, setHfEndpointState] = useState<string>('');
   const [hfHubDisableXet, setHfHubDisableXetState] = useState<boolean>(false);
+  const [hfHubEnableHfTransfer, setHfHubEnableHfTransferState] = useState<boolean>(false);
+  const [hfXetHighPerformance, setHfXetHighPerformanceState] = useState<boolean>(false);
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
   const [engine, setEngineState] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
@@ -334,6 +344,16 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     writeStoredValue(HF_HUB_DISABLE_XET_STORAGE_KEY, disabled ? '1' : '');
   }, []);
 
+  const setHfHubEnableHfTransfer = useCallback((enabled: boolean) => {
+    setHfHubEnableHfTransferState(enabled);
+    writeStoredValue(HF_HUB_ENABLE_HF_TRANSFER_STORAGE_KEY, enabled ? '1' : '');
+  }, []);
+
+  const setHfXetHighPerformance = useCallback((enabled: boolean) => {
+    setHfXetHighPerformanceState(enabled);
+    writeStoredValue(HF_XET_HIGH_PERFORMANCE_STORAGE_KEY, enabled ? '1' : '');
+  }, []);
+
   // Restore the stored HF settings once on mount (in an effect so SSR/first client render both start empty).
   useEffect(() => {
     const storedToken = readStoredValue(HF_TOKEN_STORAGE_KEY);
@@ -346,6 +366,12 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     }
     if (readStoredValue(HF_HUB_DISABLE_XET_STORAGE_KEY) === '1') {
       setHfHubDisableXetState(true);
+    }
+    if (readStoredValue(HF_HUB_ENABLE_HF_TRANSFER_STORAGE_KEY) === '1') {
+      setHfHubEnableHfTransferState(true);
+    }
+    if (readStoredValue(HF_XET_HIGH_PERFORMANCE_STORAGE_KEY) === '1') {
+      setHfXetHighPerformanceState(true);
     }
   }, []);
 
@@ -798,6 +824,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setHfEndpoint,
       hfHubDisableXet,
       setHfHubDisableXet,
+      hfHubEnableHfTransfer,
+      setHfHubEnableHfTransfer,
+      hfXetHighPerformance,
+      setHfXetHighPerformance,
       jobDurationSeconds,
       setJobDurationSeconds,
       engine,
@@ -818,6 +848,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setHfToken('');
         setHfEndpoint('');
         setHfHubDisableXet(false);
+        setHfHubEnableHfTransfer(false);
+        setHfXetHighPerformance(false);
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
         // Raw setter: the selection is being emptied, so the lock no longer applies.
         setEngineState(DEFAULT_INFERENCE_ENGINE);
@@ -844,6 +876,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setHfEndpoint,
       hfHubDisableXet,
       setHfHubDisableXet,
+      hfHubEnableHfTransfer,
+      setHfHubEnableHfTransfer,
+      hfXetHighPerformance,
+      setHfXetHighPerformance,
       jobDurationSeconds,
       engine,
       setEngine,

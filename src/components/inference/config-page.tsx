@@ -39,6 +39,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     setHfEndpoint,
     hfHubDisableXet,
     setHfHubDisableXet,
+    hfHubEnableHfTransfer,
+    hfXetHighPerformance,
+    setHfHubEnableHfTransfer,
+    setHfXetHighPerformance,
     setParamsForModel,
     selectedModels,
     selectedEnv,
@@ -172,6 +176,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           hasHfToken: !!hfToken,
           hasHfEndpoint: !!hfEndpoint.trim(),
           hfHubDisableXet,
+          hfHubEnableHfTransfer,
+          hfXetHighPerformance,
           isEditMode,
           branch,
         });
@@ -366,6 +372,38 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                     onChange={(_, checked) => setHfHubDisableXet(checked)}
                   />
                   <div className="textSecondary">HF_HUB_DISABLE_XET</div>
+                </div>
+                <div>
+                  <Switch
+                    checked={hfHubEnableHfTransfer}
+                    label={
+                      <div>
+                        Enable hf_transfer downloads{' '}
+                        <Tooltip title="Sets HF_HUB_ENABLE_HF_TRANSFER=1 in the container. Downloads model files with the Rust-based hf_transfer client for higher throughput on fast links. The image must include the hf_transfer package, otherwise the download fails.">
+                          <InfoOutlinedIcon className="textAccent1" fontSize="small" />
+                        </Tooltip>
+                      </div>
+                    }
+                    name="hfHubEnableHfTransfer"
+                    onChange={(_, checked) => setHfHubEnableHfTransfer(checked)}
+                  />
+                  <div className="textSecondary">HF_HUB_ENABLE_HF_TRANSFER</div>
+                </div>
+                <div>
+                  <Switch
+                    checked={hfXetHighPerformance}
+                    label={
+                      <div>
+                        Xet high performance{' '}
+                        <Tooltip title="Sets HF_XET_HIGH_PERFORMANCE=1 in the container. Lets the Xet client use more concurrency and bandwidth to download model files faster. Has no effect while Xet downloads are disabled.">
+                          <InfoOutlinedIcon className="textAccent1" fontSize="small" />
+                        </Tooltip>
+                      </div>
+                    }
+                    name="hfXetHighPerformance"
+                    onChange={(_, checked) => setHfXetHighPerformance(checked)}
+                  />
+                  <div className="textSecondary">HF_XET_HIGH_PERFORMANCE</div>
                 </div>
               </Card>
               {modelIds.map((id) => (

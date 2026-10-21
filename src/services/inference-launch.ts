@@ -413,7 +413,10 @@ export function parseEngineCommand(
  * HF_TOKEN unlocks gated/private repos — the user's custom key/value params are launch flags on the
  * command (see buildCustomArgs), not env vars. HF_ENDPOINT points huggingface_hub at a mirror instead
  * of huggingface.co, and HF_HUB_DISABLE_XET=1 makes it download over plain HTTP instead of the Xet
- * storage backend. Each is only sent when set, so an unset field leaves the library default in place.
+ * storage backend. HF_HUB_ENABLE_HF_TRANSFER=1 switches downloads to the Rust-based hf_transfer client
+ * (the image must ship the `hf_transfer` package, or huggingface_hub errors on the first download).
+ * HF_XET_HIGH_PERFORMANCE=1 lets the Xet client use more concurrency/bandwidth (no effect while Xet is
+ * disabled). Each is only sent when set, so an unset field leaves the library default in place.
  *
  * NCCL_NVLS_ENABLE=0 is always sent. NVLink SHARP wants multicast objects the driver exposes through
  * /dev/nvidia-caps, and a service container never gets them: ocean-node deliberately withholds
@@ -434,15 +437,25 @@ export type HfEnvSettings = {
   hfToken: string;
   hfEndpoint: string;
   hfHubDisableXet: boolean;
+  hfHubEnableHfTransfer: boolean;
+  hfXetHighPerformance: boolean;
 };
 
-export function buildUserData({ hfToken, hfEndpoint, hfHubDisableXet }: HfEnvSettings): Record<string, string> {
+export function buildUserData({
+  hfToken,
+  hfEndpoint,
+  hfHubDisableXet,
+  hfHubEnableHfTransfer,
+  hfXetHighPerformance,
+}: HfEnvSettings): Record<string, string> {
   const endpoint = hfEndpoint.trim();
   return {
     NCCL_NVLS_ENABLE: '0',
     ...(hfToken ? { HF_TOKEN: hfToken } : {}),
     ...(endpoint ? { HF_ENDPOINT: endpoint } : {}),
     ...(hfHubDisableXet ? { HF_HUB_DISABLE_XET: '1' } : {}),
+    ...(hfHubEnableHfTransfer ? { HF_HUB_ENABLE_HF_TRANSFER: '1' } : {}),
+    ...(hfXetHighPerformance ? { HF_XET_HIGH_PERFORMANCE: '1' } : {}),
   };
 }
 
@@ -694,6 +707,8 @@ export function buildInferenceRestartSpec({
   hfToken,
   hfEndpoint,
   hfHubDisableXet,
+  hfHubEnableHfTransfer,
+  hfXetHighPerformance,
   appType,
 }: HfEnvSettings & {
   model: HuggingFaceModel;
@@ -711,7 +726,7 @@ export function buildInferenceRestartSpec({
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet }),
+    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet, hfHubEnableHfTransfer, hfXetHighPerformance }),
     ...(metadata ? { metadata } : {}),
   };
 }
@@ -732,6 +747,8 @@ export function buildInferenceStartParams({
   hfToken,
   hfEndpoint,
   hfHubDisableXet,
+  hfHubEnableHfTransfer,
+  hfXetHighPerformance,
   appType,
 }: HfEnvSettings & {
   model: HuggingFaceModel;
@@ -776,7 +793,7 @@ export function buildInferenceStartParams({
     tag: runtime.tag,
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet }),
+    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet, hfHubEnableHfTransfer, hfXetHighPerformance }),
     ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,

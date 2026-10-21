@@ -75,6 +75,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfToken,
     hfEndpoint,
     hfHubDisableXet,
+    hfHubEnableHfTransfer,
+    hfXetHighPerformance,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -645,7 +647,16 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           nodeUri,
           token,
           targetServiceId,
-          buildInferenceRestartSpec({ model, params, hfToken, hfEndpoint, hfHubDisableXet, appType })
+          buildInferenceRestartSpec({
+            model,
+            params,
+            hfToken,
+            hfEndpoint,
+            hfHubDisableXet,
+            hfHubEnableHfTransfer,
+            hfXetHighPerformance,
+            appType,
+          })
         )
       );
       if (!job?.serviceId) {
@@ -680,6 +691,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfToken,
     hfEndpoint,
     hfHubDisableXet,
+    hfHubEnableHfTransfer,
+    hfXetHighPerformance,
     serviceRestart,
     router,
     buildManageQuery,
@@ -761,6 +774,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           hfToken,
           hfEndpoint,
           hfHubDisableXet,
+          hfHubEnableHfTransfer,
+          hfXetHighPerformance,
           appType,
         });
       } catch (error) {
@@ -824,6 +839,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfToken,
     hfEndpoint,
     hfHubDisableXet,
+    hfHubEnableHfTransfer,
+    hfXetHighPerformance,
     serviceStart,
     totalCost,
     router,
