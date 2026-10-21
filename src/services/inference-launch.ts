@@ -416,7 +416,12 @@ export function parseEngineCommand(
  * storage backend. HF_HUB_ENABLE_HF_TRANSFER=1 switches downloads to the Rust-based hf_transfer client
  * (the image must ship the `hf_transfer` package, or huggingface_hub errors on the first download).
  * HF_XET_HIGH_PERFORMANCE=1 lets the Xet client use more concurrency/bandwidth (no effect while Xet is
- * disabled). Each is only sent when set, so an unset field leaves the library default in place.
+ * disabled). HF_HUB_DOWNLOAD_MAX_WORKERS caps how many files huggingface_hub downloads in parallel
+ * (only sent when it's a positive integer). Each is only sent when set, so an unset field leaves the
+ * library default in place.
+ *
+ * HF_HUB_DISABLE_TELEMETRY=1 is always sent: a launched model has no reason to report usage back to
+ * Hugging Face.
  *
  * NCCL_NVLS_ENABLE=0 is always sent. NVLink SHARP wants multicast objects the driver exposes through
  * /dev/nvidia-caps, and a service container never gets them: ocean-node deliberately withholds
@@ -439,7 +444,19 @@ export type HfEnvSettings = {
   hfHubDisableXet: boolean;
   hfHubEnableHfTransfer: boolean;
   hfXetHighPerformance: boolean;
+  /** Raw field value; only a positive integer is sent. */
+  hfHubDownloadMaxWorkers: string;
 };
+
+/** The HF_HUB_DOWNLOAD_MAX_WORKERS value to send, or null when the field is empty or not a positive integer. */
+export function parseHfHubDownloadMaxWorkers(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const workers = Number(trimmed);
+  return workers > 0 ? workers : null;
+}
 
 export function buildUserData({
   hfToken,
@@ -447,15 +464,19 @@ export function buildUserData({
   hfHubDisableXet,
   hfHubEnableHfTransfer,
   hfXetHighPerformance,
+  hfHubDownloadMaxWorkers,
 }: HfEnvSettings): Record<string, string> {
   const endpoint = hfEndpoint.trim();
+  const maxWorkers = parseHfHubDownloadMaxWorkers(hfHubDownloadMaxWorkers);
   return {
     NCCL_NVLS_ENABLE: '0',
+    HF_HUB_DISABLE_TELEMETRY: '1',
     ...(hfToken ? { HF_TOKEN: hfToken } : {}),
     ...(endpoint ? { HF_ENDPOINT: endpoint } : {}),
     ...(hfHubDisableXet ? { HF_HUB_DISABLE_XET: '1' } : {}),
     ...(hfHubEnableHfTransfer ? { HF_HUB_ENABLE_HF_TRANSFER: '1' } : {}),
     ...(hfXetHighPerformance ? { HF_XET_HIGH_PERFORMANCE: '1' } : {}),
+    ...(maxWorkers ? { HF_HUB_DOWNLOAD_MAX_WORKERS: String(maxWorkers) } : {}),
   };
 }
 
@@ -709,6 +730,7 @@ export function buildInferenceRestartSpec({
   hfHubDisableXet,
   hfHubEnableHfTransfer,
   hfXetHighPerformance,
+  hfHubDownloadMaxWorkers,
   appType,
 }: HfEnvSettings & {
   model: HuggingFaceModel;
@@ -726,7 +748,14 @@ export function buildInferenceRestartSpec({
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet, hfHubEnableHfTransfer, hfXetHighPerformance }),
+    userData: buildUserData({
+      hfToken,
+      hfEndpoint,
+      hfHubDisableXet,
+      hfHubEnableHfTransfer,
+      hfXetHighPerformance,
+      hfHubDownloadMaxWorkers,
+    }),
     ...(metadata ? { metadata } : {}),
   };
 }
@@ -749,6 +778,7 @@ export function buildInferenceStartParams({
   hfHubDisableXet,
   hfHubEnableHfTransfer,
   hfXetHighPerformance,
+  hfHubDownloadMaxWorkers,
   appType,
 }: HfEnvSettings & {
   model: HuggingFaceModel;
@@ -793,7 +823,14 @@ export function buildInferenceStartParams({
     tag: runtime.tag,
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData({ hfToken, hfEndpoint, hfHubDisableXet, hfHubEnableHfTransfer, hfXetHighPerformance }),
+    userData: buildUserData({
+      hfToken,
+      hfEndpoint,
+      hfHubDisableXet,
+      hfHubEnableHfTransfer,
+      hfXetHighPerformance,
+      hfHubDownloadMaxWorkers,
+    }),
     ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,

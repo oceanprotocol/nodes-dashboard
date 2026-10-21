@@ -12,6 +12,7 @@ import Switch from '@/components/switch/switch';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { parseHfHubDownloadMaxWorkers } from '@/services/inference-launch';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
@@ -43,6 +44,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     hfXetHighPerformance,
     setHfHubEnableHfTransfer,
     setHfXetHighPerformance,
+    hfHubDownloadMaxWorkers,
+    setHfHubDownloadMaxWorkers,
     setParamsForModel,
     selectedModels,
     selectedEnv,
@@ -62,6 +65,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   const resolvingModels = !hydrateFromUrlFinished;
   // Surfaced when submit can't proceed for a reason that isn't a per-field validation error.
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Empty means "library default"; anything else must parse, or it would be silently dropped at launch.
+  const hfHubDownloadMaxWorkersInvalid =
+    !!hfHubDownloadMaxWorkers.trim() && parseHfHubDownloadMaxWorkers(hfHubDownloadMaxWorkers) === null;
 
   // Computed once — reused by the bounce guard, the stepper and the picker/message render below.
   const needsBucketPicker = templateNeedsBucketPicker(selectedTemplate);
@@ -178,6 +184,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           hfHubDisableXet,
           hfHubEnableHfTransfer,
           hfXetHighPerformance,
+          hfHubDownloadMaxWorkers: parseHfHubDownloadMaxWorkers(hfHubDownloadMaxWorkers),
           isEditMode,
           branch,
         });
@@ -228,6 +235,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
           model_count: modelIds.length,
           branch,
         });
+        return;
+      }
+      if (hfHubDownloadMaxWorkersInvalid) {
+        setSubmitError('Fix the highlighted parameters before continuing.');
         return;
       }
       const results = await Promise.all(modelIds.map((id) => paramRefs.current[id]!.validateAndGet()));
@@ -405,6 +416,26 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   />
                   <div className="textSecondary">HF_XET_HIGH_PERFORMANCE</div>
                 </div>
+                <Input
+                  errorText={hfHubDownloadMaxWorkersInvalid ? 'Must be a positive whole number' : undefined}
+                  hint="HF_HUB_DOWNLOAD_MAX_WORKERS"
+                  label={
+                    <div>
+                      Download workers{' '}
+                      <Tooltip title="Sets HF_HUB_DOWNLOAD_MAX_WORKERS in the container. How many model files are downloaded in parallel. Leave empty to use the default.">
+                        <InfoOutlinedIcon className="textAccent1" fontSize="small" />
+                      </Tooltip>
+                    </div>
+                  }
+                  min={1}
+                  name="hfHubDownloadMaxWorkers"
+                  onChange={(e) => setHfHubDownloadMaxWorkers(e.target.value)}
+                  placeholder="8"
+                  size="md"
+                  step={1}
+                  type="number"
+                  value={hfHubDownloadMaxWorkers}
+                />
               </Card>
               {modelIds.map((id) => (
                 <ModelParameters

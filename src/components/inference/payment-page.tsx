@@ -77,6 +77,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfHubDisableXet,
     hfHubEnableHfTransfer,
     hfXetHighPerformance,
+    hfHubDownloadMaxWorkers,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -655,6 +656,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             hfHubDisableXet,
             hfHubEnableHfTransfer,
             hfXetHighPerformance,
+            hfHubDownloadMaxWorkers,
             appType,
           })
         )
@@ -693,6 +695,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfHubDisableXet,
     hfHubEnableHfTransfer,
     hfXetHighPerformance,
+    hfHubDownloadMaxWorkers,
     serviceRestart,
     router,
     buildManageQuery,
@@ -776,6 +779,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           hfHubDisableXet,
           hfHubEnableHfTransfer,
           hfXetHighPerformance,
+          hfHubDownloadMaxWorkers,
           appType,
         });
       } catch (error) {
@@ -841,6 +845,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfHubDisableXet,
     hfHubEnableHfTransfer,
     hfXetHighPerformance,
+    hfHubDownloadMaxWorkers,
     serviceStart,
     totalCost,
     router,
