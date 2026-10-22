@@ -46,6 +46,7 @@ import {
   includesBreakdown,
   includesPublishers,
   isBundle,
+  parseTemplateDescription,
   SHAPE_LABEL,
   templateShape,
 } from '@/types/templates';
@@ -83,14 +84,6 @@ export const trackTemplateOpened = (tpl: AppTemplate, openedVia: InferenceOpened
 };
 
 /**
- * Catalogue descriptions run to four paragraphs in a fixed shape: what it is, two of operating detail,
- * then who it is for. The first and last stay open and the middle sits in a "How it runs" card. The closing
- * paragraph is detected from the text rather than declared, so copy that doesn't follow the pattern
- * simply reads as body and nothing is hidden.
- */
-const AUDIENCE_LINE = /^this template is built for\b/i;
-
-/**
  * Renders `[text](url)` markdown-style links in a paragraph, so a credited source can show as a
  * name instead of a bare URL. Anything outside that syntax passes through as plain text.
  */
@@ -114,44 +107,37 @@ const linkify = (text: string): React.ReactNode => {
   return nodes;
 };
 
+const ProseParagraphs: React.FC<{ paragraphs: string[] }> = ({ paragraphs }) => (
+  <div className={styles.prose}>
+    {paragraphs.map((paragraph, i) => (
+      <p key={i}>{linkify(paragraph)}</p>
+    ))}
+  </div>
+);
+
 /**
- * The published `description`, as the paragraphs its author wrote. Split on blank lines because the
- * catalogue stores it as plain text, and one <p> would collapse the breaks.
+ * The published `description`, as the paragraphs its author wrote: the intro open, and each `## Title`
+ * section (e.g. "How it runs") in its own collapsed card.
  */
 const TemplateProse: React.FC<{ text: string }> = ({ text }) => {
-  const paragraphs = text
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const last = paragraphs.length - 1;
-  const hasAudience = last > 0 && AUDIENCE_LINE.test(paragraphs[last]);
-  const audience = hasAudience ? paragraphs[last] : null;
-  const middle = paragraphs.slice(1, hasAudience ? last : undefined);
+  const { intro, sections } = parseTemplateDescription(text);
 
   return (
     <>
-      <div className={styles.prose}>
-        <p className={styles.lead}>{linkify(paragraphs[0])}</p>
-        {audience && <p className={styles.audience}>{linkify(audience)}</p>}
-      </div>
-      {middle.length > 0 && (
+      {intro.length > 0 && <ProseParagraphs paragraphs={intro} />}
+      {sections.map((section, i) => (
         <DetailsDisclosure
+          key={i}
           summary={
             <>
               <DetailsDisclosureIcon Icon={SettingsOutlinedIcon} />
-              <DetailsDisclosureLabel title="How it runs" />
+              <DetailsDisclosureLabel title={section.title} />
             </>
           }
         >
-          <div className={styles.prose}>
-            {middle.map((paragraph, i) => (
-              <p className={styles.body} key={i}>
-                {linkify(paragraph)}
-              </p>
-            ))}
-          </div>
+          <ProseParagraphs paragraphs={section.paragraphs} />
         </DetailsDisclosure>
-      )}
+      ))}
     </>
   );
 };
@@ -254,9 +240,8 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
 
   /**
    * Quick start confirmed a pick: commit template + env + token + duration, then step forward. The
-   * resources step is skipped (the banner already picked the env), and so is config unless the template
-   * declares a required env var (without it the container starts and fails) or needs the bucket picker
-   * (templateNeedsConfigStep — that pick must happen before the escrow claim). The query is built
+   * resources step is skipped (the banner already picked the env). Config always shows result storage
+   * and any configurable env vars before payment. The query is built
    * from overrides so it doesn't depend on setState timing, and carries the CPU/RAM/disk the pick was
    * priced on so payment books that allocation (a bundle's disk floor covers its weights).
    */
@@ -428,11 +413,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     return null;
   };
 
-  /**
-   * The hint tracks routing: only a launch that stops at the config step (a required var, or a bucket
-   * picker, see templateNeedsConfigStep) reaches the form from here. A template whose vars are all
-   * optional goes straight to payment, where Advanced setup is the way to set them.
-   */
+  /** Template launches configure result storage and env vars on the next step. */
   const renderEnvVars = (tpl: AppTemplate) => {
     const specs = tpl.userConfigurableEnvVars ?? [];
     if (specs.length === 0) {

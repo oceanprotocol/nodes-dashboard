@@ -31,39 +31,14 @@ export async function gzipBase64(value: string): Promise<string> {
   return btoa(binary);
 }
 
-/**
- * A template needs the persistent-storage bucket picker when it ships a workflow (it loads a large
- * model graph the bucket caches). Also gates whether a fresh (non-edit) launch must stop at the
- * config step instead of its usual skip-straight-to-payment: skipping would make the picker — and the
- * bucket-mount cost warning — unreachable before the escrow claim. Accepts a possibly-absent template
- * so callers don't need to guard first.
- */
+/** Every template offers automatic result storage and an optional custom output bucket. */
 export function templateNeedsBucketPicker(template: AppTemplate | null | undefined): boolean {
-  if (!template) {
-    return false;
-  }
-  return (template.workflows?.length ?? 0) > 0;
+  return !!template;
 }
 
-/**
- * Whether a fresh (non-edit) template launch has to stop at the config step: the template declares
- * ANY user-configurable env var, or it needs the bucket picker (see templateNeedsBucketPicker). Both
- * routing directions and the stepper read this one predicate, so the steps a launch actually takes
- * can't drift from the steps drawn for it — a skipped config step strands the user at a container
- * that fails, or at payment with no bucket.
- *
- * Optional vars count, not just required ones. A required var is the load-bearing case (without it
- * the container starts and fails), but gating on `required` alone meant a template whose vars are
- * all optional advertised them in the catalogue and then routed past the only page that can set
- * them — leaving Advanced setup, which the user has no reason to suspect, as the sole way in before
- * the escrow claim. The cost is one extra step on a launch that declares a var nobody has to fill;
- * the alternative was a decision silently taken away.
- */
+/** Keep result storage visible before payment, including templates without configurable env vars. */
 export function templateNeedsConfigStep(template: AppTemplate | null | undefined): boolean {
-  if (!template) {
-    return false;
-  }
-  return templateNeedsBucketPicker(template) || (template.userConfigurableEnvVars?.length ?? 0) > 0;
+  return templateNeedsBucketPicker(template);
 }
 
 const COMFY_WORKFLOW_ID_KEY = 'COMFY_WORKFLOW_ID';
@@ -177,7 +152,7 @@ export async function buildTemplateStartParams({
   durationSeconds: number;
   tokenAddress: string;
   envValues: Record<string, string>;
-  /** Persistent-storage bucket id to mount at /data/outputs — picked on the config step. */
+  /** Optional result bucket id to mount at /data/outputs — picked on the config step. */
   bucketId?: string;
 }): Promise<ServiceStartParams> {
   const envResources = selectedEnv.environment.resources ?? [];

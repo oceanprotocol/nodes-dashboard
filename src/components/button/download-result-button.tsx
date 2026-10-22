@@ -36,7 +36,15 @@ export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps
       });
 
       const jobStatus = await getComputeJobStatus(nodeUri, jobId, token);
-      const archive = jobStatus?.[0]?.results?.find((result: any) => result.filename.includes('.tar'));
+      const archive = jobStatus?.[0]?.results?.find((result: any) => result.type === 'output');
+      if (archive?.index == null) {
+        throw new Error(
+          'No output archive available. If this job uses an output bucket, download results from Storage.'
+        );
+      }
+      const extension = archive.filename.toLowerCase().endsWith('.zip') ? '.zip' : '.tar';
+      const filename = `outputs-${job.jobId}${extension}`;
+      const contentType = extension === '.zip' ? 'application/zip' : 'application/x-tar';
       const filesize: number = archive?.filesize ?? 0;
 
       const abortController = new AbortController();
@@ -44,11 +52,8 @@ export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps
 
       setDownloadProgress({ bytes: 0, total: filesize });
 
-      const generator = await streamComputeResult(nodeUri, token, jobId, archive?.index);
-
       const showSaveFilePicker = (window as any).showSaveFilePicker as
-        | ((options?: any) => Promise<FileSystemFileHandle>)
-        | undefined;
+        ((options?: any) => Promise<FileSystemFileHandle>) | undefined;
 
       let usedFSA = false;
 
@@ -56,8 +61,13 @@ export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps
         let fileHandle: FileSystemFileHandle | null = null;
         try {
           fileHandle = await showSaveFilePicker({
-            suggestedName: `outputs-${job.jobId}.tar`,
-            types: [{ description: 'TAR archive', accept: { 'application/x-tar': ['.tar'] } }],
+            suggestedName: filename,
+            types: [
+              {
+                description: extension === '.zip' ? 'ZIP archive' : 'TAR archive',
+                accept: { [contentType]: [extension] },
+              },
+            ],
           });
         } catch (e) {
           if (e instanceof Error && e.name === 'AbortError') {
@@ -71,6 +81,7 @@ export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps
           const writable = await fileHandle.createWritable();
           let bytesReceived = 0;
           try {
+            const generator = await streamComputeResult(nodeUri, token, jobId, archive.index);
             for await (const chunk of generator) {
               await writable.write(chunk as unknown as ArrayBuffer);
               bytesReceived += chunk.byteLength;
@@ -95,6 +106,7 @@ export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps
         // Fallback: buffer chunks in memory then trigger blob download
         const chunks: Uint8Array[] = [];
         let bytesReceived = 0;
+        const generator = await streamComputeResult(nodeUri, token, jobId, archive.index);
         for await (const chunk of generator) {
           chunks.push(chunk);
           bytesReceived += chunk.byteLength;
@@ -113,11 +125,11 @@ export const DownloadResultButton = ({ job, nodeUri }: DownloadResultButtonProps
           toast.success('Results downloaded successfully');
         }
 
-        const blob = new Blob(chunks as unknown as BlobPart[], { type: 'application/octet-stream' });
+        const blob = new Blob(chunks as unknown as BlobPart[], { type: contentType });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `outputs-${job.jobId}.tar`;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

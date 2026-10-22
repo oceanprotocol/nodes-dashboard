@@ -245,6 +245,52 @@ export function includedRepoId(item: TemplateIncludedItem): string | undefined {
   return match ? `${match[1]}/${match[2]}` : undefined;
 }
 
+export type TemplateDescriptionSection = { title: string; paragraphs: string[] };
+
+/** A published `description`: the paragraphs before any heading, then one section per `## Title` line. */
+export type TemplateDescription = { intro: string[]; sections: TemplateDescriptionSection[] };
+
+const SECTION_HEADING = /^##\s+(.+)$/;
+
+/**
+ * Split a description into paragraphs on blank lines, and into sections on `## Title` lines. The
+ * catalogue stores it as plain text, so the headings are the only structure it carries.
+ */
+export function parseTemplateDescription(text: string): TemplateDescription {
+  const description: TemplateDescription = { intro: [], sections: [] };
+  let lines: string[] = [];
+  const flush = () => {
+    const paragraph = lines.join('\n').trim();
+    lines = [];
+    if (!paragraph) {
+      return;
+    }
+    const current = description.sections[description.sections.length - 1];
+    (current ? current.paragraphs : description.intro).push(paragraph);
+  };
+  for (const line of text.split('\n')) {
+    const heading = SECTION_HEADING.exec(line.trim());
+    if (heading) {
+      flush();
+      description.sections.push({ title: heading[1].trim(), paragraphs: [] });
+      continue;
+    }
+    if (!line.trim()) {
+      flush();
+      continue;
+    }
+    lines.push(line);
+  }
+  flush();
+  return description;
+}
+
+/** The description's paragraphs with the section headings left out, for places that show it as one block. */
+export function templateDescriptionText(text: string): string {
+  const { intro, sections } = parseTemplateDescription(text);
+  return [...intro, ...sections.flatMap((section) => section.paragraphs)].join(' ');
+}
+
 /** Env vars the user MUST supply before this template can work — drives whether the config step shows. */
 export function requiredEnvVars(tpl: AppTemplate): AppEnvVarSpec[] {
   return (tpl.userConfigurableEnvVars ?? []).filter((spec) => spec.required === true);

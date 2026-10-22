@@ -189,4 +189,19 @@
     outline: 2px solid var(--accent1);
     outline-offset: 2px;
   }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+    text-decoration: none;
+  }
+}
+
+/* Same spot as .linkButton while a card top-up is waiting for its USDC. */
+.topupStatus {
+  color: var(--text-secondary);
+  flex-basis: 100%;
+  font-size: 12px;
+  padding: 0 0 2px;
+  text-align: right;
 }

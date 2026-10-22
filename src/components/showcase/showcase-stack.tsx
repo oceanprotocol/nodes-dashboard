@@ -1,6 +1,7 @@
+import { showcaseSourceHref } from '@/services/showcase';
 import { ShowcaseItem } from '@/types/showcase';
 import classNames from 'classnames';
-import { CSSProperties, KeyboardEvent, PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './showcase-stack.module.css';
 import ShowcaseTile, { ratioOf } from './showcase-tile';
 
@@ -167,6 +168,7 @@ type ShowcaseStackProps = {
 const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseStackProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const swipeStartX = useRef<number | null>(null);
+  const swiped = useRef(false);
   const [deck, setDeck] = useState<Size | null>(null);
   const [step, setStep] = useState(0);
   // Moves the user makes animate faster than the automatic cycle, so the deck answers right away.
@@ -233,6 +235,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
 
   const onPointerDown = (event: PointerEvent) => {
     swipeStartX.current = event.clientX;
+    swiped.current = false;
   };
 
   const onPointerUp = (event: PointerEvent) => {
@@ -242,8 +245,18 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
     const delta = event.clientX - swipeStartX.current;
     swipeStartX.current = null;
     if (Math.abs(delta) >= SWIPE_THRESHOLD) {
+      swiped.current = true;
       move(delta < 0 ? 1 : -1);
     }
+  };
+
+  const onClickCapture = (event: MouseEvent) => {
+    if (!swiped.current) {
+      return;
+    }
+    swiped.current = false;
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -268,6 +281,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
         className
       )}
       onBlur={() => setFocused(false)}
+      onClickCapture={onClickCapture}
       onFocus={() => setFocused(true)}
       onKeyDown={onKeyDown}
       onPointerCancel={() => {
@@ -330,6 +344,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
                 active={relative === 0}
                 className={styles.tile}
                 eager
+                href={relative === 0 ? showcaseSourceHref(item.source) : undefined}
                 inert={!visible}
                 item={item}
                 onVideoEnded={

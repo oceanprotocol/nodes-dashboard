@@ -47,7 +47,17 @@ function getRange(row?: number) {
   return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A3:V`;
 }
 
+const REQUIRED_SHEETS_ENV_VARS = [
+  'GRANT_GSHEETS_SPREADSHEET_ID',
+  'GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL',
+  'GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY',
+];
+
 async function getSheetsService() {
+  const missingEnvVars = REQUIRED_SHEETS_ENV_VARS.filter((name) => !process.env[name]);
+  if (missingEnvVars.length > 0) {
+    throw new Error('Data service is not configured.');
+  }
   const auth = new google.auth.JWT({
     email: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL,
     key: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
