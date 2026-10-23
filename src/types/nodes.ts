@@ -1,4 +1,4 @@
-import { ComputeEnvironment } from '@/types/environments'
+import { ComputeEnvironment } from '@/types/environments';
 
 export type AnyNode = any;
 
@@ -21,8 +21,14 @@ export type NodeBanInfo = {
   year: number;
 };
 
+export type AdminAccessList = {
+  chainId: string;
+  contracts: string[];
+};
+
 export type Node = {
   address?: string;
+  adminAccessLists?: AdminAccessList[] | null;
   allowedAdmins?: string[];
   banned: boolean;
   bannedAt?: number;
