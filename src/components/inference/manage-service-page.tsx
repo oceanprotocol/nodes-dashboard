@@ -96,6 +96,8 @@ function serviceBaseUrl(job: ServiceJob | null): string | null {
 
 // How long a service may report not-ready before its app can be opened anyway: a node that cannot
 // reach the container never sees it ready, and must not lock the user out of a paid session.
+// Measured on the node's clock (its last probe against the job's creation), so a skewed client
+// clock can't shift it.
 const OPEN_ANYWAY_AFTER_MS = 10 * 60 * 1000;
 
 // How often to poll the node for the service status while it's still spinning up.
@@ -652,7 +654,8 @@ const ManageServicePage: React.FC = () => {
     !!job &&
     !isReady &&
     job.status === ServiceStatusNumber.Running &&
-    (readiness?.state === 'failing' || Date.now() - new Date(job.dateCreated).getTime() >= OPEN_ANYWAY_AFTER_MS);
+    (readiness?.state === 'failing' ||
+      (readiness?.lastCheckedAt ?? Date.now()) - new Date(job.dateCreated).getTime() >= OPEN_ANYWAY_AFTER_MS);
   // How long the user actually waited between paying and being able to call the endpoint — the
   // number this whole feature exists to make visible, and which nothing measured before. Fired once
   // per service (ref-guarded: the status poll re-renders every 4s), from the node's own readySince
@@ -691,7 +694,7 @@ const ManageServicePage: React.FC = () => {
       serviceId: id,
       templateId: template.id,
       doneCount: download.filesComplete,
-      failedCount: download.filesTotal - download.filesComplete,
+      failedCount: Math.max(0, download.filesTotal - download.filesComplete),
       total: download.filesTotal,
     });
   }, [job, isBundleService, template, readiness?.state, id, branch]);
