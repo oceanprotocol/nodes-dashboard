@@ -18,6 +18,12 @@
   color: var(--success-darker);
 }
 
+/* Container up, engine not answering yet — deliberately not green: the service exists but cannot
+   serve a request, and rendering that as "running" is what sent users to a URL that 503s. */
+.status_warming {
+  color: var(--warning-darker);
+}
+
 .status_pending {
   color: var(--text-secondary);
 }
