@@ -64,15 +64,6 @@ export interface JobsFilters {
   amountPaid?: FilterValue;
 }
 
-export interface MyNodesFilters {
-  region?: FilterValue;
-  eligible?: FilterValue;
-  gpuScore?: FilterValue;
-  cpuScore?: FilterValue;
-  bandwidth?: FilterValue;
-  totalScore?: FilterValue;
-}
-
 export interface EnvironmentsFilters {
   feeToken?: {
     operator: 'eq' | 'in';
