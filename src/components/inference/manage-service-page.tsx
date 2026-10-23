@@ -7,7 +7,6 @@ import InferenceEnvironmentCard from '@/components/inference/inference-environme
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
-// import ProvisioningProgress from '@/components/inference/provisioning-progress';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
 import ServiceResultsPanel from '@/components/inference/service-results-panel';
 import { ServiceStartupIndicator } from '@/components/inference/service-startup-progress';
@@ -1053,7 +1052,11 @@ const ManageServicePage: React.FC = () => {
                     nothing once the engine answers, or once a download with no readiness ends. */}
                 <ServiceStartupIndicator className={styles.headerProgress} job={job} />
                 <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
-                  {status.kind === 'pending' ? <CircularProgress size={12} /> : <span className={styles.statusDot} />}
+                  {status.kind === 'pending' || status.kind === 'warming' ? (
+                    <CircularProgress size={12} />
+                  ) : (
+                    <span className={styles.statusDot} />
+                  )}
                   {status.label}
                 </span>
               </div>
@@ -1145,19 +1148,6 @@ const ManageServicePage: React.FC = () => {
                 that answers that is unreachable — so say why they're unavailable rather than sending
                 the user into the wrong flow on a guess. Restart is unaffected: it needs no identity. */}
           </Card>
-
-          {/* Replaced by the node's download report in the header (ServiceStartupIndicator); its
-              completion event moved to inference_provisioning_completed above.
-          {isBundleService && template && isRunning && (
-            <ProvisioningProgress
-              active={isRunning}
-              consumerAddress={account.address ?? undefined}
-              nodePeerId={nodePeerId}
-              nodeUri={nodeUri}
-              serviceId={id}
-              template={template}
-            />
-          )} */}
 
           {/* Model. Rendered even when there's no model to name: the card is the only place the model
               appears, so "unknown" must be stated rather than the card silently vanishing — otherwise

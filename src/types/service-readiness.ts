@@ -104,7 +104,8 @@ export function getModelDownload(job: unknown): ServiceModelDownload | null {
   if (!download || typeof download !== 'object') {
     return null;
   }
-  if (typeof (download as { downloadedBytes?: unknown }).downloadedBytes !== 'number') {
+  const d = download as Record<string, unknown>;
+  if (typeof d.downloadedBytes !== 'number' || typeof d.filesComplete !== 'number') {
     return null;
   }
   return download as ServiceModelDownload;
