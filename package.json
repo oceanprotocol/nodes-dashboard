@@ -55,7 +55,7 @@
     "micromodal": "^0.4.10",
     "myetherwallet-blockies": "^0.1.1",
     "next": "16.1.7",
-    "nodemailer": "^10.0.9",
+    "nodemailer": "^10.0.10",
     "normalize.css": "^8.0.1",
     "posthog-js": "1.347.2",
     "react": "^18",
