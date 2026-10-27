@@ -4,7 +4,9 @@ import {
   existingServicesColumns,
   jobsColumns,
   nodeJobsColumns,
+  nodeJobsHistoryColumns,
   nodeServicesColumns,
+  nodeServicesHistoryColumns,
   nodesLeaderboardColumns,
   NodesLeaderboardColumnsVisibility,
   nodesLeaderboardHomeColumns,
@@ -242,6 +244,12 @@ export const Table = <T extends GridValidRowModel>({
       }
       case TableTypeEnum.NODE_JOBS: {
         return withActions(nodeJobsColumns);
+      }
+      case TableTypeEnum.NODE_JOBS_HISTORY: {
+        return withActions(nodeJobsHistoryColumns);
+      }
+      case TableTypeEnum.NODE_SERVICES_HISTORY: {
+        return withActions(nodeServicesHistoryColumns);
       }
       case TableTypeEnum.EXISTING_SERVICES: {
         return withActions(existingServicesColumns);
