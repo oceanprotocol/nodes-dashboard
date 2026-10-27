@@ -43,7 +43,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   onRemoveModel,
 }) => {
   const [selectionOpen, setSelectionOpen] = useState(false);
-  const { selectedModels, selectedEnv, selectedToken, jobDurationSeconds, selectedTemplate, templateEnvValues } =
+  const { selectedModels, selectedEnv, jobDurationSeconds, selectedTemplate, templateEnvValues } =
     useInferenceContext();
 
   // The templates flow selects a template instead of models, so it counts the same way for the panel.
@@ -95,7 +95,6 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                     <span className="textSecondary">Running for {formatDuration(jobDurationSeconds)}</span>
                   </div>
                   <InferenceEnvironmentCard
-                    defaultToken={selectedToken?.address}
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
                     gpuSelection={selectedEnv.gpuSelection}

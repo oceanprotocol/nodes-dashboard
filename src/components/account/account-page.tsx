@@ -1,7 +1,6 @@
 import AccessListsManager from '@/components/access-lists/access-lists-manager';
 import AccountNav from '@/components/account/account-nav';
 import { AccountSectionKey, getAccountSection } from '@/components/account/account-sections';
-import CompySection from '@/components/account/compy-section';
 import ConsumerSection from '@/components/account/consumer-section';
 import OwnerSection from '@/components/account/owner-section';
 import SubsidySection from '@/components/account/subsidy-section';
@@ -32,8 +31,6 @@ const renderSection = (section: AccountSectionKey) => {
       return <EscrowSection />;
     case 'subsidy':
       return <SubsidySection />;
-    case 'compy':
-      return <CompySection />;
     case 'access-lists':
       return <AccessListsManager />;
     case 'storage':

@@ -1,14 +1,13 @@
 import Button from '@/components/button/button';
 import { captureSubsidyCtaClick, SubsidyPaymentState } from '@/components/subsidy/subsidy-analytics';
 import { formatSubsidyAmount, getDiscountLimitsLabel, getProgramSummary } from '@/components/subsidy/subsidy-copy';
-import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
+import { USDC } from '@/constants/tokens';
 import { useProfileContext } from '@/context/profile-context';
 import {
   formatSubsidyPeriod,
   formatSubsidyReset,
   getBindingWindow,
   getSubsidyJobTypeName,
-  isSubsidyToken,
   SubsidyJobType,
 } from '@/lib/subsidy';
 import { useIsNodeSubsidized, useSubsidyProgram, useSubsidyQuote, useSubsidyUsage } from '@/lib/use-subsidy';
@@ -59,19 +58,11 @@ type PaymentSubsidyProps = {
   /** The node decides which subsidy applies. */
   nodeAddress?: string;
   renderCostAfter: (cost: number) => ReactNode;
-  tokenAddress: string;
   totalCost: number;
 };
 
 /** Amounts are quotes; the lock settles the final figure. */
-const PaymentSubsidy = ({
-  format,
-  jobType,
-  nodeAddress,
-  renderCostAfter,
-  tokenAddress,
-  totalCost,
-}: PaymentSubsidyProps) => {
+const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCost }: PaymentSubsidyProps) => {
   const { subsidyInfo } = useProfileContext();
   const { data: program, isError: isProgramError } = useSubsidyProgram();
   const { data: usage, isError: isUsageError } = useSubsidyUsage();
@@ -80,10 +71,9 @@ const PaymentSubsidy = ({
     cost: totalCost,
     jobType,
     nodeAddress,
-    tokenAddress,
   });
 
-  if (!isSubsidyToken(tokenAddress) || totalCost <= 0) {
+  if (totalCost <= 0) {
     return null;
   }
 
@@ -107,7 +97,7 @@ const PaymentSubsidy = ({
   const amount = (value: number) => (
     <span className={styles.rowAmountGroup}>
       <span className={styles.subsidyAmount}>−{format(value)}</span>
-      <span className={styles.rowSymbol}>{SUBSIDY_TOKEN_SYMBOL}</span>
+      <span className={styles.rowSymbol}>{USDC.symbol}</span>
     </span>
   );
 
@@ -224,7 +214,7 @@ const PaymentSubsidy = ({
         state="limit_reached"
         title={
           discountWindow
-            ? `Discount limit reached: ${format(discountWindow.limit)} of ${format(discountWindow.limit)} ${SUBSIDY_TOKEN_SYMBOL} used this ${windowLabel}`
+            ? `Discount limit reached: ${format(discountWindow.limit)} of ${format(discountWindow.limit)} ${USDC.symbol} used this ${windowLabel}`
             : 'Your subsidy is used up'
         }
         tone="warning"
@@ -236,12 +226,12 @@ const PaymentSubsidy = ({
     return (
       <>
         <SubsidyRow
-          description={`This job reaches your ${windowLabel} limit (${format(discountWindow.limit)} ${SUBSIDY_TOKEN_SYMBOL}). You pay ${format(costAfter)} ${SUBSIDY_TOKEN_SYMBOL}.${resetLabel}`}
+          description={`This job reaches your ${windowLabel} limit (${format(discountWindow.limit)} ${USDC.symbol}). You pay ${format(costAfter)} ${USDC.symbol}.${resetLabel}`}
           end={amount(quote.total)}
           icon={<ScheduleIcon fontSize="small" />}
           jobType={jobType}
           state="capped"
-          title={`OPF subsidy: ${format(quote.total)} ${SUBSIDY_TOKEN_SYMBOL} instead of ${format(quote.oneTime + quote.uncappedDiscount)}`}
+          title={`OPF subsidy: ${format(quote.total)} ${USDC.symbol} instead of ${format(quote.oneTime + quote.uncappedDiscount)}`}
           tone="warning"
         />
         {renderCostAfter(costAfter)}
@@ -253,23 +243,23 @@ const PaymentSubsidy = ({
   let title: string;
   let description: string;
   if (quote.discount <= 0) {
-    const creditLeft = `${format(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${SUBSIDY_TOKEN_SYMBOL} of it left after this job.`;
+    const creditLeft = `${format(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${USDC.symbol} of it left after this job.`;
     if (costAfter <= 0) {
       title = 'OPF subsidy: this job is on us';
       description = `Paid up front from your one-time credit, so it doesn't need to be in your escrow. ${creditLeft}`;
     } else {
-      title = `OPF subsidy: ${format(quote.oneTime)} ${SUBSIDY_TOKEN_SYMBOL} on us`;
+      title = `OPF subsidy: ${format(quote.oneTime)} ${USDC.symbol} on us`;
       description = `Paid up front from your one-time credit, so only your part needs to be in escrow. ${creditLeft}`;
     }
   } else if (quote.oneTime > 0) {
-    title = `OPF subsidy: ${format(quote.oneTime)} ${SUBSIDY_TOKEN_SYMBOL} on us, then ${discountPercent}% off the rest`;
+    title = `OPF subsidy: ${format(quote.oneTime)} ${USDC.symbol} on us, then ${discountPercent}% off the rest`;
     description =
       'Paid up front when the job starts, so only your part needs to be in escrow. This uses the rest of your free credit.';
   } else {
     title = `OPF subsidy: ${discountPercent}% off this job`;
     description = `Paid up front when the job starts, so only your part needs to be in escrow.${
       discountWindow
-        ? ` After this job (estimate): ${format(discountWindow.used + quote.discount)} of ${format(discountWindow.limit)} ${SUBSIDY_TOKEN_SYMBOL} discount used this ${windowLabel}.`
+        ? ` After this job (estimate): ${format(discountWindow.used + quote.discount)} of ${format(discountWindow.limit)} ${USDC.symbol} discount used this ${windowLabel}.`
         : ''
     }`;
   }

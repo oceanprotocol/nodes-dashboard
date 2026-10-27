@@ -14,7 +14,7 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 - **Global Stats** – Network-wide analytics: total nodes, jobs, rewards, GPU popularity, and country distribution.
 - **Profile** – Per-wallet view of owned nodes, rewards history, and associated jobs.
 - **Subsidy Flow** – Token subsidy mechanism backed by a Google Sheets ledger and Gemini AI integration.
-- **Swap Tokens / Withdraw** – Utility pages for token operations.
+- **Withdraw** – Utility page for token withdrawal.
 - **Web3 Wallet Support** – Two independent paths: native wallets connect via EIP-6963 discovery + Ethers.js, and email magic link / passkey / Google OAuth go through Privy + Alchemy Account Kit to a smart contract account.
 - **ENS Resolution** – Display human-readable ENS names for wallet addresses.
 - **Analytics** – Dedicated analytics layer (summaries, rewards history, GPU stats) from the `analytics` backend.
@@ -127,7 +127,6 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 | `SUBSIDY_ACCESS_LIST_ADDRESS`                 | Subsidy AccessList contract that claimed wallets are added to                                                                              |
 | `SUBSIDY_ACCESS_LIST_PRIVATE_KEY`             | Private key of a wallet allowed to mint on that access list (server-side only, keep secret)                                                |
 | `NEXT_PUBLIC_SUBSIDY_PROVIDERS`               | Optional comma-separated subsidy provider addresses; overrides the providers deployed on the active chain (e.g. test providers on Sepolia) |
-| `NEXT_PUBLIC_COMPY_PER_USDC`                  | COMPY received per 1 USDC in the "Get COMPY" swap. Must match the GrantsSwap contract rate (it has no getter). Defaults to `5`             |
 
 ### Compute
 
@@ -171,7 +170,6 @@ Token contracts:
 
 | Token | Sepolia (dev)                                | Base (prod)                                  |
 | ----- | -------------------------------------------- | -------------------------------------------- |
-| COMPY | `0x973e69303259B0c2543a38665122b773D28405fB` | `0x298f163244e0c8cc9316D6E97162e5792ac5d410` |
 | USDC  | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 
 ---
@@ -190,7 +188,6 @@ src/
 │   ├── profile/            # Per-wallet profile
 │   ├── subsidy/            # Subsidy flow
 │   ├── nodes/[nodeId]/storage/ # Node persistent storage (buckets & files)
-│   ├── swap-tokens.tsx     # Token swap
 │   ├── withdraw.tsx        # Token withdrawal
 │   └── api/                # Next.js API routes (server-side)
 ├── components/     # Reusable UI components

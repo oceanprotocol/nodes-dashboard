@@ -1,5 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
+import { USDC } from '@/constants/tokens';
 import { getRpc } from '@/lib/constants';
 import { EscrowJobRef, EscrowLockCycle, EscrowLockStatus, toTokenAmount } from '@/lib/escrow-events';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
@@ -64,11 +64,6 @@ export type SubsidyQuote = {
   /** Discount ignoring usage windows. */
   uncappedDiscount: number;
 };
-
-const getToken = () => getSupportedTokens().USDC;
-
-export const isSubsidyToken = (tokenAddress: string | undefined) =>
-  !!tokenAddress && tokenAddress.toLowerCase() === getToken().address.toLowerCase();
 
 let _readSigner: ethers.VoidSigner | null = null;
 
@@ -153,7 +148,6 @@ type ProgramEntry =
 
 // Only lock-time (prepaid) providers count.
 const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> => {
-  const token = getToken();
   const view = getView(address);
   if (!(await view.isSubsidyLockProvider())) {
     return null;
@@ -164,8 +158,8 @@ const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> =
   const kind = await view.subsidyKind();
   if (kind === SubsidyKind.ONE_TIME) {
     const config = await new OneTimeSubsidyProvider(getReadSigner(), address, CHAIN_ID).getTokenConfig(
-      token.address,
-      token.decimals
+      USDC.address,
+      USDC.decimals
     );
     if (!config.enabled) {
       return null;
@@ -174,8 +168,8 @@ const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> =
   }
   if (kind === SubsidyKind.ROLLING_WINDOW) {
     const limits = await new OPFSubsidyProvider(getReadSigner(), address, CHAIN_ID).getTokenLimits(
-      token.address,
-      token.decimals
+      USDC.address,
+      USDC.decimals
     );
     if (!limits.enabled) {
       return null;
@@ -234,9 +228,8 @@ export const loadSubsidyProgram = async (): Promise<SubsidyProgram | null> => {
 };
 
 export const loadSubsidyUsage = async (program: SubsidyProgram, payer: string): Promise<SubsidyUsage> => {
-  const token = getToken();
   const readReports = (addresses: string[]) =>
-    Promise.all(addresses.map((address) => getView(address).subsidyBuckets(payer, token.address, token.decimals)));
+    Promise.all(addresses.map((address) => getView(address).subsidyBuckets(payer, USDC.address, USDC.decimals)));
   const [oneTimeReports, discountReports] = await Promise.all([
     readReports(program.oneTime?.addresses ?? []),
     readReports(program.discount?.addresses ?? []),
@@ -284,8 +277,7 @@ export const quoteSubsidy = async ({
   payer: string;
   program: SubsidyProgram;
 }): Promise<SubsidyQuote> => {
-  const token = getToken();
-  const amount = cost.toFixed(token.decimals);
+  const amount = cost.toFixed(USDC.decimals);
   let remaining = cost;
   const covered: Record<string, number> = {};
   for (const address of program.providers) {
@@ -296,11 +288,11 @@ export const quoteSubsidy = async ({
       nodeAddress,
       payer,
       jobType,
-      token.address,
+      USDC.address,
       amount,
-      remaining.toFixed(token.decimals),
+      remaining.toFixed(USDC.decimals),
       SubsidyMode.PREFUNDED,
-      token.decimals
+      USDC.decimals
     );
     const subsidy = Math.min(Number(quote.subsidy), remaining);
     if (subsidy > 0) {
@@ -326,15 +318,13 @@ export const getJobSubsidyProviders = async ({
   jobType,
   nodeAddress,
   payer,
-  tokenAddress,
 }: {
   cost: number;
   jobType: SubsidyJobType;
   nodeAddress: string;
   payer: string;
-  tokenAddress: string;
 }): Promise<string[] | undefined> => {
-  if (!isSubsidyToken(tokenAddress) || cost <= 0) {
+  if (cost <= 0) {
     return undefined;
   }
   try {
@@ -379,7 +369,7 @@ export const buildSubsidyHistory = (program: SubsidyProgram, cycles: EscrowLockC
       cycle.token
     );
   return cycles
-    .filter((cycle) => cycle.status !== 'canceled' && isSubsidyToken(cycle.token.address))
+    .filter((cycle) => cycle.status !== 'canceled')
     .map((cycle) => {
       const oneTime = sumProviders(cycle, (provider) => oneTimeAddresses.has(provider));
       const total = sumProviders(cycle, () => true);

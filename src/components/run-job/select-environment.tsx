@@ -5,23 +5,16 @@ import HardwareLabel from '@/components/hardware-label/hardware-label';
 import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Switch from '@/components/switch/switch';
-import { getSupportedTokens } from '@/constants/tokens';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { isBenchmarkEnv } from '@/utils/env-resources';
-import { getEnvSupportedTokens } from '@/utils/env-tokens';
+import { acceptsUsdc } from '@/utils/env-tokens';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { Collapse } from '@mui/material';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './select-environment.module.css';
-
-/** Paid envs must accept a token we support (USDC / COMPY); the "Test compute" (free) mode shows
- *  everything the server returned. */
-function acceptsSupportedToken(env: ComputeEnvironment): boolean {
-  return getEnvSupportedTokens(env, true).length > 0;
-}
 
 const sortOptions = [
   { label: 'Best score', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
@@ -36,7 +29,6 @@ type FilterFormValues = {
   minimumCPU: number | '';
   minimumRAM: number | '';
   minimumStorage: number | '';
-  feeToken: string;
   sortBy: string;
 };
 
@@ -72,17 +64,8 @@ const SelectEnvironment = () => {
     return process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
   }, [gpus]);
 
-  const feeTokenOptions = useMemo(() => {
-    const tokens = getSupportedTokens();
-    return [
-      { label: 'Any', value: '' },
-      ...Object.keys(tokens).map((token) => ({ value: tokens[token as keyof typeof tokens].address, label: token })),
-    ];
-  }, []);
-
   const formik = useFormik<FilterFormValues>({
     initialValues: {
-      feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
       free: false,
       gpuName: filters.gpuName ?? [],
       fromMaxJobDuration: filters.fromMaxJobDuration ?? '',
@@ -93,9 +76,6 @@ const SelectEnvironment = () => {
     },
     onSubmit: async (values) => {
       const filters: RawFilters = { ...DEFAULT_FILTERS, gpuName: values.gpuName };
-      if (values.feeToken) {
-        filters.feeToken = values.feeToken;
-      }
       if (values.free) {
         filters.free = values.free;
       }
@@ -124,7 +104,6 @@ const SelectEnvironment = () => {
     if (expanded) {
       formik.setValues({
         ...formik.values,
-        feeToken: '',
         fromMaxJobDuration: '',
         minimumCPU: '',
         minimumRAM: '',
@@ -135,13 +114,13 @@ const SelectEnvironment = () => {
   };
 
   /**
-   * In free ("Test compute") mode the fee-token test is dropped — a free job pays nothing — so only
-   * the benchmark env is excluded there. It's excluded in both modes: booking the environment the
+   * Paid envs must accept USDC. In free ("Test compute") mode that test is dropped — a free job pays
+   * nothing — so only the benchmark env is excluded there. It's excluded in both modes: booking the environment the
    * node generated for its own benchmark competes with the measurement its rewards depend on, and a
    * free job competes for the same slot as a paid one.
    */
   const isVisibleEnv = useCallback(
-    (env: ComputeEnvironment) => !isBenchmarkEnv(env) && (filters.free || acceptsSupportedToken(env)),
+    (env: ComputeEnvironment) => !isBenchmarkEnv(env) && (filters.free || acceptsUsdc(env)),
     [filters.free]
   );
 
@@ -251,16 +230,6 @@ const SelectEnvironment = () => {
             </div>
           </Collapse>
           <div className={styles.filtersFooter}>
-            <Select
-              disabled={formik.values.free}
-              label="Fee token"
-              name="feeToken"
-              onChange={formik.handleChange}
-              options={feeTokenOptions}
-              placeholder="Any"
-              size="sm"
-              value={formik.values.feeToken}
-            />
             <Switch
               checked={formik.values.free}
               className="justifySelfStart"
@@ -292,7 +261,6 @@ const SelectEnvironment = () => {
               node.computeEnvironments.environments.map((env) => (
                 <EnvironmentCard
                   compact
-                  defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                   environment={env}
                   forcePricing={filters.free ? 'free' : 'paid'}
                   key={env.id}

@@ -8,7 +8,7 @@ import SubsidyInfoButton from '@/components/subsidy/subsidy-info-button';
 import SubsidyStatusError from '@/components/subsidy/subsidy-status-error';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
-import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
+import { USDC } from '@/constants/tokens';
 import { useProfileContext } from '@/context/profile-context';
 import {
   formatSubsidyPeriod,
@@ -207,9 +207,7 @@ const ActiveSubsidy = () => {
               <span className={styles.availableAmount}>
                 {discountUnlimited ? 'No limit' : formatSubsidyAmount(creditLeft + discountLeft)}
               </span>
-              {discountUnlimited ? null : (
-                <span className={styles.availableLabel}>{SUBSIDY_TOKEN_SYMBOL} available now</span>
-              )}
+              {discountUnlimited ? null : <span className={styles.availableLabel}>{USDC.symbol} available now</span>}
             </div>
             <SpendOrder credit={creditLeft} discount={discountLeft} />
           </div>

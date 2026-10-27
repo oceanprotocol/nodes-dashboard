@@ -6,7 +6,8 @@ import useEnvResources from '@/components/hooks/use-env-resources';
 import Menu from '@/components/menu/menu';
 import GenerateTokenCard from '@/components/run-job/generate-token-card';
 import { CHAIN_ID } from '@/constants/chains';
-import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
+import { USDC } from '@/constants/tokens';
+import { useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { IdeResourceRequest } from '@/lib/ocean-provider';
@@ -33,28 +34,16 @@ type SummaryProps = {
   nodeInfo: EnvNodeInfo;
   selectedEnv: ComputeEnvironment;
   selectedResources: EnvResourcesSelection;
-  token: SelectedToken | null;
 };
 
-const Summary = ({
-  estimatedTotalCost,
-  freeCompute,
-  nodeInfo,
-  selectedEnv,
-  selectedResources,
-  token,
-}: SummaryProps) => {
+const Summary = ({ estimatedTotalCost, freeCompute, nodeInfo, selectedEnv, selectedResources }: SummaryProps) => {
   const router = useRouter();
 
   const { account, ocean, user } = useOceanAccount();
   const { getPeerMultiaddr } = useP2P();
   const { authToken, setAuthToken, minLockSeconds, multiaddrsOrPeerId } = useRunJobContext();
 
-  const { gpus } = useEnvResources({
-    environment: selectedEnv,
-    freeCompute,
-    tokenAddress: token?.address ?? '',
-  });
+  const { gpus } = useEnvResources({ environment: selectedEnv, freeCompute });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [runMode, setRunMode] = useState<'ide' | 'dashboard'>('dashboard');
@@ -75,27 +64,25 @@ const Summary = ({
     cost: estimatedTotalCost,
     jobType: SubsidyJobType.COMPUTE,
     nodeAddress: selectedEnv.consumerAddress,
-    tokenAddress: token?.address,
   });
 
   const checkPaymentStatus = useCallback(async () => {
-    if (freeCompute || !token) {
+    if (freeCompute) {
       setPaymentCheckFinished(true);
       return;
     }
     if (ocean && account?.address) {
       const [authorizations, escrowBalance] = await Promise.all([
-        ocean.getAuthorizations(token.address, account.address, selectedEnv.consumerAddress),
-        ocean.getUserFunds(token.address, account.address),
+        ocean.getAuthorizations(USDC.address, account.address, selectedEnv.consumerAddress),
+        ocean.getUserFunds(USDC.address, account.address),
       ]);
       const { sufficient } = computeEscrowRequirement({
         snapshot: {
           authorizations,
-          escrowBalance: roundTokenAmount(Number(escrowBalance), token.address, 'down'),
+          escrowBalance: roundTokenAmount(Number(escrowBalance), USDC.address, 'down'),
           walletBalance: 0,
         },
         totalCost: payerCost,
-        tokenAddress: token.address,
         requiredLockSeconds: minLockSeconds ?? 0,
         minLockSecondsFloor: 1,
       });
@@ -105,7 +92,7 @@ const Summary = ({
         router.replace({ pathname: '/run-job/payment', query: router.query });
       }
     }
-  }, [freeCompute, token, ocean, account.address, selectedEnv.consumerAddress, payerCost, minLockSeconds, router]);
+  }, [freeCompute, ocean, account.address, selectedEnv.consumerAddress, payerCost, minLockSeconds, router]);
 
   useEffect(() => {
     if (!ocean || !account.address || isQuoting) {
@@ -161,7 +148,7 @@ const Summary = ({
         peerMultiaddr,
         isFreeCompute,
         selectedEnv.id,
-        token?.address ?? '',
+        freeCompute ? '' : USDC.address,
         selectedResources.maxJobDurationSeconds,
         resources,
         uriScheme
@@ -231,12 +218,12 @@ const Summary = ({
         <div className={styles.value}>{nodeInfo.id}</div>
         <div className={styles.label}>Environment:</div>
         <div className={styles.value}>{selectedEnv.consumerAddress}</div>
-        {token ? (
+        {freeCompute ? null : (
           <>
             <div className={styles.label}>Fee token address:</div>
-            <div className={styles.value}>{token.address}</div>
+            <div className={styles.value}>{USDC.address}</div>
           </>
-        ) : null}
+        )}
         <div className={styles.label}>Job duration:</div>
         <div className={styles.value}>{formatDuration(selectedResources!.maxJobDurationSeconds)}</div>
         <div className={styles.label}>GPU:</div>
@@ -258,7 +245,7 @@ const Summary = ({
         <div className={styles.label}>Disk space:</div>
         <div className={styles.value}>{selectedResources!.diskSpace} GB</div>
         <div className={styles.label}>Total cost:</div>
-        <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${token?.symbol}`}</div>
+        <div className={styles.value}>{freeCompute ? 'Free' : `${estimatedTotalCost} ${USDC.symbol}`}</div>
       </div>
       {authToken ? (
         <>
@@ -318,7 +305,6 @@ const Summary = ({
           multiaddrsOrPeerId={multiaddrsOrPeerId!}
           nodeId={nodeInfo.id}
           onTokenGenerated={setAuthToken}
-          tokenAddress={token?.address}
         />
       )}
 

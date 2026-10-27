@@ -1,5 +1,5 @@
-import { CHAIN_ID } from '@/constants/chains';
 import { ComputeEnvFees, ComputeEnvironment, ComputeResource } from '@/types/environments';
+import { getEnvUsdcFees } from '@/utils/env-tokens';
 import { getAvailableAmount } from '@/utils/resources';
 import { useMemo } from 'react';
 
@@ -19,37 +19,20 @@ export type EnvResources = {
   ram?: ComputeResource;
   ramAvailable: number;
   ramFee?: number;
-  supportedTokens: string[];
 };
 
 type EnvResourcesArgs = {
   environment: ComputeEnvironment;
   freeCompute: boolean;
-  tokenAddress: string;
 };
 
-type TokenFees = ComputeEnvFees | undefined;
+type UsdcFees = ComputeEnvFees | undefined;
 
 /*
  * The steps below are plain functions so `readEnvResources` (a one-shot read, e.g. to price many
  * environments at once) and the hook compute the exact same thing. The hook keeps one memo per step
  * with the same dependencies it always had, so the identity of what it returns is unchanged.
  */
-
-/** The env's fee schedule on the active chain, and the tokens it accepts. */
-function chainFeesOf(envFees: ComputeEnvironment['fees']): { fees: ComputeEnvFees[]; supportedTokens: string[] } {
-  try {
-    const fees = envFees?.[CHAIN_ID];
-    if (!fees) {
-      return { fees: [], supportedTokens: [] };
-    }
-    const supportedTokens = fees.map((fee) => fee.feeToken);
-    return { fees, supportedTokens };
-  } catch (error) {
-    console.error('Error processing fees:', error);
-    return { fees: [], supportedTokens: [] };
-  }
-}
 
 /** The env's CPU/RAM/disk/GPU resources, narrowed to the free tier's own limits when `freeCompute`. */
 function resourcesOf({
@@ -100,7 +83,7 @@ function resourcesOf({
   }
 }
 
-/** Per-unit CPU/RAM/disk fees in the selected token (all 0 on the free tier). */
+/** Per-unit CPU/RAM/disk fees in USDC (all 0 on the free tier). */
 function sharedFeesOf({
   cpuId,
   diskId,
@@ -128,14 +111,14 @@ function sharedFeesOf({
   }
 }
 
-/** Per-unit fee of every GPU resource id in the selected token (empty on the free tier). */
+/** Per-unit fee of every GPU resource id in USDC (empty on the free tier). */
 function gpuFeesOf({
   freeCompute,
-  selectedTokenFees,
+  usdcFees,
   gpus,
 }: {
   freeCompute: boolean;
-  selectedTokenFees: TokenFees;
+  usdcFees: UsdcFees;
   gpus: ComputeResource[];
 }): Record<string, number> {
   try {
@@ -143,9 +126,9 @@ function gpuFeesOf({
       return {};
     }
     const fees: Record<string, number> = {};
-    if (selectedTokenFees) {
+    if (usdcFees) {
       const gpuIds = gpus.map((gpu) => gpu.id);
-      selectedTokenFees.prices
+      usdcFees.prices
         .filter((fee) => gpuIds.includes(fee.id))
         .forEach((fee) => {
           fees[fee.id] = fee.price;
@@ -202,9 +185,8 @@ function availabilityOf({
 }
 
 /** One-shot, non-React read of the same values {@link useEnvResources} returns. */
-export function readEnvResources({ environment, freeCompute, tokenAddress }: EnvResourcesArgs): EnvResources {
-  const { fees, supportedTokens } = chainFeesOf(environment.fees);
-  const selectedTokenFees = fees.find((fee) => fee.feeToken === tokenAddress);
+export function readEnvResources({ environment, freeCompute }: EnvResourcesArgs): EnvResources {
+  const usdcFees = getEnvUsdcFees(environment.fees);
   const { cpu, disk, gpus, ram } = resourcesOf({
     resources: environment.resources,
     freeResources: environment.free?.resources,
@@ -220,9 +202,9 @@ export function readEnvResources({ environment, freeCompute, tokenAddress }: Env
       diskId: disk?.id,
       ramId: ram?.id,
       freeCompute,
-      prices: selectedTokenFees?.prices,
+      prices: usdcFees?.prices,
     }),
-    gpuFees: gpuFeesOf({ freeCompute, selectedTokenFees, gpus }),
+    gpuFees: gpuFeesOf({ freeCompute, usdcFees, gpus }),
     ...jobDurationsOf({
       freeCompute,
       freeMax: environment.free?.maxJobDuration,
@@ -231,14 +213,11 @@ export function readEnvResources({ environment, freeCompute, tokenAddress }: Env
       min: environment.minJobDuration,
     }),
     ...availabilityOf({ cpu, disk, gpus, ram }),
-    supportedTokens,
   };
 }
 
-const useEnvResources = ({ environment, freeCompute, tokenAddress }: EnvResourcesArgs): EnvResources => {
-  const { fees, supportedTokens } = useMemo(() => chainFeesOf(environment.fees), [environment.fees]);
-
-  const selectedTokenFees = useMemo(() => fees.find((fee) => fee.feeToken === tokenAddress), [fees, tokenAddress]);
+const useEnvResources = ({ environment, freeCompute }: EnvResourcesArgs): EnvResources => {
+  const usdcFees = useMemo(() => getEnvUsdcFees(environment.fees), [environment.fees]);
 
   const { cpu, disk, gpus, ram } = useMemo(
     () => resourcesOf({ resources: environment.resources, freeResources: environment.free?.resources, freeCompute }),
@@ -252,15 +231,12 @@ const useEnvResources = ({ environment, freeCompute, tokenAddress }: EnvResource
         diskId: disk?.id,
         ramId: ram?.id,
         freeCompute,
-        prices: selectedTokenFees?.prices,
+        prices: usdcFees?.prices,
       }),
-    [cpu?.id, disk?.id, freeCompute, ram?.id, selectedTokenFees?.prices]
+    [cpu?.id, disk?.id, freeCompute, ram?.id, usdcFees?.prices]
   );
 
-  const gpuFees = useMemo(
-    () => gpuFeesOf({ freeCompute, selectedTokenFees, gpus }),
-    [freeCompute, selectedTokenFees, gpus]
-  );
+  const gpuFees = useMemo(() => gpuFeesOf({ freeCompute, usdcFees, gpus }), [freeCompute, usdcFees, gpus]);
 
   const { maxJobDurationSeconds, minJobDurationSeconds } = useMemo(
     () =>
@@ -300,7 +276,6 @@ const useEnvResources = ({ environment, freeCompute, tokenAddress }: EnvResource
     ram,
     ramAvailable,
     ramFee,
-    supportedTokens,
   };
 };
 

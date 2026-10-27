@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import { formatSubsidyAmount } from '@/components/subsidy/subsidy-copy';
 import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
-import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
+import { USDC } from '@/constants/tokens';
 import { cappedWindows, formatSubsidyPeriod } from '@/lib/subsidy';
 import { useSubsidyProgram } from '@/lib/use-subsidy';
 import classNames from 'classnames';
@@ -31,7 +31,7 @@ const SubsidyTiles = ({ muted }: SubsidyTilesProps) => {
           </span>
           <span className={styles.bigValue}>
             {formatSubsidyAmount(program.oneTime.credit)}
-            <span className={styles.bigUnit}>{SUBSIDY_TOKEN_SYMBOL}</span>
+            <span className={styles.bigUnit}>{USDC.symbol}</span>
           </span>
           <span className={styles.tileNote}>
             Use across jobs until it runs out
@@ -51,7 +51,7 @@ const SubsidyTiles = ({ muted }: SubsidyTilesProps) => {
               {limits.map((window) => (
                 <div className={styles.tileLimit} key={window.periodSeconds}>
                   <span>
-                    Up to {formatSubsidyAmount(window.limit)} {SUBSIDY_TOKEN_SYMBOL}
+                    Up to {formatSubsidyAmount(window.limit)} {USDC.symbol}
                   </span>
                   <span>each {formatSubsidyPeriod(window.periodSeconds)}</span>
                 </div>

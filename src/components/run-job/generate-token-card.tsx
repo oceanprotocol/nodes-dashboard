@@ -21,7 +21,6 @@ type GenerateTokenCardProps = {
   nodeId: string;
   multiaddrsOrPeerId: string[] | string;
   onTokenGenerated: (token: string) => void;
-  tokenAddress?: string;
 };
 
 type FormValues = {
@@ -36,7 +35,6 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
   multiaddrsOrPeerId,
   nodeId,
   onTokenGenerated,
-  tokenAddress,
 }) => {
   const { account, ocean, signMessage } = useOceanAccount();
   const { addNodeToken } = useNodeTokensContext();
@@ -79,7 +77,6 @@ const GenerateTokenCard: React.FC<GenerateTokenCardProps> = ({
           nodeId,
           environmentId,
           freeCompute,
-          tokenAddress,
         });
       } catch (error) {
         console.error('Failed to generate auth token:', error);

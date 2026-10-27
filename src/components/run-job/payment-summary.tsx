@@ -1,12 +1,11 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentSubsidy from '@/components/run-job/payment-subsidy';
-import SwapTokensModal from '@/components/swap-tokens/swap-tokents-modal';
-import { getSupportedTokens } from '@/constants/tokens';
-import { SelectedToken } from '@/context/run-job-context';
+import { BASE_CHAIN_ID, CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { SubsidyJobType } from '@/lib/subsidy';
 import { useSubsidyQuote } from '@/lib/use-subsidy';
-import { BASE_USDC, DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
+import { DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
 import { Authorizations } from '@/types/payment';
 import { formatTokenAmount, roundTokenAmount, sharedTokenAmountDecimals } from '@/utils/formatters';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -21,7 +20,6 @@ type PaymentSummaryProps = {
   loadPaymentInfo: () => void;
   subsidyJobType: SubsidyJobType;
   nodeAddress?: string;
-  selectedToken: SelectedToken;
   /** Which payment step renders this, for the card top-up's analytics. */
   topupSource: 'run_job' | 'inference';
   totalCost: number;
@@ -29,7 +27,7 @@ type PaymentSummaryProps = {
 };
 
 // One label/value line in the ledger below the hero. `action` renders after the value (the
-// "Get more COMPY" / "Top up with card" link); `chip` renders before it, so warnings sit next to what they qualify.
+// "Top up with card" link); `chip` renders before it, so warnings sit next to what they qualify.
 const SummaryRow = ({
   action,
   chip,
@@ -65,25 +63,21 @@ const PaymentSummary = ({
   escrowBalance,
   loadPaymentInfo,
   nodeAddress,
-  selectedToken,
   subsidyJobType,
   topupSource,
   totalCost,
   walletBalance,
 }: PaymentSummaryProps) => {
-  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   // Re-reading payment info once the USDC lands clears the shortfall and unblocks the pay button.
   const { canTopup, isToppingUp, startTopup, waitingForUsdc } = useCardTopup({
     source: topupSource,
     onArrived: loadPaymentInfo,
   });
 
-  const tokenSymbol = selectedToken.symbol;
   const { data: subsidyQuote } = useSubsidyQuote({
     cost: totalCost,
     jobType: subsidyJobType,
     nodeAddress,
-    tokenAddress: selectedToken.address,
   });
 
   const currentLocked = Number(authorizations?.currentLockedAmount ?? 0);
@@ -97,7 +91,7 @@ const PaymentSummary = ({
   const payerCost = Math.max(0, totalCost - (subsidyQuote?.total ?? 0));
   const insufficientAutorized = maxLocked < payerCost + currentLocked;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < payerCost;
-  const depositGap = roundTokenAmount(Math.max(0, payerCost - escrow), selectedToken.address, 'up');
+  const depositGap = roundTokenAmount(Math.max(0, payerCost - escrow), USDC.address, 'up');
   const insufficientWallet = insufficientEscrow && walletBalance < depositGap;
 
   // The collapsed rows are limits — irrelevant while they're comfortably satisfied, worth seeing
@@ -114,22 +108,15 @@ const PaymentSummary = ({
   // without padding values to a fixed width they don't need.
   const decimals = sharedTokenAmountDecimals(
     [totalCost, escrow, currentLocked, maxLocked, walletBalance, subsidyQuote?.total ?? 0, payerCost],
-    selectedToken.address
+    USDC.address
   );
-  const format = (amount: number) => formatTokenAmount(amount, selectedToken.address, decimals);
+  const format = (amount: number) => formatTokenAmount(amount, USDC.address, decimals);
 
-  const isCompy = selectedToken.address.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase();
+  // The card on-ramp only delivers USDC on Base, which keeps it out of dev, where payments use
+  // Sepolia USDC. Smart-account users only (canTopup).
+  const showTopup = insufficientWallet && CHAIN_ID === BASE_CHAIN_ID && canTopup;
 
-  // The card on-ramp only delivers USDC on Base, so it can only cover a Base USDC payment. That also keeps it
-  // out of dev, where payments use Sepolia USDC. Smart-account users only (canTopup).
-  const isBaseUsdc = selectedToken.address.toLowerCase() === BASE_USDC.address.toLowerCase();
-  const showTopup = insufficientWallet && isBaseUsdc && canTopup;
-
-  const walletAction = isCompy ? (
-    <button className={styles.linkButton} onClick={() => setIsSwapModalOpen(true)} type="button">
-      Get more COMPY
-    </button>
-  ) : waitingForUsdc ? (
+  const walletAction = waitingForUsdc ? (
     <span className={styles.topupStatus}>Waiting for your USDC…</span>
   ) : showTopup ? (
     <button
@@ -153,17 +140,17 @@ const PaymentSummary = ({
           <span className={styles.heroLabel}>Estimated total cost</span>
           {insufficientWallet ? (
             <span className={styles.heroHint}>
-              Not enough {tokenSymbol} in your wallet: add {format(depositGap - walletBalance)} {tokenSymbol} to pay
+              Not enough {USDC.symbol} in your wallet: add {format(depositGap - walletBalance)} {USDC.symbol} to pay
             </span>
           ) : insufficientEscrow ? (
             <span className={styles.heroHint}>
-              Paying moves {format(depositGap)} {tokenSymbol} from your wallet to escrow
+              Paying moves {format(depositGap)} {USDC.symbol} from your wallet to escrow
             </span>
           ) : null}
         </div>
         <div className={styles.heroAmount}>
           <span className={styles.heroValue}>{format(totalCost)}</span>
-          <span className={styles.heroSymbol}>{tokenSymbol}</span>
+          <span className={styles.heroSymbol}>{USDC.symbol}</span>
         </div>
       </div>
 
@@ -182,11 +169,10 @@ const PaymentSummary = ({
                   Your cost after subsidy <span className={styles.rowLabelHint}>(estimate)</span>
                 </>
               }
-              symbol={tokenSymbol}
+              symbol={USDC.symbol}
               value={format(cost)}
             />
           )}
-          tokenAddress={selectedToken.address}
           totalCost={totalCost}
         />
 
@@ -200,16 +186,16 @@ const PaymentSummary = ({
           }
           error={insufficientWallet}
           label="Available in escrow"
-          symbol={tokenSymbol}
+          symbol={USDC.symbol}
           value={format(escrow)}
         />
 
         <Collapse in={isDetailsOpen}>
-          <SummaryRow label="Locked now" symbol={tokenSymbol} value={format(currentLocked)} />
+          <SummaryRow label="Locked now" symbol={USDC.symbol} value={format(currentLocked)} />
           <SummaryRow
             chip={insufficientAutorized ? <span className="chip chipGlass">Raised on pay</span> : null}
             label="Max locked"
-            symbol={tokenSymbol}
+            symbol={USDC.symbol}
             value={format(maxLocked)}
           />
         </Collapse>
@@ -220,7 +206,7 @@ const PaymentSummary = ({
           error={insufficientWallet}
           label="Available in wallet"
           muted={!insufficientWallet}
-          symbol={tokenSymbol}
+          symbol={USDC.symbol}
           value={format(walletBalance)}
         />
 
@@ -243,14 +229,6 @@ const PaymentSummary = ({
           </Button>
         </div>
       </div>
-
-      {isCompy ? (
-        <SwapTokensModal
-          isOpen={isSwapModalOpen}
-          onClose={() => setIsSwapModalOpen(false)}
-          onSuccess={loadPaymentInfo}
-        />
-      ) : null}
     </Card>
   );
 };

@@ -12,6 +12,7 @@ import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { editSessionDurationFromQuery, SelectedInferenceEnv, useInferenceContext } from '@/context/inference-context';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
@@ -67,7 +68,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const isProlongMode = router.query.prolong === '1';
   const {
     selectedEnv,
-    selectedToken,
     jobDurationSeconds,
     selectedModels,
     modelParamsByModel,
@@ -168,10 +168,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
 
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
-  // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv/token exist.
+  // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv exists.
   const { allocation, price, selectedByKey } = useInferenceAllocation({
     environment: environment ?? ({ resources: [] } as any),
-    tokenAddress: selectedToken?.address ?? '',
     gpuSelection,
     // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
     // slice at the package min; an edit/prolong re-entry carries the running service's `exact` booked
@@ -199,35 +198,30 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     loading: loadingPaymentInfo,
     loadError: paymentInfoError,
     loadPaymentInfo,
-  } = usePaymentInfo(selectedToken?.address ?? '', selectedEnv?.environment.consumerAddress ?? '');
+  } = usePaymentInfo(selectedEnv?.environment.consumerAddress ?? '');
 
   // Round up so float noise never under-quotes the required balance/allowance.
-  const totalCost = useMemo(
-    () => (selectedToken ? roundTokenAmount(price, selectedToken.address, 'up') : 0),
-    [price, selectedToken]
-  );
+  const totalCost = useMemo(() => roundTokenAmount(price, USDC.address, 'up'), [price]);
 
   const startWithSubsidy = useStartWithSubsidy();
 
   const resolveSubsidyProviders = useCallback(
     () =>
-      selectedEnv && selectedToken && account.address
+      selectedEnv && account.address
         ? getJobSubsidyProviders({
             cost: totalCost,
             jobType: SubsidyJobType.SERVICE,
             nodeAddress: selectedEnv.environment.consumerAddress,
             payer: account.address,
-            tokenAddress: selectedToken.address,
           })
         : Promise.resolve(undefined),
-    [account.address, selectedEnv, selectedToken, totalCost]
+    [account.address, selectedEnv, totalCost]
   );
 
   const { isQuoting: isSubsidyQuoting, payerCost } = usePayerCost({
     cost: totalCost,
     jobType: SubsidyJobType.SERVICE,
     nodeAddress: selectedEnv?.environment.consumerAddress,
-    tokenAddress: selectedToken?.address,
   });
 
   /**
@@ -239,22 +233,20 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const paymentInfoReady = escrowBalance !== null && walletBalance !== null;
   // How much more the wallet needs to cover the deposit; 0 when it already does (or isn't read yet).
   const walletShortfall = useMemo(() => {
-    if (!selectedToken || escrowBalance === null || walletBalance === null) {
+    if (escrowBalance === null || walletBalance === null) {
       return 0;
     }
     const requirement = computeEscrowRequirement({
       snapshot: { authorizations, escrowBalance, walletBalance },
       totalCost: payerCost,
-      tokenAddress: selectedToken.address,
       requiredLockSeconds: escrowLockSeconds,
     });
     if (!requirement.insufficientWalletFunds) {
       return 0;
     }
-    return roundTokenAmount(requirement.depositAmount - walletBalance, selectedToken.address, 'up');
-  }, [authorizations, escrowBalance, walletBalance, payerCost, selectedToken, escrowLockSeconds]);
-  const paymentBlocked =
-    !isEditMode && !!selectedEnv && !!selectedToken && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
+    return roundTokenAmount(requirement.depositAmount - walletBalance, USDC.address, 'up');
+  }, [authorizations, escrowBalance, walletBalance, payerCost, escrowLockSeconds]);
+  const paymentBlocked = !isEditMode && !!selectedEnv && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
 
   // Launch mode in the `inference_launch_clicked` vocabulary, shared with inference_payment_blocked.
   const launchMode = isProlongMode
@@ -290,11 +282,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       mode: launchMode,
       branch,
       totalCost,
-      tokenSymbol: selectedToken?.symbol,
       shortfall: blockReason === 'wallet_shortfall' ? walletShortfall : undefined,
       durationSeconds: jobDurationSeconds,
     });
-  }, [blockReason, launchMode, branch, totalCost, selectedToken?.symbol, walletShortfall, jobDurationSeconds]);
+  }, [blockReason, launchMode, branch, totalCost, walletShortfall, jobDurationSeconds]);
 
   /**
    * The env to launch from, re-read from the node. Both fresh-launch paths resolve GPU ids out of it,
@@ -342,7 +333,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Returns whether a deposit tx actually happened (false when escrow already covered the cost) —
   // callers thread this into the launch success event as `escrowDeposited`.
   const ensureEscrowForSelection = useCallback(async (): Promise<boolean> => {
-    if (!selectedEnv || !selectedToken || totalCost <= 0) {
+    if (!selectedEnv || totalCost <= 0) {
       return false;
     }
     const info = await loadPaymentInfo();
@@ -351,11 +342,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       err.stage = 'escrow';
       throw err;
     }
-    const tokenAddress = selectedToken.address;
     const requirement = computeEscrowRequirement({
       snapshot: info,
       totalCost: payerCost,
-      tokenAddress,
       requiredLockSeconds: escrowLockSeconds,
     });
     if (requirement.depositAmount <= 0 && requirement.sufficient) {
@@ -370,8 +359,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     const paid = await handlePay({
       flow: 'inference',
-      tokenAddress,
-      tokenSymbol: selectedToken.symbol,
       totalCost,
       durationSeconds: jobDurationSeconds,
       peerId: selectedEnv.nodeInfo.id,
@@ -395,7 +382,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     return true;
   }, [
     selectedEnv,
-    selectedToken,
     totalCost,
     payerCost,
     jobDurationSeconds,
@@ -511,8 +497,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // the modal). No new container — serviceExtend charges the extra runtime against the same escrow
   // flow as the initial start.
   const prolongService = useCallback(async () => {
-    if (!targetServiceId || !selectedEnv || !selectedToken || !account.address) {
-      setLaunchError('Selection incomplete: missing service, environment, token or wallet.');
+    if (!targetServiceId || !selectedEnv || !account.address) {
+      setLaunchError('Selection incomplete: missing service, environment or wallet.');
       captureError('inference_service_prolong_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
@@ -587,7 +573,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               token,
               targetServiceId,
               jobDurationSeconds,
-              { chainId: CHAIN_ID, token: selectedToken.address },
+              { chainId: CHAIN_ID, token: USDC.address },
               subsidyProviders
             )
           ),
@@ -597,7 +583,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         serviceId: targetServiceId,
         additionalSeconds: jobDurationSeconds,
         totalCost,
-        tokenSymbol: selectedToken.symbol,
         nodeId: selectedEnv.nodeInfo.id,
         branch,
       });
@@ -611,13 +596,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // The manage page disables Prolong while the node holds a lock under this service's escrow id
         // (see service-escrow-lock); this catches the lock appearing after that check, or a deep link
         // that skipped it. Its own stage so it isn't counted with generic node failures.
-        setLaunchError(
-          serviceEscrowLockMessage({
-            lock: null,
-            tokenAddress: selectedToken.address,
-            tokenSymbol: selectedToken.symbol,
-          })
-        );
+        setLaunchError(serviceEscrowLockMessage(null));
         captureError('inference_service_prolong_failed', error, { stage: 'escrow_lock_conflict', branch });
         return;
       }
@@ -632,7 +611,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     startWithSubsidy,
     targetServiceId,
     selectedEnv,
-    selectedToken,
     account.address,
     withNodeAuth,
     jobDurationSeconds,
@@ -726,14 +704,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     // A single model is selected (the flow is capped at one); its committed params come from context.
     const model = selectedModels[0];
     const params = model ? modelParamsByModel[model.id] : undefined;
-    if (!model || !params || !selectedEnv || !selectedToken || !account.address) {
-      // Name the missing piece so an edit-mode relaunch (which inherits env/token from the running
+    if (!model || !params || !selectedEnv || !account.address) {
+      // Name the missing piece so an edit-mode relaunch (which inherits env from the running
       // service via URL hydration) surfaces which part didn't restore, instead of a generic message.
       const missing = [
         !model && 'model',
         model && !params && 'model parameters',
         !selectedEnv && 'environment',
-        !selectedToken && 'payment token',
         !account.address && 'wallet',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
@@ -785,7 +762,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           gpuSelection: selectedByKey,
           allocation,
           durationSeconds: jobDurationSeconds,
-          tokenAddress: selectedToken.address,
           hfToken,
           appType,
         });
@@ -824,7 +800,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         disk: allocation.disk,
         durationSeconds: jobDurationSeconds,
         totalCost,
-        tokenSymbol: selectedToken.symbol,
         escrowDeposited,
       });
       router.push({
@@ -845,7 +820,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedModels,
     modelParamsByModel,
     selectedEnv,
-    selectedToken,
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
@@ -866,11 +840,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Fresh launch of a template app (ComfyUI, …). Mirrors runFreshLaunch but sources the container spec
   // from the selected template (image/ports/command/env) instead of an HF model + engine params.
   const runTemplateLaunch = useCallback(async () => {
-    if (!selectedTemplate || !selectedEnv || !selectedToken || !account.address) {
+    if (!selectedTemplate || !selectedEnv || !account.address) {
       const missing = [
         !selectedTemplate && 'template',
         !selectedEnv && 'environment',
-        !selectedToken && 'payment token',
         !account.address && 'wallet',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
@@ -917,7 +890,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           gpuSelection: selectedByKey,
           allocation,
           durationSeconds: jobDurationSeconds,
-          tokenAddress: selectedToken.address,
           envValues: templateEnvValues,
           bucketId: selectedBucketId ?? undefined,
         });
@@ -954,7 +926,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         disk: allocation.disk,
         durationSeconds: jobDurationSeconds,
         totalCost,
-        tokenSymbol: selectedToken.symbol,
         escrowDeposited,
         branch,
       });
@@ -975,7 +946,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     startWithSubsidy,
     selectedTemplate,
     selectedEnv,
-    selectedToken,
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
@@ -1066,7 +1036,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       mode: launchMode,
       flowType,
       totalCost,
-      tokenSymbol: selectedToken?.symbol,
       durationSeconds: jobDurationSeconds,
       branch,
     });
@@ -1110,7 +1079,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     runFreshLaunch,
     launchMode,
     totalCost,
-    selectedToken,
     jobDurationSeconds,
     branch,
   ]);
@@ -1154,7 +1122,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               {!isEditMode &&
                 (!account.address ? (
                   <div className="textSecondary">Connect your wallet to see payment details.</div>
-                ) : selectedEnv && selectedToken ? (
+                ) : selectedEnv ? (
                   loadingPaymentInfo && escrowBalance === null && walletBalance === null ? (
                     <CircularProgress className="alignSelfCenter" />
                   ) : paymentInfoError ? (
@@ -1177,7 +1145,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                       escrowBalance={escrowBalance ?? 0}
                       loadPaymentInfo={loadPaymentInfo}
                       nodeAddress={selectedEnv?.environment.consumerAddress}
-                      selectedToken={selectedToken}
                       subsidyJobType={SubsidyJobType.SERVICE}
                       topupSource="inference"
                       totalCost={totalCost}
@@ -1222,7 +1189,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     </span>
                   </div>
                   <InferenceEnvironmentCard
-                    defaultToken={selectedToken?.address}
                     durationSeconds={displayDurationSeconds}
                     // An Edit relaunch reuses the paid window: nothing is charged, so no price.
                     hidePrice={isEditMode}

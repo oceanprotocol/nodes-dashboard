@@ -4,7 +4,6 @@ import {
   buildSubsidyHistory,
   getSubsidyJobTypeName,
   isNodeSubsidized,
-  isSubsidyToken,
   loadSubsidyProgram,
   loadSubsidyUsage,
   quoteSubsidy,
@@ -56,12 +55,10 @@ export const useSubsidyQuote = ({
   cost,
   jobType,
   nodeAddress,
-  tokenAddress,
 }: {
   cost: number;
   jobType: SubsidyJobType;
   nodeAddress: string | undefined;
-  tokenAddress: string | undefined;
 }) => {
   const { account } = useOceanAccount();
   const { data: program } = useSubsidyProgram();
@@ -69,13 +66,7 @@ export const useSubsidyQuote = ({
 
   return useQuery({
     queryKey: ['subsidy-quote', CHAIN_ID, account.address, nodeAddress?.toLowerCase(), jobType, cost],
-    enabled:
-      !!account.address &&
-      !!nodeAddress &&
-      !!usage?.userAllowed &&
-      !!program &&
-      isSubsidyToken(tokenAddress) &&
-      cost > 0,
+    enabled: !!account.address && !!nodeAddress && !!usage?.userAllowed && !!program && cost > 0,
     staleTime: USAGE_STALE_TIME,
     queryFn: () =>
       quoteSubsidy({ cost, jobType, nodeAddress: nodeAddress!, payer: account.address!, program: program! }),

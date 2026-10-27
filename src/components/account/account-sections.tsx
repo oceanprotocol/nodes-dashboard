@@ -7,12 +7,10 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
 import StorageIcon from '@mui/icons-material/Storage';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ReactNode } from 'react';
 
 /** Sections rendered inside the account layout. */
-export type AccountSectionKey =
-  'owner' | 'consumer' | 'escrow' | 'subsidy' | 'compy' | 'access-lists' | 'storage' | 'tokens';
+export type AccountSectionKey = 'owner' | 'consumer' | 'escrow' | 'subsidy' | 'access-lists' | 'storage' | 'tokens';
 
 export type AccountGroupKey = 'activity' | 'funds' | 'access';
 
@@ -79,15 +77,6 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     key: 'subsidy',
     label: 'Subsidy',
     title: 'Subsidy',
-  },
-  {
-    description: 'Convert your USDC to COMPY.',
-    group: 'funds',
-    href: '/account/compy',
-    icon: <SwapHorizIcon />,
-    key: 'compy',
-    label: 'Get COMPY',
-    title: 'Get COMPY',
   },
   {
     description: `Create and manage AccessList contracts on ${formatChainLabel(CHAIN_ID)}.`,

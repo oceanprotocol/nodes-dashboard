@@ -1,10 +1,8 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
 import { isInferenceNode } from '@/constants/nodes';
-import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
-import { getTokenSymbol } from '@/lib/token-symbol';
 import {
   decodeModelIds,
   DEFAULT_INFERENCE_ENGINE,
@@ -40,7 +38,6 @@ export type InferenceSelectionQuery = Partial<{
   engine: string;
   /** Shared-resource sizing (`mode:cpu:ram:disk`) — `pinned` quick start / `floor` handoff; absent for a plain slice. */
   res: string;
-  token: string;
   duration: string;
   params: string;
   /** Selected app-template id (Templates flow) — the `[templateId]` route param, restored on reload. */
@@ -82,8 +79,6 @@ type InferenceContextType = {
   isModelSelected: (modelId: string) => boolean;
   selectedEnv: SelectedInferenceEnv | null;
   setSelectedEnv: (env: SelectedInferenceEnv | null) => void;
-  selectedToken: SelectedToken | null;
-  setSelectedToken: (token: SelectedToken | null) => void;
   /** Hugging Face access token, shared across all selected models (for gated/private repos). */
   hfToken: string;
   setHfToken: (token: string) => void;
@@ -123,7 +118,7 @@ type InferenceContextType = {
   /** Re-run URL hydration after a failure (e.g. a "Retry" button); no-op if none is in the URL. */
   retryHydration: () => void;
   /**
-   * Build the selection query params (models/peerId/env/gpus/token/duration/params) to carry between
+   * Build the selection query params (models/peerId/env/gpus/duration/params) to carry between
    * steps. Spread into `router.query`: `router.push({ pathname, query: { ...router.query, ...build() } })`.
    * Pass overrides for values chosen in the same tick that aren't in context state yet.
    */
@@ -137,7 +132,6 @@ type SelectionOverrides = {
   envId?: string;
   gpuSelection?: GpuSelection;
   sizing?: ResourceSizing;
-  tokenAddress?: string;
   durationSeconds?: number;
   engine?: InferenceEngine;
   modelParamsByModel?: Record<string, ModelParameters>;
@@ -219,7 +213,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const { getServiceTemplates, isReady: p2pReady, error: p2pError } = useP2P();
   const [selectedModels, setSelectedModels] = useState<HuggingFaceModel[]>([]);
   const [selectedEnv, setSelectedEnv] = useState<SelectedInferenceEnv | null>(null);
-  const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
   const [engine, setEngineState] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
@@ -258,7 +251,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   // changing — so a client-side nav that lands on a *different* selection (e.g. Manage from the
   // services table, where the Provider is already mounted and never remounts) re-runs hydration
   // instead of leaving stale/empty context. Same signature = no re-run, so StrictMode's double mount
-  // and within-flow param tweaks (gpus/token/params, derived from context) don't refetch.
+  // and within-flow param tweaks (gpus/params, derived from context) don't refetch.
   const hydratedSignatureRef = useRef<string | null>(null);
   // URL signature (see hydratedSignatureRef) for which `inference_hydration_failed` was already
   // captured — prevents a retry against the same signature, or an unrelated re-render, from
@@ -267,7 +260,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
 
   /**
    * The identity of the selection a URL describes. Only these params identify a *different*
-   * selection; everything else (gpus/res/token/params/duration/bucket) is a tweak within one, so it
+   * selection; everything else (gpus/res/params/duration/bucket) is a tweak within one, so it
    * must not force a re-hydration that would refetch models and the environment on every step.
    */
   const signatureOf = useCallback(({ query, pathname }: Pick<NextRouter, 'query' | 'pathname'>): string => {
@@ -402,7 +395,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const envId = overrides?.envId ?? selectedEnv?.environment.id;
       const gpuSelection = overrides?.gpuSelection ?? selectedEnv?.gpuSelection;
       const sizing = overrides?.sizing ?? selectedEnv?.sizing;
-      const tokenAddress = overrides?.tokenAddress ?? selectedToken?.address;
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
       const models = overrides?.models ?? selectedModels;
       // An explicit override wins (that is how the manage page passes the real window in), then the
@@ -435,9 +427,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const res = encodeResourceSizing(sizing);
       if (res) {
         query.res = res;
-      }
-      if (tokenAddress) {
-        query.token = tokenAddress;
       }
       query.engine = selectedEngine;
       query.duration = String(duration);
@@ -472,7 +461,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     [
       selectedModels,
       selectedEnv,
-      selectedToken,
       jobDurationSeconds,
       engine,
       modelParamsByModel,
@@ -600,17 +588,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
           multiaddrs: foundNode.multiaddrs,
         },
       });
-      // Token restore is best-effort and must not abort env restore if the symbol lookup throws.
-      const tokenAddress = firstQueryValue(q.token);
-      if (tokenAddress) {
-        let symbol: string | null = null;
-        try {
-          symbol = await getTokenSymbol(tokenAddress);
-        } catch (error) {
-          console.error('Failed to resolve token symbol during hydration:', error);
-        }
-        setSelectedToken({ address: tokenAddress, symbol: symbol ?? '' });
-      }
       return true;
     };
 
@@ -707,7 +684,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     }
     // `router.query` is read whole (through signatureOf) but deliberately NOT a dependency: only the
     // params below identify a different selection, and depending on the object would re-run this on
-    // every within-flow param tweak (gpus/res/token/params/duration).
+    // every within-flow param tweak (gpus/res/params/duration).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     hydrateFromQueryParams,
@@ -756,8 +733,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       isModelSelected,
       selectedEnv,
       setSelectedEnv,
-      selectedToken,
-      setSelectedToken,
       hfToken,
       setHfToken,
       jobDurationSeconds,
@@ -776,7 +751,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       clearSelection: () => {
         setSelectedModels([]);
         setSelectedEnv(null);
-        setSelectedToken(null);
         setHfToken('');
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
         // Raw setter: the selection is being emptied, so the lock no longer applies.
@@ -797,7 +771,6 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectSingleModel,
       isModelSelected,
       selectedEnv,
-      selectedToken,
       hfToken,
       setHfToken,
       jobDurationSeconds,

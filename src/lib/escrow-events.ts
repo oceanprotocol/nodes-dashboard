@@ -1,5 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
+import { isUsdc, USDC } from '@/constants/tokens';
 import { getRpc } from '@/lib/constants';
 import { getEscrowEvents } from '@/services/nodeService';
 import { EscrowEventRecord } from '@oceanprotocol/lib';
@@ -79,13 +79,10 @@ export const loadPayerEscrowEvents = async (payer: string): Promise<TimedEscrowE
 };
 
 export const getEscrowToken = (address: string | undefined): EscrowToken | null => {
-  if (!address) {
+  if (!isUsdc(address)) {
     return null;
   }
-  const entry = Object.entries(getSupportedTokens()).find(
-    ([, token]) => token.address.toLowerCase() === address.toLowerCase()
-  );
-  return entry ? { address: entry[1].address, decimals: entry[1].decimals, symbol: entry[0] } : null;
+  return { address: USDC.address, decimals: USDC.decimals, symbol: USDC.symbol };
 };
 
 export const toTokenAmount = (raw: string | bigint | undefined, token: EscrowToken) =>

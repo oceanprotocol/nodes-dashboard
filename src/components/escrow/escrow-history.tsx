@@ -13,12 +13,10 @@ import {
   NodeCell,
   nodeColumn,
 } from '@/components/escrow/history-cells';
-import TabBar from '@/components/tab-bar/tab-bar';
 import CustomPagination from '@/components/table/custom-pagination';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { getExplorerUrl } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
 import { useClientPagination } from '@/hooks/use-client-pagination';
 import { useNodesByWallets } from '@/lib/use-escrow-events';
 import { EscrowHistoryEntry, EscrowHistoryKind, useEscrowHistory } from '@/lib/use-escrow-history';
@@ -37,7 +35,7 @@ import UndoIcon from '@mui/icons-material/Undo';
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import { GridColDef } from '@mui/x-data-grid';
 import classNames from 'classnames';
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useMemo } from 'react';
 import styles from './escrow-history.module.css';
 
 const KIND_META: Record<EscrowHistoryKind, { icon: ReactNode; iconClass: string; label: string }> = {
@@ -77,8 +75,6 @@ const KIND_META: Record<EscrowHistoryKind, { icon: ReactNode; iconClass: string;
 
 const AUTH_KINDS: EscrowHistoryKind[] = ['auth-created', 'auth-updated', 'auth-revoked'];
 
-const ALL_FILTER = 'ALL';
-
 const renderAmount = (entry: EscrowHistoryEntry) => {
   if (entry.amount === null) {
     return <MissingCell />;
@@ -94,24 +90,11 @@ const renderAmount = (entry: EscrowHistoryEntry) => {
 
 const EscrowHistory = () => {
   const { entries, isError, isFetching, refetch } = useEscrowHistory();
-  const [tokenFilter, setTokenFilter] = useState<string>(ALL_FILTER);
 
   const payees = useMemo(() => entries.flatMap((entry) => (entry.payee ? [entry.payee] : [])), [entries]);
   const { data: nodesByWallet } = useNodesByWallets(payees);
 
-  const tokenSymbols = useMemo(() => Object.keys(getSupportedTokens()), []);
-
-  const filtered = useMemo(
-    () => (tokenFilter === ALL_FILTER ? entries : entries.filter((entry) => entry.token?.symbol === tokenFilter)),
-    [entries, tokenFilter]
-  );
-  const { changePageSize, hasPagination, page, pageItems, pageSize, resetPage, setPage } =
-    useClientPagination(filtered);
-
-  const selectToken = (symbol: string) => {
-    setTokenFilter(symbol);
-    resetPage();
-  };
+  const { changePageSize, hasPagination, page, pageItems, pageSize, setPage } = useClientPagination(entries);
 
   const columns = useMemo<GridColDef<EscrowHistoryEntry>[]>(
     () => [
@@ -127,10 +110,7 @@ const EscrowHistory = () => {
           return (
             <div className={styles.typeCell}>
               <span className={classNames(styles.typeIcon, meta.iconClass)}>{meta.icon}</span>
-              <div className={styles.typeText}>
-                <span className={styles.typeLabel}>{meta.label}</span>
-                {row.token ? <span className={styles.typeToken}>{row.token.symbol}</span> : null}
-              </div>
+              <span className={styles.typeLabel}>{meta.label}</span>
             </div>
           );
         },
@@ -175,17 +155,7 @@ const EscrowHistory = () => {
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      <div className={styles.header}>
-        <h4>Escrow history</h4>
-        <TabBar
-          activeKey={tokenFilter}
-          size="sm"
-          tabs={[
-            { key: ALL_FILTER, label: 'All', onClick: () => selectToken(ALL_FILTER) },
-            ...tokenSymbols.map((symbol) => ({ key: symbol, label: symbol, onClick: () => selectToken(symbol) })),
-          ]}
-        />
-      </div>
+      <h4>Escrow history</h4>
       {isError ? <span className={styles.hint}>Couldn&apos;t load your escrow history. Try again later.</span> : null}
       <Table<EscrowHistoryEntry>
         autoHeight
@@ -202,7 +172,7 @@ const EscrowHistory = () => {
           onPageSizeChange={changePageSize}
           page={page}
           pageSize={pageSize}
-          totalItems={filtered.length}
+          totalItems={entries.length}
         />
       ) : null}
       <Button

@@ -3,6 +3,7 @@ import CopyButton from '@/components/button/copy-button';
 import AuthorizationForm from '@/components/escrow/authorization-form';
 import styles from '@/components/escrow/escrow-token-panel.module.css';
 import Modal from '@/components/modal/modal';
+import { USDC } from '@/constants/tokens';
 import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
 import { EscrowSpenderInfo } from '@/lib/use-escrow-data';
 import { formatWalletAddress } from '@/utils/formatters';
@@ -17,7 +18,7 @@ type EditAuthorizationModalProps = {
 const EditAuthorizationModal = ({ isOpen, onClose, onSuccess, spender }: EditAuthorizationModalProps) => {
   const { handleAuthorize, isAuthorizing } = useAuthorizeTokens({ onSuccess });
 
-  const { authorizations, tokenAddress, tokenSymbol } = spender;
+  const { authorizations } = spender;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit authorization per node" width="sm">
@@ -60,7 +61,7 @@ const EditAuthorizationModal = ({ isOpen, onClose, onSuccess, spender }: EditAut
         minLockCount={Number(authorizations.currentLocks) || 1}
         onSubmit={(values) =>
           handleAuthorize({
-            tokenAddress,
+            tokenAddress: USDC.address,
             spender: spender.spender,
             maxLockedAmount: values.maxLockedAmount.toString(),
             maxLockSeconds: values.maxLockSeconds.toString(),
@@ -77,7 +78,6 @@ const EditAuthorizationModal = ({ isOpen, onClose, onSuccess, spender }: EditAut
             Save
           </Button>
         )}
-        tokenSymbol={tokenSymbol}
       />
     </Modal>
   );

@@ -1,4 +1,4 @@
-import { SUBSIDY_TOKEN_SYMBOL } from '@/constants/subsidy';
+import { USDC } from '@/constants/tokens';
 import { cappedWindows, formatSubsidyPeriod, SubsidyProgram } from '@/lib/subsidy';
 
 export const SUBSIDY_STATUS_ERROR = "Couldn't load your subsidy progress.";
@@ -7,7 +7,7 @@ export const SUBSIDY_STATUS_REFRESH_ERROR = "Couldn't refresh your subsidy progr
 
 export const formatSubsidyAmount = (amount: number) => amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-export const formatSubsidyTokenAmount = (amount: number) => `${formatSubsidyAmount(amount)} ${SUBSIDY_TOKEN_SYMBOL}`;
+export const formatSubsidyTokenAmount = (amount: number) => `${formatSubsidyAmount(amount)} ${USDC.symbol}`;
 
 export const getOneTimeLabel = (program: SubsidyProgram) =>
   program.oneTime ? `${formatSubsidyTokenAmount(program.oneTime.credit)} on us` : null;
