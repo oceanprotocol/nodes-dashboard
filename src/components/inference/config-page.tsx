@@ -16,7 +16,7 @@ import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
-import { includesSummary, isBundle, validateEnvValue } from '@/types/templates';
+import { validateEnvValue } from '@/types/templates';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
@@ -71,18 +71,6 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   );
   const [envInputs, setEnvInputs] = useState<Record<string, string>>({});
   const [envErrors, setEnvErrors] = useState<Record<string, string>>({});
-  // Cost of relaunching a bundle: everything it ships with is fetched again inside the paid window.
-  // Counted by includesSummary, so the noun stays honest for a bundle that ships workflows or nodes.
-  const bundleReloadNote = useMemo(() => {
-    if (!selectedTemplate || !isBundle(selectedTemplate)) {
-      return null;
-    }
-    const included = includesSummary(selectedTemplate);
-    if (!included) {
-      return null;
-    }
-    return `Relaunching re-downloads all ${included}, inside the session you have already paid for.`;
-  }, [selectedTemplate]);
   // Edit: the node doesn't echo a service's env, so the non-secret values this browser launched it
   // with (see template-env-memory) prefill the fields; anything already typed this session wins.
   const editServiceId = isEditMode ? firstQueryValue(router.query.serviceId) : undefined;
@@ -369,12 +357,11 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   nodeInfo={selectedEnv.nodeInfo}
                   onSelect={setSelectedBucketId}
                   selectedBucketId={selectedBucketId}
+                  storageExpiry={selectedEnv.environment.storageExpiry}
                 />
               )}
               {isEditMode && needsBucketPicker && (
-                <div className="textSecondary">
-                  The persistent-storage bucket selected at launch, if any, stays mounted.
-                </div>
+                <div className="textSecondary">The result storage selected at launch stays in use.</div>
               )}
               {envSpecs.length > 0 ? (
                 envSpecs.map((spec) => (
@@ -401,22 +388,13 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   />
                 ))
               ) : !showsPicker ? (
-                <div className="textSecondary">
-                  This template has no configurable settings.
-                  {isEditMode ? ' Relaunching restarts the container fresh.' : ''}
-                </div>
+                <div className="textSecondary">This template has no configurable settings.</div>
               ) : null}
               {isEditMode && (
                 <div className="textSecondary">
                   Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens and passwords
                   you need.
                 </div>
-              )}
-              {/* A relaunch recreates the container from the image, and service containers get no
-                  volume — so a bundle re-downloads everything it ships with, on the session the user
-                  has already paid for. Say the cost before they commit to it. */}
-              {isEditMode && selectedTemplate && isBundle(selectedTemplate) && bundleReloadNote && (
-                <div className="textAccent1">{bundleReloadNote}</div>
               )}
             </Card>
           )}

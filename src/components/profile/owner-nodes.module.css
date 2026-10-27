@@ -5,3 +5,9 @@
   gap: 16px;
   justify-content: space-between;
 }
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

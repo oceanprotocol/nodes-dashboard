@@ -1,5 +1,6 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
+import { AdminAccessList } from '@/types/nodes';
 import { checkAddressOnAccessList } from '@/utils/access-list';
 import { ethers } from 'ethers';
 
@@ -7,6 +8,10 @@ export type NodeAdmins = {
   addresses?: string[] | null;
   accessLists?: Record<string, string[] | undefined> | null;
 };
+
+export function toNodeAdminAccessLists(lists: AdminAccessList[] | null | undefined): NodeAdmins['accessLists'] {
+  return Object.fromEntries((lists ?? []).map(({ chainId, contracts }) => [chainId, contracts]));
+}
 
 export function isAddressInAdmins(addresses: string[] | null | undefined, wallet: string | null | undefined): boolean {
   if (!wallet || !addresses?.length) {
