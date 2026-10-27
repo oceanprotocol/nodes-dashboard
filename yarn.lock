@@ -18159,10 +18159,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nodemailer@npm:^10.0.10":
-  version: 10.0.10
-  resolution: "nodemailer@npm:10.0.10"
-  checksum: 10c0/062bf0861e4986eca150b8d78b8289c55f33ad689e9596aa71b4abd4ab4358b9c4881cec8acca3251643814d84d26ca6b1082153f47d35d65639d4ce858cfd67
+"nodemailer@npm:^10.1.4":
+  version: 10.1.4
+  resolution: "nodemailer@npm:10.1.4"
+  checksum: 10c0/fa60d4757c876b88ded425530b0f9c041bf793f7369fa673d3eb6df24f47ea67128566bca10ed8b81ecca17ec682d7491bcc032d328e6ca878d11c91472ab3d2
   languageName: node
   linkType: hard
 
@@ -18392,7 +18392,7 @@ __metadata:
     micromodal: "npm:^0.4.10"
     myetherwallet-blockies: "npm:^0.1.1"
     next: "npm:16.1.7"
-    nodemailer: "npm:^10.0.10"
+    nodemailer: "npm:^10.1.4"
     normalize.css: "npm:^8.0.1"
     posthog-js: "npm:1.347.2"
     prettier: "npm:^3.9.9"
