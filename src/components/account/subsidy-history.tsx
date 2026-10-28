@@ -72,7 +72,7 @@ const SubsidyHistory = () => {
       <div className={styles.historyHeader}>
         <h4 className={styles.historyTitle}>Subsidy history</h4>
         <Button color="accent2" href="/account/escrow/history" size="md" variant="filled">
-          Escrow history
+          View escrow history
         </Button>
       </div>
       {isError ? <span className={styles.small}>Couldn&apos;t load your subsidy history. Try again later.</span> : null}

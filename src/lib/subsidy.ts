@@ -3,7 +3,6 @@ import { USDC } from '@/constants/tokens';
 import { getRpc } from '@/lib/constants';
 import { EscrowJobRef, EscrowLockCycle, EscrowLockStatus, toTokenAmount } from '@/lib/escrow-events';
 import { recallCustomSubsidies } from '@/services/custom-subsidies-memory';
-import Address from '@oceanprotocol/contracts/addresses/address.json';
 import {
   OneTimeSubsidyProvider,
   OPFSubsidyProvider,
@@ -82,17 +81,11 @@ const getView = (address: string) => new SubsidyView(getReadSigner(), address, C
 /** Escrow `maxSponsorsPerLock()`. */
 const MAX_SPONSORS_PER_LOCK = 10;
 
-export const getSubsidyProviderAddresses = (): string[] => {
-  const override = process.env.NEXT_PUBLIC_SUBSIDY_PROVIDERS;
-  if (override) {
-    return override
-      .split(',')
-      .map((address) => address.trim())
-      .filter((address) => ethers.isAddress(address));
-  }
-  const config = Object.values(Address).find((chainConfig) => chainConfig.chainId === CHAIN_ID);
-  return (config as { SubsidyProviders?: string[] } | undefined)?.SubsidyProviders ?? [];
-};
+export const getSubsidyProviderAddresses = (): string[] =>
+  (process.env.NEXT_PUBLIC_SUBSIDY_PROVIDERS ?? '')
+    .split(',')
+    .map((address) => address.trim())
+    .filter((address) => ethers.isAddress(address));
 
 const toWindow = (bucket: SubsidyBucket): SubsidyWindow => ({
   limit: Number(bucket.limit),

@@ -113,20 +113,20 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 
 ### Subsidy Flow
 
-| Variable                                      | Description                                                                                                                                |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GEMINI_API_KEY`                              | Google Gemini API key used in the subsidy AI flow                                                                                          |
-| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                                                                                             |
-| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account                                                                                                 |
-| `SUBSIDY_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for the subsidy ledger                                                                                        |
-| `SUBSIDY_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                                                                                                      |
-| `SUBSIDY_GMAIL_ADDRESS`                       | Gmail address used to send subsidy confirmation emails                                                                                     |
-| `SUBSIDY_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                                                                                      |
-| `SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                                                                                  |
-| `SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                                                                                  |
-| `SUBSIDY_ACCESS_LIST_ADDRESS`                 | Subsidy AccessList contract that claimed wallets are added to                                                                              |
-| `SUBSIDY_ACCESS_LIST_PRIVATE_KEY`             | Private key of a wallet allowed to mint on that access list (server-side only, keep secret)                                                |
-| `NEXT_PUBLIC_SUBSIDY_PROVIDERS`               | Optional comma-separated subsidy provider addresses; overrides the providers deployed on the active chain (e.g. test providers on Sepolia) |
+| Variable                                      | Description                                                                                 |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                              | Google Gemini API key used in the subsidy AI flow                                           |
+| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                                              |
+| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account                                                  |
+| `SUBSIDY_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for the subsidy ledger                                         |
+| `SUBSIDY_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                                                       |
+| `SUBSIDY_GMAIL_ADDRESS`                       | Gmail address used to send subsidy confirmation emails                                      |
+| `SUBSIDY_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                                       |
+| `SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                                   |
+| `SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                                   |
+| `SUBSIDY_ACCESS_LIST_ADDRESS`                 | Subsidy AccessList contract that claimed wallets are added to                               |
+| `SUBSIDY_ACCESS_LIST_PRIVATE_KEY`             | Private key of a wallet allowed to mint on that access list (server-side only, keep secret) |
+| `NEXT_PUBLIC_SUBSIDY_PROVIDERS`               | Comma-separated subsidy provider addresses for the active chain                             |
 
 ### Compute
 

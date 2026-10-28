@@ -112,7 +112,7 @@ export const DiscountBlock = ({
           </div>
           {capped.map((window) => (
             <div className={styles.limitRow} key={window.periodSeconds}>
-              <span className={styles.limitLabel}>Each {formatSubsidyPeriod(window.periodSeconds)}</span>
+              <span className={styles.limitLabel}>{formatSubsidyPeriod(window.periodSeconds)}</span>
               <Meter className={styles.limitMeter} limit={window.limit} remaining={window.remaining} tone={tone} />
               <span className={classNames(styles.amount, styles.limitAmount)}>
                 {formatLeft(window.remaining, window.limit)}

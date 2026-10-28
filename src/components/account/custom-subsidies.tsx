@@ -182,7 +182,7 @@ const CustomSubsidies = () => {
       {subsidies.length === 0 ? (
         <span className={styles.small}>No subsidies added yet.</span>
       ) : (
-        <div className={styles.customGrid}>
+        <div className={styles.blocks}>
           {subsidies.map((subsidy) => (
             <CustomSubsidyCard key={subsidy.address} onRemove={removeCustomSubsidy} subsidy={subsidy} />
           ))}
