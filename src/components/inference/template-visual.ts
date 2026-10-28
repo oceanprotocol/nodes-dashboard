@@ -1,5 +1,7 @@
 import type { ResolvedTheme } from '@/lib/use-theme';
 import { AppTemplate } from '@/types/templates';
+import { declaredGpuVram } from '@/utils/env-resources';
+import { formatGb } from '@/utils/formatters';
 import type { SvgIconComponent } from '@mui/icons-material';
 import AppsOutlined from '@mui/icons-material/AppsOutlined';
 import ChatBubbleOutline from '@mui/icons-material/ChatBubbleOutline';
@@ -214,33 +216,27 @@ export function visualFor(id: string, category?: string): TemplateVisual {
 export interface TemplateHardware {
   /** True when the template declares a GPU resource — the main GPU-vs-CPU signal on the card. */
   gpu: boolean;
-  /** GPU units the template asks for (0 when it declares none) — the recommended count, else min. */
-  gpuUnits: number;
-  /** Declared GPU floor (0 when none declared) — the low end of the card's `min-max GPUs` label. */
-  gpuMin: number;
-  /** Recommended (else min) CPU cores, if the template declares them. */
+  /** Total GPU VRAM (GB) the template recommends (0 when it declares none). */
+  vramGb: number;
+  /** Recommended CPU cores, if the template declares them. */
   cpu?: number;
-  /** Recommended (else min) RAM in GB, if the template declares it. */
+  /** Recommended RAM in GB, if the template declares it. */
   ram?: number;
-  /** Recommended (else min) disk in GB, if the template declares it. */
+  /** Recommended disk in GB, if the template declares it. */
   disk?: number;
 }
 
 /**
- * Hardware signal for a card. Prefers `recommendedResources`, falling back to `requiredResources`
- * (same precedence as the resources step's sizing). GPU is detected by a `gpu`-typed resource entry.
+ * Hardware signal for a card, from the template's `recommendedResources`. GPU is detected by a
+ * `gpu`-typed resource entry, whose amount is total VRAM.
  */
 export function templateHardware(tpl: AppTemplate): TemplateHardware {
-  const reqs = tpl.recommendedResources ?? tpl.requiredResources ?? [];
-  const amount = (id: string): number | undefined => {
-    const entry = reqs.find((r) => r.id === id);
-    return entry ? (entry.recommended ?? entry.min) : undefined;
-  };
-  const gpuEntry = reqs.find((r) => r.type === 'gpu' || r.id === 'gpu');
+  const reqs = tpl.recommendedResources ?? [];
+  const amount = (id: string): number | undefined => reqs.find((r) => r.id === id)?.recommended;
+  const vramGb = declaredGpuVram(reqs);
   return {
-    gpu: !!gpuEntry,
-    gpuUnits: gpuEntry ? (gpuEntry.recommended ?? gpuEntry.min ?? 0) : 0,
-    gpuMin: gpuEntry ? (gpuEntry.min ?? 0) : 0,
+    gpu: vramGb !== null,
+    vramGb: vramGb ?? 0,
     cpu: amount('cpu'),
     ram: amount('ram'),
     disk: amount('disk'),
@@ -248,20 +244,15 @@ export function templateHardware(tpl: AppTemplate): TemplateHardware {
 }
 
 /**
- * The hardware chip's label — the GPU ask alone: the declared range ("2-4 GPUs"), a single count
- * ("1 GPU") when min and recommended agree, or "CPU only" when no GPU is declared. Shared so the
- * catalogue card and the details page name the same ask in the same words.
+ * The hardware chip's label — the GPU ask alone: the recommended VRAM ("141 GB VRAM"), "GPU" when one
+ * is declared without an amount, or "CPU only" when no GPU is declared. Shared so the catalogue card and
+ * the details page name the same ask in the same words.
  */
 export function templateGpuLabel(hw: TemplateHardware): string {
   if (!hw.gpu) {
     return 'CPU only';
   }
-  const rec = hw.gpuUnits || hw.gpuMin;
-  if (hw.gpuMin > 0 && rec > hw.gpuMin) {
-    return `${hw.gpuMin}-${rec} GPUs`;
-  }
-  const n = rec || 1;
-  return `${n} ${n === 1 ? 'GPU' : 'GPUs'}`;
+  return hw.vramGb > 0 ? `${formatGb(hw.vramGb)} VRAM` : 'GPU';
 }
 
 /**

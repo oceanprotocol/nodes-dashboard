@@ -1,4 +1,5 @@
 import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
+import type { GpuLayout } from '@/utils/env-resources';
 
 export enum InferenceFlowType {
   DefaultModel = 'default-model',
@@ -7,20 +8,21 @@ export enum InferenceFlowType {
 }
 
 /**
- * One resource the package needs to run. `min` is the floor to launch at all; `recommended` is the
- * amount the quick-start flow actually books (custom flow ignores these and lets the user size the
- * env). GPU entries are `kind: 'discrete'` (whole units); cpu/ram/disk are implicitly continuous.
- * All values are amounts in `unit`, resolved against — and clamped to — the live env at launch.
+ * One resource the package recommends. There is no minimum: `recommended` is the amount the quick-start
+ * flow books (custom flow ignores these and lets the user size the env). For cpu/ram/disk it is
+ * clamped to what the live env can grant; for GPU it is the TOTAL VRAM in GB, booked as one of its
+ * `layouts` on cards whose `memoryTotal` holds the layout's share — an env that can't is not offered.
  */
 export type ResourceRequirement = {
   /** Resource key: 'cpu' | 'ram' | 'disk' for continuous resources, or 'gpu' when `kind` is set. */
   id: string;
-  min: number;
   recommended: number;
   unit: string;
   /** Present only for GPU — marks the resource as booked in whole units. */
   kind?: 'discrete';
   type?: 'gpu';
+  /** GPU only: the card counts it may be booked as — for a package, its one pinned TP width. */
+  layouts?: GpuLayout[];
   description?: string;
 };
 
@@ -49,12 +51,13 @@ export type InferencePackage = {
    * Peer ids of the nodes this package can run on. For a template fetched from a node this holds
    * that single node (stamped at load time — see use-default-model-packages; the template JSON
    * carries no peer id); for a curated mock it lists every node it may be launched on. The details
-   * modal lists all of these nodes' envs, filtered to those that satisfy `requiredResources`.
+   * modal lists all of these nodes' envs, filtered to those that reach the recommended GPU VRAM.
    */
   sourcePeerIds: string[];
   /**
-   * Resource floors/recommendations for this package. Quick start books the `recommended` amount of
-   * each (clamped to the live env); the custom flow ignores this and lets the user size resources.
+   * Resource recommendations for this package. Quick start books the `recommended` amount of each
+   * (cpu/ram/disk clamped to the live env, GPU as total VRAM); the custom flow ignores this and lets the
+   * user size resources.
    */
-  requiredResources: ResourceRequirement[];
+  recommendedResources: ResourceRequirement[];
 };

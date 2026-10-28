@@ -1,7 +1,12 @@
-import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
+import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
-import { assertAllocationAvailable, buildGpuRequests, resourceId } from '@/services/inference-launch';
+import {
+  assertAllocationAvailable,
+  assertCompleteGpuSelection,
+  buildGpuRequests,
+  resourceId,
+} from '@/services/inference-launch';
 import { buildServiceMetadata, resolveServiceAppType } from '@/services/service-metadata';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, TemplateWorkflow } from '@/types/templates';
@@ -163,6 +168,11 @@ export async function buildTemplateStartParams({
   // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
   // here too, before the caller runs the escrow deposit tx.
   assertAllocationAvailable(envResources, allocation);
+  assertCompleteGpuSelection(envResources, gpuSelection ?? selectedEnv.gpuSelection);
+  const mismatch = forcedGpuCountMismatch(template, envValues, gpuSelection ?? selectedEnv.gpuSelection);
+  if (mismatch) {
+    throw new Error(mismatch);
+  }
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
@@ -220,28 +230,24 @@ export async function buildTemplateRestartParams(
 }
 
 /**
- * Floor the template's required CPU/RAM/disk under the GPU-fraction slice — the same `floor` sizing the
- * default-models flow uses (packageFloorSizing in default-models-page.tsx), so both flows clamp shared
- * resources the same way.
- *
- * Deliberately NOT `pinned` (which booked the template's `recommended` amounts as fixed figures): the
- * GPU unit count is user-selectable on the details page and the Advanced picker, and pinned amounts
- * ignore it — picking 1 GPU out of 8 booked the same CPU/RAM/disk as picking all 8, and the price with
- * it. Under `floor` the slice stays proportional to the GPU units actually picked and only stops
- * falling at the template's declared minimum, so a bigger pick buys proportionally more shared compute
- * and a smaller one costs less.
- *
- * The floor is combined with the env's own min via max downstream in the allocation hook, so it bites
- * only where the template is stricter than the environment. Undefined when the template declares none
- * of cpu/ram/disk — then the slice is used unfloored, rather than inventing a bound.
+ * Why the template's forced GPU width (`gpuCountEnv`, e.g. GLM_TP_SIZE) disagrees with the GPUs
+ * booked, or null when it agrees or isn't set. The launch script shards across exactly that many
+ * cards, so a value that differs from the booking either fails at startup or leaves billed cards idle.
  */
-export function templateFloorSizing(template: AppTemplate): ResourceSizing | undefined {
-  const reqs = template.requiredResources;
-  if (!reqs) {
-    return undefined;
+export function forcedGpuCountMismatch(
+  template: AppTemplate,
+  envValues: Record<string, string>,
+  gpuSelection: GpuSelection | undefined
+): string | null {
+  const key = template.recommendedResources?.find((r) => r.type === 'gpu')?.gpuCountEnv;
+  const raw = key ? (envValues[key] ?? '').trim() : '';
+  if (!key || !raw) {
+    return null;
   }
-  const min = (id: string): number => reqs.find((r) => r.id === id)?.min ?? 0;
-  return { mode: 'floor', cpu: min('cpu'), ram: min('ram'), disk: min('disk') };
+  const booked = Object.values(gpuSelection ?? {}).reduce((sum, n) => sum + n, 0);
+  return Number(raw) === booked
+    ? null
+    : `${key} is ${raw}, but ${booked} GPU${booked === 1 ? ' is' : 's are'} booked. Set it to ${booked}, or leave it empty.`;
 }
 
 /** The port serving the template's primary web UI (first exposed port) — for the "Open" link. */

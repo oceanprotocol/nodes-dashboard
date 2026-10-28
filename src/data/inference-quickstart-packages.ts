@@ -11,8 +11,8 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
  * fetched by id when a package is opened.
  *
  * Each package carries `sourcePeerIds` — the nodes it may be run on. The details page lists every
- * one of those nodes' environments, filtered to those that satisfy `requiredResources`, and the user
- * picks one there.
+ * one of those nodes' environments, filtered to those that reach the recommended GPU VRAM, and the
+ * user picks one there.
  */
 
 // Service-on-demand nodes these packages can run on — the details page lists their environments.
@@ -25,57 +25,80 @@ const NODE_IDS = [
 ];
 
 /**
- * Resource floors for a package, built from its VRAM footprint and GPU count. `vramGb` is the
- * weights + KV-cache headroom per GPU (H200 = 141 GB/GPU), `gpus` the tensor-parallel width; both
- * are taken from the curated footprint column. vLLM needs host RAM to stage weights and disk to
- * cache the HF download, so `cpu` (cores) / `ram` (GB) / `disk` (GB) are the host-side floors — each
- * package states its own min and recommended, no implicit scaling.
+ * Resource recommendations for a package, built from its VRAM footprint. `vramPerGpu` is the weights +
+ * KV-cache headroom each card needs, from the curated footprint column (H200 = 141 GB/GPU). The GPU
+ * entry's total `recommended` and its one layout are filled in from the package's own
+ * `params.tensorParallelSize` by {@link withPinnedLayout} below, so the card count is never authored
+ * twice: vLLM shards across exactly that many cards, which is the only shape the package can use. vLLM
+ * needs host RAM to stage weights and disk to cache the HF download, so `cpu` (cores) / `ram` (GB) /
+ * `disk` (GB) are the host-side recommendations, booked as far as the env can grant them.
  *
  * `computeCapability` is the CUDA arch floor the package's params imply — FP8 weights need >= 8.9,
  * bf16 and an FP8 KV cache need >= 8.0, and fp16 + AWQ run down to 7.5 (Turing, e.g. a T4).
  */
 function resources({
-  gpus,
-  vramGb,
+  vramPerGpu,
   computeCapability,
   cpu,
   ram,
   disk,
 }: {
-  gpus: number;
-  vramGb: number;
+  vramPerGpu: number;
   computeCapability: number;
-  cpu: { min: number; recommended: number };
-  ram: { min: number; recommended: number };
-  disk: { min: number; recommended: number };
+  cpu: number;
+  ram: number;
+  disk: number;
 }): ResourceRequirement[] {
   return [
-    { id: 'cpu', min: cpu.min, recommended: cpu.recommended, unit: 'cores' },
-    { id: 'ram', min: ram.min, recommended: ram.recommended, unit: 'GB' },
-    { id: 'disk', min: disk.min, recommended: disk.recommended, unit: 'GB' },
+    { id: 'cpu', recommended: cpu, unit: 'cores' },
+    { id: 'ram', recommended: ram, unit: 'GB' },
+    { id: 'disk', recommended: disk, unit: 'GB' },
     {
       kind: 'discrete',
       type: 'gpu',
       id: 'gpu',
-      min: gpus,
-      recommended: gpus,
-      unit: 'count',
-      description: `${gpus} CUDA GPU${gpus > 1 ? 's' : ''} with >= ${vramGb} GB VRAM each (compute capability >= ${computeCapability})`,
+      // Per card until withPinnedLayout multiplies it by the package's tensor-parallel width.
+      recommended: vramPerGpu,
+      unit: 'GB',
+      layouts: [{ gpuCount: 1 }],
+      // Completed by withPinnedLayout with the card layout in front.
+      description: `(compute capability >= ${computeCapability})`,
     },
   ];
 }
 
+/** Turn {@link resources}' per-card GPU figure into the package's total and its one pinned layout. */
+function withPinnedLayout(pkg: InferencePackage): InferencePackage {
+  const tp = pkg.params.engine === 'vllm' ? (pkg.params.tensorParallelSize ?? 1) : 1;
+  return {
+    ...pkg,
+    recommendedResources: pkg.recommendedResources.map((r) => {
+      if (r.type !== 'gpu') {
+        return r;
+      }
+      const vramPerGpu = r.recommended;
+      return {
+        ...r,
+        recommended: tp * vramPerGpu,
+        layouts: tp === 1 ? [{ gpuCount: 1 }] : [{ gpuCount: tp, vramPerGpu }],
+        description:
+          `${tp === 1 ? `${vramPerGpu} GB` : `${tp} x ${vramPerGpu} GB`} of CUDA GPU VRAM ${r.description ?? ''}`.trim(),
+      };
+    }),
+  };
+}
+
 /**
- * Ordered by hardware tier: ascending `(gpus, vramGb)` taken from each entry's `requiredResources`.
+ * Ordered by hardware tier: ascending total VRAM (cards x `vramPerGpu`) of each entry.
  * This array's order IS the render order — nothing sorts downstream (use-default-model-packages
  * concatenates it after the node-advertised templates, default-models-page maps it straight into a
  * two-column grid) — so each tier reads as one row and the widest-runnable packages come first.
- * That matters because a card advertises no availability: a package whose floors no reachable node
- * meets looks identical in the grid and only reveals itself as an empty environment list once the
- * details page filters envs against `requiredResources`. Keep new entries in tier order, and keep
+ * That matters because a card advertises no availability: a package whose VRAM no reachable node
+ * offers looks identical in the grid and only reveals itself as an empty environment list once the
+ * details page filters envs against the recommended VRAM. Keep new entries in tier order, and keep
  * quantized siblings of one model adjacent so the trade-off between them is visible side by side.
  */
-export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
+const PACKAGE_DEFINITIONS: InferencePackage[] = [
   // The cheapest entry in the catalogue, and deliberately first: 30B of bf16 weights is the whole
   // cost, because the cache is nearly free (see below). v0.28.0 registers
   // MuseGlimmerForConditionalGeneration, so no vllmTag.
@@ -118,18 +141,17 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 1,
+    recommendedResources: resources({
       // 55.46 GiB of weights against 67.10 GiB usable on an 80 GB card at util 0.9 — 11.6 GiB left,
       // which is plenty here: only 13 of 52 layers are full attention, at 2 kv heads x 128 head_dim
       // (13 KiB/token in bf16 = 1.66 GiB for a full 131,072-token sequence), and the other 39 slide
       // at a 2048-token window for ~78 MiB total. That is ~6 concurrent max-length requests on the
       // smallest card that holds the weights at all — a 64 GB card (53.6 GiB usable) cannot.
-      vramGb: 80,
+      vramPerGpu: 80,
       computeCapability: 8.0,
-      cpu: { min: 8, recommended: 16 },
-      ram: { min: 64, recommended: 96 },
-      disk: { min: 75, recommended: 95 },
+      cpu: 16,
+      ram: 96,
+      disk: 95,
     }),
   },
   {
@@ -162,14 +184,13 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 1,
+    recommendedResources: resources({
       // Full native context is proven on 96 GB cards; this deliberately excludes marginal 80 GB fits.
-      vramGb: 90,
+      vramPerGpu: 90,
       computeCapability: 8.0,
-      cpu: { min: 8, recommended: 16 },
-      ram: { min: 64, recommended: 96 },
-      disk: { min: 70, recommended: 90 },
+      cpu: 16,
+      ram: 96,
+      disk: 90,
     }),
   },
   // Dense 31B, one card. vLLM v0.28.0 — the stable fallback tag — already registers
@@ -211,19 +232,18 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 1,
+    recommendedResources: resources({
       // 58.25 GiB of weights against 118.20 GiB usable on a 141 GB card at util 0.9 — ~59.9 GiB for
       // KV. At bf16 a full 262,144-token sequence costs 80 KiB/token across the 10 global layers
       // (2 x 4 kv heads x 512 head_dim) = 20.0 GiB, plus ~0.8 GiB for the 50 sliding layers (capped
       // at their 1024-token window), so ~2.8 concurrent max-length requests. A 96 GB card leaves
       // 22.2 GiB and serves one; an 80 GB card leaves 8.9 GiB and cannot hold a full-length
       // sequence at all. Hence the same 90 GB floor as the 27B entry above.
-      vramGb: 90,
+      vramPerGpu: 90,
       computeCapability: 8.0,
-      cpu: { min: 8, recommended: 16 },
-      ram: { min: 80, recommended: 112 },
-      disk: { min: 80, recommended: 100 },
+      cpu: 16,
+      ram: 112,
+      disk: 100,
     }),
   },
   // MoE on ONE card: 128 experts of which the router picks 4 per token, so 116.8B parameters stay
@@ -263,8 +283,7 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 1,
+    recommendedResources: resources({
       // 65.25 GB resident (60.77 GiB): 114.66B MXFP4 expert values packed two per byte, their e8m0
       // scales at one byte per 32 values, plus 2.17B bf16 parameters. The cache barely registers —
       // of 36 layers only the 18 full-attention ones hold a real cache, at 2 x 8 kv heads x 64
@@ -272,15 +291,15 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
       // sliding layers add ~5 MB at their 128-token window. A 96 GB card leaves 19.7 GiB for KV
       // (~4 max-length requests) and a 141 GB one 57.4 GiB (~12). An 80 GB card leaves 6.3 GiB
       // BEFORE activations, which will not reliably hold one full-length sequence — hence 90.
-      vramGb: 90,
+      vramPerGpu: 90,
       // vLLM's Mxfp4Config declares min capability 80 and falls back to the Marlin kernels, which
       // keep the weights packed; Hopper and Blackwell get the Triton/FlashInfer paths instead.
       computeCapability: 8.0,
-      cpu: { min: 8, recommended: 16 },
-      ram: { min: 72, recommended: 104 },
+      cpu: 16,
+      ram: 104,
       // Only the 14 top-level shards are fetched (65.25 GB) — the loader resolves `*.safetensors`
       // through the index file, which skips the identical `original/` copy and metal/model.bin.
-      disk: { min: 80, recommended: 100 },
+      disk: 100,
     }),
   },
   // Official fine-grained FP8 checkpoint of Coder Next, on ONE card. The model is MoE: all 80B
@@ -325,19 +344,18 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 1,
+    recommendedResources: resources({
       // 74.87 GiB of weights against 118.20 GiB usable on a 141 GB card at util 0.9 — 43.33 GiB
       // left for KV. At TP=1 the cache is no longer head-sharded, so a full 262,144-token sequence
       // costs the whole 12 KiB/token (2 x 12 full-attn layers x 2 kv heads x 256 head_dim at fp8)
       // = 3.00 GiB, i.e. ~14 concurrent max-length requests. A 96 GB card would hold the weights
       // with only 5.6 GiB spare, which will not serve this context; an 80 GB card cannot hold them
       // at all. Hence a floor above the weights themselves.
-      vramGb: 130,
+      vramPerGpu: 130,
       computeCapability: 8.9,
-      cpu: { min: 12, recommended: 24 },
-      ram: { min: 96, recommended: 160 },
-      disk: { min: 100, recommended: 140 },
+      cpu: 24,
+      ram: 160,
+      disk: 140,
     }),
   },
   // Code, 2 GPUs — sharded with --tensor-parallel-size 2. Needs a vLLM build carrying the qwen3_next
@@ -374,15 +392,14 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 2,
+    recommendedResources: resources({
       // 40 bf16 shards, 159.4 GB. TP=2 puts 74.2 GiB of weights on each GPU, which an 80 GB card
-      // cannot hold (67.1 GiB usable at util 0.9), so this floor admits only 96 and 141 GB cards.
-      vramGb: 90,
+      // cannot hold (67.1 GiB usable at util 0.9), hence 90 GB per card.
+      vramPerGpu: 90,
       computeCapability: 8.0,
-      cpu: { min: 12, recommended: 24 },
-      ram: { min: 200, recommended: 320 },
-      disk: { min: 200, recommended: 280 },
+      cpu: 24,
+      ram: 320,
+      disk: 280,
     }),
   },
   // General, 2 GPUs — frontier-family reasoning at the cheapest multi-GPU tier. The checkpoint is
@@ -443,17 +460,16 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 2,
+    recommendedResources: resources({
       // 159.64 GB = 148.68 GiB; TP=2 puts 74.34 GiB of weights on each card, leaving 43.86 GiB for
       // KV on a 141 GB one. A 96 GB card would fit the shard with only ~6 GiB spare, which will not
       // hold this context — hence a floor that asks for more than the shard itself.
-      vramGb: 120,
+      vramPerGpu: 120,
       // FP8 weights — Hopper/Ada only.
       computeCapability: 8.9,
-      cpu: { min: 12, recommended: 24 },
-      ram: { min: 200, recommended: 320 },
-      disk: { min: 200, recommended: 280 },
+      cpu: 24,
+      ram: 320,
+      disk: 280,
     }),
   },
   // Mistral Medium 3.5 for a single user, on the cheapest hardware that holds it. The numbers below
@@ -521,21 +537,20 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 2,
+    recommendedResources: resources({
       // 141 GB is a floor here, not a preference. The measured 62.52 GiB shard leaves ~4.9 GiB for
       // KV on an 80 GB card -- about 57k tokens even at FP8, useless at this context -- against the
       // 40.22 GiB a 141 GB card leaves.
-      vramGb: 141,
+      vramPerGpu: 141,
       // Hopper and up. FP8 weights alone need >= 8.9; the 141 GB floor is what rules out Ada.
       computeCapability: 9.0,
       // vLLM runs one worker process per rank, so half the ranks need half the cores.
-      cpu: { min: 12, recommended: 24 },
-      ram: { min: 220, recommended: 320 },
+      cpu: 24,
+      ram: 320,
       // 124.43 GiB of weights plus staging. Note this is re-fetched per launch on nodes without a
       // persistent model cache: an observed run reported `Filesystem type for checkpoints: OVERLAY`
       // and spent 264 s downloading before compilation started, all of it billed GPU time.
-      disk: { min: 170, recommended: 220 },
+      disk: 220,
     }),
   },
   // Zhipu's flagship, natively multimodal. Native FP8, ~299 GiB, TP=4 per Zhipu's own recipe (80 GB/GPU shard).
@@ -572,14 +587,13 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 4,
+    recommendedResources: resources({
       // 80 GB/GPU shard — a 96 GB card leaves only ~6 GB for KV; 141 GB is the comfortable floor.
-      vramGb: 120,
+      vramPerGpu: 120,
       computeCapability: 8.9,
-      cpu: { min: 24, recommended: 48 },
-      ram: { min: 320, recommended: 420 },
-      disk: { min: 340, recommended: 420 },
+      cpu: 48,
+      ram: 420,
+      disk: 420,
     }),
   },
   // Qwen4-preview MoE, official FP8 checkpoint (~176 GiB). TP=4 on H200 is not vendor-verified —
@@ -621,13 +635,12 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 4,
-      vramGb: 130,
+    recommendedResources: resources({
+      vramPerGpu: 130,
       computeCapability: 8.9,
-      cpu: { min: 24, recommended: 48 },
-      ram: { min: 220, recommended: 320 },
-      disk: { min: 210, recommended: 280 },
+      cpu: 48,
+      ram: 320,
+      disk: 280,
     }),
   },
   // Moonshot's verified vLLM layout is one 8x H200 node with TP=8. This is a 1T-parameter MoE:
@@ -669,15 +682,16 @@ export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: resources({
-      gpus: 8,
+    recommendedResources: resources({
       // The official recipe targets 141 GB H200s; this floor excludes marginal 80 GB layouts.
-      vramGb: 130,
+      vramPerGpu: 130,
       computeCapability: 9.0,
-      cpu: { min: 48, recommended: 96 },
-      ram: { min: 512, recommended: 768 },
+      cpu: 96,
+      ram: 768,
       // The Hub repository is ~595 GB, plus download/runtime staging headroom.
-      disk: { min: 650, recommended: 750 },
+      disk: 750,
     }),
   },
 ];
+
+export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = PACKAGE_DEFINITIONS.map(withPinnedLayout);

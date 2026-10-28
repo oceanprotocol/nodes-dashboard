@@ -18,6 +18,7 @@ import {
 } from '@/services/huggingface-service';
 import { VLLM_TAG } from '@/services/inference-launch';
 import { getArchitectureIncompatibility } from '@/services/model-compatibility';
+import { bookedVramGb, estimateModelVramGb, vramShortfallMessage } from '@/services/vram-estimate';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -179,14 +180,16 @@ function validateParams(
     if (v.gpuMemoryUtilization < gpuMin || v.gpuMemoryUtilization > gpuMax) {
       errors.gpuMemoryUtilization = `Must be between ${gpuMin} and ${gpuMax}.`;
     }
-    // Sharding across more GPUs than were booked makes vLLM exit at startup, so the booked count is a
-    // hard ceiling. null/1 = single GPU, always valid.
-    if (v.tensorParallelSize != null) {
-      if (v.tensorParallelSize < 1 || !Number.isInteger(v.tensorParallelSize)) {
-        errors.tensorParallelSize = 'Must be a whole number of GPUs (1 or more).';
-      } else if (v.tensorParallelSize > bookedGpus) {
-        errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked, so the model can't shard across more.`;
-      }
+    // vLLM shards across exactly tensor-parallel-size cards: more than were booked exits at startup, and
+    // fewer leaves the rest billed and idle. So with several GPUs booked it must equal the booked count;
+    // null/1 is valid only on a single-GPU booking.
+    const tp = v.tensorParallelSize ?? 1;
+    if (!Number.isInteger(tp) || tp < 1) {
+      errors.tensorParallelSize = 'Must be a whole number of GPUs (1 or more).';
+    } else if (tp > Math.max(bookedGpus, 1)) {
+      errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked, so the model can't shard across more.`;
+    } else if (bookedGpus > 1 && tp !== bookedGpus) {
+      errors.tensorParallelSize = `${bookedGpus} GPUs are booked, so set this to ${bookedGpus} — vLLM would leave the other ${bookedGpus - tp} idle but billed. Or go back and book ${tp}.`;
     }
     if (v.toolCalling && !v.toolCallParser) {
       errors.toolCallParser = 'Pick a parser. Tool calling breaks at runtime without one.';
@@ -501,16 +504,40 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     }
   }, [showTools, formik, config]);
 
-  // Going back and re-booking fewer GPUs would otherwise leave a now-impossible shard width behind
-  // (the field hides below 2 GPUs, so the user couldn't even see the stale value to fix it).
+  // Keep the shard width on the booking: going back and re-booking fewer GPUs would otherwise leave an
+  // impossible width behind (the field hides below 2 GPUs, so the user couldn't even see it), and a
+  // multi-GPU booking with no width set would shard across one card and bill the rest idle. A width a
+  // preset or the user set on the same booking is left alone — validation flags a mismatch.
   useEffect(() => {
-    if (formik.values.engine !== 'vllm' || formik.values.tensorParallelSize == null) {
+    if (formik.values.engine !== 'vllm') {
       return;
     }
-    if (formik.values.tensorParallelSize > bookedGpus) {
+    const tp = formik.values.tensorParallelSize;
+    if (tp != null && tp > bookedGpus) {
       formik.setFieldValue('tensorParallelSize', bookedGpus > 1 ? bookedGpus : null);
+    } else if (tp == null && bookedGpus > 1) {
+      formik.setFieldValue('tensorParallelSize', bookedGpus);
     }
   }, [bookedGpus, formik]);
+
+  // Advisory fit check: a custom model declares no VRAM, so estimate it from the parameter count and the
+  // chosen precision, and compare with the VRAM the booked GPUs carry. A warning, never a block.
+  const paramCount = selectedModels.find((m) => m.id === modelId)?.paramCount;
+  const vramWarning = useMemo(() => {
+    const values = formik.values;
+    if (values.engine !== 'vllm' || !selectedEnv) {
+      return null;
+    }
+    const estimate = estimateModelVramGb({
+      paramCount,
+      quantization: values.quantization,
+      dtype: values.dtype,
+      checkpointQuantization: config?.quantizationMethod,
+      torchDtype: config?.torchDtype,
+      gpuMemoryUtilization: values.gpuMemoryUtilization,
+    });
+    return vramShortfallMessage(estimate, bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection));
+  }, [formik.values, paramCount, config, selectedEnv]);
 
   // vLLM cold launch flags — how the server loads and runs the raw HF weights. `v` is the narrowed
   // vLLM branch of the form values (writes still go through formik by field name).
@@ -692,7 +719,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               hint="--tensor-parallel-size"
               label={labelWithInfo(
                 `Tensor parallelism - ${v.tensorParallelSize ?? 1}`,
-                'How many GPUs to split the model across. 1 keeps it on a single GPU; higher shards the weights so a model too big for one GPU fits, and can speed up inference. Can’t exceed the GPUs you booked, and some models require a value that divides their attention heads evenly.'
+                'How many GPUs to split the model across. Must match the GPUs you booked: vLLM uses exactly this many, so fewer leaves booked GPUs idle. Some models require a value that divides their attention heads evenly.'
               )}
               max={bookedGpus}
               min={1}
@@ -703,6 +730,11 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               value={v.tensorParallelSize ?? 1}
               valueLabelFormat={(value) => String(value)}
             />
+          )}
+          {vramWarning && (
+            <div className="textSecondary" role="status">
+              {vramWarning}
+            </div>
           )}
           <Select<KvCacheDtype>
             size="sm"
@@ -906,7 +938,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           </div>
         ) : authState === 'rejected' ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>
-            The Hugging Face token was rejected for this model, as it is invalid or lacks access. Check the token and reload.
+            The Hugging Face token was rejected for this model, as it is invalid or lacks access. Check the token and
+            reload.
           </div>
         ) : loadError ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>{loadError}</div>

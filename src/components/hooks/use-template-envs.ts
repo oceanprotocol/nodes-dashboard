@@ -10,7 +10,7 @@ import { recommendedSizing } from '@/services/quick-start';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
-import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
+import { autoGpuSelection, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -44,7 +44,7 @@ export type TemplateEnvsState = {
 };
 
 /** An env can host a template when it advertises service-on-demand, isn't the node's benchmark env,
- *  accepts a supported paid token, and can currently satisfy the template's declared resource floors. */
+ *  accepts a supported paid token, and can currently give the template its recommended GPU VRAM. */
 function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate): boolean {
   if (!environment.features?.services) {
     return false;
@@ -55,13 +55,13 @@ function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate):
   if (getEnvSupportedTokens(environment, true).length === 0) {
     return false;
   }
-  return meetsMinResources(environment, template.requiredResources ?? []);
+  return meetsRecommendedGpu(environment, template.recommendedResources ?? []);
 }
 
 /**
  * Resolve the environments a template can launch on, across every node the indexer knows — unlike a
  * quick-start package (pinned to its source nodes), a template is just an image, so any service-capable
- * environment that meets its floors can run it. Fetches one benchmark-ranked page, keeps the envs that
+ * environment that reaches its recommended GPU VRAM can run it. Fetches one benchmark-ranked page, keeps the envs that
  * qualify, and rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
  * seeded token). Null template → idle.
  */
@@ -91,7 +91,7 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
     // Aborts the in-flight request on effect re-run / unmount (modal closed, template switched), on top
     // of withTimeout — so a hung indexer can't keep the page spinning after the user moved on.
     const cleanupController = new AbortController();
-    const sizing = recommendedSizing(template.requiredResources);
+    const sizing = recommendedSizing(template.recommendedResources);
 
     async function resolve() {
       setLoading(true);
@@ -143,17 +143,14 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
             return {
               env: {
                 environment,
-                // Prefer recommendedResources for the GPU COUNT (null on every live template today,
-                // but this stays right if that changes) — meetsMinResources above stays on
-                // requiredResources since that's the actual floor, not the recommendation. The shared
-                // CPU/RAM/disk are sized separately by recommendedSizing: the recommended amounts,
-                // floored at the required mins.
+                // The GPU count comes from the recommended VRAM and this env's card size; the shared
+                // CPU/RAM/disk are sized separately by recommendedSizing (recommended, best effort).
                 // Templates are one of the two zero-GPU-permitting flows (see env-resources.ts spec) — a
                 // template declaring no GPU requirement (jupyterlab, hermes) must seed 0 rather than the
                 // old blanket "nothing declared -> 1", on an env whose GPU min actually allows it.
                 gpuSelection: autoGpuSelection({
                   environment,
-                  required: template!.recommendedResources ?? template!.requiredResources ?? [],
+                  required: template!.recommendedResources ?? [],
                   allowZeroGpu: true,
                 }),
                 sizing,

@@ -35,7 +35,6 @@ import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inf
 import { InferenceOpenedVia, resolveInferenceBranch, trackInferenceSelection } from '@/lib/inference-analytics';
 import { useTheme } from '@/lib/use-theme';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
-import { declaredGpuRange } from '@/services/quick-start';
 import { findTemplateById } from '@/services/service-templates';
 import { showcaseItemsForSource } from '@/services/showcase';
 import { templateNeedsConfigStep } from '@/services/template-launch';
@@ -50,6 +49,7 @@ import {
   SHAPE_LABEL,
   templateShape,
 } from '@/types/templates';
+import { gpuRequirementOf } from '@/utils/env-resources';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import LockIcon from '@mui/icons-material/Lock';
@@ -293,9 +293,11 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     });
   };
 
-  // The GPU count the quick start aims for (recommended) and may scale down to (required min).
-  const gpuRange = useMemo(
-    () => (template ? declaredGpuRange(template.requiredResources, template.recommendedResources) : null),
+  // The GPU recommendation (total VRAM + layouts) the quick start books cards for; null: no GPU. A
+  // forced width (gpuCountEnv) is only known once the user fills it in at the config step, which
+  // checks it against the booked count — the quick start books the template's default layouts.
+  const gpuRequirement = useMemo(
+    () => (template ? (gpuRequirementOf(template.recommendedResources) ?? null) : null),
     [template]
   );
 
@@ -306,7 +308,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     loading: envsLoading,
     loadError,
     retry,
-    gpuRange,
+    gpuRequirement,
     allowZeroGpu: true,
     durationSeconds,
     onStart: continueToPayment,

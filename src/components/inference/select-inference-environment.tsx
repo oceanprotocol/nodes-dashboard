@@ -13,6 +13,7 @@ import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import { estimateModelsVramGb } from '@/services/vram-estimate';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
@@ -140,24 +141,39 @@ type SelectInferenceEnvironmentProps = {
   /** Which flow is using the picker — tags the analytics events with the right branch. */
   flowType: InferenceFlowType;
   /**
-   * The minimum/recommended resources of the template or package being launched, shown above the
-   * list. Left out of a custom-model flow started from the model picker, which has none.
+   * The recommended resources of the template or package being launched, shown above the list. Left
+   * out of a custom-model flow started from the model picker, which has none.
    */
-  declaredResources?: {
-    required: DeclaredRequirement[] | null | undefined;
-    recommended?: DeclaredRequirement[] | null;
-  };
+  declaredResources?: DeclaredRequirement[];
+  /** Offer only the layout of this many cards — a handed-off package's pinned tensor-parallel width. */
+  forcedGpuCount?: number;
 };
 
 const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   onEnvSelected,
   flowType,
   declaredResources,
+  forcedGpuCount,
 }) => {
   const { loading, loadMoreEnvs, nodeEnvs, paginationResponse, filters, setFilters, setSort, sort } =
     useRunJobEnvsContext();
-  const { jobDurationSeconds, setJobDurationSeconds, setSelectedEnv, selectedEnv, setSelectedToken, selectedTemplate } =
-    useInferenceContext();
+  const {
+    jobDurationSeconds,
+    setJobDurationSeconds,
+    setSelectedEnv,
+    selectedEnv,
+    setSelectedToken,
+    selectedTemplate,
+    selectedModels,
+  } = useInferenceContext();
+  // A hand-picked custom model declares no VRAM: estimate it from the models' parameter counts, so
+  // each card can warn (never block) when the GPUs picked look too small. Unused once a template or
+  // package declares a recommendation — the declared layouts already restrict the picks.
+  const modelVramGb = useMemo(
+    () =>
+      flowType === InferenceFlowType.CustomModel && !declaredResources ? estimateModelsVramGb(selectedModels) : null,
+    [flowType, declaredResources, selectedModels]
+  );
 
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
   // min/max job-duration window. Cleared on the next valid pick or duration change.
@@ -347,9 +363,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         <h3>Environments</h3>
 
-        {declaredResources && (
-          <DeclaredResources recommended={declaredResources.recommended} required={declaredResources.required} />
-        )}
+        {declaredResources && <DeclaredResources recommended={declaredResources} />}
 
         <form onSubmit={formik.handleSubmit}>
           <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
@@ -405,7 +419,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                     // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
                     // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
                     allowZeroGpu={flowType === InferenceFlowType.Template}
-                    declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
+                    declaredRequirements={declaredResources}
+                    forcedGpuCount={forcedGpuCount}
+                    modelVramGb={modelVramGb ?? undefined}
                     defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                     durationSeconds={jobDurationSeconds}
                     environment={env}

@@ -13,9 +13,10 @@ import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { assertAllocationAvailable, buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
+import { bookedVramGb, vramShortfallMessage } from '@/services/vram-estimate';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
-import { declaredGpuOptions, DeclaredRequirement, preferredGpuOption } from '@/utils/env-resources';
+import { declaredGpuOptions, DeclaredRequirement, isGpuRequirement, preferredGpuOption } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatGb, formatTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
@@ -67,12 +68,16 @@ type InferenceEnvironmentCardProps = {
    */
   sizing?: ResourceSizing;
   /**
-   * The launch target's declared resource requirements (template `requiredResources`/
-   * `recommendedResources`, or a package's `requiredResources`) — used ONLY to restrict which GPU unit
-   * counts are offered per type (see {@link declaredGpuOptions}). Omit (or pass a requirement list with
-   * no GPU entry) to keep the full 1..max row, e.g. the custom HF-model flow which declares nothing.
+   * The launch target's recommended resources (a template's or package's `recommendedResources`) —
+   * used ONLY to restrict which GPU unit counts are offered per type: the declared layouts that fit
+   * that type's cards (see {@link declaredGpuOptions}). Omit (or pass a list with no GPU entry) to keep
+   * the full 1..max row, e.g. the custom HF-model flow which declares nothing.
    */
   declaredRequirements?: DeclaredRequirement[];
+  /** Offer only the layout of this many cards — a package's pinned tensor-parallel width. */
+  forcedGpuCount?: number;
+  /** Estimated VRAM (GB) a custom model needs; the card warns when the picked GPUs carry less. */
+  modelVramGb?: number;
   /**
    * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
    * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually
@@ -104,6 +109,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   initialSelection,
   sizing,
   declaredRequirements,
+  forcedGpuCount,
+  modelVramGb,
   allowZeroGpu = false,
 }) => {
   const { account, provider } = useOceanAccount();
@@ -180,12 +187,17 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     durationSeconds,
   });
 
-  // Declared GPU requirement (template/package), if any — restricts each type's row to just the
-  // declared values instead of the full 1..max range, and drives the default (biggest declared option,
-  // clamped) below instead of "every pickable unit". `undefined` (no requirement passed, or one with no
-  // GPU entry — e.g. the custom HF-model flow) makes declaredGpuOptions return null per type, which is
-  // the "no restriction" signal that keeps today's full-range behavior end to end.
-  const gpuReq = declaredRequirements?.find((r) => r.type === 'gpu');
+  // Declared GPU requirement (template/package), if any — restricts each type's row to the declared
+  // layouts that fit that type's cards instead of the full 1..max range (possibly none), and drives the
+  // default below instead of "every pickable unit". `undefined` (no requirement passed, or one with no
+  // GPU entry — e.g. the custom HF-model flow) makes declaredGpuOptions return null, the "no
+  // restriction" signal that keeps the full-range behavior.
+  const gpuReq = declaredRequirements?.find(isGpuRequirement);
+  const optionsFor = useCallback(
+    (g: { max: number; vramGb?: number; allowsZero: boolean }) =>
+      declaredGpuOptions(gpuReq, g, { allowZero: allowZeroGpu && g.allowsZero, forcedGpuCount }),
+    [gpuReq, allowZeroGpu, forcedGpuCount]
+  );
 
   // Per-type zero-eligibility: `allowZeroGpu` is caller policy (template flows only), but zero is only
   // ever actually offered on a TYPE the env itself lets you book none of (`MergedGpu.allowsZero` — see
@@ -207,23 +219,26 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             // A restored pick is clamped to `cap` (it can exceed current availability).
             return Math.min(Math.max(prior, 0), cap);
           }
-          // No prior pick: default to the declared requirement's biggest option (clamped to this type's
-          // physical max, the same ceiling declaredGpuOptions uses for the row itself) rather than `cap`
-          // — a template asking for "1" must not default to booking every free unit. Then still clamp to
-          // `cap` so the default can't exceed the shared budget either.
+          // No prior pick: default to the smallest declared layout that fits this type rather than `cap`
+          // — a template asking for one card's worth must not default to booking every free unit. Then
+          // still clamp to `cap` so the default can't exceed the shared budget either. A declared
+          // requirement no layout of this type fits books 0 here: the cards can't hold it.
           //
           // A target declaring NO GPU requirement (jupyterlab, hermes) takes the row's MINIMUM instead:
           // it can't use a GPU, so the top of the offered range would book and price every free unit.
           // That minimum is 0 where zero is permitted, else the 1-unit floor. Only when the row itself
           // is unrestricted (nothing declared AND zero not allowed) does this return undefined and let
           // drawUnitsAcrossTypes fill `cap` — the original behavior for the custom-model flow.
-          const options = declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) });
+          const options = optionsFor(g);
           const preferred = gpuReq ? preferredGpuOption(options) : options?.[0];
-          return preferred === undefined ? undefined : Math.min(preferred, cap);
+          if (preferred === undefined) {
+            return gpuReq ? 0 : undefined;
+          }
+          return Math.min(preferred, cap);
         })
       );
     }
-  }, [isControlled, ownSelection, mergedGpus, maxByKey, maxUnitsByResources, initialSelection, gpuReq, zeroAllowedFor]);
+  }, [isControlled, ownSelection, mergedGpus, maxByKey, maxUnitsByResources, initialSelection, gpuReq, optionsFor]);
 
   const editable = !isControlled && !!onSelect;
 
@@ -271,7 +286,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         // options are clamped to `g.max` (not `cap`), so this can legitimately fall through to 0 when
         // even the smallest declared option no longer fits the shrunk budget — same as the undeclared
         // case clamping to 0, just via a different route.
-        const options = declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) });
+        const options = optionsFor(g);
         if (!options) {
           return clamped;
         }
@@ -282,7 +297,13 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       const unchanged = mergedGpus.every((g) => next[g.key] === prev[g.key]);
       return unchanged ? prev : next;
     });
-  }, [mergedGpus, maxByKey, maxUnitsByResources, gpuReq, zeroAllowedFor]);
+  }, [mergedGpus, maxByKey, maxUnitsByResources, optionsFor]);
+
+  // Custom model only: the estimate against the VRAM behind the current pick (advisory).
+  const vramWarning = useMemo(
+    () => (modelVramGb ? vramShortfallMessage(modelVramGb, bookedVramGb(environment, selectedByKey)) : null),
+    [modelVramGb, environment, selectedByKey]
+  );
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,
@@ -305,21 +326,20 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       const budgetForThisType = Math.max(0, maxUnitsByResources - othersSelected);
       // Pickable = this type's own free units, capped by the shared budget left after other types.
       const pickable = Math.min(maxByKey[gpu.key] ?? 0, budgetForThisType);
-      // Options to offer as buttons: the declared min/recommended, clamped into [1, gpu.max] (or
-      // [0, gpu.max] on a zero-permitting type) and deduped — or, with nothing declared, every unit
-      // 1..gpu.max (today's behavior, unchanged; declaredGpuOptions itself widens this to include 0
-      // when zero is allowed and nothing was declared — see its docblock). Note this clamps against the
-      // type's PHYSICAL max, not `pickable` — an option above `pickable` still renders, just disabled
-      // with its existing tooltip reason, per spec (nothing is ever removed for being currently
-      // unavailable, only for not being a declared/useful value).
-      const zeroAllowed = zeroAllowedFor(gpu);
-      const options =
-        declaredGpuOptions(gpuReq, gpu.max, { allowZero: zeroAllowed }) ??
-        Array.from({ length: gpu.max }, (_, i) => i + 1);
+      // Options to offer as buttons: the declared layouts that fit this type's cards — or, with nothing
+      // declared, every unit 1..gpu.max (declaredGpuOptions itself widens this to include 0 when zero
+      // is allowed — see its docblock). Note this is bounded by the type's PHYSICAL max, not `pickable` —
+      // an option above `pickable` still renders, just disabled with its existing tooltip reason
+      // (nothing is ever removed for being currently unavailable, only for not being a declared value).
+      const options = optionsFor(gpu) ?? Array.from({ length: gpu.max }, (_, i) => i + 1);
       return (
         <div className={styles.gpuType} key={gpu.key}>
           <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />
-          {editable ? (
+          {gpuReq && options.length === 0 ? (
+            <span className={classNames('chip', 'chipGlass', styles.countStatic)}>
+              {gpu.vramGb === undefined ? 'VRAM not reported' : `Can't hold ${formatGb(gpuReq.recommended)} VRAM`}
+            </span>
+          ) : editable ? (
             <div className={styles.counts}>
               {/* All offered units shown; counts above what's free are disabled (in use, or not enough
                   shared CPU/RAM/disk) with a tooltip explaining why. */}
@@ -382,9 +402,15 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   // only matters to a selection that actually asks for units. Without this, a zero-permitting template
   // on a fully-booked env would wrongly show "all GPU units in use" for a pick that needs none.
   const zeroSelected = selectedTotal <= 0 && zeroSelectionAllowed;
+  // A declared GPU recommendation no type here can hold: no pick on this env can run the model.
+  const noFittingLayout =
+    !!gpuReq && hasGpus && mergedGpus.every((g) => (optionsFor(g) ?? []).length === 0)
+      ? `No GPU here can hold the recommended ${formatGb(gpuReq.recommended)} of VRAM.`
+      : null;
   const selectBlockedReason =
     disabledReason ??
     accessBlockedReason ??
+    noFittingLayout ??
     (hasGpus
       ? gpuExhausted && !zeroSelected
         ? 'All GPU units in this environment are currently in use.'
@@ -489,6 +515,11 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         <div className={styles.envResources}>
           {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
           {computeText && <div className={styles.compute}>{computeText}</div>}
+          {vramWarning && (
+            <div className={styles.compute} role="status">
+              {vramWarning}
+            </div>
+          )}
           {onSelect && durationRangeText && (
             <div className={styles.duration}>Service duration: {durationRangeText}</div>
           )}

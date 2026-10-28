@@ -9,7 +9,7 @@ import { InferencePackage, ResourceRequirement } from '@/types/inference';
  *
  * These mocks stand in for templates fetched from a node — so each carries `sourcePeerIds`, the
  * nodes it may be run on (the list below). The details page lists every one of those nodes'
- * environments, filtered to those that satisfy `requiredResources`, and the user picks one there.
+ * environments, filtered to those that reach the recommended GPU VRAM, and the user picks one there.
  */
 
 // Real service-on-demand nodes these mock packages can run on — the details page lists their environments.
@@ -19,19 +19,19 @@ const NODE_IDS = [
   '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
 ];
 
-// Shared resource floors/recommendations — every package targets the same single-GPU footprint.
-const REQUIRED_RESOURCES: ResourceRequirement[] = [
-  { id: 'cpu', min: 2, recommended: 4, unit: 'cores' },
-  { id: 'ram', min: 8, recommended: 16, unit: 'GB' },
-  { id: 'disk', min: 10, recommended: 20, unit: 'GB' },
+// Shared resource recommendations — every package targets the same small single-GPU footprint.
+const RECOMMENDED_RESOURCES: ResourceRequirement[] = [
+  { id: 'cpu', recommended: 4, unit: 'cores' },
+  { id: 'ram', recommended: 16, unit: 'GB' },
+  { id: 'disk', recommended: 20, unit: 'GB' },
   {
     kind: 'discrete',
     type: 'gpu',
     id: 'gpu',
-    min: 1,
-    recommended: 1,
-    unit: 'count',
-    description: 'CUDA-capable GPU with >= 3 GB VRAM (compute capability >= 7.0); both models share the one GPU',
+    recommended: 3,
+    unit: 'GB',
+    layouts: [{ gpuCount: 1 }],
+    description: '3 GB of VRAM on a CUDA-capable GPU (compute capability >= 7.0); both models share the one GPU',
   },
 ];
 
@@ -63,7 +63,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: REQUIRED_RESOURCES,
+    recommendedResources: RECOMMENDED_RESOURCES,
   },
   {
     id: 'code-assistant',
@@ -89,7 +89,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: REQUIRED_RESOURCES,
+    recommendedResources: RECOMMENDED_RESOURCES,
   },
   {
     id: 'deep-reasoning',
@@ -115,7 +115,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: REQUIRED_RESOURCES,
+    recommendedResources: RECOMMENDED_RESOURCES,
   },
   {
     id: 'light-and-fast',
@@ -140,7 +140,7 @@ export const MOCK_INFERENCE_PACKAGES: InferencePackage[] = [
     },
     type: 'quickstart',
     sourcePeerIds: NODE_IDS,
-    requiredResources: REQUIRED_RESOURCES,
+    recommendedResources: RECOMMENDED_RESOURCES,
   },
 ];
 

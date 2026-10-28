@@ -511,6 +511,26 @@ export function gpuSelectionMessage(error: unknown, since: string): string | nul
  * GPUs than the user selected and is paying escrow for; failing loudly surfaces the real shortfall
  * (e.g. a restored/booked pick whose units were taken by another tenant since) instead.
  */
+/**
+ * A launch must name a whole, non-negative count for EVERY GPU type of the environment. buildGpuRequests
+ * reads a missing or empty selection as "every free GPU" (the hand-sized custom picker's legacy
+ * default), which a planned launch must never fall into: a template asking for one card would book —
+ * and pay for — all eight. Throws a GPUS_MISSING selection error so it surfaces before payment.
+ */
+export function assertCompleteGpuSelection(resources: ComputeResource[], gpuSelection?: GpuSelection): void {
+  const keys = new Set(resources.filter((r) => isGpuId(r.id, r.type)).map((r) => r.description || 'GPU'));
+  if (keys.size === 0) {
+    return;
+  }
+  const incomplete = Array.from(keys).some((key) => {
+    const units = gpuSelection?.[key];
+    return units === undefined || !Number.isInteger(units) || units < 0;
+  });
+  if (incomplete) {
+    throw gpuSelectionError(GPUS_MISSING, 'Pick how many GPUs to use for every GPU type in this environment.');
+  }
+}
+
 export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
   const gpus = resources.filter((r) => isGpuId(r.id, r.type));
   if (gpus.length === 0) {
@@ -747,6 +767,7 @@ export function buildInferenceStartParams({
   // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
   // here too, before the caller runs the escrow deposit tx.
   assertAllocationAvailable(envResources, allocation);
+  assertCompleteGpuSelection(envResources, gpuSelection ?? selectedEnv.gpuSelection);
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },

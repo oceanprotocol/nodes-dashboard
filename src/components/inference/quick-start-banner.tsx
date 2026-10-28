@@ -72,8 +72,7 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
   onDurationChange,
   onAdvanced,
 }: QuickStartBannerProps<T>) {
-  const { status, option, recommendedGpus, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } =
-    quickStart;
+  const { status, option, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } = quickStart;
 
   const renderProblem = ({
     Icon,
@@ -154,15 +153,9 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
             </Tooltip>
           )}
         </div>
-        {recommendedGpus !== null && (
-          <div className={styles.note}>
-            The recommended {recommendedGpus}× GPU isn&apos;t free right now, so this starts on {gpuCount}×.
-          </div>
-        )}
         {belowRecommendedResources && (
           <div className={styles.note}>
-            No environment has the recommended CPU, RAM and disk free right now, so this starts with less (still above
-            the minimum).
+            No environment has the recommended CPU, RAM and disk free right now, so this starts with what is free.
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
-import { ComputeEnvironment } from '@/types/environments';
+import { ComputeEnvironment, ComputeResource } from '@/types/environments';
 import { getAvailableAmount } from '@/utils/resources';
 
 /**
@@ -49,58 +49,214 @@ export function supportsComputeJobs(environment: ComputeEnvironment): boolean {
   return environment.features?.computeJobs !== false;
 }
 
-/** A declared resource floor: `cpu`/`ram`/`disk` by id, or GPU units by `type: 'gpu'`. */
+/**
+ * One allowed way to spread a GPU recommendation over identical cards of ONE type on ONE host — the
+ * same shape ocean-node validates. `gpuCount` is exactly what gets booked and used (TP/TEP width, or
+ * one model per card). A one-card layout carries no `vramPerGpu`: that card must hold the whole
+ * `recommended`. A multi-card layout states the VRAM each card needs.
+ */
+export type GpuLayout = { gpuCount: number; vramPerGpu?: number };
+
+/**
+ * A declared resource recommendation: `cpu`/`ram`/`disk` by id, or GPU by `type: 'gpu'`. There is no
+ * floor — `recommended` is the one amount a template/package states. For cpu/ram/disk it is booked as
+ * far as the env can grant it; for GPU it is the TOTAL VRAM in GB (the headline), and `layouts` lists
+ * the card counts it may be booked as (see {@link fittingGpuCounts}).
+ */
 export type DeclaredRequirement = {
   id?: string;
   type?: string;
-  min: number;
-  recommended?: number;
+  recommended: number;
+  unit?: string;
   /** Discrete (whole-unit, e.g. GPU) vs fungible (continuous, e.g. cpu/ram/disk). Carried by real
    *  template/package data; not matched on — every consumer here keys off `type`/`id` instead. */
   kind?: 'discrete' | 'fungible';
+  /** GPU only: the card counts the recommendation may be booked as. Mandatory on a GPU entry. */
+  layouts?: GpuLayout[];
+  /** GPU only: the userConfigurableEnvVars key that forces an exact card count at launch. */
+  gpuCountEnv?: string;
 };
+
+export function isGpuRequirement(requirement: DeclaredRequirement): boolean {
+  return requirement.type === 'gpu' || requirement.id === 'gpu';
+}
+
+/** The target's GPU recommendation, or undefined when it declares no GPU. */
+export function gpuRequirementOf(required: DeclaredRequirement[] | null | undefined): DeclaredRequirement | undefined {
+  return required?.find(isGpuRequirement);
+}
+
+/** The total VRAM (GB) a target recommends, or null when it declares no GPU at all. */
+export function declaredGpuVram(required: DeclaredRequirement[] | null | undefined): number | null {
+  const requirement = gpuRequirementOf(required);
+  return requirement ? Math.max(0, requirement.recommended) : null;
+}
+
+/** VRAM (GB) each card needs under `layout`: the whole recommendation on a single card. */
+export function layoutCardGb(requirement: DeclaredRequirement, layout: GpuLayout): number {
+  if (layout.gpuCount <= 1) {
+    return requirement.recommended;
+  }
+  return layout.vramPerGpu ?? requirement.recommended / layout.gpuCount;
+}
+
+/** The layouts in words: "1 GPU", or "4 × 141 GB or 8 × 80 GB GPUs". Empty when none are declared. */
+export function formatGpuLayouts(requirement: DeclaredRequirement): string {
+  const layouts = requirement.layouts ?? [];
+  if (layouts.length === 1 && layouts[0].gpuCount === 1) {
+    return '1 GPU';
+  }
+  return layouts
+    .map((l) =>
+      l.gpuCount === 1
+        ? `1 × ${Math.round(requirement.recommended)} GB`
+        : `${l.gpuCount} × ${Math.round(layoutCardGb(requirement, l))} GB`
+    )
+    .join(' or ')
+    .concat(layouts.length > 0 ? ' GPUs' : '');
+}
+
+const MEMORY_UNIT_BYTES: Record<string, number> = {
+  b: 1,
+  kb: 1e3,
+  mb: 1e6,
+  gb: 1e9,
+  tb: 1e12,
+  kib: 1024,
+  mib: 1024 ** 2,
+  gib: 1024 ** 3,
+  tib: 1024 ** 4,
+};
+
+/**
+ * One card's VRAM in decimal GB, from the `memoryTotal` string the node requires on every GPU resource
+ * ("143771 MiB", "141 GB", "16 GiB"). Same grammar as ocean-node's parseMemoryTotalToBytes, so the
+ * dashboard and the node agree on what a card holds. Undefined when absent or unparseable — such a card
+ * can't be sized against a VRAM recommendation.
+ */
+export function gpuVramGb(resource: Pick<ComputeResource, 'memoryTotal'>): number | undefined {
+  const match = String(resource.memoryTotal ?? '')
+    .trim()
+    .match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]{1,3})?$/);
+  if (!match) {
+    return undefined;
+  }
+  const factor = MEMORY_UNIT_BYTES[(match[2] || 'B').toLowerCase()];
+  const gb = factor ? (parseFloat(match[1]) * factor) / 1e9 : NaN;
+  return Number.isFinite(gb) && gb > 0 ? gb : undefined;
+}
+
+/**
+ * Per-card VRAM of a group of GPU resources booked as one type (merged by description): the smallest
+ * card's, so a layout is never matched against a card bigger than one the launch may draw. Undefined
+ * when any card in the group doesn't declare its VRAM.
+ */
+export function groupVramGb(resources: Pick<ComputeResource, 'memoryTotal'>[]): number | undefined {
+  let smallest: number | undefined;
+  for (const resource of resources) {
+    const gb = gpuVramGb(resource);
+    if (gb === undefined) {
+      return undefined;
+    }
+    smallest = smallest === undefined ? gb : Math.min(smallest, gb);
+  }
+  return smallest;
+}
+
+// Compared in whole bytes, like the node, so "141 GB" meets a 141 GB layout exactly.
+const toBytes = (gb: number) => Math.ceil(gb * 1e9 - 1e-3);
+
+/**
+ * The declared card counts that fit cards of `cardVramGb`, ascending: each card holds its layout's
+ * share and the cards together hold the recommendation. `forcedGpuCount` (a package's pinned
+ * tensor-parallel width, or a template's forced width) keeps only that layout. Empty when the card's
+ * VRAM is unknown, or the requirement declares no layouts — such a card can't be sized against it, and
+ * cards are never pooled to make up a single-card recommendation.
+ */
+export function fittingGpuCounts(
+  requirement: DeclaredRequirement,
+  cardVramGb: number | undefined,
+  forcedGpuCount?: number
+): number[] {
+  if (cardVramGb === undefined || cardVramGb <= 0) {
+    return [];
+  }
+  const cardBytes = Math.round(cardVramGb * 1e9);
+  return (requirement.layouts ?? [])
+    .filter((layout) => forcedGpuCount === undefined || layout.gpuCount === forcedGpuCount)
+    .filter(
+      (layout) =>
+        cardBytes >= toBytes(layoutCardGb(requirement, layout)) &&
+        layout.gpuCount * cardBytes >= toBytes(requirement.recommended)
+    )
+    .map((layout) => layout.gpuCount)
+    .sort((a, b) => a - b);
+}
+
+/** One GPU type of an env, keyed by description — what the layout rules count cards against. */
+export type GpuTypeInfo = {
+  key: string;
+  /** Physical units of this type in the env. */
+  max: number;
+  /** Units free right now. */
+  available: number;
+  /** One card's VRAM in GB (smallest of the group); undefined when not declared. */
+  vramGb?: number;
+  /** Every resource id merged into the type declares `min: 0`. */
+  allowsZero: boolean;
+};
+
+/** The env's GPU resources merged by description, as the allocation hook and buildGpuRequests key them. */
+export function gpuTypesOf(environment: ComputeEnvironment): GpuTypeInfo[] {
+  const groups = new Map<string, ComputeResource[]>();
+  (environment.resources ?? [])
+    .filter((r) => r.type === 'gpu')
+    .forEach((r) => {
+      const key = r.description || 'GPU';
+      groups.set(key, [...(groups.get(key) ?? []), r]);
+    });
+  return Array.from(groups, ([key, members]) => ({
+    key,
+    max: members.reduce((sum, r) => sum + (r.max ?? 0), 0),
+    available: members.reduce((sum, r) => sum + grantable(r), 0),
+    vramGb: groupVramGb(members),
+    // Zero-eligibility, not a summed floor: the group tolerates zero only if EVERY id merged into it
+    // does. Kept as a boolean deliberately — summing the per-id `min`s produces a number that reads
+    // like a clamp bound but isn't one (8 devices at min 1 would sum to 8, not 1).
+    allowsZero: members.every((r) => (r.min ?? 0) <= 0),
+  }));
+}
 
 /** Units of a fungible/GPU resource the env can hand ONE job right now: min(max, total − inUse),
  *  the node's own gate. Single definition in @/utils/resources so every flow agrees. */
 export const grantable = getAvailableAmount;
 
-/** Sum grantable units across every resource of a `type` (e.g. all GPUs). */
-export function grantableByType(environment: ComputeEnvironment, type: string): number {
-  return (environment.resources ?? [])
-    .filter((r) => r.type === type)
-    .reduce((sum, r) => sum + grantable(r), 0);
-}
-
-/** Grantable amount for a single continuous resource by id (cpu/ram/disk). */
-export function grantableById(environment: ComputeEnvironment, id: string): number {
-  const resource = (environment.resources ?? []).find((r) => r.id === id);
-  return resource ? grantable(resource) : 0;
-}
-
 /**
- * Whether an env can currently satisfy every declared floor (`min`). GPU requirements (`type: 'gpu'`)
- * are summed across all GPU resources; cpu/ram/disk are matched by id. An env that can't meet a floor
- * is hidden from the picker — it can't launch the package/template.
+ * Whether an env can currently give a target its GPU recommendation: some single GPU type (cards are
+ * never mixed — a model shards across identical devices) has a declared layout that fits its cards
+ * with that many cards free. Without that VRAM the model doesn't load at all, so this is the one
+ * recommendation that hides an env. CPU/RAM/disk never do: they are booked as far as the env can grant
+ * them (see recommendedSizing). A target declaring no GPU fits any env.
  */
-export function meetsMinResources(environment: ComputeEnvironment, required: DeclaredRequirement[]): boolean {
-  return required.every((req) => {
-    const available = req.type === 'gpu' ? grantableByType(environment, 'gpu') : grantableById(environment, req.id ?? '');
-    return available >= req.min;
-  });
+export function meetsRecommendedGpu(
+  environment: ComputeEnvironment,
+  required: DeclaredRequirement[],
+  forcedGpuCount?: number
+): boolean {
+  const requirement = gpuRequirementOf(required);
+  if (!requirement || requirement.recommended <= 0) {
+    return true;
+  }
+  return gpuTypesOf(environment).some((t) =>
+    fittingGpuCounts(requirement, t.vramGb, forcedGpuCount).some((n) => n <= t.available)
+  );
 }
 
 /**
- * Auto GPU selection for a read-only card: book {@link preferredGpuOption} of
- * {@link declaredGpuOptions} — the biggest count the publisher declared — drawn across GPU types
- * (keyed by `description`, what the allocation hook / buildGpuRequests match on) in declared order.
- * The declared count is a total, so it is drawn down rather than applied per type; see the note at the
- * draw below for the over-booking this avoids on a multi-description env.
- *
- * Same VALUE the editable card (inference-environment-card) preselects for a single-type env, which is
- * every live env today: a package/template's static read-only card (this) and the Advanced picker's
- * editable one must not disagree on the default, or switching between them looks like the pick
- * silently changed. See declaredGpuOptions for the clamp/dedupe rules and why nothing declared falls
- * back to one unit.
+ * Auto GPU selection for a read-only card: the smallest declared layout that fits, on the first GPU
+ * type (keyed by `description`, what the allocation hook / buildGpuRequests match on) with that many
+ * cards free. Same value the editable card (inference-environment-card) preselects, so a package or
+ * template's static card and the Advanced picker never disagree on the default.
  *
  * EVERY type in the env gets an explicit number, zero included. The allocation hook reads the
  * selection per type and defaults a MISSING key to every free unit of that type, so any type left out
@@ -116,63 +272,47 @@ export type AutoGpuSelectionArgs = {
    * function checks itself — see `envAllowsZero` below.
    */
   allowZeroGpu?: boolean;
+  /** Keep only the layout of this many cards (a package's pinned tensor-parallel width). */
+  forcedGpuCount?: number;
 };
 
-export function autoGpuSelection({ environment, required, allowZeroGpu = false }: AutoGpuSelectionArgs): GpuSelection {
-  const gpuResources = (environment.resources ?? []).filter((r) => r.type === 'gpu');
-  const gpuReq = required.find((r) => r.type === 'gpu');
-  const selection: GpuSelection = {};
-
-  // Merge by description first (mirrors MergedGpu in use-inference-allocation) so a type split across
-  // several resource ids gets one combined max/available, matching what the card's row is clamped to.
-  const byKey = new Map<string, { max: number; available: number; allowsZero: boolean }>();
-  gpuResources.forEach((r) => {
-    const key = r.description || 'GPU';
-    const existing = byKey.get(key);
-    if (existing) {
-      existing.max += r.max ?? 0;
-      existing.available += grantable(r);
-      // Zero-eligibility, not a summed floor: the group tolerates zero only if EVERY id merged into it
-      // does. Kept as a boolean deliberately — summing the per-id `min`s produces a number that reads
-      // like a clamp bound but isn't one (8 devices at min 1 would sum to 8, not 1).
-      existing.allowsZero = existing.allowsZero && (r.min ?? 0) <= 0;
-    } else {
-      byKey.set(key, { max: r.max ?? 0, available: grantable(r), allowsZero: (r.min ?? 0) <= 0 });
-    }
-  });
-  // Ceiling for the declared options: every GPU unit in the env, since the declared count spans types.
-  const totalMax = Array.from(byKey.values()).reduce((sum, g) => sum + g.max, 0);
+export function autoGpuSelection({
+  environment,
+  required,
+  allowZeroGpu = false,
+  forcedGpuCount,
+}: AutoGpuSelectionArgs): GpuSelection {
+  const types = gpuTypesOf(environment);
+  const gpuReq = gpuRequirementOf(required);
+  const selection: GpuSelection = Object.fromEntries(types.map((t) => [t.key, 0]));
   // Zero is only a legitimate seed when the caller permits it AND every merged GPU type's own floor is
   // actually 0 — an env whose GPU resources declare min > 0 must still seed a real unit even for a
   // zero-declaring template, same rule declaredGpuOptions applies per row.
-  const envAllowsZero = allowZeroGpu && Array.from(byKey.values()).every((g) => g.allowsZero);
+  const envAllowsZero = allowZeroGpu && types.every((g) => g.allowsZero);
+  const floor = envAllowsZero ? 0 : 1;
 
-  // The declared count is a TOTAL across GPU types, not a per-type figure — so draw it down across
-  // keys in declared order rather than giving every key the preferred value. Live envs advertise a
-  // single GPU description (8x 'NVIDIA H200' merges to one key), where both readings coincide; an env
-  // exposing two distinct descriptions would otherwise book — and price — one unit of EACH for a
-  // template that asked for one. The per-type option ROW still offers the declared values on every
-  // type (that's the picker's policy); this is only the auto-seeded default, which must sum to what
-  // was declared.
-  //
-  // Clamped per key to what's free right now (`available`): this selection feeds a read-only summary
-  // display, and a declared/physical-max value can exceed current availability. A key with nothing
-  // free takes 0 and the draw moves on, so the units land on keys that can actually give them.
-  //
-  // Floor is 1 UNLESS zero is both permitted and the env's own GPU floor is 0 — a target declaring 0
-  // GPUs (or no GPU entry) on a zero-permitting env must seed 0, not the old blanket "nothing declared
-  // → 1". `preferredGpuOption` still drives the non-zero case unchanged.
-  // A target that declares NO GPU requirement at all (jupyterlab, hermes) wants the MINIMUM, not the
-  // biggest offered count: the app can't use a GPU, so seeding the range's top would book — and price —
-  // every free unit in the env. With zero permitted that minimum is 0; otherwise it's the 1-unit floor
-  // a GPU env is sold in. A target that DOES declare a GPU requirement keeps seeding its biggest
-  // declared option, which is the recommendation the publisher asked for.
-  const options = declaredGpuOptions(gpuReq, totalMax, { allowZero: envAllowsZero });
-  const seed = gpuReq ? preferredGpuOption(options) : options?.[0];
-  let remaining = Math.max(seed ?? (envAllowsZero ? 0 : 1), envAllowsZero ? 0 : 1);
-  byKey.forEach(({ available }, key) => {
-    const take = Math.min(available, remaining);
-    selection[key] = take;
+  if (gpuReq && gpuReq.recommended > 0) {
+    // Met on ONE type, never by mixing cards of two types: the first type with a fitting layout free.
+    for (const t of types) {
+      const units = fittingGpuCounts(gpuReq, t.vramGb, forcedGpuCount).find((n) => n <= t.available);
+      if (units !== undefined) {
+        selection[t.key] = units;
+        return selection;
+      }
+    }
+    // No type can host it: book nothing. Callers only reach here for an env the filters let through,
+    // so this is the stale-availability case, and an empty pick fails loudly downstream instead of
+    // booking a card the model can't use.
+    return selection;
+  }
+
+  // Nothing (or zero VRAM) declared: the fewest units the env sells — a target that can't use a GPU
+  // (jupyterlab, hermes) must not book, and price, every free unit. With zero permitted that is 0;
+  // otherwise the 1-unit floor a GPU env is sold in, drawn from the first type with a free unit.
+  let remaining = floor;
+  types.forEach((t) => {
+    const take = Math.min(t.available, remaining);
+    selection[t.key] = take;
     remaining -= take;
   });
   return selection;
@@ -181,79 +321,49 @@ export function autoGpuSelection({ environment, required, allowZeroGpu = false }
 /** Options for {@link declaredGpuOptions}; see its docblock for what `allowZero` unlocks. */
 export type DeclaredGpuOptionsOpts = {
   /**
-   * Whether a zero-unit option may appear at all. Even when true, zero is only actually offered when
-   * the launch target declares (or clamps to) 0 — this flag alone never forces zero onto a target that
-   * asked for real units. Callers are also on the hook for the env's OWN floor: this helper has no
-   * per-resource `min` to check (it only sees the declared requirement + a unit ceiling), so a caller
-   * whose env's GPU min is > 0 must pass `allowZero: false` regardless of the launch target — see
+   * Whether a zero-unit option may appear for a target that declares no GPU. Callers are on the hook
+   * for the env's OWN floor: a caller whose env's GPU min is > 0 must pass `allowZero: false` — see
    * {@link autoGpuSelection} and the card's `envMin` read for where that check happens.
    */
   allowZero?: boolean;
+  /** Keep only the layout of this many cards (a package's pinned tensor-parallel width). */
+  forcedGpuCount?: number;
 };
 
 /**
- * The GPU unit counts to OFFER as buttons on one GPU type's row, given what the launch target
- * (template/package) declared for GPU — replaces the old blanket 1..max row with the declared RANGE,
- * so a template declaring min 2 / recommended 4 offers 2, 3 and 4 (every count that satisfies it) but
- * never 1 (below its floor) or 5+ (past what it asked for). `pickableMax` is that TYPE's own physical
- * unit count (`gpu.max` in the card, i.e. the ceiling the old 1..max loop used) — NOT current
- * availability, which only disables a button, never removes it (a unit taken by another tenant should
- * still show as a picked-then-blocked option).
+ * The GPU unit counts to OFFER as buttons on one GPU type's row. A target that declares a GPU
+ * recommendation offers exactly its declared layouts that fit THIS type's cards (and its physical
+ * unit count) — possibly none, when the cards are too small or don't declare their VRAM; the row then
+ * offers nothing rather than an arbitrary count the model can't use. `gpu.max` is the type's physical
+ * unit count, NOT current availability, which only disables a button, never removes it.
  *
- * Algorithm (see spec — this is pure UX policy, the node enforces nothing here):
- * 1. Clamp the declared `min` and `recommended` endpoints into [`opts.allowZero ? 0 : 1`, pickableMax]
- *    — a value above the type's max collapses down to max; a value below the floor (a declared 0, or
- *    an env with fewer units than the declared min) rounds UP to the floor. With `allowZero` false
- *    (the default — every caller except the template flows), the floor is 1: a GPU env is sold in
- *    unit-sized slices and never offers a zero-unit button, matching the original behavior exactly.
- * 2. Fill the inclusive range between the two clamped endpoints. Equal endpoints (the common 1/1 case,
- *    or both clamping onto the same number — min 1 / recommended 4 against a 1-unit type) collapse to
- *    a single option, which is why no separate dedupe step is needed.
- *
- * No declared GPU requirement at all (`gpuReq` undefined — e.g. the custom HF-model flow, which
- * declares nothing) returns `null` when zero isn't allowed, meaning "no restriction": callers fall
- * back to the full 1..max row, unchanged from before this helper existed. When zero IS allowed and
- * nothing is declared, `null` would lose the zero option entirely (the 1..max fallback never included
- * it) — so this instead returns `[0, 1, ..., pickableMax]` explicitly, since a user on a zero-min env
- * running a no-GPU template must still be able to pick zero. This is the one case where "nothing
- * declared" does NOT mean "defer to the caller's own full-range fallback".
+ * With nothing declared (the hand-sized custom HF-model flow) this returns `null`, "no restriction",
+ * so callers render the full 1..max row. When zero IS allowed, `null` would lose the zero option (the
+ * 1..max fallback never included it), so this instead returns `[0, 1, ..., gpu.max]` explicitly — a
+ * user on a zero-min env running a no-GPU template must still be able to pick zero.
  */
 export function declaredGpuOptions(
   gpuReq: DeclaredRequirement | undefined,
-  pickableMax: number,
+  gpu: Pick<GpuTypeInfo, 'max' | 'vramGb'>,
   opts?: DeclaredGpuOptionsOpts
 ): number[] | null {
-  const floor = opts?.allowZero ? 0 : 1;
-  if (!gpuReq) {
-    if (!opts?.allowZero) {
-      return null;
-    }
-    return Array.from({ length: Math.max(pickableMax, 0) + 1 }, (_, i) => i);
+  if (gpuReq && gpuReq.recommended > 0) {
+    return fittingGpuCounts(gpuReq, gpu.vramGb, opts?.forcedGpuCount).filter((n) => n <= gpu.max);
   }
-  // Clamp both ENDPOINTS first, then fill the range between them, so a declared 2→4 offers 3 as well.
-  // The node validates `recommended >= min`, so min is always the low end; `?? min` collapses a
-  // recommended-less requirement to the single declared value.
-  const ceiling = Math.max(pickableMax, floor);
-  const clamp = (n: number) => Math.min(Math.max(n, floor), ceiling);
-  const low = clamp(gpuReq.min);
-  const high = clamp(gpuReq.recommended ?? gpuReq.min);
-  // Endpoints can cross after clamping (a declared 6→6 on a 2-unit type clamps both to 2; a declared
-  // 0→4 with allowZero false clamps low up to 1) — order them rather than trusting the declaration.
-  const from = Math.min(low, high);
-  const to = Math.max(low, high);
-  return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  if (!opts?.allowZero) {
+    return null;
+  }
+  return Array.from({ length: Math.max(gpu.max, 0) + 1 }, (_, i) => i);
 }
 
 /**
- * The option {@link declaredGpuOptions} preselects for one GPU type: the biggest offered value. Kept
- * separate from the array itself so a seeding hook (use-template-envs/use-package-env) can ask "what
- * would the card preselect" without re-deriving/sorting the list, and so the two can never disagree —
- * see the note on autoGpuSelection above about the seeded default and the card's options needing to
- * agree on the same number.
+ * The option {@link declaredGpuOptions} preselects for one GPU type: the smallest offered value — the
+ * cheapest layout that holds the recommendation; a wider one stays one click away. Kept separate from
+ * the array itself so a seeding hook can ask "what would the card preselect" without re-deriving it.
  */
 export function preferredGpuOption(options: number[] | null): number | undefined {
   if (!options || options.length === 0) {
     return undefined;
   }
-  return options[options.length - 1];
+  return options[0];
 }

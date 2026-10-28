@@ -1,38 +1,28 @@
-import { isGpuRequirement } from '@/services/quick-start';
-import { DeclaredRequirement } from '@/utils/env-resources';
+import { DeclaredRequirement, formatGpuLayouts, gpuRequirementOf, isGpuRequirement } from '@/utils/env-resources';
 import { formatGb } from '@/utils/formatters';
 import styles from './declared-resources.module.css';
 
-type Column = { label: string; min?: number; recommended?: number; format: (value: number) => string };
-
-type Row = { label: string; value: (column: Column) => number | undefined };
+type Column = { label: string; recommended?: number; format: (value: number) => string };
 
 type DeclaredResourcesProps = {
-  /** The floors: a template's `requiredResources`, or a package's (which carry `recommended` too). */
-  required: DeclaredRequirement[] | null | undefined;
-  /** A template's separate recommendation list, when it publishes one. */
-  recommended?: DeclaredRequirement[] | null;
+  /** A template's or package's `recommendedResources`. */
+  recommended: DeclaredRequirement[] | null | undefined;
 };
 
 /**
- * The minimum and recommended resources a template or package declares, for the Advanced setup env
- * picker, where the user sizes the launch by hand and the quick start's automatic pick isn't there to
- * do it for them. Columns and rows the target doesn't declare are left out; nothing declared at all
+ * The resources a template or package recommends, for the Advanced setup env picker, where the user
+ * sizes the launch by hand and the quick start's automatic pick isn't there to do it for them. GPU is
+ * total VRAM across the cards. Columns the target doesn't declare are left out; nothing declared at all
  * renders nothing.
  */
-const DeclaredResources: React.FC<DeclaredResourcesProps> = ({ required, recommended }) => {
-  const column = (label: string, match: (r: DeclaredRequirement) => boolean, format: Column['format']): Column => {
-    const floor = required?.find(match);
-    const recommendation = recommended?.find(match);
-    return {
-      label,
-      min: floor?.min,
-      recommended: recommendation?.recommended ?? recommendation?.min ?? floor?.recommended,
-      format,
-    };
-  };
+const DeclaredResources: React.FC<DeclaredResourcesProps> = ({ recommended }) => {
+  const column = (label: string, match: (r: DeclaredRequirement) => boolean, format: Column['format']): Column => ({
+    label,
+    recommended: recommended?.find(match)?.recommended,
+    format,
+  });
   const columns = [
-    column('GPU', isGpuRequirement, (units) => `${units}×`),
+    column('GPU VRAM', isGpuRequirement, formatGb),
     column(
       'CPU',
       (r) => r.id === 'cpu',
@@ -40,23 +30,21 @@ const DeclaredResources: React.FC<DeclaredResourcesProps> = ({ required, recomme
     ),
     column('RAM', (r) => r.id === 'ram', formatGb),
     column('Disk', (r) => r.id === 'disk', formatGb),
-  ].filter((c) => c.min !== undefined || c.recommended !== undefined);
+  ].filter((c) => c.recommended !== undefined);
 
   if (columns.length === 0) {
     return null;
   }
-  const allRows: Row[] = [
-    { label: 'Minimum', value: (c) => c.min },
-    { label: 'Recommended', value: (c) => c.recommended },
-  ];
-  const rows = allRows.filter((row) => columns.some((c) => row.value(c) !== undefined));
+  const gpu = gpuRequirementOf(recommended);
+  const layouts = gpu ? formatGpuLayouts(gpu) : '';
 
   return (
     <div className={styles.root}>
       <div className={styles.head}>
         <span className={styles.overline}>What this needs</span>
         <span className={styles.hint}>
-          Environments below the minimum can&apos;t run it. The recommended amounts are what it&apos;s tuned for.
+          What it&apos;s tuned for.
+          {layouts && ` GPU VRAM is booked as ${layouts}; GPUs that can't hold it aren't offered.`}
         </span>
       </div>
       <div className={styles.scroller}>
@@ -72,15 +60,12 @@ const DeclaredResources: React.FC<DeclaredResourcesProps> = ({ required, recomme
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.label}>
-                <th scope="row">{row.label}</th>
-                {columns.map((c) => {
-                  const value = row.value(c);
-                  return <td key={c.label}>{value === undefined ? '–' : c.format(value)}</td>;
-                })}
-              </tr>
-            ))}
+            <tr>
+              <th scope="row">Recommended</th>
+              {columns.map((c) => (
+                <td key={c.label}>{c.recommended === undefined ? '–' : c.format(c.recommended)}</td>
+              ))}
+            </tr>
           </tbody>
         </table>
       </div>
