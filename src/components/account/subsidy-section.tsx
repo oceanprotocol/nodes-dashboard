@@ -1,3 +1,5 @@
+import CustomSubsidies from '@/components/account/custom-subsidies';
+import { CreditBlock, DiscountBlock } from '@/components/account/subsidy-blocks';
 import SubsidyHistory from '@/components/account/subsidy-history';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
@@ -10,19 +12,12 @@ import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
 import { USDC } from '@/constants/tokens';
 import { useProfileContext } from '@/context/profile-context';
-import {
-  formatSubsidyPeriod,
-  formatSubsidyReset,
-  getBindingWindow,
-  SubsidyAllowance,
-  SubsidyWindow,
-} from '@/lib/subsidy';
+import { getBindingWindow } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSubsidyHistory, useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
+import { useHasSubsidy, useSubsidyHistory, useSubsidyProgram, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import { CircularProgress } from '@mui/material';
-import classNames from 'classnames';
 import dayjs from 'dayjs';
 import { ReactNode } from 'react';
 import styles from './subsidy-section.module.css';
@@ -47,105 +42,6 @@ const SubsidyHeader = ({ action, chip, subtitle }: SubsidyHeaderProps) => (
   </div>
 );
 
-type Tone = 'credit' | 'discount';
-
-type MeterProps = {
-  className?: string;
-  limit: number;
-  remaining: number;
-  tone: Tone;
-};
-
-const Meter = ({ className, limit, remaining, tone }: MeterProps) => (
-  <div className={classNames(styles.meter, className)}>
-    <div
-      className={classNames(styles.meterFill, toneStyles[tone])}
-      style={{ width: `${limit > 0 ? Math.min(100, (remaining / limit) * 100) : 0}%` }}
-    />
-  </div>
-);
-
-type BlockHeaderProps = {
-  subtitle?: string;
-  title: string;
-  tone: Tone;
-};
-
-const BlockHeader = ({ subtitle, title, tone }: BlockHeaderProps) => (
-  <div className={styles.blockHeader}>
-    <span className={classNames(toneStyles.dot, toneStyles[tone])} />
-    <strong>{title}</strong>
-    {subtitle ? <span className={styles.small}>{subtitle}</span> : null}
-  </div>
-);
-
-const formatLeft = (remaining: number, limit: number) =>
-  `${formatSubsidyAmount(remaining)} / ${formatSubsidyTokenAmount(limit)}`;
-
-type CreditBlockProps = {
-  allowance: SubsidyAllowance;
-  percent: number;
-};
-
-const CreditBlock = ({ allowance, percent }: CreditBlockProps) => (
-  <Card className={styles.block} innerShadow="black" radius="sm" variant="glass">
-    <BlockHeader
-      subtitle={percent < 100 ? `${formatSubsidyAmount(percent)}% of each job` : undefined}
-      title="Free credit"
-      tone="credit"
-    />
-    <span className={styles.limitsHead}>Use across jobs until it runs out</span>
-    <div className={styles.creditRow}>
-      <Meter limit={allowance.limit} remaining={allowance.remaining} tone="credit" />
-      <span className={styles.amount}>
-        {allowance.remaining > 0 ? formatLeft(allowance.remaining, allowance.limit) : 'Used up'}
-      </span>
-    </div>
-  </Card>
-);
-
-type DiscountBlockProps = {
-  percent: number;
-  windows: SubsidyWindow[];
-};
-
-const DiscountBlock = ({ percent, windows }: DiscountBlockProps) => {
-  const capped = windows.filter((window) => !window.unlimited);
-
-  return (
-    <Card className={styles.block} innerShadow="black" radius="sm" variant="glass">
-      <BlockHeader
-        subtitle={capped.length === 0 ? 'No limit' : undefined}
-        title={`${formatSubsidyAmount(percent)}% off`}
-        tone="discount"
-      />
-      {capped.length > 0 ? (
-        <div className={styles.limits}>
-          <div className={classNames(styles.limitRow, styles.limitsHead)}>
-            <span>Limit</span>
-            <span />
-            <span>Left</span>
-            <span>Resets</span>
-          </div>
-          {capped.map((window) => (
-            <div className={styles.limitRow} key={window.periodSeconds}>
-              <span className={styles.limitLabel}>Each {formatSubsidyPeriod(window.periodSeconds)}</span>
-              <Meter className={styles.limitMeter} limit={window.limit} remaining={window.remaining} tone="discount" />
-              <span className={classNames(styles.amount, styles.limitAmount)}>
-                {formatLeft(window.remaining, window.limit)}
-              </span>
-              <span className={classNames(styles.small, styles.limitReset)}>
-                <span className={styles.resetPrefix}>Resets </span>
-                {window.resetsAt ? formatSubsidyReset(window.resetsAt) : '—'}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </Card>
-  );
-};
-
 type SpendOrderProps = {
   credit: number;
   discount: number;
@@ -167,7 +63,8 @@ const ActiveSubsidy = () => {
   const { data: program, isError: isProgramError, isLoading: isProgramLoading } = useSubsidyProgram();
   const { data: usage, isError: isUsageError, isLoading: isUsageLoading } = useSubsidyUsage();
   const { data: history } = useSubsidyHistory();
-  const subsidizedTotal = history?.reduce((sum, entry) => sum + entry.total, 0) ?? 0;
+  const opfHistory = history?.filter((entry) => entry.oneTime + entry.discount > 0) ?? [];
+  const subsidizedTotal = opfHistory.reduce((sum, entry) => sum + entry.oneTime + entry.discount, 0);
 
   if (isProgramLoading || isUsageLoading) {
     return <CircularProgress className="alignSelfCenter" />;
@@ -219,10 +116,10 @@ const ActiveSubsidy = () => {
               <DiscountBlock percent={program.discount.percent} windows={usage.discount.windows} />
             ) : null}
           </div>
-          {history && history.length > 0 ? (
+          {opfHistory.length > 0 ? (
             <span className={styles.small}>
-              Subsidized so far: <strong>{formatSubsidyTokenAmount(subsidizedTotal)}</strong> across {history.length}{' '}
-              {history.length === 1 ? 'job or service' : 'jobs and services'}
+              Subsidized so far: <strong>{formatSubsidyTokenAmount(subsidizedTotal)}</strong> across {opfHistory.length}{' '}
+              {opfHistory.length === 1 ? 'job or service' : 'jobs and services'}
             </span>
           ) : null}
         </>
@@ -249,6 +146,7 @@ const SubsidySection = () => {
   const { account } = useOceanAccount();
   const { subsidyInfo, subsidyInfoError } = useProfileContext();
   const { data: usage, isLoading: isUsageLoading } = useSubsidyUsage();
+  const hasSubsidy = useHasSubsidy();
   const isActive = !!usage?.userAllowed || subsidyInfo?.status === SubsidyStatus.CLAIMED;
 
   const renderContent = () => {
@@ -348,7 +246,8 @@ const SubsidySection = () => {
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         {renderContent()}
       </Card>
-      {usage?.userAllowed ? <SubsidyHistory /> : null}
+      <CustomSubsidies />
+      {hasSubsidy ? <SubsidyHistory /> : null}
     </>
   );
 };

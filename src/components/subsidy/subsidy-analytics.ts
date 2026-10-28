@@ -5,6 +5,7 @@ import posthog from 'posthog-js';
 export type SubsidyPaymentState =
   | 'applied'
   | 'capped'
+  | 'custom_applied'
   | 'limit_reached'
   | 'load_error'
   | 'node_not_subsidized'

@@ -1,9 +1,13 @@
 .credit {
-  background: var(--accent2);
+  background: var(--accent1);
 }
 
 .discount {
-  background: var(--accent1);
+  background: var(--accent1-lightest);
+}
+
+.custom {
+  background: var(--accent2);
 }
 
 .dot {

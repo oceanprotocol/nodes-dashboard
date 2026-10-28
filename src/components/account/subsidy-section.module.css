@@ -97,11 +97,54 @@
   padding: 20px 24px;
 }
 
+.blockHeaderRow {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.blockHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .blockHeader {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 4px 8px;
+}
+
+.blockHeaderAction {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.addressLink {
+  align-items: center;
+  align-self: flex-start;
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  gap: 4px;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--accent1);
+  }
+}
+
+.customGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
 }
 
 .meter {

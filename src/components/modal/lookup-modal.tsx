@@ -5,21 +5,25 @@ import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import { useState } from 'react';
 
-type NodeLookupModalProps = {
+type LookupModalProps = {
   description: string;
   isOpen: boolean;
+  label: string;
   onClose: () => void;
   /** Resolves to an error message to show in the form, or null on success. */
-  onSubmit: (idOrName: string) => Promise<string | null>;
+  onSubmit: (query: string) => Promise<string | null>;
+  placeholder?: string;
   submitLabel: string;
   title: string;
 };
 
-const NodeLookupModal: React.FC<NodeLookupModalProps> = ({
+const LookupModal: React.FC<LookupModalProps> = ({
   description,
   isOpen,
+  label,
   onClose,
   onSubmit,
+  placeholder,
   submitLabel,
   title,
 }) => {
@@ -42,7 +46,7 @@ const NodeLookupModal: React.FC<NodeLookupModalProps> = ({
     }
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
-      setError('Node ID or friendly name is required');
+      setError(`${label} is required`);
       return;
     }
     setError(null);
@@ -51,7 +55,7 @@ const NodeLookupModal: React.FC<NodeLookupModalProps> = ({
     try {
       submitError = await onSubmit(trimmedQuery);
     } catch (err) {
-      submitError = err instanceof Error ? err.message : 'Node lookup failed';
+      submitError = err instanceof Error ? err.message : 'Lookup failed';
     } finally {
       setSubmitting(false);
     }
@@ -69,13 +73,14 @@ const NodeLookupModal: React.FC<NodeLookupModalProps> = ({
         <p>{description}</p>
         <Input
           errorText={error ?? undefined}
-          label="Node ID or friendly name"
+          label={label}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleSubmit();
             }
           }}
+          placeholder={placeholder}
           size="md"
           type="text"
           value={query}
@@ -107,4 +112,4 @@ const NodeLookupModal: React.FC<NodeLookupModalProps> = ({
   );
 };
 
-export default NodeLookupModal;
+export default LookupModal;

@@ -38,6 +38,7 @@ const SubsidyHistory = () => {
       [
         entry.oneTime > 0 ? 'On us' : null,
         entry.discount > 0 && program?.discount ? `${formatSubsidyAmount(program.discount.percent)}% discount` : null,
+        entry.custom > 0 ? 'Other subsidy' : null,
       ]
         .filter(Boolean)
         .join(' + ');

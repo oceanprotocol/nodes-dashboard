@@ -2,6 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
 import { getRpc } from '@/lib/constants';
 import { EscrowJobRef, EscrowLockCycle, EscrowLockStatus, toTokenAmount } from '@/lib/escrow-events';
+import { recallCustomSubsidies } from '@/services/custom-subsidies-memory';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import {
   OneTimeSubsidyProvider,
@@ -56,6 +57,8 @@ export type SubsidyUsage = {
 };
 
 export type SubsidyQuote = {
+  /** Custom providers that cover part of the job, in lock order. */
+  custom: { address: string; amount: number }[];
   discount: number;
   oneTime: number;
   /** Lock order. */
@@ -75,6 +78,9 @@ const getReadSigner = () => {
 };
 
 const getView = (address: string) => new SubsidyView(getReadSigner(), address, CHAIN_ID);
+
+/** Escrow `maxSponsorsPerLock()`. */
+const MAX_SPONSORS_PER_LOCK = 10;
 
 export const getSubsidyProviderAddresses = (): string[] => {
   const override = process.env.NEXT_PUBLIC_SUBSIDY_PROVIDERS;
@@ -184,8 +190,9 @@ const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> =
   return null;
 };
 
-export const loadSubsidyProgram = async (): Promise<SubsidyProgram | null> => {
-  const addresses = getSubsidyProviderAddresses();
+export const loadSubsidyProgram = async (
+  addresses: string[] = getSubsidyProviderAddresses()
+): Promise<SubsidyProgram | null> => {
   const results = await Promise.allSettled(addresses.map(loadProgramEntry));
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
@@ -227,6 +234,30 @@ export const loadSubsidyProgram = async (): Promise<SubsidyProgram | null> => {
   };
 };
 
+/** Throws a readable error when the address can't be used as a custom subsidy. */
+export const loadCustomSubsidyProgram = async (address: string): Promise<SubsidyProgram> => {
+  if ((await getReadSigner().provider!.getCode(address)) === '0x') {
+    throw new Error('No contract found at this address');
+  }
+  if (!(await getView(address).isSubsidyView())) {
+    throw new Error("This contract isn't a subsidy");
+  }
+  const program = await loadSubsidyProgram([address]);
+  if (!program) {
+    throw new Error(`This subsidy can't prepay jobs in ${USDC.symbol}`);
+  }
+  return program;
+};
+
+const loadCustomSubsidyProviders = async (payer: string): Promise<string[]> => {
+  const addresses = recallCustomSubsidies(payer);
+  const entries = await Promise.allSettled(addresses.map(loadProgramEntry));
+  return addresses.filter((_, index) => {
+    const entry = entries[index];
+    return entry.status === 'fulfilled' && !!entry.value;
+  });
+};
+
 export const loadSubsidyUsage = async (program: SubsidyProgram, payer: string): Promise<SubsidyUsage> => {
   const readReports = (addresses: string[]) =>
     Promise.all(addresses.map((address) => getView(address).subsidyBuckets(payer, USDC.address, USDC.decimals)));
@@ -263,52 +294,76 @@ export const isNodeSubsidized = async (program: SubsidyProgram, nodeAddress: str
   return allowed.some(Boolean);
 };
 
-/** Mirrors the escrow lock: each provider sees what the previous ones left uncovered. */
+/**
+ * Mirrors the escrow lock: each provider sees what the previous ones left uncovered.
+ * Custom providers lock first, in the order added, then OPF ones; a custom provider that fails to quote is skipped.
+ */
 export const quoteSubsidy = async ({
   cost,
+  customProviders = [],
   jobType,
   nodeAddress,
   payer,
   program,
 }: {
   cost: number;
+  customProviders?: string[];
   jobType: SubsidyJobType;
   nodeAddress: string;
   payer: string;
-  program: SubsidyProgram;
+  program: SubsidyProgram | null;
 }): Promise<SubsidyQuote> => {
   const amount = cost.toFixed(USDC.decimals);
+  const programProviders = program?.providers ?? [];
+  const programAddresses = new Set(programProviders.map((address) => address.toLowerCase()));
+  const custom = customProviders.filter((address) => !programAddresses.has(address.toLowerCase()));
+  const lockOrder = [...custom, ...programProviders];
   let remaining = cost;
   const covered: Record<string, number> = {};
-  for (const address of program.providers) {
-    if (remaining <= 0) {
+  for (const address of lockOrder) {
+    if (remaining <= 0 || Object.keys(covered).length >= MAX_SPONSORS_PER_LOCK) {
       break;
     }
-    const quote = await getView(address).quoteSubsidyByMode(
-      nodeAddress,
-      payer,
-      jobType,
-      USDC.address,
-      amount,
-      remaining.toFixed(USDC.decimals),
-      SubsidyMode.PREFUNDED,
-      USDC.decimals
-    );
-    const subsidy = Math.min(Number(quote.subsidy), remaining);
+    let quoted: number;
+    try {
+      const quote = await getView(address).quoteSubsidyByMode(
+        nodeAddress,
+        payer,
+        jobType,
+        USDC.address,
+        amount,
+        remaining.toFixed(USDC.decimals),
+        SubsidyMode.PREFUNDED,
+        USDC.decimals
+      );
+      quoted = Number(quote.subsidy);
+    } catch (error) {
+      if (!custom.includes(address)) {
+        throw error;
+      }
+      console.error(`Failed to quote custom subsidy ${address}`, error);
+      continue;
+    }
+    const subsidy = Math.min(quoted, remaining);
     if (subsidy > 0) {
       covered[address] = subsidy;
       remaining -= subsidy;
     }
   }
   const coveredBy = (addresses: string[] = []) => sum(addresses.map((address) => covered[address] ?? 0));
-  const oneTime = coveredBy(program.oneTime?.addresses);
-  const discount = coveredBy(program.discount?.addresses);
+  const oneTime = coveredBy(program?.oneTime?.addresses);
+  const discount = coveredBy(program?.discount?.addresses);
+  const customCovered = custom
+    .filter((address) => covered[address] > 0)
+    .map((address) => ({ address, amount: covered[address] }));
+  const customTotal = sum(customCovered.map((entry) => entry.amount));
   return {
+    custom: customCovered,
     discount,
     oneTime,
-    providers: program.providers.filter((address) => covered[address] > 0),
-    total: oneTime + discount,
-    uncappedDiscount: program.discount ? ((cost - oneTime) * program.discount.percent) / 100 : 0,
+    providers: lockOrder.filter((address) => covered[address] > 0),
+    total: customTotal + oneTime + discount,
+    uncappedDiscount: program?.discount ? ((cost - customTotal - oneTime) * program.discount.percent) / 100 : 0,
   };
 };
 
@@ -328,11 +383,11 @@ export const getJobSubsidyProviders = async ({
     return undefined;
   }
   try {
-    const program = await loadSubsidyProgram();
-    if (!program) {
+    const [program, customProviders] = await Promise.all([loadSubsidyProgram(), loadCustomSubsidyProviders(payer)]);
+    if (!program && customProviders.length === 0) {
       return undefined;
     }
-    const quote = await quoteSubsidy({ cost, jobType, nodeAddress, payer, program });
+    const quote = await quoteSubsidy({ cost, customProviders, jobType, nodeAddress, payer, program });
     return quote.providers.length > 0 ? quote.providers : undefined;
   } catch (error) {
     console.error('Failed to resolve subsidy providers for job', error);
@@ -343,6 +398,7 @@ export const getJobSubsidyProviders = async ({
 export type SubsidyHistoryEntry = {
   /** What the job or service cost in total, before the subsidy. */
   cost: number;
+  custom: number;
   date: Date | null;
   discount: number;
   id: string;
@@ -357,10 +413,15 @@ export type SubsidyHistoryEntry = {
 
 /**
  * Newest first. Canceled locks are dropped: their subsidy went back to the program.
- * Providers no longer in the program count as discount.
+ * Providers no longer in the program or the custom list count as discount.
  */
-export const buildSubsidyHistory = (program: SubsidyProgram, cycles: EscrowLockCycle[]): SubsidyHistoryEntry[] => {
-  const oneTimeAddresses = new Set(program.oneTime?.addresses.map((address) => address.toLowerCase()));
+export const buildSubsidyHistory = (
+  program: SubsidyProgram | null,
+  customProviders: string[],
+  cycles: EscrowLockCycle[]
+): SubsidyHistoryEntry[] => {
+  const oneTimeAddresses = new Set(program?.oneTime?.addresses.map((address) => address.toLowerCase()));
+  const customAddresses = new Set(customProviders.map((address) => address.toLowerCase()));
   const sumProviders = (cycle: EscrowLockCycle, isIncluded: (provider: string) => boolean) =>
     toTokenAmount(
       [...cycle.subsidyByProvider]
@@ -372,10 +433,12 @@ export const buildSubsidyHistory = (program: SubsidyProgram, cycles: EscrowLockC
     .filter((cycle) => cycle.status !== 'canceled')
     .map((cycle) => {
       const oneTime = sumProviders(cycle, (provider) => oneTimeAddresses.has(provider));
+      const custom = sumProviders(cycle, (provider) => customAddresses.has(provider));
       const total = sumProviders(cycle, () => true);
-      const discount = total - oneTime;
+      const discount = total - oneTime - custom;
       return {
         cost: cycle.cost,
+        custom,
         date: cycle.timestamp ? new Date(cycle.timestamp * 1000) : null,
         discount,
         id: cycle.id,
