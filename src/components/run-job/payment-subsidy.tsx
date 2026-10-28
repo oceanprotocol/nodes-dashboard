@@ -12,7 +12,7 @@ import {
 } from '@/lib/subsidy';
 import { useIsNodeSubsidized, useSubsidyProgram, useSubsidyQuote, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
-import { formatWalletAddress } from '@/utils/formatters';
+import { formatTokenAmount, formatWalletAddress } from '@/utils/formatters';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -53,7 +53,10 @@ const SubsidyRow = ({ description, end, icon, jobType, state, title, tone }: Sub
   );
 };
 
+const formatText = (amount: number) => formatTokenAmount(amount, USDC.address);
+
 type PaymentSubsidyProps = {
+  /** Amount column only: shares the summary's precision. Sentences use their own. */
   format: (amount: number) => string;
   jobType: SubsidyJobType;
   /** The node decides which subsidy applies. */
@@ -225,7 +228,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
           state="limit_reached"
           title={
             discountWindow
-              ? `Discount limit reached: ${format(discountWindow.limit)} of ${format(discountWindow.limit)} ${USDC.symbol} used this ${windowLabel}`
+              ? `Discount limit reached: ${formatText(discountWindow.limit)} of ${formatText(discountWindow.limit)} ${USDC.symbol} used this ${windowLabel}`
               : 'Your subsidy is used up'
           }
           tone="warning"
@@ -236,12 +239,12 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
     if (discountWindow && quote.discount < quote.uncappedDiscount - 1e-6) {
       return (
         <SubsidyRow
-          description={`This job reaches your ${windowLabel} limit (${format(discountWindow.limit)} ${USDC.symbol}). You pay ${format(costAfter)} ${USDC.symbol}.${resetLabel}`}
+          description={`This job reaches your ${windowLabel} limit (${formatText(discountWindow.limit)} ${USDC.symbol}). You pay ${formatText(costAfter)} ${USDC.symbol}.${resetLabel}`}
           end={amount(opfTotal)}
           icon={<ScheduleIcon fontSize="small" />}
           jobType={jobType}
           state="capped"
-          title={`OPF subsidy: ${format(opfTotal)} ${USDC.symbol} instead of ${format(quote.oneTime + quote.uncappedDiscount)}`}
+          title={`OPF subsidy: ${formatText(opfTotal)} ${USDC.symbol} instead of ${formatText(quote.oneTime + quote.uncappedDiscount)}`}
           tone="warning"
         />
       );
@@ -251,26 +254,26 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
     let title: string;
     let description: string;
     if (quote.discount <= 0) {
-      const creditLeft = `${format(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${USDC.symbol} of it left after this job.`;
+      const creditLeft = `${formatText(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${USDC.symbol} of it left after this job.`;
       if (costAfter <= 0) {
         title =
           customCovered.length > 0
-            ? `OPF subsidy: the remaining ${format(quote.oneTime)} ${USDC.symbol} on us`
+            ? `OPF subsidy: the remaining ${formatText(quote.oneTime)} ${USDC.symbol} on us`
             : 'OPF subsidy: this job is on us';
         description = `Paid up front from your one-time credit, so it doesn't need to be in your escrow. ${creditLeft}`;
       } else {
-        title = `OPF subsidy: ${format(quote.oneTime)} ${USDC.symbol} on us`;
+        title = `OPF subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us`;
         description = `Paid up front from your one-time credit, so only your part needs to be in escrow. ${creditLeft}`;
       }
     } else if (quote.oneTime > 0) {
-      title = `OPF subsidy: ${format(quote.oneTime)} ${USDC.symbol} on us, then ${discountPercent}% off the rest`;
+      title = `OPF subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us, then ${discountPercent}% off the rest`;
       description =
         'Paid up front when the job starts, so only your part needs to be in escrow. This uses the rest of your free credit.';
     } else {
       title = `OPF subsidy: ${discountPercent}% off this job`;
       description = `Paid up front when the job starts, so only your part needs to be in escrow.${
         discountWindow
-          ? ` After this job (estimate): ${format(discountWindow.used + quote.discount)} of ${format(discountWindow.limit)} ${USDC.symbol} discount used this ${windowLabel}.`
+          ? ` After this job (estimate): ${formatText(discountWindow.used + quote.discount)} of ${formatText(discountWindow.limit)} ${USDC.symbol} discount used this ${windowLabel}.`
           : ''
       }`;
     }
@@ -298,7 +301,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
           jobType={jobType}
           key={entry.address}
           state="custom_applied"
-          title={`Other subsidy: ${format(entry.amount)} ${USDC.symbol} off`}
+          title={`Other subsidy: ${formatText(entry.amount)} ${USDC.symbol} off`}
           tone="success"
         />
       ))}
