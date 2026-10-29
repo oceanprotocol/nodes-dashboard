@@ -5,6 +5,7 @@ import NodeDetailsPageLayout from '@/components/node-details/node-details-page-l
 import NodeInfo from '@/components/node-details/node-info';
 import NodeResourceUsage from '@/components/node-details/node-resource-usage';
 import NodeRunningWorkloads from '@/components/node-details/node-running-workloads';
+import NodeWorkloadHistory from '@/components/node-details/node-workload-history';
 import ServiceStats from '@/components/node-details/service-stats';
 import UnbanRequests from '@/components/node-details/unban-requests';
 import SectionTitle from '@/components/section-title/section-title';
@@ -150,6 +151,7 @@ const NodeDetailsPage: React.FC = () => {
                 <JobsRevenueStats envs={nodeEnvs} />
                 {/* Owner-only, and gated here so no heading introduces an empty group. */}
                 {isOwner ? <NodeRunningWorkloads node={node} show="jobs" /> : null}
+                {isOwner ? <NodeWorkloadHistory kind="jobs" node={node} /> : null}
               </div>
             </section>
 
@@ -166,6 +168,7 @@ const NodeDetailsPage: React.FC = () => {
               <div className={styles.group}>
                 <ServiceStats />
                 {isOwner ? <NodeRunningWorkloads node={node} show="services" /> : null}
+                {isOwner ? <NodeWorkloadHistory kind="services" node={node} /> : null}
               </div>
             </section>
 

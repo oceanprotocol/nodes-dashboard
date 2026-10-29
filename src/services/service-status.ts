@@ -231,3 +231,39 @@ export function getComputeJobStatusView(status: number | undefined, statusText?:
 export function isComputeJobInFlight(status: number | undefined, statusText?: string): boolean {
   return IN_FLIGHT_KINDS.has(getComputeJobStatusView(status, statusText).kind);
 }
+
+// Status filter options for the job/service history tables. The history is filtered server-side,
+// so each option is sent as the list of raw codes it covers, grouped by the same view mappers the
+// chips use — the filter and the chips cannot disagree about what "Failed" means.
+export type StatusFilterKind = 'running' | 'pending' | 'finished' | 'failed';
+
+export const STATUS_FILTER_OPTIONS: { value: StatusFilterKind; label: string }[] = [
+  { value: 'running', label: 'Running' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'finished', label: 'Finished' },
+  { value: 'failed', label: 'Failed' },
+];
+
+const FILTER_KIND_BY_VIEW: Record<ServiceStatusKind, StatusFilterKind> = {
+  running: 'running',
+  warming: 'running',
+  pending: 'pending',
+  dead: 'finished',
+  failed: 'failed',
+};
+
+function groupStatusCodes(codes: number[], getView: (code: number) => ServiceStatusView) {
+  const groups: Record<StatusFilterKind, number[]> = { running: [], pending: [], finished: [], failed: [] };
+  for (const code of codes) {
+    groups[FILTER_KIND_BY_VIEW[getView(code).kind]].push(code);
+  }
+  return groups;
+}
+
+export const JOB_STATUS_FILTER_CODES = groupStatusCodes(Object.keys(JOB_STATUS_LABELS).map(Number), (code) =>
+  getComputeJobStatusView(code)
+);
+
+export const SERVICE_STATUS_FILTER_CODES = groupStatusCodes(Object.keys(LABELS).map(Number), (code) =>
+  getServiceStatusView(code as ServiceStatusNumber)
+);

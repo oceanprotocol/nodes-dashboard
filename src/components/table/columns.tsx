@@ -9,7 +9,8 @@ import { tokenAddressesByChainId } from '@/constants/tokens';
 import { useTokenSymbol } from '@/lib/token-symbol';
 import { modelIdFromCommand } from '@/services/inference-launch';
 import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
-import { BenchmarkJobHistory, ComputeJob } from '@/types/jobs';
+import { STATUS_FILTER_OPTIONS } from '@/services/service-status';
+import { BenchmarkJobHistory, ComputeJob, NodeJobHistory, NodeServiceHistory } from '@/types/jobs';
 import { getServiceReadiness } from '@/types/service-readiness';
 import { GPUPopularity, Node } from '@/types/nodes';
 import { UnbanRequest } from '@/types/unban-requests';
@@ -31,7 +32,14 @@ import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
-import { getGridNumericOperators, getGridStringOperators, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  getGridDateOperators,
+  getGridNumericOperators,
+  getGridSingleSelectOperators,
+  getGridStringOperators,
+  GridColDef,
+  GridRenderCellParams,
+} from '@mui/x-data-grid';
 import {
   NodeComputeJob,
   PersistentStorageBucket,
@@ -857,6 +865,26 @@ export const existingServicesColumns: GridColDef<
     // },
   ];
 
+// A consumer address, shortened, with a copy button for the full one.
+function renderOwner(value?: string) {
+  return value ? (
+    <span className="flexRow alignItemsCenter gapXs" title={value}>
+      {formatWalletAddress(value)}
+      <CopyButton
+        aria-label={`Copy owner address ${value}`}
+        color="accent1"
+        contentToCopy={value}
+        label=""
+        labelCopied=""
+        size="xs"
+        variant="transparent"
+      />
+    </span>
+  ) : (
+    <span className="textSecondary">-</span>
+  );
+}
+
 // An env id is a hyphen-joined list of addresses; render each shortened, joined with ' - '.
 function renderEnvironment(value?: string) {
   if (!value) {
@@ -875,13 +903,15 @@ function renderEnvironment(value?: string) {
 // What a service has actually cost: the initial escrow lock plus every extension. Extensions are
 // separate lock/claim pairs, and the Duration column already covers them, so the amount has to as
 // well or the two columns disagree. `cost` arrives in human units, not wei.
-const servicePaidTotal = (row: ServiceJobListed): number =>
+type ServicePayments = Pick<ServiceJobListed, 'payment' | 'extendPayments'>;
+
+const servicePaidTotal = (row: ServicePayments): number =>
   [row.payment, ...(row.extendPayments ?? [])].reduce((sum, p) => sum + (Number(p?.cost) || 0), 0);
 
 // Symbol resolution is async (static token map first, then an ERC20 call), so the cell is a
 // component. useTokenSymbol reads through the module-level cache — one lookup per token address,
 // not per row.
-const ServicePaidCell = ({ row }: { row: ServiceJobListed }) => {
+const ServicePaidCell = ({ row }: { row: ServicePayments }) => {
   const token = row.payment?.token;
   const symbol = useTokenSymbol(token);
 
@@ -945,23 +975,7 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     filterOperators: getGridStringOperators().filter(
       (operator) => operator.value === 'contains' || operator.value === 'equals'
     ),
-    renderCell: ({ value }) =>
-      value ? (
-        <span className="flexRow alignItemsCenter gapXs" title={value}>
-          {formatWalletAddress(value)}
-          <CopyButton
-            aria-label={`Copy owner address ${value}`}
-            color="accent1"
-            contentToCopy={value}
-            label=""
-            labelCopied=""
-            size="xs"
-            variant="transparent"
-          />
-        </span>
-      ) : (
-        <span className="textSecondary">-</span>
-      ),
+    renderCell: ({ value }) => renderOwner(value),
   },
   {
     field: 'resources',
@@ -1038,6 +1052,13 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
   },
 ];
 
+// The node keeps job dates as Unix seconds in a string ("1735689600.123"), which new Date() cannot
+// parse; tolerate ISO strings too.
+const toJobSeconds = (value?: string | number): number => {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) ? Math.floor(seconds) : Math.floor(Date.parse(String(value)) / 1000) || 0;
+};
+
 // Compute jobs running on a node, listed node-wide across all owners (ProviderInstance.getNodeJobs).
 export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
   {
@@ -1087,7 +1108,7 @@ export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
     sortable: true,
     renderCell: ({ value }) => {
       if (!value) return '-';
-      return formatDateTime(Math.floor(new Date(value).getTime() / 1000));
+      return formatDateTime(toJobSeconds(value));
     },
   },
   {
@@ -1097,6 +1118,220 @@ export const nodeJobsColumns: GridColDef<NodeComputeJob>[] = [
     headerName: 'Duration',
     sortable: true,
     renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+  },
+];
+
+// History filters are applied server-side, so only the operators the backend understands are offered.
+const historyNumericOperators = getGridNumericOperators().filter(
+  (operator) => operator.value === '=' || operator.value === '>' || operator.value === '<'
+);
+const historyDateOperators = getGridDateOperators().filter(
+  (operator) => operator.value === 'is' || operator.value === 'onOrAfter' || operator.value === 'before'
+);
+const historyStatusOperators = getGridSingleSelectOperators().filter((operator) => operator.value === 'is');
+
+// Every compute job a node has run, across all owners (incentive-backend history, admin only).
+// Sortable fields must stay in step with the backend's node-scoped sort whitelist.
+export const nodeJobsHistoryColumns: GridColDef<NodeJobHistory>[] = [
+  {
+    field: 'status',
+    filterable: true,
+    filterOperators: historyStatusOperators,
+    flex: 1,
+    headerName: 'Status',
+    minWidth: 150,
+    sortable: false,
+    type: 'singleSelect',
+    valueOptions: STATUS_FILTER_OPTIONS,
+    renderCell: ({ row }) => <JobStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'name',
+    filterable: false,
+    flex: 1,
+    headerName: 'Name',
+    sortable: false,
+    valueGetter: (_value, row) => row.metadata?.name,
+    renderCell: ({ value }) => (value ? <span title={value}>{value}</span> : '-'),
+  },
+  {
+    field: 'containerImage',
+    filterable: false,
+    flex: 1.5,
+    headerName: 'Image',
+    minWidth: 180,
+    sortable: false,
+    valueGetter: (_value, row) => {
+      if (row.containerImage) return row.containerImage;
+      const container = row.algorithm?.meta?.container;
+      return container?.image ? [container.image, container.tag].filter(Boolean).join(':') : undefined;
+    },
+    renderCell: ({ value }) => (value ? <span title={value}>{value}</span> : '-'),
+  },
+  {
+    field: 'owner',
+    filterable: false,
+    flex: 1,
+    headerName: 'Owner',
+    minWidth: 165,
+    sortable: false,
+    renderCell: ({ value }) => renderOwner(value),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => renderEnvironment(value),
+  },
+  {
+    field: 'resources',
+    filterable: false,
+    flex: 1.3,
+    headerName: 'Resources',
+    minWidth: 180,
+    sortable: false,
+    valueGetter: (_value, row) => formatServiceResources(row.resources),
+    renderCell: ({ value }) => (value ? <span title={value}>{value}</span> : <span className="textSecondary">-</span>),
+  },
+  {
+    field: 'dateCreated',
+    filterable: true,
+    filterOperators: historyDateOperators,
+    flex: 1,
+    headerName: 'Started',
+    minWidth: 140,
+    sortable: true,
+    type: 'date',
+    valueGetter: (value: string | undefined) => (value ? new Date(toJobSeconds(value) * 1000) : null),
+    renderCell: ({ value }) => (value ? formatDateTime(value.getTime() / 1000) : '-'),
+  },
+  {
+    field: 'dateFinished',
+    filterable: false,
+    flex: 1,
+    headerName: 'Finished',
+    minWidth: 140,
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDateTime(toJobSeconds(value)) : '-'),
+  },
+  {
+    field: 'algoDuration',
+    filterable: true,
+    filterOperators: historyNumericOperators,
+    flex: 0.8,
+    headerName: 'Duration',
+    sortable: true,
+    type: 'number',
+    renderCell: ({ value }) => (value ? formatDuration(value, true) : '-'),
+  },
+  {
+    field: 'payment.cost',
+    filterable: true,
+    filterOperators: historyNumericOperators,
+    flex: 1,
+    headerName: 'Paid',
+    sortable: true,
+    type: 'number',
+    valueGetter: (_value, row) => row.payment?.cost,
+    renderCell: ({ row }) => (row.isFree ? 'Free' : renderAmountPaid(row.payment?.cost, row.payment?.token)),
+  },
+];
+
+// Every service a node has run, across all owners (incentive-backend history, admin only). Same cells
+// as the running-services table, minus the live-only readiness. Dates here are epoch ms.
+export const nodeServicesHistoryColumns: GridColDef<NodeServiceHistory>[] = [
+  {
+    field: 'status',
+    filterable: true,
+    filterOperators: historyStatusOperators,
+    flex: 1,
+    headerName: 'Status',
+    minWidth: 150,
+    sortable: false,
+    type: 'singleSelect',
+    valueOptions: STATUS_FILTER_OPTIONS,
+    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+  },
+  {
+    field: 'image',
+    filterable: false,
+    flex: 1.5,
+    headerName: 'Image',
+    minWidth: 180,
+    sortable: false,
+    valueGetter: (_value, row) => (row.tag ? `${row.image}:${row.tag}` : row.image),
+    renderCell: ({ value }) => (value ? <span title={value}>{value}</span> : '-'),
+  },
+  {
+    field: 'owner',
+    filterable: false,
+    flex: 1,
+    headerName: 'Owner',
+    minWidth: 165,
+    sortable: false,
+    renderCell: ({ value }) => renderOwner(value),
+  },
+  {
+    field: 'resources',
+    filterable: false,
+    flex: 1.3,
+    headerName: 'Resources',
+    minWidth: 180,
+    sortable: false,
+    valueGetter: (_value, row) => formatServiceResources(row.resources),
+    renderCell: ({ value }) => (value ? <span title={value}>{value}</span> : <span className="textSecondary">-</span>),
+  },
+  {
+    field: 'dateCreated',
+    filterable: true,
+    filterOperators: historyDateOperators,
+    flex: 1,
+    headerName: 'Started',
+    minWidth: 140,
+    sortable: true,
+    type: 'date',
+    valueGetter: (value: number | undefined) => (value ? new Date(value) : null),
+    renderCell: ({ value }) => (value ? formatDateTime(value.getTime() / 1000) : '-'),
+  },
+  {
+    field: 'expiresAt',
+    filterable: false,
+    flex: 1,
+    headerName: 'Ends',
+    minWidth: 140,
+    sortable: true,
+    renderCell: ({ value }) => (value ? formatDateTime(value / 1000) : '-'),
+  },
+  {
+    field: 'duration',
+    filterable: true,
+    filterOperators: historyNumericOperators,
+    flex: 0.8,
+    headerName: 'Duration',
+    sortable: true,
+    type: 'number',
+    renderCell: ({ value }) => (value ? formatDurationCompact(value) : '-'),
+  },
+  {
+    field: 'environment',
+    filterable: false,
+    flex: 1,
+    headerName: 'Environment',
+    sortable: false,
+    renderCell: ({ value }) => renderEnvironment(value),
+  },
+  {
+    // Initial payment plus extensions, summed client-side: there is no single field to sort or
+    // filter on server-side.
+    field: 'paid',
+    filterable: false,
+    flex: 1,
+    headerName: 'Paid',
+    minWidth: 140,
+    sortable: false,
+    renderCell: ({ row }) => <ServicePaidCell row={row} />,
   },
 ];
 
