@@ -11,9 +11,19 @@ import {
 } from '@/components/hooks/use-inference-allocation';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
-import { assertAllocationAvailable, buildGpuRequests } from '@/services/inference-launch';
+import { assertAllocationAvailable } from '@/services/inference-launch';
 import { ComputeEnvironment } from '@/types/environments';
-import { DeclaredRequirement, fittingGpuCounts } from '@/utils/env-resources';
+import {
+  DeclaredRequirement,
+  GpuDemand,
+  GpuPlan,
+  GpuRequirement,
+  NO_GPU_PLAN,
+  planGpuCount,
+  planGpuDemand,
+  planOf,
+  selectionOfRequests,
+} from '@/utils/env-resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
 
 /**
@@ -23,10 +33,10 @@ import { serviceDurationBounds } from '@/utils/service-duration';
  *
  * How a pick is made:
  *  1. GPU: the target declares the total VRAM it recommends and the layouts (card counts, each with
- *     the VRAM a card needs) it may be booked as. On each GPU type of an environment, every declared
- *     layout its cards fit and that has that many cards free is a candidate; a type whose cards don't
- *     declare their VRAM can't host the target. Types are never mixed, and a package's pinned
- *     tensor-parallel width keeps only its own layout.
+ *     the VRAM a card needs) it may be booked as. The candidates are the vendored ocean.js planner's
+ *     (planGpuLayouts): every declared layout one GPU group of the environment fits with that many
+ *     whole cards free, with its exact ids and GPU price. Groups are never mixed, pooled resources are
+ *     only booked whole, and a package's pinned tensor-parallel width keeps only its own layout.
  *  2. CPU/RAM/disk: the target's RECOMMENDED amounts (see recommendedSizing). There is no declared
  *     minimum: an environment short of them books what it can grant, down to its own per-job min.
  *  3. Among environments that can host it: one that gives the full recommended CPU/RAM/disk first,
@@ -59,6 +69,8 @@ export type QuickStartOption<T extends QuickStartEntry> = {
   gpuCount: number;
   /** A count for EVERY GPU type of the env, zero included: a missing key books that type in full. */
   gpuSelection: GpuSelection;
+  /** The exact GPU ids booked and their per-minute price — carried to payment and re-checked there. */
+  gpuPlan: GpuPlan;
   /** The CPU/RAM/disk sizing this pick is priced on: the entry's, scaled to the GPU count booked. */
   sizing: ResourceSizing | undefined;
   allocation: ResourceAmounts;
@@ -86,7 +98,7 @@ export function envKey(env: SelectedInferenceEnv): string {
  * Undefined when no CPU/RAM/disk is declared at all (the GPU slice then sizes them).
  */
 export function recommendedSizing(required: DeclaredRequirement[] | null | undefined): ResourceSizing | undefined {
-  const find = (id: string) => required?.find((r) => r.id === id);
+  const find = (id: string) => required?.find((r) => 'id' in r && r.id === id);
   if (!find('cpu') && !find('ram') && !find('disk')) {
     return undefined;
   }
@@ -154,25 +166,27 @@ export function toCandidates<T extends QuickStartEntry>({
   return candidates;
 }
 
-/** `units` of one GPU type (or none) on one candidate; null when the env can't host that right now. */
+/** One planned GPU booking (or none) on one candidate; null when the env can't host it right now. */
 function evaluate<T extends QuickStartEntry>({
   candidate,
   types,
   gpuKey,
-  units,
+  plan,
   envResources,
   durationSeconds,
 }: {
   candidate: QuickStartCandidate<T>;
   types: MergedGpu[];
   gpuKey: string | null;
-  units: number;
+  /** The planner's exact ids for the booking (NO_GPU_PLAN for none). */
+  plan: GpuPlan;
   /** The environment's CPU/RAM/disk/GPUs as read for this token, for the GPU slice of `slice` resources. */
   envResources: EnvResources;
   durationSeconds: number;
 }): QuickStartOption<T> | null {
   const { environment, token } = candidate;
-  const gpuSelection: GpuSelection = Object.fromEntries(types.map((t) => [t.key, t.key === gpuKey ? units : 0]));
+  const units = planGpuCount(plan);
+  const gpuSelection: GpuSelection = selectionOfRequests(environment, plan.requests);
   const sizing = sizingFor({
     sizing: candidate.entry.env.sizing,
     units,
@@ -183,6 +197,7 @@ function evaluate<T extends QuickStartEntry>({
     environment,
     tokenAddress: token.address,
     gpuSelection,
+    gpuRequests: plan.requests,
     sizing,
     durationSeconds,
   });
@@ -195,11 +210,10 @@ function evaluate<T extends QuickStartEntry>({
   if (result.constraintViolation) {
     return null;
   }
-  // The two checks an env card runs on Continue: free units behind every GPU id, and the shared
-  // CPU/RAM/disk still free at the amounts this pick is priced on.
+  // The planner already proved the GPU ids free on this copy; what's left of the env card's Continue
+  // checks is the shared CPU/RAM/disk still free at the amounts this pick is priced on.
   const resources = environment.resources ?? [];
   try {
-    buildGpuRequests(resources, result.selectedByKey);
     assertAllocationAvailable(resources, result.allocation);
   } catch {
     return null;
@@ -219,6 +233,7 @@ function evaluate<T extends QuickStartEntry>({
     gpuLabel: type ? type.description || 'GPU' : null,
     gpuCount: units,
     gpuSelection: result.selectedByKey,
+    gpuPlan: plan,
     sizing,
     allocation: result.allocation,
     fullSizing,
@@ -227,11 +242,11 @@ function evaluate<T extends QuickStartEntry>({
 }
 
 /**
- * The best pick on one environment: every declared layout its GPU types can host right now (the fewest
- * units the env sells when the target declares no GPU). Units of two GPU types are never mixed (a
- * multi-GPU model shards across identical devices). Every fitting layout is evaluated, not just the
- * smallest: a constraint can rule a narrow one out while a wider one still works. The one giving the
- * full recommended CPU/RAM/disk wins, then the cheapest, then the fewer cards.
+ * The best pick on one environment: every candidate the vendored planner finds for the GPU requirement
+ * (the cheapest single card when the target declares no GPU but the env sells none without one). Groups
+ * are never mixed (a multi-GPU model shards across identical devices). Every candidate is evaluated,
+ * not just the cheapest: a constraint can rule a narrow one out while a wider one still works. The one
+ * giving the full recommended CPU/RAM/disk wins, then the cheapest, then the fewer cards.
  */
 function bestFitOn<T extends QuickStartEntry>({
   candidate,
@@ -241,7 +256,7 @@ function bestFitOn<T extends QuickStartEntry>({
   durationSeconds,
 }: {
   candidate: QuickStartCandidate<T>;
-  gpuRequirement: DeclaredRequirement | null;
+  gpuRequirement: GpuRequirement | null;
   forcedGpuCount?: number;
   allowZeroGpu: boolean;
   durationSeconds: number;
@@ -265,29 +280,42 @@ function bestFitOn<T extends QuickStartEntry>({
   }
   const types = mergeGpuTypes(resources);
   const needsGpu = gpuRequirement !== null && gpuRequirement.recommended > 0;
+  if (needsGpu && !gpuRequirement) {
+    return null;
+  }
 
   // No GPUs in this environment: it hosts only a target that needs none.
   if (types.length === 0) {
     if (needsGpu) {
       return null;
     }
-    return evaluate({ candidate, types, gpuKey: null, units: 0, envResources: resources, durationSeconds });
+    return evaluate({ candidate, types, gpuKey: null, plan: NO_GPU_PLAN, envResources: resources, durationSeconds });
   }
 
   // Zero units only where the flow permits it (templates) AND every GPU type of the env allows it,
   // the same gate the env card applies. Otherwise a GPU environment is booked in whole units.
-  const floor = allowZeroGpu && types.every((t) => t.allowsZero) ? 0 : 1;
-  if (!needsGpu && floor === 0) {
-    return evaluate({ candidate, types, gpuKey: null, units: 0, envResources: resources, durationSeconds });
+  const zeroAllowed = allowZeroGpu && types.every((t) => t.allowsZero);
+  if (!needsGpu && zeroAllowed) {
+    return evaluate({ candidate, types, gpuKey: null, plan: NO_GPU_PLAN, envResources: resources, durationSeconds });
   }
-  const options = types
-    .flatMap((t) => {
-      // A target declaring no GPU (or zero VRAM) wants as few as possible: the 1-unit floor.
-      const counts = needsGpu ? fittingGpuCounts(gpuRequirement, t.vramGb, forcedGpuCount) : [floor];
-      return counts
-        .filter((units) => units <= t.available)
-        .map((units) => evaluate({ candidate, types, gpuKey: t.key, units, envResources: resources, durationSeconds }));
-    })
+  // A target declaring no GPU (or zero VRAM) wants as few as possible: one card.
+  const demand: GpuDemand = needsGpu ? { kind: 'vram', requirement: gpuRequirement } : { kind: 'units', widths: [1] };
+  const options = planGpuDemand({
+    environment: candidate.environment,
+    demand,
+    fees: resources.gpuFees,
+    forcedGpuCount,
+  })
+    .map((planned) =>
+      evaluate({
+        candidate,
+        types,
+        gpuKey: planned.groupKey,
+        plan: planOf(planned),
+        envResources: resources,
+        durationSeconds,
+      })
+    )
     .filter((option): option is QuickStartOption<T> => option !== null)
     .sort((a, b) => Number(b.fullSizing) - Number(a.fullSizing) || a.price - b.price || a.gpuCount - b.gpuCount);
   return options[0] ?? null;
@@ -328,7 +356,7 @@ export function planQuickStart<T extends QuickStartEntry>({
   candidates: QuickStartCandidate<T>[];
   /** The target's GPU recommendation (total VRAM + layouts); null when it declares no GPU (it then
    *  books as few as the environment allows). */
-  gpuRequirement: DeclaredRequirement | null;
+  gpuRequirement: GpuRequirement | null;
   /** Keep only the layout of this many cards: a package's pinned tensor-parallel width. */
   forcedGpuCount?: number;
   /** Whether the flow permits a zero-GPU pick at all: templates yes, packages no. */

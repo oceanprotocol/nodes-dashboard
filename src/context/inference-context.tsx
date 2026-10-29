@@ -12,9 +12,11 @@ import {
   fetchHuggingFaceModel,
 } from '@/services/huggingface-service';
 import {
+  decodeGpuPlan,
   decodeGpuSelection,
   decodeModelParams,
   decodeResourceSizing,
+  encodeGpuPlan,
   encodeGpuSelection,
   encodeModelParams,
   encodeResourceSizing,
@@ -26,6 +28,7 @@ import { fetchTemplates, findTemplateById } from '@/services/service-templates';
 import { ComputeEnvironment, EnvNodeInfo, NodeEnvironments } from '@/types/environments';
 import { HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { AppTemplate } from '@/types/templates';
+import type { GpuPlan } from '@/utils/env-resources';
 import axios from 'axios';
 import { NextRouter, useRouter } from 'next/router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,6 +39,8 @@ export type InferenceSelectionQuery = Partial<{
   peerId: string;
   env: string;
   gpus: string;
+  /** The exact GPU ids picked + their quoted per-minute GPU price (see encodeGpuPlan). */
+  plan: string;
   /** Inference engine driving the launch (`vllm` | `llamacpp`) — picks the image, port & command. */
   engine: string;
   /** Shared-resource sizing (`mode:cpu:ram:disk`) — `pinned` quick start / `floor` handoff; absent for a plain slice. */
@@ -65,6 +70,12 @@ export type SelectedInferenceEnv = {
   nodeInfo: EnvNodeInfo;
   /** Units to use per GPU type, keyed by type (defaults to all units of every type). */
   gpuSelection: GpuSelection;
+  /**
+   * The exact GPU ids the pick books and the GPU price they were quoted at — set by every picker
+   * (env card, quick start). Payment re-validates THESE ids against a fresh read and launches them;
+   * absent on a selection that never went through a picker (edit / prolong re-entries).
+   */
+  gpuPlan?: GpuPlan;
   /**
    * How the shared CPU/RAM/disk are sized: `pinned` fixed amounts (quick start) or a `floor` under the
    * GPU-fraction slice (advanced handoff). Omit for a pure proportional slice (custom flow). See
@@ -136,6 +147,8 @@ type SelectionOverrides = {
   peerId?: string;
   envId?: string;
   gpuSelection?: GpuSelection;
+  /** Pairs with `gpuSelection`: an override that names a selection without its plan carries no plan. */
+  gpuPlan?: GpuPlan;
   sizing?: ResourceSizing;
   tokenAddress?: string;
   durationSeconds?: number;
@@ -401,6 +414,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const peerId = overrides?.peerId ?? selectedEnv?.nodeInfo.id;
       const envId = overrides?.envId ?? selectedEnv?.environment.id;
       const gpuSelection = overrides?.gpuSelection ?? selectedEnv?.gpuSelection;
+      // A selection and its plan travel together: a selection override without a plan (an edit /
+      // prolong carrying a running service's booked counts) must not inherit a stale pick's ids.
+      const gpuPlan = overrides?.gpuSelection ? overrides.gpuPlan : (overrides?.gpuPlan ?? selectedEnv?.gpuPlan);
       const sizing = overrides?.sizing ?? selectedEnv?.sizing;
       const tokenAddress = overrides?.tokenAddress ?? selectedToken?.address;
       const allParams = overrides?.modelParamsByModel ?? modelParamsByModel;
@@ -431,6 +447,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       const gpus = encodeGpuSelection(gpuSelection);
       if (gpus) {
         query.gpus = gpus;
+      }
+      const plan = encodeGpuPlan(gpuPlan);
+      if (plan) {
+        query.plan = plan;
       }
       const res = encodeResourceSizing(sizing);
       if (res) {
@@ -591,6 +611,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setSelectedEnv({
         environment: foundEnv,
         gpuSelection: decodeGpuSelection(q.gpus) ?? {},
+        gpuPlan: decodeGpuPlan(q.plan),
         sizing: decodeResourceSizing(q.res),
         nodeInfo: {
           currentAddrs: foundNode.currentAddrs,

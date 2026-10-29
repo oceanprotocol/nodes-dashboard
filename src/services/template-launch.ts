@@ -10,6 +10,7 @@ import {
 import { buildServiceMetadata, resolveServiceAppType } from '@/services/service-metadata';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, TemplateWorkflow } from '@/types/templates';
+import { GpuPlan, gpuRequirementOf, planGpuCount } from '@/utils/env-resources';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /** Whole CPU/RAM/disk allocation for the service (from useInferenceAllocation). */
@@ -148,11 +149,17 @@ export async function buildTemplateStartParams({
   tokenAddress,
   envValues,
   bucketId,
+  gpuPlan,
 }: {
   template: AppTemplate;
   selectedEnv: SelectedInferenceEnv;
   /** Resolved per-type GPU units to request — pass the allocation hook's selectedByKey. */
   gpuSelection?: GpuSelection;
+  /**
+   * The exact planned GPU ids, already re-validated against `selectedEnv.environment` by the caller.
+   * When set they ARE the GPU request — nothing is re-resolved from counts.
+   */
+  gpuPlan?: GpuPlan;
   allocation: Allocation;
   durationSeconds: number;
   tokenAddress: string;
@@ -168,8 +175,10 @@ export async function buildTemplateStartParams({
   // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
   // here too, before the caller runs the escrow deposit tx.
   assertAllocationAvailable(envResources, allocation);
-  assertCompleteGpuSelection(envResources, gpuSelection ?? selectedEnv.gpuSelection);
-  const mismatch = forcedGpuCountMismatch(template, envValues, gpuSelection ?? selectedEnv.gpuSelection);
+  if (!gpuPlan) {
+    assertCompleteGpuSelection(envResources, gpuSelection ?? selectedEnv.gpuSelection);
+  }
+  const mismatch = forcedGpuCountMismatch(template, envValues, gpuSelection ?? selectedEnv.gpuSelection, gpuPlan);
   if (mismatch) {
     throw new Error(mismatch);
   }
@@ -178,7 +187,9 @@ export async function buildTemplateStartParams({
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
     { id: resourceId(envResources, 'ram'), amount: allocation.ram },
     { id: resourceId(envResources, 'disk'), amount: allocation.disk },
-    ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
+    ...(gpuPlan
+      ? gpuPlan.requests.filter((r) => r.amount > 0)
+      : buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection)),
   ];
 
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
@@ -233,18 +244,28 @@ export async function buildTemplateRestartParams(
  * Why the template's forced GPU width (`gpuCountEnv`, e.g. GLM_TP_SIZE) disagrees with the GPUs
  * booked, or null when it agrees or isn't set. The launch script shards across exactly that many
  * cards, so a value that differs from the booking either fails at startup or leaves billed cards idle.
+ * Left empty it is fine: the bootstrap derives the width from the devices it sees.
+ *
+ * The booked width is the ACTIVE group's count — the plan's when there is one; otherwise the one
+ * group the selection books (a selection naming two groups never matches: a model shards across
+ * identical cards only).
  */
 export function forcedGpuCountMismatch(
   template: AppTemplate,
   envValues: Record<string, string>,
-  gpuSelection: GpuSelection | undefined
+  gpuSelection: GpuSelection | undefined,
+  gpuPlan?: GpuPlan
 ): string | null {
-  const key = template.recommendedResources?.find((r) => r.type === 'gpu')?.gpuCountEnv;
+  const key = gpuRequirementOf(template.recommendedResources)?.gpuCountEnv;
   const raw = key ? (envValues[key] ?? '').trim() : '';
   if (!key || !raw) {
     return null;
   }
-  const booked = Object.values(gpuSelection ?? {}).reduce((sum, n) => sum + n, 0);
+  const activeGroups = Object.values(gpuSelection ?? {}).filter((n) => n > 0);
+  const booked = gpuPlan ? planGpuCount(gpuPlan) : activeGroups.length <= 1 ? (activeGroups[0] ?? 0) : NaN;
+  if (Number.isNaN(booked)) {
+    return `${key} is ${raw}, but the GPUs booked span more than one GPU type. Pick one GPU type, or leave ${key} empty.`;
+  }
   return Number(raw) === booked
     ? null
     : `${key} is ${raw}, but ${booked} GPU${booked === 1 ? ' is' : 's are'} booked. Set it to ${booked}, or leave it empty.`;

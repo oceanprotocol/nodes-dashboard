@@ -17,6 +17,7 @@ import { forcedGpuCountMismatch, templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEY
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import { validateEnvValue } from '@/types/templates';
+import { gpuRequirementOf } from '@/utils/env-resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
@@ -249,10 +250,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         }
       }
       // A forced GPU width must match the GPUs booked on the previous step.
-      const gpuCountKey = selectedTemplate?.recommendedResources?.find((r) => r.type === 'gpu')?.gpuCountEnv;
+      const gpuCountKey = gpuRequirementOf(selectedTemplate?.recommendedResources)?.gpuCountEnv;
       const gpuCountError =
         selectedTemplate && !isEditMode
-          ? forcedGpuCountMismatch(selectedTemplate, envInputs, selectedEnv?.gpuSelection)
+          ? forcedGpuCountMismatch(selectedTemplate, envInputs, selectedEnv?.gpuSelection, selectedEnv?.gpuPlan)
           : null;
       if (gpuCountKey && gpuCountError && !errors[gpuCountKey]) {
         errors[gpuCountKey] = gpuCountError;

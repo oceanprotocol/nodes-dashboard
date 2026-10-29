@@ -16,6 +16,7 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
+import type { GpuPlan } from '@/utils/env-resources';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -56,7 +57,8 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     }
     return handoffPackage?.recommendedResources;
   }, [isTemplateFlow, selectedTemplate, handoffPackage]);
-  // A package launches as exactly its pinned tensor-parallel width.
+  // A pinned package launches as exactly its tensor-parallel width; a flexing one (sizing) as any of its
+  // derived widths — the config step then sets the width to the GPUs booked.
   const forcedGpuCount = handoffPackage ? packageGpuCount(handoffPackage) : undefined;
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
@@ -111,6 +113,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
       envId: string;
       tokenAddress: string;
       gpuSelection: GpuSelection;
+      gpuPlan: GpuPlan;
     },
     // Resources of the allocation just picked. Comes from the picker because `selectedEnv` still holds
     // the previous env this tick — deriving from it would report the wrong (or no) hardware.

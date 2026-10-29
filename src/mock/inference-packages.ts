@@ -27,7 +27,6 @@ const RECOMMENDED_RESOURCES: ResourceRequirement[] = [
   {
     kind: 'discrete',
     type: 'gpu',
-    id: 'gpu',
     recommended: 3,
     unit: 'GB',
     layouts: [{ gpuCount: 1 }],

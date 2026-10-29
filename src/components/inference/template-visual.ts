@@ -232,7 +232,7 @@ export interface TemplateHardware {
  */
 export function templateHardware(tpl: AppTemplate): TemplateHardware {
   const reqs = tpl.recommendedResources ?? [];
-  const amount = (id: string): number | undefined => reqs.find((r) => r.id === id)?.recommended;
+  const amount = (id: string): number | undefined => reqs.find((r) => 'id' in r && r.id === id)?.recommended;
   const vramGb = declaredGpuVram(reqs);
   return {
     gpu: vramGb !== null,

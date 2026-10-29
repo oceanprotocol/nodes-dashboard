@@ -99,6 +99,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
                     gpuSelection={selectedEnv.gpuSelection}
+                    gpuRequests={selectedEnv.gpuPlan?.requests}
                     nodeInfo={selectedEnv.nodeInfo}
                     selected={false}
                     // Without this the summary re-derives a proportional slice and disagrees with the

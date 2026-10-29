@@ -6,7 +6,7 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { envKey, planQuickStart, QuickStartEntry, QuickStartOption, toCandidates } from '@/services/quick-start';
 import { ComputeEnvironment } from '@/types/environments';
 import { checkEnvAccess, hasAccessRestriction } from '@/utils/check-env-access';
-import { DeclaredRequirement } from '@/utils/env-resources';
+import { GpuPlan, GpuRequirement } from '@/utils/env-resources';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import { ethers } from 'ethers';
 import { useRouter } from 'next/router';
@@ -27,6 +27,8 @@ export type QuickStartPick<T extends QuickStartEntry> = {
   entry: T;
   token: SelectedToken;
   gpuSelection: GpuSelection;
+  /** The exact GPU ids the pick books and their quoted per-minute price (re-checked at payment). */
+  gpuPlan: GpuPlan;
   environment: ComputeEnvironment;
   sizing: ResourceSizing | undefined;
 };
@@ -103,7 +105,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
   loadError: string | null;
   retry: () => void;
   /** The target's GPU recommendation (total VRAM + layouts), or null when it declares no GPU. */
-  gpuRequirement: DeclaredRequirement | null;
+  gpuRequirement: GpuRequirement | null;
   /** Keep only the layout of this many cards: a package's pinned tensor-parallel width. */
   forcedGpuCount?: number;
   allowZeroGpu: boolean;
@@ -282,6 +284,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
             entry,
             token: option.candidate.token,
             gpuSelection: option.gpuSelection,
+            gpuPlan: option.gpuPlan,
             environment: option.candidate.environment,
             sizing: option.sizing,
           });

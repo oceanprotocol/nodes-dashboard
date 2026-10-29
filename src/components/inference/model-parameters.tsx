@@ -18,7 +18,13 @@ import {
 } from '@/services/huggingface-service';
 import { VLLM_TAG } from '@/services/inference-launch';
 import { getArchitectureIncompatibility } from '@/services/model-compatibility';
-import { bookedVramGb, estimateModelVramGb, vramShortfallMessage } from '@/services/vram-estimate';
+import {
+  bookedVramGb,
+  customModelSizing,
+  estimateModelVramGb,
+  vramFitMessage,
+  vramShortfallMessage,
+} from '@/services/vram-estimate';
 import {
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -31,6 +37,7 @@ import {
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
+import { planGpuCount, validatePlanFor } from '@/utils/env-resources';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -233,9 +240,14 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // GPUs booked on the resources step (which runs before this one). This is the ceiling for tensor
   // parallelism — sharding across more GPUs than were booked makes vLLM exit at startup. 1 or fewer
   // means there's nothing to shard, so the field is hidden and the flag is never emitted.
+  // The planned width when the pick carries one (always a single GPU group); otherwise the booked
+  // units, which a picked selection also holds in one group.
   const bookedGpus = useMemo(
-    () => Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, count) => sum + count, 0),
-    [selectedEnv?.gpuSelection]
+    () =>
+      selectedEnv?.gpuPlan
+        ? planGpuCount(selectedEnv.gpuPlan)
+        : Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, count) => sum + count, 0),
+    [selectedEnv?.gpuPlan, selectedEnv?.gpuSelection]
   );
   // `config` = LATEST fetched facts (drives locked ceiling/quant + tool visibility). `defaultsConfig`
   // = baseline the form defaults build from — frozen except on first load and explicit "Reload
@@ -520,24 +532,53 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     }
   }, [bookedGpus, formik]);
 
-  // Advisory fit check: a custom model declares no VRAM, so estimate it from the parameter count and the
-  // chosen precision, and compare with the VRAM the booked GPUs carry. A warning, never a block.
-  const paramCount = selectedModels.find((m) => m.id === modelId)?.paramCount;
+  // Advisory fit check, recomputed as the context / precision / quantization / memory share change: the
+  // same per-width estimate the env picker filtered with (customModelSizing), checked against the
+  // booked GPUs of the active group. Also flags a booked width the model's heads can't split across.
+  // A warning, never a block — the picker's "show all GPUs" path is allowed to book anything.
+  const selectedModel = selectedModels.find((m) => m.id === modelId);
+  const paramCount = selectedModel?.paramCount;
   const vramWarning = useMemo(() => {
     const values = formik.values;
     if (values.engine !== 'vllm' || !selectedEnv) {
       return null;
     }
-    const estimate = estimateModelVramGb({
-      paramCount,
-      quantization: values.quantization,
-      dtype: values.dtype,
-      checkpointQuantization: config?.quantizationMethod,
-      torchDtype: config?.torchDtype,
-      gpuMemoryUtilization: values.gpuMemoryUtilization,
-    });
-    return vramShortfallMessage(estimate, bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection));
-  }, [formik.values, paramCount, config, selectedEnv]);
+    const booked = bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection);
+    const sizing =
+      selectedModel && config
+        ? customModelSizing({ model: selectedModel, config, params: values, engine: 'vllm' })
+        : null;
+    const warnings: string[] = [];
+    if (sizing?.widths && bookedGpus > 0 && !sizing.widths.includes(bookedGpus)) {
+      warnings.push(
+        `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM will refuse to start. Go back and book one of those counts.`
+      );
+    }
+    if (sizing?.requirement && selectedEnv.gpuPlan && bookedGpus > 0) {
+      const check = validatePlanFor({
+        environment: selectedEnv.environment,
+        demand: { kind: 'vram', requirement: sizing.requirement },
+        plan: selectedEnv.gpuPlan,
+      });
+      if (!check.ok) {
+        warnings.push(vramFitMessage(sizing.requirement, bookedGpus, booked));
+      }
+    } else if (!sizing?.requirement) {
+      const estimate = estimateModelVramGb({
+        paramCount,
+        quantization: values.quantization,
+        dtype: values.dtype,
+        checkpointQuantization: config?.quantizationMethod,
+        torchDtype: config?.torchDtype,
+        gpuMemoryUtilization: values.gpuMemoryUtilization,
+      });
+      const shortfall = vramShortfallMessage(estimate, booked);
+      if (shortfall) {
+        warnings.push(shortfall);
+      }
+    }
+    return warnings.length > 0 ? warnings.join(' ') : null;
+  }, [formik.values, selectedModel, paramCount, config, selectedEnv, bookedGpus]);
 
   // vLLM cold launch flags — how the server loads and runs the raw HF weights. `v` is the narrowed
   // vLLM branch of the form values (writes still go through formik by field name).

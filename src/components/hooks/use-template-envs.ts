@@ -10,7 +10,7 @@ import { recommendedSizing } from '@/services/quick-start';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
-import { autoGpuSelection, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
+import { autoGpuPick, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -148,10 +148,11 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
                 // Templates are one of the two zero-GPU-permitting flows (see env-resources.ts spec) — a
                 // template declaring no GPU requirement (jupyterlab, hermes) must seed 0 rather than the
                 // old blanket "nothing declared -> 1", on an env whose GPU min actually allows it.
-                gpuSelection: autoGpuSelection({
+                ...autoGpuPick({
                   environment,
                   required: template!.recommendedResources ?? [],
                   allowZeroGpu: true,
+                  tokenAddress,
                 }),
                 sizing,
                 nodeInfo: {

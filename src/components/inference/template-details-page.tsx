@@ -249,6 +249,8 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     entry,
     token,
     gpuSelection,
+    // The exact GPU ids picked and their quoted price — what payment re-checks and launches.
+    gpuPlan,
     // The env the quick start confirmed this pick against — the node's own, re-read at click time.
     // `entry.env.environment` is the resolver's older snapshot, so committing that carried a slice the
     // node may already have handed to someone else into payment and launch.
@@ -259,7 +261,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     if (!template) {
       return;
     }
-    const env = { ...entry.env, gpuSelection, environment, sizing };
+    const env = { ...entry.env, gpuSelection, gpuPlan, environment, sizing };
     setSelectedTemplate(template);
     setSelectedEnv(env);
     setSelectedToken(token);
@@ -272,6 +274,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
         peerId: env.nodeInfo.id,
         envId: env.environment.id,
         gpuSelection,
+        gpuPlan,
         sizing: env.sizing,
         tokenAddress: token.address,
         durationSeconds,

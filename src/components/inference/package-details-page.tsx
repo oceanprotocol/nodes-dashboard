@@ -1,5 +1,9 @@
 import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
-import usePackageEnvs, { packageGpuCount, ResolvedPackageEnv } from '@/components/hooks/use-package-env';
+import usePackageEnvs, {
+  packageGpuCount,
+  packageParamsForWidth,
+  ResolvedPackageEnv,
+} from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
 import useQuickStart, { QuickStartPick } from '@/components/hooks/use-quick-start';
 import {
@@ -20,7 +24,7 @@ import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-ser
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { showcaseItemsForSource } from '@/services/showcase';
 import { InferencePackage } from '@/types/inference';
-import { gpuRequirementOf } from '@/utils/env-resources';
+import { gpuRequirementOf, planGpuCount } from '@/utils/env-resources';
 import { formatPipelineTag } from '@/utils/formatters';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
@@ -124,15 +128,25 @@ const PackageDetailsPage: React.FC = () => {
     if (!pkg || !model) {
       return;
     }
+    // A flexing package launches at the width the pick booked (tensorParallelSize = that width, plus
+    // the package's per-width patch); a pinned one keeps its own params. The Advanced handoff carries the
+    // package params as-is — the config step then aligns the width with the GPUs booked there.
+    const params = pick ? packageParamsForWidth(pkg, planGpuCount(pick.gpuPlan)) : pkg.params;
     setSelectedModels([model]);
-    setParamsForModel(model.id, pkg.params);
+    setParamsForModel(model.id, params);
     setJobDurationSeconds(durationSeconds);
     // Carry the package's engine into the flow so the Advanced handoff lands on the custom flow with
     // it preselected (still changeable), and payment launches on the right runtime.
     setEngine(pkg.params.engine);
     const sizing = pick ? pick.sizing : undefined;
     if (pick) {
-      setSelectedEnv({ ...pick.entry.env, environment: pick.environment, gpuSelection: pick.gpuSelection, sizing });
+      setSelectedEnv({
+        ...pick.entry.env,
+        environment: pick.environment,
+        gpuSelection: pick.gpuSelection,
+        gpuPlan: pick.gpuPlan,
+        sizing,
+      });
       setSelectedToken(pick.token);
     }
     router.push({
@@ -142,12 +156,13 @@ const PackageDetailsPage: React.FC = () => {
           models: [model],
           durationSeconds,
           engine: pkg.params.engine,
-          modelParamsByModel: { [model.id]: pkg.params },
+          modelParamsByModel: { [model.id]: params },
           ...(pick
             ? {
                 peerId: pick.entry.env.nodeInfo.id,
                 envId: pick.environment.id,
                 gpuSelection: pick.gpuSelection,
+                gpuPlan: pick.gpuPlan,
                 sizing,
                 tokenAddress: pick.token.address,
               }
@@ -169,7 +184,8 @@ const PackageDetailsPage: React.FC = () => {
   // so it commits no env — the user picks one there.
   const goToAdvancedFlow = () => commitAndPush('/inference/custom-models/resources');
 
-  // The package's pinned tensor-parallel width is the only layout it can launch as.
+  // A pinned package launches only at its own tensor-parallel width; a flexing one (sizing) at any of
+  // its derived widths — packageGpuCount is undefined for it, and the pick's width sets its TP.
   const gpuRequirement = useMemo(() => (pkg ? (gpuRequirementOf(pkg.recommendedResources) ?? null) : null), [pkg]);
   const forcedGpuCount = pkg ? packageGpuCount(pkg) : undefined;
 

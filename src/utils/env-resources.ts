@@ -1,12 +1,37 @@
-import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { readEnvResources } from '@/components/hooks/use-env-resources';
+import type { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
 import { getAvailableAmount } from '@/utils/resources';
+import {
+  assertSingleGpuGroup,
+  ComputeResourceRequest,
+  GpuLayout,
+  GpuLayoutCandidate,
+  GpuPlanCheck,
+  GpuResourceRequirement,
+  grantableAmount,
+  parseMemoryTotalBytes,
+  planGpuLayouts,
+  TemplateResourceRequirement,
+  validateGpuPlan,
+} from '@/utils/service-resources';
 
 /**
- * Resource math shared by the flows that auto-match an environment to a declared requirement set —
- * quick-start packages (`ResourceRequirement`) and app templates (`TemplateResourceRequirement`). Both
- * shapes fit {@link DeclaredRequirement}, so the helpers below work for either.
+ * Resource math shared by the flows that match an environment to a launch target — app templates,
+ * quick-start packages and custom Hugging Face models. Every GPU fit / grouping / id choice is
+ * delegated to the planner vendored from ocean.js (`@/utils/service-resources`: planGpuLayouts,
+ * validateGpuPlan, assertSingleGpuGroup, parseMemoryTotalBytes, grantableAmount). This module only
+ * adapts the dashboard's shapes (environments, per-type selections, fee tables) to it — it never
+ * decides on its own whether a GPU fits.
  */
+
+export type { GpuLayout };
+
+/** A declared resource recommendation — the strict template/package union (cpu/ram/disk by id, GPU by type). */
+export type DeclaredRequirement = TemplateResourceRequirement;
+
+/** The GPU member of {@link DeclaredRequirement}: total VRAM (`recommended`) + the card layouts it may book. */
+export type GpuRequirement = GpuResourceRequirement;
 
 /**
  * Description the node stamps on the compute environment it generates for the benchmark runner. Not a
@@ -49,40 +74,12 @@ export function supportsComputeJobs(environment: ComputeEnvironment): boolean {
   return environment.features?.computeJobs !== false;
 }
 
-/**
- * One allowed way to spread a GPU recommendation over identical cards of ONE type on ONE host — the
- * same shape ocean-node validates. `gpuCount` is exactly what gets booked and used (TP/TEP width, or
- * one model per card). A one-card layout carries no `vramPerGpu`: that card must hold the whole
- * `recommended`. A multi-card layout states the VRAM each card needs.
- */
-export type GpuLayout = { gpuCount: number; vramPerGpu?: number };
-
-/**
- * A declared resource recommendation: `cpu`/`ram`/`disk` by id, or GPU by `type: 'gpu'`. There is no
- * floor — `recommended` is the one amount a template/package states. For cpu/ram/disk it is booked as
- * far as the env can grant it; for GPU it is the TOTAL VRAM in GB (the headline), and `layouts` lists
- * the card counts it may be booked as (see {@link fittingGpuCounts}).
- */
-export type DeclaredRequirement = {
-  id?: string;
-  type?: string;
-  recommended: number;
-  unit?: string;
-  /** Discrete (whole-unit, e.g. GPU) vs fungible (continuous, e.g. cpu/ram/disk). Carried by real
-   *  template/package data; not matched on — every consumer here keys off `type`/`id` instead. */
-  kind?: 'discrete' | 'fungible';
-  /** GPU only: the card counts the recommendation may be booked as. Mandatory on a GPU entry. */
-  layouts?: GpuLayout[];
-  /** GPU only: the userConfigurableEnvVars key that forces an exact card count at launch. */
-  gpuCountEnv?: string;
-};
-
-export function isGpuRequirement(requirement: DeclaredRequirement): boolean {
-  return requirement.type === 'gpu' || requirement.id === 'gpu';
+export function isGpuRequirement(requirement: DeclaredRequirement): requirement is GpuRequirement {
+  return 'type' in requirement && requirement.type === 'gpu';
 }
 
 /** The target's GPU recommendation, or undefined when it declares no GPU. */
-export function gpuRequirementOf(required: DeclaredRequirement[] | null | undefined): DeclaredRequirement | undefined {
+export function gpuRequirementOf(required: DeclaredRequirement[] | null | undefined): GpuRequirement | undefined {
   return required?.find(isGpuRequirement);
 }
 
@@ -92,64 +89,43 @@ export function declaredGpuVram(required: DeclaredRequirement[] | null | undefin
   return requirement ? Math.max(0, requirement.recommended) : null;
 }
 
-/** VRAM (GB) each card needs under `layout`: the whole recommendation on a single card. */
-export function layoutCardGb(requirement: DeclaredRequirement, layout: GpuLayout): number {
+/**
+ * VRAM (GB) each card needs under `layout`: the whole recommendation on a single card, the layout's own
+ * `vramPerGpu` on several. Undefined for a malformed multi-card layout without one — there is no
+ * `recommended / n` fallback: the planner treats such a layout as unbookable, so the copy must too.
+ */
+export function layoutCardGb(requirement: GpuRequirement, layout: GpuLayout): number | undefined {
   if (layout.gpuCount <= 1) {
     return requirement.recommended;
   }
-  return layout.vramPerGpu ?? requirement.recommended / layout.gpuCount;
+  return layout.vramPerGpu;
 }
 
 /** The layouts in words: "1 GPU", or "4 × 141 GB or 8 × 80 GB GPUs". Empty when none are declared. */
-export function formatGpuLayouts(requirement: DeclaredRequirement): string {
-  const layouts = requirement.layouts ?? [];
+export function formatGpuLayouts(requirement: GpuRequirement): string {
+  const layouts = (requirement.layouts ?? []).filter((l) => layoutCardGb(requirement, l) !== undefined);
   if (layouts.length === 1 && layouts[0].gpuCount === 1) {
     return '1 GPU';
   }
   return layouts
-    .map((l) =>
-      l.gpuCount === 1
-        ? `1 × ${Math.round(requirement.recommended)} GB`
-        : `${l.gpuCount} × ${Math.round(layoutCardGb(requirement, l))} GB`
-    )
+    .map((l) => `${l.gpuCount} × ${Math.round(layoutCardGb(requirement, l) ?? 0)} GB`)
     .join(' or ')
     .concat(layouts.length > 0 ? ' GPUs' : '');
 }
 
-const MEMORY_UNIT_BYTES: Record<string, number> = {
-  b: 1,
-  kb: 1e3,
-  mb: 1e6,
-  gb: 1e9,
-  tb: 1e12,
-  kib: 1024,
-  mib: 1024 ** 2,
-  gib: 1024 ** 3,
-  tib: 1024 ** 4,
-};
-
 /**
  * One card's VRAM in decimal GB, from the `memoryTotal` string the node requires on every GPU resource
- * ("143771 MiB", "141 GB", "16 GiB"). Same grammar as ocean-node's parseMemoryTotalToBytes, so the
- * dashboard and the node agree on what a card holds. Undefined when absent or unparseable — such a card
- * can't be sized against a VRAM recommendation.
+ * ("143771 MiB", "141 GB", "16 GiB") — parsed by the planner's own parseMemoryTotalBytes, so the copy
+ * and the fit check can't disagree. Undefined when absent or unparseable.
  */
 export function gpuVramGb(resource: Pick<ComputeResource, 'memoryTotal'>): number | undefined {
-  const match = String(resource.memoryTotal ?? '')
-    .trim()
-    .match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]{1,3})?$/);
-  if (!match) {
-    return undefined;
-  }
-  const factor = MEMORY_UNIT_BYTES[(match[2] || 'B').toLowerCase()];
-  const gb = factor ? (parseFloat(match[1]) * factor) / 1e9 : NaN;
-  return Number.isFinite(gb) && gb > 0 ? gb : undefined;
+  const bytes = parseMemoryTotalBytes(resource.memoryTotal);
+  return bytes === undefined ? undefined : bytes / 1e9;
 }
 
 /**
- * Per-card VRAM of a group of GPU resources booked as one type (merged by description): the smallest
- * card's, so a layout is never matched against a card bigger than one the launch may draw. Undefined
- * when any card in the group doesn't declare its VRAM.
+ * Per-card VRAM of a group of GPU resources booked as one type: the smallest card's, like the planner.
+ * Undefined when any card in the group doesn't declare its VRAM.
  */
 export function groupVramGb(resources: Pick<ComputeResource, 'memoryTotal'>[]): number | undefined {
   let smallest: number | undefined;
@@ -163,66 +139,238 @@ export function groupVramGb(resources: Pick<ComputeResource, 'memoryTotal'>[]): 
   return smallest;
 }
 
-// Compared in whole bytes, like the node, so "141 GB" meets a 141 GB layout exactly.
-const toBytes = (gb: number) => Math.ceil(gb * 1e9 - 1e-3);
-
-/**
- * The declared card counts that fit cards of `cardVramGb`, ascending: each card holds its layout's
- * share and the cards together hold the recommendation. `forcedGpuCount` (a package's pinned
- * tensor-parallel width, or a template's forced width) keeps only that layout. Empty when the card's
- * VRAM is unknown, or the requirement declares no layouts — such a card can't be sized against it, and
- * cards are never pooled to make up a single-card recommendation.
- */
-export function fittingGpuCounts(
-  requirement: DeclaredRequirement,
-  cardVramGb: number | undefined,
-  forcedGpuCount?: number
-): number[] {
-  if (cardVramGb === undefined || cardVramGb <= 0) {
-    return [];
-  }
-  const cardBytes = Math.round(cardVramGb * 1e9);
-  return (requirement.layouts ?? [])
-    .filter((layout) => forcedGpuCount === undefined || layout.gpuCount === forcedGpuCount)
-    .filter(
-      (layout) =>
-        cardBytes >= toBytes(layoutCardGb(requirement, layout)) &&
-        layout.gpuCount * cardBytes >= toBytes(requirement.recommended)
-    )
-    .map((layout) => layout.gpuCount)
-    .sort((a, b) => a - b);
+/** Whether an env resource is a GPU — the same test the allocation hook's resource reader applies. */
+export function isGpuResource(resource: Pick<ComputeResource, 'id' | 'type'>): boolean {
+  return resource.type === 'gpu' || resource.id === 'gpu';
 }
 
-/** One GPU type of an env, keyed by description — what the layout rules count cards against. */
+/** The environment's GPU resources, in advertised order. */
+export function gpuResourcesOf(environment: Pick<ComputeEnvironment, 'resources'>): ComputeResource[] {
+  return (environment.resources ?? []).filter(isGpuResource);
+}
+
+/**
+ * The GPU group a resource belongs to: its description, or `id:<id>` when it has none — asked of the
+ * planner itself (assertSingleGpuGroup reports the group of a one-request selection), so every
+ * selection map, request builder and the planner key groups identically. Two description-less GPUs
+ * are two groups: nothing proves they are the same card.
+ */
+export function gpuGroupKey(resource: Pick<ComputeResource, 'id' | 'description' | 'max'>): string {
+  const check = assertSingleGpuGroup([resource], [{ id: resource.id, amount: 1 }]);
+  return check.ok && check.groupKey !== null ? check.groupKey : `id:${resource.id}`;
+}
+
+/** Per-unit GPU fee of every GPU id, in `tokenAddress` on the active chain (empty without a token). */
+export function gpuFeesOf(
+  environment: ComputeEnvironment,
+  tokenAddress: string | undefined | null
+): Record<string, number> {
+  if (!tokenAddress) {
+    return {};
+  }
+  return readEnvResources({ environment, freeCompute: false, tokenAddress }).gpuFees;
+}
+
+/** Fee per minute of exactly these GPU requests (sum of fee × amount; a missing fee counts 0, like the planner). */
+export function gpuPriceOf(requests: ComputeResourceRequest[], fees: Record<string, number>): number {
+  return requests.reduce((sum, r) => sum + (Number.isFinite(fees[r.id]) ? fees[r.id] : 0) * r.amount, 0);
+}
+
+/**
+ * Whether two per-minute GPU prices are the same quote. Fees are decimal token amounts summed in
+ * floating point, so equality allows a rounding hair — any real change in a fee is far larger.
+ */
+export function sameGpuPrice(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+}
+
+/**
+ * What a launch target asks of the GPUs, in the planner's terms:
+ *  - `vram`:  a VRAM requirement (template, package, or a custom model's memory estimate) — only its
+ *             declared layouts on cards that hold them are bookable;
+ *  - `units`: a card count only, memory unchecked — `widths` lists the legal counts (a custom model's
+ *             tensor-parallel widths), null = any count;
+ *  - `none`:  the target declares no GPU (it books zero where allowed, else one card).
+ */
+export type GpuDemand =
+  { kind: 'vram'; requirement: GpuRequirement } | { kind: 'units'; widths: number[] | null } | { kind: 'none' };
+
+/** The demand a target's declared resources make: its GPU requirement, or none. */
+export function demandOf(required: DeclaredRequirement[] | null | undefined): GpuDemand {
+  const requirement = gpuRequirementOf(required);
+  return requirement && requirement.recommended > 0 ? { kind: 'vram', requirement } : { kind: 'none' };
+}
+
+/** Whether the demand needs at least one GPU (zero GPUs are never bookable for it). */
+export function demandNeedsGpu(demand: GpuDemand): boolean {
+  return demand.kind !== 'none';
+}
+
+/** Widths `units` demands may book when no width filter applies: any count the planner accepts. */
+const ANY_WIDTH = Array.from({ length: 64 }, (_, i) => i + 1);
+
+/**
+ * A memory-unchecked demand expressed as a planner requirement: the given card counts, each card
+ * needing (next to) nothing. Paired with {@link withNominalMemory}, so a card that doesn't report its
+ * VRAM is still bookable by count — the planner refuses unknown memory for a VRAM requirement, which a
+ * count-only demand doesn't have.
+ */
+function unitsRequirement(widths: number[]): GpuRequirement {
+  const tiny = 1e-9;
+  return {
+    kind: 'discrete',
+    type: 'gpu',
+    unit: 'GB',
+    recommended: tiny,
+    layouts: widths.map((n) => (n === 1 ? { gpuCount: 1 } : { gpuCount: n, vramPerGpu: tiny })),
+  };
+}
+
+const NOMINAL_MEMORY_TOTAL = '1 KB';
+
+function withNominalMemory(gpus: ComputeResource[]): ComputeResource[] {
+  return gpus.map((r) => ({ ...r, memoryTotal: NOMINAL_MEMORY_TOTAL }));
+}
+
+/** The planner inputs (resources + requirement) a demand maps to; null for `none`. */
+function plannerInputs(
+  gpus: ComputeResource[],
+  demand: GpuDemand
+): { gpuResources: ComputeResource[]; requirement: GpuRequirement } | null {
+  if (demand.kind === 'vram') {
+    return { gpuResources: gpus, requirement: demand.requirement };
+  }
+  if (demand.kind === 'units') {
+    return { gpuResources: withNominalMemory(gpus), requirement: unitsRequirement(demand.widths ?? ANY_WIDTH) };
+  }
+  return null;
+}
+
+/**
+ * Every feasible single-group booking of the demand on the environment, via the vendored planner:
+ * cheapest GPU price first, then fewer cards. Empty for a `none` demand (book zero, or see
+ * {@link autoGpuPick} for the one-card fallback) and when nothing fits.
+ *
+ * `assumeAllFree` plans against the env as if no unit were in use: what the env could EVER offer, which
+ * is what the picker renders as buttons (busy ones disabled) and what decides whether an env is listed.
+ */
+export function planGpuDemand({
+  environment,
+  demand,
+  fees,
+  forcedGpuCount,
+  assumeAllFree = false,
+}: {
+  environment: Pick<ComputeEnvironment, 'resources'>;
+  demand: GpuDemand;
+  fees?: Record<string, number>;
+  forcedGpuCount?: number;
+  assumeAllFree?: boolean;
+}): GpuLayoutCandidate[] {
+  const gpus = gpuResourcesOf(environment).map((r) => (assumeAllFree ? { ...r, inUse: 0 } : r));
+  const inputs = plannerInputs(gpus, demand);
+  if (!inputs) {
+    return [];
+  }
+  return planGpuLayouts({ ...inputs, fees, forcedGpuCount });
+}
+
+/**
+ * The exact GPU booking a selection stands for, carried from the picker to payment so the launch
+ * books — and is charged for — the very ids that were quoted. `gpuPrice` is the per-minute GPU fee of
+ * those ids in the selection's fee token (the planner's `gpuPrice`).
+ */
+export type GpuPlan = {
+  requests: ComputeResourceRequest[];
+  gpuPrice: number;
+};
+
+/** GPUs a plan books in total. */
+export function planGpuCount(plan: GpuPlan | null | undefined): number {
+  return (plan?.requests ?? []).reduce((sum, r) => sum + (r.amount > 0 ? r.amount : 0), 0);
+}
+
+export function planOf(candidate: GpuLayoutCandidate): GpuPlan {
+  return { requests: candidate.gpuRequests, gpuPrice: candidate.gpuPrice };
+}
+
+/** A plan that books no GPU. */
+export const NO_GPU_PLAN: GpuPlan = { requests: [], gpuPrice: 0 };
+
+/** Every GPU group of the env keyed as the selection maps key them, each with its member resources. */
+export function gpuGroupsOf(environment: Pick<ComputeEnvironment, 'resources'>): Map<string, ComputeResource[]> {
+  const groups = new Map<string, ComputeResource[]>();
+  gpuResourcesOf(environment).forEach((r) => {
+    const key = gpuGroupKey(r);
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  });
+  return groups;
+}
+
+/**
+ * The per-group selection map a set of GPU requests books — EVERY group of the env named, zero
+ * included (the allocation hook reads a missing key as "every free unit of that group").
+ */
+export function selectionOfRequests(
+  environment: Pick<ComputeEnvironment, 'resources'>,
+  requests: ComputeResourceRequest[]
+): GpuSelection {
+  const selection: GpuSelection = {};
+  for (const [key, members] of gpuGroupsOf(environment)) {
+    selection[key] = requests
+      .filter((r) => r.amount > 0 && members.some((m) => m.id === r.id))
+      .reduce((sum, r) => sum + r.amount, 0);
+  }
+  return selection;
+}
+
+/**
+ * Re-check a plan's exact ids against an environment (normally a fresh one) for a demand — the
+ * vendored validateGpuPlan with the same rules the planner books by: ids still GPUs of the env, one
+ * group, still grantable (pools whole, mins met), the booked count a declared layout (and
+ * `forcedGpuCount`), the cards still holding it. Zero GPUs pass only for a `none` demand.
+ */
+export function validatePlanFor({
+  environment,
+  demand,
+  plan,
+  forcedGpuCount,
+}: {
+  environment: Pick<ComputeEnvironment, 'resources'>;
+  demand: GpuDemand;
+  plan: GpuPlan;
+  forcedGpuCount?: number;
+}): GpuPlanCheck {
+  const gpus = gpuResourcesOf(environment);
+  const inputs = plannerInputs(gpus, demand);
+  return validateGpuPlan({
+    gpuResources: inputs?.gpuResources ?? gpus,
+    requirement: inputs?.requirement,
+    requests: plan.requests,
+    forcedGpuCount,
+  });
+}
+
+/** One GPU group of an env, keyed like the selection maps — what the copy counts cards against. */
 export type GpuTypeInfo = {
   key: string;
-  /** Physical units of this type in the env. */
+  /** Physical units of this group in the env. */
   max: number;
   /** Units free right now. */
   available: number;
   /** One card's VRAM in GB (smallest of the group); undefined when not declared. */
   vramGb?: number;
-  /** Every resource id merged into the type declares `min: 0`. */
+  /** Every resource id in the group declares `min: 0`. */
   allowsZero: boolean;
 };
 
-/** The env's GPU resources merged by description, as the allocation hook and buildGpuRequests key them. */
+/** The env's GPU groups (see {@link gpuGroupKey}). */
 export function gpuTypesOf(environment: ComputeEnvironment): GpuTypeInfo[] {
-  const groups = new Map<string, ComputeResource[]>();
-  (environment.resources ?? [])
-    .filter((r) => r.type === 'gpu')
-    .forEach((r) => {
-      const key = r.description || 'GPU';
-      groups.set(key, [...(groups.get(key) ?? []), r]);
-    });
-  return Array.from(groups, ([key, members]) => ({
+  return Array.from(gpuGroupsOf(environment), ([key, members]) => ({
     key,
     max: members.reduce((sum, r) => sum + (r.max ?? 0), 0),
-    available: members.reduce((sum, r) => sum + grantable(r), 0),
+    available: members.reduce((sum, r) => sum + grantableAmount(r), 0),
     vramGb: groupVramGb(members),
-    // Zero-eligibility, not a summed floor: the group tolerates zero only if EVERY id merged into it
-    // does. Kept as a boolean deliberately — summing the per-id `min`s produces a number that reads
-    // like a clamp bound but isn't one (8 devices at min 1 would sum to 8, not 1).
     allowsZero: members.every((r) => (r.min ?? 0) <= 0),
   }));
 }
@@ -232,138 +380,112 @@ export function gpuTypesOf(environment: ComputeEnvironment): GpuTypeInfo[] {
 export const grantable = getAvailableAmount;
 
 /**
- * Whether an env can currently give a target its GPU recommendation: some single GPU type (cards are
- * never mixed — a model shards across identical devices) has a declared layout that fits its cards
- * with that many cards free. Without that VRAM the model doesn't load at all, so this is the one
- * recommendation that hides an env. CPU/RAM/disk never do: they are booked as far as the env can grant
- * them (see recommendedSizing). A target declaring no GPU fits any env.
+ * Whether an env can currently give a target its GPU recommendation: the planner finds at least one
+ * single-group layout that fits with that many cards free. Without that VRAM the model doesn't load at
+ * all, so this is the one recommendation that hides an env. A target declaring no GPU fits any env.
  */
 export function meetsRecommendedGpu(
   environment: ComputeEnvironment,
   required: DeclaredRequirement[],
   forcedGpuCount?: number
 ): boolean {
-  const requirement = gpuRequirementOf(required);
-  if (!requirement || requirement.recommended <= 0) {
+  const demand = demandOf(required);
+  if (demand.kind === 'none') {
     return true;
   }
-  return gpuTypesOf(environment).some((t) =>
-    fittingGpuCounts(requirement, t.vramGb, forcedGpuCount).some((n) => n <= t.available)
-  );
+  return planGpuDemand({ environment, demand, forcedGpuCount }).length > 0;
 }
 
-/**
- * Auto GPU selection for a read-only card: the smallest declared layout that fits, on the first GPU
- * type (keyed by `description`, what the allocation hook / buildGpuRequests match on) with that many
- * cards free. Same value the editable card (inference-environment-card) preselects, so a package or
- * template's static card and the Advanced picker never disagree on the default.
- *
- * EVERY type in the env gets an explicit number, zero included. The allocation hook reads the
- * selection per type and defaults a MISSING key to every free unit of that type, so any type left out
- * of the record is silently booked in full — `{}` on an 8-GPU env books all eight and prices them.
- */
-export type AutoGpuSelectionArgs = {
+export type AutoGpuPickArgs = {
   environment: ComputeEnvironment;
   /** The launch target's declared requirements — the GPU entry (`type: 'gpu'`) is the one read here. */
   required: DeclaredRequirement[];
   /**
-   * Whether the FLOW permits a zero-unit pick (templates/services yes, custom/default models and
-   * quick-start packages no). Only half the gate: the env's own GPU floor has to be 0 too, which this
-   * function checks itself — see `envAllowsZero` below.
+   * Whether the FLOW permits a zero-unit pick (templates yes, packages no). Only half the gate: every
+   * GPU group of the env must allow zero too (min 0), which this function checks itself.
    */
   allowZeroGpu?: boolean;
   /** Keep only the layout of this many cards (a package's pinned tensor-parallel width). */
   forcedGpuCount?: number;
+  /** Fee token the pick is priced in — the cheapest candidate is chosen in it. */
+  tokenAddress?: string | null;
 };
 
-export function autoGpuSelection({
+/** A default pick for an env: the per-group selection (every group named) and the exact plan behind it. */
+export type AutoGpuPick = { gpuSelection: GpuSelection; gpuPlan: GpuPlan };
+
+/**
+ * Default GPU pick for an env (the read-only quick-start entries): the planner's best candidate — the
+ * cheapest valid single-group layout, fewer cards on a tie. A target declaring no GPU books zero where
+ * the flow and env allow it, else the cheapest single card. Nothing bookable → zero everywhere, which
+ * fails loudly downstream instead of booking a card the model can't use.
+ */
+export function autoGpuPick({
   environment,
   required,
   allowZeroGpu = false,
   forcedGpuCount,
-}: AutoGpuSelectionArgs): GpuSelection {
-  const types = gpuTypesOf(environment);
-  const gpuReq = gpuRequirementOf(required);
-  const selection: GpuSelection = Object.fromEntries(types.map((t) => [t.key, 0]));
-  // Zero is only a legitimate seed when the caller permits it AND every merged GPU type's own floor is
-  // actually 0 — an env whose GPU resources declare min > 0 must still seed a real unit even for a
-  // zero-declaring template, same rule declaredGpuOptions applies per row.
-  const envAllowsZero = allowZeroGpu && types.every((g) => g.allowsZero);
-  const floor = envAllowsZero ? 0 : 1;
-
-  if (gpuReq && gpuReq.recommended > 0) {
-    // Met on ONE type, never by mixing cards of two types: the first type with a fitting layout free.
-    for (const t of types) {
-      const units = fittingGpuCounts(gpuReq, t.vramGb, forcedGpuCount).find((n) => n <= t.available);
-      if (units !== undefined) {
-        selection[t.key] = units;
-        return selection;
-      }
-    }
-    // No type can host it: book nothing. Callers only reach here for an env the filters let through,
-    // so this is the stale-availability case, and an empty pick fails loudly downstream instead of
-    // booking a card the model can't use.
-    return selection;
+  tokenAddress,
+}: AutoGpuPickArgs): AutoGpuPick {
+  const demand = demandOf(required);
+  const groups = gpuTypesOf(environment);
+  const zeroAllowed = allowZeroGpu && groups.every((g) => g.allowsZero);
+  const fees = gpuFeesOf(environment, tokenAddress);
+  if (groups.length === 0 || (demand.kind === 'none' && zeroAllowed)) {
+    return { gpuSelection: selectionOfRequests(environment, []), gpuPlan: NO_GPU_PLAN };
   }
-
-  // Nothing (or zero VRAM) declared: the fewest units the env sells — a target that can't use a GPU
-  // (jupyterlab, hermes) must not book, and price, every free unit. With zero permitted that is 0;
-  // otherwise the 1-unit floor a GPU env is sold in, drawn from the first type with a free unit.
-  let remaining = floor;
-  types.forEach((t) => {
-    const take = Math.min(t.available, remaining);
-    selection[t.key] = take;
-    remaining -= take;
-  });
-  return selection;
+  const effective: GpuDemand = demand.kind === 'none' ? { kind: 'units', widths: [1] } : demand;
+  const best = planGpuDemand({ environment, demand: effective, fees, forcedGpuCount })[0];
+  const plan = best ? planOf(best) : NO_GPU_PLAN;
+  return { gpuSelection: selectionOfRequests(environment, plan.requests), gpuPlan: plan };
 }
 
-/** Options for {@link declaredGpuOptions}; see its docblock for what `allowZero` unlocks. */
-export type DeclaredGpuOptionsOpts = {
-  /**
-   * Whether a zero-unit option may appear for a target that declares no GPU. Callers are on the hook
-   * for the env's OWN floor: a caller whose env's GPU min is > 0 must pass `allowZero: false` — see
-   * {@link autoGpuSelection} and the card's `envMin` read for where that check happens.
-   */
-  allowZero?: boolean;
-  /** Keep only the layout of this many cards (a package's pinned tensor-parallel width). */
-  forcedGpuCount?: number;
+/** One GPU group as the env picker renders it: the counts it can ever offer and those bookable now. */
+export type GpuPickerGroup = GpuTypeInfo & {
+  /** Card counts this group can EVER offer for the demand (planned as if no unit were in use), ascending. */
+  offered: number[];
+  /** Candidates bookable right now, by card count. */
+  live: Map<number, GpuLayoutCandidate>;
 };
 
 /**
- * The GPU unit counts to OFFER as buttons on one GPU type's row. A target that declares a GPU
- * recommendation offers exactly its declared layouts that fit THIS type's cards (and its physical
- * unit count) — possibly none, when the cards are too small or don't declare their VRAM; the row then
- * offers nothing rather than an arbitrary count the model can't use. `gpu.max` is the type's physical
- * unit count, NOT current availability, which only disables a button, never removes it.
- *
- * With nothing declared (the hand-sized custom HF-model flow) this returns `null`, "no restriction",
- * so callers render the full 1..max row. When zero IS allowed, `null` would lose the zero option (the
- * 1..max fallback never included it), so this instead returns `[0, 1, ..., gpu.max]` explicitly — a
- * user on a zero-min env running a no-GPU template must still be able to pick zero.
+ * What the env picker offers: per group, the planner's counts (busy ones disabled), the candidates
+ * bookable now, and the cheapest of them — the default seed. `unitBudget` (how many cards the free
+ * CPU/RAM/disk can back) only removes candidates; it never changes the planner's ranking.
  */
-export function declaredGpuOptions(
-  gpuReq: DeclaredRequirement | undefined,
-  gpu: Pick<GpuTypeInfo, 'max' | 'vramGb'>,
-  opts?: DeclaredGpuOptionsOpts
-): number[] | null {
-  if (gpuReq && gpuReq.recommended > 0) {
-    return fittingGpuCounts(gpuReq, gpu.vramGb, opts?.forcedGpuCount).filter((n) => n <= gpu.max);
-  }
-  if (!opts?.allowZero) {
-    return null;
-  }
-  return Array.from({ length: Math.max(gpu.max, 0) + 1 }, (_, i) => i);
-}
-
-/**
- * The option {@link declaredGpuOptions} preselects for one GPU type: the smallest offered value — the
- * cheapest layout that holds the recommendation; a wider one stays one click away. Kept separate from
- * the array itself so a seeding hook can ask "what would the card preselect" without re-deriving it.
- */
-export function preferredGpuOption(options: number[] | null): number | undefined {
-  if (!options || options.length === 0) {
-    return undefined;
-  }
-  return options[0];
+export function gpuPickerModel({
+  environment,
+  demand,
+  fees,
+  forcedGpuCount,
+  unitBudget,
+}: {
+  environment: ComputeEnvironment;
+  demand: GpuDemand;
+  fees: Record<string, number>;
+  forcedGpuCount?: number;
+  unitBudget: number;
+}): { groups: GpuPickerGroup[]; best: GpuLayoutCandidate | null } {
+  // A target needing no GPU still books whole cards on an env that can't do zero: one at a time.
+  const effective: GpuDemand = demand.kind === 'none' ? { kind: 'units', widths: null } : demand;
+  const ever = planGpuDemand({ environment, demand: effective, fees, forcedGpuCount, assumeAllFree: true });
+  const now = planGpuDemand({ environment, demand: effective, fees, forcedGpuCount }).filter(
+    (c) => (c.layout?.gpuCount ?? 0) <= unitBudget
+  );
+  const groups = gpuTypesOf(environment).map((info) => {
+    const offered = Array.from(
+      new Set(ever.filter((c) => c.groupKey === info.key).map((c) => c.layout?.gpuCount ?? 0))
+    ).sort((a, b) => a - b);
+    const live = new Map<number, GpuLayoutCandidate>();
+    now
+      .filter((c) => c.groupKey === info.key)
+      .forEach((c) => {
+        const n = c.layout?.gpuCount ?? 0;
+        if (!live.has(n)) {
+          live.set(n, c);
+        }
+      });
+    return { ...info, offered, live };
+  });
+  return { groups, best: now[0] ?? null };
 }

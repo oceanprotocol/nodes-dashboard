@@ -1,5 +1,6 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { ModelParameters } from '@/types/huggingface';
+import type { GpuPlan } from '@/utils/env-resources';
 
 /**
  * Query-param (de)serializers for the inference wizard. Selection is persisted as individual,
@@ -12,6 +13,8 @@ import { ModelParameters } from '@/types/huggingface';
  * - `peerId`   node peer id hosting the selected environment
  * - `env`      selected compute environment id
  * - `gpus`     per-type GPU unit counts, `key:count` pairs, comma-separated (keys URL-encoded)
+ * - `plan`     the exact GPU ids picked and their quoted per-minute GPU price, `id:amount,…;price`
+ *              (ids URL-encoded) — what payment re-validates and launches, never re-resolved from `gpus`
  * - `token`    selected fee token address
  * - `duration` job duration in seconds
  * - `params`   base64url JSON of per-model launch parameters (custom-model config step)
@@ -54,6 +57,45 @@ export function encodeGpuSelection(selection: GpuSelection | undefined): string 
   }
   const parts = Object.entries(selection).map(([key, count]) => `${encodeURIComponent(key)}:${count}`);
   return parts.length > 0 ? parts.join(',') : undefined;
+}
+
+/** Serialize an exact GPU plan into `id:amount,id:amount;gpuPrice` (an empty id list books no GPU). */
+export function encodeGpuPlan(plan: GpuPlan | undefined | null): string | undefined {
+  if (!plan || !Number.isFinite(plan.gpuPrice)) {
+    return undefined;
+  }
+  const ids = plan.requests.map((r) => `${encodeURIComponent(r.id)}:${r.amount}`).join(',');
+  return `${ids};${plan.gpuPrice}`;
+}
+
+/**
+ * Parse the `plan` param. Undefined on anything malformed — a plan is only ever used whole, so a
+ * partial one must not survive (the payment step then asks for a fresh pick instead of guessing).
+ */
+export function decodeGpuPlan(raw: string | string[] | undefined): GpuPlan | undefined {
+  const value = firstQueryValue(raw);
+  if (!value) {
+    return undefined;
+  }
+  const split = value.lastIndexOf(';');
+  if (split < 0) {
+    return undefined;
+  }
+  const gpuPrice = Number(value.slice(split + 1));
+  const list = value.slice(0, split);
+  if (!Number.isFinite(gpuPrice) || gpuPrice < 0) {
+    return undefined;
+  }
+  const requests: GpuPlan['requests'] = [];
+  for (const pair of list ? list.split(',') : []) {
+    const idx = pair.lastIndexOf(':');
+    const amount = Number(pair.slice(idx + 1));
+    if (idx <= 0 || !Number.isInteger(amount) || amount <= 0) {
+      return undefined;
+    }
+    requests.push({ id: decodeURIComponent(pair.slice(0, idx)), amount });
+  }
+  return { requests, gpuPrice };
 }
 
 /** Parse the `gpus` param back into per-type unit counts. Malformed pairs are skipped. */

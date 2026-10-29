@@ -7,8 +7,9 @@ import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
 import { recommendedSizing } from '@/services/quick-start';
 import { NodeEnvironments } from '@/types/environments';
+import { ModelParameters } from '@/types/huggingface';
 import { InferencePackage } from '@/types/inference';
-import { autoGpuSelection, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
+import { autoGpuPick, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,12 +26,34 @@ export type ResolvedPackageEnv = {
 };
 
 /**
- * The card count a package can launch as: vLLM shards across exactly `tensorParallelSize` cards (unset
- * = one), so that is the only layout of its recommendation it can use. Undefined for engines that
+ * The card count a package is pinned to: vLLM shards across exactly `tensorParallelSize` cards (unset
+ * = one), and a package without a `sizing` profile was tuned at that width only, so it is the one
+ * layout it can use. Undefined when the package flexes (it carries `sizing`: any of its derived widths,
+ * the launch then sets the width to the booked count — see packageParamsForWidth) and for engines that
  * don't pin one (llama.cpp splits layers itself).
  */
 export function packageGpuCount(pkg: InferencePackage): number | undefined {
+  if (pkg.sizing) {
+    return undefined;
+  }
   return pkg.params.engine === 'vllm' ? (pkg.params.tensorParallelSize ?? 1) : undefined;
+}
+
+/**
+ * The package's launch params for a booking of `width` cards. A flexing package (`sizing`) gets
+ * `tensorParallelSize` = the booked width, with its per-width patch on top; a pinned one keeps its own
+ * params (its width already is the booked one — the planner offers nothing else).
+ */
+export function packageParamsForWidth(pkg: InferencePackage, width: number): ModelParameters {
+  if (!pkg.sizing || pkg.params.engine !== 'vllm') {
+    return pkg.params;
+  }
+  return {
+    ...pkg.params,
+    ...(pkg.perWidthParams?.[width] ?? {}),
+    engine: 'vllm',
+    tensorParallelSize: width > 1 ? width : null,
+  };
 }
 
 /**
@@ -173,10 +196,12 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               env: {
                 environment,
                 // Packages never permit a zero-GPU pick (allowZeroGpu defaults false) — see the card prop.
-                gpuSelection: autoGpuSelection({
+                // The planner's cheapest valid layout in this env's default token, with its exact ids.
+                ...autoGpuPick({
                   environment,
                   required: pkg!.recommendedResources,
                   forcedGpuCount: packageGpuCount(pkg!),
+                  tokenAddress,
                 }),
                 sizing,
                 nodeInfo: {

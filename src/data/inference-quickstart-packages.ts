@@ -1,4 +1,6 @@
 import { InferencePackage, ResourceRequirement } from '@/types/inference';
+import { formatGpuLayouts } from '@/utils/env-resources';
+import { deriveGpuLayouts, gpuFloorGb, GpuSizingProfile } from '@/utils/service-resources';
 
 /**
  * Curated quick-start packages — the hand-picked catalogue shown alongside the templates nodes advertise.
@@ -27,9 +29,10 @@ const NODE_IDS = [
 /**
  * Resource recommendations for a package, built from its VRAM footprint. `vramPerGpu` is the weights +
  * KV-cache headroom each card needs, from the curated footprint column (H200 = 141 GB/GPU). The GPU
- * entry's total `recommended` and its one layout are filled in from the package's own
- * `params.tensorParallelSize` by {@link withPinnedLayout} below, so the card count is never authored
- * twice: vLLM shards across exactly that many cards, which is the only shape the package can use. vLLM
+ * entry's total `recommended` and its layouts are filled in by {@link withGpuLayouts} below: from the
+ * package's own `params.tensorParallelSize` (one pinned layout — vLLM shards across exactly that many
+ * cards, and every other knob of the entry was tuned at that width), or, for a package that carries a
+ * `sizing` profile, derived from that profile across all of its widths. vLLM
  * needs host RAM to stage weights and disk to cache the HF download, so `cpu` (cores) / `ram` (GB) /
  * `disk` (GB) are the host-side recommendations, booked as far as the env can grant them.
  *
@@ -56,25 +59,62 @@ function resources({
     {
       kind: 'discrete',
       type: 'gpu',
-      id: 'gpu',
-      // Per card until withPinnedLayout multiplies it by the package's tensor-parallel width.
+      // Per card until withGpuLayouts multiplies it by the package's tensor-parallel width (or replaces
+      // it with the sizing profile's derivation).
       recommended: vramPerGpu,
       unit: 'GB',
       layouts: [{ gpuCount: 1 }],
-      // Completed by withPinnedLayout with the card layout in front.
+      // Completed by withGpuLayouts with the card layouts in front.
       description: `(compute capability >= ${computeCapability})`,
     },
   ];
 }
 
-/** Turn {@link resources}' per-card GPU figure into the package's total and its one pinned layout. */
-function withPinnedLayout(pkg: InferencePackage): InferencePackage {
+/**
+ * Guard rail for this round (no compute-capability data is advertised yet, see the vram-flex decision):
+ * no multi-card layout may ask for less than this per card. Memory alone can't tell an L40S/A6000
+ * (48 GB class) from a card the package was validated on, so anything a profile derives below it is
+ * raised to it by a recorded `policy` override instead of silently admitting that class.
+ */
+export const MIN_MULTI_GPU_FLOOR_GB = 60;
+
+/** The profile with a `policy` override on every multi-card width whose derived floor is below the guard. */
+function withMultiGpuFloor(profile: GpuSizingProfile): GpuSizingProfile {
+  const overrides = { ...(profile.overrides ?? {}) };
+  for (const n of profile.widths) {
+    if (n > 1 && !overrides[String(n)] && gpuFloorGb(profile, n) < MIN_MULTI_GPU_FLOOR_GB) {
+      overrides[String(n)] = {
+        vramPerGpu: MIN_MULTI_GPU_FLOOR_GB,
+        source: 'policy',
+        note: `Raised to the ${MIN_MULTI_GPU_FLOOR_GB} GB multi-GPU floor: no compute-capability data yet to tell 48 GB-class cards apart.`,
+      };
+    }
+  }
+  return Object.keys(overrides).length > 0 ? { ...profile, overrides } : profile;
+}
+
+/**
+ * Turn {@link resources}' per-card GPU figure into the package's GPU entry. With a `sizing` profile the
+ * total and every layout come from the vendored deriveGpuLayouts (after the multi-GPU floor guard), and
+ * the package flexes across those widths. Without one it is pinned: total = TP × per-card figure, one
+ * layout of exactly TP cards.
+ */
+function withGpuLayouts(pkg: InferencePackage): InferencePackage {
   const tp = pkg.params.engine === 'vllm' ? (pkg.params.tensorParallelSize ?? 1) : 1;
   return {
     ...pkg,
     recommendedResources: pkg.recommendedResources.map((r) => {
-      if (r.type !== 'gpu') {
+      if (!('type' in r) || r.type !== 'gpu') {
         return r;
+      }
+      if (pkg.sizing) {
+        const derived = deriveGpuLayouts(withMultiGpuFloor(pkg.sizing));
+        return {
+          ...r,
+          recommended: derived.recommended,
+          layouts: derived.layouts,
+          description: `${formatGpuLayouts(derived)} of CUDA GPU VRAM ${r.description ?? ''}`.trim(),
+        };
       }
       const vramPerGpu = r.recommended;
       return {
@@ -319,14 +359,14 @@ const PACKAGE_DEFINITIONS: InferencePackage[] = [
       pipelineTag: 'text-generation',
     },
     description:
-      'Agentic coding model with 80B total but only ~3B active parameters per token. Official FP8 weights and a native 256k context, on a single GPU.',
+      'Agentic coding model with 80B total but only ~3B active parameters per token. Official FP8 weights and a native 256k context, on one large GPU or two smaller ones.',
     params: {
       engine: 'vllm',
       servedModelName: 'qwen3-coder-next-fp8',
       customParams: [],
       maxContext: 262144,
-      // No tensorParallelSize: one GPU. buildVllmCommand only emits --tensor-parallel-size above 1,
-      // and vLLM's own default is 1, so the flag is simply absent.
+      // No tensorParallelSize here: the package flexes (see `sizing` below), and the launch sets it to
+      // the booked width — absent on one GPU (buildVllmCommand only emits it above 1), 2 on two.
       gpuMemoryUtilization: 0.9,
       // 'none' so the flag is omitted and vLLM reads the checkpoint's own quantization_config.
       // That config carries a long `modules_to_not_convert` list — the MoE gates, shared-expert
@@ -357,6 +397,35 @@ const PACKAGE_DEFINITIONS: InferencePackage[] = [
       ram: 160,
       disk: 140,
     }),
+    // Widened from the pinned TP=1 to 1 or 2 GPUs (vram-flex decision, first 1/2/4 target; width 4 is
+    // deferred until a 4-card run is measured). Built from the numbers above, so width 1 keeps exactly
+    // today's 130 GB floor:
+    //  - shardable = 74.87 GiB of weights + a 28 GiB KV pool (~9 full 262,144-token sequences at the
+    //    12 KiB/token fp8 cost above). KV is head-sharded at TP=2 (2 kv heads, 2 ranks), so the pool
+    //    splits with the weights.
+    //  - replicated = 5.5 GiB per rank of runtime (CUDA context, activations, graphs, NCCL) — the same
+    //    allowance the templates use (GLM measured 5.07).
+    //  - util 0.9, driver reserve 0.5 GiB (defaults).
+    // → width 1: ceil(((102.87 + 5.5) / 0.9 + 0.5) × 1.0737) = 130 GB; width 2: ceil(((51.44 + 5.5) /
+    //   0.9 + 0.5) × 1.0737) = 69 GB per card (2 × 69 = 138 ≥ 130), above the 60 GB multi-GPU guard, so
+    //   no policy override. 69 admits 2 × H100 (85.5 GB) and keeps the 48 GB class out.
+    // Head check (config.json fetched 2026-10-29): num_attention_heads 16, num_key_value_heads 2,
+    // linear (DeltaNet) heads 16 key / 32 value, moe_intermediate_size 512 with 128×128 FP8 blocks —
+    // all divisible by 2. The bf16 sibling (code-assistant-xl) already runs this architecture at TP=2.
+    // ESTIMATED, not measured: no TP=2 launch of this FP8 checkpoint has been run yet.
+    sizing: {
+      version: 1,
+      engine: 'vllm',
+      confidence: 'estimated',
+      widths: [1, 2],
+      shardableGiB: 74.87 + 28,
+      replicatedGiB: 5.5,
+      memUtil: 0.9,
+      evidence: [
+        'Weights 80,396,214,083 B = 74.87 GiB (this entry); KV 12 KiB/token fp8 (12 full-attn layers x 2 kv heads x 256 head_dim x K+V).',
+        'Qwen/Qwen3-Coder-Next-FP8 config.json 2026-10-29: num_attention_heads 16, num_key_value_heads 2 -> legal TP widths 1/2/4/8.',
+      ],
+    },
   },
   // Code, 2 GPUs — sharded with --tensor-parallel-size 2. Needs a vLLM build carrying the qwen3_next
   // architecture; on an older image the server exits at startup with an unknown-arch error.
@@ -694,4 +763,4 @@ const PACKAGE_DEFINITIONS: InferencePackage[] = [
   },
 ];
 
-export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = PACKAGE_DEFINITIONS.map(withPinnedLayout);
+export const INFERENCE_QUICKSTART_PACKAGES: InferencePackage[] = PACKAGE_DEFINITIONS.map(withGpuLayouts);

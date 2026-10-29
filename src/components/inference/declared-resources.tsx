@@ -25,11 +25,11 @@ const DeclaredResources: React.FC<DeclaredResourcesProps> = ({ recommended }) =>
     column('GPU VRAM', isGpuRequirement, formatGb),
     column(
       'CPU',
-      (r) => r.id === 'cpu',
+      (r) => 'id' in r && r.id === 'cpu',
       (cores) => `${cores} ${cores === 1 ? 'core' : 'cores'}`
     ),
-    column('RAM', (r) => r.id === 'ram', formatGb),
-    column('Disk', (r) => r.id === 'disk', formatGb),
+    column('RAM', (r) => 'id' in r && r.id === 'ram', formatGb),
+    column('Disk', (r) => 'id' in r && r.id === 'disk', formatGb),
   ].filter((c) => c.recommended !== undefined);
 
   if (columns.length === 0) {
