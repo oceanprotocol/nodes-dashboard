@@ -128,19 +128,26 @@ const ActiveSubsidy = () => {
   );
 };
 
-const getProgressSteps = (emailVerified: boolean): FlowStep[] => [
-  { title: 'Submit', description: 'Share your details and email', status: 'complete' },
-  {
-    title: 'Verify email',
-    description: 'Enter the code we emailed you',
-    status: emailVerified ? 'complete' : 'attention',
-  },
-  {
-    title: 'Claim',
-    description: 'Add your wallet to the subsidy contract',
-    status: emailVerified ? 'attention' : undefined,
-  },
-];
+const getProgressSteps = (status: SubsidyStatus | null): FlowStep[] => {
+  const emailVerified = status === SubsidyStatus.EMAIL_VERIFIED;
+  return [
+    {
+      title: 'Submit details',
+      description: 'Share some info with us',
+      status: status ? 'complete' : undefined,
+    },
+    {
+      title: 'Verify email',
+      description: 'Enter the code we emailed you',
+      status: emailVerified ? 'complete' : status ? 'attention' : undefined,
+    },
+    {
+      title: 'Claim',
+      description: 'Add your wallet to the subsidy contract',
+      status: emailVerified ? 'attention' : undefined,
+    },
+  ];
+};
 
 const SubsidySection = () => {
   const { account } = useOceanAccount();
@@ -181,7 +188,7 @@ const SubsidySection = () => {
             chip={<span className="chip chipWarning">Email not verified</span>}
             subtitle={[appliedOn ? `Applied ${appliedOn}` : null, subsidyInfo.maskedEmail].filter(Boolean).join(' · ')}
           />
-          <FlowSteps steps={getProgressSteps(false)} title="Subsidy progress" />
+          <FlowSteps steps={getProgressSteps(SubsidyStatus.PENDING)} title="Subsidy progress" />
           <SubsidyTiles muted />
           <span className={styles.small}>
             Enter the code we emailed you to claim your subsidy. Until then, jobs and models are charged in full.
@@ -204,7 +211,7 @@ const SubsidySection = () => {
               </>
             }
           />
-          <FlowSteps steps={getProgressSteps(true)} title="Subsidy progress" />
+          <FlowSteps steps={getProgressSteps(SubsidyStatus.EMAIL_VERIFIED)} title="Subsidy progress" />
           <SubsidyTiles />
           <div className={styles.footer}>
             <span className={styles.small}>
@@ -225,8 +232,15 @@ const SubsidySection = () => {
 
     return (
       <>
-        <SubsidyHeader subtitle="Apply now and get discounts on compute jobs and inference services on supported nodes" />
-        <SubsidyTiles />
+        <SubsidyHeader
+          chip={<span className="chip chipGlass">Not applied</span>}
+          subtitle="Apply to get discounts on compute jobs and inference services on supported nodes"
+        />
+        <div className={styles.offer}>
+          <span className={styles.offerLabel}>What you get once you apply and claim:</span>
+          <SubsidyTiles />
+        </div>
+        <FlowSteps steps={getProgressSteps(null)} title="How to get it" />
         <div className="actionsGroupLgCenter">
           <Button
             color="accent1"
@@ -234,7 +248,7 @@ const SubsidySection = () => {
             onClick={() => captureSubsidyCtaClick('account', 'details')}
             size="lg"
           >
-            Get a subsidy
+            Get the subsidy
           </Button>
         </div>
       </>
