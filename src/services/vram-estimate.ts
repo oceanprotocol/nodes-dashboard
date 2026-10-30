@@ -57,7 +57,15 @@ export type VramEstimateInput = {
   gpuMemoryUtilization?: number;
 };
 
-/** Estimated total VRAM (decimal GB, across all cards) to serve the model; null when it can't be told. */
+/**
+ * COARSE fallback estimate of total VRAM (decimal GB, across all cards) to serve the model:
+ * weights × a flat runtime margin (RUNTIME_HEADROOM) / util, with NO per-width KV-cache term and
+ * no context awareness. The env picker (select-inference-environment) and model-parameters both
+ * prefer `customModelSizing`'s per-width, KV-aware estimate and fall back to this only when a
+ * profile can't be built (no readable config). Because the two are alternatives, never shown for
+ * the same model at once, the coarse number here and the per-width layouts of `vramFitMessage`
+ * cannot contradict each other on screen. Returns null when the weights can't be told.
+ */
 export function estimateModelVramGb(input: VramEstimateInput): number | null {
   if (!input.paramCount || input.paramCount <= 0) {
     return null;
@@ -101,8 +109,12 @@ export function vramFitMessage(requirement: GpuRequirement, gpuCount: number, bo
   return `This model is estimated to need ${formatGpuLayouts(requirement)} (weights plus its context cache); ${picked}. It may fail to load — pick GPUs that fit, lower the context, or use a quantized variant.`;
 }
 
-/** Widths sized when a model's attention heads are unknown: every count up to 8 (no width filter). */
-const UNKNOWN_HEAD_WIDTHS = [1, 2, 3, 4, 5, 6, 7, 8];
+/**
+ * Widths sized when a model's attention heads are unknown: only the tensor-parallel counts vLLM
+ * actually runs (1, 2, 4, 8). 3/5/6/7 are not valid TP widths, so offering them as "fits" would
+ * mislead even in the soft/advisory display.
+ */
+const UNKNOWN_HEAD_WIDTHS = [1, 2, 4, 8];
 /** Context sized when neither the launch params nor the model config name one. */
 const FALLBACK_CONTEXT_TOKENS = 4096;
 
@@ -208,10 +220,14 @@ export function customModelSizing({
   return { widths, requirement, notes };
 }
 
-/** A short warning when the estimate exceeds the booked VRAM, else null. */
+/**
+ * A short warning when the coarse estimate (estimateModelVramGb) exceeds the booked VRAM, else null.
+ * This is the fallback shown only when no per-width profile is available, so the wording reflects a
+ * rough weights-plus-margin figure, not the per-width "weights plus context cache" of vramFitMessage.
+ */
 export function vramShortfallMessage(estimateGb: number | null, bookedGb: number | null): string | null {
   if (estimateGb === null || bookedGb === null || bookedGb >= estimateGb) {
     return null;
   }
-  return `This model likely needs about ${Math.ceil(estimateGb)} GB of GPU VRAM (weights plus cache); the GPUs picked have ${Math.floor(bookedGb)} GB. It may fail to load — pick more or larger GPUs, or use a quantized variant.`;
+  return `This model likely needs about ${Math.ceil(estimateGb)} GB of GPU VRAM (weights plus a rough runtime margin; its context cache isn't modelled here); the GPUs picked have ${Math.floor(bookedGb)} GB. It may fail to load — pick more or larger GPUs, or use a quantized variant.`;
 }
