@@ -11,9 +11,19 @@ import {
 } from '@/components/hooks/use-inference-allocation';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { SelectedToken } from '@/context/run-job-context';
-import { assertAllocationAvailable, buildGpuRequests } from '@/services/inference-launch';
+import { assertAllocationAvailable } from '@/services/inference-launch';
 import { ComputeEnvironment } from '@/types/environments';
-import { DeclaredRequirement } from '@/utils/env-resources';
+import {
+  DeclaredRequirement,
+  GpuDemand,
+  GpuPlan,
+  GpuRequirement,
+  NO_GPU_PLAN,
+  planGpuCount,
+  planGpuDemand,
+  planOf,
+  selectionOfRequests,
+} from '@/utils/env-resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
 
 /**
@@ -22,22 +32,21 @@ import { serviceDurationBounds } from '@/utils/service-duration';
  * Start is pressed, the node's own fresh copies of them) and re-plans whenever any of that changes.
  *
  * How a pick is made:
- *  1. GPU count first. Try the target's RECOMMENDED unit count and walk down towards its declared
- *     MINIMUM until some environment can host it.
- *  2. CPU/RAM/disk: the target's RECOMMENDED amounts (see recommendedSizing), scaled down with the GPU
- *     count when fewer units than recommended are booked. An environment short of them books less,
- *     down to the declared MINIMUM and never below it.
- *  3. Among environments that host the same count: one that gives the full recommended CPU/RAM/disk
- *     first, then verified nodes, then the cheaper one for the chosen session length, then the higher
+ *  1. GPU: the target declares the total VRAM it recommends and the layouts (card counts, each with
+ *     the VRAM a card needs) it may be booked as. The candidates are the vendored ocean.js planner's
+ *     (planGpuLayouts): every declared layout one GPU group of the environment fits with that many
+ *     whole cards free, with its exact ids and GPU price. Groups are never mixed, pooled resources are
+ *     only booked whole, and a package's pinned tensor-parallel width keeps only its own layout.
+ *  2. CPU/RAM/disk: the target's RECOMMENDED amounts (see recommendedSizing). There is no declared
+ *     minimum: an environment short of them books what it can grant, down to its own per-job min.
+ *  3. Among environments that can host it: one that gives the full recommended CPU/RAM/disk first,
+ *     then verified nodes, then the cheaper one for the chosen session length, then the higher
  *     benchmark score.
  *
  * An environment only counts as able to host a pick when it passes the same checks an env card runs
  * before its Continue (unit budget, cross-resource constraints, free GPU ids, free shared resources),
  * so the quick start can never hand the payment step a pick the card would have refused.
  */
-
-/** GPU units a launch target declares: the floor it runs at, and the count it's tuned for. */
-export type GpuRange = { min: number; recommended: number };
 
 /** What both env resolvers produce per environment (ResolvedTemplateEnv / ResolvedPackageEnv). */
 export type QuickStartEntry = { env: SelectedInferenceEnv; token: SelectedToken | null };
@@ -60,10 +69,12 @@ export type QuickStartOption<T extends QuickStartEntry> = {
   gpuCount: number;
   /** A count for EVERY GPU type of the env, zero included: a missing key books that type in full. */
   gpuSelection: GpuSelection;
+  /** The exact GPU ids booked and their per-minute price — carried to payment and re-checked there. */
+  gpuPlan: GpuPlan;
   /** The CPU/RAM/disk sizing this pick is priced on: the entry's, scaled to the GPU count booked. */
   sizing: ResourceSizing | undefined;
   allocation: ResourceAmounts;
-  /** Whether the allocation reaches the sizing's recommended amounts, not just its minimums. */
+  /** Whether the allocation reaches the sizing's recommended amounts, not just what the env could grant. */
   fullSizing: boolean;
   price: number;
 };
@@ -79,71 +90,44 @@ export function envKey(env: SelectedInferenceEnv): string {
   return `${env.nodeInfo.id}-${env.environment.id}`;
 }
 
-export function isGpuRequirement(requirement: DeclaredRequirement): boolean {
-  return requirement.type === 'gpu' || requirement.id === 'gpu';
-}
-
 /**
- * The GPU range a template/package declares, or null when it declares no GPU at all. The floor is
- * the requirement's `min`; the target prefers a separate recommendation list (templates publish one),
- * then the requirement's own `recommended` (packages), then its `min`.
- */
-export function declaredGpuRange(
-  required: DeclaredRequirement[] | null | undefined,
-  recommended?: DeclaredRequirement[] | null
-): GpuRange | null {
-  const requirement = required?.find(isGpuRequirement);
-  const recommendation = recommended?.find(isGpuRequirement);
-  if (!requirement && !recommendation) {
-    return null;
-  }
-  const min = Math.max(0, requirement?.min ?? recommendation?.min ?? 0);
-  const target = recommendation?.recommended ?? recommendation?.min ?? requirement?.recommended ?? min;
-  return { min, recommended: Math.max(min, target) };
-}
-
-/**
- * A template's or package's quick-start sizing: its RECOMMENDED CPU/RAM/disk, floored at its declared
- * MIN (a resource declaring no recommendation books its min). The allocation clamps a pinned amount to
- * what the environment can grant, down to the floor, so an environment short of the recommendation
- * books less rather than being skipped. A resource it declares nothing for is marked `slice`: the
- * planner books the GPU slice of it, as `floor` sizing would. Undefined when no CPU/RAM/disk is
- * declared at all (the GPU slice then sizes them).
+ * A template's or package's quick-start sizing: its RECOMMENDED CPU/RAM/disk, booked best effort — the
+ * zero `floor` tells the allocation to clamp an amount the environment can't grant down to what it can
+ * (never under the env's own per-job min) rather than refusing the environment. A resource it declares
+ * nothing for is marked `slice`: the planner books the GPU slice of it, as the custom flow would.
+ * Undefined when no CPU/RAM/disk is declared at all (the GPU slice then sizes them).
  */
 export function recommendedSizing(required: DeclaredRequirement[] | null | undefined): ResourceSizing | undefined {
-  const find = (id: string) => required?.find((r) => r.id === id);
+  const find = (id: string) => required?.find((r) => 'id' in r && r.id === id);
   if (!find('cpu') && !find('ram') && !find('disk')) {
     return undefined;
   }
-  const min = (id: string) => find(id)?.min ?? 0;
-  const recommended = (id: string) => Math.max(min(id), find(id)?.recommended ?? 0);
+  const recommended = (id: string) => Math.max(0, find(id)?.recommended ?? 0);
   const slice = (['cpu', 'ram', 'disk'] as const).filter((key) => !find(key));
   return {
     mode: 'pinned',
     cpu: recommended('cpu'),
     ram: recommended('ram'),
     disk: recommended('disk'),
-    floor: { cpu: min('cpu'), ram: min('ram'), disk: min('disk') },
+    floor: { cpu: 0, ram: 0, disk: 0 },
     ...(slice.length > 0 ? { slice } : {}),
   };
 }
 
 /**
- * The entry's sizing for `units` GPUs on one environment. Recommended CPU/RAM/disk are stated for the
- * recommended GPU count, so booking fewer units scales them down in proportion, never below the floor.
- * A resource marked `slice` books this environment's GPU slice of it instead. The result carries
- * plain numbers, so it survives the URL and the payment step as it is.
+ * The entry's sizing for `units` GPUs on one environment: the recommended CPU/RAM/disk as they are (a
+ * pick always books the cards the VRAM recommendation needs, so nothing scales), except a resource
+ * marked `slice`, which books this environment's GPU slice of it instead. The result carries plain
+ * numbers, so it survives the URL and the payment step as it is.
  */
 function sizingFor({
   sizing,
   units,
-  gpuRange,
   resources,
   totalGpus,
 }: {
   sizing: ResourceSizing | undefined;
   units: number;
-  gpuRange: GpuRange | null;
   resources: EnvResources;
   totalGpus: number;
 }): ResourceSizing | undefined {
@@ -151,17 +135,8 @@ function sizingFor({
     return sizing;
   }
   const { slice = [], ...pinned } = sizing;
-  const floor = sizing.floor ?? { cpu: 0, ram: 0, disk: 0 };
-  const recommendedUnits = gpuRange?.recommended ?? 0;
-  const amount = (key: keyof ResourceAmounts) => {
-    if (slice.includes(key)) {
-      return sliceFor(resources[key], units, totalGpus);
-    }
-    if (recommendedUnits > 0 && units < recommendedUnits) {
-      return Math.max(floor[key], Math.round((sizing[key] * units) / recommendedUnits));
-    }
-    return sizing[key];
-  };
+  const amount = (key: keyof ResourceAmounts) =>
+    slice.includes(key) ? sliceFor(resources[key], units, totalGpus) : sizing[key];
   return { ...pinned, cpu: amount('cpu'), ram: amount('ram'), disk: amount('disk') };
 }
 
@@ -191,31 +166,30 @@ export function toCandidates<T extends QuickStartEntry>({
   return candidates;
 }
 
-/** `units` of one GPU type (or none) on one candidate; null when the env can't host that right now. */
+/** One planned GPU booking (or none) on one candidate; null when the env can't host it right now. */
 function evaluate<T extends QuickStartEntry>({
   candidate,
   types,
   gpuKey,
-  units,
-  gpuRange,
+  plan,
   envResources,
   durationSeconds,
 }: {
   candidate: QuickStartCandidate<T>;
   types: MergedGpu[];
   gpuKey: string | null;
-  units: number;
-  gpuRange: GpuRange | null;
+  /** The planner's exact ids for the booking (NO_GPU_PLAN for none). */
+  plan: GpuPlan;
   /** The environment's CPU/RAM/disk/GPUs as read for this token, for the GPU slice of `slice` resources. */
   envResources: EnvResources;
   durationSeconds: number;
 }): QuickStartOption<T> | null {
   const { environment, token } = candidate;
-  const gpuSelection: GpuSelection = Object.fromEntries(types.map((t) => [t.key, t.key === gpuKey ? units : 0]));
+  const units = planGpuCount(plan);
+  const gpuSelection: GpuSelection = selectionOfRequests(environment, plan.requests);
   const sizing = sizingFor({
     sizing: candidate.entry.env.sizing,
     units,
-    gpuRange,
     resources: envResources,
     totalGpus: totalUnitsOf(types),
   });
@@ -223,6 +197,7 @@ function evaluate<T extends QuickStartEntry>({
     environment,
     tokenAddress: token.address,
     gpuSelection,
+    gpuRequests: plan.requests,
     sizing,
     durationSeconds,
   });
@@ -235,17 +210,16 @@ function evaluate<T extends QuickStartEntry>({
   if (result.constraintViolation) {
     return null;
   }
-  // The two checks an env card runs on Continue: free units behind every GPU id, and the shared
-  // CPU/RAM/disk still free at the amounts this pick is priced on.
+  // The planner already proved the GPU ids free on this copy; what's left of the env card's Continue
+  // checks is the shared CPU/RAM/disk still free at the amounts this pick is priced on.
   const resources = environment.resources ?? [];
   try {
-    buildGpuRequests(resources, result.selectedByKey);
     assertAllocationAvailable(resources, result.allocation);
   } catch {
     return null;
   }
-  // The allocation clamps to what the env can grant, which may be under the declared minimum: the
-  // target can't run on that.
+  // A `floor` sizing (advanced handoff) must not be clamped under its floor; a pinned recommendation
+  // carries a zero floor, so it is booked as far as the env can grant it.
   const keys = ['cpu', 'ram', 'disk'] as const;
   const floor = sizing?.mode === 'pinned' ? sizing.floor : sizing?.mode === 'floor' ? sizing : undefined;
   if (floor && keys.some((key) => result.allocation[key] < floor[key])) {
@@ -259,6 +233,7 @@ function evaluate<T extends QuickStartEntry>({
     gpuLabel: type ? type.description || 'GPU' : null,
     gpuCount: units,
     gpuSelection: result.selectedByKey,
+    gpuPlan: plan,
     sizing,
     allocation: result.allocation,
     fullSizing,
@@ -267,18 +242,22 @@ function evaluate<T extends QuickStartEntry>({
 }
 
 /**
- * The best pick on one environment: the most GPU units in [min, recommended] it can host right now.
- * Units of two GPU types are never mixed (a multi-GPU model shards across identical devices); when
- * several types can host the same count, the cheapest wins.
+ * The best pick on one environment: every candidate the vendored planner finds for the GPU requirement
+ * (the cheapest single card when the target declares no GPU but the env sells none without one). Groups
+ * are never mixed (a multi-GPU model shards across identical devices). Every candidate is evaluated,
+ * not just the cheapest: a constraint can rule a narrow one out while a wider one still works. The one
+ * giving the full recommended CPU/RAM/disk wins, then the cheapest, then the fewer cards.
  */
 function bestFitOn<T extends QuickStartEntry>({
   candidate,
-  gpuRange,
+  gpuRequirement,
+  forcedGpuCount,
   allowZeroGpu,
   durationSeconds,
 }: {
   candidate: QuickStartCandidate<T>;
-  gpuRange: GpuRange | null;
+  gpuRequirement: GpuRequirement | null;
+  forcedGpuCount?: number;
   allowZeroGpu: boolean;
   durationSeconds: number;
 }): QuickStartOption<T> | null {
@@ -300,62 +279,55 @@ function bestFitOn<T extends QuickStartEntry>({
     return null;
   }
   const types = mergeGpuTypes(resources);
+  const needsGpu = gpuRequirement !== null && gpuRequirement.recommended > 0;
+  if (needsGpu && !gpuRequirement) {
+    return null;
+  }
 
   // No GPUs in this environment: it hosts only a target that needs none.
   if (types.length === 0) {
-    if ((gpuRange?.min ?? 0) > 0) {
+    if (needsGpu) {
       return null;
     }
-    return evaluate({ candidate, types, gpuKey: null, units: 0, gpuRange, envResources: resources, durationSeconds });
+    return evaluate({ candidate, types, gpuKey: null, plan: NO_GPU_PLAN, envResources: resources, durationSeconds });
   }
 
   // Zero units only where the flow permits it (templates) AND every GPU type of the env allows it,
   // the same gate the env card applies. Otherwise a GPU environment is booked in whole units.
-  const floor = allowZeroGpu && types.every((t) => t.allowsZero) ? 0 : 1;
-  // A target declaring no GPU wants as few as possible; one declaring a range, the recommended count.
-  const low = Math.max(gpuRange?.min ?? floor, floor);
-  const high = Math.max(gpuRange?.recommended ?? floor, low);
-  for (let units = high; units >= low; units--) {
-    if (units === 0) {
-      const option = evaluate({
+  const zeroAllowed = allowZeroGpu && types.every((t) => t.allowsZero);
+  if (!needsGpu && zeroAllowed) {
+    return evaluate({ candidate, types, gpuKey: null, plan: NO_GPU_PLAN, envResources: resources, durationSeconds });
+  }
+  // A target declaring no GPU (or zero VRAM) wants as few as possible: one card.
+  const demand: GpuDemand = needsGpu ? { kind: 'vram', requirement: gpuRequirement } : { kind: 'units', widths: [1] };
+  const options = planGpuDemand({
+    environment: candidate.environment,
+    demand,
+    fees: resources.gpuFees,
+    forcedGpuCount,
+  })
+    .map((planned) =>
+      evaluate({
         candidate,
         types,
-        gpuKey: null,
-        units: 0,
-        gpuRange,
+        gpuKey: planned.groupKey,
+        plan: planOf(planned),
         envResources: resources,
         durationSeconds,
-      });
-      if (option) {
-        return option;
-      }
-      continue;
-    }
-    const options = types
-      .filter((t) => t.available >= units)
-      .map((t) =>
-        evaluate({ candidate, types, gpuKey: t.key, units, gpuRange, envResources: resources, durationSeconds })
-      )
-      .filter((option): option is QuickStartOption<T> => option !== null)
-      .sort((a, b) => Number(b.fullSizing) - Number(a.fullSizing) || a.price - b.price);
-    if (options.length > 0) {
-      return options[0];
-    }
-  }
-  return null;
+      })
+    )
+    .filter((option): option is QuickStartOption<T> => option !== null)
+    .sort((a, b) => Number(b.fullSizing) - Number(a.fullSizing) || a.price - b.price || a.gpuCount - b.gpuCount);
+  return options[0] ?? null;
 }
 
 /**
- * Closest to the target GPU count, then the full recommended CPU/RAM/disk, then verified, then cheaper,
- * then the higher benchmark score. The sizing ranks above price: an env short of the recommendation is
- * cheaper exactly because it books less.
+ * The full recommended CPU/RAM/disk first, then verified, then cheaper, then the higher benchmark
+ * score, then the fewer cards. The sizing ranks above price: an env short of the recommendation is cheaper exactly because
+ * it books less.
  */
-function compareOptions<T extends QuickStartEntry>(target: number) {
+function compareOptions<T extends QuickStartEntry>() {
   return (a: QuickStartOption<T>, b: QuickStartOption<T>): number => {
-    const distance = Math.abs(target - a.gpuCount) - Math.abs(target - b.gpuCount);
-    if (distance !== 0) {
-      return distance;
-    }
     const sizing = Number(b.fullSizing) - Number(a.fullSizing);
     if (sizing !== 0) {
       return sizing;
@@ -370,19 +342,23 @@ function compareOptions<T extends QuickStartEntry>(target: number) {
     }
     const score = (option: QuickStartOption<T>) =>
       option.candidate.entry.env.nodeInfo.latestBenchmarkResults?.totalScore ?? 0;
-    return score(b) - score(a);
+    return score(b) - score(a) || a.gpuCount - b.gpuCount;
   };
 }
 
 export function planQuickStart<T extends QuickStartEntry>({
   candidates,
-  gpuRange,
+  gpuRequirement,
+  forcedGpuCount,
   allowZeroGpu,
   durationSeconds,
 }: {
   candidates: QuickStartCandidate<T>[];
-  /** Null when the target declares no GPU (it then books as few as the environment allows). */
-  gpuRange: GpuRange | null;
+  /** The target's GPU recommendation (total VRAM + layouts); null when it declares no GPU (it then
+   *  books as few as the environment allows). */
+  gpuRequirement: GpuRequirement | null;
+  /** Keep only the layout of this many cards: a package's pinned tensor-parallel width. */
+  forcedGpuCount?: number;
   /** Whether the flow permits a zero-GPU pick at all: templates yes, packages no. */
   allowZeroGpu: boolean;
   durationSeconds: number;
@@ -392,7 +368,7 @@ export function planQuickStart<T extends QuickStartEntry>({
   // but not this length still tells the user which length would work.
   let suggestionSeconds: number | null = null;
   for (const candidate of candidates) {
-    const option = bestFitOn({ candidate, gpuRange, allowZeroGpu, durationSeconds });
+    const option = bestFitOn({ candidate, gpuRequirement, forcedGpuCount, allowZeroGpu, durationSeconds });
     if (!option) {
       continue;
     }
@@ -410,7 +386,7 @@ export function planQuickStart<T extends QuickStartEntry>({
     }
   }
   if (fitting.length > 0) {
-    fitting.sort(compareOptions(gpuRange?.recommended ?? 0));
+    fitting.sort(compareOptions());
     return { status: 'ready', option: fitting[0] };
   }
   if (suggestionSeconds !== null) {

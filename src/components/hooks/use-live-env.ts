@@ -41,6 +41,12 @@ export type LiveEnvRead = {
   env: ComputeEnvironment | undefined | null;
   /** True only when this env came from the node itself, on this read or a recent cached one. */
   live: boolean;
+  /**
+   * True only when THIS call got the env from the node (its own dial, or the dial it joined). False for
+   * a TTL cache hit and for a failed dial that fell back to an earlier answer — which `live` still
+   * reports as true. Commit points that must not act on a possibly stale read (paying) check this.
+   */
+  fresh: boolean;
   /** When the underlying node read landed (epoch ms); 0 when there has never been one. */
   at: number;
   /**
@@ -159,8 +165,8 @@ export default function useLiveEnv(
       // moment either changes, so a cached hit can never describe a different environment.
       const fallback = (reason: LiveEnvRead['reason']): LiveEnvRead =>
         latestRef.current
-          ? { env: latestRef.current, live: true, at: fetchedAtRef.current, reason: 'live' }
-          : { env: environment, live: false, at: 0, reason };
+          ? { env: latestRef.current, live: true, fresh: false, at: fetchedAtRef.current, reason: 'live' }
+          : { env: environment, live: false, fresh: false, at: 0, reason };
       if (!isReady || !environment || !nodeInfo?.id) {
         return fallback('not-ready');
       }
@@ -180,7 +186,7 @@ export default function useLiveEnv(
         // may have moved to another env while it was open, in which case the dial's own publish was
         // skipped and this answer describes something no longer on screen.
         if (joined.env && activeKeyRef.current === callKey) {
-          return { env: joined.env, live: true, at: fetchedAtRef.current, reason: 'live' };
+          return { env: joined.env, live: true, fresh: true, at: fetchedAtRef.current, reason: 'live' };
         }
         return fallback(joined.reached ? 'unidentified' : 'unreachable');
       }
@@ -229,7 +235,7 @@ export default function useLiveEnv(
       // Same guard on the way out: if the env/node changed while this dial was open, its answer is not
       // about what the caller is now acting on. Fall back to whatever describes the CURRENT key.
       if (result.env && activeKeyRef.current === callKey) {
-        return { env: result.env, live: true, at: fetchedAtRef.current, reason: 'live' };
+        return { env: result.env, live: true, fresh: true, at: fetchedAtRef.current, reason: 'live' };
       }
       return fallback(result.reached ? 'unidentified' : 'unreachable');
     },

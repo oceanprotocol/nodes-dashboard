@@ -9,20 +9,21 @@ import {
   ResourceRequest,
 } from '@/utils/constraints';
 import { billableMinutes } from '@/utils/duration';
+import { gpuGroupKey, groupVramGb } from '@/utils/env-resources';
 import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { ComputeResource } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
 
 export type MergedGpu = {
-  /** Key used to address this type in the selection map (description, or a synthetic fallback). */
+  /** Key used to address this group in the selection map: its description, or `id:<id>` (see gpuGroupKey). */
   key: string;
   description?: string;
   /** Total units of this type the environment advertises (the physical ceiling). */
   max: number;
   /** Units of this type actually free right now (getAvailableAmount). The pickable ceiling. */
   available: number;
-  /** Per-unit fee for this type (units of one description share a fee — the first id's). */
+  /** Per-unit fee of this type's first id — a display figure; prices sum each booked id's own fee. */
   fee: number;
   /**
    * Whether the env itself tolerates booking NONE of this type — true only when every resource id
@@ -35,10 +36,15 @@ export type MergedGpu = {
    * devices at `min: 1` sum to 8, while the floor for the group is 1.
    */
   allowsZero: boolean;
+  /** One card's VRAM in GB (the smallest of the merged ids); undefined when any doesn't declare it. */
+  vramGb?: number;
 };
 
 /** How many units of each GPU type (keyed by MergedGpu.key) the user wants to use. */
 export type GpuSelection = Record<string, number>;
+
+/** One exact GPU id request — the shape the node reads (and the planner emits). */
+export type GpuRequest = { id: string; amount: number };
 
 /** Per-resource CPU/RAM/disk amounts (the shape both sizing modes carry). */
 export type ResourceAmounts = { cpu: number; ram: number; disk: number };
@@ -209,21 +215,21 @@ export function drawUnitsAcrossTypes(
 type SharedIds = { cpuId: string; ramId: string; diskId: string };
 
 /**
- * Merge units of the same description into one type, summing both the physical ceiling (max) and the
- * units currently free (gpusAvailable, i.e. min(max, total − inUse)) across every id of that type. The fee is the
- * first id's — units of one description share a fee, so no averaging needed.
+ * Merge units of the same group (description, or `id:<id>` without one — gpuGroupKey) into one type, summing both the physical ceiling (max) and the
+ * units currently free (gpusAvailable, i.e. min(max, total − inUse)) across every id of that type. `fee` is the
+ * first id's, for display; a quote prices each booked id at its own fee (priceOf).
  */
 export function mergeGpuTypes({
   gpus,
   gpusAvailable,
   gpuFees,
 }: {
-  gpus: ComputeResource[];
+  gpus: LocalComputeResource[];
   gpusAvailable: Record<string, number>;
   gpuFees: Record<string, number>;
 }): MergedGpu[] {
-  return gpus.reduce((merged, gpu) => {
-    const key = gpu.description || 'GPU';
+  const merged = gpus.reduce((merged, gpu) => {
+    const key = gpuGroupKey(gpu);
     const existing = merged.find((g) => g.key === key);
     if (existing) {
       existing.max += gpu.max ?? 0;
@@ -241,6 +247,10 @@ export function mergeGpuTypes({
     }
     return merged;
   }, [] as MergedGpu[]);
+  merged.forEach((g) => {
+    g.vramGb = groupVramGb(gpus.filter((gpu) => gpuGroupKey(gpu) === g.key));
+  });
+  return merged;
 }
 
 export function totalUnitsOf(mergedGpus: MergedGpu[]): number {
@@ -506,12 +516,28 @@ function selectedUnitsOf({
   maxByKey,
   unitBudget,
   gpuSelection,
+  gpuRequests,
+  gpus,
 }: {
   mergedGpus: MergedGpu[];
   maxByKey: Record<string, number>;
   unitBudget: number;
   gpuSelection?: GpuSelection;
+  gpuRequests?: GpuRequest[];
+  gpus: ComputeResource[];
 }): Record<string, number> {
+  // An exact plan is the selection: count its ids per group, every group named (zero included).
+  if (gpuRequests) {
+    const byKey: Record<string, number> = Object.fromEntries(mergedGpus.map((g) => [g.key, 0]));
+    gpuRequests.forEach((r) => {
+      const gpu = gpus.find((candidate) => candidate.id === r.id);
+      if (gpu && r.amount > 0) {
+        const key = gpuGroupKey(gpu);
+        byKey[key] = (byKey[key] ?? 0) + r.amount;
+      }
+    });
+    return byKey;
+  }
   return drawUnitsAcrossTypes(mergedGpus, maxByKey, unitBudget, (g) => {
     const requested = gpuSelection?.[g.key];
     // Explicit request → honor it, clamped only to the PHYSICAL max (not current availability): it's
@@ -526,21 +552,27 @@ function sumUnits(selectedByKey: Record<string, number>): number {
 }
 
 /**
- * Concrete GPU-id requests for the current selection. `selectedByKey` is keyed by description; map
- * each description's count onto its first-N available resource ids (declared order), so the request
- * the constraint model sees uses the same ids the node keys constraints on.
+ * Concrete GPU-id requests for the current selection. An exact plan (`gpuRequests`, the planner's ids
+ * carried from the picker) is used as-is, so the price and the constraint check describe the very ids
+ * the launch sends. Without one, `selectedByKey` (keyed by group) maps each group's count onto its
+ * first-N available resource ids (declared order).
  */
 function gpuIdRequestsOf({
   mergedGpus,
   selectedByKey,
   gpus,
   orderedFreeGpuUnits,
+  gpuRequests,
 }: {
   mergedGpus: MergedGpu[];
   selectedByKey: Record<string, number>;
   gpus: ComputeResource[];
   orderedFreeGpuUnits: string[];
+  gpuRequests?: GpuRequest[];
 }): ResourceRequest[] {
+  if (gpuRequests) {
+    return gpuRequests.filter((r) => r.amount > 0).map((r) => ({ id: r.id, amount: r.amount }));
+  }
   const requests: ResourceRequest[] = [];
   mergedGpus.forEach((g) => {
     const count = selectedByKey[g.key] ?? 0;
@@ -549,9 +581,10 @@ function gpuIdRequestsOf({
     }
     // Draw `count` free UNITS of this type (an id repeated once per free unit), then collapse them
     // into per-id amounts — the same draw buildGpuRequests performs when it builds the real request.
-    const unitsOfType = orderedFreeGpuUnits.filter(
-      (id) => (gpus.find((r) => r.id === id)?.description || 'GPU') === g.key
-    );
+    const unitsOfType = orderedFreeGpuUnits.filter((id) => {
+      const gpu = gpus.find((r) => r.id === id);
+      return !!gpu && gpuGroupKey(gpu) === g.key;
+    });
     requests.push(...toGpuRequests(unitsOfType.slice(0, count)));
   });
   return requests;
@@ -682,8 +715,8 @@ function priceOf({
   ramFee,
   diskFee,
   allocation,
-  mergedGpus,
-  selectedByKey,
+  gpuIdRequests,
+  gpuFees,
   environment,
   durationSeconds,
 }: {
@@ -691,16 +724,18 @@ function priceOf({
   ramFee?: number;
   diskFee?: number;
   allocation: ResourceAmounts;
-  mergedGpus: MergedGpu[];
-  selectedByKey: Record<string, number>;
+  gpuIdRequests: ResourceRequest[];
+  gpuFees: Record<string, number>;
   environment: ComputeEnvironment;
   durationSeconds: number;
 }): number {
   const cpuTotal = (cpuFee ?? 0) * allocation.cpu;
   const ramTotal = (ramFee ?? 0) * allocation.ram;
   const diskTotal = (diskFee ?? 0) * allocation.disk;
-  // GPUs are priced by the exact units selected, not the blended fraction.
-  const gpuTotal = mergedGpus.reduce((sum, g) => sum + g.fee * (selectedByKey[g.key] ?? 0), 0);
+  // GPUs are priced by the exact ids the launch requests (gpuIdRequestsOf draws them the same way
+  // buildGpuRequests does), each at its OWN fee — ids sharing a description may be priced differently,
+  // and one type-wide fee would quote a different total than the node charges.
+  const gpuTotal = gpuIdRequests.reduce((sum, r) => sum + (gpuFees[r.id] ?? 0) * r.amount, 0);
   // Whole billable minutes, floored at the env's SERVICE minimum — the node's own formula. This is
   // the floor calculateResourcesCost applies to a service (minJobDuration governs compute jobs), so
   // quoting against the wrong one under-quotes and the escrow deposit sized from that quote is too
@@ -728,6 +763,11 @@ export type InferenceAllocationInput = {
   /** Omit to use every unit of every type (the default, whole-environment allocation). */
   gpuSelection?: GpuSelection;
   /**
+   * The exact GPU ids to book (a planned selection, see GpuPlan). When set it wins over `gpuSelection`:
+   * the selected counts, the price and the constraint check all come from these ids.
+   */
+  gpuRequests?: GpuRequest[];
+  /**
    * How to size the shared CPU/RAM/disk: `pinned` fixed amounts (quick start), a `floor` under the
    * GPU-fraction slice (advanced handoff), or the `exact` amounts a running service already booked.
    * Omit for a pure proportional slice (custom flow). See {@link ResourceSizing}.
@@ -748,6 +788,8 @@ export type InferenceAllocation = {
   maxUnitsByResources: number;
   selectedByKey: Record<string, number>;
   selectedTotal: number;
+  /** The GPU ids this allocation books and prices (the exact plan when one was given). */
+  gpuIdRequests: ResourceRequest[];
   allocation: ResourceAmounts;
   price: number;
   /** Constraint violation message for the current selection, or null when the node would accept it. */
@@ -766,6 +808,7 @@ export function computeInferenceAllocation({
   environment,
   tokenAddress,
   gpuSelection,
+  gpuRequests,
   sizing,
   durationSeconds,
 }: InferenceAllocationInput): InferenceAllocation {
@@ -825,9 +868,9 @@ export function computeInferenceAllocation({
   });
   const unitBudget = Math.min(maxUnitsByResources, maxUnitsByConstraints);
   const maxByKey = freeUnitsByType(mergedGpus);
-  const selectedByKey = selectedUnitsOf({ mergedGpus, maxByKey, unitBudget, gpuSelection });
+  const selectedByKey = selectedUnitsOf({ mergedGpus, maxByKey, unitBudget, gpuSelection, gpuRequests, gpus });
   const selectedTotal = sumUnits(selectedByKey);
-  const gpuIdRequests = gpuIdRequestsOf({ mergedGpus, selectedByKey, gpus, orderedFreeGpuUnits });
+  const gpuIdRequests = gpuIdRequestsOf({ mergedGpus, selectedByKey, gpus, orderedFreeGpuUnits, gpuRequests });
   const allocation = sharedAllocationOf({
     cpu,
     ram,
@@ -847,8 +890,9 @@ export function computeInferenceAllocation({
     maxUnitsByResources: unitBudget,
     selectedByKey,
     selectedTotal,
+    gpuIdRequests,
     allocation,
-    price: priceOf({ cpuFee, ramFee, diskFee, allocation, mergedGpus, selectedByKey, environment, durationSeconds }),
+    price: priceOf({ cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees, environment, durationSeconds }),
     constraintViolation: constraintViolationOf({ sizing, availResources, ids, allocation, gpuIdRequests }),
     hasGpus: totalGpus > 0,
     gpuExhausted: isGpuExhausted({ totalGpus, unitBudget, maxByKey }),
@@ -875,6 +919,7 @@ const useInferenceAllocation = ({
   environment,
   tokenAddress,
   gpuSelection,
+  gpuRequests,
   sizing,
   durationSeconds,
 }: InferenceAllocationInput): InferenceAllocation => {
@@ -967,15 +1012,15 @@ const useInferenceAllocation = ({
   const maxByKey = useMemo(() => freeUnitsByType(mergedGpus), [mergedGpus]);
 
   const selectedByKey = useMemo(
-    () => selectedUnitsOf({ mergedGpus, maxByKey, unitBudget, gpuSelection }),
-    [mergedGpus, maxByKey, unitBudget, gpuSelection]
+    () => selectedUnitsOf({ mergedGpus, maxByKey, unitBudget, gpuSelection, gpuRequests, gpus }),
+    [mergedGpus, maxByKey, unitBudget, gpuSelection, gpuRequests, gpus]
   );
 
   const selectedTotal = useMemo(() => sumUnits(selectedByKey), [selectedByKey]);
 
   const gpuIdRequests = useMemo(
-    () => gpuIdRequestsOf({ mergedGpus, selectedByKey, gpus, orderedFreeGpuUnits }),
-    [mergedGpus, selectedByKey, gpus, orderedFreeGpuUnits]
+    () => gpuIdRequestsOf({ mergedGpus, selectedByKey, gpus, orderedFreeGpuUnits, gpuRequests }),
+    [mergedGpus, selectedByKey, gpus, orderedFreeGpuUnits, gpuRequests]
   );
 
   const allocation = useMemo(
@@ -1001,8 +1046,8 @@ const useInferenceAllocation = ({
   );
 
   const price = useMemo(
-    () => priceOf({ cpuFee, ramFee, diskFee, allocation, mergedGpus, selectedByKey, environment, durationSeconds }),
-    [cpuFee, ramFee, diskFee, allocation, mergedGpus, selectedByKey, environment, durationSeconds]
+    () => priceOf({ cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees, environment, durationSeconds }),
+    [cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees, environment, durationSeconds]
   );
 
   return {
@@ -1012,6 +1057,7 @@ const useInferenceAllocation = ({
     maxUnitsByResources: unitBudget,
     selectedByKey,
     selectedTotal,
+    gpuIdRequests,
     allocation,
     price,
     constraintViolation,

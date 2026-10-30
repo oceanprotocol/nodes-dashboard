@@ -1,4 +1,6 @@
-import { HuggingFaceModel, ModelParameters } from '@/types/huggingface';
+import { HuggingFaceModel, ModelParameters, VllmParameters } from '@/types/huggingface';
+import type { DeclaredRequirement } from '@/utils/env-resources';
+import type { GpuSizingProfile } from '@/utils/service-resources';
 
 export enum InferenceFlowType {
   DefaultModel = 'default-model',
@@ -7,22 +9,13 @@ export enum InferenceFlowType {
 }
 
 /**
- * One resource the package needs to run. `min` is the floor to launch at all; `recommended` is the
- * amount the quick-start flow actually books (custom flow ignores these and lets the user size the
- * env). GPU entries are `kind: 'discrete'` (whole units); cpu/ram/disk are implicitly continuous.
- * All values are amounts in `unit`, resolved against — and clamped to — the live env at launch.
+ * One resource the package recommends — the same strict union a node template carries (cpu/ram/disk by
+ * `id`, the GPU entry by `kind: 'discrete', type: 'gpu'`, with no `id`). There is no minimum:
+ * `recommended` is the amount the quick-start flow books. For cpu/ram/disk it is clamped to what the
+ * live env can grant; for GPU it is the TOTAL VRAM in GB, booked as one of its `layouts` on cards whose
+ * `memoryTotal` holds the layout's share — an env that can't is not offered.
  */
-export type ResourceRequirement = {
-  /** Resource key: 'cpu' | 'ram' | 'disk' for continuous resources, or 'gpu' when `kind` is set. */
-  id: string;
-  min: number;
-  recommended: number;
-  unit: string;
-  /** Present only for GPU — marks the resource as booked in whole units. */
-  kind?: 'discrete';
-  type?: 'gpu';
-  description?: string;
-};
+export type ResourceRequirement = DeclaredRequirement;
 
 /**
  * A curated quick-start bundle: model + complete launch parameters + a pinned environment,
@@ -49,12 +42,25 @@ export type InferencePackage = {
    * Peer ids of the nodes this package can run on. For a template fetched from a node this holds
    * that single node (stamped at load time — see use-default-model-packages; the template JSON
    * carries no peer id); for a curated mock it lists every node it may be launched on. The details
-   * modal lists all of these nodes' envs, filtered to those that satisfy `requiredResources`.
+   * modal lists all of these nodes' envs, filtered to those that reach the recommended GPU VRAM.
    */
   sourcePeerIds: string[];
   /**
-   * Resource floors/recommendations for this package. Quick start books the `recommended` amount of
-   * each (clamped to the live env); the custom flow ignores this and lets the user size resources.
+   * Resource recommendations for this package. Quick start books the `recommended` amount of each
+   * (cpu/ram/disk clamped to the live env, GPU as total VRAM); the custom flow ignores this and lets the
+   * user size resources.
    */
-  requiredResources: ResourceRequirement[];
+  recommendedResources: ResourceRequirement[];
+  /**
+   * How the package's GPU need scales with the card count. When set, the GPU entry's layouts are
+   * DERIVED from it (vendored deriveGpuLayouts) and the package may launch on any of its widths — the
+   * planner picks the cheapest that fits, and the launch sets `tensorParallelSize` to the booked width.
+   * Absent: the package stays pinned to its own `params.tensorParallelSize` (one layout).
+   */
+  sizing?: GpuSizingProfile;
+  /**
+   * Launch-param patches per booked width (merged over `params` when that width is booked), for knobs
+   * tuned to a width — e.g. a concurrency cap that only fits on fewer cards. Only read with `sizing`.
+   */
+  perWidthParams?: Record<number, Partial<VllmParameters>>;
 };

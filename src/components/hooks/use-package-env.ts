@@ -1,4 +1,3 @@
-import { ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
@@ -8,8 +7,9 @@ import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
 import { recommendedSizing } from '@/services/quick-start';
 import { NodeEnvironments } from '@/types/environments';
+import { ModelParameters } from '@/types/huggingface';
 import { InferencePackage } from '@/types/inference';
-import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
+import { autoGpuPick, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,20 +26,41 @@ export type ResolvedPackageEnv = {
 };
 
 /**
- * The package's per-resource MIN (cpu/ram/disk) as a floor under the GPU-fraction slice, the same
- * `floor` sizing templates use (templateFloorSizing). Used by the advanced handoff, where it floors the
- * custom flow's slice. The quick start books the package's recommended amounts instead (recommendedSizing).
+ * The card count a package is pinned to: vLLM shards across exactly `tensorParallelSize` cards (unset
+ * = one), and a package without a `sizing` profile was tuned at that width only, so it is the one
+ * layout it can use. Undefined when the package flexes (it carries `sizing`: any of its derived widths,
+ * the launch then sets the width to the booked count — see packageParamsForWidth) and for engines that
+ * don't pin one (llama.cpp splits layers itself).
  */
-export function packageFloorSizing(pkg: InferencePackage): ResourceSizing {
-  const min = (id: string) => pkg.requiredResources.find((r) => r.id === id)?.min ?? 0;
-  return { mode: 'floor', cpu: min('cpu'), ram: min('ram'), disk: min('disk') };
+export function packageGpuCount(pkg: InferencePackage): number | undefined {
+  if (pkg.sizing) {
+    return undefined;
+  }
+  return pkg.params.engine === 'vllm' ? (pkg.params.tensorParallelSize ?? 1) : undefined;
+}
+
+/**
+ * The package's launch params for a booking of `width` cards. A flexing package (`sizing`) gets
+ * `tensorParallelSize` = the booked width, with its per-width patch on top; a pinned one keeps its own
+ * params (its width already is the booked one — the planner offers nothing else).
+ */
+export function packageParamsForWidth(pkg: InferencePackage, width: number): ModelParameters {
+  if (!pkg.sizing || pkg.params.engine !== 'vllm') {
+    return pkg.params;
+  }
+  return {
+    ...pkg.params,
+    ...(pkg.perWidthParams?.[width] ?? {}),
+    engine: 'vllm',
+    tensorParallelSize: width > 1 ? width : null,
+  };
 }
 
 /**
  * Resolve the environments a package can run on. The package carries only its source nodes' peer ids;
  * this fetches those nodes' environments, keeps the ones that (a) advertise service-on-demand, (b)
- * accept a supported paid token (USDC/COMPY), and (c) can currently satisfy the package's resource
- * floors, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
+ * accept a supported paid token (USDC/COMPY), and (c) can currently give the package its recommended GPU
+ * VRAM, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
  * seeded token), across all nodes. The details page's quick start ranks them and launches on the best fit.
  * Only when EVERY listed node is unreachable does this surface an error.
  */
@@ -75,7 +96,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
     // TODO: remove this allowlist once community nodes are allowed to run inference services. Drop
     // the `.filter` — `sourcePeerIds` is then the only scope, which is what a package already means.
     const peerIds = Array.from(new Set(pkg.sourcePeerIds ?? [])).filter(isInferenceNode);
-    const sizing = recommendedSizing(pkg.requiredResources);
+    const sizing = recommendedSizing(pkg.recommendedResources);
 
     async function resolve() {
       setLoading(true);
@@ -134,7 +155,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
         }
 
         // Keep only envs that can run the package: service-on-demand + a supported paid token + the
-        // package's resource floors. Flattened across every row of every node (one env per row), each
+        // package's recommended GPU VRAM. Flattened across every row of every node (one env per row), each
         // env keeping its own node.
         const candidates = nodes.flatMap((node) =>
           (node.computeEnvironments.environments ?? [])
@@ -155,7 +176,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               if (getEnvSupportedTokens(environment, true).length === 0) {
                 return false;
               }
-              return meetsMinResources(environment, pkg!.requiredResources);
+              return meetsRecommendedGpu(environment, pkg!.recommendedResources, packageGpuCount(pkg!));
             })
             .map((environment) => ({ node, environment }))
         );
@@ -175,7 +196,13 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               env: {
                 environment,
                 // Packages never permit a zero-GPU pick (allowZeroGpu defaults false) — see the card prop.
-                gpuSelection: autoGpuSelection({ environment, required: pkg!.requiredResources }),
+                // The planner's cheapest valid layout in this env's default token, with its exact ids.
+                ...autoGpuPick({
+                  environment,
+                  required: pkg!.recommendedResources,
+                  forcedGpuCount: packageGpuCount(pkg!),
+                  tokenAddress,
+                }),
                 sizing,
                 nodeInfo: {
                   currentAddrs: node.currentAddrs,

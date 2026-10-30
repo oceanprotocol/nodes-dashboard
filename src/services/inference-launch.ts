@@ -5,6 +5,18 @@ import { buildModelDefaults } from '@/services/huggingface-service';
 import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
 import { ComputeResource } from '@/types/environments';
 import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
+import {
+  GpuDemand,
+  gpuFeesOf,
+  gpuGroupKey,
+  GpuPlan,
+  gpuPriceOf,
+  gpuResourcesOf,
+  planGpuCount,
+  sameGpuPrice,
+  validatePlanFor,
+} from '@/utils/env-resources';
+import { formatTokenAmount } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
 import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
@@ -511,6 +523,26 @@ export function gpuSelectionMessage(error: unknown, since: string): string | nul
  * GPUs than the user selected and is paying escrow for; failing loudly surfaces the real shortfall
  * (e.g. a restored/booked pick whose units were taken by another tenant since) instead.
  */
+/**
+ * A launch must name a whole, non-negative count for EVERY GPU type of the environment. buildGpuRequests
+ * reads a missing or empty selection as "every free GPU" (the hand-sized custom picker's legacy
+ * default), which a planned launch must never fall into: a template asking for one card would book —
+ * and pay for — all eight. Throws a GPUS_MISSING selection error so it surfaces before payment.
+ */
+export function assertCompleteGpuSelection(resources: ComputeResource[], gpuSelection?: GpuSelection): void {
+  const keys = new Set(resources.filter((r) => isGpuId(r.id, r.type)).map((r) => gpuGroupKey(r)));
+  if (keys.size === 0) {
+    return;
+  }
+  const incomplete = Array.from(keys).some((key) => {
+    const units = gpuSelection?.[key];
+    return units === undefined || !Number.isInteger(units) || units < 0;
+  });
+  if (incomplete) {
+    throw gpuSelectionError(GPUS_MISSING, 'Pick how many GPUs to use for every GPU type in this environment.');
+  }
+}
+
 export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: GpuSelection): ComputeResourceRequest[] {
   const gpus = resources.filter((r) => isGpuId(r.id, r.type));
   if (gpus.length === 0) {
@@ -531,11 +563,11 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
     }
     // Advertised at all (free or not) vs. free right now — the two tell different stories, so the
     // gone-entirely case is answered from the full GPU list, not just the free one.
-    const advertised = gpus.some((gpu) => (gpu.description || 'GPU') === key);
+    const advertised = gpus.some((gpu) => gpuGroupKey(gpu) === key);
     if (!advertised) {
       throw gpuSelectionError(GPUS_MISSING, `This environment no longer offers "${key}".`);
     }
-    const ofType = freeGpus.filter((gpu) => (gpu.description || 'GPU') === key);
+    const ofType = freeGpus.filter((gpu) => gpuGroupKey(gpu) === key);
     const freeUnits = ofType.reduce((sum, gpu) => sum + getAvailableAmount(gpu), 0);
     if (freeUnits < units) {
       throw gpuSelectionError(
@@ -596,6 +628,46 @@ export function assertAllocationAvailable(resources: ComputeResource[], allocati
   }
 }
 
+/**
+ * Why a fresh launch must NOT go ahead with its planned GPUs, or null when it may. Run on the env as
+ * the node reports it right now, with the SAME ids that were quoted — never a re-resolution from counts:
+ *  - no plan at all (a selection that never went through a picker);
+ *  - the vendored validateGpuPlan rejects those ids for the demand at the planned width (gone, taken,
+ *    another group, a pool no longer whole, the layout no longer fitting…);
+ *  - the per-minute GPU price of those ids in `tokenAddress` differs from the quote.
+ * Each answer asks the user to pick again; nothing is swapped silently.
+ */
+export function launchPlanError({
+  environment,
+  plan,
+  demand,
+  tokenAddress,
+}: {
+  environment: SelectedInferenceEnv['environment'];
+  plan: GpuPlan | undefined;
+  demand: GpuDemand;
+  tokenAddress: string;
+}): string | null {
+  if (!plan) {
+    return 'This launch has no confirmed GPU selection. Go back to the environment step and pick the GPUs again.';
+  }
+  const count = planGpuCount(plan);
+  if (count === 0 && gpuResourcesOf(environment).length === 0) {
+    return demand.kind === 'vram'
+      ? 'This environment has no GPU, and this launch needs one. Pick another environment.'
+      : null;
+  }
+  const check = validatePlanFor({ environment, demand, plan, forcedGpuCount: count });
+  if (check.ok === false) {
+    return `The GPUs you picked can no longer be booked as quoted (${check.reason}). Go back and pick the environment again.`;
+  }
+  const now = gpuPriceOf(plan.requests, gpuFeesOf(environment, tokenAddress));
+  if (!sameGpuPrice(now, plan.gpuPrice)) {
+    return `The price of the GPUs you picked changed (quoted ${formatTokenAmount(plan.gpuPrice, tokenAddress)} per minute, now ${formatTokenAmount(now, tokenAddress)}). Go back and pick the environment again to confirm the new price.`;
+  }
+  return null;
+}
+
 /** Look up the resource id for a base type (cpu/ram/disk), falling back to the type name. */
 export function resourceId(resources: ComputeResource[], type: 'cpu' | 'ram' | 'disk'): string {
   return resources.find((r) => r.type === type || r.id === type)?.id ?? type;
@@ -652,11 +724,11 @@ export function parseServiceResources(
   // an untouched type as fully selected.
   const envGpus = envResources.filter((r) => isGpuId(r.id, r.type));
   envGpus.forEach((gpu) => {
-    const key = gpu.description || 'GPU';
+    const key = gpuGroupKey(gpu);
     gpuSelection[key] = (gpuSelection[key] ?? 0) + (booked.get(gpu.id) ?? 0);
   });
-  // A booked GPU id the env no longer advertises can't be mapped to a type — attribute it to the
-  // description-less fallback key (the same one the merge uses) so its units aren't silently dropped.
+  // A booked GPU id the env no longer advertises can't be mapped to a group — attribute it to a `GPU`
+  // key no group uses, so its units aren't silently dropped from the record.
   const envGpuIds = new Set(envGpus.map((r) => r.id));
   booked.forEach((amount, id) => {
     if (isGpuId(id) && !envGpuIds.has(id)) {
@@ -719,10 +791,16 @@ export function buildInferenceStartParams({
   tokenAddress,
   hfToken,
   appType,
+  gpuPlan,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
   selectedEnv: SelectedInferenceEnv;
+  /**
+   * The exact planned GPU ids, already re-validated against `selectedEnv.environment` by the caller.
+   * When set they ARE the GPU request — nothing is re-resolved from counts.
+   */
+  gpuPlan?: GpuPlan;
   /**
    * Per-type unit counts to actually request — pass the allocation hook's RESOLVED selectedByKey so
    * the launch requests exactly what was priced/escrowed. Falls back to selectedEnv.gpuSelection,
@@ -747,12 +825,17 @@ export function buildInferenceStartParams({
   // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
   // here too, before the caller runs the escrow deposit tx.
   assertAllocationAvailable(envResources, allocation);
+  if (!gpuPlan) {
+    assertCompleteGpuSelection(envResources, gpuSelection ?? selectedEnv.gpuSelection);
+  }
 
   const resources: ComputeResourceRequest[] = [
     { id: resourceId(envResources, 'cpu'), amount: allocation.cpu },
     { id: resourceId(envResources, 'ram'), amount: allocation.ram },
     { id: resourceId(envResources, 'disk'), amount: allocation.disk },
-    ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
+    ...(gpuPlan
+      ? gpuPlan.requests.filter((r) => r.amount > 0)
+      : buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection)),
   ];
 
   const metadata = buildServiceMetadata({ appType, appId: model.id });

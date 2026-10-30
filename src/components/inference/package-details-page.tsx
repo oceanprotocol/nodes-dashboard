@@ -1,5 +1,9 @@
 import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
-import usePackageEnvs, { packageFloorSizing, ResolvedPackageEnv } from '@/components/hooks/use-package-env';
+import usePackageEnvs, {
+  packageGpuCount,
+  packageParamsForWidth,
+  ResolvedPackageEnv,
+} from '@/components/hooks/use-package-env';
 import usePackageModel from '@/components/hooks/use-package-model';
 import useQuickStart, { QuickStartPick } from '@/components/hooks/use-quick-start';
 import {
@@ -17,10 +21,10 @@ import QuickStartBanner from '@/components/inference/quick-start-banner';
 import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
 import { InferenceOpenedVia, trackInferenceSelection } from '@/lib/inference-analytics';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
-import { detailsPath, encodeDeclaredResources, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
-import { declaredGpuRange } from '@/services/quick-start';
+import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { showcaseItemsForSource } from '@/services/showcase';
 import { InferencePackage } from '@/types/inference';
+import { gpuRequirementOf, planGpuCount } from '@/utils/env-resources';
 import { formatPipelineTag } from '@/utils/formatters';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
@@ -109,11 +113,10 @@ const PackageDetailsPage: React.FC = () => {
   // Commit the package (model + params + duration + engine) to context and hand off. The query is built
   // from overrides so it doesn't depend on setState timing. `pick` is set only for the Start → payment
   // path; the advanced handoff commits no env (the custom flow starts at env-selection). A pick carries
-  // the recommended CPU/RAM/disk it was priced on (recommendedSizing); the advanced handoff carries the
-  // package's per-resource MIN as a floor under the custom flow's GPU-fraction slice (packageFloorSizing,
-  // only where stricter than the env's own min, as the allocation hook takes max(envMin, floor)). The
-  // handoff also carries the package's declared resources (`reqs`), which the custom flow's env picker
-  // shows so a hand-picked env can be sized against them.
+  // the recommended CPU/RAM/disk it was priced on (recommendedSizing); the advanced handoff carries no
+  // sizing (the custom flow's GPU-fraction slice, as for any hand-sized launch) but does carry the
+  // package's id (`pkg`), which the custom flow's env picker resolves to the full declaration so a
+  // hand-picked env is restricted to the package's layout.
   const commitAndPush = (
     pathname: string,
     // What the quick start confirmed, when the commit came from it: the units it books, the node's own
@@ -125,18 +128,27 @@ const PackageDetailsPage: React.FC = () => {
     if (!pkg || !model) {
       return;
     }
+    // A flexing package launches at the width the pick booked (tensorParallelSize = that width, plus
+    // the package's per-width patch); a pinned one keeps its own params. The Advanced handoff carries the
+    // package params as-is — the config step then aligns the width with the GPUs booked there.
+    const params = pick ? packageParamsForWidth(pkg, planGpuCount(pick.gpuPlan)) : pkg.params;
     setSelectedModels([model]);
-    setParamsForModel(model.id, pkg.params);
+    setParamsForModel(model.id, params);
     setJobDurationSeconds(durationSeconds);
     // Carry the package's engine into the flow so the Advanced handoff lands on the custom flow with
     // it preselected (still changeable), and payment launches on the right runtime.
     setEngine(pkg.params.engine);
-    const sizing = pick ? pick.sizing : packageFloorSizing(pkg);
+    const sizing = pick ? pick.sizing : undefined;
     if (pick) {
-      setSelectedEnv({ ...pick.entry.env, environment: pick.environment, gpuSelection: pick.gpuSelection, sizing });
+      setSelectedEnv({
+        ...pick.entry.env,
+        environment: pick.environment,
+        gpuSelection: pick.gpuSelection,
+        gpuPlan: pick.gpuPlan,
+        sizing,
+      });
       setSelectedToken(pick.token);
     }
-    const declaredResources = pick ? undefined : encodeDeclaredResources(pkg.requiredResources);
     router.push({
       pathname,
       query: {
@@ -144,18 +156,19 @@ const PackageDetailsPage: React.FC = () => {
           models: [model],
           durationSeconds,
           engine: pkg.params.engine,
-          modelParamsByModel: { [model.id]: pkg.params },
+          modelParamsByModel: { [model.id]: params },
           ...(pick
             ? {
                 peerId: pick.entry.env.nodeInfo.id,
                 envId: pick.environment.id,
                 gpuSelection: pick.gpuSelection,
+                gpuPlan: pick.gpuPlan,
                 sizing,
                 tokenAddress: pick.token.address,
               }
             : { sizing }),
         }),
-        ...(declaredResources ? { reqs: declaredResources } : {}),
+        ...(pick ? {} : { pkg: pkg.id }),
       },
     });
   };
@@ -168,19 +181,21 @@ const PackageDetailsPage: React.FC = () => {
   };
 
   // Advanced handoff: same model/params, full control. Lands on the custom flow's env-selection step,
-  // so it commits no env — the user picks one there. Carries the package's per-resource min as a floor.
+  // so it commits no env — the user picks one there.
   const goToAdvancedFlow = () => commitAndPush('/inference/custom-models/resources');
 
-  // A package states its GPU count as both min and recommended today, so this rarely scales; the
-  // range still lets a package that declares one fall back instead of failing.
-  const gpuRange = useMemo(() => (pkg ? declaredGpuRange(pkg.requiredResources) : null), [pkg]);
+  // A pinned package launches only at its own tensor-parallel width; a flexing one (sizing) at any of
+  // its derived widths — packageGpuCount is undefined for it, and the pick's width sets its TP.
+  const gpuRequirement = useMemo(() => (pkg ? (gpuRequirementOf(pkg.recommendedResources) ?? null) : null), [pkg]);
+  const forcedGpuCount = pkg ? packageGpuCount(pkg) : undefined;
 
   const quickStart = useQuickStart({
     entries: resolved,
     loading: envsLoading,
     loadError,
     retry,
-    gpuRange,
+    gpuRequirement,
+    forcedGpuCount,
     // Packages never launch without a GPU (the model has to fit in VRAM), whatever the env allows.
     allowZeroGpu: false,
     durationSeconds,

@@ -1,3 +1,29 @@
+/**
+ * The attention fields of config.json that decide legal tensor-parallel widths, kept RAW (top level and
+ * the nested `text_config` of multimodal repos) so the vendored legalTpWidths applies its own
+ * preference between them.
+ */
+export type HfAttentionShape = {
+  num_attention_heads?: number;
+  num_key_value_heads?: number;
+  text_config?: { num_attention_heads?: number; num_key_value_heads?: number };
+};
+
+/**
+ * The model shape that sizes its KV cache, read from config.json — from `text_config` when that is where
+ * the language model's heads live (multimodal repos), else the top level. Every field null when absent.
+ */
+export type HfModelShape = {
+  numAttentionHeads: number | null;
+  numKeyValueHeads: number | null;
+  numHiddenLayers: number | null;
+  /** `head_dim`, else hidden_size / num_attention_heads when both are known. */
+  headDim: number | null;
+  /** MLA latent rank (DeepSeek-style); present means the KV cache is MLA (replicated per rank). */
+  kvLoraRank: number | null;
+  qkRopeHeadDim: number | null;
+};
+
 /** Model-derived engine defaults pulled from HF config.json + tokenizer_config.json. */
 export type HuggingFaceModelConfig = {
   architecture: string | null;
@@ -7,6 +33,10 @@ export type HuggingFaceModelConfig = {
   quantizationMethod: string | null;
   /** True when the model's chat template references tools — a prerequisite for vLLM tool calling. */
   supportsTools: boolean;
+  /** Raw attention head counts for the tensor-parallel width check (null when config.json is missing). */
+  attention: HfAttentionShape | null;
+  /** KV-cache sizing fields (see HfModelShape). */
+  shape: HfModelShape;
 };
 
 export type ModelQuantization = 'none' | 'fp8' | 'awq' | 'gptq';
@@ -172,4 +202,9 @@ export type HuggingFaceModel = {
    * weights — GGUF-only repos never have it — so it means "unknown", not "zero".
    */
   paramCount?: number;
+  /**
+   * The same safetensors index split by dtype (`{ BF16: 7.2e9, F8_E4M3: … }`) — element counts, so a
+   * packed int4 checkpoint shows its I32 containers. Sizes weights far better than one total × a guess.
+   */
+  paramsByDtype?: Record<string, number>;
 };

@@ -1,6 +1,8 @@
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import { packageGpuCount } from '@/components/hooks/use-package-env';
 import { catalogueFor } from '@/components/inference/catalogue-config';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceNavigation from '@/components/inference/inference-navigation';
@@ -11,9 +13,10 @@ import SelectInferenceEnvironment, {
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
-import { decodeDeclaredResources, detailsPath, INFERENCE_PATHS } from '@/services/inference-url';
-import { templateFloorSizing, templateNeedsConfigStep } from '@/services/template-launch';
+import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
+import { templateNeedsConfigStep } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
+import type { GpuPlan } from '@/utils/env-resources';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -39,21 +42,24 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
   // Computed once — reused by the stepper and the next-step routing below.
   const needsConfigStep = templateNeedsConfigStep(selectedTemplate);
 
-  // What the template or package declares it needs, shown above the env list. A custom-model flow only
-  // has this when a package handed off to it (`reqs`); one started from the model picker never does.
-  const reqsParam = router.query.reqs;
+  // What the template or package declares it needs, shown above the env list and restricting the GPU
+  // picks. A custom-model flow only has this when a package handed off to it (`pkg`, its id — resolved
+  // to the full declaration, layouts included); one started from the model picker never does.
+  const pkgId = firstQueryValue(router.query.pkg);
+  const { packages } = useDefaultModelPackages();
+  const handoffPackage = useMemo(
+    () => (isCustomModelFlow && pkgId ? packages.find((p) => p.id === pkgId) : undefined),
+    [isCustomModelFlow, pkgId, packages]
+  );
   const declaredResources = useMemo(() => {
     if (isTemplateFlow) {
-      return selectedTemplate
-        ? { required: selectedTemplate.requiredResources, recommended: selectedTemplate.recommendedResources }
-        : undefined;
+      return selectedTemplate?.recommendedResources;
     }
-    if (isCustomModelFlow) {
-      const required = decodeDeclaredResources(reqsParam);
-      return required ? { required } : undefined;
-    }
-    return undefined;
-  }, [isTemplateFlow, isCustomModelFlow, selectedTemplate, reqsParam]);
+    return handoffPackage?.recommendedResources;
+  }, [isTemplateFlow, selectedTemplate, handoffPackage]);
+  // A pinned package launches as exactly its tensor-parallel width; a flexing one (sizing) as any of its
+  // derived widths — the config step then sets the width to the GPUs booked.
+  const forcedGpuCount = handoffPackage ? packageGpuCount(handoffPackage) : undefined;
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
   // Bounce back to the picker if we landed here (deep link / refresh) with nothing selected — but not
@@ -107,6 +113,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
       envId: string;
       tokenAddress: string;
       gpuSelection: GpuSelection;
+      gpuPlan: GpuPlan;
     },
     // Resources of the allocation just picked. Comes from the picker because `selectedEnv` still holds
     // the previous env this tick — deriving from it would report the wrong (or no) hardware.
@@ -143,14 +150,13 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
         break;
       }
       case InferenceFlowType.Template: {
-        // Show result storage and configurable env vars before payment for every template.
-        // Pin recommended CPU/RAM/disk into the URL either way (re-hydrated from the query on arrival).
-        const sizing = selectedTemplate ? templateFloorSizing(selectedTemplate) : undefined;
+        // Show result storage and configurable env vars before payment for every template. A hand-picked
+        // env books the GPU-fraction slice of CPU/RAM/disk, as any Advanced launch does.
         const nextStep = needsConfigStep ? 'config' : 'payment';
         trackNextStep(nextStep);
         router.push({
           pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/${nextStep}`,
-          query: { ...router.query, ...buildSelectionQuery({ ...picked, sizing }) },
+          query: { ...router.query, ...buildSelectionQuery(picked) },
         });
         break;
       }
@@ -192,6 +198,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
                   <SelectInferenceEnvironment
                     declaredResources={declaredResources}
                     flowType={flowType}
+                    forcedGpuCount={forcedGpuCount}
                     onEnvSelected={goToNextStep}
                   />
                   <InferenceNavigation

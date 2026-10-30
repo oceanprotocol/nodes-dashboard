@@ -3,7 +3,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useInferenceAllocation, {
-  drawUnitsAcrossTypes,
+  GpuRequest,
   GpuSelection,
   ResourceSizing,
 } from '@/components/hooks/use-inference-allocation';
@@ -12,10 +12,26 @@ import Select from '@/components/input/select';
 import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { assertAllocationAvailable, buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
+import { assertAllocationAvailable, gpuSelectionMessage } from '@/services/inference-launch';
+import { bookedVramGb, vramFitMessage, vramShortfallMessage } from '@/services/vram-estimate';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
-import { declaredGpuOptions, DeclaredRequirement, preferredGpuOption } from '@/utils/env-resources';
+import {
+  DeclaredRequirement,
+  demandOf,
+  GpuDemand,
+  gpuFeesOf,
+  gpuPickerModel,
+  GpuPlan,
+  gpuPriceOf,
+  GpuRequirement,
+  gpuResourcesOf,
+  NO_GPU_PLAN,
+  planOf,
+  sameGpuPrice,
+  selectionOfRequests,
+  validatePlanFor,
+} from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatGb, formatTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
@@ -43,7 +59,9 @@ type InferenceEnvironmentCardProps = {
     tokenAddress: string,
     tokenSymbol: string,
     gpuSelection: GpuSelection,
-    environment: ComputeEnvironment
+    environment: ComputeEnvironment,
+    /** The exact GPU ids picked and their per-minute price, re-checked on `environment` just now. */
+    gpuPlan: GpuPlan
   ) => void;
   /** Reports the current fee token (address + symbol) on settle/switch — lets a read-only card (no
    * `onSelect`) still surface the user's token pick. */
@@ -58,7 +76,12 @@ type InferenceEnvironmentCardProps = {
    * pass a value to render a fixed selection read-only (e.g. the selection summary).
    */
   gpuSelection?: GpuSelection;
-  /** Seeds the chips when the card is uncontrolled (e.g. restoring a prior pick for this env). Defaults to all units. */
+  /** With a controlled `gpuSelection`: the exact GPU ids it books, so the price shown is theirs. */
+  gpuRequests?: GpuRequest[];
+  /**
+   * Seeds the chips when the card is uncontrolled (e.g. restoring a prior pick for this env) — used only
+   * when it is still one bookable group; otherwise the planner's cheapest candidate is the default.
+   */
   initialSelection?: GpuSelection;
   /**
    * How to size/display/price the shared CPU/RAM/disk: `pinned` fixed amounts (quick start), a `floor`
@@ -67,12 +90,22 @@ type InferenceEnvironmentCardProps = {
    */
   sizing?: ResourceSizing;
   /**
-   * The launch target's declared resource requirements (template `requiredResources`/
-   * `recommendedResources`, or a package's `requiredResources`) — used ONLY to restrict which GPU unit
-   * counts are offered per type (see {@link declaredGpuOptions}). Omit (or pass a requirement list with
-   * no GPU entry) to keep the full 1..max row, e.g. the custom HF-model flow which declares nothing.
+   * The launch target's recommended resources (a template's or package's `recommendedResources`) — its
+   * GPU entry decides which (group, count) bookings are offered (the planner's candidates). Ignored when
+   * `gpuDemand` is passed.
    */
   declaredRequirements?: DeclaredRequirement[];
+  /**
+   * What the GPUs must satisfy, when it isn't a declared requirement — the custom-model flow passes its
+   * memory estimate (`vram`) or, without one / with "show all", its legal tensor-parallel widths (`units`).
+   */
+  gpuDemand?: GpuDemand;
+  /** Offer only the layout of this many cards — a package's pinned tensor-parallel width. */
+  forcedGpuCount?: number;
+  /** Estimated VRAM (GB) a custom model needs; the card warns when the picked group's cards carry less. */
+  modelVramGb?: number;
+  /** A custom model's estimated layouts: the card warns (never blocks) when the active pick doesn't fit them. */
+  advisoryRequirement?: GpuRequirement;
   /**
    * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
    * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually
@@ -101,9 +134,14 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   onTokenChange,
   disabledReason,
   gpuSelection: controlledSelection,
+  gpuRequests: controlledRequests,
   initialSelection,
   sizing,
   declaredRequirements,
+  gpuDemand,
+  forcedGpuCount,
+  modelVramGb,
+  advisoryRequirement,
   allowZeroGpu = false,
 }) => {
   const { account, provider } = useOceanAccount();
@@ -156,10 +194,59 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   }, [tokenAddress, tokenSymbol, onTokenChange]);
 
   const isControlled = controlledSelection !== undefined;
-  // Local per-type selection when the card owns it; null until we learn the GPU types.
-  const [ownSelection, setOwnSelection] = useState<GpuSelection | null>(null);
 
-  const activeSelection = isControlled ? controlledSelection : (ownSelection ?? undefined);
+  // What this launch asks of the GPUs (template/package VRAM requirement, a custom model's estimate or
+  // legal widths, or nothing). Every count offered, the default and the ids booked come from the
+  // planner (env-resources → vendored ocean.js planGpuLayouts), never from a local fit rule.
+  const demand: GpuDemand = useMemo(
+    () => gpuDemand ?? demandOf(declaredRequirements),
+    [gpuDemand, declaredRequirements]
+  );
+  const gpuFees = useMemo(() => gpuFeesOf(environment, tokenAddress), [environment, tokenAddress]);
+  const envHasGpus = useMemo(() => gpuResourcesOf(environment).length > 0, [environment]);
+
+  /**
+   * The card's own pick: ONE group and a card count (count 0 = no GPU). Selecting a count on a group
+   * zeroes every other group — cards of two types are never booked together. `userPicked` separates a
+   * click from the automatic seed, which may re-seed itself when availability moves under it.
+   */
+  const [pick, setPick] = useState<{ groupKey: string | null; count: number; userPicked: boolean } | null>(null);
+  // A different demand (a custom model's estimate landing, the "show all" toggle) re-seeds the pick.
+  const demandKey = JSON.stringify([demand, forcedGpuCount ?? null]);
+  const [pickDemandKey, setPickDemandKey] = useState(demandKey);
+  if (pickDemandKey !== demandKey) {
+    setPickDemandKey(demandKey);
+    setPick(null);
+  }
+
+  // Candidates for every (group, count), ignoring the shared-resource budget — ids don't depend on it.
+  const pickerAll = useMemo(
+    () => gpuPickerModel({ environment, demand, fees: gpuFees, forcedGpuCount, unitBudget: Number.POSITIVE_INFINITY }),
+    [environment, demand, gpuFees, forcedGpuCount]
+  );
+  const pickedCandidate =
+    pick && pick.count > 0 && pick.groupKey !== null
+      ? pickerAll.groups.find((g) => g.key === pick.groupKey)?.live.get(pick.count)
+      : undefined;
+  // The exact plan behind the pick: no GPU for a zero pick, the planner's ids otherwise; null while the
+  // picked count isn't bookable (busy, or not a candidate any more).
+  // An env without GPUs books none.
+  const gpuPlan: GpuPlan | null = !envHasGpus
+    ? NO_GPU_PLAN
+    : !pick
+      ? null
+      : pick.count === 0
+        ? NO_GPU_PLAN
+        : pickedCandidate
+          ? planOf(pickedCandidate)
+          : null;
+  const ownSelection = useMemo<GpuSelection>(() => {
+    const zero = selectionOfRequests(environment, []);
+    if (pick && pick.groupKey !== null && pick.count > 0) {
+      zero[pick.groupKey] = pick.count;
+    }
+    return zero;
+  }, [environment, pick]);
 
   const {
     mergedGpus,
@@ -175,55 +262,58 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   } = useInferenceAllocation({
     environment,
     tokenAddress,
-    gpuSelection: activeSelection,
+    gpuSelection: isControlled ? controlledSelection : ownSelection,
+    // Controlled: price the ids the caller booked. Own pick: price the planner's ids for it.
+    gpuRequests: isControlled ? controlledRequests : (gpuPlan?.requests ?? undefined),
     sizing,
     durationSeconds,
   });
 
-  // Declared GPU requirement (template/package), if any — restricts each type's row to just the
-  // declared values instead of the full 1..max range, and drives the default (biggest declared option,
-  // clamped) below instead of "every pickable unit". `undefined` (no requirement passed, or one with no
-  // GPU entry — e.g. the custom HF-model flow) makes declaredGpuOptions return null per type, which is
-  // the "no restriction" signal that keeps today's full-range behavior end to end.
-  const gpuReq = declaredRequirements?.find((r) => r.type === 'gpu');
+  // Zero GPUs only for a target with no GPU requirement, in a flow that allows it, on an env whose every
+  // GPU group allows booking none (min 0).
+  const zeroAllowed = allowZeroGpu && hasGpus && demand.kind === 'none' && mergedGpus.every((g) => g.allowsZero);
 
-  // Per-type zero-eligibility: `allowZeroGpu` is caller policy (template flows only), but zero is only
-  // ever actually offered on a TYPE the env itself lets you book none of (`MergedGpu.allowsZero` — see
-  // that field's docblock). An env requiring >= 1 unit of a type keeps blocking zero on that row even
-  // when the caller allows it in general.
-  const zeroAllowedFor = useCallback((gpu: { allowsZero: boolean }) => allowZeroGpu && gpu.allowsZero, [allowZeroGpu]);
+  // The same planner, now bounded by what the free CPU/RAM/disk can back: its first candidate is the
+  // cheapest valid booking (fewer cards on a tie) — the default.
+  const pickerNow = useMemo(
+    () => gpuPickerModel({ environment, demand, fees: gpuFees, forcedGpuCount, unitBudget: maxUnitsByResources }),
+    [environment, demand, gpuFees, forcedGpuCount, maxUnitsByResources]
+  );
 
-  // Seed the local chips once the types are known: restore a prior pick for this env, else default to
-  // the biggest declared+clamped option (or, with nothing declared, every pickable unit — today's
-  // behavior). Same budget-draw as the hook's selectedByKey (drawUnitsAcrossTypes) so the seed never
-  // sums past what CPU/RAM/disk can back. A restored pick is clamped to the per-type budget left
-  // (`cap`), matching the disable rules the chips render.
+  // Seed once the groups are known: a prior pick for this env when it is still one bookable group, else
+  // zero where zero is the target's own choice, else the planner's best candidate. Never "every free unit".
   useEffect(() => {
-    if (!isControlled && ownSelection === null && mergedGpus.length > 0) {
-      setOwnSelection(
-        drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g, cap) => {
-          const prior = initialSelection?.[g.key];
-          if (prior !== undefined) {
-            // A restored pick is clamped to `cap` (it can exceed current availability).
-            return Math.min(Math.max(prior, 0), cap);
-          }
-          // No prior pick: default to the declared requirement's biggest option (clamped to this type's
-          // physical max, the same ceiling declaredGpuOptions uses for the row itself) rather than `cap`
-          // — a template asking for "1" must not default to booking every free unit. Then still clamp to
-          // `cap` so the default can't exceed the shared budget either.
-          //
-          // A target declaring NO GPU requirement (jupyterlab, hermes) takes the row's MINIMUM instead:
-          // it can't use a GPU, so the top of the offered range would book and price every free unit.
-          // That minimum is 0 where zero is permitted, else the 1-unit floor. Only when the row itself
-          // is unrestricted (nothing declared AND zero not allowed) does this return undefined and let
-          // drawUnitsAcrossTypes fill `cap` — the original behavior for the custom-model flow.
-          const options = declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) });
-          const preferred = gpuReq ? preferredGpuOption(options) : options?.[0];
-          return preferred === undefined ? undefined : Math.min(preferred, cap);
-        })
-      );
+    if (isControlled || pick !== null || !hasGpus) {
+      return;
     }
-  }, [isControlled, ownSelection, mergedGpus, maxByKey, maxUnitsByResources, initialSelection, gpuReq, zeroAllowedFor]);
+    const prior = Object.entries(initialSelection ?? {}).filter(([, n]) => n > 0);
+    if (prior.length === 1) {
+      const [groupKey, count] = prior[0];
+      const group = pickerNow.groups.find((g) => g.key === groupKey);
+      if (group?.live.has(count)) {
+        setPick({ groupKey, count, userPicked: true });
+        return;
+      }
+    }
+    if (zeroAllowed) {
+      setPick({ groupKey: null, count: 0, userPicked: false });
+      return;
+    }
+    const best = pickerNow.best;
+    setPick(
+      best
+        ? { groupKey: best.groupKey, count: best.layout?.gpuCount ?? 0, userPicked: false }
+        : { groupKey: null, count: 0, userPicked: false }
+    );
+  }, [isControlled, pick, hasGpus, initialSelection, pickerNow, zeroAllowed]);
+
+  // An automatic seed that a live read made unbookable re-seeds; a user's own pick stays (blocked, with
+  // the reason) so it never silently jumps to another GPU type.
+  useEffect(() => {
+    if (pick && !pick.userPicked && pick.count > 0 && !pickedCandidate) {
+      setPick(null);
+    }
+  }, [pick, pickedCandidate]);
 
   const editable = !isControlled && !!onSelect;
 
@@ -243,46 +333,41 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     return null;
   }, [environment]);
 
-  const setTypeCount = (key: string, count: number) => {
-    setOwnSelection((prev) => ({ ...(prev ?? {}), [key]: count }));
+  const choose = (groupKey: string | null, count: number) => {
+    setPick({ groupKey: count > 0 ? groupKey : null, count, userPicked: true });
     // The user is committing to a count — make sure the units behind it are really free. Rate-limited
     // and coalesced inside the hook, so a 1x → 2x → 4x burst costs one read.
     void refreshLiveEnv();
   };
 
-  // A live read can shrink what's bookable — another tenant took GPU units of a type (maxByKey), or
-  // took shared CPU/RAM/disk so fewer units can be backed at all (maxUnitsByResources). Trim the chips
-  // to both, or Continue would carry a count the node can no longer satisfy: `selectedByKey`
-  // deliberately clamps an explicit pick to the PHYSICAL max, not to availability, so nothing else does.
-  //
-  // Runs through the same `drawUnitsAcrossTypes` the seed above uses, so a trimmed pick lands exactly
-  // where a fresh seed would — per-type ceiling first, combined budget drawn down in declared order.
-  // Neither ceiling depends on the selection, so this can't feed back into itself.
-  useEffect(() => {
-    setOwnSelection((prev) => {
-      if (!prev || mergedGpus.length === 0) {
-        return prev;
+  // Advisory only (custom models): does the active group's pick hold the model's estimated need? Uses
+  // the estimate's own layouts when there is one, else the coarse total — never VRAM of other groups.
+  const vramWarning = useMemo(() => {
+    const count = isControlled ? selectedTotal : (pick?.count ?? 0);
+    if (advisoryRequirement && count > 0) {
+      const requests = isControlled ? (controlledRequests ?? []) : (gpuPlan?.requests ?? []);
+      if (requests.length === 0) {
+        return null;
       }
-      const next = drawUnitsAcrossTypes(mergedGpus, maxByKey, maxUnitsByResources, (g, cap) => {
-        const clamped = Math.min(Math.max(prev[g.key] ?? 0, 0), cap);
-        // With a declared requirement, a trim must still land on one of the row's OFFERED options, or
-        // Continue would carry a count with no corresponding button (confusing — "selected" with
-        // nothing highlighted). Snap down to the largest offered option that still fits `clamped`;
-        // options are clamped to `g.max` (not `cap`), so this can legitimately fall through to 0 when
-        // even the smallest declared option no longer fits the shrunk budget — same as the undeclared
-        // case clamping to 0, just via a different route.
-        const options = declaredGpuOptions(gpuReq, g.max, { allowZero: zeroAllowedFor(g) });
-        if (!options) {
-          return clamped;
-        }
-        const fitting = options.filter((n) => n <= clamped);
-        return fitting.length > 0 ? fitting[fitting.length - 1] : 0;
+      const check = validatePlanFor({
+        environment,
+        demand: { kind: 'vram', requirement: advisoryRequirement },
+        plan: { requests, gpuPrice: 0 },
       });
-      // Identity matters: returning a fresh object every render would re-render forever.
-      const unchanged = mergedGpus.every((g) => next[g.key] === prev[g.key]);
-      return unchanged ? prev : next;
-    });
-  }, [mergedGpus, maxByKey, maxUnitsByResources, gpuReq, zeroAllowedFor]);
+      return check.ok ? null : vramFitMessage(advisoryRequirement, count, bookedVramGb(environment, selectedByKey));
+    }
+    return modelVramGb ? vramShortfallMessage(modelVramGb, bookedVramGb(environment, selectedByKey)) : null;
+  }, [
+    advisoryRequirement,
+    modelVramGb,
+    environment,
+    selectedByKey,
+    isControlled,
+    selectedTotal,
+    pick,
+    gpuPlan,
+    controlledRequests,
+  ]);
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,
@@ -292,72 +377,87 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     .filter(Boolean)
     .join(' · ');
 
+  const requirementGb = demand.kind === 'vram' ? demand.requirement.recommended : null;
+
   const renderGpuTypes = () => {
     if (!hasGpus) {
       return null;
     }
-    // For each type, the shared CPU/RAM/disk budget left after units committed to OTHER types. Keeps
-    // the COMBINED pick within maxUnitsByResources without reserving budget per type up front (which
-    // would wrongly starve later types).
     return mergedGpus.map((gpu) => {
       const chosen = selectedByKey[gpu.key] ?? 0;
-      const othersSelected = selectedTotal - chosen;
-      const budgetForThisType = Math.max(0, maxUnitsByResources - othersSelected);
-      // Pickable = this type's own free units, capped by the shared budget left after other types.
-      const pickable = Math.min(maxByKey[gpu.key] ?? 0, budgetForThisType);
-      // Options to offer as buttons: the declared min/recommended, clamped into [1, gpu.max] (or
-      // [0, gpu.max] on a zero-permitting type) and deduped — or, with nothing declared, every unit
-      // 1..gpu.max (today's behavior, unchanged; declaredGpuOptions itself widens this to include 0
-      // when zero is allowed and nothing was declared — see its docblock). Note this clamps against the
-      // type's PHYSICAL max, not `pickable` — an option above `pickable` still renders, just disabled
-      // with its existing tooltip reason, per spec (nothing is ever removed for being currently
-      // unavailable, only for not being a declared/useful value).
-      const zeroAllowed = zeroAllowedFor(gpu);
-      const options =
-        declaredGpuOptions(gpuReq, gpu.max, { allowZero: zeroAllowed }) ??
-        Array.from({ length: gpu.max }, (_, i) => i + 1);
-      return (
-        <div className={styles.gpuType} key={gpu.key}>
-          <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />
-          {editable ? (
-            <div className={styles.counts}>
-              {/* All offered units shown; counts above what's free are disabled (in use, or not enough
-                  shared CPU/RAM/disk) with a tooltip explaining why. */}
-              {options.map((n) => {
-                const disabled = n > pickable;
-                const button = (
-                  <Button
-                    color="accent1"
-                    disabled={disabled}
-                    onClick={() => setTypeCount(gpu.key, n)}
-                    size="xs"
-                    variant={chosen === n ? 'filled' : 'outlined'}
-                  >
-                    {n}x
-                  </Button>
-                );
-                const disabledReason =
-                  n > gpu.available
-                    ? 'This many units are currently in use.'
-                    : 'Not enough shared CPU/ RAM/ disk to back this many units right now.';
-                return disabled ? (
-                  // Disabled buttons emit no pointer/focus events — focusable span (tabIndex +
-                  // aria-label) keeps the tooltip reason reachable by keyboard and screen readers.
-                  <Tooltip key={n} title={disabledReason}>
-                    <span tabIndex={0} aria-label={`${n}x: ${disabledReason}`}>
-                      {button}
-                    </span>
-                  </Tooltip>
-                ) : (
-                  <span key={n}>{button}</span>
-                );
-              })}
-            </div>
-          ) : (
+      const group = pickerAll.groups.find((g) => g.key === gpu.key);
+      // Counts offered as buttons: what the planner could ever book on this group (busy ones render
+      // disabled, never removed), plus 0 when the target may run without a GPU.
+      const options = [...(zeroAllowed ? [0] : []), ...(group?.offered ?? [])];
+      const label = <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />;
+      if (!editable) {
+        return (
+          <div className={styles.gpuType} key={gpu.key}>
+            {label}
             <span className={classNames('chip', 'chipAccent2', styles.countStatic)}>
               {chosen} / {gpu.max} selected
             </span>
-          )}
+          </div>
+        );
+      }
+      if (options.length === 0) {
+        return (
+          <div className={styles.gpuType} key={gpu.key}>
+            {label}
+            <span className={classNames('chip', 'chipGlass', styles.countStatic)}>
+              {demand.kind === 'vram' && gpu.vramGb === undefined
+                ? 'VRAM not reported'
+                : requirementGb !== null
+                  ? `Can't hold ${formatGb(requirementGb)} VRAM`
+                  : 'Not bookable'}
+            </span>
+          </div>
+        );
+      }
+      const active = pick !== null && pick.groupKey === gpu.key && pick.count > 0;
+      return (
+        <div className={styles.gpuType} key={gpu.key}>
+          {label}
+          <div className={styles.counts}>
+            {/* One group at a time: picking a count here zeroes every other row. Counts that can't be
+                booked right now stay visible, disabled, with the reason in a tooltip. */}
+            {options.map((n) => {
+              const liveNow = n === 0 || !!group?.live.has(n);
+              const disabled = n > 0 && (!liveNow || n > maxUnitsByResources);
+              const isChosen = n === 0 ? pick !== null && pick.count === 0 : active && pick?.count === n;
+              const button = (
+                <Button
+                  color="accent1"
+                  disabled={disabled}
+                  onClick={() => choose(gpu.key, n)}
+                  size="xs"
+                  variant={isChosen ? 'filled' : 'outlined'}
+                >
+                  {n}x
+                </Button>
+              );
+              const disabledReason =
+                n > gpu.available
+                  ? 'This many units are currently in use.'
+                  : n > maxUnitsByResources
+                    ? 'Not enough shared CPU/ RAM/ disk to back this many units right now.'
+                    : "These GPUs can't be booked together right now (reserved or pooled units).";
+              return disabled ? (
+                // Disabled buttons emit no pointer/focus events — focusable span (tabIndex +
+                // aria-label) keeps the tooltip reason reachable by keyboard and screen readers.
+                <Tooltip key={n} title={disabledReason}>
+                  <span tabIndex={0} aria-label={`${n}x: ${disabledReason}`}>
+                    {button}
+                  </span>
+                </Tooltip>
+              ) : (
+                <span key={n}>{button}</span>
+              );
+            })}
+            {!active && !zeroAllowed && (
+              <span className={classNames('chip', 'chipGlass', styles.countStatic)}>none</span>
+            )}
+          </div>
         </div>
       );
     });
@@ -365,61 +465,71 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   // Reason the env can't be selected right now: a caller-supplied block (e.g. duration out of bounds)
   // wins, then the wallet/access gate — the node enforces the env's access list at serviceStart (403
-  // 'Access denied'), so block here rather than after the user has paid escrow — then GPU-only cases
-  // — fully busy, or the user zeroed every type — then a cross-resource constraint the built request
-  // would violate (the node would reject it). Null → selectable. Drives the disabled state + tooltip.
+  // 'Access denied'), so block here rather than after the user has paid escrow — then GPU-only cases,
+  // then a cross-resource constraint the built request would violate (the node would reject it).
+  // Null → selectable. Drives the disabled state + tooltip.
   const accessBlockedReason =
     paidAccess === null
       ? 'You need to log in to continue.'
       : paidAccess
         ? null
         : "Your wallet address is not in this environment's access list.";
-  // Zero is a legitimate "continue" state only when EVERY GPU type in the env allows it — a mixed env
-  // (one type with min 0, another with min 1) still needs at least one real unit picked overall, since
-  // the type requiring >= 1 is never satisfied by leaving it at zero.
-  const zeroSelectionAllowed = hasGpus && mergedGpus.every((g) => zeroAllowedFor(g));
-  // A user who deliberately wants 0 GPUs doesn't care that every unit is currently busy — exhaustion
-  // only matters to a selection that actually asks for units. Without this, a zero-permitting template
-  // on a fully-booked env would wrongly show "all GPU units in use" for a pick that needs none.
-  const zeroSelected = selectedTotal <= 0 && zeroSelectionAllowed;
+  const zeroSelected = !!pick && pick.count === 0 && zeroAllowed;
+  // A declared GPU recommendation no group here can ever hold: no pick on this env can run the model.
+  const noFittingLayout =
+    demand.kind === 'vram' && hasGpus && pickerAll.groups.every((g) => g.offered.length === 0)
+      ? `No GPU here can hold the recommended ${formatGb(demand.requirement.recommended)} of VRAM.`
+      : null;
+  // The pick must be exactly one valid layout of one group (the vendored plan validator), or zero GPUs
+  // where the target allows that.
+  const planReason = useMemo(() => {
+    if (!hasGpus) {
+      return demand.kind === 'vram' ? 'This environment has no GPU, and this launch needs one.' : null;
+    }
+    if (!pick) {
+      return 'Select at least one GPU unit to continue.';
+    }
+    if (pick.count === 0) {
+      return zeroSelected ? null : 'Select at least one GPU unit to continue.';
+    }
+    if (!gpuPlan) {
+      return 'That many GPUs of this type can no longer be booked here. Pick another count.';
+    }
+    if (pick.count > maxUnitsByResources) {
+      return 'Not enough shared CPU/ RAM/ disk to back this many units right now.';
+    }
+    const check = validatePlanFor({ environment, demand, plan: gpuPlan, forcedGpuCount });
+    return check.ok === false ? check.reason : null;
+  }, [hasGpus, pick, zeroSelected, gpuPlan, maxUnitsByResources, environment, demand, forcedGpuCount]);
   const selectBlockedReason =
     disabledReason ??
     accessBlockedReason ??
-    (hasGpus
-      ? gpuExhausted && !zeroSelected
-        ? 'All GPU units in this environment are currently in use.'
-        : selectedTotal <= 0 && !zeroSelectionAllowed
-          ? 'Select at least one GPU unit to continue.'
-          : (constraintViolation ?? null)
-      : (constraintViolation ?? null));
+    noFittingLayout ??
+    (hasGpus && gpuExhausted && !zeroSelected ? 'All GPU units in this environment are currently in use.' : null) ??
+    planReason ??
+    constraintViolation ??
+    null;
   const selectDisabled = !tokenSymbol || !!selectBlockedReason;
 
   /**
    * Commit the pick against a freshly-read environment. The node is the only authority on which units
-   * are free, and it rejects a serviceStart naming a taken GPU outright — so re-read first, and when
-   * the pick no longer fits, say so and let the (now trimmed) chips be re-picked instead of carrying a
-   * doomed selection into the payment step.
+   * are free, and it rejects a serviceStart naming a taken GPU outright — so re-read first, re-check
+   * the SAME planned ids (and their price) on it, and when they no longer hold, say so and let the user
+   * pick again instead of carrying a doomed (or differently priced) selection into the payment step.
    */
   // The live read Continue forces is a node round trip, and the button stays mounted across it — a
   // second click would start a second dial and could commit the pick (and navigate) twice.
   const [committing, setCommitting] = useState(false);
   const handleContinue = async () => {
-    if (selectDisabled || committing || !tokenSymbol || !onSelect) {
+    if (selectDisabled || committing || !tokenSymbol || !onSelect || !gpuPlan) {
       return;
     }
     setCommitting(true);
     try {
       const read = await refreshLiveEnv(true);
-      const fresh = read.env ?? environment;
-      // Validate against the node's own numbers, and only those. When the read fell back to the backend
-      // snapshot (`live: false` — node unreachable, P2P not up, env not in its list) the checks below
-      // would be measuring the snapshot against itself: guaranteed to pass, and then the launch fails
-      // at serviceStart. Say the availability is unverified instead of pretending it was checked.
-      //
-      // Stopping here strands nobody who could otherwise have launched: the launch is itself a P2P
-      // call (serviceStart), and the payment step already blocks Next while the node is unreachable.
-      // So this only moves the same failure earlier — to before the escrow deposit, rather than after.
-      if (!read.live) {
+      // Validate against the node's own numbers, and only a read made now: a failed dial (or one that
+      // only had an earlier cached answer) would measure the snapshot against itself.
+      if (!read.fresh || !read.env) {
         toast.error(
           read.reason === 'unidentified'
             ? 'This node is no longer offering the environment you picked. Go back and choose one again.'
@@ -427,14 +537,15 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         );
         return;
       }
-      const freshResources = fresh.resources ?? [];
+      const fresh = read.env;
+      const check = envHasGpus ? validatePlanFor({ environment: fresh, demand, plan: gpuPlan, forcedGpuCount }) : null;
+      if (check && check.ok === false) {
+        toast.error(`These GPUs can no longer be booked: ${check.reason}. Pick again.`);
+        return;
+      }
       try {
-        buildGpuRequests(freshResources, selectedByKey);
-        // The shared resources too, not just the GPU units. `allocation` is the CPU/RAM/disk this pick
-        // is priced on, and nothing checked it until the launch itself (inference-launch) — so a tenant
-        // taking CPU or RAM in between carried a doomed selection all the way to the payment step. Uses
-        // the same assertion the launch does, so selection and launch can't disagree on what fits.
-        assertAllocationAvailable(freshResources, allocation);
+        // The shared resources too, not just the GPU units — same assertion the launch runs.
+        assertAllocationAvailable(fresh.resources ?? [], allocation);
       } catch (error) {
         toast.error(
           gpuSelectionMessage(error, 'in the meantime') ??
@@ -442,7 +553,15 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         );
         return;
       }
-      onSelect(tokenAddress, tokenSymbol, selectedByKey, fresh);
+      const freshPrice = gpuPriceOf(gpuPlan.requests, gpuFeesOf(fresh, tokenAddress));
+      if (!sameGpuPrice(freshPrice, gpuPlan.gpuPrice)) {
+        toast.error('The price of these GPUs just changed. Check the new price and press again.');
+        return;
+      }
+      onSelect(tokenAddress, tokenSymbol, selectionOfRequests(fresh, gpuPlan.requests), fresh, {
+        requests: gpuPlan.requests,
+        gpuPrice: freshPrice,
+      });
     } finally {
       setCommitting(false);
     }
@@ -489,6 +608,11 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         <div className={styles.envResources}>
           {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
           {computeText && <div className={styles.compute}>{computeText}</div>}
+          {vramWarning && (
+            <div className={styles.compute} role="status">
+              {vramWarning}
+            </div>
+          )}
           {onSelect && durationRangeText && (
             <div className={styles.duration}>Service duration: {durationRangeText}</div>
           )}

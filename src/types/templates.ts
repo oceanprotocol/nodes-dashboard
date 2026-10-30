@@ -1,3 +1,4 @@
+import type { DeclaredRequirement } from '@/utils/env-resources';
 import type { ServiceTemplatePublic, ServiceTemplateWorkflow } from '@oceanprotocol/lib';
 
 /**
@@ -88,10 +89,18 @@ export type AppEnvVarSpec = NonNullable<ServiceTemplatePublic['userConfigurableE
  * `workflows` comes from `ServiceTemplatePublic` itself as of @oceanprotocol/lib 9.0.0-next.9 — only
  * the fields the lib still lacks are declared here.
  */
-export type AppTemplate = Omit<ServiceTemplatePublic, 'userConfigurableEnvVars' | 'workflows'> &
+export type AppTemplate = Omit<
+  ServiceTemplatePublic,
+  'userConfigurableEnvVars' | 'workflows' | 'requiredResources' | 'recommendedResources'
+> &
   BundleFields & {
     userConfigurableEnvVars?: AppEnvVarSpec[];
     workflows?: TemplateWorkflow[];
+    /**
+     * What the template recommends — the only resource list a template carries now (the lib still
+     * types the retired `requiredResources` + `min` shape). GPU is total VRAM in GB, not a card count.
+     */
+    recommendedResources?: DeclaredRequirement[];
   };
 
 /** A bundle — narrowed so `service` is known present (the node's schema requires it on bundles). */

@@ -19,6 +19,13 @@ import {
 import { VLLM_TAG } from '@/services/inference-launch';
 import { getArchitectureIncompatibility } from '@/services/model-compatibility';
 import {
+  bookedVramGb,
+  customModelSizing,
+  estimateModelVramGb,
+  vramFitMessage,
+  vramShortfallMessage,
+} from '@/services/vram-estimate';
+import {
   HuggingFaceModelConfig,
   InferenceEngine,
   KvCacheDtype,
@@ -30,6 +37,7 @@ import {
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
+import { planGpuCount, validatePlanFor } from '@/utils/env-resources';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -179,14 +187,16 @@ function validateParams(
     if (v.gpuMemoryUtilization < gpuMin || v.gpuMemoryUtilization > gpuMax) {
       errors.gpuMemoryUtilization = `Must be between ${gpuMin} and ${gpuMax}.`;
     }
-    // Sharding across more GPUs than were booked makes vLLM exit at startup, so the booked count is a
-    // hard ceiling. null/1 = single GPU, always valid.
-    if (v.tensorParallelSize != null) {
-      if (v.tensorParallelSize < 1 || !Number.isInteger(v.tensorParallelSize)) {
-        errors.tensorParallelSize = 'Must be a whole number of GPUs (1 or more).';
-      } else if (v.tensorParallelSize > bookedGpus) {
-        errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked, so the model can't shard across more.`;
-      }
+    // vLLM shards across exactly tensor-parallel-size cards: more than were booked exits at startup, and
+    // fewer leaves the rest billed and idle. So with several GPUs booked it must equal the booked count;
+    // null/1 is valid only on a single-GPU booking.
+    const tp = v.tensorParallelSize ?? 1;
+    if (!Number.isInteger(tp) || tp < 1) {
+      errors.tensorParallelSize = 'Must be a whole number of GPUs (1 or more).';
+    } else if (tp > Math.max(bookedGpus, 1)) {
+      errors.tensorParallelSize = `Only ${bookedGpus} GPU${bookedGpus === 1 ? '' : 's'} booked, so the model can't shard across more.`;
+    } else if (bookedGpus > 1 && tp !== bookedGpus) {
+      errors.tensorParallelSize = `${bookedGpus} GPUs are booked, so set this to ${bookedGpus} — vLLM would leave the other ${bookedGpus - tp} idle but billed. Or go back and book ${tp}.`;
     }
     if (v.toolCalling && !v.toolCallParser) {
       errors.toolCallParser = 'Pick a parser. Tool calling breaks at runtime without one.';
@@ -230,9 +240,14 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // GPUs booked on the resources step (which runs before this one). This is the ceiling for tensor
   // parallelism — sharding across more GPUs than were booked makes vLLM exit at startup. 1 or fewer
   // means there's nothing to shard, so the field is hidden and the flag is never emitted.
+  // The planned width when the pick carries one (always a single GPU group); otherwise the booked
+  // units, which a picked selection also holds in one group.
   const bookedGpus = useMemo(
-    () => Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, count) => sum + count, 0),
-    [selectedEnv?.gpuSelection]
+    () =>
+      selectedEnv?.gpuPlan
+        ? planGpuCount(selectedEnv.gpuPlan)
+        : Object.values(selectedEnv?.gpuSelection ?? {}).reduce((sum, count) => sum + count, 0),
+    [selectedEnv?.gpuPlan, selectedEnv?.gpuSelection]
   );
   // `config` = LATEST fetched facts (drives locked ceiling/quant + tool visibility). `defaultsConfig`
   // = baseline the form defaults build from — frozen except on first load and explicit "Reload
@@ -501,16 +516,69 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     }
   }, [showTools, formik, config]);
 
-  // Going back and re-booking fewer GPUs would otherwise leave a now-impossible shard width behind
-  // (the field hides below 2 GPUs, so the user couldn't even see the stale value to fix it).
+  // Keep the shard width on the booking: going back and re-booking fewer GPUs would otherwise leave an
+  // impossible width behind (the field hides below 2 GPUs, so the user couldn't even see it), and a
+  // multi-GPU booking with no width set would shard across one card and bill the rest idle. A width a
+  // preset or the user set on the same booking is left alone — validation flags a mismatch.
   useEffect(() => {
-    if (formik.values.engine !== 'vllm' || formik.values.tensorParallelSize == null) {
+    if (formik.values.engine !== 'vllm') {
       return;
     }
-    if (formik.values.tensorParallelSize > bookedGpus) {
+    const tp = formik.values.tensorParallelSize;
+    if (tp != null && tp > bookedGpus) {
       formik.setFieldValue('tensorParallelSize', bookedGpus > 1 ? bookedGpus : null);
+    } else if (tp == null && bookedGpus > 1) {
+      formik.setFieldValue('tensorParallelSize', bookedGpus);
     }
   }, [bookedGpus, formik]);
+
+  // Advisory fit check, recomputed as the context / precision / quantization / memory share change: the
+  // same per-width estimate the env picker filtered with (customModelSizing), checked against the
+  // booked GPUs of the active group. Also flags a booked width the model's heads can't split across.
+  // A warning, never a block — the picker's "show all GPUs" path is allowed to book anything.
+  const selectedModel = selectedModels.find((m) => m.id === modelId);
+  const paramCount = selectedModel?.paramCount;
+  const vramWarning = useMemo(() => {
+    const values = formik.values;
+    if (values.engine !== 'vllm' || !selectedEnv) {
+      return null;
+    }
+    const booked = bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection);
+    const sizing =
+      selectedModel && config
+        ? customModelSizing({ model: selectedModel, config, params: values, engine: 'vllm' })
+        : null;
+    const warnings: string[] = [];
+    if (sizing?.widths && bookedGpus > 0 && !sizing.widths.includes(bookedGpus)) {
+      warnings.push(
+        `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM will refuse to start. Go back and book one of those counts.`
+      );
+    }
+    if (sizing?.requirement && selectedEnv.gpuPlan && bookedGpus > 0) {
+      const check = validatePlanFor({
+        environment: selectedEnv.environment,
+        demand: { kind: 'vram', requirement: sizing.requirement },
+        plan: selectedEnv.gpuPlan,
+      });
+      if (!check.ok) {
+        warnings.push(vramFitMessage(sizing.requirement, bookedGpus, booked));
+      }
+    } else if (!sizing?.requirement) {
+      const estimate = estimateModelVramGb({
+        paramCount,
+        quantization: values.quantization,
+        dtype: values.dtype,
+        checkpointQuantization: config?.quantizationMethod,
+        torchDtype: config?.torchDtype,
+        gpuMemoryUtilization: values.gpuMemoryUtilization,
+      });
+      const shortfall = vramShortfallMessage(estimate, booked);
+      if (shortfall) {
+        warnings.push(shortfall);
+      }
+    }
+    return warnings.length > 0 ? warnings.join(' ') : null;
+  }, [formik.values, selectedModel, paramCount, config, selectedEnv, bookedGpus]);
 
   // vLLM cold launch flags — how the server loads and runs the raw HF weights. `v` is the narrowed
   // vLLM branch of the form values (writes still go through formik by field name).
@@ -692,7 +760,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               hint="--tensor-parallel-size"
               label={labelWithInfo(
                 `Tensor parallelism - ${v.tensorParallelSize ?? 1}`,
-                'How many GPUs to split the model across. 1 keeps it on a single GPU; higher shards the weights so a model too big for one GPU fits, and can speed up inference. Can’t exceed the GPUs you booked, and some models require a value that divides their attention heads evenly.'
+                'How many GPUs to split the model across. Must match the GPUs you booked: vLLM uses exactly this many, so fewer leaves booked GPUs idle. Some models require a value that divides their attention heads evenly.'
               )}
               max={bookedGpus}
               min={1}
@@ -703,6 +771,11 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               value={v.tensorParallelSize ?? 1}
               valueLabelFormat={(value) => String(value)}
             />
+          )}
+          {vramWarning && (
+            <div className="textSecondary" role="status">
+              {vramWarning}
+            </div>
           )}
           <Select<KvCacheDtype>
             size="sm"
@@ -906,7 +979,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
           </div>
         ) : authState === 'rejected' ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>
-            The Hugging Face token was rejected for this model, as it is invalid or lacks access. Check the token and reload.
+            The Hugging Face token was rejected for this model, as it is invalid or lacks access. Check the token and
+            reload.
           </div>
         ) : loadError ? (
           <div className={cx(styles.notice, styles.noticeWarning)}>{loadError}</div>
