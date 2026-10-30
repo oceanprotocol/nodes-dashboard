@@ -94,12 +94,6 @@
   min-width: 0;
 }
 
-.itemLinksOut {
-  color: var(--text-secondary);
-  flex: 0 0 auto;
-  font-size: 14px;
-}
-
 /* Segmented light / system / dark control. Only the selected option shows its label; three equal
    columns would leave each one ~40px in this narrow card, enough only for "Li…". */
 .theme {

@@ -1,7 +1,7 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { captureError } from '@/lib/analytics';
 import { buildEscrowBundleArgs, getEscrowAddressForChain } from '@/lib/escrow-bundle';
-import { getTokenDecimals } from '@/lib/token-symbol';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
@@ -19,7 +19,6 @@ export const DEFAULT_MAX_LOCK_COUNT = 10;
 export type PaymentFlow = 'run-job' | 'inference';
 
 export interface PaySessionParams {
-  tokenAddress: string;
   peerId?: string;
   spender: string;
   // Amount to deposit into escrow. Pass "0" (or omit) when escrow already holds enough.
@@ -32,8 +31,6 @@ export interface PaySessionParams {
    * the `payment_*` events can't be attributed to a flow in PostHog.
    */
   flow?: PaymentFlow;
-  /** Analytics only: symbol of the payment token (e.g. "COMPY", "USDC"). */
-  tokenSymbol?: string;
   /** Analytics only: total cost of the service in token units (not wei) — what the payment summary shows. */
   totalCost?: number;
   /** Analytics only: length of the session being paid for (the extra time, for a prolong). */
@@ -69,7 +66,6 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
 
   const handlePay = useCallback(
     async ({
-      tokenAddress,
       peerId,
       spender,
       depositAmount,
@@ -77,12 +73,11 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
       maxLockSeconds,
       maxLockCount,
       flow,
-      tokenSymbol,
       totalCost,
       durationSeconds,
       successMessage,
     }: PaySessionParams) => {
-      if (!tokenAddress || !spender) {
+      if (!spender) {
         setError('Missing required parameters');
         toast.error('Missing required parameters');
         return false;
@@ -90,8 +85,8 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
 
       const needsDeposit = new BigNumber(depositAmount ?? 0).gt(0);
       // Shared by `payment_deposit` and `payment_authorize` on both wallet paths, so revenue can be
-      // attributed per token/flow from either event.
-      const paymentProps = { flow, tokenAddress, tokenSymbol, totalCost, durationSeconds };
+      // attributed per flow from either event.
+      const paymentProps = { flow, totalCost, durationSeconds };
 
       setIsPaying(true);
       setError(undefined);
@@ -101,7 +96,7 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           // deposit is needed (EOAs can't batch), then folds deposit + authorize into one tx.
           if (!ocean) throw new Error('Wallet not ready');
           const bundleTx = await ocean.bundleDepositAuthorizeEoa({
-            tokenAddress,
+            tokenAddress: USDC.address,
             depositAmount: needsDeposit ? depositAmount : undefined,
             spender,
             maxLockedAmount,
@@ -115,16 +110,14 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
           posthog.capture('payment_authorize', paymentProps);
         } else {
           const escrowAddress = getEscrowAddressForChain(chainId) as `0x${string}`;
-          const tokenDecimals = await getTokenDecimals(tokenAddress);
-
           const args = buildEscrowBundleArgs({
             depositAmount: needsDeposit ? depositAmount : undefined,
             maxLockCount,
             maxLockedAmount,
             maxLockSeconds,
             spender,
-            tokenAddress,
-            tokenDecimals,
+            tokenAddress: USDC.address,
+            tokenDecimals: USDC.decimals,
           });
 
           const calls: { to: `0x${string}`; data: `0x${string}` }[] = [
@@ -164,8 +157,6 @@ export const usePaySession = ({ onSuccess }: UsePaySessionParams = {}): UsePaySe
         captureError('payment_failed', err, {
           stage: 'pay_session',
           flow,
-          token_address: tokenAddress,
-          token_symbol: tokenSymbol,
           peer_id: peerId,
           deposit_amount: depositAmount,
         });

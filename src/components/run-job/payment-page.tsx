@@ -13,23 +13,16 @@ const PaymentPage = () => {
 
   const [subtitle, setSubtitle] = useState<string | undefined>(undefined);
 
-  const {
-    estimatedTotalCost,
-    freeCompute,
-    hydrateFromUrlFinished,
-    minLockSeconds,
-    selectedEnv,
-    selectedResources,
-    selectedToken,
-  } = useRunJobContext();
+  const { estimatedTotalCost, freeCompute, hydrateFromUrlFinished, minLockSeconds, selectedEnv, selectedResources } =
+    useRunJobContext();
 
   useEffect(() => {
     if (hydrateFromUrlFinished) {
-      if (!selectedToken) {
+      if (!selectedEnv || freeCompute) {
         router.replace('/run-job/environments');
       }
     }
-  }, [hydrateFromUrlFinished, router, selectedToken]);
+  }, [freeCompute, hydrateFromUrlFinished, router, selectedEnv]);
 
   return (
     <Container className="pageRoot">
@@ -49,12 +42,11 @@ const PaymentPage = () => {
         contentBetween={<Stepper<RunJobStep> currentStep="payment" steps={getRunJobSteps(freeCompute)} />}
         mobileWarning
       />
-      {hydrateFromUrlFinished && selectedEnv && selectedResources && selectedToken ? (
+      {hydrateFromUrlFinished && selectedEnv && selectedResources && !freeCompute ? (
         <div className="pageContentWrapper">
           <Payment
             minLockSeconds={minLockSeconds ?? 0}
             selectedEnv={selectedEnv}
-            selectedToken={selectedToken}
             setPageSubtitle={setSubtitle}
             totalCost={estimatedTotalCost ?? 0}
           />

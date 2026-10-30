@@ -1,5 +1,6 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { buildModelDefaults } from '@/services/huggingface-service';
 import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
@@ -716,7 +717,6 @@ export function buildInferenceStartParams({
   gpuSelection,
   allocation,
   durationSeconds,
-  tokenAddress,
   hfToken,
   appType,
 }: {
@@ -731,7 +731,6 @@ export function buildInferenceStartParams({
   gpuSelection?: GpuSelection;
   allocation: Allocation;
   durationSeconds: number;
-  tokenAddress: string;
   hfToken: string;
   /**
    * Which of the four flows launched this, stamped into the service's `metadata` alongside the model
@@ -767,6 +766,6 @@ export function buildInferenceStartParams({
     ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,
-    payment: { chainId: CHAIN_ID, token: tokenAddress },
+    payment: { chainId: CHAIN_ID, token: USDC.address },
   };
 }

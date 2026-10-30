@@ -1,7 +1,7 @@
 import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
-import { getSupportedTokens } from '@/constants/tokens';
+import { USDC } from '@/constants/tokens';
 import { ComputeEnvironment } from '@/types/environments';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -45,11 +45,7 @@ const NodeEnvPreview = ({
   const { cpu, cpuFee, disk, diskFee, gpus, gpuFees, ram, ramFee } = useEnvResources({
     environment,
     freeCompute: false,
-    tokenAddress: getSupportedTokens().USDC.address,
   });
-
-  // TODO
-  const tokenSymbol = 'USDC';
 
   const renderCpu = () => {
     if (!cpu) {
@@ -64,7 +60,7 @@ const NodeEnvPreview = ({
           <span className={styles.heading}>{cpu?.description}</span>
         </div>
         <div className={styles.label}>
-          <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol}/min
         </div>
         <div className={styles.label}>
           <span className={styles.em}>1 - {max}</span>
@@ -97,7 +93,7 @@ const NodeEnvPreview = ({
         <div key={gpu.id}>
           <HardwareLabel className={classNames(styles.heading, styles.label)} type="gpu" value={gpu.description} />
           <div className={styles.label}>
-            <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+            <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol}/min
           </div>
           <div className={styles.label}>
             <span className={styles.em}>0 - {max}</span>
@@ -121,7 +117,7 @@ const NodeEnvPreview = ({
           <span className={styles.heading}>GB RAM capacity</span>
         </div>
         <div className={styles.label}>
-          <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol}/min
         </div>
         <div className={styles.label}>
           <span className={styles.em}>0 - {max}</span>
@@ -144,7 +140,7 @@ const NodeEnvPreview = ({
           <span className={styles.heading}>GB Disk space</span>
         </div>
         <div className={styles.label}>
-          <span className={styles.em}>{fee}</span>&nbsp;{tokenSymbol}/min
+          <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol}/min
         </div>
         <div className={styles.label}>
           <span className={styles.em}>0 - {max}</span>

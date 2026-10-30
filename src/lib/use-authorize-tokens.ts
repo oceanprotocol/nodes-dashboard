@@ -1,8 +1,9 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { captureError } from '@/lib/analytics';
+import { ESCROW_AUTH_NO_EXPIRY } from '@/lib/escrow-bundle';
 import { getTokenDecimals } from '@/lib/token-symbol';
-import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
+import { useOceanAccount } from '@/lib/use-ocean-account';
 import { formatWalletAddress } from '@/utils/formatters';
 import Address from '@oceanprotocol/contracts/addresses/address.json';
 import Escrow from '@oceanprotocol/contracts/artifacts/contracts/escrow/Escrow.sol/Escrow.json';
@@ -111,6 +112,7 @@ export const useAuthorizeTokens = ({ onSuccess }: UseAuthorizeTokensParams = {})
             BigInt(normalizedMaxLockedAmount),
             BigInt(maxLockSeconds),
             BigInt(maxLockCount),
+            ESCROW_AUTH_NO_EXPIRY,
           ],
         });
 

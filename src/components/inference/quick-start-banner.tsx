@@ -3,6 +3,7 @@ import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { QuickStart } from '@/components/hooks/use-quick-start';
 import DurationInput from '@/components/input/duration-input';
+import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
 import { QuickStartEntry } from '@/services/quick-start';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatGb } from '@/utils/formatters';
@@ -153,6 +154,7 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
               <VerifiedIcon aria-label="Verified node" className={styles.verified} />
             </Tooltip>
           )}
+          <SubsidizedNodeChip nodeAddress={candidate.entry.env.environment.consumerAddress} peerId={node.id} />
         </div>
         {recommendedGpus !== null && (
           <div className={styles.note}>

@@ -6,9 +6,7 @@ import DeclaredResources from '@/components/inference/declared-resources';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
-import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
-import { getSupportedTokens } from '@/constants/tokens';
 import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import { captureError } from '@/lib/analytics';
@@ -17,7 +15,7 @@ import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/e
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { DeclaredRequirement, isBenchmarkEnv } from '@/utils/env-resources';
-import { getEnvSupportedTokens } from '@/utils/env-tokens';
+import { acceptsUsdc, getEnvUsdcFees } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
@@ -35,7 +33,7 @@ function durationBounds(env: ComputeEnvironment): { min: number; max: number } {
 
 /** An env is bookable for inference when its node is on the inference allowlist and it (a) advertises
  *  service-on-demand support — the node rejects serviceStart with 403 otherwise — (b) isn't the node's
- *  own benchmark environment, and (c) accepts a paid token we support (USDC / COMPY). */
+ *  own benchmark environment, and (c) accepts USDC. */
 function isBookableEnv(env: ComputeEnvironment, node: NodeEnvironments): boolean {
   // TODO: remove this allowlist once community nodes are allowed to run inference services. Dropping
   // this check is all that's needed here — the three tests below are capability tests, not policy.
@@ -49,7 +47,7 @@ function isBookableEnv(env: ComputeEnvironment, node: NodeEnvironments): boolean
   if (isBenchmarkEnv(env)) {
     return false;
   }
-  return getEnvSupportedTokens(env, true).length > 0;
+  return acceptsUsdc(env);
 }
 
 /** Resource/GPU/price shape captured on the inference analytics events. */
@@ -67,7 +65,6 @@ export type InferenceSelectionEstimate = {
  *  inference-allocation) used to actually book the job — a rough estimate is fine for a capture prop. */
 export function estimateSelectionForAnalytics(
   environment: ComputeEnvironment,
-  tokenAddress: string,
   gpuSelection: GpuSelection,
   durationSeconds: number
 ): InferenceSelectionEstimate {
@@ -83,7 +80,7 @@ export function estimateSelectionForAnalytics(
     gpuByDescription.set(key, [...(gpuByDescription.get(key) ?? []), gpu]);
   });
 
-  const prices = environment.fees?.[CHAIN_ID]?.find((fee) => fee.feeToken === tokenAddress)?.prices;
+  const prices = getEnvUsdcFees(environment.fees)?.prices;
   const priceFor = (id: string) => prices?.find((p) => p.id === id)?.price ?? 0;
 
   let gpuCount = 0;
@@ -125,15 +122,14 @@ const sortOptions = [
 
 type FilterFormValues = {
   gpuName: string[];
-  feeToken: string;
   sortBy: string;
 };
 
 type SelectInferenceEnvironmentProps = {
-  /** Fired after an environment/token/gpu pick is committed to context. Receives the freshly-picked
+  /** Fired after an environment/gpu pick is committed to context. Receives the freshly-picked
    *  values so the caller can navigate with them without waiting for context state to settle. */
   onEnvSelected: (
-    picked: { peerId: string; envId: string; tokenAddress: string; gpuSelection: GpuSelection },
+    picked: { peerId: string; envId: string; gpuSelection: GpuSelection },
     /** Resources/GPU of the pick itself — context hasn't settled yet, so the caller cannot derive these. */
     estimate: InferenceSelectionEstimate
   ) => void;
@@ -156,7 +152,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 }) => {
   const { loading, loadMoreEnvs, nodeEnvs, paginationResponse, filters, setFilters, setSort, sort } =
     useRunJobEnvsContext();
-  const { jobDurationSeconds, setJobDurationSeconds, setSelectedEnv, selectedEnv, setSelectedToken, selectedTemplate } =
+  const { jobDurationSeconds, setJobDurationSeconds, setSelectedEnv, selectedEnv, selectedTemplate } =
     useInferenceContext();
 
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
@@ -174,32 +170,19 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       const { min, max } = durationBounds(selectedEnv.environment);
       if (seconds < min || seconds > max) {
         setSelectedEnv(null);
-        setSelectedToken(null);
       }
     }
   };
 
   const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
 
-  const feeTokenOptions = useMemo(() => {
-    const tokens = getSupportedTokens();
-    return [
-      { label: 'Any', value: '' },
-      ...Object.keys(tokens).map((token) => ({ value: tokens[token as keyof typeof tokens].address, label: token })),
-    ];
-  }, []);
-
   const formik = useFormik<FilterFormValues>({
     initialValues: {
-      feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
       gpuName: filters.gpuName ?? [],
       sortBy: sort ?? '',
     },
     onSubmit: (values) => {
       const next: RawFilters = { ...DEFAULT_FILTERS };
-      if (values.feeToken) {
-        next.feeToken = values.feeToken;
-      }
       if (values.gpuName.length > 0) {
         next.gpuName = values.gpuName;
       }
@@ -243,8 +226,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     // the availability stored here (and the GPU ids the launch resolves from it) is the fresh one,
     // not this list's cached entry.
     environment: ComputeEnvironment,
-    tokenAddress: string,
-    tokenSymbol: string,
     gpuSelection: GpuSelection
   ) => {
     const envId = environment.id;
@@ -295,13 +276,10 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
         multiaddrs: node.multiaddrs,
       },
     });
-    setSelectedToken({ address: tokenAddress, symbol: tokenSymbol });
-    const estimate = estimateSelectionForAnalytics(environment, tokenAddress, gpuSelection, jobDurationSeconds);
+    const estimate = estimateSelectionForAnalytics(environment, gpuSelection, jobDurationSeconds);
     posthog.capture('inference_environment_selected', {
       nodeId: node.id,
       environmentId: envId,
-      tokenSymbol,
-      tokenAddress,
       gpuCount: estimate.gpuCount,
       gpuTypes: estimate.gpuTypes,
       cpu: estimate.cpu,
@@ -313,7 +291,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       flowType,
       branch,
     });
-    onEnvSelected({ peerId: node.id, envId, tokenAddress, gpuSelection }, estimate);
+    onEnvSelected({ peerId: node.id, envId, gpuSelection }, estimate);
   };
 
   return (
@@ -376,15 +354,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 size="sm"
                 value={formik.values.sortBy}
               />
-              <Select
-                label="Fee token"
-                name="feeToken"
-                onChange={formik.handleChange}
-                options={feeTokenOptions}
-                placeholder="Any"
-                size="sm"
-                value={formik.values.feeToken}
-              />
             </div>
             <div className="actionsGroupMdEnd">
               <Button className="alignSelfStart" color="accent2" loading={loading} type="submit" variant="filled">
@@ -406,7 +375,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                     // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
                     allowZeroGpu={flowType === InferenceFlowType.Template}
                     declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
-                    defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
                     durationSeconds={jobDurationSeconds}
                     environment={env}
                     initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
@@ -414,9 +382,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                     sizing={selectedEnv?.sizing}
                     selected={isPriorSelection}
                     nodeInfo={node}
-                    onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv) =>
-                      handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection)
-                    }
+                    onSelect={(gpuSelection, pickedEnv) => handleSelect(node, pickedEnv, gpuSelection)}
                   />
                 );
               })

@@ -1,6 +1,5 @@
 import RootLayout from '@/components/Layout';
 import config from '@/config';
-import { GrantProvider } from '@/context/grant-context';
 import { InferenceProvider } from '@/context/inference-context';
 import { NodeTokensProvider } from '@/context/node-tokens';
 import { NodesProvider } from '@/context/nodes-context';
@@ -10,6 +9,7 @@ import { RunJobEnvsProvider } from '@/context/run-job-envs-context';
 import { RunNodeProvider } from '@/context/run-node-context';
 import { ServicesStatsProvider } from '@/context/services-stats-context';
 import { StatsProvider } from '@/context/stats-context';
+import { SubsidyProvider } from '@/context/subsidy-context';
 import { UnbanRequestsProvider } from '@/context/unban-requests-context';
 import { P2PProvider } from '@/contexts/P2PContext';
 import { NodeStorageProvider } from '@/contexts/node-storage-context';
@@ -119,7 +119,7 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
             <QueryClientProvider client={queryClientRef.current}>
               <AlchemyProvider>
                 <OceanAccountProvider>
-                  <GrantProvider>
+                  <SubsidyProvider>
                     <NodesProvider>
                       <NodeTokensProvider>
                         <UnbanRequestsProvider>
@@ -149,7 +149,7 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
                         </UnbanRequestsProvider>
                       </NodeTokensProvider>
                     </NodesProvider>
-                  </GrantProvider>
+                  </SubsidyProvider>
                 </OceanAccountProvider>
               </AlchemyProvider>
               <ToastContainer hideProgressBar theme="colored" />

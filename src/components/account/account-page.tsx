@@ -1,12 +1,12 @@
 import AccessListsManager from '@/components/access-lists/access-lists-manager';
 import AccountNav from '@/components/account/account-nav';
 import { AccountSectionKey, getAccountSection } from '@/components/account/account-sections';
-import CompySection from '@/components/account/compy-section';
 import ConsumerSection from '@/components/account/consumer-section';
 import OwnerSection from '@/components/account/owner-section';
+import SubsidySection from '@/components/account/subsidy-section';
 import AuthRequiredPage from '@/components/auth/auth-required-page';
 import Container from '@/components/container/container';
-import EscrowManager from '@/components/escrow/escrow-manager';
+import EscrowSection from '@/components/escrow/escrow-section';
 import RemoteStorageManager from '@/components/node-storage/remote-storage-manager';
 import NodeTokensManager from '@/components/node-tokens/node-tokens-manager';
 import SectionTitle from '@/components/section-title/section-title';
@@ -28,9 +28,9 @@ const renderSection = (section: AccountSectionKey) => {
     case 'consumer':
       return <ConsumerSection />;
     case 'escrow':
-      return <EscrowManager />;
-    case 'compy':
-      return <CompySection />;
+      return <EscrowSection />;
+    case 'subsidy':
+      return <SubsidySection />;
     case 'access-lists':
       return <AccessListsManager />;
     case 'storage':

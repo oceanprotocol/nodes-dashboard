@@ -1,3 +1,4 @@
+import axios from 'axios';
 import posthog from 'posthog-js';
 
 /**
@@ -83,6 +84,8 @@ export const classifyError = (error: unknown): ErrorType => {
     return 'provider';
   return 'unknown';
 };
+
+export const getHttpStatus = (error: unknown) => (axios.isAxiosError(error) ? error.response?.status : undefined);
 
 /**
  * Captures a structured failure event to PostHog. Additive helper used by the

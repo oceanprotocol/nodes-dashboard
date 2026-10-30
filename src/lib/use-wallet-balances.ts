@@ -1,4 +1,4 @@
-import { getDisplayTokens } from '@/constants/tokens';
+import { DISPLAY_TOKENS } from '@/constants/tokens';
 import { alchemyClient } from '@/lib/alchemy-client';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -26,7 +26,7 @@ export const useWalletBalances = (): UseWalletBalancesReturn => {
 
     setLoading(true);
     try {
-      const displayTokens = Object.entries(getDisplayTokens());
+      const displayTokens = Object.entries(DISPLAY_TOKENS);
       const erc20Addresses = displayTokens.filter(([, token]) => !token.isNative).map(([, token]) => token.address);
 
       const [nativeBalance, erc20Data] = await Promise.all([

@@ -6,8 +6,9 @@ import EditAuthorizationModal from '@/components/escrow/edit-authorization-modal
 import RevokeAuthorizationModal from '@/components/escrow/revoke-authorization-modal';
 import Input from '@/components/input/input';
 import Menu from '@/components/menu/menu';
+import { USDC } from '@/constants/tokens';
 import { useDepositTokens } from '@/lib/use-deposit-tokens';
-import { EscrowSpenderInfo, EscrowTokenInfo } from '@/lib/use-escrow-data';
+import { EscrowFunds, EscrowSpenderInfo } from '@/lib/use-escrow-data';
 import { useWithdrawTokens } from '@/lib/use-withdraw-tokens';
 import { formatDateTime, formatDuration, formatTokenAmount, formatWalletAddress } from '@/utils/formatters';
 import AddIcon from '@mui/icons-material/Add';
@@ -24,7 +25,7 @@ import { useRef, useState } from 'react';
 import styles from './escrow-token-panel.module.css';
 
 type EscrowTokenPanelProps = {
-  token: EscrowTokenInfo;
+  funds: EscrowFunds;
   spenders: EscrowSpenderInfo[];
   loadingSpenders: boolean;
   onChange: () => void;
@@ -33,16 +34,14 @@ type EscrowTokenPanelProps = {
   escrowAddress?: string;
 };
 
-// One spending-authorization card (right-hand side). A token can have multiple authorized
+// One spending-authorization card (right-hand side). There can be multiple authorized
 // spenders, so each gets its own card with its own edit + locks-expansion state.
 const AuthorizationCard = ({
   spender,
-  token,
   onChange,
   readOnly,
 }: {
   spender: EscrowSpenderInfo;
-  token: EscrowTokenInfo;
   onChange: () => void;
   readOnly?: boolean;
 }) => {
@@ -146,13 +145,13 @@ const AuthorizationCard = ({
         <div className={styles.statField}>
           <span className={styles.statLabel}>Max locked</span>
           <span className={styles.statValue}>
-            {formatTokenAmount(Number(auth.maxLockedAmount), token.address)} {token.symbol}
+            {formatTokenAmount(Number(auth.maxLockedAmount), USDC.address)} {USDC.symbol}
           </span>
         </div>
         <div className={styles.statField}>
           <span className={styles.statLabel}>Locked now</span>
           <span className={styles.statValue}>
-            {formatTokenAmount(Number(auth.currentLockedAmount), token.address)} {token.symbol}
+            {formatTokenAmount(Number(auth.currentLockedAmount), USDC.address)} {USDC.symbol}
           </span>
         </div>
         <div className={styles.statField}>
@@ -199,7 +198,7 @@ const AuthorizationCard = ({
                 <div className={styles.lockRow} key={lock.jobId}>
                   <span className={styles.lockJob}>{formatWalletAddress(lock.jobId)}</span>
                   <span className={styles.centerCol}>
-                    {formatTokenAmount(lock.amount, token.address)} {token.symbol}
+                    {formatTokenAmount(lock.amount, USDC.address)} {USDC.symbol}
                   </span>
                   <span className={`${styles.rightCol} ${styles.lockExpiry}`}>{formatDateTime(lock.expiry)}</span>
                 </div>
@@ -238,7 +237,7 @@ const AuthorizationCard = ({
   );
 };
 
-const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAddress }: EscrowTokenPanelProps) => {
+const EscrowTokenPanel = ({ funds, spenders, loadingSpenders, onChange, escrowAddress }: EscrowTokenPanelProps) => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const isLegacy = !!escrowAddress;
 
@@ -267,12 +266,12 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
       setError('Invalid amount');
       return;
     }
-    if (value > token.walletBalance) {
+    if (value > funds.walletBalance) {
       setError('Exceeds wallet balance');
       return;
     }
     setError(undefined);
-    handleDeposit({ tokenAddress: token.address, amount: value.toString() });
+    handleDeposit({ tokenAddress: USDC.address, amount: value.toString() });
   };
 
   const onWithdraw = () => {
@@ -281,12 +280,12 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
       setError('Invalid amount');
       return;
     }
-    if (value > token.available) {
+    if (value > funds.available) {
       setError('Exceeds available funds');
       return;
     }
     setError(undefined);
-    handleWithdraw({ tokenAddresses: [token.address], amounts: [value.toString()], escrowAddress });
+    handleWithdraw({ tokenAddresses: [USDC.address], amounts: [value.toString()], escrowAddress });
   };
 
   return (
@@ -294,14 +293,14 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
       <div className={styles.panel}>
         {/* ── Left: balance + move funds ── */}
         <div className={styles.left}>
-          <h3>{token.symbol}</h3>
+          <h3>{USDC.symbol}</h3>
 
           {/* Primary balance */}
           <div className={styles.primaryBalance}>
             <span className={styles.overline}>Available in escrow</span>
             <div className={styles.primaryAmount}>
-              <span className={styles.primaryValue}>{formatTokenAmount(token.available, token.address)}</span>
-              <span className={styles.primarySymbol}>{token.symbol}</span>
+              <span className={styles.primaryValue}>{formatTokenAmount(funds.available, USDC.address)}</span>
+              <span className={styles.primarySymbol}>{USDC.symbol}</span>
             </div>
           </div>
 
@@ -310,15 +309,15 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
             <div className={styles.secondaryRow}>
               <span className={styles.secondaryLabel}>Locked for running jobs</span>
               <span className={styles.secondaryAmount}>
-                <strong>{formatTokenAmount(token.locked, token.address)}</strong>{' '}
-                <span className={styles.secondarySymbol}>{token.symbol}</span>
+                <strong>{formatTokenAmount(funds.locked, USDC.address)}</strong>{' '}
+                <span className={styles.secondarySymbol}>{USDC.symbol}</span>
               </span>
             </div>
             <div className={styles.secondaryRow}>
               <span className={styles.secondaryLabel}>Available in wallet</span>
               <span className={styles.secondaryAmount}>
-                <strong>{formatTokenAmount(token.walletBalance, token.address)}</strong>{' '}
-                <span className={styles.secondarySymbol}>{token.symbol}</span>
+                <strong>{formatTokenAmount(funds.walletBalance, USDC.address)}</strong>{' '}
+                <span className={styles.secondarySymbol}>{USDC.symbol}</span>
               </span>
             </div>
           </div>
@@ -342,7 +341,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
               }}
               placeholder="Enter amount"
               size="sm"
-              startAdornment={<span className={styles.fundInputSymbol}>{token.symbol}</span>}
+              startAdornment={<span className={styles.fundInputSymbol}>{USDC.symbol}</span>}
               type="number"
               value={amount}
             />
@@ -351,7 +350,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
                 className={styles.fundButton}
                 color="accent1"
                 contentBefore={<FileDownloadOutlinedIcon fontSize="small" />}
-                disabled={!amount || isDepositing || Number(amount) > token.available}
+                disabled={!amount || isDepositing || Number(amount) > funds.available}
                 loading={isWithdrawing}
                 onClick={onWithdraw}
                 size="md"
@@ -365,7 +364,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
                   className={styles.fundButton}
                   color="accent1"
                   contentBefore={<FileUploadOutlinedIcon fontSize="small" />}
-                  disabled={!amount || isWithdrawing || Number(amount) > token.walletBalance}
+                  disabled={!amount || isWithdrawing || Number(amount) > funds.walletBalance}
                   loading={isDepositing}
                   onClick={onDeposit}
                   size="md"
@@ -409,13 +408,7 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
             </div>
           ) : spenders.length > 0 ? (
             spenders.map((spender) => (
-              <AuthorizationCard
-                key={spender.spender}
-                onChange={onChange}
-                readOnly={isLegacy}
-                spender={spender}
-                token={token}
-              />
+              <AuthorizationCard key={spender.spender} onChange={onChange} readOnly={isLegacy} spender={spender} />
             ))
           ) : (
             <div className={styles.noAuth}>
@@ -437,8 +430,6 @@ const EscrowTokenPanel = ({ token, spenders, loadingSpenders, onChange, escrowAd
             setIsCreateOpen(false);
             onChange();
           }}
-          tokenAddress={token.address}
-          tokenSymbol={token.symbol}
         />
       )}
     </Card>

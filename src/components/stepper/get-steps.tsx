@@ -48,8 +48,8 @@ export const getInferenceSteps = (
   { key: 'payment', label: edit ? 'Relaunch' : 'Payment' },
 ];
 
-export type GrantStep = 'details' | 'verify' | 'claim';
-export const getGrantSteps = (): Step<GrantStep>[] => [
+export type SubsidyStep = 'details' | 'verify' | 'claim';
+export const getSubsidySteps = (): Step<SubsidyStep>[] => [
   { key: 'details', label: 'Details' },
   { key: 'verify', label: 'Verify' },
   { key: 'claim', label: 'Claim' },

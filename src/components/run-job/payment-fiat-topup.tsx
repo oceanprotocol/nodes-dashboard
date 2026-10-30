@@ -1,6 +1,5 @@
 import Button from '@/components/button/button';
-import { SelectedToken } from '@/context/run-job-context';
-import { getTokenDecimals } from '@/lib/token-symbol';
+import { USDC } from '@/constants/tokens';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -18,7 +17,6 @@ type PaymentFiatTopupProps = {
   loadingPaymentInfo: boolean;
   loadPaymentInfo: () => void;
   renderBackButton?: (disabled: boolean) => React.ReactNode;
-  selectedToken: SelectedToken;
   totalCost: number;
   walletBalance: number;
 };
@@ -32,7 +30,6 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   loadingPaymentInfo,
   loadPaymentInfo,
   renderBackButton,
-  selectedToken,
   totalCost,
   walletBalance,
 }) => {
@@ -67,9 +64,8 @@ const PaymentFiatTopup: React.FC<PaymentFiatTopupProps> = ({
   const handleTopup = async () => {
     const amountToTopup = Math.max(0, totalCost - escrowBalance - walletBalance);
     try {
-      const tokenDecimals = await getTokenDecimals(selectedToken.address);
       const normalizedAmountToTopup = new BigNumber(amountToTopup)
-        .multipliedBy(new BigNumber(10).pow(Number(tokenDecimals)))
+        .multipliedBy(new BigNumber(10).pow(USDC.decimals))
         .toFixed(0);
       new RampInstantSDK({
         enabledCryptoAssets: 'BASE_USDC',

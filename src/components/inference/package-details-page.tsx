@@ -73,7 +73,6 @@ const PackageDetailsPage: React.FC = () => {
     setSelectedModels,
     setParamsForModel,
     setSelectedEnv,
-    setSelectedToken,
     setJobDurationSeconds,
     setEngine,
     clearSelection,
@@ -134,7 +133,6 @@ const PackageDetailsPage: React.FC = () => {
     const sizing = pick ? pick.sizing : packageFloorSizing(pkg);
     if (pick) {
       setSelectedEnv({ ...pick.entry.env, environment: pick.environment, gpuSelection: pick.gpuSelection, sizing });
-      setSelectedToken(pick.token);
     }
     const declaredResources = pick ? undefined : encodeDeclaredResources(pkg.requiredResources);
     router.push({
@@ -151,7 +149,6 @@ const PackageDetailsPage: React.FC = () => {
                 envId: pick.environment.id,
                 gpuSelection: pick.gpuSelection,
                 sizing,
-                tokenAddress: pick.token.address,
               }
             : { sizing }),
         }),
@@ -160,7 +157,7 @@ const PackageDetailsPage: React.FC = () => {
     });
   };
 
-  // Quick start confirmed a pick → straight to payment with that env + its fee token.
+  // Quick start confirmed a pick → straight to payment with that env.
   const goToPayment = (pick: QuickStartPick<ResolvedPackageEnv>) => {
     if (pkg) {
       commitAndPush(`${detailsPath(INFERENCE_PATHS.packages, pkg.id)}/payment`, pick);

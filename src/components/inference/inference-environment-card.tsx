@@ -8,15 +8,13 @@ import useInferenceAllocation, {
   ResourceSizing,
 } from '@/components/hooks/use-inference-allocation';
 import useLiveEnv from '@/components/hooks/use-live-env';
-import Select from '@/components/input/select';
-import { getSupportedTokens } from '@/constants/tokens';
-import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
+import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
+import { USDC } from '@/constants/tokens';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { assertAllocationAvailable, buildGpuRequests, gpuSelectionMessage } from '@/services/inference-launch';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { declaredGpuOptions, DeclaredRequirement, preferredGpuOption } from '@/utils/env-resources';
-import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatGb, formatTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -31,23 +29,13 @@ type InferenceEnvironmentCardProps = {
   environment: ComputeEnvironment;
   nodeInfo: EnvNodeInfo;
   durationSeconds: number;
-  /** Token address selected in the filters — when supported, it's forced and the token select is hidden. */
-  defaultToken?: string;
   selected?: boolean;
   /**
    * Commit the pick. `environment` is the copy this card actually priced the selection against —
    * the node's own, once a live read succeeded — so the caller stores (and later launches from)
    * the same availability the user saw, not the cached list entry.
    */
-  onSelect?: (
-    tokenAddress: string,
-    tokenSymbol: string,
-    gpuSelection: GpuSelection,
-    environment: ComputeEnvironment
-  ) => void;
-  /** Reports the current fee token (address + symbol) on settle/switch — lets a read-only card (no
-   * `onSelect`) still surface the user's token pick. */
-  onTokenChange?: (tokenAddress: string, tokenSymbol: string) => void;
+  onSelect?: (gpuSelection: GpuSelection, environment: ComputeEnvironment) => void;
   /**
    * When set, force-disables the select button and shows this as its tooltip reason (e.g. the shared
    * duration is out of this env's bounds). Adds to the card's own block reasons.
@@ -95,10 +83,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   nodeInfo,
   durationSeconds,
   hidePrice,
-  defaultToken,
   selected = false,
   onSelect,
-  onTokenChange,
   disabledReason,
   gpuSelection: controlledSelection,
   initialSelection,
@@ -124,37 +110,6 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     checkEnvAccess(environment.access, account.address, provider).then(setPaidAccess);
   }, [environment.access, account.address, provider]);
 
-  const supportedTokens = useMemo(() => getEnvSupportedTokens(environment, true), [environment]);
-  const supportedTokensSymbols = useTokensSymbols(supportedTokens);
-
-  // Filter token wins when supported; otherwise USDC, otherwise the first supported paid token.
-  const tokenForced = !!defaultToken && supportedTokens.some((t) => t.toLowerCase() === defaultToken.toLowerCase());
-  const getDefaultToken = useCallback(() => {
-    if (defaultToken && supportedTokens.some((t) => t.toLowerCase() === defaultToken.toLowerCase())) {
-      return defaultToken;
-    }
-    const usdc = getSupportedTokens().USDC.address;
-    if (supportedTokens.some((t) => t.toLowerCase() === usdc.toLowerCase())) {
-      return usdc;
-    }
-    return supportedTokens[0] ?? usdc;
-  }, [defaultToken, supportedTokens]);
-
-  const [tokenAddress, setTokenAddress] = useState<string>(getDefaultToken());
-  const fetchedTokenSymbol = useTokenSymbol(tokenAddress);
-  const tokenSymbol = fetchedTokenSymbol ?? supportedTokensSymbols[tokenAddress] ?? null;
-
-  useEffect(() => {
-    setTokenAddress(getDefaultToken());
-  }, [getDefaultToken]);
-
-  // Waits for the symbol so the parent never gets an address with an empty symbol.
-  useEffect(() => {
-    if (tokenAddress && tokenSymbol) {
-      onTokenChange?.(tokenAddress, tokenSymbol);
-    }
-  }, [tokenAddress, tokenSymbol, onTokenChange]);
-
   const isControlled = controlledSelection !== undefined;
   // Local per-type selection when the card owns it; null until we learn the GPU types.
   const [ownSelection, setOwnSelection] = useState<GpuSelection | null>(null);
@@ -174,7 +129,6 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     constraintViolation,
   } = useInferenceAllocation({
     environment,
-    tokenAddress,
     gpuSelection: activeSelection,
     sizing,
     durationSeconds,
@@ -392,7 +346,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
           ? 'Select at least one GPU unit to continue.'
           : (constraintViolation ?? null)
       : (constraintViolation ?? null));
-  const selectDisabled = !tokenSymbol || !!selectBlockedReason;
+  const selectDisabled = !!selectBlockedReason;
 
   /**
    * Commit the pick against a freshly-read environment. The node is the only authority on which units
@@ -404,7 +358,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   // second click would start a second dial and could commit the pick (and navigate) twice.
   const [committing, setCommitting] = useState(false);
   const handleContinue = async () => {
-    if (selectDisabled || committing || !tokenSymbol || !onSelect) {
+    if (selectDisabled || committing || !onSelect) {
       return;
     }
     setCommitting(true);
@@ -442,7 +396,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         );
         return;
       }
-      onSelect(tokenAddress, tokenSymbol, selectedByKey, fresh);
+      onSelect(selectedByKey, fresh);
     } finally {
       setCommitting(false);
     }
@@ -474,6 +428,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             </Button>
             {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
           </span>
+          <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />
         </div>
         {nodeInfo.latestBenchmarkResults ? (
           <BenchmarkSummary
@@ -495,17 +450,6 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         </div>
 
         <div className="actionsGroupMdEnd">
-          {!tokenForced && Object.entries(supportedTokensSymbols).length > 1 ? (
-            <Select
-              onChange={(e) => setTokenAddress(e.target.value)}
-              options={Object.entries(supportedTokensSymbols).map(([address, symbol]) => ({
-                value: address,
-                label: symbol ?? address,
-              }))}
-              size="sm"
-              value={tokenAddress}
-            />
-          ) : null}
           {onSelect ? (
             <Tooltip title={selectBlockedReason ?? ''}>
               {/* Disabled button swallows focus/pointer events — focusable, labelled wrapper keeps the
@@ -524,13 +468,13 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                   type="button"
                   variant="filled"
                 >
-                  {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
+                  {formatTokenAmount(price, USDC.address)} {USDC.symbol}
                 </Button>
               </span>
             </Tooltip>
           ) : hidePrice ? null : (
             <span className={styles.price}>
-              {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
+              {formatTokenAmount(price, USDC.address)} {USDC.symbol}
             </span>
           )}
         </div>

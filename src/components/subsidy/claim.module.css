@@ -1,0 +1,39 @@
+.root {
+  align-self: center;
+  gap: 24px;
+  max-width: 100%;
+  width: 720px;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.titleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+
+  h3 {
+    font-size: 24px;
+  }
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.wallet {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.note {
+  color: var(--text-secondary);
+  font-size: 14px;
+  max-width: 360px;
+}

@@ -193,14 +193,8 @@ const AccessNote: React.FC<{ visual: TemplateVisual }> = ({ visual }) => (
  */
 const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalogue }) => {
   const router = useRouter();
-  const {
-    setSelectedTemplate,
-    setSelectedEnv,
-    setSelectedToken,
-    setJobDurationSeconds,
-    clearSelection,
-    buildSelectionQuery,
-  } = useInferenceContext();
+  const { setSelectedTemplate, setSelectedEnv, setJobDurationSeconds, clearSelection, buildSelectionQuery } =
+    useInferenceContext();
 
   const templateId = firstQueryValue(router.query.templateId);
   const { templates, loading, error } = useServiceTemplates();
@@ -239,7 +233,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
   const shape = template ? templateShape(template) : null;
 
   /**
-   * Quick start confirmed a pick: commit template + env + token + duration, then step forward. The
+   * Quick start confirmed a pick: commit template + env + duration, then step forward. The
    * resources step is skipped (the banner already picked the env). Config always shows result storage
    * and any configurable env vars before payment. The query is built
    * from overrides so it doesn't depend on setState timing, and carries the CPU/RAM/disk the pick was
@@ -247,7 +241,6 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
    */
   const continueToPayment = ({
     entry,
-    token,
     gpuSelection,
     // The env the quick start confirmed this pick against — the node's own, re-read at click time.
     // `entry.env.environment` is the resolver's older snapshot, so committing that carried a slice the
@@ -262,7 +255,6 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
     const env = { ...entry.env, gpuSelection, environment, sizing };
     setSelectedTemplate(template);
     setSelectedEnv(env);
-    setSelectedToken(token);
     setJobDurationSeconds(durationSeconds);
     const next = templateNeedsConfigStep(template) ? 'config' : 'payment';
     router.push({
@@ -273,7 +265,6 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
         envId: env.environment.id,
         gpuSelection,
         sizing: env.sizing,
-        tokenAddress: token.address,
         durationSeconds,
       }),
     });

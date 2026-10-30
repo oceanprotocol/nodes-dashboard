@@ -1,4 +1,4 @@
-import { getSupportedTokens } from '@/constants/tokens';
+import { isUsdc, USDC } from '@/constants/tokens';
 import { getRpc } from '@/lib/constants';
 import ERC20Template from '@oceanprotocol/contracts/artifacts/contracts/templates/ERC20Template.sol/ERC20Template.json';
 import { ethers } from 'ethers';
@@ -12,12 +12,8 @@ export const getTokenSymbol = async (tokenAddress: string | null | undefined): P
     return null;
   }
 
-  const chainTokens = getSupportedTokens();
-  const tokenSymbol = Object.keys(chainTokens).find(
-    (key) => chainTokens[key as keyof typeof chainTokens].address === tokenAddress
-  );
-  if (tokenSymbol) {
-    return tokenSymbol as string;
+  if (isUsdc(tokenAddress)) {
+    return USDC.symbol;
   }
 
   const addr = tokenAddress.toLowerCase();
@@ -32,9 +28,7 @@ export const getTokenSymbol = async (tokenAddress: string | null | undefined): P
 };
 
 export const getTokenDecimals = async (tokenAddress: string): Promise<number> => {
-  const chainTokens = getSupportedTokens();
-  const token = Object.values(chainTokens).find((t) => t.address.toLowerCase() === tokenAddress.toLowerCase());
-  if (token) return token.decimals;
+  if (isUsdc(tokenAddress)) return USDC.decimals;
 
   const addr = tokenAddress.toLowerCase();
   if (decimalsCache.has(addr)) return decimalsCache.get(addr)!;
@@ -47,13 +41,11 @@ export const getTokenDecimals = async (tokenAddress: string): Promise<number> =>
   return decimals;
 };
 
-
 export const getTokensSymbols = async (tokenAddresses: string[]): Promise<Record<string, string | null>> => {
   const symbols = await Promise.all(tokenAddresses.map((tokenAddress) => getTokenSymbol(tokenAddress)));
   const symbolsMap = Object.fromEntries(tokenAddresses.map((tokenAddress, index) => [tokenAddress, symbols[index]]));
   return symbolsMap;
 };
-
 
 export const useTokenSymbol = (tokenAddress: string | null | undefined) => {
   const [symbol, setSymbol] = useState<string | null>(null);

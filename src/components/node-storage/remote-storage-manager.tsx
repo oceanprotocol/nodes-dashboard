@@ -3,7 +3,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
-import NodeLookupModal from '@/components/modal/node-lookup-modal';
+import LookupModal from '@/components/modal/lookup-modal';
 import BucketsTable from '@/components/node-storage/buckets-table';
 import CreateBucketModal from '@/components/node-storage/create-bucket-modal';
 import { getApiRoute } from '@/config';
@@ -213,9 +213,10 @@ const RemoteStorageManager: React.FC = () => {
         }}
         onSave={(node) => setOpenOverrides((prev) => ({ ...prev, [node.nodeId]: true }))}
       />
-      <NodeLookupModal
+      <LookupModal
         description="Not seeing buckets from a node? Enter its node ID or friendly name below."
         isOpen={lookupOpen}
+        label="Node ID or friendly name"
         onClose={() => setLookupOpen(false)}
         onSubmit={handleListNode}
         submitLabel="List buckets"

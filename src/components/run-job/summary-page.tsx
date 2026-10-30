@@ -11,15 +11,8 @@ import { useEffect } from 'react';
 const SummaryPage = () => {
   const router = useRouter();
 
-  const {
-    estimatedTotalCost,
-    freeCompute,
-    hydrateFromUrlFinished,
-    nodeInfo,
-    selectedEnv,
-    selectedResources,
-    selectedToken,
-  } = useRunJobContext();
+  const { estimatedTotalCost, freeCompute, hydrateFromUrlFinished, nodeInfo, selectedEnv, selectedResources } =
+    useRunJobContext();
 
   useEffect(() => {
     if (hydrateFromUrlFinished) {
@@ -47,7 +40,7 @@ const SummaryPage = () => {
         contentBetween={<Stepper<RunJobStep> currentStep="finish" steps={getRunJobSteps(freeCompute)} />}
         mobileWarning
       />
-      {hydrateFromUrlFinished && nodeInfo && selectedEnv && selectedResources && (freeCompute || selectedToken) ? (
+      {hydrateFromUrlFinished && nodeInfo && selectedEnv && selectedResources ? (
         <div className="pageContentWrapper">
           <Summary
             estimatedTotalCost={estimatedTotalCost ?? 0}
@@ -55,7 +48,6 @@ const SummaryPage = () => {
             nodeInfo={nodeInfo}
             selectedEnv={selectedEnv}
             selectedResources={selectedResources}
-            token={selectedToken ?? null}
           />
         </div>
       ) : null}
