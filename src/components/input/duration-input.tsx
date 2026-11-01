@@ -10,6 +10,7 @@ type DurationUnitOption = {
 };
 
 type DurationInputProps = {
+  ariaLabel?: string;
   availableUnits: DurationUnitOption[];
   className?: string;
   defaultUnit?: DurationUnit;
@@ -24,6 +25,7 @@ type DurationInputProps = {
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onChange: (seconds: number) => void;
   onSetMax?: () => void;
+  placeholder?: string;
   radius?: number;
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
@@ -52,6 +54,7 @@ function unitShowing(seconds: number, preferred: DurationUnit, units: DurationUn
 }
 
 const DurationInput: React.FC<DurationInputProps> = ({
+  ariaLabel,
   availableUnits,
   className,
   defaultUnit = 'seconds',
@@ -66,6 +69,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   onBlur,
   onChange,
   onSetMax,
+  placeholder,
   radius,
   size,
   topRight,
@@ -109,6 +113,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
 
   return (
     <Input
+      ariaLabel={ariaLabel}
       className={className}
       disabled={disabled}
       endAdornment={
@@ -141,6 +146,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
       name={name}
       onBlur={onBlur}
       onChange={handleValueChange}
+      placeholder={placeholder}
       radius={radius}
       size={size}
       topRight={topRight}

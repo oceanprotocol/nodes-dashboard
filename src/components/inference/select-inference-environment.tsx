@@ -15,15 +15,16 @@ import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
-import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { DURATION_UNIT_OPTIONS, formatSessionEnd } from '@/utils/duration';
 import { DeclaredRequirement, isBenchmarkEnv } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
+import { Collapse } from '@mui/material';
 import { useFormik } from 'formik';
 import posthog from 'posthog-js';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
 
@@ -162,6 +163,11 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   // Set when a pick is rejected because the chosen duration falls outside the env's paid
   // min/max job-duration window. Cleared on the next valid pick or duration change.
   const [durationError, setDurationError] = useState<string | null>(null);
+  // Keeps the end time readable while its line collapses away after the field is cleared.
+  const lastSetDurationRef = useRef(jobDurationSeconds);
+  if (jobDurationSeconds > 0) {
+    lastSetDurationRef.current = jobDurationSeconds;
+  }
 
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
@@ -320,28 +326,33 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     <>
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
         <div className={styles.durationRow}>
-          <div>
-            <h3>Duration</h3>
+          <div className={styles.durationText}>
+            <h3>Session length</h3>
             <div>
-              You can prolong a running session later from its manage page.
-              <br />
-              Prices below are shown for this <strong>selected duration</strong>
+              <Collapse in={jobDurationSeconds > 0}>
+                <p>
+                  Will run until <strong>{formatSessionEnd(lastSetDurationRef.current)}</strong>.
+                  <br />
+                  Prices below cover the whole session, and you can prolong it later from its manage page.
+                </p>
+              </Collapse>
+              <Collapse in={jobDurationSeconds <= 0}>
+                <p>Enter how long the service should run. Until then, prices below are per hour.</p>
+              </Collapse>
             </div>
           </div>
-          <div className={styles.controls}>
-            <DurationInput
-              availableUnits={DURATION_UNIT_OPTIONS}
-              className={styles.input}
-              defaultUnit="hours"
-              emptyWhenZero
-              errorText={durationError ?? undefined}
-              label="Session length"
-              min={1}
-              onChange={onDurationChange}
-              size="sm"
-              value={jobDurationSeconds}
-            />
-          </div>
+          <DurationInput
+            ariaLabel="Session length"
+            availableUnits={DURATION_UNIT_OPTIONS}
+            className={styles.input}
+            defaultUnit="hours"
+            emptyWhenZero
+            errorText={durationError ?? undefined}
+            min={1}
+            onChange={onDurationChange}
+            placeholder="Enter length"
+            value={jobDurationSeconds}
+          />
         </div>
       </Card>
 

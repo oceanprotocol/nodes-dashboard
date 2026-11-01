@@ -1,26 +1,43 @@
+.durationText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  p {
+    margin: 0;
+    color: var(--text-secondary);
+    text-wrap: pretty;
+  }
+
+  strong {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+}
+
 .durationRow {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 
   @media (min-width: 768px) {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    gap: 32px;
   }
 
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .durationText {
+    flex: 1;
+    min-width: 0;
+  }
 
-    @media (min-width: 576px) {
-      flex-direction: row;
-      align-items: flex-start;
-    }
+  .input {
+    flex-shrink: 0;
 
-    .input {
-      min-width: 160px;
+    @media (min-width: 768px) {
+      width: 220px;
     }
   }
 }
