@@ -14,6 +14,7 @@ type DurationInputProps = {
   className?: string;
   defaultUnit?: DurationUnit;
   disabled?: boolean;
+  emptyWhenZero?: boolean;
   errorText?: string;
   hint?: React.ReactNode;
   label?: React.ReactNode;
@@ -55,6 +56,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   className,
   defaultUnit = 'seconds',
   disabled,
+  emptyWhenZero,
   errorText,
   hint,
   label,
@@ -71,7 +73,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
 }) => {
   const [unit, setUnit] = useState<DurationUnit>(() => unitShowing(value, defaultUnit, availableUnits));
   const [displayValue, setDisplayValue] = useState<number | ''>(() =>
-    displayIn(value, unitShowing(value, defaultUnit, availableUnits))
+    emptyWhenZero && value === 0 ? '' : displayIn(value, unitShowing(value, defaultUnit, availableUnits))
   );
   const sentSecondsRef = useRef<number>(value);
 
@@ -80,9 +82,9 @@ const DurationInput: React.FC<DurationInputProps> = ({
       sentSecondsRef.current = value;
       const nextUnit = unitShowing(value, unit, availableUnits);
       setUnit(nextUnit);
-      setDisplayValue(displayIn(value, nextUnit));
+      setDisplayValue(emptyWhenZero && value === 0 ? '' : displayIn(value, nextUnit));
     }
-  }, [value, unit, availableUnits]);
+  }, [value, unit, availableUnits, emptyWhenZero]);
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.target.value === '') {

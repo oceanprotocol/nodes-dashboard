@@ -172,7 +172,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     setJobDurationSeconds(seconds);
     if (selectedEnv) {
       const { min, max } = durationBounds(selectedEnv.environment);
-      if (seconds < min || seconds > max) {
+      if (seconds <= 0 || seconds < min || seconds > max) {
         setSelectedEnv(null);
         setSelectedToken(null);
       }
@@ -333,6 +333,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
               availableUnits={DURATION_UNIT_OPTIONS}
               className={styles.input}
               defaultUnit="hours"
+              emptyWhenZero
               errorText={durationError ?? undefined}
               label="Session length"
               min={1}

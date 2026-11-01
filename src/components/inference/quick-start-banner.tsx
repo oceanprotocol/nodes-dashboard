@@ -252,6 +252,7 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
             availableUnits={DURATION_UNIT_OPTIONS}
             className={styles.duration}
             defaultUnit="hours"
+            emptyWhenZero
             label="Session length"
             min={1}
             onChange={onDurationChange}
