@@ -20,3 +20,9 @@ export const DEFAULT_NODE_URI = [
  * move to a different host. This one is pinned to the default node itself.
  */
 export const DEFAULT_NODE_HTTP_URL = 'https://test1.oncompute.ai';
+
+// Nodes reached over HTTPS, not browser libp2p (AutoTLS libp2p.direct outage, ipshipyard/p2p-forge#97).
+export const HTTP_NODE_URLS: Record<string, string> = {
+  '16Uiu2HAmBxtwWEH8m9HLdCJncZGe9Ukj5xLxNhvM5KY17jjz899q': 'https://cp1.oncompute.ai',
+  [DEFAULT_NODE_ID]: DEFAULT_NODE_HTTP_URL,
+};
