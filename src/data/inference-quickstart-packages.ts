@@ -1,6 +1,6 @@
 import { InferencePackage, ResourceRequirement } from '@/types/inference';
 import { formatGpuLayouts } from '@/utils/env-resources';
-import { deriveGpuLayouts, gpuFloorGb, GpuSizingProfile } from '@/utils/service-resources';
+import { deriveGpuLayouts } from '@/utils/service-resources';
 
 /**
  * Curated quick-start packages — the hand-picked catalogue shown alongside the templates nodes advertise.
@@ -71,32 +71,9 @@ function resources({
 }
 
 /**
- * Guard rail for this round (no compute-capability data is advertised yet, see the vram-flex decision):
- * no multi-card layout may ask for less than this per card. Memory alone can't tell an L40S/A6000
- * (48 GB class) from a card the package was validated on, so anything a profile derives below it is
- * raised to it by a recorded `policy` override instead of silently admitting that class.
- */
-export const MIN_MULTI_GPU_FLOOR_GB = 60;
-
-/** The profile with a `policy` override on every multi-card width whose derived floor is below the guard. */
-function withMultiGpuFloor(profile: GpuSizingProfile): GpuSizingProfile {
-  const overrides = { ...(profile.overrides ?? {}) };
-  for (const n of profile.widths) {
-    if (n > 1 && !overrides[String(n)] && gpuFloorGb(profile, n) < MIN_MULTI_GPU_FLOOR_GB) {
-      overrides[String(n)] = {
-        vramPerGpu: MIN_MULTI_GPU_FLOOR_GB,
-        source: 'policy',
-        note: `Raised to the ${MIN_MULTI_GPU_FLOOR_GB} GB multi-GPU floor: no compute-capability data yet to tell 48 GB-class cards apart.`,
-      };
-    }
-  }
-  return Object.keys(overrides).length > 0 ? { ...profile, overrides } : profile;
-}
-
-/**
  * Turn {@link resources}' per-card GPU figure into the package's GPU entry. With a `sizing` profile the
- * total and every layout come from the vendored deriveGpuLayouts (after the multi-GPU floor guard), and
- * the package flexes across those widths. Without one it is pinned: total = TP × per-card figure, one
+ * total and every layout come from the vendored deriveGpuLayouts, and the package flexes across those
+ * widths. Without one it is pinned: total = TP × per-card figure, one
  * layout of exactly TP cards.
  */
 function withGpuLayouts(pkg: InferencePackage): InferencePackage {
@@ -108,7 +85,7 @@ function withGpuLayouts(pkg: InferencePackage): InferencePackage {
         return r;
       }
       if (pkg.sizing) {
-        const derived = deriveGpuLayouts(withMultiGpuFloor(pkg.sizing));
+        const derived = deriveGpuLayouts(pkg.sizing);
         return {
           ...r,
           recommended: derived.recommended,
@@ -407,8 +384,8 @@ const PACKAGE_DEFINITIONS: InferencePackage[] = [
     //    allowance the templates use (GLM measured 5.07).
     //  - util 0.9, driver reserve 0.5 GiB (defaults).
     // → width 1: ceil(((102.87 + 5.5) / 0.9 + 0.5) × 1.0737) = 130 GB; width 2: ceil(((51.44 + 5.5) /
-    //   0.9 + 0.5) × 1.0737) = 69 GB per card (2 × 69 = 138 ≥ 130), above the 60 GB multi-GPU guard, so
-    //   no policy override. 69 admits 2 × H100 (85.5 GB) and keeps the 48 GB class out.
+    //   0.9 + 0.5) × 1.0737) = 69 GB per card (2 × 69 = 138 ≥ 130). 69 admits 2 × H100 (85.5 GB) and
+    //   keeps the 48 GB class out.
     // Head check (config.json fetched 2026-10-29): num_attention_heads 16, num_key_value_heads 2,
     // linear (DeltaNet) heads 16 key / 32 value, moe_intermediate_size 512 with 128×128 FP8 blocks —
     // all divisible by 2. The bf16 sibling (code-assistant-xl) already runs this architecture at TP=2.
