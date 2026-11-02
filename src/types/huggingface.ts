@@ -1,13 +1,4 @@
-/**
- * The attention fields of config.json that decide legal tensor-parallel widths, kept RAW (top level and
- * the nested `text_config` of multimodal repos) so the vendored legalTpWidths applies its own
- * preference between them.
- */
-export type HfAttentionShape = {
-  num_attention_heads?: number;
-  num_key_value_heads?: number;
-  text_config?: { num_attention_heads?: number; num_key_value_heads?: number };
-};
+import type { HfTpConfig } from '@oceanprotocol/lib';
 
 /**
  * The model shape that sizes its KV cache, read from config.json — from `text_config` when that is where
@@ -33,8 +24,11 @@ export type HuggingFaceModelConfig = {
   quantizationMethod: string | null;
   /** True when the model's chat template references tools — a prerequisite for vLLM tool calling. */
   supportsTools: boolean;
-  /** Raw attention head counts for the tensor-parallel width check (null when config.json is missing). */
-  attention: HfAttentionShape | null;
+  /**
+   * Raw attention head counts (top level + `text_config`) for legalTpWidths, which picks between them
+   * itself; null when config.json is missing.
+   */
+  attention: HfTpConfig | null;
   /** KV-cache sizing fields (see HfModelShape). */
   shape: HfModelShape;
 };

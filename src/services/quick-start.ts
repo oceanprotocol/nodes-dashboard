@@ -33,7 +33,7 @@ import { serviceDurationBounds } from '@/utils/service-duration';
  *
  * How a pick is made:
  *  1. GPU: the target declares the total VRAM it recommends and the layouts (card counts, each with
- *     the VRAM a card needs) it may be booked as. The candidates are the vendored ocean.js planner's
+ *     the VRAM a card needs) it may be booked as. The candidates are the ocean.js planner's
  *     (planGpuLayouts): every declared layout one GPU group of the environment fits with that many
  *     whole cards free, with its exact ids and GPU price. Groups are never mixed, pooled resources are
  *     only booked whole, and a package's pinned tensor-parallel width keeps only its own layout.
@@ -242,7 +242,7 @@ function evaluate<T extends QuickStartEntry>({
 }
 
 /**
- * The best pick on one environment: every candidate the vendored planner finds for the GPU requirement
+ * The best pick on one environment: every candidate the ocean.js planner finds for the GPU requirement
  * (the cheapest single card when the target declares no GPU but the env sells none without one). Groups
  * are never mixed (a multi-GPU model shards across identical devices). Every candidate is evaluated,
  * not just the cheapest: a constraint can rule a narrow one out while a wider one still works. The one

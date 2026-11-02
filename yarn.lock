@@ -4653,9 +4653,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:9.2.2":
-  version: 9.2.2
-  resolution: "@oceanprotocol/lib@npm:9.2.2"
+"@oceanprotocol/lib@file:./vendor/oceanprotocol-lib-9.2.4-vram.0.tgz::locator=ocean-node-dashboard%40workspace%3A.":
+  version: 9.2.4-vram.0
+  resolution: "@oceanprotocol/lib@file:./vendor/oceanprotocol-lib-9.2.4-vram.0.tgz#./vendor/oceanprotocol-lib-9.2.4-vram.0.tgz::hash=394c58&locator=ocean-node-dashboard%40workspace%3A."
   dependencies:
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
@@ -4682,7 +4682,7 @@ __metadata:
     libp2p: "npm:^3.3.10"
     multiformats: "npm:^14.0.5"
     uint8arrays: "npm:^6.1.1"
-  checksum: 10c0/fc5822ce1d1735c49c55cdfdc93aa26d95389ded7718a39dfb4ec2d821accc0f30f23281109ee8813cc43a2a801391ffc79cfa3965595bf97f2e68b8b5e4362d
+  checksum: 10c0/0fcb6ec445d741092a51702d34b7988d1ca3deb19c7c4725eca67c2e82da8510821e867bdcf04753bc3ea68a62370a80193d77fa06beb1f687725241b58f13cd
   languageName: node
   linkType: hard
 
@@ -18352,7 +18352,7 @@ __metadata:
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
     "@oceanprotocol/contracts": "npm:^2.10.0"
-    "@oceanprotocol/lib": "npm:9.2.2"
+    "@oceanprotocol/lib": "file:./vendor/oceanprotocol-lib-9.2.4-vram.0.tgz"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.47.0"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"

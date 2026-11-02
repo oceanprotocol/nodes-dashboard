@@ -1,6 +1,6 @@
 import { InferencePackage, ResourceRequirement } from '@/types/inference';
 import { formatGpuLayouts } from '@/utils/env-resources';
-import { deriveGpuLayouts } from '@/utils/service-resources';
+import { deriveGpuLayouts } from '@oceanprotocol/lib';
 
 /**
  * Curated quick-start packages — the hand-picked catalogue shown alongside the templates nodes advertise.
@@ -72,7 +72,7 @@ function resources({
 
 /**
  * Turn {@link resources}' per-card GPU figure into the package's GPU entry. With a `sizing` profile the
- * total and every layout come from the vendored deriveGpuLayouts, and the package flexes across those
+ * total and every layout come from the ocean.js deriveGpuLayouts, and the package flexes across those
  * widths. Without one it is pinned: total = TP × per-card figure, one
  * layout of exactly TP cards.
  */

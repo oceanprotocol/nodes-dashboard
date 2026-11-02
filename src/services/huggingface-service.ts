@@ -1,6 +1,6 @@
+import { isGgufRepoId } from '@/services/model-compatibility';
 import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import {
-  HfAttentionShape,
   HfModelShape,
   HuggingFaceModel,
   HuggingFaceModelConfig,
@@ -11,7 +11,7 @@ import {
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
-import { isGgufRepoId } from '@/services/model-compatibility';
+import { HfTpConfig } from '@oceanprotocol/lib';
 import axios from 'axios';
 
 // Hugging Face Hub API reference: https://huggingface.co/spaces/huggingface/openapi
@@ -101,7 +101,7 @@ export function readModelShape(config: RawHfConfig | null | undefined): HfModelS
 }
 
 /** The raw attention head counts (top level + text_config) the tensor-parallel width check reads. */
-function readAttentionShape(config: RawHfConfig | null | undefined): HfAttentionShape | null {
+function readAttentionShape(config: RawHfConfig | null | undefined): HfTpConfig | null {
   if (!config) {
     return null;
   }

@@ -10,7 +10,7 @@ import {
   ModelQuantization,
 } from '@/types/huggingface';
 import { formatGpuLayouts, GpuRequirement, gpuTypesOf } from '@/utils/env-resources';
-import { deriveGpuLayouts, estimateHfSizingProfile, legalTpWidths } from '@/utils/service-resources';
+import { deriveGpuLayouts, estimateHfSizingProfile, legalTpWidths } from '@oceanprotocol/lib';
 
 /**
  * A rough VRAM estimate for a custom Hugging Face model, which — unlike a template or a curated package —
@@ -121,13 +121,13 @@ const FALLBACK_CONTEXT_TOKENS = 4096;
 /** What the custom-model env picker may book, and why (see customModelSizing). */
 export type CustomModelSizing = {
   /**
-   * Tensor-parallel widths the model's attention heads allow (vendored legalTpWidths over 1/2/4/8) —
+   * Tensor-parallel widths the model's attention heads allow (ocean.js legalTpWidths over 1/2/4/8) —
    * a HARD filter. Null when they can't be told (heads unknown, or an engine without TP): no width
    * filter, and a note says so.
    */
   widths: number[] | null;
   /**
-   * Estimated GPU requirement over those widths (vendored estimateHfSizingProfile → deriveGpuLayouts)
+   * Estimated GPU requirement over those widths (ocean.js estimateHfSizingProfile → deriveGpuLayouts)
    * — a SOFT filter the picker can drop ("show all GPUs"). Null without an estimate.
    */
   requirement: GpuRequirement | null;

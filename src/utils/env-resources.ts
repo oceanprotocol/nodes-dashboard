@@ -14,13 +14,13 @@ import {
   planGpuLayouts,
   TemplateResourceRequirement,
   validateGpuPlan,
-} from '@/utils/service-resources';
+} from '@oceanprotocol/lib';
 
 /**
  * Resource math shared by the flows that match an environment to a launch target — app templates,
  * quick-start packages and custom Hugging Face models. Every GPU fit / grouping / id choice is
- * delegated to the planner vendored from ocean.js (`@/utils/service-resources`: planGpuLayouts,
- * validateGpuPlan, assertSingleGpuGroup, parseMemoryTotalBytes, grantableAmount). This module only
+ * delegated to the ocean.js planner (`@oceanprotocol/lib`: planGpuLayouts, validateGpuPlan,
+ * assertSingleGpuGroup, parseMemoryTotalBytes, grantableAmount). This module only
  * adapts the dashboard's shapes (environments, per-type selections, fee tables) to it — it never
  * decides on its own whether a GPU fits.
  */
@@ -247,7 +247,7 @@ function plannerInputs(
 }
 
 /**
- * Every feasible single-group booking of the demand on the environment, via the vendored planner:
+ * Every feasible single-group booking of the demand on the environment, via the ocean.js planner:
  * cheapest GPU price first, then fewer cards. Empty for a `none` demand (book zero, or see
  * {@link autoGpuPick} for the one-card fallback) and when nothing fits.
  *
@@ -326,7 +326,7 @@ export function selectionOfRequests(
 
 /**
  * Re-check a plan's exact ids against an environment (normally a fresh one) for a demand — the
- * vendored validateGpuPlan with the same rules the planner books by: ids still GPUs of the env, one
+ * ocean.js validateGpuPlan with the same rules the planner books by: ids still GPUs of the env, one
  * group, still grantable (pools whole, mins met), the booked count a declared layout (and
  * `forcedGpuCount`), the cards still holding it. Zero GPUs pass only for a `none` demand.
  */

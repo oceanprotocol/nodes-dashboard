@@ -1,6 +1,6 @@
 import { HuggingFaceModel, ModelParameters, VllmParameters } from '@/types/huggingface';
 import type { DeclaredRequirement } from '@/utils/env-resources';
-import type { GpuSizingProfile } from '@/utils/service-resources';
+import type { GpuSizingProfile } from '@oceanprotocol/lib';
 
 export enum InferenceFlowType {
   DefaultModel = 'default-model',
@@ -37,7 +37,7 @@ export type InferencePackage = {
   description?: string;
   /** Complete vLLM launch parameters — committed as-is, no config step. */
   params: ModelParameters;
-  type: 'quickstart' | 'template'
+  type: 'quickstart' | 'template';
   /**
    * Peer ids of the nodes this package can run on. For a template fetched from a node this holds
    * that single node (stamped at load time — see use-default-model-packages; the template JSON
@@ -53,7 +53,7 @@ export type InferencePackage = {
   recommendedResources: ResourceRequirement[];
   /**
    * How the package's GPU need scales with the card count. When set, the GPU entry's layouts are
-   * DERIVED from it (vendored deriveGpuLayouts) and the package may launch on any of its widths — the
+   * DERIVED from it (ocean.js deriveGpuLayouts) and the package may launch on any of its widths — the
    * planner picks the cheapest that fits, and the launch sets `tensorParallelSize` to the booked width.
    * Absent: the package stays pinned to its own `params.tensorParallelSize` (one layout).
    */

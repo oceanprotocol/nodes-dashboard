@@ -197,7 +197,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
 
   // What this launch asks of the GPUs (template/package VRAM requirement, a custom model's estimate or
   // legal widths, or nothing). Every count offered, the default and the ids booked come from the
-  // planner (env-resources → vendored ocean.js planGpuLayouts), never from a local fit rule.
+  // planner (env-resources → ocean.js planGpuLayouts), never from a local fit rule.
   const demand: GpuDemand = useMemo(
     () => gpuDemand ?? demandOf(declaredRequirements),
     [gpuDemand, declaredRequirements]
@@ -489,7 +489,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     demand.kind === 'vram' && hasGpus && pickerAll.groups.every((g) => g.offered.length === 0)
       ? `No GPU here can hold the recommended ${formatGb(demand.requirement.recommended)} of VRAM.`
       : null;
-  // The pick must be exactly one valid layout of one group (the vendored plan validator), or zero GPUs
+  // The pick must be exactly one valid layout of one group (the ocean.js plan validator), or zero GPUs
   // where the target allows that.
   const planReason = useMemo(() => {
     if (!hasGpus) {

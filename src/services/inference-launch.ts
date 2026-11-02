@@ -632,7 +632,7 @@ export function assertAllocationAvailable(resources: ComputeResource[], allocati
  * Why a fresh launch must NOT go ahead with its planned GPUs, or null when it may. Run on the env as
  * the node reports it right now, with the SAME ids that were quoted — never a re-resolution from counts:
  *  - no plan at all (a selection that never went through a picker);
- *  - the vendored validateGpuPlan rejects those ids for the demand at the planned width (gone, taken,
+ *  - the ocean.js validateGpuPlan rejects those ids for the demand at the planned width (gone, taken,
  *    another group, a pool no longer whole, the layout no longer fitting…);
  *  - the per-minute GPU price of those ids in `tokenAddress` differs from the quote.
  * Each answer asks the user to pick again; nothing is swapped silently.
