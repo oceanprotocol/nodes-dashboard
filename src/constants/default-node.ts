@@ -19,7 +19,4 @@ export const DEFAULT_NODE_URI = [
  * the gateway used for /directCommand relaying and access lists, which is a role that could legitimately
  * move to a different host. This one is pinned to the default node itself.
  */
-// LOCAL PREVIEW — points the template catalogue at a local ocean-node (VRAM branch) so new
-// templates show up without touching the prod default node. REVERT to 'https://test1.oncompute.ai'
-// before committing. Envs/run-target still come from the incentive indexer (/envs), unchanged.
-export const DEFAULT_NODE_HTTP_URL = 'http://localhost:8001';
+export const DEFAULT_NODE_HTTP_URL = 'https://test1.oncompute.ai';
