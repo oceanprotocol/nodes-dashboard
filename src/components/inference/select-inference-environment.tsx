@@ -387,32 +387,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   return (
     <>
-      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
-        <div className={styles.durationRow}>
-          <div>
-            <h3>Duration</h3>
-            <div>
-              You can prolong a running session later from its manage page.
-              <br />
-              Prices below are shown for this <strong>selected duration</strong>
-            </div>
-          </div>
-          <div className={styles.controls}>
-            <DurationInput
-              availableUnits={DURATION_UNIT_OPTIONS}
-              className={styles.input}
-              defaultUnit="hours"
-              errorText={durationError ?? undefined}
-              label="Session length"
-              min={1}
-              onChange={onDurationChange}
-              size="sm"
-              value={jobDurationSeconds}
-            />
-          </div>
-        </div>
-      </Card>
-
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
         <h3>Environments</h3>
 
@@ -447,48 +421,69 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           </div>
         )}
 
-        <form onSubmit={formik.handleSubmit}>
-          <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
-            <div className={styles.filters}>
-              <Select
-                className={styles.gpuSelect}
-                label="GPUs"
-                multiple
-                name="gpuName"
-                onChange={formik.handleChange}
-                options={gpuOptions}
-                placeholder="Any GPU"
-                renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
-                renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
-                size="sm"
-                value={formik.values.gpuName}
-              />
-              <Select
-                label="Sorting"
-                name="sortBy"
-                onChange={formik.handleChange}
-                options={sortOptions}
-                placeholder="No sorting"
-                size="sm"
-                value={formik.values.sortBy}
-              />
-              <Select
-                label="Fee token"
-                name="feeToken"
-                onChange={formik.handleChange}
-                options={feeTokenOptions}
-                placeholder="Any"
-                size="sm"
-                value={formik.values.feeToken}
-              />
-            </div>
-            <div className="actionsGroupMdEnd">
-              <Button className="alignSelfStart" color="accent2" loading={loading} type="submit" variant="filled">
-                Find environments
-              </Button>
-            </div>
-          </Card>
-        </form>
+        {/* No <form> wrapper: the Session length number input (fractional min, default step) fails
+            native number validation, which would block an implicit submit — and Enter in it would
+            re-run the search. The Selects drive Formik via onChange regardless, and the button
+            submits explicitly below. */}
+        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
+          <div className={styles.filters}>
+            <Select
+              className={styles.gpuSelect}
+              label="GPUs"
+              multiple
+              name="gpuName"
+              onChange={formik.handleChange}
+              options={gpuOptions}
+              placeholder="Any GPU"
+              renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
+              renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
+              size="sm"
+              value={formik.values.gpuName}
+            />
+            <Select
+              label="Sorting"
+              name="sortBy"
+              onChange={formik.handleChange}
+              options={sortOptions}
+              placeholder="No sorting"
+              size="sm"
+              value={formik.values.sortBy}
+            />
+            <Select
+              label="Fee token"
+              name="feeToken"
+              onChange={formik.handleChange}
+              options={feeTokenOptions}
+              placeholder="Any"
+              size="sm"
+              value={formik.values.feeToken}
+            />
+          </div>
+          <div className={styles.actionsRow}>
+            <DurationInput
+              availableUnits={DURATION_UNIT_OPTIONS}
+              className={styles.durationInline}
+              defaultUnit="hours"
+              errorText={durationError ?? undefined}
+              hint="Prices below are shown for this duration. You can prolong a running session later from its manage page."
+              label="Session length"
+              min={1}
+              onChange={onDurationChange}
+              size="sm"
+              value={jobDurationSeconds}
+            />
+            <Button
+              className="alignSelfStart"
+              color="accent2"
+              loading={loading}
+              onClick={() => formik.handleSubmit()}
+              type="button"
+              variant="filled"
+            >
+              Find environments
+            </Button>
+          </div>
+        </Card>
 
         <div className={styles.list}>
           {isCustomModelFlow && sizingLoading ? (

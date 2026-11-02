@@ -389,7 +389,16 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       // Counts offered as buttons: what the planner could ever book on this group (busy ones render
       // disabled, never removed), plus 0 when the target may run without a GPU.
       const options = [...(zeroAllowed ? [0] : []), ...(group?.offered ?? [])];
-      const label = <HardwareLabel className={styles.gpuLabel} type="gpu" value={gpu.description || 'GPU'} />;
+      // No free units of this model right now — grey the name so it doesn't read as pickable (the
+      // counts below are all disabled). The row stays visible so users still see what hardware exists.
+      const unavailable = gpu.available === 0;
+      const label = (
+        <HardwareLabel
+          className={classNames(styles.gpuLabel, unavailable && styles.gpuLabelUnavailable)}
+          type="gpu"
+          value={gpu.description || 'GPU'}
+        />
+      );
       if (!editable) {
         return (
           <div className={styles.gpuType} key={gpu.key}>

@@ -1,5 +1,6 @@
 import { TableContextType } from '@/components/table/context-type';
 import { getApiRoute } from '@/config';
+import { isPeerId } from '@/services/node-lookup';
 import { FilterOperator, NodeFilters } from '@/types/filters';
 import { BanStatusResponse, Node } from '@/types/nodes';
 import { GridFilterModel } from '@mui/x-data-grid';
@@ -63,7 +64,15 @@ export const LeaderboardTableProvider = ({ children }: { children: ReactNode }) 
       url += `&${filterString}`;
     }
     if (searchTerm) {
-      url += `&search=${encodeURIComponent(searchTerm)}`;
+      // The backend's `search` param matches node names only, so a pasted peer id finds nothing.
+      // Route a peer-id-shaped term to the `nodeId` exact-match param instead (same path node-lookup
+      // uses to resolve a node by its id); everything else stays a name search.
+      const term = searchTerm.trim();
+      if (isPeerId(term)) {
+        url += `&nodeId=${encodeURIComponent(term)}`;
+      } else {
+        url += `&search=${encodeURIComponent(term)}`;
+      }
     }
     if (sortModel) {
       url += `&sort=${encodeURIComponent(JSON.stringify(sortModel))}`;
