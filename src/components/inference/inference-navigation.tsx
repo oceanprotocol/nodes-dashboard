@@ -43,8 +43,14 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   onRemoveModel,
 }) => {
   const [selectionOpen, setSelectionOpen] = useState(false);
-  const { selectedModels, selectedEnv, selectedToken, jobDurationSeconds, selectedTemplate, templateEnvValues } =
-    useInferenceContext();
+  const {
+    selectedModels,
+    selectedEnv,
+    selectedToken,
+    jobDurationSeconds,
+    selectedTemplate,
+    templateEnvValues,
+  } = useInferenceContext();
 
   // The templates flow selects a template instead of models, so it counts the same way for the panel.
   const hasSelection = selectedModels.length > 0 || !!selectedTemplate || !!selectedEnv;

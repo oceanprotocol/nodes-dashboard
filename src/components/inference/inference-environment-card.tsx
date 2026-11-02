@@ -389,6 +389,12 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
       // Counts offered as buttons: what the planner could ever book on this group (busy ones render
       // disabled, never removed), plus 0 when the target may run without a GPU.
       const options = [...(zeroAllowed ? [0] : []), ...(group?.offered ?? [])];
+      // VRAM flow: a group that can hold none of the recommended VRAM (can't hold it, or doesn't report
+      // its memory) is dropped rather than shown as a dead "Can't hold …"/"VRAM not reported" row — the
+      // env list already hides envs with no fitting group, so every card keeps at least one usable type.
+      if (editable && options.length === 0 && demand.kind === 'vram') {
+        return null;
+      }
       // No free units of this model right now — grey the name so it doesn't read as pickable (the
       // counts below are all disabled). The row stays visible so users still see what hardware exists.
       const unavailable = gpu.available === 0;
@@ -657,7 +663,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                   type="button"
                   variant="filled"
                 >
-                  {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
+                  Start · {formatTokenAmount(price, tokenAddress)} {tokenSymbol} / {formatDuration(durationSeconds)}
                 </Button>
               </span>
             </Tooltip>

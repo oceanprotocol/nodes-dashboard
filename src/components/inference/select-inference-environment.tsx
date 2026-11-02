@@ -5,8 +5,9 @@ import useCustomModelSizing from '@/components/hooks/use-custom-model-sizing';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import DeclaredResources from '@/components/inference/declared-resources';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
-import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
+import DurationInput from '@/components/input/duration-input';
+import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import Switch from '@/components/switch/switch';
 import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
@@ -18,9 +19,9 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { estimateModelsVramGb } from '@/services/vram-estimate';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
-import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import {
   DeclaredRequirement,
+  demandOf,
   formatGpuLayouts,
   GpuDemand,
   gpuGroupKey,
@@ -35,7 +36,7 @@ import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { useFormik } from 'formik';
 import posthog from 'posthog-js';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
 
@@ -197,6 +198,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     params: customModel ? modelParamsByModel[customModel.id] : undefined,
     hfToken,
   });
+  const sessionSettingsRef = useRef<HTMLDivElement>(null);
   const [showAllGpus, setShowAllGpus] = useState(false);
   const gpuDemand = useMemo<GpuDemand | undefined>(() => {
     if (!isCustomModelFlow || !customSizing) {
@@ -212,34 +214,19 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     () => (isCustomModelFlow && !customSizing?.requirement ? estimateModelsVramGb(selectedModels) : null),
     [isCustomModelFlow, customSizing, selectedModels]
   );
-  /** Hidden by the memory filter: no GPU group here could ever hold the estimated layouts. */
+  // What the listed envs must satisfy: the custom-model estimate (`gpuDemand`) when the flow has one,
+  // otherwise the template/package declared VRAM requirement. A `none` demand fits every env.
+  const listDemand = useMemo<GpuDemand>(() => gpuDemand ?? demandOf(declaredResources), [gpuDemand, declaredResources]);
+  /** Hidden by the memory filter: no GPU group here could ever hold the recommended/estimated VRAM. */
   const fitsDemand = useMemo(() => {
-    if (gpuDemand?.kind !== 'vram') {
+    if (listDemand.kind !== 'vram') {
       return () => true;
     }
     return (env: ComputeEnvironment) =>
-      planGpuDemand({ environment: env, demand: gpuDemand, assumeAllFree: true }).length > 0;
-  }, [gpuDemand]);
-
-  // Set when a pick is rejected because the chosen duration falls outside the env's paid
-  // min/max job-duration window. Cleared on the next valid pick or duration change.
-  const [durationError, setDurationError] = useState<string | null>(null);
+      planGpuDemand({ environment: env, demand: listDemand, assumeAllFree: true }).length > 0;
+  }, [listDemand]);
 
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
-
-  // Duration changed: clear the stale error, and if the already-picked env no longer fits the new
-  // duration, drop the selection so the "Skip" nav can't carry an out-of-window pick forward.
-  const onDurationChange = (seconds: number) => {
-    setDurationError(null);
-    setJobDurationSeconds(seconds);
-    if (selectedEnv) {
-      const { min, max } = durationBounds(selectedEnv.environment);
-      if (seconds < min || seconds > max) {
-        setSelectedEnv(null);
-        setSelectedToken(null);
-      }
-    }
-  };
 
   const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
 
@@ -338,16 +325,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
         node_id: node.id,
         branch,
       });
-      if (jobDurationSeconds < min) {
-        setDurationError(`This environment needs at least ${formatDuration(min)}. Increase the duration above.`);
-        return;
-      }
-      if (jobDurationSeconds > max) {
-        setDurationError(`This environment allows at most ${formatDuration(max)}. Decrease the duration above.`);
-        return;
-      }
+      // Session length can be adjusted in the search panel above the results.
+      return;
     }
-    setDurationError(null);
     setSelectedEnv({
       environment,
       gpuSelection,
@@ -383,6 +363,17 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       branch,
     });
     onEnvSelected({ peerId: node.id, envId, tokenAddress, gpuSelection, gpuPlan }, estimate);
+  };
+
+  const onDurationChange = (seconds: number) => {
+    setJobDurationSeconds(seconds);
+    if (selectedEnv) {
+      const { min, max } = serviceDurationBounds(selectedEnv.environment);
+      if (seconds < min || seconds > max) {
+        setSelectedEnv(null);
+        setSelectedToken(null);
+      }
+    }
   };
 
   return (
@@ -421,11 +412,26 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           </div>
         )}
 
-        {/* No <form> wrapper: the Session length number input (fractional min, default step) fails
-            native number validation, which would block an implicit submit — and Enter in it would
-            re-run the search. The Selects drive Formik via onChange regardless, and the button
-            submits explicitly below. */}
+        {/* No <form> wrapper: the Selects drive Formik via onChange and the button submits explicitly,
+            so nothing here needs an implicit submit — and keeping it formless means Enter never re-runs
+            the search by accident. */}
         <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
+            <div className={styles.sessionSettings} ref={sessionSettingsRef}>
+              <div className={styles.sessionCopy}>
+                <strong>How long do you need?</strong>
+                <span>Prices below are totals for your session.</span>
+              </div>
+              <DurationInput
+                availableUnits={DURATION_UNIT_OPTIONS}
+                className={styles.sessionDuration}
+                defaultUnit="hours"
+                label="Session length"
+                min={1}
+                onChange={onDurationChange}
+                size="sm"
+                value={jobDurationSeconds}
+              />
+            </div>
           <div className={styles.filters}>
             <Select
               className={styles.gpuSelect}
@@ -460,18 +466,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
             />
           </div>
           <div className={styles.actionsRow}>
-            <DurationInput
-              availableUnits={DURATION_UNIT_OPTIONS}
-              className={styles.durationInline}
-              defaultUnit="hours"
-              errorText={durationError ?? undefined}
-              hint="Prices below are shown for this duration. You can prolong a running session later from its manage page."
-              label="Session length"
-              min={1}
-              onChange={onDurationChange}
-              size="sm"
-              value={jobDurationSeconds}
-            />
             <Button
               className="alignSelfStart"
               color="accent2"
@@ -485,6 +479,24 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           </div>
         </Card>
 
+        <div className={styles.resultsHeader}>
+          <strong>Available environments</strong>
+          <div className={styles.resultsDuration}>
+            <span>For <strong>{formatDuration(jobDurationSeconds)}</strong></span>
+            <Button
+              color="accent1"
+              onClick={() => {
+                sessionSettingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                sessionSettingsRef.current?.querySelector('input')?.focus({ preventScroll: true });
+              }}
+              size="sm"
+              type="button"
+              variant="transparent"
+            >
+              Edit
+            </Button>
+          </div>
+        </div>
         <div className={styles.list}>
           {isCustomModelFlow && sizingLoading ? (
             <p className="alignSelfCenter">Checking the model&apos;s GPU needs…</p>
