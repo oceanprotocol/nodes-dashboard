@@ -21,6 +21,7 @@ import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import { Collapse } from '@mui/material';
 import { useFormik } from 'formik';
 import posthog from 'posthog-js';
@@ -326,6 +327,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     <>
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
         <div className={styles.durationRow}>
+          <span aria-hidden className={styles.durationIcon}>
+            <ScheduleIcon />
+          </span>
           <div className={styles.durationText}>
             <h3>Session length</h3>
             <div>

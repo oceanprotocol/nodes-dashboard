@@ -16,6 +16,26 @@
   }
 }
 
+.durationIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent1) 12%, transparent);
+  color: var(--accent1);
+
+  svg {
+    font-size: 24px;
+  }
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
 .durationRow {
   display: flex;
   flex-direction: column;
@@ -23,9 +43,16 @@
 
   @media (min-width: 768px) {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 32px;
+    gap: 16px;
+  }
+
+  /* Badge and field centre on the two-row text and keep that spot when the end time adds a row. */
+  .durationIcon {
+    @media (min-width: 768px) {
+      margin-top: 6px;
+    }
   }
 
   .durationText {
@@ -38,6 +65,8 @@
 
     @media (min-width: 768px) {
       width: 220px;
+      margin-top: 2px;
+      margin-left: 16px;
     }
   }
 }
