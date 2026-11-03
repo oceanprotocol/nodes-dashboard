@@ -78,6 +78,7 @@ export class NodeCommandError extends Error {
 export async function directNodeCommandJson<T>({
   body,
   command,
+  gatewayUrl = NODE_URL,
   label,
   multiaddrs,
   peerId,
@@ -85,13 +86,15 @@ export async function directNodeCommandJson<T>({
 }: {
   body?: Record<string, unknown>;
   command: string;
+  /** The target node's own URL runs the command locally. */
+  gatewayUrl?: string;
   /** Prefix for a synthesised message when the node answers with an empty body. */
   label: string;
   multiaddrs?: string[];
   peerId: string;
   signal?: AbortSignal;
 }): Promise<T> {
-  const response = await fetch(`${NODE_URL}/directCommand`, {
+  const response = await fetch(`${gatewayUrl}/directCommand`, {
     body: JSON.stringify({
       command,
       node: peerId,
