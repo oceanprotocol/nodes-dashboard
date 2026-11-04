@@ -8,6 +8,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import ServicePasswordReveal from '@/components/inference/service-password-reveal';
 import ServiceResultsPanel from '@/components/inference/service-results-panel';
 import { ServiceStartupIndicator } from '@/components/inference/service-startup-progress';
 import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
@@ -21,6 +22,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { captureError } from '@/lib/analytics';
 import { findServiceEscrowLock, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
+import { SERVICE_PASSWORD_ENV } from '@/lib/service-password';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -33,7 +35,12 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
-import { branchForAppType, isModelAppType, readServiceMetadata } from '@/services/service-metadata';
+import {
+  branchForAppType,
+  isModelAppType,
+  readServiceMetadata,
+  readServicePasswordBlob,
+} from '@/services/service-metadata';
 import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
@@ -203,6 +210,7 @@ const ManageServicePage: React.FC = () => {
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
+    setEditPassword,
   } = useInferenceContext();
   const { account, ocean } = useOceanAccount();
   const { getServiceStatus, serviceRestart } = useP2P();
@@ -213,6 +221,8 @@ const ManageServicePage: React.FC = () => {
   const [jobError, setJobError] = useState<string | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<'restart' | null>(null);
+  // Tagged with the service and blob: this page stays mounted across services, so another service's value must never show.
+  const [revealed, setRevealed] = useState<{ id: string; blob: string; value: string } | null>(null);
   // Bumped after restart to re-kick the poll loop.
   const [pollEpoch, setPollEpoch] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -335,6 +345,9 @@ const ManageServicePage: React.FC = () => {
    * is false and a running bundle reports 'service'.
    */
   const declaredIdentity = readServiceMetadata(job);
+  const passwordBlob = readServicePasswordBlob(job);
+  const revealedPassword = revealed && revealed.id === id && revealed.blob === passwordBlob ? revealed.value : null;
+  const onPasswordRevealed = (value: string) => passwordBlob && setRevealed({ id, blob: passwordBlob, value });
   // Kept as primitives, not the object: the status poll hands us a fresh job (and so a fresh bag)
   // every tick, and these feed memo/callback dependency lists.
   const declaredAppType = declaredIdentity?.appType ?? null;
@@ -891,6 +904,7 @@ const ManageServicePage: React.FC = () => {
     if (!canEdit) {
       return;
     }
+    setEditPassword({ serviceId: id, blob: passwordBlob, plain: null });
     // A template service re-enters the template flow at the config (reconfigure) step; a model service
     // re-enters the model picker. buildSelectionQuery already carries the template/model selection.
     if (template) {
@@ -1026,6 +1040,7 @@ const ManageServicePage: React.FC = () => {
   // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.
   const chatUrl = baseUrl ? `${baseUrl}/v1/chat/completions` : '$BASE/v1/chat/completions';
   const curlSnippet = `curl ${chatUrl} \\
+  -H "Authorization: Bearer ${revealedPassword ?? '<password>'}" \\
   -H "Content-Type: application/json" \\
   -d '{ "model": "${primaryModelName}", "messages": [ { "role": "user", "content": "Hello!" } ] }'`;
 
@@ -1319,6 +1334,15 @@ const ManageServicePage: React.FC = () => {
                       </Button>
                     )}
                   </Card>
+                  {(passwordBlob || template?.userConfigurableEnvVars?.some((v) => v.key === SERVICE_PASSWORD_ENV)) && (
+                    <ServicePasswordReveal
+                      blob={passwordBlob}
+                      isTemplate
+                      key={id}
+                      onReveal={onPasswordRevealed}
+                      password={revealedPassword}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="textSecondary">
@@ -1361,6 +1385,14 @@ const ManageServicePage: React.FC = () => {
                     </span>
                   </Card>
                 </div>
+                {passwordBlob && (
+                  <ServicePasswordReveal
+                    blob={passwordBlob}
+                    key={id}
+                    onReveal={onPasswordRevealed}
+                    password={revealedPassword}
+                  />
+                )}
                 <div className={styles.quickTestHead}>
                   <h4>Quick test</h4>
                   <span
@@ -1376,7 +1408,7 @@ const ManageServicePage: React.FC = () => {
                     <CopyButton color="accent2" contentToCopy={curlSnippet} variant="filled" />
                   </span>
                 </div>
-                <pre className={styles.terminal}>{curlSnippet}</pre>
+                <pre className={`${styles.terminal} ph-no-capture`}>{curlSnippet}</pre>
               </>
             ) : (
               <div className="textSecondary">

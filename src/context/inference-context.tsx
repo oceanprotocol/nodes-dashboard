@@ -4,6 +4,7 @@ import { isInferenceNode } from '@/constants/nodes';
 import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
+import { generateServicePassword } from '@/lib/service-password';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import {
   decodeModelIds,
@@ -73,6 +74,9 @@ export type SelectedInferenceEnv = {
   sizing?: ResourceSizing;
 };
 
+// Edit's view of the running service's password, scoped by serviceId. Memory only.
+export type EditPassword = { serviceId: string; blob: string | null; plain: string | null };
+
 type InferenceContextType = {
   selectedModels: HuggingFaceModel[];
   setSelectedModels: (models: HuggingFaceModel[]) => void;
@@ -87,6 +91,11 @@ type InferenceContextType = {
   /** Hugging Face access token, shared across all selected models (for gated/private repos). */
   hfToken: string;
   setHfToken: (token: string) => void;
+  /** Raw-engine flow only; templates keep theirs in `templateEnvValues`. Memory only. */
+  servicePassword: string;
+  setServicePassword: (password: string) => void;
+  editPassword: EditPassword | null;
+  setEditPassword: (value: EditPassword | null) => void;
   jobDurationSeconds: number;
   setJobDurationSeconds: (seconds: number) => void;
   /**
@@ -221,6 +230,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedEnv, setSelectedEnv] = useState<SelectedInferenceEnv | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
+  const [servicePassword, setServicePassword] = useState<string>(generateServicePassword);
+  const [editPassword, setEditPassword] = useState<EditPassword | null>(null);
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
   const [engine, setEngineState] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
@@ -760,6 +771,10 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setSelectedToken,
       hfToken,
       setHfToken,
+      servicePassword,
+      setServicePassword,
+      editPassword,
+      setEditPassword,
       jobDurationSeconds,
       setJobDurationSeconds,
       engine,
@@ -778,6 +793,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedEnv(null);
         setSelectedToken(null);
         setHfToken('');
+        setServicePassword(generateServicePassword());
+        setEditPassword(null);
         setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
         // Raw setter: the selection is being emptied, so the lock no longer applies.
         setEngineState(DEFAULT_INFERENCE_ENGINE);
@@ -800,6 +817,8 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       selectedToken,
       hfToken,
       setHfToken,
+      servicePassword,
+      editPassword,
       jobDurationSeconds,
       engine,
       setEngine,

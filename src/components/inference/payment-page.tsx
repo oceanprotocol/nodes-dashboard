@@ -18,9 +18,11 @@ import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
+import { encryptServicePassword, SERVICE_PASSWORD_ENV } from '@/lib/service-password';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
+import { useServicePasswordKey } from '@/lib/use-service-password-key';
 import {
   buildInferenceRestartSpec,
   buildInferenceStartParams,
@@ -43,6 +45,7 @@ import {
   templateNeedsConfigStep,
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
+import { requiredEnvVars } from '@/types/templates';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { CircularProgress } from '@mui/material';
@@ -73,11 +76,14 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedBucketId,
     templateEnvValues,
     hfToken,
+    servicePassword,
+    setEditPassword,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
   } = useInferenceContext();
   const { account, login } = useOceanAccount();
+  const { getKey } = useServicePasswordKey();
   const { isReady, serviceExtend, serviceStart, serviceRestart } = useP2P();
   const { withNodeAuth } = useNodeTokensContext();
   const { handlePay } = usePaySession();
@@ -424,6 +430,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
             query: router.query,
           });
+        } else if (!isProlongMode && requiredEnvVars(selectedTemplate).some((spec) => !templateEnvValues[spec.key])) {
+          // Env values live in memory only: a reload lands here without the password, and a service without it exits at once.
+          router.replace({
+            pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/config`,
+            query: router.query,
+          });
         }
         break;
       }
@@ -438,6 +450,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     modelParamsByModel,
     isEditMode,
     isProlongMode,
+    templateEnvValues,
     params.templateId,
     packagePath,
     router,
@@ -608,6 +621,33 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     branch,
   ]);
 
+  // No key (no signer, or the signature was rejected) never blocks the launch: the service still gets
+  // its password, it just cannot be revealed later.
+  const encryptPasswordForMetadata = useCallback(
+    async (password: string | undefined): Promise<string | undefined> => {
+      if (!password) {
+        return undefined;
+      }
+      const key = await getKey();
+      if (!key) {
+        return undefined;
+      }
+      return encryptServicePassword(key, password);
+    },
+    [getKey]
+  );
+
+  const openInstance = useCallback(
+    (serviceId: string, password: string | undefined, passwordBlob: string | undefined) => {
+      if (password && !passwordBlob) {
+        toast.warn('Password not saved for reveal. Copy it from the configure step before you leave.');
+      }
+      setEditPassword(null);
+      router.push({ pathname: `/inference/instances/${encodeURIComponent(serviceId)}`, query: buildManageQuery() });
+    },
+    [buildManageQuery, router, setEditPassword]
+  );
+
   // Edit relaunch: apply the new model/settings to the SAME running service via serviceRestart.
   // The node reuses the existing serviceId, host port and expiry — so the endpoint URL is unchanged
   // and the paid runtime keeps counting down from where it was (no timer reset). We only swap the
@@ -638,8 +678,14 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // Full container spec — the node rejects a partial restart spec (image is required whenever
       // anything changes), and the image/tag come from the new params' engine so an engine switch
       // (vLLM ↔ llama.cpp) relaunches on the right image.
+      const passwordBlob = await encryptPasswordForMetadata(servicePassword);
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken, appType }))
+        serviceRestart(
+          nodeUri,
+          token,
+          targetServiceId,
+          buildInferenceRestartSpec({ model, params, hfToken, servicePassword, passwordBlob, appType })
+        )
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -651,10 +697,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         engine: params.engine,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      openInstance(job.serviceId, servicePassword, passwordBlob);
     } catch (error) {
       console.error('Failed to relaunch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
@@ -671,9 +714,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     targetServiceId,
     withNodeAuth,
     hfToken,
+    servicePassword,
     serviceRestart,
-    router,
-    buildManageQuery,
+    openInstance,
+    encryptPasswordForMetadata,
     branch,
     appType,
   ]);
@@ -735,6 +779,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         });
         return;
       }
+      const passwordBlob = await encryptPasswordForMetadata(servicePassword);
       let startParams;
       try {
         startParams = buildInferenceStartParams({
@@ -750,6 +795,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           durationSeconds: jobDurationSeconds,
           tokenAddress: selectedToken.address,
           hfToken,
+          servicePassword,
+          passwordBlob,
           appType,
         });
       } catch (error) {
@@ -785,10 +832,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         tokenSymbol: selectedToken.symbol,
         escrowDeposited,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      openInstance(job.serviceId, servicePassword, passwordBlob);
     } catch (error) {
       console.error('Failed to launch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
@@ -811,10 +855,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedByKey,
     jobDurationSeconds,
     hfToken,
+    servicePassword,
     serviceStart,
     totalCost,
-    router,
-    buildManageQuery,
+    openInstance,
+    encryptPasswordForMetadata,
     branch,
     appType,
   ]);
@@ -864,6 +909,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         });
         return;
       }
+      const passwordBlob = await encryptPasswordForMetadata(templateEnvValues[SERVICE_PASSWORD_ENV]);
       let startParams;
       try {
         startParams = await buildTemplateStartParams({
@@ -876,6 +922,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           tokenAddress: selectedToken.address,
           envValues: templateEnvValues,
           bucketId: selectedBucketId ?? undefined,
+          passwordBlob,
         });
       } catch (buildError) {
         if (reportGpuSelectionFailure(buildError)) {
@@ -909,10 +956,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         escrowDeposited,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      openInstance(job.serviceId, templateEnvValues[SERVICE_PASSWORD_ENV], passwordBlob);
     } catch (error) {
       console.error('Failed to launch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
@@ -937,8 +981,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedBucketId,
     serviceStart,
     totalCost,
-    router,
-    buildManageQuery,
+    openInstance,
+    encryptPasswordForMetadata,
     branch,
   ]);
 
@@ -965,7 +1009,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      const restartParams = await buildTemplateRestartParams(selectedTemplate, templateEnvValues);
+      const passwordBlob = await encryptPasswordForMetadata(templateEnvValues[SERVICE_PASSWORD_ENV]);
+      const restartParams = await buildTemplateRestartParams(selectedTemplate, templateEnvValues, passwordBlob);
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
         serviceRestart(nodeUri, token, targetServiceId, restartParams)
       );
@@ -979,10 +1024,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         templateId: selectedTemplate.id,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      openInstance(job.serviceId, templateEnvValues[SERVICE_PASSWORD_ENV], passwordBlob);
     } catch (error) {
       console.error('Failed to relaunch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
@@ -999,8 +1041,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     withNodeAuth,
     templateEnvValues,
     serviceRestart,
-    router,
-    buildManageQuery,
+    openInstance,
+    encryptPasswordForMetadata,
     branch,
   ]);
 

@@ -5,12 +5,20 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
 import ModelParameters, { ModelParametersHandle } from '@/components/inference/model-parameters';
+import ServicePasswordInput from '@/components/inference/service-password-input';
 import TemplateBucketPicker from '@/components/inference/template-bucket-picker';
 import Input from '@/components/input/input';
 import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import {
+  decryptServicePassword,
+  generateServicePassword,
+  isValidServicePassword,
+  SERVICE_PASSWORD_ENV,
+} from '@/lib/service-password';
+import { useServicePasswordKey } from '@/lib/use-service-password-key';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
@@ -24,6 +32,8 @@ import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+const UNLOCK_FAILED_NOTE = 'Could not unlock the old password, so a new one was set.';
+
 const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
   const router = useRouter();
@@ -34,6 +44,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   const {
     hfToken,
     setHfToken,
+    servicePassword,
+    setServicePassword,
+    editPassword,
+    setEditPassword,
     setParamsForModel,
     selectedModels,
     selectedEnv,
@@ -74,6 +88,62 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Edit: the node doesn't echo a service's env, so the non-secret values this browser launched it
   // with (see template-env-memory) prefill the fields; anything already typed this session wins.
   const editServiceId = isEditMode ? firstQueryValue(router.query.serviceId) : undefined;
+  const { getKey } = useServicePasswordKey();
+  const editPasswordForService = editPassword?.serviceId === editServiceId ? editPassword : null;
+  const editPasswordPlain = editPasswordForService?.plain ?? null;
+  // Edit keeps the running service's password by decrypting the stored blob; any failure falls back to a new random one.
+  const unlockedServiceRef = useRef<string | null>(null);
+  // A late decrypt must not overwrite what the user typed.
+  const passwordTouchedRef = useRef(false);
+  const [unlockFailed, setUnlockFailed] = useState(false);
+  useEffect(() => {
+    if (!editServiceId || editPasswordPlain || unlockedServiceRef.current === editServiceId) {
+      return;
+    }
+    unlockedServiceRef.current = editServiceId;
+    const blob = editPasswordForService?.blob;
+    const fallBackToRandom = () =>
+      isCustomModelFlow && !passwordTouchedRef.current && setServicePassword(generateServicePassword());
+    if (!blob) {
+      fallBackToRandom();
+      return;
+    }
+    // Cleanup frees the ref so the next run (StrictMode, key change) starts again.
+    let cancelled = false;
+    (async () => {
+      try {
+        const key = await getKey();
+        if (!key) {
+          throw new Error('no key');
+        }
+        const plain = await decryptServicePassword(key, blob);
+        if (cancelled) {
+          return;
+        }
+        setEditPassword({ serviceId: editServiceId, blob, plain });
+        if (isCustomModelFlow && !passwordTouchedRef.current) {
+          setServicePassword(plain);
+        }
+      } catch {
+        if (!cancelled) {
+          fallBackToRandom();
+          setUnlockFailed(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unlockedServiceRef.current = null;
+    };
+  }, [
+    editServiceId,
+    editPasswordForService,
+    editPasswordPlain,
+    isCustomModelFlow,
+    getKey,
+    setEditPassword,
+    setServicePassword,
+  ]);
   useEffect(() => {
     if (!isTemplateFlow) {
       return;
@@ -82,8 +152,31 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
       editServiceId && selectedTemplate
         ? recallTemplateEnv({ serviceId: editServiceId, template: selectedTemplate })
         : {};
-    setEnvInputs({ ...recalled, ...templateEnvValues });
-  }, [isTemplateFlow, templateEnvValues, editServiceId, selectedTemplate]);
+    const seeded = { ...recalled, ...templateEnvValues };
+    if (envSpecs.some((spec) => spec.key === SERVICE_PASSWORD_ENV) && !seeded[SERVICE_PASSWORD_ENV]) {
+      // Never launched open: the old password on Edit, else a random one.
+      seeded[SERVICE_PASSWORD_ENV] = editPasswordPlain ?? generateServicePassword();
+    }
+    setEnvInputs((prev) =>
+      passwordTouchedRef.current && prev[SERVICE_PASSWORD_ENV]
+        ? { ...seeded, [SERVICE_PASSWORD_ENV]: prev[SERVICE_PASSWORD_ENV] }
+        : seeded
+    );
+  }, [envSpecs, isTemplateFlow, templateEnvValues, editServiceId, selectedTemplate, editPasswordPlain]);
+
+  const setEnvValue = (key: string, value: string) => {
+    if (key === SERVICE_PASSWORD_ENV) {
+      passwordTouchedRef.current = true;
+    }
+    setEnvInputs((prev) => ({ ...prev, [key]: value }));
+    setEnvErrors((prev) => {
+      if (!prev[key]) {
+        return prev;
+      }
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
 
   // Bounce back to the earliest step whose input is missing if we landed here (deep link / refresh)
   // without a complete selection: no models → picker, models but no env → resources. Skipped when
@@ -206,6 +299,10 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     event.preventDefault();
     setSubmitError(null);
     if (isCustomModelFlow) {
+      if (!isValidServicePassword(servicePassword)) {
+        setSubmitError(`${SERVICE_PASSWORD_ENV} must be 1-256 characters with no spaces.`);
+        return;
+      }
       // A card still mounting (loading its HF config) has no imperative handle yet — treat that as
       // "not ready" and tell the user, rather than silently doing nothing when they click Next.
       if (modelIds.some((id) => !paramRefs.current[id])) {
@@ -244,7 +341,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         const value = (envInputs[spec.key] ?? '').trim();
         if (spec.required && !value) {
           errors[spec.key] = `${spec.key} is required for this template.`;
-        } else if (!validateEnvValue(spec, value)) {
+        } else if (
+          spec.key === SERVICE_PASSWORD_ENV ? !isValidServicePassword(value) : !validateEnvValue(spec, value)
+        ) {
           errors[spec.key] = `Invalid ${spec.key} format.`;
         }
       }
@@ -328,6 +427,23 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   type="password"
                   value={hfToken}
                 />
+                <ServicePasswordInput
+                  label={
+                    <div>
+                      {SERVICE_PASSWORD_ENV}{' '}
+                      <Tooltip title="Send this password as `Authorization: Bearer <password>` (the API key in OpenAI clients). Random by default; any value without spaces works.">
+                        <InfoOutlinedIcon className="textAccent1" fontSize="small" />
+                      </Tooltip>
+                    </div>
+                  }
+                  name={SERVICE_PASSWORD_ENV}
+                  onChange={(value) => {
+                    passwordTouchedRef.current = true;
+                    setServicePassword(value);
+                  }}
+                  value={servicePassword}
+                />
+                {unlockFailed && <div className="textSecondary">{UNLOCK_FAILED_NOTE}</div>}
               </Card>
               {modelIds.map((id) => (
                 <ModelParameters
@@ -364,32 +480,34 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                 <div className="textSecondary">The result storage selected at launch stays in use.</div>
               )}
               {envSpecs.length > 0 ? (
-                envSpecs.map((spec) => (
-                  <Input
-                    errorText={envErrors[spec.key]}
-                    key={spec.key}
-                    label={spec.required ? `${spec.key} (required)` : spec.key}
-                    name={spec.key}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setEnvInputs((prev) => ({ ...prev, [spec.key]: value }));
-                      setEnvErrors((prev) => {
-                        if (!prev[spec.key]) {
-                          return prev;
-                        }
-                        const { [spec.key]: _removed, ...rest } = prev;
-                        return rest;
-                      });
-                    }}
-                    placeholder={spec.sensitive ? '••••••••' : ''}
-                    size="md"
-                    type={spec.sensitive ? 'password' : 'text'}
-                    value={envInputs[spec.key] ?? ''}
-                  />
-                ))
+                envSpecs.map((spec) =>
+                  spec.key === SERVICE_PASSWORD_ENV ? (
+                    <ServicePasswordInput
+                      errorText={envErrors[spec.key]}
+                      key={spec.key}
+                      label={spec.required ? `${spec.key} (required)` : spec.key}
+                      name={spec.key}
+                      onChange={(value) => setEnvValue(spec.key, value)}
+                      value={envInputs[spec.key] ?? ''}
+                    />
+                  ) : (
+                    <Input
+                      errorText={envErrors[spec.key]}
+                      key={spec.key}
+                      label={spec.required ? `${spec.key} (required)` : spec.key}
+                      name={spec.key}
+                      onChange={(e) => setEnvValue(spec.key, e.target.value)}
+                      placeholder={spec.sensitive ? '••••••••' : ''}
+                      size="md"
+                      type={spec.sensitive ? 'password' : 'text'}
+                      value={envInputs[spec.key] ?? ''}
+                    />
+                  )
+                )
               ) : !showsPicker ? (
                 <div className="textSecondary">This template has no configurable settings.</div>
               ) : null}
+              {unlockFailed && <div className="textSecondary">{UNLOCK_FAILED_NOTE}</div>}
               {isEditMode && (
                 <div className="textSecondary">
                   Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens and passwords

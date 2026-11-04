@@ -121,10 +121,11 @@ export function buildTemplateUserData(
  * only so the wire type comes from the one shared classifier rather than a second copy of the
  * bundle-vs-service rule.
  */
-function templateMetadata(template: AppTemplate) {
+function templateMetadata(template: AppTemplate, passwordBlob?: string) {
   return buildServiceMetadata({
     appType: resolveServiceAppType(InferenceFlowType.Template, template),
     appId: template.id,
+    pw: passwordBlob,
   });
 }
 
@@ -143,6 +144,7 @@ export async function buildTemplateStartParams({
   tokenAddress,
   envValues,
   bucketId,
+  passwordBlob,
 }: {
   template: AppTemplate;
   selectedEnv: SelectedInferenceEnv;
@@ -154,6 +156,7 @@ export async function buildTemplateStartParams({
   envValues: Record<string, string>;
   /** Optional result bucket id to mount at /data/outputs — picked on the config step. */
   bucketId?: string;
+  passwordBlob?: string;
 }): Promise<ServiceStartParams> {
   const envResources = selectedEnv.environment.resources ?? [];
 
@@ -172,7 +175,7 @@ export async function buildTemplateStartParams({
   ];
 
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
-  const metadata = templateMetadata(template);
+  const metadata = templateMetadata(template, passwordBlob);
 
   return {
     environment: selectedEnv.environment.id,
@@ -201,14 +204,15 @@ export async function buildTemplateStartParams({
  */
 export async function buildTemplateRestartParams(
   template: AppTemplate,
-  envValues: Record<string, string>
+  envValues: Record<string, string>,
+  passwordBlob?: string
 ): Promise<ServiceRestartParams> {
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
   // Re-stamped, not reused: an Edit can relaunch onto a DIFFERENT template, and an omitted `metadata`
   // would leave the service labelled with the app it used to run.
-  const metadata = templateMetadata(template);
+  const metadata = templateMetadata(template, passwordBlob);
   return {
     image: template.image,
     ...imageRef,
