@@ -170,16 +170,24 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
    * What the planned GPUs must still satisfy at the click: the template's or package's own requirement
    * (the package from the route, or from the `pkg` handoff in the custom flow); for a custom model the
    * planned width only — its memory estimate was a soft filter the user may have overridden.
+   * `pending` while a node-advertised package is still loading, `missing` once loading ended without it:
+   * either way its VRAM can't be re-checked, so the launch waits instead of checking units only.
    */
-  const { packages } = useDefaultModelPackages();
-  const paymentDemand = useMemo<GpuDemand>(() => {
+  const { packages, loading: packagesLoading } = useDefaultModelPackages();
+  const paymentDemand = useMemo<GpuDemand | 'pending' | 'missing'>(() => {
     if (flowType === InferenceFlowType.Template) {
       return demandOf(selectedTemplate?.recommendedResources);
     }
     const pkgId = flowType === InferenceFlowType.DefaultModel ? params.modelId : firstQueryValue(router.query.pkg);
-    const pkg = pkgId ? packages.find((p) => p.id === pkgId) : undefined;
-    return pkg ? demandOf(pkg.recommendedResources) : { kind: 'units', widths: null };
-  }, [flowType, selectedTemplate, params.modelId, router.query.pkg, packages]);
+    if (!pkgId) {
+      return { kind: 'units', widths: null };
+    }
+    const pkg = packages.find((p) => p.id === pkgId);
+    if (pkg) {
+      return demandOf(pkg.recommendedResources);
+    }
+    return packagesLoading ? 'pending' : 'missing';
+  }, [flowType, selectedTemplate, params.modelId, router.query.pkg, packages, packagesLoading]);
 
   // The env carried into this step was read (at best) one step ago, and the GPU ids the launch names
   // are resolved from its free list — a booking made in between makes the node reject the start after
@@ -211,6 +219,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     sizing,
     durationSeconds: jobDurationSeconds,
   });
+
+  // A pinned recommendation books CPU/RAM best effort (disk is floored): say so when this launch gets
+  // less than the model recommends, before the user pays for it.
+  const belowRecommendedNote = useMemo(() => {
+    if (isEditMode || isProlongMode || sizing?.mode !== 'pinned') {
+      return null;
+    }
+    const short = [
+      allocation.cpu < sizing.cpu ? `${allocation.cpu} of ${sizing.cpu} recommended CPU cores` : null,
+      allocation.ram < sizing.ram ? `${allocation.ram} of ${sizing.ram} GB recommended RAM` : null,
+    ].filter(Boolean);
+    return short.length > 0
+      ? `Only ${short.join(' and ')} are free here, so this starts with that. The model may run slowly or fail to load.`
+      : null;
+  }, [isEditMode, isProlongMode, sizing, allocation.cpu, allocation.ram]);
 
   // The node locks funds for `duration + claimDurationTimeout` and rejects the lock (→ service
   // never starts, "maxLockSeconds too low") if the escrow authorization's window is shorter. The
@@ -329,6 +352,24 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
    */
   const confirmFreshLaunch = useCallback(
     async (env: SelectedInferenceEnv, tokenAddress: string): Promise<SelectedInferenceEnv | { error: string }> => {
+      if (paymentDemand === 'pending') {
+        return {
+          error: "Still loading this package's GPU requirements, so nothing was charged. Press again in a moment.",
+        };
+      }
+      if (paymentDemand === 'missing') {
+        return {
+          error:
+            "This package is no longer offered by its node, so its GPU needs can't be confirmed. Go back and pick again.",
+        };
+      }
+      // The recommended disk is a floor (the weights must fit); the allocation clamps to what is free,
+      // so a disk filled since the env was picked shows up here as an amount under it.
+      if (sizing?.mode === 'pinned' && sizing.floor && allocation.disk < sizing.floor.disk) {
+        return {
+          error: `This environment has ${allocation.disk} GB of disk free, but the model needs ${sizing.floor.disk} GB. Go back and pick another environment.`,
+        };
+      }
       const read = await refreshLiveEnv(true);
       if (!read.fresh || !read.env) {
         return {
@@ -346,7 +387,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       });
       return planError ? { error: planError } : { ...env, environment: read.env };
     },
-    [refreshLiveEnv, gpuPlan, paymentDemand]
+    [refreshLiveEnv, gpuPlan, paymentDemand, sizing, allocation.disk]
   );
 
   /**
@@ -1277,6 +1318,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                   />
                 </>
               )}
+              {belowRecommendedNote && <div className="textSecondary">{belowRecommendedNote}</div>}
               {launchError && <div className="textAccent1">{launchError}</div>}
             </Card>
             <InferenceNavigation

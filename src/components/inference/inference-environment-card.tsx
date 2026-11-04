@@ -307,13 +307,20 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     );
   }, [isControlled, pick, hasGpus, initialSelection, pickerNow, zeroAllowed]);
 
-  // An automatic seed that a live read made unbookable re-seeds; a user's own pick stays (blocked, with
-  // the reason) so it never silently jumps to another GPU type.
+  // An automatic seed that a live read made unbookable re-seeds, and so does an automatic zero seeded
+  // only because nothing was bookable yet, once the planner has a best candidate; a user's own pick
+  // stays (blocked, with the reason) so it never silently jumps to another GPU type.
   useEffect(() => {
-    if (pick && !pick.userPicked && pick.count > 0 && !pickedCandidate) {
+    if (!pick || pick.userPicked) {
+      return;
+    }
+    const unbookable = pick.count > 0 && !pickedCandidate;
+    // A best without cards would seed zero again — re-seeding on it would loop.
+    const zeroAwaitingBest = pick.count === 0 && !zeroAllowed && (pickerNow.best?.layout?.gpuCount ?? 0) > 0;
+    if (unbookable || zeroAwaitingBest) {
       setPick(null);
     }
-  }, [pick, pickedCandidate]);
+  }, [pick, pickedCandidate, zeroAllowed, pickerNow.best]);
 
   const editable = !isControlled && !!onSelect;
 
@@ -347,6 +354,16 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     if (advisoryRequirement && count > 0) {
       const requests = isControlled ? (controlledRequests ?? []) : (gpuPlan?.requests ?? []);
       if (requests.length === 0) {
+        return null;
+      }
+      // Only a VRAM shortfall earns this warning: a plan that fails on ids, group or grantability
+      // (checked memory-blind first) is reported by the card's own plan reason instead.
+      const structural = validatePlanFor({
+        environment,
+        demand: { kind: 'units', widths: null },
+        plan: { requests, gpuPrice: 0 },
+      });
+      if (!structural.ok) {
         return null;
       }
       const check = validatePlanFor({

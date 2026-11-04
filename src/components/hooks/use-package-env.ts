@@ -9,7 +9,7 @@ import { recommendedSizing } from '@/services/quick-start';
 import { NodeEnvironments } from '@/types/environments';
 import { ModelParameters } from '@/types/huggingface';
 import { InferencePackage } from '@/types/inference';
-import { autoGpuPick, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
+import { autoGpuPick, isBenchmarkEnv, meetsRecommendedDisk, meetsRecommendedGpu } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -155,7 +155,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
         }
 
         // Keep only envs that can run the package: service-on-demand + a supported paid token + the
-        // package's recommended GPU VRAM. Flattened across every row of every node (one env per row), each
+        // package's recommended GPU VRAM + capacity for its recommended disk. Flattened across every row of every node (one env per row), each
         // env keeping its own node.
         const candidates = nodes.flatMap((node) =>
           (node.computeEnvironments.environments ?? [])
@@ -176,7 +176,10 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               if (getEnvSupportedTokens(environment, true).length === 0) {
                 return false;
               }
-              return meetsRecommendedGpu(environment, pkg!.recommendedResources, packageGpuCount(pkg!));
+              return (
+                meetsRecommendedGpu(environment, pkg!.recommendedResources, packageGpuCount(pkg!)) &&
+                meetsRecommendedDisk(environment, pkg!.recommendedResources)
+              );
             })
             .map((environment) => ({ node, environment }))
         );

@@ -155,7 +155,8 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
         </div>
         {belowRecommendedResources && (
           <div className={styles.note}>
-            No environment has the recommended CPU, RAM and disk free right now, so this starts with what is free.
+            No environment has the recommended CPU and RAM free right now, so this starts with what is free and may run
+            slowly or fail to load.
           </div>
         )}
       </div>

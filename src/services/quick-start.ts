@@ -91,9 +91,11 @@ export function envKey(env: SelectedInferenceEnv): string {
 }
 
 /**
- * A template's or package's quick-start sizing: its RECOMMENDED CPU/RAM/disk, booked best effort — the
- * zero `floor` tells the allocation to clamp an amount the environment can't grant down to what it can
- * (never under the env's own per-job min) rather than refusing the environment. A resource it declares
+ * A template's or package's quick-start sizing: its RECOMMENDED CPU/RAM/disk. CPU and RAM are booked best
+ * effort — their zero `floor` tells the allocation to clamp an amount the environment can't grant down
+ * to what it can (never under the env's own per-job min) rather than refusing the environment; booking
+ * under the recommendation is flagged (`fullSizing`). Disk is a hard floor: the weights must fit, so an
+ * env that can't grant the recommended disk is refused rather than booked to fail at load. A resource it declares
  * nothing for is marked `slice`: the planner books the GPU slice of it, as the custom flow would.
  * Undefined when no CPU/RAM/disk is declared at all (the GPU slice then sizes them).
  */
@@ -109,7 +111,7 @@ export function recommendedSizing(required: DeclaredRequirement[] | null | undef
     cpu: recommended('cpu'),
     ram: recommended('ram'),
     disk: recommended('disk'),
-    floor: { cpu: 0, ram: 0, disk: 0 },
+    floor: { cpu: 0, ram: 0, disk: recommended('disk') },
     ...(slice.length > 0 ? { slice } : {}),
   };
 }

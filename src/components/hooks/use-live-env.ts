@@ -50,7 +50,8 @@ export type LiveEnvRead = {
   /** When the underlying node read landed (epoch ms); 0 when there has never been one. */
   at: number;
   /**
-   * Why `live` is false, so a caller can say something true and actionable instead of guessing.
+   * Why `fresh` is false (`'live'` when it isn't), so a caller can say something true and actionable
+   * instead of guessing. Kept when a cached copy answers in place of a failed read.
    * `unreachable` and `unidentified` are NOT the same failure: the first is a connection the user can
    * retry, the second is the node answering with a list this environment is not in — retrying that
    * forever would never help, and telling the user to check their connection would be a lie.
@@ -163,9 +164,11 @@ export default function useLiveEnv(
       // Whatever we can say WITHOUT reaching the node. `live` is true only when a previous read of
       // this same env/node landed and is still held in `latestRef` — the reset effect clears it the
       // moment either changes, so a cached hit can never describe a different environment.
+      // The cached copy keeps the caller's reason: a node that answered without this env must still
+      // read as `unidentified`, not as a connection problem the user is told to retry.
       const fallback = (reason: LiveEnvRead['reason']): LiveEnvRead =>
         latestRef.current
-          ? { env: latestRef.current, live: true, fresh: false, at: fetchedAtRef.current, reason: 'live' }
+          ? { env: latestRef.current, live: true, fresh: false, at: fetchedAtRef.current, reason }
           : { env: environment, live: false, fresh: false, at: 0, reason };
       if (!isReady || !environment || !nodeInfo?.id) {
         return fallback('not-ready');

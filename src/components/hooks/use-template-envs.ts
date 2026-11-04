@@ -10,7 +10,7 @@ import { recommendedSizing } from '@/services/quick-start';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
-import { autoGpuPick, isBenchmarkEnv, meetsRecommendedGpu } from '@/utils/env-resources';
+import { autoGpuPick, isBenchmarkEnv, meetsRecommendedDisk, meetsRecommendedGpu } from '@/utils/env-resources';
 import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -44,7 +44,8 @@ export type TemplateEnvsState = {
 };
 
 /** An env can host a template when it advertises service-on-demand, isn't the node's benchmark env,
- *  accepts a supported paid token, and can currently give the template its recommended GPU VRAM. */
+ *  accepts a supported paid token, can currently give the template its recommended GPU VRAM, and has
+ *  the disk capacity for its recommended disk. */
 function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate): boolean {
   if (!environment.features?.services) {
     return false;
@@ -55,7 +56,10 @@ function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate):
   if (getEnvSupportedTokens(environment, true).length === 0) {
     return false;
   }
-  return meetsRecommendedGpu(environment, template.recommendedResources ?? []);
+  return (
+    meetsRecommendedGpu(environment, template.recommendedResources ?? []) &&
+    meetsRecommendedDisk(environment, template.recommendedResources ?? [])
+  );
 }
 
 /**
@@ -144,7 +148,7 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
               env: {
                 environment,
                 // The GPU count comes from the recommended VRAM and this env's card size; the shared
-                // CPU/RAM/disk are sized separately by recommendedSizing (recommended, best effort).
+                // CPU/RAM/disk are sized separately by recommendedSizing (CPU/RAM best effort, disk floored).
                 // Templates are one of the two zero-GPU-permitting flows (see env-resources.ts spec) — a
                 // template declaring no GPU requirement (jupyterlab, hermes) must seed 0 rather than the
                 // old blanket "nothing declared -> 1", on an env whose GPU min actually allows it.

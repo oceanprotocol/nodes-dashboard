@@ -396,6 +396,22 @@ export function meetsRecommendedGpu(
   return planGpuDemand({ environment, demand, forcedGpuCount }).length > 0;
 }
 
+/**
+ * Whether an env could EVER give a target its recommended disk: the model's weights must land on it, so
+ * disk is the one CPU/RAM/disk recommendation booked as a hard floor (see recommendedSizing). Checked
+ * against capacity (per-job max and total), not what is free now — a busy disk is the card's to report.
+ * True when the target declares no disk; false for an env that reports none, which books zero disk and
+ * so can never meet the floor (quick start and payment refuse it the same way).
+ */
+export function meetsRecommendedDisk(environment: ComputeEnvironment, required: DeclaredRequirement[]): boolean {
+  const recommended = required.find((r) => 'id' in r && r.id === 'disk')?.recommended ?? 0;
+  if (recommended <= 0) {
+    return true;
+  }
+  const disk = environment.resources?.find((r) => r.id === 'disk');
+  return !!disk && Math.min(disk.max ?? Infinity, disk.total ?? Infinity) >= recommended;
+}
+
 export type AutoGpuPickArgs = {
   environment: ComputeEnvironment;
   /** The launch target's declared requirements — the GPU entry (`type: 'gpu'`) is the one read here. */
