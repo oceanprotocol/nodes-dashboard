@@ -148,6 +148,8 @@ const apiRoutes = {
   admin: { root: 'incentive', path: '/admin' },
   jobsSuccessRate: { root: 'incentive', path: '/consumers' },
   nodesStats: { root: 'incentive', path: '/owners' },
+  nodeComputeJobs: { root: 'incentive', path: '/nodes' },
+  nodeServices: { root: 'incentive', path: '/nodes' },
 
   // Analytics API routes
   analyticsSummary: { root: 'analytics', path: '/summary' },
