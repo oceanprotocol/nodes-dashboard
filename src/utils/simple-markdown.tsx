@@ -1,15 +1,15 @@
 import { Fragment, ReactNode } from 'react';
 
-const INLINE_PATTERN = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_|`(.+?)`|\[([^\]]+)\]\(([^)\s]+)\)/g;
+const INLINE_PATTERN = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_|`(.+?)`|\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/;
 const SAFE_URL_PATTERN = /^(https?:\/\/|mailto:|\/(?!\/))/i;
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
+  const pattern = new RegExp(INLINE_PATTERN.source, 'g');
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  INLINE_PATTERN.lastIndex = 0;
-  while ((match = INLINE_PATTERN.exec(text)) !== null) {
+  while ((match = pattern.exec(text)) !== null) {
     if (match.index > lastIndex) {
       nodes.push(text.slice(lastIndex, match.index));
     }
@@ -17,9 +17,9 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     const [raw, bold, italicStar, italicUnderscore, code, linkText, linkUrl] = match;
 
     if (bold !== undefined) {
-      nodes.push(<strong key={key}>{bold}</strong>);
+      nodes.push(<strong key={key}>{renderInline(bold, key)}</strong>);
     } else if (italicStar !== undefined || italicUnderscore !== undefined) {
-      nodes.push(<em key={key}>{italicStar ?? italicUnderscore}</em>);
+      nodes.push(<em key={key}>{renderInline(italicStar ?? italicUnderscore, key)}</em>);
     } else if (code !== undefined) {
       nodes.push(<code key={key}>{code}</code>);
     } else if (SAFE_URL_PATTERN.test(linkUrl)) {
@@ -31,7 +31,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
           rel={isExternal ? 'noopener noreferrer' : undefined}
           target={isExternal ? '_blank' : undefined}
         >
-          {linkText}
+          {renderInline(linkText, key)}
         </a>
       );
     } else {

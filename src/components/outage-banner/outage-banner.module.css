@@ -19,6 +19,8 @@
 
     .message {
       flex: 1;
+      min-width: 0;
+      overflow-wrap: anywhere;
       font-size: 14px;
       line-height: 1.5;
 
