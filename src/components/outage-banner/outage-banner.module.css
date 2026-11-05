@@ -1,0 +1,72 @@
+.root {
+  position: relative;
+  z-index: 1;
+  margin: 24px 0;
+  text-align: left;
+
+  .row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    .icon {
+      flex-shrink: 0;
+    }
+
+    &:has(.message > h3:first-child) .icon {
+      margin-top: 4px;
+    }
+
+    .message {
+      flex: 1;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      line-height: 1.5;
+
+      h3,
+      h4,
+      h5 {
+        line-height: 1.3;
+      }
+
+      h3 {
+        margin: 0 0 4px;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      h4 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      h5 {
+        margin: 12px 0 2px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      > :first-child {
+        margin-top: 0;
+      }
+
+      a {
+        color: inherit;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      code {
+        padding: 2px 4px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.08);
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+    }
+  }
+}
