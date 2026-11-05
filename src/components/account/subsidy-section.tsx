@@ -110,10 +110,18 @@ const ActiveSubsidy = () => {
           </div>
           <div className={styles.blocks}>
             {program.oneTime && usage.oneTime ? (
-              <CreditBlock allowance={usage.oneTime} percent={program.oneTime.percent} />
+              <CreditBlock
+                allowance={usage.oneTime}
+                payments={program.oneTime.payments}
+                percent={program.oneTime.percent}
+              />
             ) : null}
             {program.discount && usage.discount ? (
-              <DiscountBlock percent={program.discount.percent} windows={usage.discount.windows} />
+              <DiscountBlock
+                payments={program.discount.payments}
+                percent={program.discount.percent}
+                windows={usage.discount.windows}
+              />
             ) : null}
           </div>
           {opfHistory.length > 0 ? (

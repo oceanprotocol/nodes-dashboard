@@ -3,7 +3,7 @@ import Card from '@/components/card/card';
 import PaymentSubsidy from '@/components/run-job/payment-subsidy';
 import { BASE_CHAIN_ID, CHAIN_ID } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
-import { SubsidyJobType } from '@/lib/subsidy';
+import { getUpfrontCost, SubsidyJobType } from '@/lib/subsidy';
 import { useSubsidyQuote } from '@/lib/use-subsidy';
 import { DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
 import { Authorizations } from '@/types/payment';
@@ -88,7 +88,7 @@ const PaymentSummary = ({
   // the wallet and re-authorizes in the same transaction. So they're only errors when the wallet
   // can't cover the deposit; otherwise they're what the payment is about to do, not a blocker.
   // Rounded like computeEscrowRequirement, so this agrees with the button's own gate.
-  const payerCost = Math.max(0, totalCost - (subsidyQuote?.total ?? 0));
+  const payerCost = getUpfrontCost(totalCost, subsidyQuote);
   const insufficientAutorized = maxLocked < payerCost + currentLocked;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < payerCost;
   const depositGap = roundTokenAmount(Math.max(0, payerCost - escrow), USDC.address, 'up');

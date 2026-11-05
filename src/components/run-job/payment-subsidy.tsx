@@ -1,6 +1,13 @@
 import Button from '@/components/button/button';
 import { captureSubsidyCtaClick, SubsidyPaymentState } from '@/components/subsidy/subsidy-analytics';
-import { formatSubsidyAmount, getDiscountLimitsLabel, getProgramSummary } from '@/components/subsidy/subsidy-copy';
+import {
+  formatSubsidyAmount,
+  getDiscountLimitsLabel,
+  getProgramSummary,
+  getSubsidyPaymentNote,
+  SUBSIDY_PAYMENT_COPY,
+} from '@/components/subsidy/subsidy-copy';
+import SubsidyPaymentChips from '@/components/subsidy/subsidy-payment-chips';
 import { USDC } from '@/constants/tokens';
 import { useProfileContext } from '@/context/profile-context';
 import {
@@ -9,6 +16,7 @@ import {
   getBindingWindow,
   getSubsidyJobTypeName,
   SubsidyJobType,
+  SubsidyPayment,
 } from '@/lib/subsidy';
 import { useIsNodeSubsidized, useSubsidyProgram, useSubsidyQuote, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
@@ -31,12 +39,13 @@ type SubsidyRowProps = {
   end?: ReactNode;
   icon: ReactNode;
   jobType: SubsidyJobType;
+  payments?: SubsidyPayment[];
   state: SubsidyPaymentState;
   title: ReactNode;
   tone: SubsidyTone;
 };
 
-const SubsidyRow = ({ description, end, icon, jobType, state, title, tone }: SubsidyRowProps) => {
+const SubsidyRow = ({ description, end, icon, jobType, payments, state, title, tone }: SubsidyRowProps) => {
   useEffect(() => {
     posthog.capture('subsidy_payment_state_shown', { jobType: getSubsidyJobTypeName(jobType), state });
   }, [jobType, state]);
@@ -45,7 +54,10 @@ const SubsidyRow = ({ description, end, icon, jobType, state, title, tone }: Sub
     <div className={classNames(styles.subsidyRow, styles[`subsidy-${tone}`])}>
       <span className={styles.subsidyIcon}>{icon}</span>
       <div className={styles.subsidyText}>
-        <strong className={styles.subsidyTitle}>{title}</strong>
+        <div className={styles.subsidyTitleRow}>
+          <strong className={styles.subsidyTitle}>{title}</strong>
+          {payments ? <SubsidyPaymentChips payments={payments} /> : null}
+        </div>
         <span className={styles.subsidyDescription}>{description}</span>
       </div>
       {end ? <div className={styles.subsidyEnd}>{end}</div> : null}
@@ -243,6 +255,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
           end={amount(opfTotal)}
           icon={<ScheduleIcon fontSize="small" />}
           jobType={jobType}
+          payments={quote.opfPayments}
           state="capped"
           title={`OPF subsidy: ${formatText(opfTotal)} ${USDC.symbol} instead of ${formatText(quote.oneTime + quote.uncappedDiscount)}`}
           tone="warning"
@@ -251,27 +264,29 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
     }
 
     const discountPercent = program.discount ? formatSubsidyAmount(program.discount.percent) : '';
+    const paymentNote = getSubsidyPaymentNote(quote.opfPayments);
     let title: string;
     let description: string;
     if (quote.discount <= 0) {
-      const creditLeft = `${formatText(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${USDC.symbol} of it left after this job.`;
+      const creditLeft = `${formatText(Math.max(0, (usage.oneTime?.remaining ?? 0) - quote.oneTime))} ${USDC.symbol} will remain available after this job.`;
       if (costAfter <= 0) {
         title =
           customCovered.length > 0
             ? `OPF subsidy: the remaining ${formatText(quote.oneTime)} ${USDC.symbol} on us`
             : 'OPF subsidy: this job is on us';
-        description = `Paid up front from your one-time credit, so it doesn't need to be in your escrow. ${creditLeft}`;
+        description = quote.opfPayments.includes('postpaid')
+          ? `${paymentNote}\n${creditLeft}`
+          : `Paid up front from your one-time credit, so it doesn't need to be in your escrow.\n${creditLeft}`;
       } else {
         title = `OPF subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us`;
-        description = `Paid up front from your one-time credit, so only your part needs to be in escrow. ${creditLeft}`;
+        description = `${paymentNote}\n${creditLeft}`;
       }
     } else if (quote.oneTime > 0) {
       title = `OPF subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us, then ${discountPercent}% off the rest`;
-      description =
-        'Paid up front when the job starts, so only your part needs to be in escrow. This uses the rest of your free credit.';
+      description = `${paymentNote} This uses the rest of your free credit.`;
     } else {
       title = `OPF subsidy: ${discountPercent}% off this job`;
-      description = `Paid up front when the job starts, so only your part needs to be in escrow.${
+      description = `${paymentNote}${
         discountWindow
           ? ` After this job (estimate): ${formatText(discountWindow.used + quote.discount)} of ${formatText(discountWindow.limit)} ${USDC.symbol} discount used this ${windowLabel}.`
           : ''
@@ -284,6 +299,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
         end={amount(opfTotal)}
         icon={<VerifiedUserOutlinedIcon fontSize="small" />}
         jobType={jobType}
+        payments={quote.opfPayments}
         state="applied"
         title={title}
         tone="success"
@@ -295,11 +311,12 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
     <>
       {customCovered.map((entry) => (
         <SubsidyRow
-          description={`Contract ${formatWalletAddress(entry.address)}. Paid up front when the job starts, so only your part needs to be in escrow.`}
+          description={`Contract ${formatWalletAddress(entry.address)}. ${SUBSIDY_PAYMENT_COPY[entry.payment].note}`}
           end={amount(entry.amount)}
           icon={<VerifiedUserOutlinedIcon fontSize="small" />}
           jobType={jobType}
           key={entry.address}
+          payments={[entry.payment]}
           state="custom_applied"
           title={`Other subsidy: ${formatText(entry.amount)} ${USDC.symbol} off`}
           tone="success"

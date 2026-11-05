@@ -213,6 +213,13 @@
   grid-area: text;
 }
 
+.subsidyTitleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
 .subsidyTitle {
   font-size: 16px;
 }
@@ -221,6 +228,7 @@
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.4;
+  white-space: pre-wrap;
 }
 
 .subsidyEnd {

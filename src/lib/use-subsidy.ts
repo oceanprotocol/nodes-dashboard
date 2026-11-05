@@ -3,6 +3,7 @@ import { groupLockCycles } from '@/lib/escrow-events';
 import {
   buildSubsidyHistory,
   getSubsidyJobTypeName,
+  getUpfrontCost,
   isNodeSubsidized,
   loadSubsidyProgram,
   loadSubsidyUsage,
@@ -22,7 +23,7 @@ import { useCallback, useMemo } from 'react';
 const PROGRAM_STALE_TIME = 5 * 60_000;
 const USAGE_STALE_TIME = 30_000;
 
-/** `null` when no prepaid provider is configured. */
+/** `null` when no subsidy provider is configured. */
 export const useSubsidyProgram = () =>
   useQuery({
     queryKey: ['subsidy-program', CHAIN_ID],
@@ -64,7 +65,7 @@ const useCustomSubsidyAddresses = () => {
 };
 
 export type CustomSubsidyData = {
-  /** `null` when the contract can't prepay jobs in USDC. */
+  /** `null` when the contract can't pay for jobs in USDC. */
   program: SubsidyProgram | null;
   usage: SubsidyUsage | null;
 };
@@ -229,7 +230,7 @@ export const useSubsidyHistory = () => {
   return { data: history, isError, isLoading };
 };
 
-/** `cost` minus the subsidy quote. */
+/** What the payer locks when the job starts: `cost` minus the prepaid part of the subsidy quote. */
 export const usePayerCost = (params: Parameters<typeof useSubsidyQuote>[0]) => {
   const { isLoading: isProgramLoading } = useSubsidyProgram();
   const { isLoading: isUsageLoading } = useSubsidyUsage();
@@ -237,7 +238,7 @@ export const usePayerCost = (params: Parameters<typeof useSubsidyQuote>[0]) => {
   const { data: quote, isFetching } = useSubsidyQuote(params);
   return {
     isQuoting: isProgramLoading || isUsageLoading || isCustomLoading || isFetching,
-    payerCost: Math.max(0, params.cost - (quote?.total ?? 0)),
+    payerCost: getUpfrontCost(params.cost, quote),
   };
 };
 

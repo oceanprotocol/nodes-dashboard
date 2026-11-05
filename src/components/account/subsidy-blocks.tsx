@@ -1,7 +1,14 @@
 import Card from '@/components/card/card';
 import { formatSubsidyAmount, formatSubsidyTokenAmount } from '@/components/subsidy/subsidy-copy';
+import SubsidyPaymentChips from '@/components/subsidy/subsidy-payment-chips';
 import toneStyles from '@/components/subsidy/subsidy-tone.module.css';
-import { formatSubsidyPeriod, formatSubsidyReset, SubsidyAllowance, SubsidyWindow } from '@/lib/subsidy';
+import {
+  formatSubsidyPeriod,
+  formatSubsidyReset,
+  SubsidyAllowance,
+  SubsidyPayment,
+  SubsidyWindow,
+} from '@/lib/subsidy';
 import classNames from 'classnames';
 import { ReactNode } from 'react';
 import styles from './subsidy-section.module.css';
@@ -27,18 +34,20 @@ const Meter = ({ className, limit, remaining, tone }: MeterProps) => (
 type BlockHeaderProps = {
   action?: ReactNode;
   caption?: ReactNode;
+  payments?: SubsidyPayment[];
   subtitle?: string;
   title: string;
   tone?: Tone;
 };
 
-export const BlockHeader = ({ action, caption, subtitle, title, tone }: BlockHeaderProps) => (
+export const BlockHeader = ({ action, caption, payments, subtitle, title, tone }: BlockHeaderProps) => (
   <div className={styles.blockHeaderRow}>
     <div className={styles.blockHeaderText}>
       <div className={styles.blockHeader}>
         {tone ? <span className={classNames(toneStyles.dot, toneStyles[tone])} /> : null}
         <strong>{title}</strong>
         {subtitle ? <span className={styles.small}>{subtitle}</span> : null}
+        {payments ? <SubsidyPaymentChips payments={payments} /> : null}
       </div>
       {caption}
     </div>
@@ -49,7 +58,7 @@ export const BlockHeader = ({ action, caption, subtitle, title, tone }: BlockHea
 const formatLeft = (remaining: number, limit: number) =>
   `${formatSubsidyAmount(remaining)} / ${formatSubsidyTokenAmount(limit)}`;
 
-type BlockProps = Pick<BlockHeaderProps, 'action' | 'caption' | 'tone'> & {
+type BlockProps = Pick<BlockHeaderProps, 'action' | 'caption' | 'payments' | 'tone'> & {
   children?: ReactNode;
 };
 
@@ -58,11 +67,20 @@ type CreditBlockProps = BlockProps & {
   percent: number;
 };
 
-export const CreditBlock = ({ action, allowance, caption, children, percent, tone = 'credit' }: CreditBlockProps) => (
+export const CreditBlock = ({
+  action,
+  allowance,
+  caption,
+  children,
+  payments,
+  percent,
+  tone = 'credit',
+}: CreditBlockProps) => (
   <Card className={styles.block} innerShadow="black" radius="sm" variant="glass">
     <BlockHeader
       action={action}
       caption={caption}
+      payments={payments}
       subtitle={percent < 100 ? `${formatSubsidyAmount(percent)}% of each job` : undefined}
       title="Free credit"
       tone={tone}
@@ -87,6 +105,7 @@ export const DiscountBlock = ({
   action,
   caption,
   children,
+  payments,
   percent,
   tone = 'discount',
   windows,
@@ -98,6 +117,7 @@ export const DiscountBlock = ({
       <BlockHeader
         action={action}
         caption={caption}
+        payments={payments}
         subtitle={capped.length === 0 ? 'No limit' : undefined}
         title={`${formatSubsidyAmount(percent)}% off`}
         tone={tone}

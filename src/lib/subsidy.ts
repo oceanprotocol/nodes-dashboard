@@ -32,6 +32,9 @@ export type SubsidyWindow = {
   used: number;
 };
 
+/** Prepaid covers the job when it starts; postpaid is refunded to the payer's escrow after it. */
+export type SubsidyPayment = 'prepaid' | 'postpaid';
+
 export type SubsidyAllowance = {
   limit: number;
   remaining: number;
@@ -40,8 +43,8 @@ export type SubsidyAllowance = {
 
 /** Same-kind providers add up; the highest percentage wins. */
 export type SubsidyProgram = {
-  discount: { addresses: string[]; percent: number; windows: SubsidyWindow[] } | null;
-  oneTime: { addresses: string[]; credit: number; percent: number } | null;
+  discount: { addresses: string[]; payments: SubsidyPayment[]; percent: number; windows: SubsidyWindow[] } | null;
+  oneTime: { addresses: string[]; credit: number; payments: SubsidyPayment[]; percent: number } | null;
   /** Escrow lock order: one-time credits first, then discounts. */
   providers: string[];
 };
@@ -57,10 +60,14 @@ export type SubsidyUsage = {
 
 export type SubsidyQuote = {
   /** Custom providers that cover part of the job, in lock order. */
-  custom: { address: string; amount: number }[];
+  custom: { address: string; amount: number; payment: SubsidyPayment }[];
   discount: number;
   oneTime: number;
-  /** Lock order. */
+  /** How the OPF providers that cover part of the job pay. */
+  opfPayments: SubsidyPayment[];
+  /** Part of `total` refunded after the job, so the payer locks it up front. */
+  postpaid: number;
+  /** Prepaid providers first, then postpaid ones. */
   providers: string[];
   total: number;
   /** Discount ignoring usage windows. */
@@ -141,20 +148,29 @@ const sum = (values: number[]) => values.reduce((total, value) => total + value,
 const minRemaining = (windows: SubsidyWindow[]) =>
   cappedWindows(windows).reduce((min, window) => Math.min(min, window.remaining), Infinity);
 
-type ProgramEntry =
-  | { address: string; credit: number; kind: SubsidyKind.ONE_TIME; percent: number }
-  | { address: string; kind: SubsidyKind.ROLLING_WINDOW; percent: number; windows: SubsidyWindow[] };
+const uniquePayments = (payments: SubsidyPayment[]): SubsidyPayment[] => [...new Set(payments)].sort();
 
-// Only lock-time (prepaid) providers count.
-const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> => {
+/** `null` when the provider can't subsidize a job. Providers that do both pay up front. */
+const loadSubsidyPayment = async (address: string): Promise<SubsidyPayment | null> => {
   const view = getView(address);
-  if (!(await view.isSubsidyLockProvider())) {
+  const [isLockProvider, hasModeConfig] = await Promise.all([view.isSubsidyLockProvider(), view.isSubsidyModeConfig()]);
+  const modeConfig = hasModeConfig ? await view.subsidyModeConfig() : SubsidyModeConfig.BOTH;
+  if (isLockProvider) {
+    return modeConfig === SubsidyModeConfig.REFUND_ONLY ? 'postpaid' : 'prepaid';
+  }
+  return modeConfig === SubsidyModeConfig.PREPAID_ONLY ? null : 'postpaid';
+};
+
+type ProgramEntry = { address: string; payment: SubsidyPayment; percent: number } & (
+  { credit: number; kind: SubsidyKind.ONE_TIME } | { kind: SubsidyKind.ROLLING_WINDOW; windows: SubsidyWindow[] }
+);
+
+const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> => {
+  const payment = await loadSubsidyPayment(address);
+  if (!payment) {
     return null;
   }
-  if ((await view.isSubsidyModeConfig()) && (await view.subsidyModeConfig()) === SubsidyModeConfig.REFUND_ONLY) {
-    return null;
-  }
-  const kind = await view.subsidyKind();
+  const kind = await getView(address).subsidyKind();
   if (kind === SubsidyKind.ONE_TIME) {
     const config = await new OneTimeSubsidyProvider(getReadSigner(), address, CHAIN_ID).getTokenConfig(
       USDC.address,
@@ -163,7 +179,7 @@ const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> =
     if (!config.enabled) {
       return null;
     }
-    return { address, credit: Number(config.defaultCredit), kind, percent: Number(config.pctBps) / 100 };
+    return { address, credit: Number(config.defaultCredit), kind, payment, percent: Number(config.pctBps) / 100 };
   }
   if (kind === SubsidyKind.ROLLING_WINDOW) {
     const limits = await new OPFSubsidyProvider(getReadSigner(), address, CHAIN_ID).getTokenLimits(
@@ -178,7 +194,7 @@ const loadProgramEntry = async (address: string): Promise<ProgramEntry | null> =
       toLimitWindow(WEEK_SECONDS, limits.weekly),
       toLimitWindow(ROLLING_MONTH_SECONDS, limits.monthly),
     ];
-    return { address, kind, percent: Number(limits.pctBps) / 100, windows };
+    return { address, kind, payment, percent: Number(limits.pctBps) / 100, windows };
   }
   return null;
 };
@@ -211,6 +227,7 @@ export const loadSubsidyProgram = async (
       discounts.length > 0
         ? {
             addresses: discounts.map((entry) => entry.address),
+            payments: uniquePayments(discounts.map((entry) => entry.payment)),
             percent: Math.max(...discounts.map((entry) => entry.percent)),
             windows: mergeWindows(discounts.map((entry) => entry.windows)),
           }
@@ -220,6 +237,7 @@ export const loadSubsidyProgram = async (
         ? {
             addresses: oneTimes.map((entry) => entry.address),
             credit: sum(oneTimes.map((entry) => entry.credit)),
+            payments: uniquePayments(oneTimes.map((entry) => entry.payment)),
             percent: Math.max(...oneTimes.map((entry) => entry.percent)),
           }
         : null,
@@ -237,7 +255,7 @@ export const loadCustomSubsidyProgram = async (address: string): Promise<Subsidy
   }
   const program = await loadSubsidyProgram([address]);
   if (!program) {
-    throw new Error(`This subsidy can't prepay jobs in ${USDC.symbol}`);
+    throw new Error(`This subsidy can't pay for jobs in ${USDC.symbol}`);
   }
   return program;
 };
@@ -288,8 +306,9 @@ export const isNodeSubsidized = async (program: SubsidyProgram, nodeAddress: str
 };
 
 /**
- * Mirrors the escrow lock: each provider sees what the previous ones left uncovered.
- * Custom providers lock first, in the order added, then OPF ones; a custom provider that fails to quote is skipped.
+ * Mirrors the escrow: prepaid providers cover the job at lock, then postpaid ones refund part of what the payer locked
+ * at claim. Each provider sees what the previous ones left uncovered.
+ * Custom providers go first, in the order added, then OPF ones; a custom provider that fails to quote is skipped.
  */
 export const quoteSubsidy = async ({
   cost,
@@ -310,34 +329,62 @@ export const quoteSubsidy = async ({
   const programProviders = program?.providers ?? [];
   const programAddresses = new Set(programProviders.map((address) => address.toLowerCase()));
   const custom = customProviders.filter((address) => !programAddresses.has(address.toLowerCase()));
-  const lockOrder = [...custom, ...programProviders];
-  let remaining = cost;
-  const covered: Record<string, number> = {};
-  for (const address of lockOrder) {
-    if (remaining <= 0 || Object.keys(covered).length >= MAX_SPONSORS_PER_LOCK) {
-      break;
-    }
-    let quoted: number;
+  const discountAddresses = new Set(program?.discount?.addresses);
+
+  const withCustomFallback = async <T>(address: string, read: () => Promise<T>): Promise<T | null> => {
     try {
-      const quote = await getView(address).quoteSubsidyByMode(
-        nodeAddress,
-        payer,
-        jobType,
-        USDC.address,
-        amount,
-        remaining.toFixed(USDC.decimals),
-        SubsidyMode.PREFUNDED,
-        USDC.decimals
-      );
-      quoted = Number(quote.subsidy);
+      return await read();
     } catch (error) {
       if (!custom.includes(address)) {
         throw error;
       }
       console.error(`Failed to quote custom subsidy ${address}`, error);
+      return null;
+    }
+  };
+
+  const paymentList = await Promise.all(
+    [...custom, ...programProviders].map(async (address) => ({
+      address,
+      payment: await withCustomFallback(address, () => loadSubsidyPayment(address)),
+    }))
+  );
+  const payments: Record<string, SubsidyPayment> = {};
+  for (const { address, payment } of paymentList) {
+    if (payment) {
+      payments[address] = payment;
+    }
+  }
+  const order = (['prepaid', 'postpaid'] as const).flatMap((payment) =>
+    paymentList.filter((entry) => entry.payment === payment).map((entry) => entry.address)
+  );
+
+  const quoteProvider = async (address: string, subsidyNeeded: number) => {
+    const view = getView(address);
+    const args = [nodeAddress, payer, jobType, USDC.address, amount, subsidyNeeded.toFixed(USDC.decimals)] as const;
+    if (payments[address] === 'postpaid' && !(await view.isSubsidyViewV2())) {
+      return Number((await view.quoteSubsidy(...args, USDC.decimals)).subsidy);
+    }
+    const mode = payments[address] === 'prepaid' ? SubsidyMode.PREFUNDED : SubsidyMode.REIMBURSEMENT;
+    return Number((await view.quoteSubsidyByMode(...args, mode, USDC.decimals)).subsidy);
+  };
+
+  let remaining = cost;
+  let discountBase: number | null = null;
+  const covered: Record<string, number> = {};
+  const prepaidCount = () => Object.keys(covered).filter((address) => payments[address] === 'prepaid').length;
+  for (const address of order) {
+    if (remaining <= 0) {
+      break;
+    }
+    if (payments[address] === 'prepaid' && prepaidCount() >= MAX_SPONSORS_PER_LOCK) {
       continue;
     }
-    const subsidy = Math.min(quoted, remaining);
+    if (discountAddresses.has(address) && discountBase === null) {
+      discountBase = remaining;
+    }
+    const quoted = await withCustomFallback(address, () => quoteProvider(address, remaining));
+    const subsidy = Math.min(quoted ?? 0, remaining);
     if (subsidy > 0) {
       covered[address] = subsidy;
       remaining -= subsidy;
@@ -348,17 +395,27 @@ export const quoteSubsidy = async ({
   const discount = coveredBy(program?.discount?.addresses);
   const customCovered = custom
     .filter((address) => covered[address] > 0)
-    .map((address) => ({ address, amount: covered[address] }));
-  const customTotal = sum(customCovered.map((entry) => entry.amount));
+    .map((address) => ({ address, amount: covered[address], payment: payments[address] }));
+  const providers = order.filter((address) => covered[address] > 0);
   return {
     custom: customCovered,
     discount,
     oneTime,
-    providers: lockOrder.filter((address) => covered[address] > 0),
-    total: customTotal + oneTime + discount,
-    uncappedDiscount: program?.discount ? ((cost - customTotal - oneTime) * program.discount.percent) / 100 : 0,
+    opfPayments: uniquePayments(
+      providers.filter((address) => programAddresses.has(address.toLowerCase())).map((address) => payments[address])
+    ),
+    postpaid: coveredBy(providers.filter((address) => payments[address] === 'postpaid')),
+    providers,
+    total: sum(Object.values(covered)),
+    uncappedDiscount: program?.discount ? ((discountBase ?? remaining) * program.discount.percent) / 100 : 0,
   };
 };
+
+export const getProgramPayments = (program: SubsidyProgram): SubsidyPayment[] =>
+  uniquePayments([...(program.oneTime?.payments ?? []), ...(program.discount?.payments ?? [])]);
+
+export const getUpfrontCost = (cost: number, quote: SubsidyQuote | undefined) =>
+  Math.max(0, cost - (quote ? quote.total - quote.postpaid : 0));
 
 /** `undefined` leaves the choice to the node. */
 export const getJobSubsidyProviders = async ({

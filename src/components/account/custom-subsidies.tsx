@@ -91,6 +91,7 @@ const CustomSubsidyCard = ({ onRemove, subsidy }: CustomSubsidyCardProps) => {
         action={action}
         allowance={data.usage.oneTime}
         caption={caption}
+        payments={data.program.oneTime.payments}
         percent={data.program.oneTime.percent}
         tone="custom"
       >
@@ -104,6 +105,7 @@ const CustomSubsidyCard = ({ onRemove, subsidy }: CustomSubsidyCardProps) => {
       <DiscountBlock
         action={action}
         caption={caption}
+        payments={data.program.discount.payments}
         percent={data.program.discount.percent}
         tone="custom"
         windows={data.usage.discount.windows}
@@ -121,7 +123,7 @@ const CustomSubsidyCard = ({ onRemove, subsidy }: CustomSubsidyCardProps) => {
       ) : isError ? (
         <span className={styles.small}>Couldn&apos;t load this subsidy. Try again later.</span>
       ) : data && !data.program ? (
-        <span className={styles.small}>This contract can&apos;t prepay jobs in {USDC.symbol} right now.</span>
+        <span className={styles.small}>This contract can&apos;t pay for jobs in {USDC.symbol} right now.</span>
       ) : null}
     </Card>
   );

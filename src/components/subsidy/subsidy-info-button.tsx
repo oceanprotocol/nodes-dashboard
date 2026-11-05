@@ -2,7 +2,9 @@ import {
   formatSubsidyAmount,
   formatSubsidyTokenAmount,
   getDiscountLimitsLabel,
+  getSubsidyPaymentNote,
 } from '@/components/subsidy/subsidy-copy';
+import { getProgramPayments } from '@/lib/subsidy';
 import { useSubsidyProgram } from '@/lib/use-subsidy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
@@ -44,10 +46,7 @@ const SubsidyInfoButton = () => {
             : ''}
         </span>
       ) : null}
-      <span>
-        Works only on nodes that support the subsidy. Paid up front when a job starts, so you only need your part in
-        escrow.
-      </span>
+      <span>Works only on nodes that support the subsidy. {getSubsidyPaymentNote(getProgramPayments(program))}</span>
     </div>
   );
 

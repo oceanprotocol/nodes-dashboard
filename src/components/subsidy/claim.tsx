@@ -1,11 +1,12 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
+import { getSubsidyPaymentNote, SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { useProfileContext } from '@/context/profile-context';
 import { captureError, getHttpStatus } from '@/lib/analytics';
+import { getProgramPayments } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useInvalidateSubsidyData } from '@/lib/use-subsidy';
+import { useInvalidateSubsidyData, useSubsidyProgram } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import axios from 'axios';
@@ -18,6 +19,7 @@ const Claim: React.FC = () => {
   const { account, login } = useOceanAccount();
   const { fetchSubsidyStatus, subsidyInfo } = useProfileContext();
   const invalidateSubsidyData = useInvalidateSubsidyData();
+  const { data: program } = useSubsidyProgram();
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -82,9 +84,7 @@ const Claim: React.FC = () => {
         </div>
       ) : (
         <div className="actionsGroupLgBetween">
-          <span className={styles.note}>
-            The subsidy is paid when a job starts, so only your share needs to be in escrow.
-          </span>
+          <span className={styles.note}>{program ? getSubsidyPaymentNote(getProgramPayments(program)) : null}</span>
           <Button color="accent1" loading={isLoading} onClick={handleClaim} size="lg" variant="filled">
             Claim subsidy
           </Button>
