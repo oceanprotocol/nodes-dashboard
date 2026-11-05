@@ -104,11 +104,24 @@ const DurationInput: React.FC<DurationInputProps> = ({
     onChange(seconds);
   };
 
-  // Switching the unit only changes how the duration reads, never the duration itself: convert the
-  // seconds last sent, not the (4-decimal) number on screen.
+  // Convert the seconds last sent, not the (4-decimal) number on screen. Switching to a bigger unit the
+  // duration doesn't read cleanly in rounds it to a whole number of that unit (at least 1).
   const handleUnitChange = (newUnit: DurationUnit) => {
     setUnit(newUnit);
-    setDisplayValue(displayValue === '' ? '' : displayIn(sentSecondsRef.current, newUnit));
+    if (displayValue === '') {
+      return;
+    }
+    const seconds = sentSecondsRef.current;
+    const isBiggerUnit = toSeconds(1, newUnit) > toSeconds(1, unit);
+    if (isBiggerUnit && seconds > 0 && !readsCleanly(seconds, newUnit)) {
+      const rounded = Math.max(1, Math.round(fromSeconds(seconds, newUnit)));
+      const roundedSeconds = toSeconds(rounded, newUnit);
+      setDisplayValue(rounded);
+      sentSecondsRef.current = roundedSeconds;
+      onChange(roundedSeconds);
+      return;
+    }
+    setDisplayValue(displayIn(seconds, newUnit));
   };
 
   return (
@@ -141,8 +154,9 @@ const DurationInput: React.FC<DurationInputProps> = ({
       errorText={errorText}
       hint={hint}
       label={label}
-      max={max !== undefined ? fromSeconds(max, unit) : undefined}
-      min={min !== undefined ? fromSeconds(min, unit) : undefined}
+      // Whole units: the native min is the arrow keys' step base, so a fractional one makes them step off-integer.
+      max={max !== undefined ? Math.floor(fromSeconds(max, unit)) : undefined}
+      min={min !== undefined ? Math.ceil(fromSeconds(min, unit)) : undefined}
       name={name}
       onBlur={onBlur}
       onChange={handleValueChange}
