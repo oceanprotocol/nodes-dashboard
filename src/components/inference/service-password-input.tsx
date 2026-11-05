@@ -17,12 +17,12 @@ const ServicePasswordInput: React.FC<ServicePasswordInputProps> = ({ errorText, 
     <div className="ph-no-capture">
       <Input
         endAdornment={
-          <>
+          <div className="flexRow gapSm">
             <Button color="accent1" onClick={() => setVisible((v) => !v)} size="sm" variant="outlined">
               {visible ? 'Hide' : 'Show'}
             </Button>
             <CopyButton contentToCopy={value} size="sm" variant="outlined" />
-          </>
+          </div>
         }
         errorText={errorText}
         label={label}

@@ -13,12 +13,11 @@ import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import {
-  decryptServicePassword,
   generateServicePassword,
   isValidServicePassword,
+  recallServicePassword,
   SERVICE_PASSWORD_ENV,
 } from '@/lib/service-password';
-import { useServicePasswordKey } from '@/lib/use-service-password-key';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
@@ -32,7 +31,7 @@ import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const UNLOCK_FAILED_NOTE = 'Could not unlock the old password, so a new one was set.';
+const PASSWORD_NOT_SAVED_NOTE = 'This browser did not save the old password, so a new one is set.';
 
 const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
@@ -46,8 +45,6 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     setHfToken,
     servicePassword,
     setServicePassword,
-    editPassword,
-    setEditPassword,
     setParamsForModel,
     selectedModels,
     selectedEnv,
@@ -88,62 +85,19 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Edit: the node doesn't echo a service's env, so the non-secret values this browser launched it
   // with (see template-env-memory) prefill the fields; anything already typed this session wins.
   const editServiceId = isEditMode ? firstQueryValue(router.query.serviceId) : undefined;
-  const { getKey } = useServicePasswordKey();
-  const editPasswordForService = editPassword?.serviceId === editServiceId ? editPassword : null;
-  const editPasswordPlain = editPasswordForService?.plain ?? null;
-  // Edit keeps the running service's password by decrypting the stored blob; any failure falls back to a new random one.
-  const unlockedServiceRef = useRef<string | null>(null);
-  // A late decrypt must not overwrite what the user typed.
+  // Edit keeps the running service's password when this browser saved it, else a new random one.
+  const editPasswordPlain = useMemo(
+    () => (editServiceId ? recallServicePassword(editServiceId) : null),
+    [editServiceId]
+  );
+  const passwordNotSaved = !!editServiceId && !editPasswordPlain;
+  // Once the user types a password, it is theirs.
   const passwordTouchedRef = useRef(false);
-  const [unlockFailed, setUnlockFailed] = useState(false);
   useEffect(() => {
-    if (!editServiceId || editPasswordPlain || unlockedServiceRef.current === editServiceId) {
-      return;
+    if (editServiceId && isCustomModelFlow && !passwordTouchedRef.current) {
+      setServicePassword(editPasswordPlain ?? generateServicePassword());
     }
-    unlockedServiceRef.current = editServiceId;
-    const blob = editPasswordForService?.blob;
-    const fallBackToRandom = () =>
-      isCustomModelFlow && !passwordTouchedRef.current && setServicePassword(generateServicePassword());
-    if (!blob) {
-      fallBackToRandom();
-      return;
-    }
-    // Cleanup frees the ref so the next run (StrictMode, key change) starts again.
-    let cancelled = false;
-    (async () => {
-      try {
-        const key = await getKey();
-        if (!key) {
-          throw new Error('no key');
-        }
-        const plain = await decryptServicePassword(key, blob);
-        if (cancelled) {
-          return;
-        }
-        setEditPassword({ serviceId: editServiceId, blob, plain });
-        if (isCustomModelFlow && !passwordTouchedRef.current) {
-          setServicePassword(plain);
-        }
-      } catch {
-        if (!cancelled) {
-          fallBackToRandom();
-          setUnlockFailed(true);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      unlockedServiceRef.current = null;
-    };
-  }, [
-    editServiceId,
-    editPasswordForService,
-    editPasswordPlain,
-    isCustomModelFlow,
-    getKey,
-    setEditPassword,
-    setServicePassword,
-  ]);
+  }, [editServiceId, editPasswordPlain, isCustomModelFlow, setServicePassword]);
   useEffect(() => {
     if (!isTemplateFlow) {
       return;
@@ -443,7 +397,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   }}
                   value={servicePassword}
                 />
-                {unlockFailed && <div className="textSecondary">{UNLOCK_FAILED_NOTE}</div>}
+                {passwordNotSaved && <div className="textSecondary">{PASSWORD_NOT_SAVED_NOTE}</div>}
               </Card>
               {modelIds.map((id) => (
                 <ModelParameters
@@ -507,7 +461,9 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
               ) : !showsPicker ? (
                 <div className="textSecondary">This template has no configurable settings.</div>
               ) : null}
-              {unlockFailed && <div className="textSecondary">{UNLOCK_FAILED_NOTE}</div>}
+              {passwordNotSaved && envSpecs.some((spec) => spec.key === SERVICE_PASSWORD_ENV) && (
+                <div className="textSecondary">{PASSWORD_NOT_SAVED_NOTE}</div>
+              )}
               {isEditMode && (
                 <div className="textSecondary">
                   Secrets you entered on the original launch aren&apos;t stored, so re-enter any tokens and passwords

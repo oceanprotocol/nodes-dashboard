@@ -9,7 +9,7 @@ import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
 import { readAuth, useInjectedWallet, writeAuth, type StoredAuth } from '@/lib/use-injected-wallet';
 import { CircularProgress } from '@mui/material';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { ethers, getAddress, hexlify, toUtf8Bytes } from 'ethers';
+import { ethers } from 'ethers';
 import posthog from 'posthog-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -42,8 +42,6 @@ class MetaMaskBrowserProvider extends ethers.BrowserProvider {
 
 export type SignMessageFn = (message: string) => Promise<string>;
 
-export type KeySigner = { address: string; signMessage: SignMessageFn };
-
 export type OceanUser = { type: 'sca'; address: string } | { type: 'eoa'; address?: string } | null;
 
 type OceanAccountContextType = {
@@ -55,7 +53,6 @@ type OceanAccountContextType = {
   authenticated: boolean;
   isConnecting: boolean;
   isSendingTransaction: boolean;
-  keySigner: KeySigner | null;
   login: () => void;
   logout: () => Promise<void>;
   ocean: OceanProvider | null;
@@ -101,24 +98,6 @@ const SCAHandler = ({ children, onDisconnect }: { children: ReactNode; onDisconn
 
   const ocean = useMemo(() => new OceanProvider(CHAIN_ID, provider), [provider]);
 
-  // Embedded EOA, not the smart account: an ERC-1271 signature is not deterministic, and the key depends on it.
-  const { wallets } = useWallets();
-  const embeddedWallet = getEmbeddedWallet(wallets);
-  const keySigner = useMemo<KeySigner | null>(() => {
-    if (!embeddedWallet) return null;
-    const signerAddress = getAddress(embeddedWallet.address);
-    return {
-      address: signerAddress,
-      signMessage: async (message) => {
-        const eip1193 = await embeddedWallet.getEthereumProvider();
-        return await eip1193.request({
-          method: 'personal_sign',
-          params: [hexlify(toUtf8Bytes(message)), signerAddress],
-        });
-      },
-    };
-  }, [embeddedWallet]);
-
   // Sign as the smart account (ERC-1271), since the node identifies the user by the smart-account
   // address. The Alchemy client produces a signature the account's isValidSignature accepts.
   const signMessageWrapper = useCallback(
@@ -163,7 +142,6 @@ const SCAHandler = ({ children, onDisconnect }: { children: ReactNode; onDisconn
         authenticated: true,
         isConnecting: false,
         isSendingTransaction,
-        keySigner,
         // A SCA user is always already connected, so the chooser is never needed here.
         login,
         logout,
@@ -293,25 +271,6 @@ const EOAHandler = ({
     [address, signerProvider]
   );
 
-  // Plain-text personal_sign, not signMessage() above (which signs a digest).
-  const keySigner = useMemo<KeySigner | null>(
-    () =>
-      address && signerProvider
-        ? {
-            address,
-            signMessage: async (message) => {
-              const signer = await signerProvider.getSigner();
-              // The message names `address`, so the wallet must still be on it.
-              if (signer.address.toLowerCase() !== address.toLowerCase()) {
-                throw new Error('Connected wallet account changed');
-              }
-              return signer.signMessage(message);
-            },
-          }
-        : null,
-    [address, signerProvider]
-  );
-
   const sendTransactionWrapper = useCallback(
     async ({
       target,
@@ -351,7 +310,6 @@ const EOAHandler = ({
         authenticated,
         isConnecting,
         isSendingTransaction,
-        keySigner,
         login,
         logout: handleDisconnect,
         ocean,

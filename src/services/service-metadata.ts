@@ -1,5 +1,4 @@
 import { InferenceBranch, resolveInferenceBranch } from '@/lib/inference-analytics';
-import { BLOB_PREFIX } from '@/lib/service-password';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate } from '@/types/templates';
 import type { ComputeJobMetadata } from '@oceanprotocol/lib';
@@ -18,7 +17,6 @@ import type { ComputeJobMetadata } from '@oceanprotocol/lib';
  */
 export const APP_TYPE_KEY = 'appType';
 export const APP_ID_KEY = 'appId';
-export const PASSWORD_BLOB_KEY = 'pw';
 
 /**
  * Which of the four inference flows launched a service — the wire vocabulary, and the thing that says
@@ -103,22 +101,12 @@ export type ServiceAppIdentity = {
 export function buildServiceMetadata(identity: {
   appType: ServiceAppType;
   appId?: string | null;
-  pw?: string;
 }): ComputeJobMetadata | undefined {
   const appId = identity.appId?.trim();
   if (!appId) {
     return undefined;
   }
-  return {
-    [APP_TYPE_KEY]: identity.appType,
-    [APP_ID_KEY]: appId,
-    ...(identity.pw ? { [PASSWORD_BLOB_KEY]: identity.pw } : {}),
-  };
-}
-
-export function readServicePasswordBlob(source: { metadata?: ComputeJobMetadata } | null | undefined): string | null {
-  const blob = source?.metadata?.[PASSWORD_BLOB_KEY];
-  return typeof blob === 'string' && blob.startsWith(BLOB_PREFIX) ? blob : null;
+  return { [APP_TYPE_KEY]: identity.appType, [APP_ID_KEY]: appId };
 }
 
 /**

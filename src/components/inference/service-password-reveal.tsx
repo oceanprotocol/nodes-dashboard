@@ -1,62 +1,44 @@
 import Button from '@/components/button/button';
 import CopyButton from '@/components/button/copy-button';
-import { decryptServicePassword } from '@/lib/service-password';
-import { useServicePasswordKey } from '@/lib/use-service-password-key';
-import { useState } from 'react';
+import Card from '@/components/card/card';
+import { Fragment } from 'react';
+import styles from './manage-service-page.module.css';
 
 type ServicePasswordRevealProps = {
-  blob: string | null;
-  /** Held by the parent so the curl snippet can show it too. */
+  /** Saved by the browser that launched the service; null elsewhere. */
   password: string | null;
-  onReveal: (password: string) => void;
-  /** Templates sign in their own way (some keep the app's own login), so they point to the README. */
-  isTemplate?: boolean;
+  /** Held by the parent so the curl snippet shows the password only while it is revealed. */
+  shown: boolean;
+  onToggle: () => void;
+  /** How this kind of service takes the password (serviceSignInHelp). */
+  help: string;
 };
 
-const MODEL_HELP = 'Send this password as `Authorization: Bearer <password>` (the API key in OpenAI clients).';
-const TEMPLATE_HELP = "Use this password to sign in. The template's README shows how to call it by API.";
+const MASK = '•'.repeat(12);
 
-const ServicePasswordReveal: React.FC<ServicePasswordRevealProps> = ({ blob, password, onReveal, isTemplate }) => {
-  const { getKey } = useServicePasswordKey();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+// `code` spans in the help text become <code>.
+const renderHelp = (help: string) =>
+  help.split('`').map((part, i) => (i % 2 ? <code key={i}>{part}</code> : <Fragment key={i}>{part}</Fragment>));
 
-  const reveal = async () => {
-    if (!blob) {
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const key = await getKey();
-      if (!key) {
-        throw new Error('no key');
-      }
-      onReveal(await decryptServicePassword(key, blob));
-    } catch {
-      setError('This wallet cannot unlock this password. Set a new one with Edit.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      {!blob ? (
-        <span className="textSecondary">Password not stored for this service.</span>
-      ) : password ? (
-        <>
-          <code className="ph-no-capture">{password}</code> <CopyButton contentToCopy={password} size="sm" />
-        </>
-      ) : (
-        <Button color="accent1" loading={loading} onClick={reveal} size="sm" variant="outlined">
-          Reveal password
+/** The "Password" row of How to use. */
+const ServicePasswordReveal: React.FC<ServicePasswordRevealProps> = ({ password, shown, onToggle, help }) => (
+  <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
+    <div className={`chip chipGlass ${styles.endpointChip}`}>Password</div>
+    <span className={`${styles.endpointPath} ph-no-capture`}>
+      {password ? (shown ? password : MASK) : 'Not saved in this browser'}
+    </span>
+    <span className={`${styles.endpointDescription} ${styles.endpointHelp}`}>
+      {password ? renderHelp(help) : 'Set a new password with Edit.'}
+    </span>
+    {password && (
+      <div className={`flexRow gapSm ${styles.endpointAction}`}>
+        <Button color="accent1" onClick={onToggle} size="sm" variant="outlined">
+          {shown ? 'Hide' : 'Reveal'}
         </Button>
-      )}
-      {error && <div className="textAccent1">{error}</div>}
-      {blob && <div className="textSecondary">{isTemplate ? TEMPLATE_HELP : MODEL_HELP}</div>}
-    </div>
-  );
-};
+        {shown && <CopyButton color="accent2" contentToCopy={password} size="sm" variant="filled" />}
+      </div>
+    )}
+  </Card>
+);
 
 export default ServicePasswordReveal;

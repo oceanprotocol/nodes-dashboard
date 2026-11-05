@@ -22,7 +22,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { captureError } from '@/lib/analytics';
 import { findServiceEscrowLock, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
-import { SERVICE_PASSWORD_ENV } from '@/lib/service-password';
+import { recallServicePassword, SERVICE_PASSWORD_ENV, serviceSignInHelp } from '@/lib/service-password';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -35,12 +35,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
-import {
-  branchForAppType,
-  isModelAppType,
-  readServiceMetadata,
-  readServicePasswordBlob,
-} from '@/services/service-metadata';
+import { branchForAppType, isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
 import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
@@ -210,7 +205,6 @@ const ManageServicePage: React.FC = () => {
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
-    setEditPassword,
   } = useInferenceContext();
   const { account, ocean } = useOceanAccount();
   const { getServiceStatus, serviceRestart } = useP2P();
@@ -221,8 +215,8 @@ const ManageServicePage: React.FC = () => {
   const [jobError, setJobError] = useState<string | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<'restart' | null>(null);
-  // Tagged with the service and blob: this page stays mounted across services, so another service's value must never show.
-  const [revealed, setRevealed] = useState<{ id: string; blob: string; value: string } | null>(null);
+  // Tagged with the service: this page stays mounted across services, so another one must start hidden.
+  const [passwordShownFor, setPasswordShownFor] = useState<string | null>(null);
   // Bumped after restart to re-kick the poll loop.
   const [pollEpoch, setPollEpoch] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -345,9 +339,9 @@ const ManageServicePage: React.FC = () => {
    * is false and a running bundle reports 'service'.
    */
   const declaredIdentity = readServiceMetadata(job);
-  const passwordBlob = readServicePasswordBlob(job);
-  const revealedPassword = revealed && revealed.id === id && revealed.blob === passwordBlob ? revealed.value : null;
-  const onPasswordRevealed = (value: string) => passwordBlob && setRevealed({ id, blob: passwordBlob, value });
+  const savedPassword = useMemo(() => recallServicePassword(id), [id]);
+  const passwordShown = passwordShownFor === id && !!savedPassword;
+  const togglePassword = () => setPasswordShownFor(passwordShown ? null : id);
   // Kept as primitives, not the object: the status poll hands us a fresh job (and so a fresh bag)
   // every tick, and these feed memo/callback dependency lists.
   const declaredAppType = declaredIdentity?.appType ?? null;
@@ -904,7 +898,6 @@ const ManageServicePage: React.FC = () => {
     if (!canEdit) {
       return;
     }
-    setEditPassword({ serviceId: id, blob: passwordBlob, plain: null });
     // A template service re-enters the template flow at the config (reconfigure) step; a model service
     // re-enters the model picker. buildSelectionQuery already carries the template/model selection.
     if (template) {
@@ -1040,7 +1033,7 @@ const ManageServicePage: React.FC = () => {
   // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.
   const chatUrl = baseUrl ? `${baseUrl}/v1/chat/completions` : '$BASE/v1/chat/completions';
   const curlSnippet = `curl ${chatUrl} \\
-  -H "Authorization: Bearer ${revealedPassword ?? '<password>'}" \\
+  -H "Authorization: Bearer ${passwordShown ? savedPassword : '<password>'}" \\
   -H "Content-Type: application/json" \\
   -d '{ "model": "${primaryModelName}", "messages": [ { "role": "user", "content": "Hello!" } ] }'`;
 
@@ -1334,13 +1327,12 @@ const ManageServicePage: React.FC = () => {
                       </Button>
                     )}
                   </Card>
-                  {(passwordBlob || template?.userConfigurableEnvVars?.some((v) => v.key === SERVICE_PASSWORD_ENV)) && (
+                  {template?.userConfigurableEnvVars?.some((v) => v.key === SERVICE_PASSWORD_ENV) && (
                     <ServicePasswordReveal
-                      blob={passwordBlob}
-                      isTemplate
-                      key={id}
-                      onReveal={onPasswordRevealed}
-                      password={revealedPassword}
+                      help={serviceSignInHelp(template.id, template.service)}
+                      onToggle={togglePassword}
+                      password={savedPassword}
+                      shown={passwordShown}
                     />
                   )}
                 </div>
@@ -1384,15 +1376,13 @@ const ManageServicePage: React.FC = () => {
                       />
                     </span>
                   </Card>
-                </div>
-                {passwordBlob && (
                   <ServicePasswordReveal
-                    blob={passwordBlob}
-                    key={id}
-                    onReveal={onPasswordRevealed}
-                    password={revealedPassword}
+                    help={serviceSignInHelp(job?.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm')}
+                    onToggle={togglePassword}
+                    password={savedPassword}
+                    shown={passwordShown}
                   />
-                )}
+                </div>
                 <div className={styles.quickTestHead}>
                   <h4>Quick test</h4>
                   <span

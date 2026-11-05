@@ -199,6 +199,11 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+
+      /* Sign-in help is an instruction, so it wraps instead of being cut. */
+      .endpointHelp {
+        white-space: normal;
+      }
     }
   }
 }

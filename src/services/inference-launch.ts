@@ -696,14 +696,12 @@ export function buildInferenceRestartSpec({
   params,
   hfToken,
   servicePassword,
-  passwordBlob,
   appType,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
   hfToken: string;
   servicePassword: string;
-  passwordBlob?: string;
   /**
    * Which flow this relaunch came from, so the service's labels keep describing what it now runs.
    * An omitted `metadata` reuses the stored bag, which after a model swap would name the OLD model —
@@ -712,7 +710,7 @@ export function buildInferenceRestartSpec({
   appType: ServiceAppType;
 }): ServiceRestartParams {
   const runtime = engineRuntime(params);
-  const metadata = buildServiceMetadata({ appType, appId: model.id, pw: passwordBlob });
+  const metadata = buildServiceMetadata({ appType, appId: model.id });
   return {
     image: runtime.image,
     tag: runtime.tag,
@@ -738,7 +736,6 @@ export function buildInferenceStartParams({
   tokenAddress,
   hfToken,
   servicePassword,
-  passwordBlob,
   appType,
 }: {
   model: HuggingFaceModel;
@@ -755,7 +752,6 @@ export function buildInferenceStartParams({
   tokenAddress: string;
   hfToken: string;
   servicePassword: string;
-  passwordBlob?: string;
   /**
    * Which of the four flows launched this, stamped into the service's `metadata` alongside the model
    * id so the running service identifies itself instead of having to be matched by image/dockerCmd
@@ -778,7 +774,7 @@ export function buildInferenceStartParams({
     ...buildGpuRequests(envResources, gpuSelection ?? selectedEnv.gpuSelection),
   ];
 
-  const metadata = buildServiceMetadata({ appType, appId: model.id, pw: passwordBlob });
+  const metadata = buildServiceMetadata({ appType, appId: model.id });
 
   return {
     environment: selectedEnv.environment.id,

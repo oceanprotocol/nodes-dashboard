@@ -1,11 +1,7 @@
-import { getBytes, Signature } from 'ethers';
-
 export const SERVICE_PASSWORD_ENV = 'SERVICE_PASSWORD';
 
 export const isValidServicePassword = (value: string) => /^\S{1,256}$/.test(value);
 
-export const BLOB_PREFIX = 'v1.';
-const IV_BYTES = 12;
 const PASSWORD_LENGTH = 24;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 // Bytes at or above this are discarded to avoid modulo bias.
@@ -23,64 +19,41 @@ export function generateServicePassword(): string {
   return password;
 }
 
-/**
- * The text the wallet signs to unlock stored passwords. Frozen: changing a single character changes
- * the signature, and with it the key, so every stored password would stop decrypting. `host` is part
- * of the text so a signature given to another site cannot be replayed here.
- */
-export function passwordKeyMessage(host: string, address: string): string {
-  return `${host} wants you to sign in with your Ethereum account:\n${address}\n\nUnlock your Ocean service passwords. Only sign this on ${host}.`;
-}
+const BEARER = 'API: send `Authorization: Bearer <password>`.';
 
-// Fixes the v byte (27/28 vs 0/1); signatures that are not plain ECDSA stay raw.
-function normalizeSignature(signature: string): string {
+// How each kind of service takes the password. Looked up by the raw engine, else the template id, else its `service`.
+const SIGN_IN_HELP: Record<string, string> = {
+  vllm: 'Use it as the API key: `Authorization: Bearer <password>` (`api_key` in OpenAI clients).',
+  llamacpp: `In the web UI, enter it as the API key in Settings. ${BEARER}`,
+  comfyui: `When the browser asks you to sign in, leave the username empty and enter this password. ${BEARER}`,
+  opencode: 'Sign in with the username `opencode` and this password. API: `curl -u opencode:<password>`.',
+  'coding-agent-deepseek-v4-flash': 'Sign in with the username `dsh` and this password.',
+  openclaw: 'On your first visit, paste this password as the token in the Control UI.',
+  hermes: 'Sign in with the dashboard username you set and this password.',
+  'open-webui': 'Sign in with the email `owner@ocean.local` and this password.',
+};
+
+export const serviceSignInHelp = (...keys: (string | undefined)[]): string =>
+  keys.map((key) => key && SIGN_IN_HELP[key]).find(Boolean) ?? 'Use this password to sign in.';
+
+// The password is kept in the browser that launched the service, next to the node login tokens.
+// TODO(#240): Reveal on other devices needs an owner-only node command that returns the service's
+// decrypted userData (it already holds SERVICE_PASSWORD / LLAMA_API_KEY); then drop this storage.
+const STORAGE_PREFIX = 'inference-service-password';
+
+export function rememberServicePassword(serviceId: string, password: string | undefined): void {
+  if (!password) return;
   try {
-    return Signature.from(signature).serialized;
-  } catch {
-    return signature;
+    localStorage.setItem(`${STORAGE_PREFIX}-${serviceId}`, password);
+  } catch (error) {
+    console.error('Failed to save the service password:', error);
   }
 }
 
-// AES-GCM key = SHA-256 of the normalised signature. Not extractable.
-export async function derivePasswordKey(signature: string): Promise<CryptoKey> {
-  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(getBytes(normalizeSignature(signature))));
-  return crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['encrypt', 'decrypt']);
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
-  const base64 = text.replace(/-/g, '+').replace(/_/g, '/');
-  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-}
-
-// `v1.<base64url iv>.<base64url ciphertext>`
-export async function encryptServicePassword(key: CryptoKey, password: string): Promise<string> {
-  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    new Uint8Array(new TextEncoder().encode(password))
-  );
-  return `${BLOB_PREFIX}${toBase64Url(iv)}.${toBase64Url(new Uint8Array(ciphertext))}`;
-}
-
-// Throws `cannot unlock` for a wrong key or a malformed blob.
-export async function decryptServicePassword(key: CryptoKey, blob: string): Promise<string> {
+export function recallServicePassword(serviceId: string): string | null {
   try {
-    const parts = blob.split('.');
-    if (parts.length !== 3 || `${parts[0]}.` !== BLOB_PREFIX) {
-      throw new Error('bad blob');
-    }
-    const iv = fromBase64Url(parts[1]);
-    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, fromBase64Url(parts[2]));
-    return new TextDecoder().decode(plain);
+    return localStorage.getItem(`${STORAGE_PREFIX}-${serviceId}`);
   } catch {
-    throw new Error('cannot unlock');
+    return null;
   }
 }
