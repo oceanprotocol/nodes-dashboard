@@ -73,17 +73,24 @@
 
 .filters {
   display: grid;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 8px 16px;
   grid-template-columns: 1fr;
 
+  @media (min-width: 576px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
   @media (min-width: 768px) {
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) 200px 200px;
     align-items: end;
   }
 
   .gpuSelect {
     min-width: 0;
+
+    @media (min-width: 576px) and (max-width: 767px) {
+      grid-column: 1 / -1;
+    }
   }
 }
 

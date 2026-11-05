@@ -22,8 +22,8 @@ import { formatDuration } from '@/utils/formatters';
 import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { Collapse } from '@mui/material';
-import { useFormik } from 'formik';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -191,29 +191,30 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   const feeTokenOptions = useMemo(() => {
     const tokens = getSupportedTokens();
     return [
-      { label: 'Any', value: '' },
+      { label: 'Any fee token', value: '' },
       ...Object.keys(tokens).map((token) => ({ value: tokens[token as keyof typeof tokens].address, label: token })),
     ];
   }, []);
 
-  const formik = useFormik<FilterFormValues>({
-    initialValues: {
-      feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
-      gpuName: filters.gpuName ?? [],
-      sortBy: sort ?? '',
-    },
-    onSubmit: (values) => {
-      const next: RawFilters = { ...DEFAULT_FILTERS };
-      if (values.feeToken) {
-        next.feeToken = values.feeToken;
-      }
-      if (values.gpuName.length > 0) {
-        next.gpuName = values.gpuName;
-      }
-      setFilters(next);
-      setSort(values.sortBy);
-    },
+  const [filterValues, setFilterValues] = useState<FilterFormValues>({
+    feeToken: Array.isArray(filters.feeToken) ? '' : (filters.feeToken ?? ''),
+    gpuName: filters.gpuName ?? [],
+    sortBy: sort ?? '',
   });
+
+  const onFilterChange = (e: { target: { name: string; value: unknown } }) => {
+    const values = { ...filterValues, [e.target.name]: e.target.value };
+    setFilterValues(values);
+    const next: RawFilters = { ...DEFAULT_FILTERS };
+    if (values.feeToken) {
+      next.feeToken = values.feeToken;
+    }
+    if (values.gpuName.length > 0) {
+      next.gpuName = values.gpuName;
+    }
+    setFilters(next);
+    setSort(values.sortBy);
+  };
 
   const filteredNodeEnvs = useMemo(() => {
     const result: NodeEnvironments[] = [];
@@ -325,7 +326,15 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   return (
     <>
-      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="sm" variant="glass-shaded">
+      <Card
+        direction="column"
+        paddingX="md"
+        paddingY="sm"
+        radius="lg"
+        shadow="black"
+        spacing="sm"
+        variant="glass-shaded"
+      >
         <div className={styles.durationRow}>
           <span aria-hidden className={styles.durationIcon}>
             <ScheduleIcon />
@@ -367,48 +376,40 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           <DeclaredResources recommended={declaredResources.recommended} required={declaredResources.required} />
         )}
 
-        <form onSubmit={formik.handleSubmit}>
-          <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
-            <div className={styles.filters}>
-              <Select
-                className={styles.gpuSelect}
-                label="GPUs"
-                multiple
-                name="gpuName"
-                onChange={formik.handleChange}
-                options={gpuOptions}
-                placeholder="Any GPU"
-                renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
-                renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
-                size="sm"
-                value={formik.values.gpuName}
-              />
-              <Select
-                label="Sorting"
-                name="sortBy"
-                onChange={formik.handleChange}
-                options={sortOptions}
-                placeholder="No sorting"
-                size="sm"
-                value={formik.values.sortBy}
-              />
-              <Select
-                label="Fee token"
-                name="feeToken"
-                onChange={formik.handleChange}
-                options={feeTokenOptions}
-                placeholder="Any"
-                size="sm"
-                value={formik.values.feeToken}
-              />
-            </div>
-            <div className="actionsGroupMdEnd">
-              <Button className="alignSelfStart" color="accent2" loading={loading} type="submit" variant="filled">
-                Find environments
-              </Button>
-            </div>
-          </Card>
-        </form>
+        <div className={styles.filters}>
+          <Select
+            ariaLabel="GPUs"
+            className={styles.gpuSelect}
+            multiple
+            name="gpuName"
+            onChange={onFilterChange}
+            options={gpuOptions}
+            placeholder="Any GPU"
+            renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
+            renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
+            size="sm"
+            value={filterValues.gpuName}
+          />
+          <Select
+            ariaLabel="Fee token"
+            name="feeToken"
+            onChange={onFilterChange}
+            options={feeTokenOptions}
+            placeholder="Any fee token"
+            size="sm"
+            value={filterValues.feeToken}
+          />
+          <Select
+            ariaLabel="Sorting"
+            name="sortBy"
+            onChange={onFilterChange}
+            options={sortOptions}
+            placeholder="No sorting"
+            size="sm"
+            startAdornment={<SwapVertIcon />}
+            value={filterValues.sortBy}
+          />
+        </div>
 
         <div className={styles.list}>
           {filteredNodeEnvs.length > 0 ? (
