@@ -1,7 +1,8 @@
 import { Fragment, ReactNode } from 'react';
 
-const INLINE_PATTERN = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_|`(.+?)`|\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/;
-const SAFE_URL_PATTERN = /^(https?:\/\/|mailto:|\/(?!\/))/i;
+const INLINE_PATTERN =
+  /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|(?<!\w)_(.+?)_(?!\w)|`(.+?)`|\[([^\]]+)\]\(((?:[^()\s]|\((?:[^()\s]|\([^()\s]*\))*\))+)\)/;
+const SAFE_URL_PATTERN = /^(https?:\/\/|mailto:|\/(?![/\\]))/i;
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -14,9 +15,15 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
       nodes.push(text.slice(lastIndex, match.index));
     }
     const key = `${keyPrefix}-${match.index}`;
-    const [raw, bold, italicStar, italicUnderscore, code, linkText, linkUrl] = match;
+    const [raw, boldItalic, bold, italicStar, italicUnderscore, code, linkText, linkUrl] = match;
 
-    if (bold !== undefined) {
+    if (boldItalic !== undefined) {
+      nodes.push(
+        <strong key={key}>
+          <em>{renderInline(boldItalic, key)}</em>
+        </strong>
+      );
+    } else if (bold !== undefined) {
       nodes.push(<strong key={key}>{renderInline(bold, key)}</strong>);
     } else if (italicStar !== undefined || italicUnderscore !== undefined) {
       nodes.push(<em key={key}>{renderInline(italicStar ?? italicUnderscore, key)}</em>);
@@ -51,7 +58,8 @@ const HEADING_TAGS = ['h3', 'h4', 'h5'] as const;
 
 /**
  * Renders a small Markdown subset (headings, bold, italic, inline code, links, line breaks) as React
- * nodes. Never produces raw HTML, so untrusted input cannot inject markup or `javascript:` links.
+ * nodes. Link URLs support up to two levels of nested parentheses. Never produces raw HTML, so
+ * untrusted input cannot inject markup or `javascript:` links.
  */
 export function renderSimpleMarkdown(source: string): ReactNode {
   const lines = source.replace(/\\n/g, '\n').split('\n');
