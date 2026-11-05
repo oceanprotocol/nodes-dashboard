@@ -21,9 +21,9 @@ import {
   initializeCompute as initializeComputeFromService,
   initializeP2P,
   listBucketFiles as listBucketFilesService,
-  normalizeNodeUri,
   pushNodeConfig,
   renameNodeBucket as renameNodeBucketService,
+  sendNodeCommand,
   serviceExtend as serviceExtendFromService,
   serviceRestart as serviceRestartFromService,
   serviceStart as serviceStartFromService,
@@ -45,7 +45,6 @@ import {
   type PersistentStorageBucket,
   type PersistentStorageDeleteFileResponse,
   type PersistentStorageFileEntry,
-  ProviderInstance,
   type ServiceJob,
   type ServiceJobListed,
   type ServiceListFilters,
@@ -328,7 +327,7 @@ export function P2PProvider({ children }: { children: React.ReactNode }) {
       if (!isReady) {
         throw new Error('Node not ready');
       }
-      return ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), command);
+      return sendNodeCommand(nodeUri, command);
     },
     [isReady]
   );

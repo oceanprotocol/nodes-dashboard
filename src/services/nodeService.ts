@@ -1,3 +1,4 @@
+import { HTTP_NODE_URLS } from '@/constants/default-node';
 import { NATIVE_TOKEN_ADDRESS } from '@/constants/tokens';
 import { NodeUri } from '@/contexts/P2PContext';
 import { NODE_URL } from '@/lib/constants';
@@ -42,12 +43,39 @@ function peerIdFromMultiaddr(addr: string): string | null {
   return parts.length > 1 ? parts[parts.length - 1].split('/')[0] || null : null;
 }
 
-export function normalizeNodeUri(input: NodeUri): OceanNode {
+function peerIdOf(input: NodeUri): string | undefined {
   if (Array.isArray(input)) {
-    const nodeId = input.map(peerIdFromMultiaddr).find((id): id is string => !!id);
-    return { nodeId, multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
+    return input.map(peerIdFromMultiaddr).find((id): id is string => !!id);
+  }
+  if (typeof input === 'object' && 'nodeId' in input) {
+    return input.nodeId;
+  }
+  const value = String(input);
+  return peerIdFromMultiaddr(value) ?? value;
+}
+
+// ocean.js sends a url over HTTP and a peer id / multiaddr over P2P.
+export function normalizeNodeUri(input: NodeUri): OceanNode {
+  const peerId = peerIdOf(input);
+  if (peerId && HTTP_NODE_URLS[peerId]) {
+    return HTTP_NODE_URLS[peerId];
+  }
+  if (Array.isArray(input)) {
+    return { nodeId: peerId, multiaddress: input.map((a) => multiaddr(a)) } as NodeP2P;
   }
   return input;
+}
+
+// ocean.js fetchConfig is P2P-only, even for a url; the payload's `command` overrides FETCH_CONFIG.
+export async function sendNodeCommand(
+  nodeUri: NodeUri,
+  { command, ...body }: { command: string } & Record<string, unknown>
+): Promise<any> {
+  const peerId = peerIdOf(nodeUri);
+  if (peerId && HTTP_NODE_URLS[peerId]) {
+    return directNodeCommandJson({ body, command, gatewayUrl: HTTP_NODE_URLS[peerId], label: command, peerId });
+  }
+  return ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), { command, ...body });
 }
 
 export async function initializeP2P(bootstrapNodes: string[]): Promise<void> {
@@ -301,14 +329,18 @@ export async function createAuthToken({
     issuerPeerId: peerId,
     signMessage,
   });
-  const token = await ProviderInstance.generateSignedAuthToken(
-    consumerAddress,
+  // ocean.js generateSignedAuthToken is P2P-only.
+  const response = await sendNodeCommand(nodeUri, {
+    command: PROTOCOL_COMMANDS.CREATE_AUTH_TOKEN,
+    address: consumerAddress,
+    nonce: incrementedNonce.toString(),
     signature,
-    incrementedNonce.toString(),
-    normalizeNodeUri(nodeUri),
-    validUntil
-  );
-  return { token, validUntil };
+    validUntil,
+  });
+  if (!response?.token) {
+    throw new Error(response?.error ?? 'The node did not return an auth token');
+  }
+  return { token: response.token, validUntil };
 }
 
 export async function revokeAuthToken({
@@ -868,7 +900,8 @@ export async function fetchNodeConfig({
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), {
+  return sendNodeCommand(nodeUri, {
+    command: PROTOCOL_COMMANDS.FETCH_CONFIG,
     address: consumerAddress,
     expiryTimestamp,
     nonce: incrementedNonce,
@@ -896,7 +929,8 @@ export async function pushNodeConfig({
     incrementedNonce,
     signMessage,
   });
-  return ProviderInstance.pushConfig(normalizeNodeUri(nodeUri), {
+  return sendNodeCommand(nodeUri, {
+    command: PROTOCOL_COMMANDS.PUSH_CONFIG,
     address: consumerAddress,
     config,
     expiryTimestamp,
@@ -932,7 +966,7 @@ export async function collectNodeFees({
     incrementedNonce,
     signMessage,
   });
-  const response = await ProviderInstance.fetchConfig(normalizeNodeUri(nodeUri), {
+  const response = await sendNodeCommand(nodeUri, {
     command: PROTOCOL_COMMANDS.COLLECT_FEES,
     address: consumerAddress,
     chainId,
