@@ -1,3 +1,5 @@
+import { NodeComputeJob, ServiceJobListed } from '@oceanprotocol/lib';
+
 export type Job = any;
 
 export interface ComputeJobHistory {
@@ -133,4 +135,28 @@ export type BenchmarkJobHistory = {
   status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
   worker1Id: string;
   worker2Id: string;
+};
+
+/**
+ * A compute job from a node's history (incentive-backend `network-jobs`, scoped to one peerId).
+ * The backend keeps the node's job record, so dates are the node's Unix-seconds strings.
+ */
+export type NodeJobHistory = NodeComputeJob & {
+  algorithm?: { meta?: { container?: { image?: string; tag?: string } } };
+  containerImage?: string;
+  id: string;
+  index: number;
+  peerId?: string;
+};
+
+/**
+ * A service from a node's history (incentive-backend `network-services`, scoped to one peerId).
+ * Unlike the node's own listing, `dateCreated` is stored as epoch milliseconds.
+ */
+export type NodeServiceHistory = Omit<ServiceJobListed, 'dateCreated'> & {
+  dateCreated?: number;
+  id: string;
+  index: number;
+  model?: string;
+  peerId?: string;
 };
