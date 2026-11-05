@@ -5,9 +5,8 @@ import useCustomModelSizing from '@/components/hooks/use-custom-model-sizing';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import DeclaredResources from '@/components/inference/declared-resources';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
-import Select from '@/components/input/select';
 import DurationInput from '@/components/input/duration-input';
-import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import Select from '@/components/input/select';
 import Switch from '@/components/switch/switch';
 import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
@@ -19,6 +18,7 @@ import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { estimateModelsVramGb } from '@/services/vram-estimate';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
+import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import {
   DeclaredRequirement,
   demandOf,
@@ -199,6 +199,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     hfToken,
   });
   const sessionSettingsRef = useRef<HTMLDivElement>(null);
+  const [durationDraft, setDurationDraft] = useState(jobDurationSeconds);
+  const durationError =
+    !Number.isFinite(durationDraft) || durationDraft < 1 ? 'Enter a session length greater than zero.' : undefined;
   const [showAllGpus, setShowAllGpus] = useState(false);
   const gpuDemand = useMemo<GpuDemand | undefined>(() => {
     if (!isCustomModelFlow || !customSizing) {
@@ -307,6 +310,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     // a too-short serviceStart — it just sets expiresAt = now + duration, so a job below the min
     // gets swept to Expired almost immediately. Catch it here instead.
     const { min, max } = durationBounds(environment);
+    if (durationError) return;
     if (jobDurationSeconds < min || jobDurationSeconds > max) {
       // Build the range from whatever bounds are actually set — an unset max is Infinity, which
       // formatDuration would render as garbage ("Infinity seconds (Infinity:NaN:NaN)").
@@ -366,6 +370,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   };
 
   const onDurationChange = (seconds: number) => {
+    setDurationDraft(seconds);
+    // Keep the last valid quote while the user clears or replaces the field.
+    if (!Number.isFinite(seconds) || seconds < 1) return;
     setJobDurationSeconds(seconds);
     if (selectedEnv) {
       const { min, max } = serviceDurationBounds(selectedEnv.environment);
@@ -416,22 +423,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
             so nothing here needs an implicit submit — and keeping it formless means Enter never re-runs
             the search by accident. */}
         <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
-            <div className={styles.sessionSettings} ref={sessionSettingsRef}>
-              <div className={styles.sessionCopy}>
-                <strong>How long do you need?</strong>
-                <span>Prices below are totals for your session.</span>
-              </div>
-              <DurationInput
-                availableUnits={DURATION_UNIT_OPTIONS}
-                className={styles.sessionDuration}
-                defaultUnit="hours"
-                label="Session length"
-                min={1}
-                onChange={onDurationChange}
-                size="sm"
-                value={jobDurationSeconds}
-              />
-            </div>
           <div className={styles.filters}>
             <Select
               className={styles.gpuSelect}
@@ -477,12 +468,63 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
               Find environments
             </Button>
           </div>
+          <div className={styles.sessionSettings} ref={sessionSettingsRef}>
+            <div className={styles.sessionCopy}>
+              <strong>Session length</strong>
+              <span>Choose how long to run. Total prices update automatically.</span>
+            </div>
+            <div className={styles.durationControls}>
+              <div>
+                <span className={styles.presetLabel}>Quick choices</span>
+                <div className={styles.durationPresets} role="group" aria-label="Session length presets">
+                  {[
+                    { label: '30 min', seconds: 1800 },
+                    { label: '1 hour', seconds: 3600 },
+                    { label: '2 hours', seconds: 7200 },
+                    { label: '4 hours', seconds: 14400 },
+                    { label: '8 hours', seconds: 28800 },
+                  ].map(({ label, seconds }) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      className={styles.durationPreset}
+                      aria-pressed={durationDraft === seconds}
+                      onClick={() => onDurationChange(seconds)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <DurationInput
+                availableUnits={DURATION_UNIT_OPTIONS}
+                className={styles.sessionDuration}
+                defaultUnit="hours"
+                label="Custom duration"
+                errorText={durationError}
+                min={1}
+                onChange={onDurationChange}
+                size="md"
+                radius={24}
+                unitControl="segmented"
+                value={durationDraft}
+              />
+            </div>
+          </div>
         </Card>
 
         <div className={styles.resultsHeader}>
           <strong>Available environments</strong>
           <div className={styles.resultsDuration}>
-            <span>For <strong>{formatDuration(jobDurationSeconds)}</strong></span>
+            <span role="status">
+              {durationError ? (
+                'Enter a valid session length to continue'
+              ) : (
+                <>
+                  Total prices for <strong>{formatDuration(jobDurationSeconds)}</strong>
+                </>
+              )}
+            </span>
             <Button
               color="accent1"
               onClick={() => {
@@ -493,7 +535,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
               type="button"
               variant="transparent"
             >
-              Edit
+              Edit duration
             </Button>
           </div>
         </div>
@@ -504,29 +546,42 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
             filteredNodeEnvs.map((node) =>
               node.computeEnvironments.environments.map((env) => {
                 const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
+                const { min, max } = durationBounds(env);
+                const durationBlockedReason =
+                  durationError ??
+                  (jobDurationSeconds < min
+                    ? `Choose at least ${formatDuration(min)} for this environment.`
+                    : jobDurationSeconds > max
+                      ? `Choose ${formatDuration(max)} or less for this environment.`
+                      : undefined);
                 return (
-                  <InferenceEnvironmentCard
-                    // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
-                    // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
-                    // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
-                    allowZeroGpu={flowType === InferenceFlowType.Template}
-                    declaredRequirements={declaredResources}
-                    gpuDemand={gpuDemand}
-                    forcedGpuCount={forcedGpuCount}
-                    modelVramGb={modelVramGb ?? undefined}
-                    advisoryRequirement={isCustomModelFlow ? (customSizing?.requirement ?? undefined) : undefined}
-                    defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
-                    durationSeconds={jobDurationSeconds}
-                    environment={env}
-                    initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
-                    key={`${node.id}-${env.id}`}
-                    sizing={selectedEnv?.sizing}
-                    selected={isPriorSelection}
-                    nodeInfo={node}
-                    onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv, gpuPlan) =>
-                      handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection, gpuPlan)
-                    }
-                  />
+                  <div key={`${node.id}-${env.id}`} className={styles.environmentOption}>
+                    {!durationError && durationBlockedReason && (
+                      <p className={styles.durationNotice}>{durationBlockedReason}</p>
+                    )}
+                    <InferenceEnvironmentCard
+                      disabledReason={durationBlockedReason}
+                      // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
+                      // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
+                      // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
+                      allowZeroGpu={flowType === InferenceFlowType.Template}
+                      declaredRequirements={declaredResources}
+                      gpuDemand={gpuDemand}
+                      forcedGpuCount={forcedGpuCount}
+                      modelVramGb={modelVramGb ?? undefined}
+                      advisoryRequirement={isCustomModelFlow ? (customSizing?.requirement ?? undefined) : undefined}
+                      defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
+                      durationSeconds={jobDurationSeconds}
+                      environment={env}
+                      initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
+                      sizing={selectedEnv?.sizing}
+                      selected={isPriorSelection}
+                      nodeInfo={node}
+                      onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv, gpuPlan) =>
+                        handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection, gpuPlan)
+                      }
+                    />
+                  </div>
                 );
               })
             )

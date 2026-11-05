@@ -110,7 +110,8 @@ const Input: React.FC<InputProps> = ({
       custom_size={size}
       disabled={disabled}
       has_error={!!errorText}
-      inputProps={{ max, maxLength, min, step }}
+      error={!!errorText}
+      inputProps={{ max, maxLength, min, step, 'aria-label': typeof label === 'string' ? label : undefined }}
       name={name}
       onBlur={onBlur}
       onChange={onChange}
