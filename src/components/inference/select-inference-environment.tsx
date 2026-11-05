@@ -423,6 +423,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                     allowZeroGpu={flowType === InferenceFlowType.Template}
                     declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
                     defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
+                    disabledReason={jobDurationSeconds > 0 ? undefined : 'Enter a session length to continue.'}
                     durationSeconds={jobDurationSeconds}
                     environment={env}
                     initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}

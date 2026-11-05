@@ -200,11 +200,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
   }, [entries, fresh, excluded, access, gpuRange, allowZeroGpu, durationSeconds, account.address]);
 
   const start = useCallback(async () => {
-    if (plan.status !== 'ready' || startingRef.current) {
-      return;
-    }
-    if (durationSeconds <= 0) {
-      toast.error('Set a session length to continue.');
+    if (plan.status !== 'ready' || startingRef.current || durationSeconds <= 0) {
       return;
     }
     if (!account.address) {
@@ -397,7 +393,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
   const blockedReasons: Record<QuickStartStatus, string | null> = {
     loading: 'Finding a free environment…',
     error: "Environments couldn't be loaded. Retry above.",
-    ready: null,
+    ready: durationSeconds > 0 ? null : 'Enter a session length to start.',
     duration:
       suggestedDurationSeconds !== null
         ? `No environment that fits takes ${formatDuration(durationSeconds)}. Try ${formatDuration(suggestedDurationSeconds)}.`

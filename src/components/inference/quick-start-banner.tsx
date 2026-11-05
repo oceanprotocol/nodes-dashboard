@@ -24,7 +24,7 @@ import styles from './quick-start-banner.module.css';
 /** The quick start's Start button, price included. */
 function QuickStartButton<T extends QuickStartEntry>({ quickStart }: { quickStart: QuickStart<T> }) {
   const { status, priceLabel, blockedReason, starting, start, needsLogin } = quickStart;
-  const blocked = status !== 'ready';
+  const blocked = status !== 'ready' || !!blockedReason;
   const busy = status === 'loading' || starting;
   const tooltip = blockedReason ?? (needsLogin ? 'Log in to start' : '');
   return (
