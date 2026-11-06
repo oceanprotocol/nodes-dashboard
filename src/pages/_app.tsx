@@ -18,6 +18,7 @@ import { OceanAccountProvider } from '@/lib/use-ocean-account';
 import { PHProvider } from '@/lib/use-posthog';
 import { ThemeProvider as OceanThemeProvider } from '@/lib/use-theme';
 import '@/styles/globals.css';
+import '@/styles/privy-migration.css';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';

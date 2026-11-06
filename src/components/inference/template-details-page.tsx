@@ -31,7 +31,7 @@ import {
   visualFor,
 } from '@/components/inference/template-visual';
 import TemplateWorkflows from '@/components/inference/template-workflows';
-import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
+import { useInferenceContext } from '@/context/inference-context';
 import { InferenceOpenedVia, resolveInferenceBranch, trackInferenceSelection } from '@/lib/inference-analytics';
 import { useTheme } from '@/lib/use-theme';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
@@ -78,7 +78,6 @@ export const trackTemplateOpened = (tpl: AppTemplate, openedVia: InferenceOpened
       gpu: templateHardware(tpl).gpu,
       vendor: templateVendor(tpl.image),
       isBundle: isBundle(tpl),
-      durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
     },
   });
 };
@@ -224,7 +223,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
   }, [template]);
 
   // Session length, kept local until a Start/Advanced handoff.
-  const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const { resolved, loading: envsLoading, loadError, retry } = useTemplateEnvs(template);
   const { resolvedTheme } = useTheme();
   const visual = template ? visualFor(template.id, template.category) : null;

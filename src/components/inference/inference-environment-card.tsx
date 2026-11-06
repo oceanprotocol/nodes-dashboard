@@ -15,7 +15,7 @@ import { assertAllocationAvailable, buildGpuRequests, gpuSelectionMessage } from
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { declaredGpuOptions, DeclaredRequirement, preferredGpuOption } from '@/utils/env-resources';
-import { formatDuration, formatGb, formatTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatGb, formatHourlyRate, formatTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -124,6 +124,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     selectedTotal,
     allocation,
     price,
+    pricePerMinute,
     hasGpus,
     gpuExhausted,
     constraintViolation,
@@ -347,6 +348,10 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
           : (constraintViolation ?? null)
       : (constraintViolation ?? null));
   const selectDisabled = !!selectBlockedReason;
+  const priceLabel =
+    durationSeconds > 0
+      ? `${formatTokenAmount(price, USDC.address)} ${USDC.symbol}`
+      : formatHourlyRate(pricePerMinute, USDC.address, USDC.symbol);
 
   /**
    * Commit the pick against a freshly-read environment. The node is the only authority on which units
@@ -359,6 +364,10 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   const [committing, setCommitting] = useState(false);
   const handleContinue = async () => {
     if (selectDisabled || committing || !onSelect) {
+      return;
+    }
+    if (durationSeconds <= 0) {
+      toast.error('Set a session length to continue.');
       return;
     }
     setCommitting(true);
@@ -468,14 +477,12 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                   type="button"
                   variant="filled"
                 >
-                  {formatTokenAmount(price, USDC.address)} {USDC.symbol}
+                  {priceLabel}
                 </Button>
               </span>
             </Tooltip>
           ) : hidePrice ? null : (
-            <span className={styles.price}>
-              {formatTokenAmount(price, USDC.address)} {USDC.symbol}
-            </span>
+            <span className={styles.price}>{priceLabel}</span>
           )}
         </div>
       </div>

@@ -1,0 +1,11 @@
+.root {
+  overflow: clip;
+  overflow-clip-margin: 4px;
+  transition: height 240ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    transition: none;
+  }
+}

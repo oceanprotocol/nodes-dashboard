@@ -162,6 +162,7 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  animation: pickIn 280ms ease-out both;
   min-width: 0;
 }
 
@@ -274,13 +275,62 @@
 
 /* Small print */
 
+/* The session's end shares this row, under the controls, so it costs the banner no height. */
 .smallPrint {
-  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
   padding-top: 10px;
   border-top: 1px solid var(--border-glass);
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-secondary);
+
+  p {
+    margin: 0;
+  }
+
+  .sessionEnd strong {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+
+  .sessionMissing {
+    font-weight: 600;
+  }
+}
+
+/* Both messages share one cell and crossfade, so switching between them never shifts the row. */
+.sessionStatus {
+  display: grid;
+  justify-items: end;
+
+  p {
+    grid-area: 1 / 1;
+    transition:
+      opacity 200ms ease-out,
+      transform 200ms ease-out,
+      visibility 0s linear 0s;
+  }
+
+  .sessionStatusHidden {
+    opacity: 0;
+    transform: translateY(4px);
+    visibility: hidden;
+    transition:
+      opacity 200ms ease-out,
+      transform 200ms ease-out,
+      visibility 0s linear 200ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sessionStatus p,
+  .sessionStatus .sessionStatusHidden {
+    transition: none;
+  }
 }
 
 @keyframes pickIn {
@@ -295,7 +345,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pick {
+  .pick,
+  .problem {
     animation: none;
   }
 }

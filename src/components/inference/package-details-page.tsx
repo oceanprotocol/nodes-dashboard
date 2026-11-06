@@ -14,7 +14,7 @@ import {
 } from '@/components/inference/details-page';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import QuickStartBanner from '@/components/inference/quick-start-banner';
-import { DEFAULT_JOB_DURATION_SECONDS, useInferenceContext } from '@/context/inference-context';
+import { useInferenceContext } from '@/context/inference-context';
 import { InferenceOpenedVia, trackInferenceSelection } from '@/lib/inference-analytics';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { detailsPath, encodeDeclaredResources, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
@@ -39,7 +39,6 @@ export const trackPackageOpened = (pkg: InferencePackage, openedVia: InferenceOp
     properties: {
       packageId: pkg.id,
       engine: pkg.params.engine,
-      durationSeconds: DEFAULT_JOB_DURATION_SECONDS,
     },
   });
 };
@@ -98,7 +97,7 @@ const PackageDetailsPage: React.FC = () => {
   }, [pkg]);
 
   // Session length, kept local until a Start/Advanced handoff.
-  const [durationSeconds, setDurationSeconds] = useState(DEFAULT_JOB_DURATION_SECONDS);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const { resolved, loading: envsLoading, loadError, retry } = usePackageEnvs(pkg);
   const model = usePackageModel(pkg);
   const serviceModels: ServiceModel[] = useMemo(() => (pkg ? [{ model: pkg.model, params: pkg.params }] : []), [pkg]);

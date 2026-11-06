@@ -1,43 +1,96 @@
+.durationText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  p {
+    margin: 0;
+    color: var(--text-secondary);
+    text-wrap: pretty;
+  }
+
+  strong {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+}
+
+.durationIcon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent1) 12%, transparent);
+  color: var(--accent1);
+
+  svg {
+    font-size: 24px;
+  }
+
+  @media (max-width: 767px) {
+    display: none;
+  }
+}
+
 .durationRow {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 
   @media (min-width: 768px) {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 16px;
   }
 
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    @media (min-width: 576px) {
-      flex-direction: row;
-      align-items: flex-start;
+  /* Badge and field centre on the two-row text and keep that spot when the end time adds a row. */
+  .durationIcon {
+    @media (min-width: 768px) {
+      margin-top: 6px;
     }
+  }
 
-    .input {
-      min-width: 160px;
+  .durationText {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .input {
+    flex-shrink: 0;
+
+    @media (min-width: 768px) {
+      width: 220px;
+      margin-top: 2px;
+      margin-left: 16px;
     }
   }
 }
 
 .filters {
   display: grid;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 8px 16px;
   grid-template-columns: 1fr;
 
+  @media (min-width: 576px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
   @media (min-width: 768px) {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 1fr) 200px;
     align-items: end;
   }
 
   .gpuSelect {
     min-width: 0;
+
+    @media (min-width: 576px) and (max-width: 767px) {
+      grid-column: 1 / -1;
+    }
   }
 }
 
