@@ -9,8 +9,13 @@ import {
   ModelParameters,
   ModelQuantization,
 } from '@/types/huggingface';
-import { formatGpuLayouts, GpuRequirement, gpuTypesOf } from '@/utils/env-resources';
-import { deriveGpuLayouts, estimateHfSizingProfile, legalTpWidths } from '@oceanprotocol/lib';
+import { formatGpuLayouts, gpuTypesOf } from '@/utils/env-resources';
+import {
+  deriveGpuLayouts,
+  estimateHfSizingProfile,
+  type GpuResourceRequirement,
+  legalTpWidths,
+} from '@oceanprotocol/lib';
 
 /**
  * A rough VRAM estimate for a custom Hugging Face model, which — unlike a template or a curated package —
@@ -101,7 +106,7 @@ export function bookedVramGb(environment: ComputeEnvironment, gpuSelection: GpuS
  * A short warning when the picked cards don't hold a custom model's estimated layouts (see
  * customModelSizing) — advisory, the "show all GPUs" path is allowed to book them anyway.
  */
-export function vramFitMessage(requirement: GpuRequirement, gpuCount: number, bookedGb: number | null): string {
+export function vramFitMessage(requirement: GpuResourceRequirement, gpuCount: number, bookedGb: number | null): string {
   const picked =
     bookedGb === null
       ? `the ${gpuCount} GPU${gpuCount === 1 ? '' : 's'} picked`
@@ -130,7 +135,7 @@ export type CustomModelSizing = {
    * Estimated GPU requirement over those widths (ocean.js estimateHfSizingProfile → deriveGpuLayouts)
    * — a SOFT filter the picker can drop ("show all GPUs"). Null without an estimate.
    */
-  requirement: GpuRequirement | null;
+  requirement: GpuResourceRequirement | null;
   /** What could not be checked, for the user. */
   notes: string[];
 };
@@ -183,7 +188,7 @@ export function customModelSizing({
   const contextTokens = contextFromParams ?? config?.maxContext ?? null;
   const util = vllm?.gpuMemoryUtilization;
   const effectiveDtype = dtype !== 'auto' ? dtype : (config?.torchDtype ?? '').toLowerCase();
-  let requirement: GpuRequirement | null = null;
+  let requirement: GpuResourceRequirement | null = null;
   try {
     const estimate = estimateHfSizingProfile({
       paramsByDtype: byDtype,

@@ -1,7 +1,6 @@
 import { readEnvResources } from '@/components/hooks/use-env-resources';
 import type { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
-import { getAvailableAmount } from '@/utils/resources';
 import {
   assertSingleGpuGroup,
   ComputeResourceRequest,
@@ -24,14 +23,6 @@ import {
  * adapts the dashboard's shapes (environments, per-type selections, fee tables) to it — it never
  * decides on its own whether a GPU fits.
  */
-
-export type { GpuLayout };
-
-/** A declared resource recommendation — the strict template/package union (cpu/ram/disk by id, GPU by type). */
-export type DeclaredRequirement = TemplateResourceRequirement;
-
-/** The GPU member of {@link DeclaredRequirement}: total VRAM (`recommended`) + the card layouts it may book. */
-export type GpuRequirement = GpuResourceRequirement;
 
 /**
  * Description the node stamps on the compute environment it generates for the benchmark runner. Not a
@@ -74,17 +65,19 @@ export function supportsComputeJobs(environment: ComputeEnvironment): boolean {
   return environment.features?.computeJobs !== false;
 }
 
-export function isGpuRequirement(requirement: DeclaredRequirement): requirement is GpuRequirement {
+export function isGpuRequirement(requirement: TemplateResourceRequirement): requirement is GpuResourceRequirement {
   return 'type' in requirement && requirement.type === 'gpu';
 }
 
 /** The target's GPU recommendation, or undefined when it declares no GPU. */
-export function gpuRequirementOf(required: DeclaredRequirement[] | null | undefined): GpuRequirement | undefined {
+export function gpuRequirementOf(
+  required: TemplateResourceRequirement[] | null | undefined
+): GpuResourceRequirement | undefined {
   return required?.find(isGpuRequirement);
 }
 
 /** The total VRAM (GB) a target recommends, or null when it declares no GPU at all. */
-export function declaredGpuVram(required: DeclaredRequirement[] | null | undefined): number | null {
+export function declaredGpuVram(required: TemplateResourceRequirement[] | null | undefined): number | null {
   const requirement = gpuRequirementOf(required);
   return requirement ? Math.max(0, requirement.recommended) : null;
 }
@@ -94,7 +87,7 @@ export function declaredGpuVram(required: DeclaredRequirement[] | null | undefin
  * `vramPerGpu` on several. Undefined for a malformed multi-card layout without one — there is no
  * `recommended / n` fallback: the planner treats such a layout as unbookable, so the copy must too.
  */
-export function layoutCardGb(requirement: GpuRequirement, layout: GpuLayout): number | undefined {
+export function layoutCardGb(requirement: GpuResourceRequirement, layout: GpuLayout): number | undefined {
   if (layout.gpuCount <= 1) {
     return requirement.recommended;
   }
@@ -102,7 +95,7 @@ export function layoutCardGb(requirement: GpuRequirement, layout: GpuLayout): nu
 }
 
 /** The layouts in words: "1 GPU", or "4 × 141 GB or 8 × 80 GB GPUs". Empty when none are declared. */
-export function formatGpuLayouts(requirement: GpuRequirement): string {
+export function formatGpuLayouts(requirement: GpuResourceRequirement): string {
   const layouts = (requirement.layouts ?? []).filter((l) => layoutCardGb(requirement, l) !== undefined);
   if (layouts.length === 1 && layouts[0].gpuCount === 1) {
     return '1 GPU';
@@ -193,10 +186,10 @@ export function sameGpuPrice(a: number, b: number): boolean {
  *  - `none`:  the target declares no GPU (it books zero where allowed, else one card).
  */
 export type GpuDemand =
-  { kind: 'vram'; requirement: GpuRequirement } | { kind: 'units'; widths: number[] | null } | { kind: 'none' };
+  { kind: 'vram'; requirement: GpuResourceRequirement } | { kind: 'units'; widths: number[] | null } | { kind: 'none' };
 
 /** The demand a target's declared resources make: its GPU requirement, or none. */
-export function demandOf(required: DeclaredRequirement[] | null | undefined): GpuDemand {
+export function demandOf(required: TemplateResourceRequirement[] | null | undefined): GpuDemand {
   const requirement = gpuRequirementOf(required);
   return requirement && requirement.recommended > 0 ? { kind: 'vram', requirement } : { kind: 'none' };
 }
@@ -215,7 +208,7 @@ const ANY_WIDTH = Array.from({ length: 64 }, (_, i) => i + 1);
  * VRAM is still bookable by count — the planner refuses unknown memory for a VRAM requirement, which a
  * count-only demand doesn't have.
  */
-function unitsRequirement(widths: number[]): GpuRequirement {
+function unitsRequirement(widths: number[]): GpuResourceRequirement {
   const tiny = 1e-9;
   return {
     kind: 'discrete',
@@ -236,7 +229,7 @@ function withNominalMemory(gpus: ComputeResource[]): ComputeResource[] {
 function plannerInputs(
   gpus: ComputeResource[],
   demand: GpuDemand
-): { gpuResources: ComputeResource[]; requirement: GpuRequirement } | null {
+): { gpuResources: ComputeResource[]; requirement: GpuResourceRequirement } | null {
   if (demand.kind === 'vram') {
     return { gpuResources: gpus, requirement: demand.requirement };
   }
@@ -375,10 +368,6 @@ export function gpuTypesOf(environment: ComputeEnvironment): GpuTypeInfo[] {
   }));
 }
 
-/** Units of a fungible/GPU resource the env can hand ONE job right now: min(max, total − inUse),
- *  the node's own gate. Single definition in @/utils/resources so every flow agrees. */
-export const grantable = getAvailableAmount;
-
 /**
  * Whether an env can currently give a target its GPU recommendation: the planner finds at least one
  * single-group layout that fits with that many cards free. Without that VRAM the model doesn't load at
@@ -386,7 +375,7 @@ export const grantable = getAvailableAmount;
  */
 export function meetsRecommendedGpu(
   environment: ComputeEnvironment,
-  required: DeclaredRequirement[],
+  required: TemplateResourceRequirement[],
   forcedGpuCount?: number
 ): boolean {
   const demand = demandOf(required);
@@ -403,7 +392,10 @@ export function meetsRecommendedGpu(
  * True when the target declares no disk; false for an env that reports none, which books zero disk and
  * so can never meet the floor (quick start and payment refuse it the same way).
  */
-export function meetsRecommendedDisk(environment: ComputeEnvironment, required: DeclaredRequirement[]): boolean {
+export function meetsRecommendedDisk(
+  environment: ComputeEnvironment,
+  required: TemplateResourceRequirement[]
+): boolean {
   const recommended = required.find((r) => 'id' in r && r.id === 'disk')?.recommended ?? 0;
   if (recommended <= 0) {
     return true;
@@ -415,7 +407,7 @@ export function meetsRecommendedDisk(environment: ComputeEnvironment, required: 
 export type AutoGpuPickArgs = {
   environment: ComputeEnvironment;
   /** The launch target's declared requirements — the GPU entry (`type: 'gpu'`) is the one read here. */
-  required: DeclaredRequirement[];
+  required: TemplateResourceRequirement[];
   /**
    * Whether the FLOW permits a zero-unit pick (templates yes, packages no). Only half the gate: every
    * GPU group of the env must allow zero too (min 0), which this function checks itself.

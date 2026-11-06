@@ -17,14 +17,12 @@ import { bookedVramGb, vramFitMessage, vramShortfallMessage } from '@/services/v
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import {
-  DeclaredRequirement,
   demandOf,
   GpuDemand,
   gpuFeesOf,
   gpuPickerModel,
   GpuPlan,
   gpuPriceOf,
-  GpuRequirement,
   gpuResourcesOf,
   NO_GPU_PLAN,
   planOf,
@@ -38,6 +36,7 @@ import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
+import type { GpuResourceRequirement, TemplateResourceRequirement } from '@oceanprotocol/lib';
 import classNames from 'classnames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -94,7 +93,7 @@ type InferenceEnvironmentCardProps = {
    * GPU entry decides which (group, count) bookings are offered (the planner's candidates). Ignored when
    * `gpuDemand` is passed.
    */
-  declaredRequirements?: DeclaredRequirement[];
+  declaredRequirements?: TemplateResourceRequirement[];
   /**
    * What the GPUs must satisfy, when it isn't a declared requirement — the custom-model flow passes its
    * memory estimate (`vram`) or, without one / with "show all", its legal tensor-parallel widths (`units`).
@@ -105,7 +104,7 @@ type InferenceEnvironmentCardProps = {
   /** Estimated VRAM (GB) a custom model needs; the card warns when the picked group's cards carry less. */
   modelVramGb?: number;
   /** A custom model's estimated layouts: the card warns (never blocks) when the active pick doesn't fit them. */
-  advisoryRequirement?: GpuRequirement;
+  advisoryRequirement?: GpuResourceRequirement;
   /**
    * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
    * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually

@@ -20,7 +20,6 @@ import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/e
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import {
-  DeclaredRequirement,
   demandOf,
   formatGpuLayouts,
   GpuDemand,
@@ -32,8 +31,8 @@ import {
 } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
-import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
+import { grantableAmount, type TemplateResourceRequirement } from '@oceanprotocol/lib';
 import { useFormik } from 'formik';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -104,7 +103,7 @@ export function estimateSelectionForAnalytics(
   const gpuTypes: string[] = [];
   gpuByDescription.forEach((entries, key) => {
     const requested = gpuSelection[key];
-    const available = entries.reduce((sum, entry) => sum + getAvailableAmount(entry), 0);
+    const available = entries.reduce((sum, entry) => sum + grantableAmount(entry), 0);
     const units = requested === undefined ? available : Math.min(Math.max(requested, 0), available);
     if (units > 0) {
       gpuCount += units;
@@ -114,15 +113,15 @@ export function estimateSelectionForAnalytics(
     // order — several entries can share a description, and each has its own price id.
     let left = units;
     entries.forEach((entry) => {
-      const take = Math.min(left, getAvailableAmount(entry));
+      const take = Math.min(left, grantableAmount(entry));
       gpuPrice += priceFor(entry.id) * take;
       left -= take;
     });
   });
 
-  const cpuAmount = getAvailableAmount(cpu);
-  const ramAmount = getAvailableAmount(ram);
-  const diskAmount = getAvailableAmount(disk);
+  const cpuAmount = cpu ? grantableAmount(cpu) : 0;
+  const ramAmount = ram ? grantableAmount(ram) : 0;
+  const diskAmount = disk ? grantableAmount(disk) : 0;
   const minutes = durationSeconds / 60;
   const price =
     (priceFor('cpu') * cpuAmount + priceFor('ram') * ramAmount + priceFor('disk') * diskAmount + gpuPrice) * minutes;
@@ -156,7 +155,7 @@ type SelectInferenceEnvironmentProps = {
    * The recommended resources of the template or package being launched, shown above the list. Left
    * out of a custom-model flow started from the model picker, which has none.
    */
-  declaredResources?: DeclaredRequirement[];
+  declaredResources?: TemplateResourceRequirement[];
   /** Offer only the layout of this many cards — a handed-off package's pinned tensor-parallel width. */
   forcedGpuCount?: number;
 };

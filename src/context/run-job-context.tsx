@@ -27,8 +27,7 @@ import {
 import { ComputeJob } from '@/types/jobs';
 import { COMPUTE_JOBS_DISABLED_REASON, supportsComputeJobs } from '@/utils/env-resources';
 import { roundTokenAmount } from '@/utils/formatters';
-import { getAvailableAmount } from '@/utils/resources';
-import type { ComputeAsset } from '@oceanprotocol/lib';
+import { type ComputeAsset, grantableAmount } from '@oceanprotocol/lib';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -43,7 +42,7 @@ export type SelectedToken = {
 // Clamp a requested GPU amount to [0, available] so a hand-crafted URL can't over-allocate.
 const clampToAvailable = (requested: number, gpuRes?: ComputeResource): number => {
   const sane = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 0;
-  return Math.min(sane, getAvailableAmount(gpuRes));
+  return Math.min(sane, gpuRes ? grantableAmount(gpuRes) : 0);
 };
 
 const isGpuResource = (res: ComputeResource): boolean =>
@@ -71,7 +70,7 @@ const resolveAvailableGpus = async (
   const freeByModel = new Map<string, { available: number; description?: string; id: string }[]>();
   for (const res of live) {
     if (!isGpuResource(res)) continue;
-    const available = getAvailableAmount(res);
+    const available = grantableAmount(res);
     if (available <= 0) continue;
     const key = gpuGroupKey(res);
     const pool = freeByModel.get(key) ?? [];

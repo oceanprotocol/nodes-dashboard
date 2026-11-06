@@ -393,15 +393,10 @@ const PACKAGE_DEFINITIONS: InferencePackage[] = [
     sizing: {
       version: 1,
       engine: 'vllm',
-      confidence: 'estimated',
       widths: [1, 2],
       shardableGiB: 74.87 + 28,
       replicatedGiB: 5.5,
       memUtil: 0.9,
-      evidence: [
-        'Weights 80,396,214,083 B = 74.87 GiB (this entry); KV 12 KiB/token fp8 (12 full-attn layers x 2 kv heads x 256 head_dim x K+V).',
-        'Qwen/Qwen3-Coder-Next-FP8 config.json 2026-10-29: num_attention_heads 16, num_key_value_heads 2 -> legal TP widths 1/2/4/8.',
-      ],
     },
   },
   // Code, 2 GPUs — sharded with --tensor-parallel-size 2. Needs a vLLM build carrying the qwen3_next

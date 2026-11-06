@@ -1,6 +1,5 @@
 import { HuggingFaceModel, ModelParameters, VllmParameters } from '@/types/huggingface';
-import type { DeclaredRequirement } from '@/utils/env-resources';
-import type { GpuSizingProfile } from '@oceanprotocol/lib';
+import type { GpuSizingProfile, TemplateResourceRequirement } from '@oceanprotocol/lib';
 
 export enum InferenceFlowType {
   DefaultModel = 'default-model',
@@ -15,7 +14,7 @@ export enum InferenceFlowType {
  * live env can grant; for GPU it is the TOTAL VRAM in GB, booked as one of its `layouts` on cards whose
  * `memoryTotal` holds the layout's share — an env that can't is not offered.
  */
-export type ResourceRequirement = DeclaredRequirement;
+export type ResourceRequirement = TemplateResourceRequirement;
 
 /**
  * A curated quick-start bundle: model + complete launch parameters + a pinned environment,

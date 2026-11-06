@@ -14,10 +14,8 @@ import { SelectedToken } from '@/context/run-job-context';
 import { assertAllocationAvailable } from '@/services/inference-launch';
 import { ComputeEnvironment } from '@/types/environments';
 import {
-  DeclaredRequirement,
   GpuDemand,
   GpuPlan,
-  GpuRequirement,
   NO_GPU_PLAN,
   planGpuCount,
   planGpuDemand,
@@ -25,6 +23,7 @@ import {
   selectionOfRequests,
 } from '@/utils/env-resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
+import type { GpuResourceRequirement, TemplateResourceRequirement } from '@oceanprotocol/lib';
 
 /**
  * Quick start: pick the environment a template or package launches on, so the user only chooses a
@@ -99,7 +98,9 @@ export function envKey(env: SelectedInferenceEnv): string {
  * nothing for is marked `slice`: the planner books the GPU slice of it, as the custom flow would.
  * Undefined when no CPU/RAM/disk is declared at all (the GPU slice then sizes them).
  */
-export function recommendedSizing(required: DeclaredRequirement[] | null | undefined): ResourceSizing | undefined {
+export function recommendedSizing(
+  required: TemplateResourceRequirement[] | null | undefined
+): ResourceSizing | undefined {
   const find = (id: string) => required?.find((r) => 'id' in r && r.id === id);
   if (!find('cpu') && !find('ram') && !find('disk')) {
     return undefined;
@@ -258,7 +259,7 @@ function bestFitOn<T extends QuickStartEntry>({
   durationSeconds,
 }: {
   candidate: QuickStartCandidate<T>;
-  gpuRequirement: GpuRequirement | null;
+  gpuRequirement: GpuResourceRequirement | null;
   forcedGpuCount?: number;
   allowZeroGpu: boolean;
   durationSeconds: number;
@@ -358,7 +359,7 @@ export function planQuickStart<T extends QuickStartEntry>({
   candidates: QuickStartCandidate<T>[];
   /** The target's GPU recommendation (total VRAM + layouts); null when it declares no GPU (it then
    *  books as few as the environment allows). */
-  gpuRequirement: GpuRequirement | null;
+  gpuRequirement: GpuResourceRequirement | null;
   /** Keep only the layout of this many cards: a package's pinned tensor-parallel width. */
   forcedGpuCount?: number;
   /** Whether the flow permits a zero-GPU pick at all: templates yes, packages no. */

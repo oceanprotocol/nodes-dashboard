@@ -10,9 +10,8 @@ import {
 } from '@/utils/constraints';
 import { billableMinutes } from '@/utils/duration';
 import { gpuGroupKey, groupVramGb } from '@/utils/env-resources';
-import { getAvailableAmount } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
-import { ComputeResource } from '@oceanprotocol/lib';
+import { ComputeResource, grantableAmount } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
 
 export type MergedGpu = {
@@ -21,7 +20,7 @@ export type MergedGpu = {
   description?: string;
   /** Total units of this type the environment advertises (the physical ceiling). */
   max: number;
-  /** Units of this type actually free right now (getAvailableAmount). The pickable ceiling. */
+  /** Units of this type actually free right now (grantableAmount). The pickable ceiling. */
   available: number;
   /** Per-unit fee of this type's first id — a display figure; prices sum each booked id's own fee. */
   fee: number;
@@ -78,13 +77,6 @@ export type ResourceSizing =
     } & ResourceAmounts)
   | ({ mode: 'floor' } & ResourceAmounts)
   | ({ mode: 'exact' } & ResourceAmounts);
-
-/**
- * Free units the node will actually grant for a fungible resource: `min(max, total - inUse)` — the
- * env aggregate gate (`total - inUse < amount` → reject) AND the per-job `max` ceiling must both
- * hold. Aliased to the shared helper so every flow uses one definition; see @/utils/resources.
- */
-const grantableAmount = getAvailableAmount;
 
 /**
  * Capacity ONE job can reach: the per-job `max` caps `total` when it's set lower (e.g. a free-compute
@@ -282,7 +274,7 @@ function availabilityEnvelope({
   gpus: ComputeResource[];
 }): LocalComputeResource[] {
   const list = [cpu, ram, disk, ...gpus].filter(Boolean) as ComputeResource[];
-  return list.map((r) => ({ ...r, max: getAvailableAmount(r) }) as unknown as LocalComputeResource);
+  return list.map((r) => ({ ...r, max: grantableAmount(r) }) as unknown as LocalComputeResource);
 }
 
 /**

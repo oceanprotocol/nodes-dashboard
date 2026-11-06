@@ -6,8 +6,9 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { envKey, planQuickStart, QuickStartEntry, QuickStartOption, toCandidates } from '@/services/quick-start';
 import { ComputeEnvironment } from '@/types/environments';
 import { checkEnvAccess, hasAccessRestriction } from '@/utils/check-env-access';
-import { GpuPlan, GpuRequirement } from '@/utils/env-resources';
+import { GpuPlan } from '@/utils/env-resources';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
+import type { GpuResourceRequirement } from '@oceanprotocol/lib';
 import { ethers } from 'ethers';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -105,7 +106,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
   loadError: string | null;
   retry: () => void;
   /** The target's GPU recommendation (total VRAM + layouts), or null when it declares no GPU. */
-  gpuRequirement: GpuRequirement | null;
+  gpuRequirement: GpuResourceRequirement | null;
   /** Keep only the layout of this many cards: a package's pinned tensor-parallel width. */
   forcedGpuCount?: number;
   allowZeroGpu: boolean;

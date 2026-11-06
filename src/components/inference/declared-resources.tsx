@@ -1,12 +1,13 @@
-import { DeclaredRequirement, formatGpuLayouts, gpuRequirementOf, isGpuRequirement } from '@/utils/env-resources';
+import { formatGpuLayouts, gpuRequirementOf, isGpuRequirement } from '@/utils/env-resources';
 import { formatGb } from '@/utils/formatters';
+import type { TemplateResourceRequirement } from '@oceanprotocol/lib';
 import styles from './declared-resources.module.css';
 
 type Column = { label: string; recommended?: number; format: (value: number) => string };
 
 type DeclaredResourcesProps = {
   /** A template's or package's `recommendedResources`. */
-  recommended: DeclaredRequirement[] | null | undefined;
+  recommended: TemplateResourceRequirement[] | null | undefined;
 };
 
 /**
@@ -16,7 +17,11 @@ type DeclaredResourcesProps = {
  * renders nothing.
  */
 const DeclaredResources: React.FC<DeclaredResourcesProps> = ({ recommended }) => {
-  const column = (label: string, match: (r: DeclaredRequirement) => boolean, format: Column['format']): Column => ({
+  const column = (
+    label: string,
+    match: (r: TemplateResourceRequirement) => boolean,
+    format: Column['format']
+  ): Column => ({
     label,
     recommended: recommended?.find(match)?.recommended,
     format,

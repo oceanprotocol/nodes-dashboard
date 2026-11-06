@@ -17,8 +17,7 @@ import {
   validatePlanFor,
 } from '@/utils/env-resources';
 import { formatTokenAmount } from '@/utils/formatters';
-import { getAvailableAmount } from '@/utils/resources';
-import { ComputeResourceRequest, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
+import { ComputeResourceRequest, grantableAmount, ServiceRestartParams, ServiceStartParams } from '@oceanprotocol/lib';
 
 /**
  * The container image + port for the "any Hugging Face model on vLLM" service. Mirrors
@@ -512,7 +511,7 @@ export function gpuSelectionMessage(error: unknown, since: string): string | nul
  * Omit / empty selection means "use every free GPU unit" (whole-environment allocation).
  *
  * Units are counted the same way the allocation hook prices them: a resource id contributes
- * `getAvailableAmount(id)` (min(max, total − inUse)) UNITS, which may be >1 for a pooled id. We draw the
+ * `grantableAmount(id)` (min(max, total − inUse)) UNITS, which may be >1 for a pooled id. We draw the
  * requested units from the free ids of a type, taking up to each id's free amount before moving to
  * the next id — so a single pooled id with 4 free units satisfies a 4-unit pick as `{id, amount:4}`,
  * matching what was priced/escrowed. Requesting per-id blindly (amount:1 each) would disagree with
@@ -549,11 +548,11 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
     return [];
   }
 
-  const freeGpus = gpus.filter((gpu) => getAvailableAmount(gpu) > 0);
+  const freeGpus = gpus.filter((gpu) => grantableAmount(gpu) > 0);
 
   // No explicit selection → request every free GPU unit across all ids.
   if (!gpuSelection || Object.keys(gpuSelection).length === 0) {
-    return freeGpus.map((gpu) => ({ id: gpu.id, amount: getAvailableAmount(gpu) }));
+    return freeGpus.map((gpu) => ({ id: gpu.id, amount: grantableAmount(gpu) }));
   }
 
   const requests: ComputeResourceRequest[] = [];
@@ -568,7 +567,7 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
       throw gpuSelectionError(GPUS_MISSING, `This environment no longer offers "${key}".`);
     }
     const ofType = freeGpus.filter((gpu) => gpuGroupKey(gpu) === key);
-    const freeUnits = ofType.reduce((sum, gpu) => sum + getAvailableAmount(gpu), 0);
+    const freeUnits = ofType.reduce((sum, gpu) => sum + grantableAmount(gpu), 0);
     if (freeUnits < units) {
       throw gpuSelectionError(
         GPUS_TAKEN,
@@ -581,7 +580,7 @@ export function buildGpuRequests(resources: ComputeResource[], gpuSelection?: Gp
       if (remaining <= 0) {
         break;
       }
-      const take = Math.min(remaining, getAvailableAmount(gpu));
+      const take = Math.min(remaining, grantableAmount(gpu));
       requests.push({ id: gpu.id, amount: take });
       remaining -= take;
     }
@@ -618,7 +617,7 @@ export function assertAllocationAvailable(resources: ComputeResource[], allocati
     if (!resource) {
       continue;
     }
-    const free = getAvailableAmount(resource);
+    const free = grantableAmount(resource);
     if (free < wanted) {
       throw gpuSelectionError(
         RESOURCES_TAKEN,
