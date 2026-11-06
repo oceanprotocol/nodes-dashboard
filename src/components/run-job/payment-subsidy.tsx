@@ -24,9 +24,8 @@ import { formatTokenAmount, formatWalletAddress } from '@/utils/formatters';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PauseIcon from '@mui/icons-material/Pause';
+import RedeemIcon from '@mui/icons-material/Redeem';
 import ScheduleIcon from '@mui/icons-material/Schedule';
-import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
-import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
 import classNames from 'classnames';
 import posthog from 'posthog-js';
 import { ReactNode, useEffect } from 'react';
@@ -145,7 +144,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
                 Get a subsidy
               </Button>
             }
-            icon={<ShieldOutlinedIcon fontSize="small" />}
+            icon={<RedeemIcon fontSize="small" />}
             jobType={jobType}
             state="not_signed_up"
             title={`Get ${summary} on jobs like this`}
@@ -296,7 +295,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
       <SubsidyRow
         description={description}
         end={amount(opfTotal)}
-        icon={<VerifiedUserOutlinedIcon fontSize="small" />}
+        icon={<RedeemIcon fontSize="small" />}
         jobType={jobType}
         payments={quote.opfPayments}
         state="applied"
@@ -312,7 +311,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
         <SubsidyRow
           description={`Contract ${formatWalletAddress(entry.address)}. ${SUBSIDY_PAYMENT_COPY[entry.payment].note}`}
           end={amount(entry.amount)}
-          icon={<VerifiedUserOutlinedIcon fontSize="small" />}
+          icon={<RedeemIcon fontSize="small" />}
           jobType={jobType}
           key={entry.address}
           payments={[entry.payment]}
