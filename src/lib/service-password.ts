@@ -19,19 +19,19 @@ export function generateServicePassword(): string {
   return password;
 }
 
-const BEARER = 'API: send `Authorization: Bearer <password>`.';
+const BEARER = 'API: `Authorization: Bearer <password>`';
 
 // How each kind of service takes the password. Looked up by the raw engine, else the template id, else its `service`.
 const SIGN_IN_HELP: Record<string, string> = {
-  vllm: 'Use it as the API key: `Authorization: Bearer <password>` (`api_key` in OpenAI clients).',
-  llamacpp: `In the web UI, enter it as the API key in Settings. ${BEARER}`,
-  comfyui: `When the browser asks you to sign in, leave the username empty and enter this password. ${BEARER}`,
-  opencode: 'Sign in with the username `opencode` and this password. API: `curl -u opencode:<password>`.',
-  'coding-agent-deepseek-v4-flash': 'Sign in with the username `dsh` and this password.',
-  openclaw: 'On your first visit, paste this password as the token in the Control UI.',
-  hermes: 'Sign in with the dashboard username you set and this password.',
-  'open-webui': 'Sign in with the email `owner@ocean.local` and this password.',
+  vllm: `API key (\`api_key\` in OpenAI clients). ${BEARER}`,
+  llamacpp: `Web UI: enter it as the API key in Settings. ${BEARER}`,
+  comfyui: `Browser: leave the username empty. ${BEARER}`,
+  opencode: 'Username: `opencode`. API: `curl -u opencode:<password>`',
+  'coding-agent-deepseek-v4-flash': 'Username: `dsh`',
+  openclaw: 'Paste it as the token in the Control UI on your first visit',
+  hermes: 'Username: the dashboard username you set',
+  'open-webui': 'Email: `owner@ocean.local`',
 };
 
 export const serviceSignInHelp = (...keys: (string | undefined)[]): string =>
-  keys.map((key) => key && SIGN_IN_HELP[key]).find(Boolean) ?? 'Use this password to sign in.';
+  keys.map((key) => key && SIGN_IN_HELP[key]).find(Boolean) ?? 'Use it to sign in';

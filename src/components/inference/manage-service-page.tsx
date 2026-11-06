@@ -1281,13 +1281,14 @@ const ManageServicePage: React.FC = () => {
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
                     <div className={`chip chipGlass ${styles.endpointChip}`}>App URL</div>
                     <span className={styles.endpointPath}>{templateUiUrl}</span>
-                    <span className={styles.endpointDescription}>
-                      {isReady
-                        ? "Open this app's web UI in a new tab"
-                        : canOpenAnyway
+                    {/* Only while starting: once ready, the Open UI button says it all. */}
+                    {!isReady && (
+                      <span className={styles.endpointDescription}>
+                        {canOpenAnyway
                           ? 'Still starting up — it may not respond yet'
                           : 'Not serving requests yet — the app is still starting up'}
-                    </span>
+                      </span>
+                    )}
                     {/* The URL stays visible while the app warms up (it IS this service's address,
                         and hiding it reads as "something went wrong"), but the button is a plain
                         disabled button rather than a link: a disabled link here still navigates,
@@ -1323,7 +1324,11 @@ const ManageServicePage: React.FC = () => {
                     )}
                   </Card>
                   {template?.userConfigurableEnvVars?.some((v) => v.key === SERVICE_PASSWORD_ENV) && (
-                    <ServicePasswordRow help={serviceSignInHelp(template.id, template.service)} />
+                    <ServicePasswordRow
+                      canEdit={canEdit}
+                      help={serviceSignInHelp(template.id, template.service)}
+                      onEdit={onEdit}
+                    />
                   )}
                 </div>
               ) : (
@@ -1366,7 +1371,11 @@ const ManageServicePage: React.FC = () => {
                       />
                     </span>
                   </Card>
-                  <ServicePasswordRow help={serviceSignInHelp(job?.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm')} />
+                  <ServicePasswordRow
+                    canEdit={canEdit}
+                    help={serviceSignInHelp(job?.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm')}
+                    onEdit={onEdit}
+                  />
                 </div>
                 <div className={styles.quickTestHead}>
                   <h4>Quick test</h4>
