@@ -90,6 +90,7 @@ const PaymentSummary = ({
   // Rounded like computeEscrowRequirement, so this agrees with the button's own gate.
   const payerCost = getUpfrontCost(totalCost, subsidyQuote);
   const finalCost = Math.max(0, totalCost - (subsidyQuote?.total ?? 0));
+  const isEstimate = subsidyJobType === SubsidyJobType.COMPUTE;
   const insufficientAutorized = maxLocked < payerCost + currentLocked;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < payerCost;
   const depositGap = roundTokenAmount(Math.max(0, payerCost - escrow), USDC.address, 'up');
@@ -150,7 +151,7 @@ const PaymentSummary = ({
           as its own zone rather than the first row of the ledger. */}
       <div className={styles.hero}>
         <div className={styles.heroText}>
-          <span className={styles.heroLabel}>Estimated total cost</span>
+          <span className={styles.heroLabel}>{isEstimate ? 'Estimated total cost' : 'Total cost'}</span>
           {insufficientWallet ? (
             <span className={styles.heroHint}>
               Not enough {USDC.symbol} in your wallet: add {format(depositGap - walletBalance)} {USDC.symbol} to pay
@@ -181,14 +182,7 @@ const PaymentSummary = ({
               </span>
             ) : null
           }
-          label={
-            <>
-              You pay{' '}
-              {subsidyJobType === SubsidyJobType.COMPUTE ? (
-                <span className={styles.rowLabelHint}>(estimate)</span>
-              ) : null}
-            </>
-          }
+          label={<>You pay {isEstimate ? <span className={styles.rowLabelHint}>(estimate)</span> : null}</>}
           symbol={USDC.symbol}
           value={format(finalCost)}
         />
