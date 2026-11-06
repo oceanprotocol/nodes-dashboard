@@ -145,8 +145,6 @@ type SelectionOverrides = {
   bucketId?: string;
 };
 
-export const DEFAULT_JOB_DURATION_SECONDS = 3600;
-
 // The HF token is kept out of the URL (it's a secret) but persisted per-tab so a refresh mid-flow
 // doesn't force the user to re-enter it for gated models. sessionStorage clears when the tab closes.
 const HF_TOKEN_STORAGE_KEY = 'inference:hfToken';
@@ -221,7 +219,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedEnv, setSelectedEnv] = useState<SelectedInferenceEnv | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
-  const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(DEFAULT_JOB_DURATION_SECONDS);
+  const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(0);
   const [engine, setEngineState] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null);
@@ -440,7 +438,9 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         query.token = tokenAddress;
       }
       query.engine = selectedEngine;
-      query.duration = String(duration);
+      if (duration > 0) {
+        query.duration = String(duration);
+      }
       if (templateId) {
         query.template = templateId;
       }
@@ -778,7 +778,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedEnv(null);
         setSelectedToken(null);
         setHfToken('');
-        setJobDurationSeconds(DEFAULT_JOB_DURATION_SECONDS);
+        setJobDurationSeconds(0);
         // Raw setter: the selection is being emptied, so the lock no longer applies.
         setEngineState(DEFAULT_INFERENCE_ENGINE);
         setModelParamsByModel({});

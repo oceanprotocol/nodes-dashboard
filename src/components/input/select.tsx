@@ -2,6 +2,7 @@ import InputWrapper from '@/components/input/input-wrapper';
 import {
   Checkbox,
   Collapse,
+  InputAdornment,
   ListItemText,
   Select as MaterialSelect,
   MenuItem,
@@ -70,6 +71,23 @@ const StyledSelect = styled(MaterialSelect, {
     },
   },
 
+  '&.MuiInputBase-adornedStart': {
+    paddingLeft: custom_size === 'sm' ? 12 : 16,
+  },
+
+  [`&.MuiInputBase-adornedStart .${selectClasses.select}`]: {
+    paddingLeft: 8,
+  },
+
+  '& .MuiInputAdornment-positionStart': {
+    color: 'var(--text-secondary)',
+    marginRight: 0,
+
+    svg: {
+      fontSize: custom_size === 'sm' ? 18 : 20,
+    },
+  },
+
   [`& .${selectClasses.icon}`]: {
     color: 'var(--text-secondary)',
     position: 'relative',
@@ -102,6 +120,7 @@ export type SelectOption<T> = {
 };
 
 type SelectProps<T> = {
+  ariaLabel?: string;
   className?: string;
   disabled?: boolean;
   endAdornment?: React.ReactNode;
@@ -133,6 +152,7 @@ type SelectProps<T> = {
 );
 
 const Select = <T extends string | number = string>({
+  ariaLabel,
   className,
   disabled,
   endAdornment,
@@ -205,14 +225,14 @@ const Select = <T extends string | number = string>({
         displayEmpty
         endAdornment={endAdornment}
         has_error={!!errorText}
-        inputProps={{}}
+        inputProps={{ 'aria-label': ariaLabel }}
         MenuProps={{ slots: { paper: StyledPaper, ...MenuProps?.slots }, ...MenuProps }}
         multiple={multiple}
         name={name}
         onBlur={onBlur}
         onChange={onChange}
         renderValue={memoizedRenderValue}
-        startAdornment={startAdornment}
+        startAdornment={startAdornment ? <InputAdornment position="start">{startAdornment}</InputAdornment> : undefined}
         value={multiple ? (value ?? []) : value}
       >
         {options?.map((option) => (

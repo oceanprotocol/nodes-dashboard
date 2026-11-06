@@ -1,10 +1,11 @@
+import AutoHeight from '@/components/auto-height/auto-height';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { QuickStart } from '@/components/hooks/use-quick-start';
 import DurationInput from '@/components/input/duration-input';
 import { QuickStartEntry } from '@/services/quick-start';
-import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { DURATION_UNIT_OPTIONS, formatSessionEnd } from '@/utils/duration';
 import { formatDuration, formatGb } from '@/utils/formatters';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -16,13 +17,14 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import SdStorageIcon from '@mui/icons-material/SdStorage';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { CircularProgress, Tooltip } from '@mui/material';
-import { ReactNode } from 'react';
+import classNames from 'classnames';
+import { ReactNode, useRef } from 'react';
 import styles from './quick-start-banner.module.css';
 
 /** The quick start's Start button, price included. */
 function QuickStartButton<T extends QuickStartEntry>({ quickStart }: { quickStart: QuickStart<T> }) {
   const { status, priceLabel, blockedReason, starting, start, needsLogin } = quickStart;
-  const blocked = status !== 'ready';
+  const blocked = status !== 'ready' || !!blockedReason;
   const busy = status === 'loading' || starting;
   const tooltip = blockedReason ?? (needsLogin ? 'Log in to start' : '');
   return (
@@ -74,6 +76,12 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
 }: QuickStartBannerProps<T>) {
   const { status, option, recommendedGpus, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } =
     quickStart;
+  const hasDuration = durationSeconds > 0;
+  // Keeps the end time readable while its line fades out after the field is cleared.
+  const lastSetDurationRef = useRef(durationSeconds);
+  if (hasDuration) {
+    lastSetDurationRef.current = durationSeconds;
+  }
 
   const renderProblem = ({
     Icon,
@@ -84,7 +92,8 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
     title: string;
     children: ReactNode;
   }) => (
-    <div className={styles.problem}>
+    // Keyed on the status, so moving from one problem to another plays the entrance again.
+    <div className={styles.problem} key={status}>
       <Icon className={styles.problemIcon} />
       <div className={styles.problemBody}>
         <div className={styles.problemTitle}>{title}</div>
@@ -245,13 +254,14 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
       <div className={styles.body}>
         <div aria-live="polite" className={styles.readout}>
           <span className={styles.eyebrow}>Quick start</span>
-          {renderReadout()}
+          <AutoHeight>{renderReadout()}</AutoHeight>
         </div>
         <div className={styles.controls}>
           <DurationInput
             availableUnits={DURATION_UNIT_OPTIONS}
             className={styles.duration}
             defaultUnit="hours"
+            emptyWhenZero
             label="Session length"
             min={1}
             onChange={onDurationChange}
@@ -261,12 +271,28 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
           <QuickStartButton quickStart={quickStart} />
         </div>
       </div>
-      <p className={styles.smallPrint}>
-        Want to pick the environment or resources yourself?{' '}
-        <Button color="accent1" onClick={onAdvanced} size="link" type="button" variant="transparent">
-          Use Advanced setup
-        </Button>
-      </p>
+      <div className={styles.smallPrint}>
+        <p>
+          Want to pick the environment or resources yourself?{' '}
+          <Button color="accent1" onClick={onAdvanced} size="link" type="button" variant="transparent">
+            Use Advanced setup
+          </Button>
+        </p>
+        <div aria-live="polite" className={styles.sessionStatus}>
+          <p
+            aria-hidden={!hasDuration}
+            className={classNames(styles.sessionEnd, { [styles.sessionStatusHidden]: !hasDuration })}
+          >
+            Runs until <strong>{formatSessionEnd(lastSetDurationRef.current)}</strong>. You can prolong it later.
+          </p>
+          <p
+            aria-hidden={hasDuration}
+            className={classNames(styles.sessionMissing, { [styles.sessionStatusHidden]: hasDuration })}
+          >
+            Enter a session length to start.
+          </p>
+        </div>
+      </div>
     </Card>
   );
 }
