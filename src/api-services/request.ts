@@ -15,11 +15,11 @@ export const allowMethod = (request: NextApiRequest, response: NextApiResponse, 
 };
 
 /** Rejects wrong types and unknown keys. Responds 400 and returns `null` on failure. */
-export const parseBody = async <T extends Yup.AnyObject>(
+export const parseBody = async <S extends Yup.AnyObjectSchema>(
   request: NextApiRequest,
   response: NextApiResponse,
-  schema: Yup.ObjectSchema<T>
-): Promise<T | null> => {
+  schema: S
+): Promise<Yup.InferType<S> | null> => {
   try {
     return await schema.noUnknown().required().validate(request.body, { strict: true });
   } catch {
