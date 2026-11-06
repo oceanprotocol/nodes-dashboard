@@ -35,25 +35,3 @@ const SIGN_IN_HELP: Record<string, string> = {
 
 export const serviceSignInHelp = (...keys: (string | undefined)[]): string =>
   keys.map((key) => key && SIGN_IN_HELP[key]).find(Boolean) ?? 'Use this password to sign in.';
-
-// The password is kept in the browser that launched the service, next to the node login tokens.
-// TODO(#240): Reveal on other devices needs an owner-only node command that returns the service's
-// decrypted userData (it already holds SERVICE_PASSWORD / LLAMA_API_KEY); then drop this storage.
-const STORAGE_PREFIX = 'inference-service-password';
-
-export function rememberServicePassword(serviceId: string, password: string | undefined): void {
-  if (!password) return;
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}-${serviceId}`, password);
-  } catch (error) {
-    console.error('Failed to save the service password:', error);
-  }
-}
-
-export function recallServicePassword(serviceId: string): string | null {
-  try {
-    return localStorage.getItem(`${STORAGE_PREFIX}-${serviceId}`);
-  } catch {
-    return null;
-  }
-}

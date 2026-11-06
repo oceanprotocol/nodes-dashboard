@@ -8,7 +8,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
-import ServicePasswordReveal from '@/components/inference/service-password-reveal';
+import ServicePasswordRow from '@/components/inference/service-password-row';
 import ServiceResultsPanel from '@/components/inference/service-results-panel';
 import { ServiceStartupIndicator } from '@/components/inference/service-startup-progress';
 import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
@@ -22,7 +22,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { captureError } from '@/lib/analytics';
 import { findServiceEscrowLock, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
-import { recallServicePassword, SERVICE_PASSWORD_ENV, serviceSignInHelp } from '@/lib/service-password';
+import { SERVICE_PASSWORD_ENV, serviceSignInHelp } from '@/lib/service-password';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -215,8 +215,6 @@ const ManageServicePage: React.FC = () => {
   const [jobError, setJobError] = useState<string | null>(null);
   const [jobLoading, setJobLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<'restart' | null>(null);
-  // Tagged with the service: this page stays mounted across services, so another one must start hidden.
-  const [passwordShownFor, setPasswordShownFor] = useState<string | null>(null);
   // Bumped after restart to re-kick the poll loop.
   const [pollEpoch, setPollEpoch] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -339,9 +337,6 @@ const ManageServicePage: React.FC = () => {
    * is false and a running bundle reports 'service'.
    */
   const declaredIdentity = readServiceMetadata(job);
-  const savedPassword = useMemo(() => recallServicePassword(id), [id]);
-  const passwordShown = passwordShownFor === id && !!savedPassword;
-  const togglePassword = () => setPasswordShownFor(passwordShown ? null : id);
   // Kept as primitives, not the object: the status poll hands us a fresh job (and so a fresh bag)
   // every tick, and these feed memo/callback dependency lists.
   const declaredAppType = declaredIdentity?.appType ?? null;
@@ -1033,7 +1028,7 @@ const ManageServicePage: React.FC = () => {
   // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.
   const chatUrl = baseUrl ? `${baseUrl}/v1/chat/completions` : '$BASE/v1/chat/completions';
   const curlSnippet = `curl ${chatUrl} \\
-  -H "Authorization: Bearer ${passwordShown ? savedPassword : '<password>'}" \\
+  -H "Authorization: Bearer <password>" \\
   -H "Content-Type: application/json" \\
   -d '{ "model": "${primaryModelName}", "messages": [ { "role": "user", "content": "Hello!" } ] }'`;
 
@@ -1328,12 +1323,7 @@ const ManageServicePage: React.FC = () => {
                     )}
                   </Card>
                   {template?.userConfigurableEnvVars?.some((v) => v.key === SERVICE_PASSWORD_ENV) && (
-                    <ServicePasswordReveal
-                      help={serviceSignInHelp(template.id, template.service)}
-                      onToggle={togglePassword}
-                      password={savedPassword}
-                      shown={passwordShown}
-                    />
+                    <ServicePasswordRow help={serviceSignInHelp(template.id, template.service)} />
                   )}
                 </div>
               ) : (
@@ -1376,12 +1366,7 @@ const ManageServicePage: React.FC = () => {
                       />
                     </span>
                   </Card>
-                  <ServicePasswordReveal
-                    help={serviceSignInHelp(job?.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm')}
-                    onToggle={togglePassword}
-                    password={savedPassword}
-                    shown={passwordShown}
-                  />
+                  <ServicePasswordRow help={serviceSignInHelp(job?.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm')} />
                 </div>
                 <div className={styles.quickTestHead}>
                   <h4>Quick test</h4>

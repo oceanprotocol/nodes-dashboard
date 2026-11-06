@@ -12,12 +12,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
-import {
-  generateServicePassword,
-  isValidServicePassword,
-  recallServicePassword,
-  SERVICE_PASSWORD_ENV,
-} from '@/lib/service-password';
+import { generateServicePassword, isValidServicePassword, SERVICE_PASSWORD_ENV } from '@/lib/service-password';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
@@ -31,7 +26,7 @@ import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const PASSWORD_NOT_SAVED_NOTE = 'This browser did not save the old password, so a new one is set.';
+const EDIT_PASSWORD_NOTE = 'Edit sets this new password. To keep the current one, type it here.';
 
 const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => {
   const params = useParams<{ modelId?: string; templateId?: string }>();
@@ -85,19 +80,14 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Edit: the node doesn't echo a service's env, so the non-secret values this browser launched it
   // with (see template-env-memory) prefill the fields; anything already typed this session wins.
   const editServiceId = isEditMode ? firstQueryValue(router.query.serviceId) : undefined;
-  // Edit keeps the running service's password when this browser saved it, else a new random one.
-  const editPasswordPlain = useMemo(
-    () => (editServiceId ? recallServicePassword(editServiceId) : null),
-    [editServiceId]
-  );
-  const passwordNotSaved = !!editServiceId && !editPasswordPlain;
+  // The dashboard does not keep the password, so Edit starts from a new random one.
   // Once the user types a password, it is theirs.
   const passwordTouchedRef = useRef(false);
   useEffect(() => {
     if (editServiceId && isCustomModelFlow && !passwordTouchedRef.current) {
-      setServicePassword(editPasswordPlain ?? generateServicePassword());
+      setServicePassword(generateServicePassword());
     }
-  }, [editServiceId, editPasswordPlain, isCustomModelFlow, setServicePassword]);
+  }, [editServiceId, isCustomModelFlow, setServicePassword]);
   useEffect(() => {
     if (!isTemplateFlow) {
       return;
@@ -108,15 +98,15 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         : {};
     const seeded = { ...recalled, ...templateEnvValues };
     if (envSpecs.some((spec) => spec.key === SERVICE_PASSWORD_ENV) && !seeded[SERVICE_PASSWORD_ENV]) {
-      // Never launched open: the old password on Edit, else a random one.
-      seeded[SERVICE_PASSWORD_ENV] = editPasswordPlain ?? generateServicePassword();
+      // Never launched open.
+      seeded[SERVICE_PASSWORD_ENV] = generateServicePassword();
     }
     setEnvInputs((prev) =>
       passwordTouchedRef.current && prev[SERVICE_PASSWORD_ENV]
         ? { ...seeded, [SERVICE_PASSWORD_ENV]: prev[SERVICE_PASSWORD_ENV] }
         : seeded
     );
-  }, [envSpecs, isTemplateFlow, templateEnvValues, editServiceId, selectedTemplate, editPasswordPlain]);
+  }, [envSpecs, isTemplateFlow, templateEnvValues, editServiceId, selectedTemplate]);
 
   const setEnvValue = (key: string, value: string) => {
     if (key === SERVICE_PASSWORD_ENV) {
@@ -397,7 +387,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
                   }}
                   value={servicePassword}
                 />
-                {passwordNotSaved && <div className="textSecondary">{PASSWORD_NOT_SAVED_NOTE}</div>}
+                {isEditMode && <div className="textSecondary">{EDIT_PASSWORD_NOTE}</div>}
               </Card>
               {modelIds.map((id) => (
                 <ModelParameters
@@ -461,8 +451,8 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
               ) : !showsPicker ? (
                 <div className="textSecondary">This template has no configurable settings.</div>
               ) : null}
-              {passwordNotSaved && envSpecs.some((spec) => spec.key === SERVICE_PASSWORD_ENV) && (
-                <div className="textSecondary">{PASSWORD_NOT_SAVED_NOTE}</div>
+              {isEditMode && envSpecs.some((spec) => spec.key === SERVICE_PASSWORD_ENV) && (
+                <div className="textSecondary">{EDIT_PASSWORD_NOTE}</div>
               )}
               {isEditMode && (
                 <div className="textSecondary">

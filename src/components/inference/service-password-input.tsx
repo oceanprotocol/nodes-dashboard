@@ -3,6 +3,8 @@ import CopyButton from '@/components/button/copy-button';
 import Input from '@/components/input/input';
 import { useState } from 'react';
 
+const HINT = 'Copy it now: the dashboard does not keep it. If you lose it, set a new one with Edit.';
+
 type ServicePasswordInputProps = {
   errorText?: string;
   label: React.ReactNode;
@@ -25,6 +27,7 @@ const ServicePasswordInput: React.FC<ServicePasswordInputProps> = ({ errorText, 
           </div>
         }
         errorText={errorText}
+        hint={HINT}
         label={label}
         name={name}
         onChange={(e) => onChange(e.target.value)}
