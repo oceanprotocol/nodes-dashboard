@@ -179,6 +179,36 @@
       font-size: 14px;
     }
 
+    /* Password row: the sign-in help, in the URL's place. */
+    .passwordInfo {
+      grid-area: path;
+      min-width: 0;
+    }
+
+    .passwordHelp {
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 400;
+    }
+
+    .editLink {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--accent1);
+      font: inherit;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+
+      &:disabled {
+        color: inherit;
+        text-decoration: none;
+        cursor: default;
+      }
+    }
+
     .endpointChip {
       grid-area: chip;
       justify-self: start;
@@ -198,6 +228,11 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      /* No URL in this row, so the text takes the URL and description columns. */
+      .passwordInfo {
+        grid-column: 2 / 4;
       }
     }
   }

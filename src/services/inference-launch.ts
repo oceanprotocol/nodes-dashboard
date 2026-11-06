@@ -1,8 +1,10 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
+import { SERVICE_PASSWORD_ENV } from '@/lib/service-password';
 import { buildModelDefaults } from '@/services/huggingface-service';
 import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
+import { VLLM_GATE_ENTRYPOINT } from '@/services/vllm-gate';
 import { ComputeResource } from '@/types/environments';
 import { CustomParam, HuggingFaceModel, InferenceEngine, ModelParameters } from '@/types/huggingface';
 import { getAvailableAmount } from '@/utils/resources';
@@ -428,11 +430,23 @@ export function parseEngineCommand(
  * without NVSwitch. Ordinary NVLink P2P and ring/tree collectives are unaffected — only the NVSwitch
  * multicast reduction offload is skipped.
  */
-export function buildUserData(hfToken: string): Record<string, string> {
+export function buildUserData(
+  hfToken: string,
+  engine: InferenceEngine,
+  servicePassword: string
+): Record<string, string> {
   return {
     NCCL_NVLS_ENABLE: '0',
     ...(hfToken ? { HF_TOKEN: hfToken } : {}),
+    // vLLM: read by the gate middleware. llama.cpp: its built-in API key.
+    [engine === 'llamacpp' ? 'LLAMA_API_KEY' : SERVICE_PASSWORD_ENV]: servicePassword,
   };
+}
+
+// Only vLLM needs the gate. A restart without `dockerEntrypoint` resets to the image default,
+// which is how an Edit from vLLM to llama.cpp drops it.
+function gateEntrypoint(engine: InferenceEngine): { dockerEntrypoint?: string[] } {
+  return engine === 'vllm' ? { dockerEntrypoint: VLLM_GATE_ENTRYPOINT } : {};
 }
 
 /**
@@ -681,11 +695,13 @@ export function buildInferenceRestartSpec({
   model,
   params,
   hfToken,
+  servicePassword,
   appType,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
   hfToken: string;
+  servicePassword: string;
   /**
    * Which flow this relaunch came from, so the service's labels keep describing what it now runs.
    * An omitted `metadata` reuses the stored bag, which after a model swap would name the OLD model —
@@ -699,7 +715,8 @@ export function buildInferenceRestartSpec({
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(hfToken),
+    ...gateEntrypoint(params.engine),
+    userData: buildUserData(hfToken, params.engine, servicePassword),
     ...(metadata ? { metadata } : {}),
   };
 }
@@ -718,6 +735,7 @@ export function buildInferenceStartParams({
   durationSeconds,
   tokenAddress,
   hfToken,
+  servicePassword,
   appType,
 }: {
   model: HuggingFaceModel;
@@ -733,6 +751,7 @@ export function buildInferenceStartParams({
   durationSeconds: number;
   tokenAddress: string;
   hfToken: string;
+  servicePassword: string;
   /**
    * Which of the four flows launched this, stamped into the service's `metadata` alongside the model
    * id so the running service identifies itself instead of having to be matched by image/dockerCmd
@@ -763,7 +782,8 @@ export function buildInferenceStartParams({
     tag: runtime.tag,
     exposedPorts: [runtime.port],
     dockerCmd: buildEngineCommand(model, params),
-    userData: buildUserData(hfToken),
+    ...gateEntrypoint(params.engine),
+    userData: buildUserData(hfToken, params.engine, servicePassword),
     ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,

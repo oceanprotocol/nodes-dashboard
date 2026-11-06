@@ -43,6 +43,7 @@ import {
   templateNeedsConfigStep,
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
+import { requiredEnvVars } from '@/types/templates';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { CircularProgress } from '@mui/material';
@@ -73,6 +74,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedBucketId,
     templateEnvValues,
     hfToken,
+    servicePassword,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -424,6 +426,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
             query: router.query,
           });
+        } else if (!isProlongMode && requiredEnvVars(selectedTemplate).some((spec) => !templateEnvValues[spec.key])) {
+          // Env values live in memory only: a reload lands here without the password, and a service without it exits at once.
+          router.replace({
+            pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/config`,
+            query: router.query,
+          });
         }
         break;
       }
@@ -438,6 +446,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     modelParamsByModel,
     isEditMode,
     isProlongMode,
+    templateEnvValues,
     params.templateId,
     packagePath,
     router,
@@ -639,7 +648,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // anything changes), and the image/tag come from the new params' engine so an engine switch
       // (vLLM ↔ llama.cpp) relaunches on the right image.
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken, appType }))
+        serviceRestart(
+          nodeUri,
+          token,
+          targetServiceId,
+          buildInferenceRestartSpec({ model, params, hfToken, servicePassword, appType })
+        )
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -671,6 +685,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     targetServiceId,
     withNodeAuth,
     hfToken,
+    servicePassword,
     serviceRestart,
     router,
     buildManageQuery,
@@ -750,6 +765,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           durationSeconds: jobDurationSeconds,
           tokenAddress: selectedToken.address,
           hfToken,
+          servicePassword,
           appType,
         });
       } catch (error) {
@@ -811,6 +827,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedByKey,
     jobDurationSeconds,
     hfToken,
+    servicePassword,
     serviceStart,
     totalCost,
     router,

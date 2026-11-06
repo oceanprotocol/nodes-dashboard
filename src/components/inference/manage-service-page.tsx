@@ -8,6 +8,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import ProlongSessionModal from '@/components/inference/prolong-session-modal';
 import ServiceLogsPanel from '@/components/inference/service-logs-panel';
+import ServicePasswordRow from '@/components/inference/service-password-row';
 import ServiceResultsPanel from '@/components/inference/service-results-panel';
 import { ServiceStartupIndicator } from '@/components/inference/service-startup-progress';
 import SessionAlertsToggle from '@/components/inference/session-alerts-toggle';
@@ -21,6 +22,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { captureError } from '@/lib/analytics';
 import { findServiceEscrowLock, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
+import { SERVICE_PASSWORD_ENV, serviceSignInHelp } from '@/lib/service-password';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
@@ -1026,6 +1028,7 @@ const ManageServicePage: React.FC = () => {
   // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.
   const chatUrl = baseUrl ? `${baseUrl}/v1/chat/completions` : '$BASE/v1/chat/completions';
   const curlSnippet = `curl ${chatUrl} \\
+  -H "Authorization: Bearer <password>" \\
   -H "Content-Type: application/json" \\
   -d '{ "model": "${primaryModelName}", "messages": [ { "role": "user", "content": "Hello!" } ] }'`;
 
@@ -1278,13 +1281,14 @@ const ManageServicePage: React.FC = () => {
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
                     <div className={`chip chipGlass ${styles.endpointChip}`}>App URL</div>
                     <span className={styles.endpointPath}>{templateUiUrl}</span>
-                    <span className={styles.endpointDescription}>
-                      {isReady
-                        ? "Open this app's web UI in a new tab"
-                        : canOpenAnyway
+                    {/* Only while starting: once ready, the Open UI button says it all. */}
+                    {!isReady && (
+                      <span className={styles.endpointDescription}>
+                        {canOpenAnyway
                           ? 'Still starting up — it may not respond yet'
                           : 'Not serving requests yet — the app is still starting up'}
-                    </span>
+                      </span>
+                    )}
                     {/* The URL stays visible while the app warms up (it IS this service's address,
                         and hiding it reads as "something went wrong"), but the button is a plain
                         disabled button rather than a link: a disabled link here still navigates,
@@ -1319,6 +1323,13 @@ const ManageServicePage: React.FC = () => {
                       </Button>
                     )}
                   </Card>
+                  {template?.userConfigurableEnvVars?.some((v) => v.key === SERVICE_PASSWORD_ENV) && (
+                    <ServicePasswordRow
+                      canEdit={canEdit}
+                      help={serviceSignInHelp(template.id, template.service)}
+                      onEdit={onEdit}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="textSecondary">
@@ -1360,6 +1371,11 @@ const ManageServicePage: React.FC = () => {
                       />
                     </span>
                   </Card>
+                  <ServicePasswordRow
+                    canEdit={canEdit}
+                    help={serviceSignInHelp(job?.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm')}
+                    onEdit={onEdit}
+                  />
                 </div>
                 <div className={styles.quickTestHead}>
                   <h4>Quick test</h4>
@@ -1376,7 +1392,7 @@ const ManageServicePage: React.FC = () => {
                     <CopyButton color="accent2" contentToCopy={curlSnippet} variant="filled" />
                   </span>
                 </div>
-                <pre className={styles.terminal}>{curlSnippet}</pre>
+                <pre className={`${styles.terminal} ph-no-capture`}>{curlSnippet}</pre>
               </>
             ) : (
               <div className="textSecondary">
