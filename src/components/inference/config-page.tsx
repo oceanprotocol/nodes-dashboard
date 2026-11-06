@@ -13,10 +13,11 @@ import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { recallTemplateEnv } from '@/services/template-env-memory';
-import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
+import { forcedGpuCountMismatch, templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
 import { ModelParameters as ModelParametersType } from '@/types/huggingface';
 import { InferenceFlowType } from '@/types/inference';
 import { validateEnvValue } from '@/types/templates';
+import { gpuRequirementOf } from '@/utils/env-resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Tooltip } from '@mui/material';
 import { useParams } from 'next/navigation';
@@ -247,6 +248,15 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         } else if (!validateEnvValue(spec, value)) {
           errors[spec.key] = `Invalid ${spec.key} format.`;
         }
+      }
+      // A forced GPU width must match the GPUs booked on the previous step.
+      const gpuCountKey = gpuRequirementOf(selectedTemplate?.recommendedResources)?.gpuCountEnv;
+      const gpuCountError =
+        selectedTemplate && !isEditMode
+          ? forcedGpuCountMismatch(selectedTemplate, envInputs, selectedEnv?.gpuSelection, selectedEnv?.gpuPlan)
+          : null;
+      if (gpuCountKey && gpuCountError && !errors[gpuCountKey]) {
+        errors[gpuCountKey] = gpuCountError;
       }
       if (Object.keys(errors).length > 0) {
         setEnvErrors(errors);

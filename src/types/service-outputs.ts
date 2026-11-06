@@ -1,3 +1,5 @@
+import type { ServiceOutputArchive as OceanServiceOutputArchive } from '@oceanprotocol/lib';
+
 /**
  * What a service left in /data/outputs, as ocean-node reports it on SERVICE_GET_STATUS. A service
  * started with an output bucket writes straight into the bucket; one without gets a zip of the folder
@@ -8,14 +10,7 @@
  * Older nodes omit these fields, hence the guards: absence and any malformed entry read as "nothing",
  * never throw.
  */
-export type ServiceOutputArchive = {
-  index: number;
-  filename: string;
-  /** Bytes. */
-  filesize: number;
-  /** Unix ms. */
-  createdAt: number;
-};
+export type ServiceOutputArchive = Omit<OceanServiceOutputArchive, 'containerId'>;
 
 /** The bucket the service writes results to, when it was started with one. */
 export function getOutputBucketId(job: unknown): string | null {

@@ -2,7 +2,8 @@ import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { getModelAvatarUrl, getModelShortName } from '@/services/huggingface-service';
 import { InferencePackage } from '@/types/inference';
-import { formatPipelineTag } from '@/utils/formatters';
+import { formatGpuLayouts, gpuRequirementOf } from '@/utils/env-resources';
+import { formatGb, formatPipelineTag } from '@/utils/formatters';
 import ViewStreamOutlinedIcon from '@mui/icons-material/ViewStreamOutlined';
 import classNames from 'classnames';
 import { useState } from 'react';
@@ -16,14 +17,15 @@ type PackageCardProps = {
 /** Quick-start package tile: same shape as ModelCard, with the bundle's hardware/engine specs. Opens its details page. */
 const PackageCard: React.FC<PackageCardProps> = ({ pkg, onOpen }) => {
   const [avatarFailed, setAvatarFailed] = useState(false);
-  const { model, params, requiredResources, description } = pkg;
+  const { model, params, recommendedResources, description } = pkg;
   const avatarUrl = getModelAvatarUrl(model);
   const modelName = getModelShortName(model.id);
   const initial = (model.author ?? model.id).charAt(0).toUpperCase();
 
-  // GPU footprint the package targets. The concrete GPU model isn't known until an env is picked on
-  // the details page, so the card shows the recommended unit count against a generic "GPU" label.
-  const gpuCount = requiredResources.find((r) => r.type === 'gpu')?.recommended ?? 0;
+  // GPU footprint the package targets: total VRAM. The concrete GPU model (and so the card count) isn't
+  // known until an env is picked on the details page.
+  const gpu = gpuRequirementOf(recommendedResources);
+  const vramGb = gpu?.recommended ?? 0;
 
   // Engine-specific chips: vLLM exposes tool calling + a context ceiling; llama.cpp shows its context.
   const showToolChip = params.engine === 'vllm' && params.toolCalling;
@@ -71,9 +73,8 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, onOpen }) => {
         {showToolChip && <span className={classNames('chip', 'chipAccent2', styles.chip)}>Tools</span>}
       </div>
       <div className={styles.stats}>
-        <span className={styles.statItem} title="GPUs">
-          {gpuCount > 0 && `${gpuCount}x`}
-          <HardwareLabel type="gpu" value="GPU" />
+        <span className={styles.statItem} title={gpu ? `GPU VRAM: ${formatGpuLayouts(gpu)}` : 'GPU VRAM'}>
+          <HardwareLabel type="gpu" value={vramGb > 0 ? `${formatGb(vramGb)} VRAM` : 'GPU'} />
         </span>
         {contextTokens != null && (
           <span className={styles.statItem} title="Context length">

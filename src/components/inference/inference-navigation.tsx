@@ -43,8 +43,14 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   onRemoveModel,
 }) => {
   const [selectionOpen, setSelectionOpen] = useState(false);
-  const { selectedModels, selectedEnv, selectedToken, jobDurationSeconds, selectedTemplate, templateEnvValues } =
-    useInferenceContext();
+  const {
+    selectedModels,
+    selectedEnv,
+    selectedToken,
+    jobDurationSeconds,
+    selectedTemplate,
+    templateEnvValues,
+  } = useInferenceContext();
 
   // The templates flow selects a template instead of models, so it counts the same way for the panel.
   const hasSelection = selectedModels.length > 0 || !!selectedTemplate || !!selectedEnv;
@@ -99,6 +105,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                     durationSeconds={jobDurationSeconds}
                     environment={selectedEnv.environment}
                     gpuSelection={selectedEnv.gpuSelection}
+                    gpuRequests={selectedEnv.gpuPlan?.requests}
                     nodeInfo={selectedEnv.nodeInfo}
                     selected={false}
                     // Without this the summary re-derives a proportional slice and disagrees with the

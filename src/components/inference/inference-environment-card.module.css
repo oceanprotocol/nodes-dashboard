@@ -116,6 +116,10 @@
             font-weight: 600;
           }
 
+          .gpuLabelUnavailable {
+            opacity: 0.4;
+          }
+
           .counts {
             align-items: center;
             display: flex;
