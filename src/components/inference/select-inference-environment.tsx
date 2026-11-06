@@ -325,22 +325,20 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   };
 
   return (
-    <>
-      <Card
-        direction="column"
-        paddingX="md"
-        paddingY="sm"
-        radius="lg"
-        shadow="black"
-        spacing="sm"
-        variant="glass-shaded"
-      >
+    <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
+      <h3>Environments</h3>
+
+      {declaredResources && (
+        <DeclaredResources recommended={declaredResources.recommended} required={declaredResources.required} />
+      )}
+
+      <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
         <div className={styles.durationRow}>
           <span aria-hidden className={styles.durationIcon}>
             <ScheduleIcon />
           </span>
           <div className={styles.durationText}>
-            <h3>Session length</h3>
+            <h4>Session length</h4>
             <div>
               <Collapse in={jobDurationSeconds > 0}>
                 <p>
@@ -369,94 +367,86 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
         </div>
       </Card>
 
-      <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-        <h3>Environments</h3>
+      <div className={styles.filters}>
+        <Select
+          ariaLabel="GPUs"
+          className={styles.gpuSelect}
+          multiple
+          name="gpuName"
+          onChange={onFilterChange}
+          options={gpuOptions}
+          placeholder="Any GPU"
+          renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
+          renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
+          size="sm"
+          value={filterValues.gpuName}
+        />
+        <Select
+          ariaLabel="Fee token"
+          name="feeToken"
+          onChange={onFilterChange}
+          options={feeTokenOptions}
+          placeholder="Any fee token"
+          size="sm"
+          value={filterValues.feeToken}
+        />
+        <Select
+          ariaLabel="Sorting"
+          name="sortBy"
+          onChange={onFilterChange}
+          options={sortOptions}
+          placeholder="No sorting"
+          size="sm"
+          startAdornment={<SwapVertIcon />}
+          value={filterValues.sortBy}
+        />
+      </div>
 
-        {declaredResources && (
-          <DeclaredResources recommended={declaredResources.recommended} required={declaredResources.required} />
+      <div className={styles.list}>
+        {filteredNodeEnvs.length > 0 ? (
+          filteredNodeEnvs.map((node) =>
+            node.computeEnvironments.environments.map((env) => {
+              const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
+              return (
+                <InferenceEnvironmentCard
+                  // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
+                  // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
+                  // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
+                  allowZeroGpu={flowType === InferenceFlowType.Template}
+                  declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
+                  defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
+                  disabledReason={jobDurationSeconds > 0 ? undefined : 'Enter a session length to continue.'}
+                  durationSeconds={jobDurationSeconds}
+                  environment={env}
+                  initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
+                  key={`${node.id}-${env.id}`}
+                  sizing={selectedEnv?.sizing}
+                  selected={isPriorSelection}
+                  nodeInfo={node}
+                  onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv) =>
+                    handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection)
+                  }
+                />
+              );
+            })
+          )
+        ) : (
+          <p className="alignSelfCenter">{loading ? 'Loading environments…' : 'No environments found'}</p>
         )}
-
-        <div className={styles.filters}>
-          <Select
-            ariaLabel="GPUs"
-            className={styles.gpuSelect}
-            multiple
-            name="gpuName"
-            onChange={onFilterChange}
-            options={gpuOptions}
-            placeholder="Any GPU"
-            renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
-            renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
-            size="sm"
-            value={filterValues.gpuName}
-          />
-          <Select
-            ariaLabel="Fee token"
-            name="feeToken"
-            onChange={onFilterChange}
-            options={feeTokenOptions}
-            placeholder="Any fee token"
-            size="sm"
-            value={filterValues.feeToken}
-          />
-          <Select
-            ariaLabel="Sorting"
-            name="sortBy"
-            onChange={onFilterChange}
-            options={sortOptions}
-            placeholder="No sorting"
-            size="sm"
-            startAdornment={<SwapVertIcon />}
-            value={filterValues.sortBy}
-          />
-        </div>
-
-        <div className={styles.list}>
-          {filteredNodeEnvs.length > 0 ? (
-            filteredNodeEnvs.map((node) =>
-              node.computeEnvironments.environments.map((env) => {
-                const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
-                return (
-                  <InferenceEnvironmentCard
-                    // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
-                    // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
-                    // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
-                    allowZeroGpu={flowType === InferenceFlowType.Template}
-                    declaredRequirements={selectedTemplate?.recommendedResources ?? selectedTemplate?.requiredResources}
-                    defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
-                    disabledReason={jobDurationSeconds > 0 ? undefined : 'Enter a session length to continue.'}
-                    durationSeconds={jobDurationSeconds}
-                    environment={env}
-                    initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
-                    key={`${node.id}-${env.id}`}
-                    sizing={selectedEnv?.sizing}
-                    selected={isPriorSelection}
-                    nodeInfo={node}
-                    onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv) =>
-                      handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection)
-                    }
-                  />
-                );
-              })
-            )
-          ) : (
-            <p className="alignSelfCenter">{loading ? 'Loading environments…' : 'No environments found'}</p>
-          )}
-          {/* Outside the empty-check above: a page whose envs all get filtered out client-side must
+        {/* Outside the empty-check above: a page whose envs all get filtered out client-side must
               still offer a way forward, or the user is stranded with pages left unexplored. */}
-          {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
-            <Button
-              className="alignSelfCenter"
-              color="accent2"
-              loading={loading}
-              onClick={() => loadMoreEnvs(isBookableEnv)}
-            >
-              Load more
-            </Button>
-          )}
-        </div>
-      </Card>
-    </>
+        {paginationResponse && paginationResponse.currentPage < paginationResponse.totalPages && (
+          <Button
+            className="alignSelfCenter"
+            color="accent2"
+            loading={loading}
+            onClick={() => loadMoreEnvs(isBookableEnv)}
+          >
+            Load more
+          </Button>
+        )}
+      </div>
+    </Card>
   );
 };
 
