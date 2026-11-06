@@ -16,12 +16,15 @@ import {
   isValidHandle,
   normalizeHandles,
   SubmitSubsidyDetailsResponse,
+  SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS,
   SubsidyDetails,
   SubsidyHandleService,
   SubsidyStatus,
 } from '@/types/subsidy';
 import { isBlacklistedEmail, normalizeEmail } from '@/utils/email';
 import type { NextApiRequest, NextApiResponse } from 'next';
+
+const RESEND_COOLDOWN_MS = SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS * 1000;
 
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
   if (!allowMethod(request, response, 'POST')) {
@@ -100,8 +103,8 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(403).json({ message: 'Wallet address already associated with another account' });
     }
 
-    // Reject submissions that target a foreign email's row — prevents OTP email bombing of third parties
-    if (byEmail && isOtherApplicant(byEmail)) {
+    // An unverified email doesn't reserve it: whoever controls the inbox wins at /verify.
+    if (byEmail && isOtherApplicant(byEmail) && (byEmail.status !== SubsidyStatus.PENDING || byWallet)) {
       return response.status(403).json({ message: 'Email already associated with another account' });
     }
 
@@ -128,6 +131,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
           shouldValidateEmail: false,
         };
         return response.status(200).json(responseData);
+      }
+
+      const sinceLastSent = Date.now() - (existingSubsidy.otpLastResent ?? 0);
+      if (sinceLastSent < RESEND_COOLDOWN_MS) {
+        const remainingSeconds = Math.ceil((RESEND_COOLDOWN_MS - sinceLastSent) / 1000);
+        return response
+          .status(429)
+          .json({ message: `A code was just sent. Try again in ${remainingSeconds} seconds.` });
       }
     }
   } catch (error) {
