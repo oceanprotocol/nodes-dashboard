@@ -11,11 +11,13 @@ import {
   updateSubsidyInSheet,
 } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
-import { allowMethod, isWalletAddress } from '@/api-services/request';
+import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
+import { subsidyDetailsBodySchema } from '@/api-services/subsidy-schemas';
 import {
   isValidHandle,
   normalizeHandles,
   SubmitSubsidyDetailsResponse,
+  SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS,
   SubsidyDetails,
   SubsidyHandleService,
   SubsidyStatus,
@@ -23,19 +25,16 @@ import {
 import { isBlacklistedEmail, normalizeEmail } from '@/utils/email';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+const RESEND_COOLDOWN_MS = SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS * 1000;
+
 export default async function handler(request: NextApiRequest, response: NextApiResponse) {
   if (!allowMethod(request, response, 'POST')) {
     return;
   }
 
-  const data: SubsidyDetails = request.body;
-
-  // Check for missing fields + enforce string-type to prevent type-confusion attacks
-  const requiredStringFields: Array<keyof SubsidyDetails> = ['email', 'name', 'walletAddress'];
-  for (const field of requiredStringFields) {
-    if (!data[field] || typeof data[field] !== 'string') {
-      return response.status(400).json({ message: 'Missing required fields' });
-    }
+  const data = await parseBody(request, response, subsidyDetailsBodySchema);
+  if (!data) {
+    return;
   }
 
   // Input validation
@@ -57,10 +56,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   if (isBlacklistedEmail(data.email)) {
     return response.status(400).json({ message: 'Invalid email address' });
-  }
-
-  if (!data.handles || typeof data.handles !== 'object' || Array.isArray(data.handles)) {
-    return response.status(400).json({ message: 'Missing required fields' });
   }
 
   data.handles = normalizeHandles(data.handles);
@@ -100,8 +95,8 @@ export default async function handler(request: NextApiRequest, response: NextApi
       return response.status(403).json({ message: 'Wallet address already associated with another account' });
     }
 
-    // Reject submissions that target a foreign email's row — prevents OTP email bombing of third parties
-    if (byEmail && isOtherApplicant(byEmail)) {
+    // An unverified email doesn't reserve it: whoever controls the inbox wins at /verify.
+    if (byEmail && isOtherApplicant(byEmail) && (byEmail.status !== SubsidyStatus.PENDING || byWallet)) {
       return response.status(403).json({ message: 'Email already associated with another account' });
     }
 
@@ -128,6 +123,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
           shouldValidateEmail: false,
         };
         return response.status(200).json(responseData);
+      }
+
+      const sinceLastSent = Date.now() - (existingSubsidy.otpLastResent ?? 0);
+      if (sinceLastSent < RESEND_COOLDOWN_MS) {
+        const remainingSeconds = Math.ceil((RESEND_COOLDOWN_MS - sinceLastSent) / 1000);
+        return response
+          .status(429)
+          .json({ message: `A code was just sent. Try again in ${remainingSeconds} seconds.` });
       }
     }
   } catch (error) {

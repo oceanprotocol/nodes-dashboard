@@ -4,7 +4,7 @@ import Card from '@/components/card/card';
 import LookupModal from '@/components/modal/lookup-modal';
 import { getExplorerAddressUrl } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
-import { getSubsidyProviderAddresses, loadCustomSubsidyProgram } from '@/lib/subsidy';
+import { getProgramPayments, getSubsidyProviderAddresses, loadCustomSubsidyProgram } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { CustomSubsidy, useAddCustomSubsidy, useCustomSubsidies, useRemoveCustomSubsidy } from '@/lib/use-subsidy';
 import { formatError, formatWalletAddress } from '@/utils/formatters';
@@ -41,6 +41,9 @@ const getStatusNote = ({ data }: CustomSubsidy) => {
   }
   if (!data.usage.userAllowed) {
     return "Your wallet isn't on this subsidy's access list. Jobs are charged without it until it is.";
+  }
+  if (data.program && getProgramPayments(data.program).includes('postpaid')) {
+    return "You pay this subsidy's part up front. The refund after each job comes from this contract, not from OPF.";
   }
   return null;
 };
