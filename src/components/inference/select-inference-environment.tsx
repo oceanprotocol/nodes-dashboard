@@ -2,7 +2,6 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
-import DeclaredResources from '@/components/inference/declared-resources';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
@@ -326,12 +325,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      <h3>Environments</h3>
-
-      {declaredResources && (
-        <DeclaredResources recommended={declaredResources.recommended} required={declaredResources.required} />
-      )}
-
       <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
         <div className={styles.durationRow}>
           <span aria-hidden className={styles.durationIcon}>
