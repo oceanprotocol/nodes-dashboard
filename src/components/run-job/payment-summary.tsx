@@ -89,6 +89,7 @@ const PaymentSummary = ({
   // can't cover the deposit; otherwise they're what the payment is about to do, not a blocker.
   // Rounded like computeEscrowRequirement, so this agrees with the button's own gate.
   const payerCost = getUpfrontCost(totalCost, subsidyQuote);
+  const finalCost = Math.max(0, totalCost - (subsidyQuote?.total ?? 0));
   const insufficientAutorized = maxLocked < payerCost + currentLocked;
   const insufficientEscrow = escrowBalance !== null && escrowBalance < payerCost;
   const depositGap = roundTokenAmount(Math.max(0, payerCost - escrow), USDC.address, 'up');
@@ -118,6 +119,7 @@ const PaymentSummary = ({
       subsidyQuote?.discount ?? 0,
       ...(subsidyQuote?.custom.map((entry) => entry.amount) ?? []),
       payerCost,
+      finalCost,
     ],
     USDC.address
   );
@@ -169,22 +171,26 @@ const PaymentSummary = ({
           escrow and wallet rows show by default; the limits sit behind the details toggle, which
           closes the card. */}
       <div className={styles.rows}>
-        <PaymentSubsidy
-          format={format}
-          jobType={subsidyJobType}
-          nodeAddress={nodeAddress}
-          renderCostAfter={(cost) => (
-            <SummaryRow
-              label={
-                <>
-                  Your cost after subsidy <span className={styles.rowLabelHint}>(estimate)</span>
-                </>
-              }
-              symbol={USDC.symbol}
-              value={format(cost)}
-            />
-          )}
-          totalCost={totalCost}
+        <PaymentSubsidy format={format} jobType={subsidyJobType} nodeAddress={nodeAddress} totalCost={totalCost} />
+
+        <SummaryRow
+          chip={
+            payerCost > finalCost ? (
+              <span className="chip chipGlass">
+                {format(payerCost - finalCost)} {USDC.symbol} refunded after the job
+              </span>
+            ) : null
+          }
+          label={
+            <>
+              You pay{' '}
+              {subsidyJobType === SubsidyJobType.COMPUTE ? (
+                <span className={styles.rowLabelHint}>(estimate)</span>
+              ) : null}
+            </>
+          }
+          symbol={USDC.symbol}
+          value={format(finalCost)}
         />
 
         <SummaryRow

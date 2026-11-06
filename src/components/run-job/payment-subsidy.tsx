@@ -73,12 +73,11 @@ type PaymentSubsidyProps = {
   jobType: SubsidyJobType;
   /** The node decides which subsidy applies. */
   nodeAddress?: string;
-  renderCostAfter: (cost: number) => ReactNode;
   totalCost: number;
 };
 
 /** Amounts are quotes; the lock settles the final figure. */
-const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCost }: PaymentSubsidyProps) => {
+const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubsidyProps) => {
   const { subsidyInfo } = useProfileContext();
   const { data: program, isError: isProgramError } = useSubsidyProgram();
   const { data: usage, isError: isUsageError } = useSubsidyUsage();
@@ -323,7 +322,6 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, renderCostAfter, totalCo
         />
       ))}
       {renderOpfRow()}
-      {quote && quote.total > 0 ? renderCostAfter(costAfter) : null}
     </>
   );
 };
