@@ -3,14 +3,12 @@ import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
 import { SelectedInferenceEnv } from '@/context/inference-context';
-import { SelectedToken } from '@/context/run-job-context';
-import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
 import { recommendedSizing } from '@/services/quick-start';
 import { NodeEnvironments } from '@/types/environments';
 import { InferencePackage } from '@/types/inference';
 import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
-import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
+import { acceptsUsdc } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -18,11 +16,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const ENV_FETCH_TIMEOUT_MS = 30000;
 
 /** One environment of the package's source node, resolved and ready to book (recommended sizing + auto GPU
- *  selection + seeded fee token). The details page's quick start picks one of these entries to launch on. */
+ *  selection). The details page's quick start picks one of these entries to launch on. */
 export type ResolvedPackageEnv = {
   env: SelectedInferenceEnv;
-  /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
-  token: SelectedToken | null;
 };
 
 /**
@@ -38,9 +34,8 @@ export function packageFloorSizing(pkg: InferencePackage): ResourceSizing {
 /**
  * Resolve the environments a package can run on. The package carries only its source nodes' peer ids;
  * this fetches those nodes' environments, keeps the ones that (a) advertise service-on-demand, (b)
- * accept a supported paid token (USDC/COMPY), and (c) can currently satisfy the package's resource
- * floors, then rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
- * seeded token), across all nodes. The details page's quick start ranks them and launches on the best fit.
+ * accept USDC, and (c) can currently satisfy the package's resource floors, then rebuilds a bookable
+ * SelectedInferenceEnv for each (recommended sizing + auto GPU selection), across all nodes. The details page's quick start ranks them and launches on the best fit.
  * Only when EVERY listed node is unreachable does this surface an error.
  */
 const usePackageEnvs = (pkg: InferencePackage | null) => {
@@ -133,7 +128,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
           throw new Error('The nodes for this package are not reachable right now.');
         }
 
-        // Keep only envs that can run the package: service-on-demand + a supported paid token + the
+        // Keep only envs that can run the package: service-on-demand + USDC fees + the
         // package's resource floors. Flattened across every row of every node (one env per row), each
         // env keeping its own node.
         const candidates = nodes.flatMap((node) =>
@@ -152,7 +147,7 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
               if (isBenchmarkEnv(environment)) {
                 return false;
               }
-              if (getEnvSupportedTokens(environment, true).length === 0) {
+              if (!acceptsUsdc(environment)) {
                 return false;
               }
               return meetsMinResources(environment, pkg!.requiredResources);
@@ -160,37 +155,23 @@ const usePackageEnvs = (pkg: InferencePackage | null) => {
             .map((environment) => ({ node, environment }))
         );
 
-        const entries = await Promise.all(
-          candidates.map(async ({ node, environment }): Promise<ResolvedPackageEnv> => {
-            const tokenAddress = pickDefaultToken(getEnvSupportedTokens(environment, true));
-            let symbol: string | null = null;
-            if (tokenAddress) {
-              try {
-                symbol = await getTokenSymbol(tokenAddress);
-              } catch (error) {
-                console.error('Failed to resolve package token symbol:', error);
-              }
-            }
-            return {
-              env: {
-                environment,
-                // Packages never permit a zero-GPU pick (allowZeroGpu defaults false) — see the card prop.
-                gpuSelection: autoGpuSelection({ environment, required: pkg!.requiredResources }),
-                sizing,
-                nodeInfo: {
-                  currentAddrs: node.currentAddrs,
-                  friendlyName: node.friendlyName,
-                  id: node.id,
-                  latestBenchmarkResults: node.latestBenchmarkResults,
-                  multiaddrs: node.multiaddrs,
-                  // Quick start prefers verified nodes when several can host the package.
-                  verified: node.verified,
-                },
-              },
-              token: tokenAddress ? { address: tokenAddress, symbol: symbol ?? '' } : null,
-            };
-          })
-        );
+        const entries = candidates.map(({ node, environment }): ResolvedPackageEnv => ({
+          env: {
+            environment,
+            // Packages never permit a zero-GPU pick (allowZeroGpu defaults false) — see the card prop.
+            gpuSelection: autoGpuSelection({ environment, required: pkg!.requiredResources }),
+            sizing,
+            nodeInfo: {
+              currentAddrs: node.currentAddrs,
+              friendlyName: node.friendlyName,
+              id: node.id,
+              latestBenchmarkResults: node.latestBenchmarkResults,
+              multiaddrs: node.multiaddrs,
+              // Quick start prefers verified nodes when several can host the package.
+              verified: node.verified,
+            },
+          },
+        }));
 
         if (!cancelled) {
           setResolved(entries);

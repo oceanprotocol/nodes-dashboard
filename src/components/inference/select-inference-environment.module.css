@@ -81,7 +81,7 @@
   }
 
   @media (min-width: 768px) {
-    grid-template-columns: minmax(0, 1fr) 200px 200px;
+    grid-template-columns: minmax(0, 1fr) 200px;
     align-items: end;
   }
 

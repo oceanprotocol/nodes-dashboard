@@ -1,17 +1,15 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
-import { getSupportedTokens } from '@/constants/tokens';
+import { USDC } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
-import { SelectedToken } from '@/context/run-job-context';
-import { getTokenSymbol } from '@/lib/token-symbol';
 import { withTimeout } from '@/lib/with-timeout';
 import { recommendedSizing } from '@/services/quick-start';
 import { ApiPaginationResponse } from '@/types/api';
 import { ComputeEnvironment, NodeEnvironments } from '@/types/environments';
 import { AppTemplate } from '@/types/templates';
 import { autoGpuSelection, isBenchmarkEnv, meetsMinResources } from '@/utils/env-resources';
-import { getEnvSupportedTokens, pickDefaultToken } from '@/utils/env-tokens';
+import { acceptsUsdc } from '@/utils/env-tokens';
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -24,11 +22,9 @@ const ENV_FETCH_TIMEOUT_MS = 30000;
 const ENV_PAGE_SIZE = 1000;
 
 /** One environment that can run the template, resolved and ready to book (recommended sizing + auto GPU
- *  selection + seeded fee token). The details page's quick start picks one of these entries to launch on. */
+ *  selection). The details page's quick start picks one of these entries to launch on. */
 export type ResolvedTemplateEnv = {
   env: SelectedInferenceEnv;
-  /** Seeded fee token (USDC else first supported); null if the env accepts no supported paid token. */
-  token: SelectedToken | null;
 };
 
 export type TemplateEnvsState = {
@@ -44,7 +40,7 @@ export type TemplateEnvsState = {
 };
 
 /** An env can host a template when it advertises service-on-demand, isn't the node's benchmark env,
- *  accepts a supported paid token, and can currently satisfy the template's declared resource floors. */
+ *  accepts USDC, and can currently satisfy the template's declared resource floors. */
 function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate): boolean {
   if (!environment.features?.services) {
     return false;
@@ -52,7 +48,7 @@ function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate):
   if (isBenchmarkEnv(environment)) {
     return false;
   }
-  if (getEnvSupportedTokens(environment, true).length === 0) {
+  if (!acceptsUsdc(environment)) {
     return false;
   }
   return meetsMinResources(environment, template.requiredResources ?? []);
@@ -62,8 +58,8 @@ function canRunTemplate(environment: ComputeEnvironment, template: AppTemplate):
  * Resolve the environments a template can launch on, across every node the indexer knows — unlike a
  * quick-start package (pinned to its source nodes), a template is just an image, so any service-capable
  * environment that meets its floors can run it. Fetches one benchmark-ranked page, keeps the envs that
- * qualify, and rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection +
- * seeded token). Null template → idle.
+ * qualify, and rebuilds a bookable SelectedInferenceEnv for each (recommended sizing + auto GPU selection).
+ * Null template → idle.
  */
 const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
   const [resolved, setResolved] = useState<ResolvedTemplateEnv[]>([]);
@@ -104,7 +100,7 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
               params: {
                 filters: JSON.stringify({
                   network: { operator: 'eq', value: String(CHAIN_ID) },
-                  feeToken: { operator: 'in', value: Object.values(getSupportedTokens()).map((t) => t.address) },
+                  feeToken: { operator: 'eq', value: USDC.address },
                 }),
                 page: 1,
                 pageSize: ENV_PAGE_SIZE,
@@ -129,48 +125,34 @@ const useTemplateEnvs = (template: AppTemplate | null): TemplateEnvsState => {
               .map((environment) => ({ node, environment }))
           );
 
-        const entries = await Promise.all(
-          candidates.map(async ({ node, environment }): Promise<ResolvedTemplateEnv> => {
-            const tokenAddress = pickDefaultToken(getEnvSupportedTokens(environment, true));
-            let symbol: string | null = null;
-            if (tokenAddress) {
-              try {
-                symbol = await getTokenSymbol(tokenAddress);
-              } catch (error) {
-                console.error('Failed to resolve template fee token symbol:', error);
-              }
-            }
-            return {
-              env: {
-                environment,
-                // Prefer recommendedResources for the GPU COUNT (null on every live template today,
-                // but this stays right if that changes) — meetsMinResources above stays on
-                // requiredResources since that's the actual floor, not the recommendation. The shared
-                // CPU/RAM/disk are sized separately by recommendedSizing: the recommended amounts,
-                // floored at the required mins.
-                // Templates are one of the two zero-GPU-permitting flows (see env-resources.ts spec) — a
-                // template declaring no GPU requirement (jupyterlab, hermes) must seed 0 rather than the
-                // old blanket "nothing declared -> 1", on an env whose GPU min actually allows it.
-                gpuSelection: autoGpuSelection({
-                  environment,
-                  required: template!.recommendedResources ?? template!.requiredResources ?? [],
-                  allowZeroGpu: true,
-                }),
-                sizing,
-                nodeInfo: {
-                  currentAddrs: node.currentAddrs,
-                  friendlyName: node.friendlyName,
-                  id: node.id,
-                  latestBenchmarkResults: node.latestBenchmarkResults,
-                  multiaddrs: node.multiaddrs,
-                  // Quick start prefers verified nodes when several can host the template.
-                  verified: node.verified,
-                },
-              },
-              token: tokenAddress ? { address: tokenAddress, symbol: symbol ?? '' } : null,
-            };
-          })
-        );
+        const entries = candidates.map(({ node, environment }): ResolvedTemplateEnv => ({
+          env: {
+            environment,
+            // Prefer recommendedResources for the GPU COUNT (null on every live template today,
+            // but this stays right if that changes) — meetsMinResources above stays on
+            // requiredResources since that's the actual floor, not the recommendation. The shared
+            // CPU/RAM/disk are sized separately by recommendedSizing: the recommended amounts,
+            // floored at the required mins.
+            // Templates are one of the two zero-GPU-permitting flows (see env-resources.ts spec) — a
+            // template declaring no GPU requirement (jupyterlab, hermes) must seed 0 rather than the
+            // old blanket "nothing declared -> 1", on an env whose GPU min actually allows it.
+            gpuSelection: autoGpuSelection({
+              environment,
+              required: template!.recommendedResources ?? template!.requiredResources ?? [],
+              allowZeroGpu: true,
+            }),
+            sizing,
+            nodeInfo: {
+              currentAddrs: node.currentAddrs,
+              friendlyName: node.friendlyName,
+              id: node.id,
+              latestBenchmarkResults: node.latestBenchmarkResults,
+              multiaddrs: node.multiaddrs,
+              // Quick start prefers verified nodes when several can host the template.
+              verified: node.verified,
+            },
+          },
+        }));
 
         if (!cancelled) {
           setResolved(entries);

@@ -11,15 +11,15 @@ import { useEffect } from 'react';
 const ResourcesPage = () => {
   const router = useRouter();
 
-  const { freeCompute, hydrateFromUrlFinished, selectedEnv, selectedToken } = useRunJobContext();
+  const { freeCompute, hydrateFromUrlFinished, selectedEnv } = useRunJobContext();
 
   useEffect(() => {
     if (hydrateFromUrlFinished) {
-      if (!selectedEnv || (!freeCompute && !selectedToken)) {
+      if (!selectedEnv) {
         router.replace('/run-job/environments');
       }
     }
-  }, [router, selectedEnv, selectedToken, freeCompute, hydrateFromUrlFinished]);
+  }, [router, selectedEnv, hydrateFromUrlFinished]);
 
   return (
     <Container className="pageRoot">
@@ -39,9 +39,9 @@ const ResourcesPage = () => {
         contentBetween={<Stepper<RunJobStep> currentStep="resources" steps={getRunJobSteps(freeCompute)} />}
         mobileWarning
       />
-      {hydrateFromUrlFinished && selectedEnv && (freeCompute || selectedToken) ? (
+      {hydrateFromUrlFinished && selectedEnv ? (
         <div className="pageContentWrapper">
-          <SelectResources environment={selectedEnv} freeCompute={freeCompute} token={selectedToken ?? null} />
+          <SelectResources environment={selectedEnv} freeCompute={freeCompute} />
         </div>
       ) : null}
     </Container>

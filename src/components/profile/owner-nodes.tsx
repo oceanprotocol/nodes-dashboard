@@ -1,6 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
-import NodeLookupModal from '@/components/modal/node-lookup-modal';
+import LookupModal from '@/components/modal/lookup-modal';
 import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { getApiRoute } from '@/config';
@@ -64,9 +64,10 @@ const OwnerNodes = () => {
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      <NodeLookupModal
+      <LookupModal
         description="Not seeing a node you admin? Enter its node ID or friendly name below."
         isOpen={addOpen}
+        label="Node ID or friendly name"
         onClose={() => setAddOpen(false)}
         onSubmit={handleAddNode}
         submitLabel="Add node"

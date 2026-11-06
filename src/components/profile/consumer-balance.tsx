@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
@@ -24,7 +24,6 @@ const copyToClipboard = (text: string) => {
 };
 
 const PAGE_SIZE = 5;
-const NON_TRANSFERABLE_TOKENS = ['COMPY'];
 
 const ConsumerBalance = () => {
   const { account, ocean } = useOceanAccount();
@@ -42,12 +41,6 @@ const ConsumerBalance = () => {
       refetchHistory();
     },
   });
-
-  // COMPY is not transferable between wallets.
-  const transferableBalances = useMemo(
-    () => balances.filter((balance) => !NON_TRANSFERABLE_TOKENS.includes(balance.token)),
-    [balances]
-  );
 
   useEffect(() => {
     setMounted(true);
@@ -74,7 +67,7 @@ const ConsumerBalance = () => {
               Top up
             </Button>
           )}
-          {isConnected && transferableBalances.length > 0 && (
+          {isConnected && balances.length > 0 && (
             <Button
               color="accent1"
               contentBefore={<SendIcon />}
@@ -199,7 +192,7 @@ const ConsumerBalance = () => {
 
       {isConnected && (
         <TransferModal
-          balances={transferableBalances}
+          balances={balances}
           isOpen={isTransferModalOpen}
           onClose={() => {
             setIsTransferModalOpen(false);

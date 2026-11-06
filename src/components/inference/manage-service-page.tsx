@@ -21,7 +21,6 @@ import { useP2P } from '@/contexts/P2PContext';
 import { useMetricsHistory } from '@/hooks/use-metrics-history';
 import { captureError } from '@/lib/analytics';
 import { findServiceEscrowLock, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
-import { getTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
 import { decodeModelIds, getModelShortName } from '@/services/huggingface-service';
@@ -194,8 +193,6 @@ const ManageServicePage: React.FC = () => {
     modelParamsByModel,
     setParamsForModel,
     selectedEnv,
-    selectedToken,
-    setSelectedToken,
     selectedTemplate,
     setSelectedTemplate,
     jobDurationSeconds,
@@ -410,31 +407,6 @@ const ManageServicePage: React.FC = () => {
     };
   }, [hydrateFromUrlFinished, nodeUri, account.address, fetchStatus, pollEpoch]);
 
-  // Seed the payment token from the running job when the URL-hydrated selection didn't carry one (e.g.
-  // token-symbol lookup failed during hydration). Authoritative token the service started with, so an
-  // Edit relaunch reuses it instead of tripping the "missing payment token" guard on payment.
-  useEffect(() => {
-    const paymentToken = job?.payment?.token;
-    if (!paymentToken || selectedToken?.address?.toLowerCase() === paymentToken.toLowerCase()) {
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      let symbol: string | null = null;
-      try {
-        symbol = await getTokenSymbol(paymentToken);
-      } catch (error) {
-        console.error('Failed to resolve service token symbol:', error);
-      }
-      if (!cancelled) {
-        setSelectedToken({ address: paymentToken, symbol: symbol ?? '' });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [job?.payment?.token, selectedToken?.address, setSelectedToken]);
-
   // What the container is ACTUALLY running, straight off the node's own job record (polled over P2P) —
   // authoritative and fresher than the URL-hydrated selection, which is whatever the link carried.
   const jobCommand = useMemo(
@@ -608,7 +580,6 @@ const ManageServicePage: React.FC = () => {
     serviceBounds && Number.isFinite(serviceBounds.max)
       ? Math.max(0, serviceBounds.max - durationRemainingSeconds)
       : undefined;
-  const defaultToken = selectedToken?.address;
   const isTemplate = !!template;
   // A bundle without configurable env vars has no settings to edit.
   const bundleHasConfig = (template?.userConfigurableEnvVars?.length ?? 0) > 0;
@@ -718,10 +689,9 @@ const ManageServicePage: React.FC = () => {
    */
   const [heldLock, setHeldLock] = useState<EscrowLock | null>(null);
   const lockPayee = environment?.consumerAddress;
-  const lockToken = selectedToken?.address;
   useEffect(() => {
     setHeldLock(null);
-    if (!ocean || !account.address || !lockPayee || !lockToken || !id || !jobServiceIdForLock) {
+    if (!ocean || !account.address || !lockPayee || !id || !jobServiceIdForLock) {
       return;
     }
     let cancelled = false;
@@ -735,7 +705,6 @@ const ManageServicePage: React.FC = () => {
           payee: lockPayee,
           payer: account.address!,
           serviceId: id,
-          tokenAddress: lockToken,
         });
         if (cancelled) {
           return;
@@ -758,7 +727,7 @@ const ManageServicePage: React.FC = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [ocean, account.address, lockPayee, lockToken, id, jobServiceIdForLock]);
+  }, [ocean, account.address, lockPayee, id, jobServiceIdForLock]);
   // Same event the payment page sends when its pay button is blocked, so one breakdown by `reason`
   // covers both. Once per service, not per re-check: it's a state the service is in, not an attempt.
   const lockReportedRef = useRef<string | null>(null);
@@ -773,10 +742,9 @@ const ManageServicePage: React.FC = () => {
       serviceId: id,
       lock_expiry: heldLock.expiry,
       heldAmount: heldLock.amount,
-      tokenSymbol: selectedToken?.symbol,
       branch,
     });
-  }, [heldLock, id, branch, selectedToken?.symbol]);
+  }, [heldLock, id, branch]);
 
   // The statuses the node refuses a restart under — Expired, plus everything that holds its
   // per-service lifecycle lock (mid-start / restarting / stopping), which comes back as
@@ -871,13 +839,7 @@ const ManageServicePage: React.FC = () => {
   // model one, and picking that branch before the match settles sends a template service to the model
   // picker instead of to payment.
   const canProlong =
-    !!job &&
-    templateKnown &&
-    !isExpired &&
-    !isProlongBlocked(job.status) &&
-    !!selectedToken &&
-    !!bookedResources &&
-    !heldLock;
+    !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!bookedResources && !heldLock;
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
@@ -964,7 +926,7 @@ const ManageServicePage: React.FC = () => {
   }, [jobServiceId, jobExpiresAt, jobStatus, jobDateCreated, account.address, serviceName, router.asPath]);
 
   // Deep-linked from an expiry warning: land straight on the prolong modal. Waits for canProlong —
-  // the payment token and booked resources are both seeded asynchronously from the polled job — and
+  // the booked resources are seeded asynchronously from the polled job — and
   // fires once, so dismissing the modal doesn't reopen it on the next render.
   const autoProlongedRef = useRef(false);
   useEffect(() => {
@@ -976,26 +938,22 @@ const ManageServicePage: React.FC = () => {
   }, [router.query.openProlong, canProlong]);
 
   /**
-   * Prolong → straight to payment for the extra runtime only. Same selection (env/token/gpu/models),
+   * Prolong → straight to payment for the extra runtime only. Same selection (env/gpu/models),
    * duration overridden to the extra time; the `prolong` flag skips earlier steps and reuses the same
    * price formula. See payment-page.
    */
   const onProlong = (extraSeconds: number) => {
     // Button is gated on the same flag, but guard so a stale render (or a status flip while the modal is
-    // open) can't send an expired/dead service to payment. The token half of canProlong is seeded from
-    // the running job, hence the separate "still loading" message.
+    // open) can't send an expired/dead service to payment. The template half of canProlong resolves
+    // asynchronously, hence the separate "still loading" message.
     if (!canProlong) {
       // Close the modal too — the error renders in the page header, hidden behind an open modal.
       setProlongOpen(false);
       setJobError(
-        !selectedToken || !templateKnown
+        !templateKnown
           ? 'Loading service details. Try again in a moment.'
           : heldLock
-            ? serviceEscrowLockMessage({
-                lock: heldLock,
-                tokenAddress: selectedToken.address,
-                tokenSymbol: selectedToken.symbol,
-              })
+            ? serviceEscrowLockMessage(heldLock)
             : 'This service can no longer be extended.'
       );
       return;
@@ -1078,15 +1036,7 @@ const ManageServicePage: React.FC = () => {
             )}
 
             {/* Say why Prolong is greyed out while the node holds an earlier top-up for this service. */}
-            {job && !isExpired && heldLock && selectedToken && (
-              <div className="textSecondary">
-                {serviceEscrowLockMessage({
-                  lock: heldLock,
-                  tokenAddress: selectedToken.address,
-                  tokenSymbol: selectedToken.symbol,
-                })}
-              </div>
-            )}
+            {job && !isExpired && heldLock && <div className="textSecondary">{serviceEscrowLockMessage(heldLock)}</div>}
 
             {/* Countdown tracks the PAID window, not the container's health — a crashed (Error/Stopped)
                 service still holds its slot until expiresAt, and Restart/Prolong stay available until
@@ -1201,7 +1151,6 @@ const ManageServicePage: React.FC = () => {
                 <div className="textSecondary">Loading booked resources…</div>
               ) : (
                 <InferenceEnvironmentCard
-                  defaultToken={defaultToken}
                   durationSeconds={durationTotalSeconds}
                   environment={environment}
                   gpuSelection={gpuSelection}

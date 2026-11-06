@@ -7,7 +7,7 @@ import Input from '@/components/input/input';
 import Slider from '@/components/slider/slider';
 import Switch from '@/components/switch/switch';
 import { CHAIN_ID } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
+import { isUsdc, USDC } from '@/constants/tokens';
 import { NodeConfig } from '@/types/node-config';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { BENCHMARK_ENV_DESCRIPTION } from '@/utils/env-resources';
@@ -34,8 +34,6 @@ type Environment = EnvGroup['environments'][number];
 type Resource = NonNullable<Environment['resources']>[number];
 type FreeCompute = NonNullable<Environment['free']>;
 
-const SUPPORTED_TOKENS = getSupportedTokens();
-const TOKEN_SYMBOLS = Object.keys(SUPPORTED_TOKENS) as (keyof typeof SUPPORTED_TOKENS)[];
 const CHAIN_ID_STR = String(CHAIN_ID);
 
 const DEFAULT_NEW_ENV: Environment = {
@@ -55,41 +53,36 @@ const DEFAULT_FREE: FreeCompute = {
 
 // --- paid helpers ---
 
-const isTokenEnabled = (env: Environment, tokenAddress: string): boolean => {
+const isUsdcEnabled = (env: Environment): boolean => {
   const chainFees = env.fees?.[CHAIN_ID_STR] ?? [];
-  return chainFees.some((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase());
+  return chainFees.some((f) => isUsdc(f.feeToken));
 };
 
-const toggleToken = (env: Environment, tokenAddress: string, enabled: boolean): Environment => {
+const toggleUsdc = (env: Environment, enabled: boolean): Environment => {
   const fees = { ...(env.fees ?? {}) };
   const chainFees = [...(fees[CHAIN_ID_STR] ?? [])];
   if (enabled) {
-    if (!chainFees.some((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase())) {
-      chainFees.push({ feeToken: tokenAddress, prices: [] });
+    if (!chainFees.some((f) => isUsdc(f.feeToken))) {
+      chainFees.push({ feeToken: USDC.address, prices: [] });
     }
   } else {
-    const idx = chainFees.findIndex((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase());
+    const idx = chainFees.findIndex((f) => isUsdc(f.feeToken));
     if (idx !== -1) chainFees.splice(idx, 1);
   }
   fees[CHAIN_ID_STR] = chainFees;
   return { ...env, fees };
 };
 
-const getTokenPrice = (env: Environment, tokenAddress: string, resourceId: string): number | undefined => {
+const getUsdcPrice = (env: Environment, resourceId: string): number | undefined => {
   const chainFees = env.fees?.[CHAIN_ID_STR] ?? [];
-  const entry = chainFees.find((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase());
+  const entry = chainFees.find((f) => isUsdc(f.feeToken));
   return entry?.prices.find((p) => p.id === resourceId)?.price;
 };
 
-const setTokenPrice = (
-  env: Environment,
-  tokenAddress: string,
-  resourceId: string,
-  price: number | undefined
-): Environment => {
+const setUsdcPrice = (env: Environment, resourceId: string, price: number | undefined): Environment => {
   const fees = { ...(env.fees ?? {}) };
   const chainFees = [...(fees[CHAIN_ID_STR] ?? [])];
-  const idx = chainFees.findIndex((f) => f.feeToken.toLowerCase() === tokenAddress.toLowerCase());
+  const idx = chainFees.findIndex((f) => isUsdc(f.feeToken));
   if (idx === -1) {
     return env;
   }
@@ -175,12 +168,12 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
     }
   };
 
-  const handleTokenToggle = (tokenAddress: string, checked: boolean) => {
-    onChange(toggleToken(env, tokenAddress, checked));
+  const handleUsdcToggle = (checked: boolean) => {
+    onChange(toggleUsdc(env, checked));
   };
 
-  const handleTokenPriceChange = (tokenAddress: string, resourceId: string, value: string) => {
-    onChange(setTokenPrice(env, tokenAddress, resourceId, value === '' ? undefined : Number(value)));
+  const handleUsdcPriceChange = (resourceId: string, value: string) => {
+    onChange(setUsdcPrice(env, resourceId, value === '' ? undefined : Number(value)));
   };
 
   const handleRangeChange = (resourceId: string, value: number[]) => {
@@ -212,7 +205,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
     onChange({ ...env, free: { ...env.free!, maxJobs: value === '' ? 0 : Number(value) } });
   };
 
-  const enabledTokens = TOKEN_SYMBOLS.filter((sym) => isTokenEnabled(env, SUPPORTED_TOKENS[sym].address));
+  const usdcEnabled = isUsdcEnabled(env);
 
   const renderResourceRange = ({
     feeUnit,
@@ -272,22 +265,19 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
           topRight={totalDisplay}
           value={[min, max]}
         />
-        {included ? (
+        {included && usdcEnabled ? (
           <div className={styles.resourcePriceInputs}>
-            {enabledTokens.map((sym) => (
-              <Input
-                disabled={disabled}
-                endAdornment={`${sym}/min`}
-                key={sym}
-                label={`Fee per ${feeUnit ?? unit}`}
-                min={0}
-                onChange={(e) => handleTokenPriceChange(SUPPORTED_TOKENS[sym].address, resource.id, e.target.value)}
-                placeholder="0"
-                size="sm"
-                type="number"
-                value={getTokenPrice(env, SUPPORTED_TOKENS[sym].address, resource.id) ?? ''}
-              />
-            ))}
+            <Input
+              disabled={disabled}
+              endAdornment={`${USDC.symbol}/min`}
+              label={`Fee per ${feeUnit ?? unit}`}
+              min={0}
+              onChange={(e) => handleUsdcPriceChange(resource.id, e.target.value)}
+              placeholder="0"
+              size="sm"
+              type="number"
+              value={getUsdcPrice(env, resource.id) ?? ''}
+            />
           </div>
         ) : null}
       </div>
@@ -364,20 +354,14 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
           walletAddresses={env.access?.addresses ?? []}
         />
       </Card>
-      {/* Fee tokens */}
-      <h4 className={commonStyles.subsectionTitle}>Accepted fee tokens</h4>
-      <div className="flexRow gapMd flexWrap">
-        {TOKEN_SYMBOLS.map((sym) => (
-          <Checkbox
-            checked={isTokenEnabled(env, SUPPORTED_TOKENS[sym].address)}
-            disabled={disabled}
-            key={sym}
-            label={sym}
-            onChange={(e) => handleTokenToggle(SUPPORTED_TOKENS[sym].address, e.target.checked)}
-            type="multiple"
-          />
-        ))}
-      </div>
+      <h4 className={commonStyles.subsectionTitle}>Fee token</h4>
+      <Checkbox
+        checked={usdcEnabled}
+        disabled={disabled}
+        label={`Accept ${USDC.symbol}`}
+        onChange={(e) => handleUsdcToggle(e.target.checked)}
+        type="multiple"
+      />
       {/* Paid resources */}
       {gpus?.length > 0 ? (
         <>
@@ -390,24 +374,25 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
                   checked={(envGpu?.total ?? 0) > 0}
                   className="justifySelfStart"
                   disabled={disabled}
-                  label={<HardwareLabel className="textBold" type="gpu" value={gpu.description ?? gpu.id} iconHeight={20} />}
+                  label={
+                    <HardwareLabel className="textBold" type="gpu" value={gpu.description ?? gpu.id} iconHeight={20} />
+                  }
                   onChange={(_, checked) => handleGpuToggle(gpu, checked)}
                 />
-                <div className={styles.resourcePriceInputs}>
-                  {enabledTokens.map((sym) => (
+                {usdcEnabled ? (
+                  <div className={styles.resourcePriceInputs}>
                     <Input
                       disabled={disabled}
-                      endAdornment={`${sym}/min`}
-                      key={sym}
+                      endAdornment={`${USDC.symbol}/min`}
                       min={0}
-                      onChange={(e) => handleTokenPriceChange(SUPPORTED_TOKENS[sym].address, gpu.id, e.target.value)}
+                      onChange={(e) => handleUsdcPriceChange(gpu.id, e.target.value)}
                       placeholder="0"
                       size="sm"
                       type="number"
-                      value={getTokenPrice(env, SUPPORTED_TOKENS[sym].address, gpu.id) ?? ''}
+                      value={getUsdcPrice(env, gpu.id) ?? ''}
                     />
-                  ))}
-                </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -521,7 +506,14 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
                     className="alignSelfStart"
                     disabled={disabled}
                     key={gpu.id}
-                    label={<HardwareLabel className="textBold" type="gpu" value={gpu.description ?? gpu.id} iconHeight={20} />}
+                    label={
+                      <HardwareLabel
+                        className="textBold"
+                        type="gpu"
+                        value={gpu.description ?? gpu.id}
+                        iconHeight={20}
+                      />
+                    }
                     onChange={(_, checked) => handleFreeResourceToggle(gpu.id, checked, maxAllowed)}
                   />
                 );
@@ -601,7 +593,8 @@ const EnvPreview: React.FC<{ env: Environment }> = ({ env }) => {
         {gpus.map((gpu) => (
           <HardwareLabel
             className={classNames('chip', 'chipGlass', styles.previewChip)}
-            type="gpu" value={gpu.description ?? gpu.id}
+            type="gpu"
+            value={gpu.description ?? gpu.id}
             iconHeight={14}
             key={gpu.id}
           />

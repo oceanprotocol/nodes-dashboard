@@ -1,9 +1,10 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentSummary from '@/components/run-job/payment-summary';
-import { SelectedToken } from '@/context/run-job-context';
+import { SubsidyJobType } from '@/lib/subsidy';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
+import { usePayerCost } from '@/lib/use-subsidy';
 import { ComputeEnvironment } from '@/types/environments';
 import { CircularProgress } from '@mui/material';
 import { useRouter } from 'next/router';
@@ -13,12 +14,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 type PaymentProps = {
   minLockSeconds: number;
   selectedEnv: ComputeEnvironment;
-  selectedToken: SelectedToken;
   setPageSubtitle: (subtitle: string) => void;
   totalCost: number;
 };
 
-const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, totalCost }: PaymentProps) => {
+const Payment = ({ minLockSeconds, selectedEnv, setPageSubtitle, totalCost }: PaymentProps) => {
   const router = useRouter();
 
   // Escrow state (wallet/escrow balances + authorizations) — shared with the inference payment step.
@@ -28,7 +28,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
     walletBalance,
     loading: loadingPaymentInfo,
     loadPaymentInfo,
-  } = usePaymentInfo(selectedToken.address, selectedEnv.consumerAddress);
+  } = usePaymentInfo(selectedEnv.consumerAddress);
 
   // The payment-status effect below re-runs on every balance/auth refetch; without
   // this guard `payment_authorized` fires many times per session, inflating the
@@ -39,35 +39,35 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
     setPageSubtitle('Confirm and authorize your payment in order to start your job');
   }, [setPageSubtitle]);
 
+  const { isQuoting, payerCost } = usePayerCost({
+    cost: totalCost,
+    jobType: SubsidyJobType.COMPUTE,
+    nodeAddress: selectedEnv.consumerAddress,
+  });
+
   // Deposit + (re)authorization the session needs, and whether escrow already satisfies it.
   // Same helper as the inference step; run-job floors the lock window at 1s.
   const requirement = useMemo(
     () =>
       computeEscrowRequirement({
         snapshot: { authorizations, escrowBalance: escrowBalance ?? 0, walletBalance: walletBalance ?? 0 },
-        totalCost,
-        tokenAddress: selectedToken.address,
+        totalCost: payerCost,
         requiredLockSeconds: minLockSeconds,
         minLockSecondsFloor: 1,
       }),
-    [authorizations, escrowBalance, walletBalance, totalCost, selectedToken.address, minLockSeconds]
+    [authorizations, escrowBalance, walletBalance, payerCost, minLockSeconds]
   );
 
   // Once escrow + authorization satisfy the session requirements, move on to the summary.
   useEffect(() => {
-    if (requirement.sufficient) {
+    if (requirement.sufficient && !isQuoting) {
       if (!authorizedTracked.current) {
         authorizedTracked.current = true;
-        posthog.capture('payment_authorized', {
-          totalCost,
-          tokenSymbol: selectedToken.symbol,
-          tokenAddress: selectedToken.address,
-          flow: 'run-job',
-        });
+        posthog.capture('payment_authorized', { totalCost, flow: 'run-job' });
       }
       router.push({ pathname: '/run-job/summary', query: router.query });
     }
-  }, [requirement.sufficient, router, selectedToken.symbol, selectedToken.address, totalCost]);
+  }, [isQuoting, requirement.sufficient, router, totalCost]);
 
   const { handlePay, isPaying } = usePaySession({ onSuccess: loadPaymentInfo });
 
@@ -75,8 +75,6 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
     () =>
       handlePay({
         flow: 'run-job',
-        tokenAddress: selectedToken.address,
-        tokenSymbol: selectedToken.symbol,
         totalCost,
         peerId: selectedEnv.nodeId,
         spender: selectedEnv.consumerAddress,
@@ -85,15 +83,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         maxLockSeconds: requirement.maxLockSeconds.toString(),
         maxLockCount: requirement.maxLockCount.toString(),
       }),
-    [
-      handlePay,
-      selectedToken.address,
-      selectedToken.symbol,
-      totalCost,
-      selectedEnv.nodeId,
-      selectedEnv.consumerAddress,
-      requirement,
-    ]
+    [handlePay, totalCost, selectedEnv.nodeId, selectedEnv.consumerAddress, requirement]
   );
 
   return loadingPaymentInfo && (escrowBalance === null || walletBalance === null) ? (
@@ -105,7 +95,8 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         authorizations={authorizations}
         escrowBalance={escrowBalance ?? 0}
         loadPaymentInfo={loadPaymentInfo}
-        selectedToken={selectedToken}
+        nodeAddress={selectedEnv.consumerAddress}
+        subsidyJobType={SubsidyJobType.COMPUTE}
         topupSource="run_job"
         totalCost={totalCost}
         walletBalance={walletBalance ?? 0}
@@ -123,7 +114,7 @@ const Payment = ({ minLockSeconds, selectedEnv, selectedToken, setPageSubtitle, 
         </Button>
         <Button
           color="accent1"
-          disabled={loadingPaymentInfo || isPaying || requirement.insufficientWalletFunds}
+          disabled={loadingPaymentInfo || isPaying || isQuoting || requirement.insufficientWalletFunds}
           loading={isPaying}
           onClick={handleSubmit}
           size="lg"

@@ -4,6 +4,7 @@ import Input from '@/components/input/input';
 import Select from '@/components/input/select';
 import Modal from '@/components/modal/modal';
 import { getRunJobSteps, type RunJobStep } from '@/components/stepper/get-steps';
+import { USDC } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
 import { type NodeUri } from '@/contexts/P2PContext';
 import { useNodeStorage } from '@/contexts/node-storage-context';
@@ -131,7 +132,6 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
     setOutputBucketId,
     selectedEnv,
     selectedResources,
-    selectedToken,
     estimatedTotalCost,
     submitJob,
   } = useRunJobContext();
@@ -1064,7 +1064,7 @@ const AuthoringPanel = ({ authToken, consumerAddress }: AuthoringPanelProps) => 
           <div className={styles.confirmSummary}>
             <span className={styles.confirmSummaryLabel}>Compute</span>
             <span className={styles.confirmSummaryValue}>
-              {freeCompute ? 'Free' : `${estimatedTotalCost ?? '—'}${selectedToken ? ` ${selectedToken.symbol}` : ''}`}
+              {freeCompute ? 'Free' : `${estimatedTotalCost ?? '—'} ${USDC.symbol}`}
             </span>
             <span className={styles.confirmSummaryLabel}>Image</span>
             <span className={styles.confirmSummaryValue}>{imageSummary}</span>

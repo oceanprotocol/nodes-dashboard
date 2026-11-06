@@ -1,0 +1,292 @@
+.header {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 576px) {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.titleRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  h4 {
+    margin: 0;
+  }
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.small {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.available {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.availableAmount {
+  font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.availableLabel {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.spendOrder {
+  display: flex;
+  gap: 4px;
+  height: 10px;
+
+  > div {
+    border-radius: 6px;
+    min-width: 10px;
+  }
+}
+
+.blocks {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @media (min-width: 992px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.block {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.blockHeaderRow {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.blockHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.blockHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.blockHeaderAction {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.addressLink {
+  align-items: center;
+  align-self: flex-start;
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  gap: 4px;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--accent1);
+  }
+}
+
+.meter {
+  background: var(--background-glass-secondary);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.meterFill {
+  border-radius: 4px;
+  height: 100%;
+}
+
+.amount {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.creditRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.limits {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+
+  @container (min-width: 360px) {
+    gap: 10px 12px;
+    grid-template-columns: auto minmax(24px, 120px) auto auto;
+  }
+}
+
+.limitsHead {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.limitRow {
+  align-items: center;
+  display: grid;
+  gap: 6px 12px;
+  grid-template-areas:
+    'label amount'
+    'meter meter'
+    'reset reset';
+  grid-template-columns: minmax(0, 1fr) auto;
+
+  &.limitsHead {
+    display: none;
+  }
+
+  .limitLabel {
+    grid-area: label;
+  }
+
+  .limitMeter {
+    grid-area: meter;
+  }
+
+  .limitAmount {
+    grid-area: amount;
+  }
+
+  .limitReset {
+    grid-area: reset;
+  }
+
+  @container (min-width: 360px) {
+    grid-column: 1 / -1;
+    grid-template-areas: none;
+    grid-template-columns: subgrid;
+
+    &.limitsHead {
+      display: grid;
+    }
+
+    .limitLabel,
+    .limitMeter,
+    .limitAmount,
+    .limitReset {
+      grid-area: auto;
+    }
+
+    .resetPrefix {
+      display: none;
+    }
+  }
+}
+
+.limitLabel {
+  font-size: 14px;
+  white-space: nowrap;
+
+  &::first-letter {
+    text-transform: uppercase;
+  }
+}
+
+.offer {
+  border: 1px dashed var(--border);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.offerLabel {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  padding: 6px 8px 0;
+
+  svg {
+    font-size: 16px;
+  }
+}
+
+.footer {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  @media (min-width: 576px) {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.historyHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.historyTitle {
+  margin: 0;
+}

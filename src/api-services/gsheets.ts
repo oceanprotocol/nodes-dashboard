@@ -1,5 +1,14 @@
-import { getHandleComparisonKey, GrantDetails, GrantHandleService, GrantStatus, GrantWithStatus } from '@/types/grant';
-import { google } from 'googleapis';
+import {
+  getHandleComparisonKey,
+  SUBSIDY_HANDLE_SERVICE_CHOICES,
+  SUBSIDY_PENDING_TTL_MS,
+  SubsidyDetails,
+  SubsidyHandles,
+  SubsidyHandleService,
+  SubsidyStatus,
+  SubsidyWithStatus,
+} from '@/types/subsidy';
+import { google, sheets_v4 } from 'googleapis';
 
 /**
  * Sheet format
@@ -8,101 +17,100 @@ import { google } from 'googleapis';
  * A: Name
  * B: Email (normalized)
  * C: Wallet address
- * D: Handle (legacy — service unknown, only written before the Discord/Telegram split)
- * E: Discord handle
- * F: Telegram handle
- * G: Role
- * H: Hardware
- * I: OS
- * J: Goal
- * K: Application date
- * L: Claim date
- * M: Status
- * N: Amount
- * O: Raw amount
- * P: Nonce
- * Q: Signed faucet message
- * R: Transaction hash
- * S: OTP
- * T: OTP expiry date
- * U: OTP attempts
- * V: OTP last resent
+ * D: Discord handle
+ * E: Telegram handle
+ * F: X handle
+ * G: Application date
+ * H: Email verified date
+ * I: Claim date
+ * J: Status
+ * K: OTP (hashed)
+ * L: OTP expiry date
+ * M: OTP attempts
+ * N: OTP last resent
  *
  * Row 1: This sheet is auto-generated.
  * Row 2: Headers
  * Rows 3...N: Data
  */
 
-const SPREADSHEET_ID = process.env.GRANT_GSHEETS_SPREADSHEET_ID;
+const SPREADSHEET_ID = process.env.SUBSIDY_GSHEETS_SPREADSHEET_ID;
 
-const LEGACY_HANDLE_COLUMN = 3;
-const DISCORD_HANDLE_COLUMN = 4;
-const TELEGRAM_HANDLE_COLUMN = 5;
-const TX_HASH_COLUMN = 17;
+const FIRST_DATA_ROW = 3;
+const LAST_COLUMN = 'N';
+
+const EMAIL_COLUMN = 1;
+const WALLET_COLUMN = 2;
+const HANDLE_COLUMNS: Record<SubsidyHandleService, number> = {
+  discord: 3,
+  telegram: 4,
+  x: 5,
+};
 
 function getRange(row?: number) {
-  if (row || row === 0) {
-    return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A${row}:V${row}`;
+  if (row !== undefined) {
+    return `${process.env.SUBSIDY_GSHEETS_SHEET_NAME}!A${row}:${LAST_COLUMN}${row}`;
   }
-  return `${process.env.GRANT_GSHEETS_SHEET_NAME}!A3:V`;
+  return `${process.env.SUBSIDY_GSHEETS_SHEET_NAME}!A${FIRST_DATA_ROW}:${LAST_COLUMN}`;
 }
+
+let sheetsService: sheets_v4.Sheets | undefined;
 
 const REQUIRED_SHEETS_ENV_VARS = [
-  'GRANT_GSHEETS_SPREADSHEET_ID',
-  'GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL',
-  'GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY',
+  'SUBSIDY_GSHEETS_SPREADSHEET_ID',
+  'SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL',
+  'SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY',
 ];
 
-async function getSheetsService() {
-  const missingEnvVars = REQUIRED_SHEETS_ENV_VARS.filter((name) => !process.env[name]);
-  if (missingEnvVars.length > 0) {
-    throw new Error('Data service is not configured.');
+function getSheetsService() {
+  if (!sheetsService) {
+    const missingEnvVars = REQUIRED_SHEETS_ENV_VARS.filter((name) => !process.env[name]);
+    if (missingEnvVars.length > 0) {
+      throw new Error('Data service is not configured.');
+    }
+    const auth = new google.auth.JWT({
+      email: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL,
+      key: process.env.SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    sheetsService = google.sheets({ version: 'v4', auth });
   }
-  const auth = new google.auth.JWT({
-    email: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GRANT_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  return google.sheets({ version: 'v4', auth });
+  return sheetsService;
 }
 
-function rowToGrant(row: string[]): GrantWithStatus {
-  const discordHandle = row[DISCORD_HANDLE_COLUMN];
-  const telegramHandle = row[TELEGRAM_HANDLE_COLUMN];
-  const legacyHandle = row[LEGACY_HANDLE_COLUMN];
-  // Legacy rows only have the service-agnostic column, so they resolve to an undefined service.
-  const handleService: GrantHandleService | undefined = discordHandle
-    ? 'discord'
-    : telegramHandle
-      ? 'telegram'
-      : undefined;
+const parseDate = (value: string | undefined) => (value ? new Date(value) : undefined);
+
+const parseNumber = (value: string | undefined) => (value ? Number(value) : undefined);
+
+function rowToHandles(row: string[]): SubsidyHandles {
+  const handles: SubsidyHandles = {};
+  for (const { value: service } of SUBSIDY_HANDLE_SERVICE_CHOICES) {
+    const handle = row[HANDLE_COLUMNS[service]];
+    if (handle) {
+      handles[service] = handle;
+    }
+  }
+  return handles;
+}
+
+function rowToSubsidy(row: string[]): SubsidyWithStatus {
   return {
     name: row[0],
-    email: row[1],
-    walletAddress: row[2],
-    legacyHandle,
-    handle: discordHandle || telegramHandle || legacyHandle,
-    handleService,
-    role: row[6],
-    hardware: row[7] ? row[7].split(', ') : [],
-    os: row[8],
-    goal: row[9],
-    applicationDate: new Date(row[10]),
-    claimDate: row[11] ? new Date(row[11]) : undefined,
-    status: row[12] as GrantStatus,
-    amount: row[13],
-    rawAmount: row[14],
-    nonce: row[15] ? Number(row[15]) : undefined,
-    signedFaucetMessage: row[16],
-    txHash: row[TX_HASH_COLUMN],
-    otp: row[18],
-    otpExpires: row[19] ? Number(row[19]) : undefined,
-    otpAttempts: row[20] ? Number(row[20]) : 0,
-    otpLastResent: row[21] ? Number(row[21]) : undefined,
+    email: row[EMAIL_COLUMN],
+    walletAddress: row[WALLET_COLUMN],
+    handles: rowToHandles(row),
+    applicationDate: new Date(row[6]),
+    verifiedDate: parseDate(row[7]),
+    claimDate: parseDate(row[8]),
+    status: row[9] as SubsidyStatus,
+    otp: row[10],
+    otpExpires: parseNumber(row[11]),
+    otpAttempts: parseNumber(row[12]) ?? 0,
+    otpLastResent: parseNumber(row[13]),
   };
 }
 
-function grantToRow(data: GrantWithStatus): string[] {
+function subsidyToRow(data: SubsidyWithStatus): string[] {
   // Sheets drops `undefined` cells, which would shift the row — coerce every cell to a string.
   const cells: Array<string | number | undefined> = [
     // A: Name
@@ -111,150 +119,93 @@ function grantToRow(data: GrantWithStatus): string[] {
     data.email,
     // C: Wallet address
     data.walletAddress,
-    // D: Handle (legacy — preserved as-is, never populated for new submissions)
-    data.legacyHandle ?? '',
-    // E: Discord handle
-    data.handleService === 'discord' ? data.handle : '',
-    // F: Telegram handle
-    data.handleService === 'telegram' ? data.handle : '',
-    // G: Role
-    data.role,
-    // H: Hardware
-    data.hardware.join(', '),
-    // I: OS
-    data.os,
-    // J: Goal
-    data.goal,
-    // K: Application date
+    // D: Discord handle
+    data.handles.discord,
+    // E: Telegram handle
+    data.handles.telegram,
+    // F: X handle
+    data.handles.x,
+    // G: Application date
     data.applicationDate.toISOString(),
-    // L: Claim date
-    data.claimDate ? data.claimDate.toISOString() : '',
-    // M: Status
+    // H: Email verified date
+    data.verifiedDate?.toISOString(),
+    // I: Claim date
+    data.claimDate?.toISOString(),
+    // J: Status
     data.status,
-    // N: Amount
-    data.amount,
-    // O: Raw amount
-    data.rawAmount,
-    // P: Nonce
-    data.nonce,
-    // Q: Signed faucet message
-    data.signedFaucetMessage,
-    // R: Transaction hash
-    data.txHash,
-    // S: OTP
+    // K: OTP (hashed)
     data.otp,
-    // T: OTP expiry date
+    // L: OTP expiry date
     data.otpExpires,
-    // U: OTP attempts
+    // M: OTP attempts
     data.otpAttempts ?? 0,
-    // V: OTP last resent
-    data.otpLastResent ?? '',
+    // N: OTP last resent
+    data.otpLastResent,
   ];
   return cells.map((cell) => (cell === undefined || cell === null ? '' : String(cell)));
 }
 
 async function getAllRows(): Promise<string[][]> {
-  const service = await getSheetsService();
-  const response = await service.spreadsheets.values.get({
+  const response = await getSheetsService().spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: getRange(),
   });
   return response.data.values ?? [];
 }
 
+export type SubsidyRecord = SubsidyWithStatus & { rowNumber: number };
+
+/** One read per request: callers look rows up with the `find*` helpers below. */
+export async function loadSubsidies(): Promise<SubsidyRecord[]> {
+  const rows = await getAllRows();
+  return rows.map((row, index) => ({ ...rowToSubsidy(row), rowNumber: index + FIRST_DATA_ROW }));
+}
+
+const sameText = (a: string | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
+
+export const findSubsidyByWallet = (subsidies: SubsidyRecord[], walletAddress: string) =>
+  subsidies.find((subsidy) => sameText(subsidy.walletAddress, walletAddress)) ?? null;
+
+export const findSubsidyByEmail = (subsidies: SubsidyRecord[], email: string) =>
+  subsidies.find((subsidy) => sameText(subsidy.email, email)) ?? null;
+
 /**
- * A row matches a handle when the column for that service matches, or when the legacy
- * (service-unknown) column does. Legacy rows predate the split, so a match there is treated
- * as the same person regardless of the service now selected.
  * Comparison goes through getHandleComparisonKey, so stored rows that kept an "@" or surrounding
  * whitespace still match a bare handle.
  */
-function rowMatchesHandle(row: string[], handle: string, handleService: GrantHandleService): boolean {
-  const key = getHandleComparisonKey(handle);
-  if (!key) {
-    return false;
-  }
-  return [row[serviceHandleColumn(handleService)], row[LEGACY_HANDLE_COLUMN]].some(
-    (value) => !!value && getHandleComparisonKey(value) === key
-  );
-}
+const matchesAnyHandle = (subsidy: SubsidyWithStatus, handles: SubsidyHandles) =>
+  SUBSIDY_HANDLE_SERVICE_CHOICES.some(({ value: service }) => {
+    const key = getHandleComparisonKey(handles[service] ?? '');
+    const stored = subsidy.handles[service];
+    return !!key && !!stored && getHandleComparisonKey(stored) === key;
+  });
 
-function serviceHandleColumn(handleService: GrantHandleService): number {
-  return handleService === 'discord' ? DISCORD_HANDLE_COLUMN : TELEGRAM_HANDLE_COLUMN;
-}
+export const findSubsidiesByHandles = (subsidies: SubsidyRecord[], handles: SubsidyHandles) =>
+  subsidies.filter((subsidy) => matchesAnyHandle(subsidy, handles));
 
-export async function findGrantInSheet({
-  email,
-  walletAddress,
-}: {
-  email?: string;
-  walletAddress?: string;
-}): Promise<GrantWithStatus | null> {
-  if (!email && !walletAddress) {
-    throw new Error('Missing required fields');
-  }
-  const rows = await getAllRows();
-  if (rows.length === 0) return null;
-  const rowIndex = rows.findIndex(
-    (row) =>
-      (email && row[1]?.toLowerCase() === email.toLowerCase()) ||
-      (walletAddress && row[2]?.toLowerCase() === walletAddress.toLowerCase())
-  );
-  if (rowIndex === -1) return null;
-  return rowToGrant(rows[rowIndex]);
-}
+/** An unverified application nobody touched for a while no longer reserves its wallet, email or handles. */
+export const isStalePendingSubsidy = (subsidy: SubsidyWithStatus) =>
+  subsidy.status === SubsidyStatus.PENDING &&
+  Date.now() - (subsidy.otpLastResent ?? subsidy.applicationDate.getTime()) > SUBSIDY_PENDING_TTL_MS;
 
-export async function findGrantByHandle({
-  handle,
-  handleService,
-}: {
-  handle: string;
-  handleService: GrantHandleService;
-}): Promise<GrantWithStatus | null> {
-  const rows = await getAllRows();
-  if (rows.length === 0) return null;
-  const matches = rows.filter((row) => rowMatchesHandle(row, handle, handleService)).map(rowToGrant);
-  if (matches.length === 0) return null;
-  return matches.find((match) => match.status !== GrantStatus.PENDING) ?? matches[0];
-}
-
-export async function findGrantByTxHash(txHash: string): Promise<GrantWithStatus | null> {
-  const rows = await getAllRows();
-  if (rows.length === 0) return null;
-  const rowIndex = rows.findIndex((row) => row[TX_HASH_COLUMN]?.toLowerCase() === txHash.toLowerCase());
-  if (rowIndex === -1) return null;
-  return rowToGrant(rows[rowIndex]);
-}
-
-export async function insertGrantInSheet(
-  data: GrantDetails & { otp?: string; otpExpires?: number; otpAttempts?: number; otpLastResent?: number }
+export async function insertSubsidyInSheet(
+  data: SubsidyDetails & { otp?: string; otpExpires?: number; otpAttempts?: number; otpLastResent?: number }
 ) {
-  const service = await getSheetsService();
   // Late dedupe check — tightens (but does not eliminate) the race window between two
   // parallel first-time submits for the same wallet/email/handle. Sheets has no atomic upsert,
   // so this is a best-effort safeguard against duplicate rows.
-  const existingRows = await getAllRows();
-  const dup = existingRows.some(
-    (row) =>
-      row[1]?.toLowerCase() === data.email.toLowerCase() ||
-      row[2]?.toLowerCase() === data.walletAddress.toLowerCase() ||
-      rowMatchesHandle(row, data.handle, data.handleService)
+  const dup = (await loadSubsidies()).some(
+    (subsidy) =>
+      !isStalePendingSubsidy(subsidy) &&
+      (sameText(subsidy.email, data.email) ||
+        sameText(subsidy.walletAddress, data.walletAddress) ||
+        matchesAnyHandle(subsidy, data.handles))
   );
   if (dup) {
-    throw new Error('Grant row already exists for this wallet, email or handle');
+    throw new Error('Subsidy row already exists for this wallet, email or handle');
   }
-  const values = [
-    grantToRow({
-      ...data,
-      applicationDate: new Date(),
-      status: GrantStatus.PENDING,
-      amount: '',
-      rawAmount: '',
-      signedFaucetMessage: '',
-      txHash: '',
-    }),
-  ];
-  await service.spreadsheets.values.append({
+  const values = [subsidyToRow({ ...data, applicationDate: new Date(), status: SubsidyStatus.PENDING })];
+  await getSheetsService().spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: getRange(),
     valueInputOption: 'RAW',
@@ -262,20 +213,11 @@ export async function insertGrantInSheet(
   });
 }
 
-export async function updateGrantInSheet(data: GrantWithStatus): Promise<boolean> {
-  const service = await getSheetsService();
-  const rows = await getAllRows();
-  if (rows.length === 0) return false;
-  const rowIndex = rows.findIndex((row) => row[2]?.toLowerCase() === data.walletAddress.toLowerCase());
-  if (rowIndex === -1) return false;
-  const rowNumber = rowIndex + 3; // +3 because of header rows and 1-based indexing
-  const updateRange = getRange(rowNumber);
-  const values = [grantToRow({ ...data, legacyHandle: data.legacyHandle ?? rows[rowIndex][LEGACY_HANDLE_COLUMN] })];
-  await service.spreadsheets.values.update({
+export async function updateSubsidyInSheet(rowNumber: number, data: SubsidyWithStatus) {
+  await getSheetsService().spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: updateRange,
+    range: getRange(rowNumber),
     valueInputOption: 'RAW',
-    requestBody: { values },
+    requestBody: { values: [subsidyToRow(data)] },
   });
-  return true;
 }

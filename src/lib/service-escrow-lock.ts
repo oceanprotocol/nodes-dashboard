@@ -1,3 +1,4 @@
+import { USDC } from '@/constants/tokens';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { EscrowLock } from '@/types/payment';
 import { formatTokenAmount } from '@/utils/formatters';
@@ -28,33 +29,23 @@ export const findServiceEscrowLock = async ({
   payee,
   payer,
   serviceId,
-  tokenAddress,
 }: {
   ocean: OceanProvider;
   payee: string;
   payer: string;
   serviceId: string;
-  tokenAddress: string;
 }): Promise<EscrowLock | null> => {
   const jobId = serviceEscrowJobId(serviceId);
-  const locks = await ocean.getLocks(tokenAddress, payer, payee);
+  const locks = await ocean.getLocks(USDC.address, payer, payee);
   return locks.find((lock) => lock.jobId === jobId) ?? null;
 };
 
 /** Why Prolong is unavailable while the node holds `lock`; `lock` null when only the revert is known. */
-export const serviceEscrowLockMessage = ({
-  lock,
-  tokenAddress,
-  tokenSymbol,
-}: {
-  lock: EscrowLock | null;
-  tokenAddress: string;
-  tokenSymbol?: string;
-}): string => {
+export const serviceEscrowLockMessage = (lock: EscrowLock | null): string => {
   if (!lock) {
     return 'Prolong is unavailable: the node is still holding an earlier top-up for this service. Your payment stays in your escrow balance.';
   }
-  const amount = `${formatTokenAmount(lock.amount, tokenAddress)} ${tokenSymbol ?? ''}`.trim();
+  const amount = `${formatTokenAmount(lock.amount, USDC.address)} ${USDC.symbol}`;
   const base = `Prolong is unavailable: the node is still holding an earlier top-up of ${amount} for this service.`;
   const until = new Date(lock.expiry * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   if (lock.expiry * 1000 > Date.now()) {

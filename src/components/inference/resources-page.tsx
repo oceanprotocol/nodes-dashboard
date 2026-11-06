@@ -105,7 +105,6 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     picked?: {
       peerId: string;
       envId: string;
-      tokenAddress: string;
       gpuSelection: GpuSelection;
     },
     // Resources of the allocation just picked. Comes from the picker because `selectedEnv` still holds

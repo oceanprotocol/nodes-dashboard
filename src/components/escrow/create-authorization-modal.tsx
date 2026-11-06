@@ -3,6 +3,7 @@ import styles from '@/components/escrow/authorization-form.module.css';
 import Input from '@/components/input/input';
 import Modal from '@/components/modal/modal';
 import { getApiRoute } from '@/config';
+import { USDC } from '@/constants/tokens';
 import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
 import { Node } from '@/types/nodes';
 import axios from 'axios';
@@ -13,9 +14,7 @@ type CreateAuthorizationModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  tokenAddress: string;
-  tokenSymbol: string;
-  // Consumers that already have an authorization for this token — used to block duplicates.
+  // Consumers that already have an authorization — used to block duplicates.
   existingConsumers: string[];
 };
 
@@ -29,14 +28,7 @@ type FormValues = {
 const MIN_LOCK_SECONDS = 1;
 const MIN_LOCK_COUNT = 1;
 
-const CreateAuthorizationModal = ({
-  isOpen,
-  onClose,
-  onSuccess,
-  tokenAddress,
-  tokenSymbol,
-  existingConsumers,
-}: CreateAuthorizationModalProps) => {
+const CreateAuthorizationModal = ({ isOpen, onClose, onSuccess, existingConsumers }: CreateAuthorizationModalProps) => {
   const { handleAuthorize, isAuthorizing } = useAuthorizeTokens({ onSuccess });
 
   const formik = useFormik<FormValues>({
@@ -65,7 +57,7 @@ const CreateAuthorizationModal = ({
         return;
       }
       await handleAuthorize({
-        tokenAddress,
+        tokenAddress: USDC.address,
         peerId: values.nodeId.trim(),
         spender: consumer,
         maxLockedAmount: values.maxLockedAmount.toString(),
@@ -126,7 +118,7 @@ const CreateAuthorizationModal = ({
         />
         <div className={styles.inputs}>
           <Input
-            endAdornment={tokenSymbol}
+            endAdornment={USDC.symbol}
             errorText={
               formik.touched.maxLockedAmount && formik.errors.maxLockedAmount
                 ? formik.errors.maxLockedAmount
