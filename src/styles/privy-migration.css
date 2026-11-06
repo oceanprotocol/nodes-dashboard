@@ -1,0 +1,364 @@
+/* Restyles the @privy-io/alchemy-migration modal. Its markup only exposes `pm-`-prefixed Tailwind
+   utilities inside cascade layers, so these unlayered rules win without extra specificity. */
+
+.pm-z-\[9999\] {
+  --pm-icon-move: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m8 3-4 4 4 4'/%3E%3Cpath d='M4 7h16'/%3E%3Cpath d='m16 21 4-4-4-4'/%3E%3Cpath d='M20 17H4'/%3E%3C/svg%3E");
+  --pm-icon-mail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-10 6L2 7'/%3E%3C/svg%3E");
+  --pm-icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4'/%3E%3Cpath d='M12 16h.01'/%3E%3C/svg%3E");
+
+  color: var(--text-primary);
+  font-family: var(--font-inter), sans-serif;
+  padding: 16px;
+
+  h3 {
+    color: var(--text-primary);
+    font-family: var(--font-plus-jakarta-sans), var(--font-inter), sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 28px;
+    margin: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  .pm-text-neutral-600 {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .pm-font-semibold {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .pm-text-neutral-950 {
+    color: var(--text-primary);
+  }
+}
+
+/* Overlay */
+.pm-z-\[9999\] > .pm-bg-black\/50 {
+  backdrop-filter: var(--backdrop-filter-overlay);
+  background: var(--background-modal-overlay);
+}
+
+/* Panel */
+.pm-z-\[9999\] > .pm-relative {
+  backdrop-filter: var(--backdrop-filter-glass);
+  background: var(--background-modal);
+  border: none;
+  border-radius: 24px;
+  box-shadow: var(--inner-shadow-glass), var(--drop-shadow-black);
+  max-width: 440px;
+  width: 100%;
+
+  @media (max-width: 575px) {
+    border-radius: 16px;
+  }
+}
+
+/* Error banner */
+.pm-z-\[9999\] .pm-bg-red-50 {
+  background: color-mix(in srgb, var(--error) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 60%, transparent);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  gap: 12px;
+  margin: 16px 16px 0;
+  padding: 10px 14px;
+
+  button {
+    background: none;
+    border: none;
+    color: var(--error-darker);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0;
+  }
+}
+
+/* Step containers */
+.pm-z-\[9999\] .pm-p-6 {
+  --pm-pad-top: 32px;
+
+  align-items: center;
+  gap: 24px;
+  height: auto;
+  padding: var(--pm-pad-top) 24px 24px;
+  position: relative;
+  text-align: center;
+
+  @media (min-width: 576px) {
+    --pm-pad-top: 40px;
+
+    padding-left: 32px;
+    padding-right: 32px;
+    padding-bottom: 32px;
+  }
+}
+
+.pm-z-\[9999\] .pm-h-72 > div {
+  gap: 24px;
+}
+
+/* Icon tiles: steps without a logo of their own get a tinted tile (::before) with a glyph (::after) */
+.pm-z-\[9999\] .pm-p-6:has(> .pm-mt-6),
+.pm-z-\[9999\] .pm-p-6.pm-gap-5:has(input),
+.pm-z-\[9999\] .pm-p-6.pm-gap-5.pm-items-center {
+  &::before {
+    content: '';
+  }
+
+  &::after {
+    background: var(--accent1);
+    content: '';
+    height: 28px;
+    left: 50%;
+    mask: var(--pm-icon) center / contain no-repeat;
+    position: absolute;
+    top: calc(var(--pm-pad-top) + 18px);
+    transform: translateX(-50%);
+    width: 28px;
+  }
+}
+
+.pm-z-\[9999\] .pm-p-6:has(> .pm-mt-6) {
+  --pm-icon: var(--pm-icon-move);
+}
+.pm-z-\[9999\] .pm-p-6.pm-gap-5:has(input) {
+  --pm-icon: var(--pm-icon-mail);
+}
+.pm-z-\[9999\] .pm-p-6.pm-gap-5.pm-items-center {
+  --pm-icon: var(--pm-icon-alert);
+
+  &::before {
+    background: color-mix(in srgb, var(--error) 30%, transparent);
+  }
+
+  &::after {
+    background: var(--error-darker);
+  }
+}
+
+.pm-z-\[9999\] .pm-p-6::before,
+.pm-z-\[9999\] .pm-relative.pm-w-12.pm-h-12 {
+  background: color-mix(in srgb, var(--accent1) 12%, transparent);
+  border-radius: 20px;
+  flex-shrink: 0;
+  height: 64px;
+  width: 64px;
+}
+
+/* Provider and passkey logos */
+.pm-z-\[9999\] .pm-gap-6.pm-items-center {
+  align-self: stretch;
+}
+
+.pm-z-\[9999\] .pm-relative.pm-w-12.pm-h-12 {
+  background: var(--background-glass-secondary);
+
+  > svg {
+    height: 32px;
+    width: 32px;
+  }
+
+  > .pm-absolute {
+    inset: -4px;
+    height: auto;
+    width: auto;
+
+    svg {
+      height: 100%;
+      width: 100%;
+    }
+  }
+}
+
+/* Spinners */
+.pm-z-\[9999\] .pm-animate-spin circle:first-of-type {
+  stroke: var(--border-glass);
+}
+.pm-z-\[9999\] .pm-animate-spin circle:last-of-type {
+  stroke: var(--accent1);
+}
+
+/* Success */
+.pm-z-\[9999\] .pm-border-green-600.pm-rounded-full {
+  animation: pm-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: var(--accent2);
+  border: none;
+  border-radius: 20px;
+  height: 64px;
+  width: 64px;
+
+  svg {
+    color: var(--accent2-contrast);
+    height: 28px;
+    width: 28px;
+  }
+}
+
+@keyframes pm-pop {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Intro accounts */
+.pm-z-\[9999\] .pm-p-6 > .pm-mt-6 {
+  align-self: stretch;
+  margin: 0;
+  text-align: left;
+}
+
+.pm-z-\[9999\] .pm-mt-6.pm-gap-4 {
+  gap: 8px;
+
+  > div {
+    background: var(--background-glass-secondary);
+    border-radius: 14px;
+    gap: 4px;
+    padding: 12px 16px;
+  }
+
+  > div:has(> label:only-child) {
+    display: none;
+  }
+
+  label {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .pm-break-all {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .pm-bg-neutral-200 {
+    background: var(--background-shimmer-gradient);
+    background-size: 200% 100%;
+    border-radius: 6px;
+    animation: pm-shimmer 1.4s linear infinite;
+  }
+}
+
+@keyframes pm-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Buttons */
+.pm-z-\[9999\] .pm-bg-\[\#363ff9\],
+.pm-z-\[9999\] button.pm-w-full.pm-bg-white {
+  border: none;
+  border-radius: 100px;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  height: auto;
+  line-height: 25px;
+  min-height: 50px;
+  padding: 12px 32px;
+  transition: 0.3s ease;
+
+  &:not(:disabled):hover {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+
+  &:not(:disabled):active {
+    transform: translateY(-2px) scale(0.95);
+  }
+}
+
+.pm-z-\[9999\] .pm-bg-\[\#363ff9\],
+.pm-z-\[9999\] button.pm-w-full.pm-bg-white.pm-gap-2 {
+  background: var(--accent1);
+  box-shadow: none;
+  color: var(--accent1-contrast);
+}
+
+.pm-z-\[9999\] button.pm-w-full.pm-bg-white {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--accent1);
+  color: var(--accent1);
+}
+
+/* Back buttons */
+.pm-z-\[9999\] button.pm-bg-transparent {
+  border-radius: 100px;
+  color: var(--text-secondary);
+  height: 32px;
+  justify-content: center;
+  left: 16px;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 16px;
+  width: 32px;
+  z-index: 1;
+
+  &:hover {
+    background: var(--background-glass-secondary);
+    color: var(--text-primary);
+  }
+}
+
+/* OTP */
+.pm-z-\[9999\] .pm-gap-2\.5 {
+  gap: 8px;
+}
+
+.pm-z-\[9999\] input {
+  background: var(--background-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 16px;
+  height: auto;
+  line-height: 18px;
+  padding: 12px 0;
+  text-align: center;
+  width: 40px;
+
+  &:disabled {
+    background: transparent;
+  }
+
+  &:focus {
+    border-color: var(--accent1);
+  }
+
+  &.pm-border-green-600 {
+    border-color: var(--success-darker);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-z-\[9999\] .pm-border-green-600.pm-rounded-full,
+  .pm-z-\[9999\] .pm-bg-neutral-200 {
+    animation: none;
+  }
+
+  .pm-z-\[9999\] button {
+    transition: none;
+  }
+}
