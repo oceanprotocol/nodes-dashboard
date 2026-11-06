@@ -11,7 +11,8 @@ import {
   updateSubsidyInSheet,
 } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
-import { allowMethod, isWalletAddress } from '@/api-services/request';
+import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
+import { subsidyDetailsBodySchema } from '@/api-services/subsidy-schemas';
 import {
   isValidHandle,
   normalizeHandles,
@@ -31,14 +32,9 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return;
   }
 
-  const data: SubsidyDetails = request.body;
-
-  // Check for missing fields + enforce string-type to prevent type-confusion attacks
-  const requiredStringFields: Array<keyof SubsidyDetails> = ['email', 'name', 'walletAddress'];
-  for (const field of requiredStringFields) {
-    if (!data[field] || typeof data[field] !== 'string') {
-      return response.status(400).json({ message: 'Missing required fields' });
-    }
+  const data = await parseBody(request, response, subsidyDetailsBodySchema);
+  if (!data) {
+    return;
   }
 
   // Input validation
@@ -60,10 +56,6 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   if (isBlacklistedEmail(data.email)) {
     return response.status(400).json({ message: 'Invalid email address' });
-  }
-
-  if (!data.handles || typeof data.handles !== 'object' || Array.isArray(data.handles)) {
-    return response.status(400).json({ message: 'Missing required fields' });
   }
 
   data.handles = normalizeHandles(data.handles);

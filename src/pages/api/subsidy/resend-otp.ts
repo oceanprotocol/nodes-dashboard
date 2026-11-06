@@ -6,7 +6,8 @@ import {
   updateSubsidyInSheet,
 } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
-import { allowMethod, isWalletAddress } from '@/api-services/request';
+import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
+import { walletAddressBodySchema } from '@/api-services/subsidy-schemas';
 import { SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyStatus } from '@/types/subsidy';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -17,7 +18,12 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return;
   }
 
-  const { walletAddress } = request.body;
+  const body = await parseBody(request, response, walletAddressBodySchema);
+  if (!body) {
+    return;
+  }
+
+  const { walletAddress } = body;
 
   if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
