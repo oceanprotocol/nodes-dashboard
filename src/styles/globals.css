@@ -565,6 +565,9 @@ a {
 /* Overrides */
 
 .Toastify__toast-theme--colored {
+  a {
+    text-decoration: underline;
+  }
   &.Toastify__toast {
     backdrop-filter: var(--backdrop-filter-glass);
     border-radius: 16px;
