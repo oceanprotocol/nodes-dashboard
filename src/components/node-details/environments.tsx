@@ -1,15 +1,14 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import EnvironmentCard from '@/components/environment-card/environment-card';
-import { CHAIN_ID } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
+import { acceptsUsdc } from '@/utils/env-tokens';
+import { formatDateTime } from '@/utils/formatters';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Collapse, Tooltip } from '@mui/material';
 import React, { useMemo, useState } from 'react';
 import styles from './environments.module.css';
-import { formatDateTime } from '@/utils/formatters'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 type EnvironmentsProps = {
   envs: ComputeEnvironment[];
@@ -28,22 +27,7 @@ const Environments: React.FC<EnvironmentsProps> = ({ envs, nodeInfo, envsTimesta
    * Show rest of the environments in a collapsible section
    */
   const [firstEnvs, restEnvs] = useMemo(() => {
-    // Only show environments that support chain ID and USDC/COMPY
-    const filteredEnvs = envs.filter((env) => {
-      if (!env.fees?.[CHAIN_ID]) {
-        return false;
-      }
-      if (
-        !env.fees[CHAIN_ID].some(
-          (fee) =>
-            fee.feeToken.toLowerCase() === getSupportedTokens().COMPY.address.toLowerCase() ||
-            fee.feeToken.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase()
-        )
-      ) {
-        return false;
-      }
-      return true;
-    });
+    const filteredEnvs = envs.filter(acceptsUsdc);
     const firstEnvs = filteredEnvs.slice(0, 3);
     const restEnvs = filteredEnvs.slice(3);
     return [firstEnvs, restEnvs];
@@ -51,9 +35,15 @@ const Environments: React.FC<EnvironmentsProps> = ({ envs, nodeInfo, envsTimesta
 
   return (
     <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-      <div style={{display: 'flex', justifyContent: 'space-between'}}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <h3>Environments </h3>
-        { staleEnvData && envsTimestamp ? <span><Tooltip title={`Data possibly stale, last update: ${formatDateTime(envsTimestamp / 1000)}`}><InfoOutlinedIcon /></Tooltip></span> : null}
+        {staleEnvData && envsTimestamp ? (
+          <span>
+            <Tooltip title={`Data possibly stale, last update: ${formatDateTime(envsTimestamp / 1000)}`}>
+              <InfoOutlinedIcon />
+            </Tooltip>
+          </span>
+        ) : null}
       </div>
       <div className={styles.list}>
         {!isReady ? (

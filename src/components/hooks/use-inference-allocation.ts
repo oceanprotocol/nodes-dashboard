@@ -760,7 +760,6 @@ function isGpuExhausted({
 
 export type InferenceAllocationInput = {
   environment: ComputeEnvironment;
-  tokenAddress: string;
   /** Omit to use every unit of every type (the default, whole-environment allocation). */
   gpuSelection?: GpuSelection;
   /**
@@ -809,7 +808,6 @@ export type InferenceAllocation = {
  */
 export function computeInferenceAllocation({
   environment,
-  tokenAddress,
   gpuSelection,
   gpuRequests,
   sizing,
@@ -828,7 +826,7 @@ export function computeInferenceAllocation({
     ram,
     ramAvailable,
     ramFee,
-  } = readEnvResources({ environment, freeCompute: false, tokenAddress });
+  } = readEnvResources({ environment, freeCompute: false });
   const mergedGpus = mergeGpuTypes({ gpus, gpusAvailable, gpuFees });
   const totalGpus = totalUnitsOf(mergedGpus);
   const ids: SharedIds = { cpuId: cpu?.id ?? 'cpu', ramId: ram?.id ?? 'ram', diskId: disk?.id ?? 'disk' };
@@ -922,7 +920,6 @@ export function computeInferenceAllocation({
  */
 const useInferenceAllocation = ({
   environment,
-  tokenAddress,
   gpuSelection,
   gpuRequests,
   sizing,
@@ -941,11 +938,7 @@ const useInferenceAllocation = ({
     ram,
     ramAvailable,
     ramFee,
-  } = useEnvResources({
-    environment,
-    freeCompute: false,
-    tokenAddress,
-  });
+  } = useEnvResources({ environment, freeCompute: false });
 
   const mergedGpus = useMemo(() => mergeGpuTypes({ gpus, gpusAvailable, gpuFees }), [gpus, gpusAvailable, gpuFees]);
 

@@ -111,7 +111,6 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
     picked?: {
       peerId: string;
       envId: string;
-      tokenAddress: string;
       gpuSelection: GpuSelection;
       gpuPlan: GpuPlan;
     },

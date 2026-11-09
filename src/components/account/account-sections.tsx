@@ -7,35 +7,28 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import PersonIcon from '@mui/icons-material/Person';
 import RedeemIcon from '@mui/icons-material/Redeem';
 import StorageIcon from '@mui/icons-material/Storage';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ReactNode } from 'react';
 
 /** Sections rendered inside the account layout. */
-export type AccountSectionKey = 'owner' | 'consumer' | 'escrow' | 'compy' | 'access-lists' | 'storage' | 'tokens';
-
-/** Every entry in the account menu, including the ones that link out of the layout. */
-export type AccountItemKey = AccountSectionKey | 'claim';
+export type AccountSectionKey = 'owner' | 'consumer' | 'escrow' | 'subsidy' | 'access-lists' | 'storage' | 'tokens';
 
 export type AccountGroupKey = 'activity' | 'funds' | 'access';
 
 /**
  * Gate an item on account state the menu can only know at render time.
  * `provider` — the wallet exposes a provider (access lists need on-chain writes).
- * `grant-unclaimed` — the complimentary credits grant has not been claimed yet.
  */
-export type AccountItemRequirement = 'provider' | 'grant-unclaimed';
+export type AccountItemRequirement = 'provider';
 
 export type AccountItem = {
-  /** Subtitle under the page title. Empty for items that link out of the layout. */
+  /** Subtitle under the page title. */
   description: string;
   group: AccountGroupKey;
   href: string;
   icon: ReactNode;
-  key: AccountItemKey;
+  key: AccountSectionKey;
   /** Menu label. */
   label: string;
-  /** Leaves the account layout instead of swapping the section. */
-  linksOut?: boolean;
   requires?: AccountItemRequirement;
   /** Page title shown above the section. */
   title: string;
@@ -67,7 +60,8 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     title: 'Node owner',
   },
   {
-    description: 'Deposit and withdraw escrow funds, and manage the spending authorizations that pay for compute jobs.',
+    description:
+      'Deposit and withdraw escrow funds, manage the spending authorizations that pay for compute jobs, and review your escrow history.',
     group: 'funds',
     href: '/account/escrow',
     icon: <AccountBalanceWalletIcon />,
@@ -76,13 +70,13 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     title: 'Escrow',
   },
   {
-    description: 'Convert your USDC to COMPY.',
+    description: 'Your subsidy and how much of it is left.',
     group: 'funds',
-    href: '/account/compy',
-    icon: <SwapHorizIcon />,
-    key: 'compy',
-    label: 'Get COMPY',
-    title: 'Get COMPY',
+    href: '/account/subsidy',
+    icon: <RedeemIcon />,
+    key: 'subsidy',
+    label: 'Subsidy',
+    title: 'Subsidy',
   },
   {
     description: `Create and manage AccessList contracts on ${formatChainLabel(CHAIN_ID)}.`,
@@ -112,28 +106,17 @@ export const ACCOUNT_SECTIONS: AccountItem[] = [
     label: 'Node auth tokens',
     title: 'Node auth tokens',
   },
-  {
-    description: '',
-    group: 'funds',
-    href: '/grant/details',
-    icon: <RedeemIcon />,
-    key: 'claim',
-    label: 'Claim credits',
-    linksOut: true,
-    requires: 'grant-unclaimed',
-    title: '',
-  },
 ];
 
 export const DEFAULT_ACCOUNT_SECTION: AccountSectionKey = 'consumer';
 
-const SECTION_KEYS = ACCOUNT_SECTIONS.filter((item) => !item.linksOut).map((item) => item.key);
+const SECTION_KEYS = ACCOUNT_SECTIONS.map((item) => item.key);
 
 export const isAccountSectionKey = (value: string | undefined): value is AccountSectionKey => {
   if (!value) {
     return false;
   }
-  return SECTION_KEYS.includes(value as AccountItemKey);
+  return SECTION_KEYS.includes(value as AccountSectionKey);
 };
 
 export const getAccountSection = (key: AccountSectionKey): AccountItem =>

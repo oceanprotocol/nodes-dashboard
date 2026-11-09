@@ -24,6 +24,16 @@
     background-color: var(--accent2);
     color: var(--accent2-contrast);
   }
+
+  &.rootSm {
+    gap: 4px;
+    padding: 4px;
+
+    .tab {
+      font-size: 14px;
+      padding: 4px 14px;
+    }
+  }
 }
 
 @media (max-width: 576px) {

@@ -1,4 +1,5 @@
 import Input from '@/components/input/input';
+import { USDC } from '@/constants/tokens';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import styles from './authorization-form.module.css';
@@ -17,7 +18,6 @@ type AuthorizationFormProps = {
   onSubmit: (values: AuthorizationFormValues) => void;
   renderSecondaryAction?: (disabled: boolean) => React.ReactNode;
   renderSubmitButton: (state: { disabled: boolean; loading: boolean }) => React.ReactNode;
-  tokenSymbol: string;
 };
 
 const AuthorizationForm = ({
@@ -28,7 +28,6 @@ const AuthorizationForm = ({
   onSubmit,
   renderSecondaryAction,
   renderSubmitButton,
-  tokenSymbol,
 }: AuthorizationFormProps) => {
   const formik = useFormik<AuthorizationFormValues>({
     enableReinitialize: true,
@@ -52,7 +51,7 @@ const AuthorizationForm = ({
     <form className={styles.root} onSubmit={formik.handleSubmit}>
       <div className={styles.inputs}>
         <Input
-          endAdornment={tokenSymbol}
+          endAdornment={USDC.symbol}
           errorText={
             formik.touched.maxLockedAmount && formik.errors.maxLockedAmount ? formik.errors.maxLockedAmount : undefined
           }

@@ -1,5 +1,6 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { isValidServicePassword, SERVICE_PASSWORD_ENV, SERVICE_PASSWORD_RULE } from '@/lib/service-password';
 import { buildModelDefaults } from '@/services/huggingface-service';
@@ -651,19 +652,17 @@ export function assertAllocationAvailable(resources: ComputeResource[], allocati
  *  - no plan at all (a selection that never went through a picker);
  *  - the ocean.js validateGpuPlan rejects those ids for the demand at the planned width (gone, taken,
  *    another group, a pool no longer whole, the layout no longer fitting…);
- *  - the per-minute GPU price of those ids in `tokenAddress` differs from the quote.
+ *  - the per-minute USDC price of those ids differs from the quote.
  * Each answer asks the user to pick again; nothing is swapped silently.
  */
 export function launchPlanError({
   environment,
   plan,
   demand,
-  tokenAddress,
 }: {
   environment: SelectedInferenceEnv['environment'];
   plan: GpuPlan | undefined;
   demand: GpuDemand;
-  tokenAddress: string;
 }): string | null {
   if (!plan) {
     return 'This launch has no confirmed GPU selection. Go back to the environment step and pick the GPUs again.';
@@ -678,9 +677,9 @@ export function launchPlanError({
   if (check.ok === false) {
     return `The GPUs you picked can no longer be booked as quoted (${check.reason}). Go back and pick the environment again.`;
   }
-  const now = gpuPriceOf(plan.requests, gpuFeesOf(environment, tokenAddress));
+  const now = gpuPriceOf(plan.requests, gpuFeesOf(environment));
   if (!sameGpuPrice(now, plan.gpuPrice)) {
-    return `The price of the GPUs you picked changed (quoted ${formatTokenAmount(plan.gpuPrice, tokenAddress)} per minute, now ${formatTokenAmount(now, tokenAddress)}). Go back and pick the environment again to confirm the new price.`;
+    return `The price of the GPUs you picked changed (quoted ${formatTokenAmount(plan.gpuPrice, USDC.address)} per minute, now ${formatTokenAmount(now, USDC.address)}). Go back and pick the environment again to confirm the new price.`;
   }
   return null;
 }
@@ -808,7 +807,6 @@ export function buildInferenceStartParams({
   gpuSelection,
   allocation,
   durationSeconds,
-  tokenAddress,
   hfToken,
   servicePassword,
   appType,
@@ -830,7 +828,6 @@ export function buildInferenceStartParams({
   gpuSelection?: GpuSelection;
   allocation: Allocation;
   durationSeconds: number;
-  tokenAddress: string;
   hfToken: string;
   servicePassword: string;
   /**
@@ -873,6 +870,6 @@ export function buildInferenceStartParams({
     ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,
-    payment: { chainId: CHAIN_ID, token: tokenAddress },
+    payment: { chainId: CHAIN_ID, token: USDC.address },
   };
 }

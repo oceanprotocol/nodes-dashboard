@@ -4,16 +4,14 @@ import Card from '@/components/card/card';
 import Checkbox from '@/components/checkbox/checkbox';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
-import Select from '@/components/input/select';
 import ProgressBar from '@/components/progress-bar/progress-bar';
-import { getSupportedTokens } from '@/constants/tokens';
+import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
+import { USDC } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
-import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import { COMPUTE_JOBS_DISABLED_REASON, supportsComputeJobs } from '@/utils/env-resources';
-import { getEnvSupportedTokens } from '@/utils/env-tokens';
 import { formatDuration, formatTokenAmount } from '@/utils/formatters';
 import DnsIcon from '@mui/icons-material/Dns';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -26,13 +24,12 @@ import { Collapse, Tooltip } from '@mui/material';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TransitionGroup } from 'react-transition-group';
 import styles from './environment-card.module.css';
 
 type EnvironmentCardProps = {
   compact?: boolean;
-  defaultToken?: string;
   environment: ComputeEnvironment;
   forcePricing?: 'free' | 'paid';
   nodeInfo: EnvNodeInfo;
@@ -48,7 +45,6 @@ type EnvironmentCardProps = {
 
 const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   compact,
-  defaultToken,
   environment,
   forcePricing,
   nodeInfo,
@@ -58,7 +54,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
 }) => {
   const router = useRouter();
 
-  const { selectEnv, selectToken } = useRunJobContext();
+  const { selectEnv } = useRunJobContext();
   const { account, provider } = useOceanAccount();
 
   const [paidAccess, setPaidAccess] = useState<boolean | null>(null);
@@ -80,29 +76,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     }
   }, [forcePricing]);
 
-  const supportedTokens = useMemo(() => {
-    return getEnvSupportedTokens(environment, true);
-  }, [environment]);
-
-  const supportedTokensSymbols = useTokensSymbols(supportedTokens);
-
-  const getDefaultToken = useCallback(() => {
-    if (defaultToken && supportedTokens.includes(defaultToken)) {
-      return defaultToken;
-    }
-    if (supportedTokens.some((t) => t.toLowerCase() === getSupportedTokens().USDC.address.toLowerCase())) {
-      return getSupportedTokens().USDC.address;
-    }
-    return supportedTokens[0];
-  }, [defaultToken, supportedTokens]);
-
-  const [selectedTokenAddress, setSelectedTokenAddress] = useState<string>(getDefaultToken());
-  const selectedTokenSymbol = useTokenSymbol(selectedTokenAddress);
-
-  useEffect(() => {
-    setSelectedTokenAddress(getDefaultToken());
-  }, [getDefaultToken]);
-
   const [isFreeCompute, setIsFreeCompute] = useState<boolean>(
     forcePricing ? (forcePricing === 'free' ? true : false) : false
   );
@@ -122,11 +95,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     ram,
     ramAvailable,
     ramFee,
-  } = useEnvResources({
-    environment,
-    freeCompute: isFreeCompute,
-    tokenAddress: selectedTokenAddress,
-  });
+  } = useEnvResources({ environment, freeCompute: isFreeCompute });
   const usageMode = Array.isArray(usedResources);
   // An env can opt out of compute jobs while still running services. The node rejects both the paid
   // and the free start with a 403, so every job-launching control on this card is blocked, not just
@@ -149,7 +118,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
       freeCompute: false,
       nodeInfo,
     });
-    selectToken(selectedTokenAddress, selectedTokenSymbol);
     posthog.capture('environment_selected', {
       environmentId: environment.id,
       nodeId: nodeInfo.id,
@@ -162,7 +130,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         peerId: nodeInfo.id,
         env: environment.id,
         free: false,
-        token: selectedTokenAddress,
       },
     });
   };
@@ -235,7 +202,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             {isFreeCompute ? null : (
               <Collapse>
                 <div className={styles.label}>
-                  <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / core / min
+                  <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / core / min
                 </div>
               </Collapse>
             )}
@@ -262,7 +229,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           }
           bottomRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / core / min
+              <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / core / min
             </span>
           }
         />
@@ -341,7 +308,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               {isFreeCompute ? null : (
                 <Collapse>
                   <div className={styles.label}>
-                    <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / unit / min
+                    <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / unit / min
                   </div>
                 </Collapse>
               )}
@@ -372,7 +339,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             }
             bottomRightContent={
               <span className={styles.label}>
-                <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / unit / min
+                <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / unit / min
               </span>
             }
           />
@@ -432,7 +399,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             {isFreeCompute ? null : (
               <Collapse>
                 <div className={styles.label}>
-                  <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
+                  <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / GB / min
                 </div>
               </Collapse>
             )}
@@ -461,7 +428,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           }
           bottomRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
+              <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / GB / min
             </span>
           }
         />
@@ -520,7 +487,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
             {isFreeCompute ? null : (
               <Collapse>
                 <div className={styles.label}>
-                  <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
+                  <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / GB / min
                 </div>
               </Collapse>
             )}
@@ -549,7 +516,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           }
           bottomRightContent={
             <span className={styles.label}>
-              <span className={styles.em}>{fee}</span>&nbsp;{selectedTokenSymbol} / GB / min
+              <span className={styles.em}>{fee}</span>&nbsp;{USDC.symbol} / GB / min
             </span>
           }
         />
@@ -638,9 +605,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
         disabled={isDisabled}
         onClick={isFreeCompute ? selectFreeCompute : selectEnvironment}
       >
-        {isFreeCompute
-          ? 'Run test job'
-          : `From ${formatTokenAmount(startingFee, selectedTokenAddress)} ${selectedTokenSymbol}/min`}
+        {isFreeCompute ? 'Run test job' : `From ${formatTokenAmount(startingFee, USDC.address)} ${USDC.symbol}/min`}
       </Button>
     );
     if (blockedReason) {
@@ -676,6 +641,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               </Button>
               {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
             </span>
+            <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />
           </div>
           {nodeInfo.latestBenchmarkResults ? (
             <BenchmarkSummary
@@ -760,20 +726,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           </div>
           {getFreeComputeCheckbox()}
         </div>
-        <div className={styles.buttons}>
-          {Object.entries(supportedTokensSymbols).length > 1 && !isFreeCompute && !usageMode ? (
-            <Select
-              onChange={(e) => setSelectedTokenAddress(e.target.value)}
-              options={Object.entries(supportedTokensSymbols).map(([address, symbol]) => ({
-                value: address,
-                label: symbol ?? address,
-              }))}
-              size="sm"
-              value={selectedTokenAddress}
-            />
-          ) : null}
-          {getRunJobButton()}
-        </div>
+        <div className={styles.buttons}>{getRunJobButton()}</div>
       </div>
     </Card>
   );

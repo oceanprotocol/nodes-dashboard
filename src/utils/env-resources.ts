@@ -153,15 +153,9 @@ export function gpuGroupKey(resource: Pick<ComputeResource, 'id' | 'description'
   return check.ok && check.groupKey !== null ? check.groupKey : `id:${resource.id}`;
 }
 
-/** Per-unit GPU fee of every GPU id, in `tokenAddress` on the active chain (empty without a token). */
-export function gpuFeesOf(
-  environment: ComputeEnvironment,
-  tokenAddress: string | undefined | null
-): Record<string, number> {
-  if (!tokenAddress) {
-    return {};
-  }
-  return readEnvResources({ environment, freeCompute: false, tokenAddress }).gpuFees;
+/** Per-unit USDC fee of every GPU id on the active chain (empty when the env does not take USDC). */
+export function gpuFeesOf(environment: ComputeEnvironment): Record<string, number> {
+  return readEnvResources({ environment, freeCompute: false }).gpuFees;
 }
 
 /** Fee per minute of exactly these GPU requests (sum of fee × amount; a missing fee counts 0, like the planner). */
@@ -415,8 +409,6 @@ export type AutoGpuPickArgs = {
   allowZeroGpu?: boolean;
   /** Keep only the layout of this many cards (a package's pinned tensor-parallel width). */
   forcedGpuCount?: number;
-  /** Fee token the pick is priced in — the cheapest candidate is chosen in it. */
-  tokenAddress?: string | null;
 };
 
 /** A default pick for an env: the per-group selection (every group named) and the exact plan behind it. */
@@ -433,12 +425,11 @@ export function autoGpuPick({
   required,
   allowZeroGpu = false,
   forcedGpuCount,
-  tokenAddress,
 }: AutoGpuPickArgs): AutoGpuPick {
   const demand = demandOf(required);
   const groups = gpuTypesOf(environment);
   const zeroAllowed = allowZeroGpu && groups.every((g) => g.allowsZero);
-  const fees = gpuFeesOf(environment, tokenAddress);
+  const fees = gpuFeesOf(environment);
   if (groups.length === 0 || (demand.kind === 'none' && zeroAllowed)) {
     return { gpuSelection: selectionOfRequests(environment, []), gpuPlan: NO_GPU_PLAN };
   }

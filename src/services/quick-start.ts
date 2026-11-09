@@ -10,7 +10,6 @@ import {
   totalUnitsOf,
 } from '@/components/hooks/use-inference-allocation';
 import { SelectedInferenceEnv } from '@/context/inference-context';
-import { SelectedToken } from '@/context/run-job-context';
 import { assertAllocationAvailable } from '@/services/inference-launch';
 import { ComputeEnvironment } from '@/types/environments';
 import {
@@ -48,7 +47,7 @@ import type { GpuResourceRequirement, TemplateResourceRequirement } from '@ocean
  */
 
 /** What both env resolvers produce per environment (ResolvedTemplateEnv / ResolvedPackageEnv). */
-export type QuickStartEntry = { env: SelectedInferenceEnv; token: SelectedToken | null };
+export type QuickStartEntry = { env: SelectedInferenceEnv };
 
 /** One environment the planner may launch on: an entry, and the copy of its env to plan against. */
 export type QuickStartCandidate<T extends QuickStartEntry> = {
@@ -57,7 +56,6 @@ export type QuickStartCandidate<T extends QuickStartEntry> = {
   entry: T;
   /** The node's own copy once one was read, else the resolver's snapshot. */
   environment: ComputeEnvironment;
-  token: SelectedToken;
 };
 
 export type QuickStartOption<T extends QuickStartEntry> = {
@@ -145,7 +143,7 @@ function sizingFor({
 }
 
 /**
- * The entries the planner may use: those with a paid token, not ruled out by a previous Start, and
+ * The entries the planner may use: those not ruled out by a previous Start, and
  * not denied by their access list, each planned against the node's fresh copy when one was read.
  */
 export function toCandidates<T extends QuickStartEntry>({
@@ -162,10 +160,10 @@ export function toCandidates<T extends QuickStartEntry>({
   const candidates: QuickStartCandidate<T>[] = [];
   entries.forEach((entry) => {
     const key = envKey(entry.env);
-    if (!entry.token || excluded[key] || access[key] === false) {
+    if (excluded[key] || access[key] === false) {
       return;
     }
-    candidates.push({ key, entry, environment: fresh[key] ?? entry.env.environment, token: entry.token });
+    candidates.push({ key, entry, environment: fresh[key] ?? entry.env.environment });
   });
   return candidates;
 }
@@ -184,11 +182,11 @@ function evaluate<T extends QuickStartEntry>({
   gpuKey: string | null;
   /** The planner's exact ids for the booking (NO_GPU_PLAN for none). */
   plan: GpuPlan;
-  /** The environment's CPU/RAM/disk/GPUs as read for this token, for the GPU slice of `slice` resources. */
+  /** The environment's CPU/RAM/disk/GPUs, for the GPU slice of `slice` resources. */
   envResources: EnvResources;
   durationSeconds: number;
 }): QuickStartOption<T> | null {
-  const { environment, token } = candidate;
+  const { environment } = candidate;
   const units = planGpuCount(plan);
   const gpuSelection: GpuSelection = selectionOfRequests(environment, plan.requests);
   const sizing = sizingFor({
@@ -199,7 +197,6 @@ function evaluate<T extends QuickStartEntry>({
   });
   const result = computeInferenceAllocation({
     environment,
-    tokenAddress: token.address,
     gpuSelection,
     gpuRequests: plan.requests,
     sizing,
@@ -266,11 +263,7 @@ function bestFitOn<T extends QuickStartEntry>({
   allowZeroGpu: boolean;
   durationSeconds: number;
 }): QuickStartOption<T> | null {
-  const resources = readEnvResources({
-    environment: candidate.environment,
-    freeCompute: false,
-    tokenAddress: candidate.token.address,
-  });
+  const resources = readEnvResources({ environment: candidate.environment, freeCompute: false });
   // The shared resources have to have something free to be booked at all. A GPU pick is held to this
   // by the unit budget already; a zero-GPU pick or a GPU-less environment is not.
   const sharedExhausted = (

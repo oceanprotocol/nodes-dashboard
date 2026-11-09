@@ -3,6 +3,8 @@
  * constant and `isInferenceNode`, then remove every call site — the inference env picker
  * (select-inference-environment `isBookableEnv`), the template and package env resolvers
  * (use-template-envs, use-package-env) and the URL-hydration guard (inference-context `restoreEnv`).
+ * The subsidized-node chip (subsidized-node-chip) also uses it to limit the chip to OPF nodes; give it
+ * its own OPF node list before deleting this one.
  * The remaining per-env checks (`features.services`, benchmark env, supported paid token) are
  * capability tests rather than policy, and must stay.
  */

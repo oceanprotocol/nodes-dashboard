@@ -1,6 +1,6 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { fetchNodeEnvironment } from '@/components/hooks/use-live-env';
-import { SelectedToken } from '@/context/run-job-context';
+import { USDC } from '@/constants/tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { envKey, planQuickStart, QuickStartEntry, QuickStartOption, toCandidates } from '@/services/quick-start';
@@ -26,7 +26,6 @@ export type QuickStartStatus = 'loading' | 'error' | 'ready' | 'duration' | 'non
 /** A confirmed quick-start pick, as handed to the page that commits it. */
 export type QuickStartPick<T extends QuickStartEntry> = {
   entry: T;
-  token: SelectedToken;
   gpuSelection: GpuSelection;
   /** The exact GPU ids the pick books and their quoted per-minute price (re-checked at payment). */
   gpuPlan: GpuPlan;
@@ -38,7 +37,7 @@ export type QuickStart<T extends QuickStartEntry> = {
   status: QuickStartStatus;
   /** What Start would launch on right now, when `status` is `ready`. */
   option: QuickStartOption<T> | null;
-  /** The option's price in its fee token, e.g. "12.4 USDC", or its hourly rate while no session length is set. */
+  /** The option's price, e.g. "12.4 USDC", or its hourly rate while no session length is set. */
   priceLabel: string | null;
   /** Why Start can't be pressed (its tooltip), or null when it can. */
   blockedReason: string | null;
@@ -69,13 +68,11 @@ async function accessFor(
 }
 
 function priceLabelOf<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
-  const { address, symbol } = option.candidate.token;
-  return `${formatTokenAmount(option.price, address)} ${symbol}`.trim();
+  return `${formatTokenAmount(option.price, USDC.address)} ${USDC.symbol}`;
 }
 
 function rateLabelOf<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
-  const { address, symbol } = option.candidate.token;
-  return formatHourlyRate(option.pricePerMinute, address, symbol).trim();
+  return formatHourlyRate(option.pricePerMinute, USDC.address, USDC.symbol);
 }
 
 function describePick<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
@@ -91,9 +88,8 @@ function describePick<T extends QuickStartEntry>(option: QuickStartOption<T>): s
  * numbers, until the plan settles on an environment whose copy was just read (confirmed free), or runs
  * out of candidates or reads. A candidate the node no longer lists is dropped for this modal; one that
  * is busy stays, planned against its fresh copy (it may still host fewer GPUs); an unreachable one is
- * only skipped for this click. When the confirmed pick books fewer GPUs, costs more or charges another
- * token than the button showed, Start stops and shows it rather than carrying the user on to a payment
- * they didn't see.
+ * only skipped for this click. When the confirmed pick books fewer GPUs or costs more than the button
+ * showed, Start stops and shows it rather than carrying the user on to a payment they didn't see.
  */
 export default function useQuickStart<T extends QuickStartEntry>({
   entries,
@@ -267,11 +263,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
           setFresh(nextFresh);
           setExcluded(nextExcluded);
           setAccess(nextAccess);
-          const sameToken = option.candidate.token.address === shown.candidate.token.address;
           const pricier =
-            !sameToken ||
-            roundTokenAmount(option.price, option.candidate.token.address, 'up') >
-              roundTokenAmount(shown.price, shown.candidate.token.address, 'up');
+            roundTokenAmount(option.price, USDC.address, 'up') > roundTokenAmount(shown.price, USDC.address, 'up');
           if (option.gpuCount !== shown.gpuCount || pricier) {
             // Now shown on the button, so the user decides with the real numbers in front of them.
             toast.info(
@@ -288,7 +281,6 @@ export default function useQuickStart<T extends QuickStartEntry>({
           }
           onStart({
             entry,
-            token: option.candidate.token,
             gpuSelection: option.gpuSelection,
             gpuPlan: option.gpuPlan,
             environment: option.candidate.environment,

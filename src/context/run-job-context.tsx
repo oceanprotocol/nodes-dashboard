@@ -1,5 +1,6 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import {
   type AlgorithmLanguage,
@@ -12,8 +13,9 @@ import {
 } from '@/lib/compute-inputs';
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { generateJobName } from '@/lib/job-name';
-import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
+import { getJobSubsidyProviders, SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useStartWithSubsidy } from '@/lib/use-subsidy';
 import { getNodeEnvs, startCompute, startFreeCompute } from '@/services/nodeService';
 import {
   ComputeEnvironment,
@@ -33,11 +35,6 @@ import BigNumber from 'bignumber.js';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-
-export type SelectedToken = {
-  symbol: string;
-  address: string;
-};
 
 // Clamp a requested GPU amount to [0, available] so a hand-crafted URL can't over-allocate.
 const clampToAvailable = (requested: number, gpuRes?: ComputeResource): number => {
@@ -172,7 +169,6 @@ type RunJobContextType = {
     onError,
     onSuccess,
     resources,
-    tokenAddress,
   }: {
     environment: ComputeEnvironment;
     freeCompute: boolean;
@@ -181,7 +177,6 @@ type RunJobContextType = {
     onError?: (error: unknown) => void;
     onSuccess?: (cost: number, minLockSeconds: number) => void;
     resources: { id: string; amount: number }[];
-    tokenAddress?: string;
   }) => Promise<void>;
   // fetchGpus: () => Promise<void>;
   freeCompute: boolean;
@@ -192,7 +187,6 @@ type RunJobContextType = {
   nodeInfo: EnvNodeInfo | null;
   selectedEnv: ComputeEnvironment | null;
   selectedResources: EnvResourcesSelection | null;
-  selectedToken: SelectedToken | null;
   selectEnv: ({
     environment,
     freeCompute,
@@ -204,7 +198,6 @@ type RunJobContextType = {
     nodeInfo: EnvNodeInfo;
     resources?: EnvResourcesSelection;
   }) => void;
-  selectToken: (address: string, symbol?: string | null) => void | Promise<void>;
   setEstimatedTotalCost: (cost: number | null) => void;
   setMinLockSeconds: (seconds: number | null) => void;
   setSelectedResources: (selection: EnvResourcesSelection | null) => void;
@@ -215,6 +208,7 @@ const RunJobContext = createContext<RunJobContextType | undefined>(undefined);
 export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const { provider } = useOceanAccount();
   const { initializeCompute, isReady: p2pIsReady } = useP2P();
+  const startWithSubsidy = useStartWithSubsidy();
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -228,7 +222,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   const [multiaddrsOrPeerId, setMultiaddrsOrPeerId] = useState<MultiaddrsOrPeerId | null>(null);
   const [selectedEnv, setSelectedEnv] = useState<ComputeEnvironment | null>(null);
   const [selectedResources, setSelectedResources] = useState<EnvResourcesSelection | null>(null);
-  const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [algorithmCode, setAlgorithmCode] = useState<string>('');
   const [algorithmLanguage, setAlgorithmLanguage] = useState<AlgorithmLanguage>('py');
   const [additionalDockerFiles, setAdditionalDockerFiles] = useState<Record<string, string>>({});
@@ -254,7 +247,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     setNodeInfo(null);
     setSelectedEnv(null);
     setSelectedResources(null);
-    setSelectedToken(null);
     setAlgorithmCode('');
     setAlgorithmLanguage('py');
     setAdditionalDockerFiles({});
@@ -277,7 +269,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
   // Build the compute payload from the current selection + authoring inputs and start the job.
   // Free vs paid branch mirrors the Ocean Orchestrator (vscode-extension compute.ts).
   const submitJob = useCallback(
-    async ({ authToken }: { authToken: string; consumerAddress: string }): Promise<ComputeJob> => {
+    async ({ authToken, consumerAddress }: { authToken: string; consumerAddress: string }): Promise<ComputeJob> => {
       if (!selectedEnv || !selectedResources || !multiaddrsOrPeerId) {
         throw new Error('Missing job configuration. Select an environment and resources first.');
       }
@@ -332,22 +324,30 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
             resources,
           })
         : await (async () => {
-            if (!selectedToken) {
-              throw new Error('No fee token selected.');
-            }
-            return startCompute({
-              algorithm,
-              authToken,
-              chainId: CHAIN_ID,
-              computeEnv: selectedEnv.id,
-              datasets,
-              maxJobDuration: selectedResources.maxJobDurationSeconds,
-              metadata,
-              nodeUri,
-              outputBucketId: outputBucketId ?? undefined,
-              resources,
-              token: selectedToken.address,
+            const subsidyProviders = await getJobSubsidyProviders({
+              cost: estimatedTotalCost ?? 0,
+              jobType: SubsidyJobType.COMPUTE,
+              nodeAddress: selectedEnv.consumerAddress,
+              payer: consumerAddress,
             });
+            return startWithSubsidy(
+              () =>
+                startCompute({
+                  algorithm,
+                  authToken,
+                  chainId: CHAIN_ID,
+                  computeEnv: selectedEnv.id,
+                  datasets,
+                  maxJobDuration: selectedResources.maxJobDurationSeconds,
+                  metadata,
+                  nodeUri,
+                  outputBucketId: outputBucketId ?? undefined,
+                  resources,
+                  subsidyProviders,
+                  token: USDC.address,
+                }),
+              { action: 'start', jobType: SubsidyJobType.COMPUTE, subsidyProviders }
+            );
           })();
 
       return (Array.isArray(job) ? job[0] : job) as unknown as ComputeJob;
@@ -364,6 +364,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       entryMode,
       entrypoint,
       envVars,
+      estimatedTotalCost,
       freeCompute,
       jobName,
       mountedFiles,
@@ -371,7 +372,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       outputBucketId,
       selectedEnv,
       selectedResources,
-      selectedToken,
+      startWithSubsidy,
     ]
   );
 
@@ -421,18 +422,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     [clearRunJobSelection]
   );
 
-  const selectToken = useCallback(async (address: string, symbol?: string | null) => {
-    if (symbol) {
-      setSelectedToken({ address, symbol });
-      return;
-    } else {
-      const symbol = await getTokenSymbol(address);
-      if (symbol) {
-        setSelectedToken({ address, symbol });
-      }
-    }
-  }, []);
-
   const fetchEstimatedCost = useCallback(
     async ({
       environment,
@@ -442,7 +431,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       onError,
       onSuccess,
       resources,
-      tokenAddress,
     }: {
       environment: ComputeEnvironment;
       freeCompute: boolean;
@@ -451,9 +439,8 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       onError?: (error: unknown) => void;
       onSuccess?: (cost: number, minLockSeconds: number) => void;
       resources: { id: string; amount: number }[];
-      tokenAddress?: string;
     }) => {
-      if (freeCompute || !tokenAddress) {
+      if (freeCompute) {
         setEstimatedTotalCost(0);
         return;
       }
@@ -467,7 +454,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       try {
         const result = await initializeCompute(
           environment,
-          tokenAddress,
+          USDC.address,
           validUntil,
           multiaddrsOrPeerId,
           environment.consumerAddress,
@@ -484,7 +471,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           environment: environment.id,
           payment: {
             chainId: CHAIN_ID,
-            token: tokenAddress,
+            token: USDC.address,
             resources,
           },
           maxJobDuration: validUntil,
@@ -510,11 +497,9 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           if (data?.status?.httpStatus != null && data.status.httpStatus >= 400) {
             throw new Error(data.status.error ?? 'Initialize compute failed');
           }
-          const tokenDecimals = await getTokenDecimals(tokenAddress);
-          const decimalsNumber = Number(tokenDecimals);
           cost = new BigNumber(data.payment.amount)
-            .div(new BigNumber(10).pow(decimalsNumber))
-            .decimalPlaces(decimalsNumber)
+            .div(new BigNumber(10).pow(USDC.decimals))
+            .decimalPlaces(USDC.decimals)
             .toString();
           minLockSeconds = data.payment.minLockSeconds;
         } catch (directError) {
@@ -523,7 +508,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
       }
-      setEstimatedTotalCost(roundTokenAmount(Number(cost), tokenAddress, 'up'));
+      setEstimatedTotalCost(roundTokenAmount(Number(cost), USDC.address, 'up'));
       setMinLockSeconds(minLockSeconds);
       onSuccess?.(Number(cost), minLockSeconds);
     },
@@ -542,7 +527,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
    * @param ram - selected RAM GB
    * @param disk - selected disk GB
    * @param maxJobDuration - selected max job duration
-   * @param token - selected fee token
    */
   const hydrateContextFromQueryParams = useCallback(async () => {
     if (!searchParams.size) {
@@ -644,25 +628,20 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         );
         const resolvedNodeUri = foundAddrs.length > 0 ? foundAddrs : foundNode.id;
         if (!queryFree) {
-          const queryToken = searchParams.get('token');
-          if (queryToken) {
-            await selectToken(queryToken);
-            await fetchEstimatedCost({
-              environment: foundEnv,
-              freeCompute: queryFree,
-              maxJobDurationSeconds: resources.maxJobDurationSeconds,
-              multiaddrsOrPeerId: resolvedNodeUri,
-              resources: [
-                ...(resources.cpuId && resources.cpuCores ? [{ id: resources.cpuId, amount: resources.cpuCores }] : []),
-                ...(resources.ramId && resources.ram ? [{ id: resources.ramId, amount: resources.ram }] : []),
-                ...(resources.diskId && resources.diskSpace
-                  ? [{ id: resources.diskId, amount: resources.diskSpace }]
-                  : []),
-                ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: gpu.amount })),
-              ],
-              tokenAddress: queryToken,
-            });
-          }
+          await fetchEstimatedCost({
+            environment: foundEnv,
+            freeCompute: queryFree,
+            maxJobDurationSeconds: resources.maxJobDurationSeconds,
+            multiaddrsOrPeerId: resolvedNodeUri,
+            resources: [
+              ...(resources.cpuId && resources.cpuCores ? [{ id: resources.cpuId, amount: resources.cpuCores }] : []),
+              ...(resources.ramId && resources.ram ? [{ id: resources.ramId, amount: resources.ram }] : []),
+              ...(resources.diskId && resources.diskSpace
+                ? [{ id: resources.diskId, amount: resources.diskSpace }]
+                : []),
+              ...resources.gpus.map((gpu) => ({ id: gpu.id, amount: gpu.amount })),
+            ],
+          });
         }
       }
     } catch (error) {
@@ -670,7 +649,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setHydrateFromUrlFinished(true);
     }
-  }, [fetchEstimatedCost, searchParams, selectEnv, selectToken]);
+  }, [fetchEstimatedCost, searchParams, selectEnv]);
 
   useEffect(() => {
     setJobName((current) => (current.trim() ? current : generateJobName()));
@@ -752,8 +731,6 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         selectedEnv,
         selectEnv,
         selectedResources,
-        selectedToken,
-        selectToken,
         setEstimatedTotalCost,
         setMinLockSeconds,
         setSelectedResources,

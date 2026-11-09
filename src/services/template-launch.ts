@@ -1,5 +1,6 @@
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import {
   assertAllocationAvailable,
@@ -147,7 +148,6 @@ export async function buildTemplateStartParams({
   gpuSelection,
   allocation,
   durationSeconds,
-  tokenAddress,
   envValues,
   bucketId,
   gpuPlan,
@@ -163,7 +163,6 @@ export async function buildTemplateStartParams({
   gpuPlan?: GpuPlan;
   allocation: Allocation;
   durationSeconds: number;
-  tokenAddress: string;
   envValues: Record<string, string>;
   /** Optional result bucket id to mount at /data/outputs — picked on the config step. */
   bucketId?: string;
@@ -207,7 +206,7 @@ export async function buildTemplateStartParams({
     ...(metadata ? { metadata } : {}),
     resources,
     duration: durationSeconds,
-    payment: { chainId: CHAIN_ID, token: tokenAddress },
+    payment: { chainId: CHAIN_ID, token: USDC.address },
     ...(bucketId ? { outputBucketId: bucketId } : {}),
   };
 }

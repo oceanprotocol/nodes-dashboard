@@ -1,6 +1,6 @@
 import { getApiRoute } from '@/config';
 import { CHAIN_ID } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
+import { USDC } from '@/constants/tokens';
 import { ApiPaginationResponse } from '@/types/api';
 import { NodeEnvironments } from '@/types/environments';
 import { EnvironmentsFilters } from '@/types/filters';
@@ -9,12 +9,11 @@ import axios from 'axios';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 const INITIAL_PAGE = 1;
-// Server page size. Consumers filter each page client-side (service-on-demand support, supported fee
-// token), so a server page can contribute zero visible rows.
+// Server page size. Consumers filter each page client-side (service-on-demand support, USDC fee), so
+// a server page can contribute zero visible rows.
 const PAGE_SIZE = 20;
 
 export type RawFilters = {
-  feeToken?: string | string[];
   free?: boolean;
   network?: string;
   fromMaxJobDuration?: number;
@@ -26,7 +25,6 @@ export type RawFilters = {
 
 export const DEFAULT_FILTERS: RawFilters = {
   network: String(CHAIN_ID),
-  feeToken: Object.values(getSupportedTokens()).map((t) => t.address),
 };
 
 /** Client-side visibility test a consumer applies to each env (service-on-demand, fee token, …).
@@ -75,14 +73,7 @@ export const RunJobEnvsProvider = ({ children }: { children: ReactNode }) => {
     if (!rawFilters) {
       return undefined;
     }
-    const filterParams: EnvironmentsFilters = {};
-    if (rawFilters.feeToken) {
-      if (Array.isArray(rawFilters.feeToken)) {
-        filterParams.feeToken = { operator: 'in', value: rawFilters.feeToken };
-      } else {
-        filterParams.feeToken = { operator: 'eq', value: rawFilters.feeToken };
-      }
-    }
+    const filterParams: EnvironmentsFilters = { feeToken: { operator: 'eq', value: USDC.address } };
     if (rawFilters.network) {
       filterParams.network = { operator: 'eq', value: rawFilters.network };
     }

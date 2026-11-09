@@ -13,8 +13,8 @@ const DocsCtaSection = () => {
       <Container className={styles.container}>
         <h1 className={styles.title}>Ready to get started?</h1>
         <p className={styles.description}>
-          Claim complimentary credits to unlock high-performance GPU workloads like running any open model &amp; running
-          compute jobs, or simply run a quick CPU test within Ocean Orchestrator
+          Claim a subsidy to unlock high-performance GPU workloads like running any open model &amp; running compute
+          jobs, or simply run a quick CPU test within Ocean Orchestrator
         </p>
         <div className={styles.actions}>
           <Button color="on-accent1" href={routes.inference.path} size="lg" variant="filled">

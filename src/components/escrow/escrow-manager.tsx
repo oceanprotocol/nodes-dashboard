@@ -14,7 +14,7 @@ const EscrowManager = () => {
   const [contractVersion, setContractVersion] = useState<EscrowContractVersion>('current');
   const isLegacy = contractVersion === 'legacy';
   const escrowAddress = isLegacy ? LEGACY_ESCROW_ADDRESS : undefined;
-  const { tokens, spenders, loading, reload } = useEscrowData(escrowAddress);
+  const { funds, spenders, loading, reload } = useEscrowData(escrowAddress);
 
   return (
     <>
@@ -43,25 +43,19 @@ const EscrowManager = () => {
           ) : undefined}
         </Card>
       )}
-      {loading && tokens.length === 0 ? (
-        <CircularProgress className="alignSelfCenter" />
-      ) : (
+      {funds ? (
         <div className={styles.panels}>
-          {tokens.map((token) => {
-            const tokenSpenders = spenders.filter((s) => s.tokenAddress.toLowerCase() === token.address.toLowerCase());
-            return (
-              <EscrowTokenPanel
-                escrowAddress={escrowAddress}
-                key={token.address}
-                loadingSpenders={loading}
-                onChange={reload}
-                spenders={tokenSpenders}
-                token={token}
-              />
-            );
-          })}
+          <EscrowTokenPanel
+            escrowAddress={escrowAddress}
+            funds={funds}
+            loadingSpenders={loading}
+            onChange={reload}
+            spenders={spenders}
+          />
         </div>
-      )}
+      ) : loading ? (
+        <CircularProgress className="alignSelfCenter" />
+      ) : null}
     </>
   );
 };
