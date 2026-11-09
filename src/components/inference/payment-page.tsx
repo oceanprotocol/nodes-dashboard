@@ -8,6 +8,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
+import ServicePasswordInput from '@/components/inference/service-password-input';
 import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
@@ -18,6 +19,12 @@ import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
+import {
+  generateServicePassword,
+  isValidServicePassword,
+  SERVICE_PASSWORD_ENV,
+  SERVICE_PASSWORD_RULE,
+} from '@/lib/service-password';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
@@ -41,8 +48,10 @@ import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
   templateNeedsConfigStep,
+  WORKFLOW_ENV_VAR_KEYS,
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
+import { requiredEnvVars } from '@/types/templates';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { CircularProgress } from '@mui/material';
@@ -63,6 +72,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Prolonging a running service: same selection, pay only for the extra runtime. Skips the earlier
   // steps (arrived straight from the manage page) — jobDurationSeconds holds the extra time to add.
   const isProlongMode = router.query.prolong === '1';
+  // Quick start goes from the package page straight here, so this is where its user sees the password.
+  const asksPassword = flowType === InferenceFlowType.DefaultModel && !isProlongMode;
   const {
     selectedEnv,
     selectedToken,
@@ -73,6 +84,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedBucketId,
     templateEnvValues,
     hfToken,
+    servicePassword,
+    setServicePassword,
+    forgetServicePassword,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -402,7 +416,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           router.replace({ pathname: '/inference/custom-models', query: router.query });
         } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
-        } else if (!isProlongMode && selectedModels.some((model) => !modelParamsByModel[model.id])) {
+        } else if (
+          !isProlongMode &&
+          (selectedModels.some((model) => !modelParamsByModel[model.id]) || !servicePassword)
+        ) {
+          // No password = a reload: config fills in a new one and shows it.
           router.replace({ pathname: '/inference/custom-models/config', query: router.query });
         }
         break;
@@ -424,6 +442,17 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
             query: router.query,
           });
+        } else if (
+          !isProlongMode &&
+          requiredEnvVars(selectedTemplate).some(
+            (spec) => !WORKFLOW_ENV_VAR_KEYS.includes(spec.key) && !templateEnvValues[spec.key]
+          )
+        ) {
+          // Env values live in memory only: a reload lands here without the password, and a service without it exits at once.
+          router.replace({
+            pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/config`,
+            query: router.query,
+          });
         }
         break;
       }
@@ -438,10 +467,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     modelParamsByModel,
     isEditMode,
     isProlongMode,
+    templateEnvValues,
+    servicePassword,
     params.templateId,
     packagePath,
     router,
   ]);
+
+  // Quick start has no config step: fill in the password here, once per visit. It shows below.
+  const passwordFilledRef = useRef(false);
+  useEffect(() => {
+    if (asksPassword && !servicePassword && !passwordFilledRef.current) {
+      passwordFilledRef.current = true;
+      setServicePassword(generateServicePassword());
+    }
+  }, [asksPassword, servicePassword, setServicePassword]);
 
   const goToPrevStep = () => {
     // Prolong arrived straight from the manage page — go back there instead of into the flow steps.
@@ -480,6 +520,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     const { edit: _edit, serviceId: _serviceId, ...query } = buildSelectionQuery();
     return query;
   }, [buildSelectionQuery]);
+
+  // Open the manage page first: this page's guards send a missing password back to config.
+  // The service is already running, so a failed or cancelled navigation is not a launch error.
+  const openLaunchedService = useCallback(
+    async (serviceId: string) => {
+      await router
+        .push({
+          pathname: `/inference/instances/${encodeURIComponent(serviceId)}`,
+          query: buildManageQuery(),
+        })
+        .catch(() => false);
+      forgetServicePassword();
+    },
+    [router, buildManageQuery, forgetServicePassword]
+  );
 
   // Prolong: extend the running service's lifetime by jobDurationSeconds (the extra time picked in
   // the modal). No new container — serviceExtend charges the extra runtime against the same escrow
@@ -639,7 +694,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // anything changes), and the image/tag come from the new params' engine so an engine switch
       // (vLLM ↔ llama.cpp) relaunches on the right image.
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceRestart(nodeUri, token, targetServiceId, buildInferenceRestartSpec({ model, params, hfToken, appType }))
+        serviceRestart(
+          nodeUri,
+          token,
+          targetServiceId,
+          buildInferenceRestartSpec({ model, params, hfToken, servicePassword, appType })
+        )
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -651,10 +711,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         engine: params.engine,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to relaunch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
@@ -671,9 +728,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     targetServiceId,
     withNodeAuth,
     hfToken,
+    servicePassword,
     serviceRestart,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
     appType,
   ]);
@@ -750,6 +807,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           durationSeconds: jobDurationSeconds,
           tokenAddress: selectedToken.address,
           hfToken,
+          servicePassword,
           appType,
         });
       } catch (error) {
@@ -785,10 +843,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         tokenSymbol: selectedToken.symbol,
         escrowDeposited,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to launch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
@@ -811,10 +866,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedByKey,
     jobDurationSeconds,
     hfToken,
+    servicePassword,
     serviceStart,
     totalCost,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
     appType,
   ]);
@@ -909,10 +964,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         escrowDeposited,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to launch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
@@ -937,8 +989,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedBucketId,
     serviceStart,
     totalCost,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
   ]);
 
@@ -979,10 +1030,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         templateId: selectedTemplate.id,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to relaunch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
@@ -999,8 +1047,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     withNodeAuth,
     templateEnvValues,
     serviceRestart,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
   ]);
 
@@ -1027,6 +1074,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // the running service already holds the GPU.
       if (isProlongMode) {
         await prolongService();
+        return;
+      }
+      if (asksPassword && !isValidServicePassword(servicePassword)) {
+        setLaunchError(SERVICE_PASSWORD_RULE);
         return;
       }
       // Template flow: edit re-entry reconfigures the running service in place (serviceRestart, same
@@ -1057,6 +1108,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     isEditMode,
     relaunchService,
     runFreshLaunch,
+    asksPassword,
+    servicePassword,
     launchMode,
     totalCost,
     selectedToken,
@@ -1177,6 +1230,19 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     gpuSelection={gpuSelection}
                     sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}
+                  />
+                </>
+              )}
+              {asksPassword && (
+                <>
+                  <div className={styles.sectionHead}>
+                    <h3>Password</h3>
+                  </div>
+                  <ServicePasswordInput
+                    label={SERVICE_PASSWORD_ENV}
+                    name={SERVICE_PASSWORD_ENV}
+                    onChange={setServicePassword}
+                    value={servicePassword}
                   />
                 </>
               )}
