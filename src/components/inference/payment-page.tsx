@@ -19,7 +19,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
-import { isValidServicePassword, SERVICE_PASSWORD_ENV } from '@/lib/service-password';
+import { generateServicePassword, isValidServicePassword, SERVICE_PASSWORD_ENV } from '@/lib/service-password';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
@@ -43,6 +43,7 @@ import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
   templateNeedsConfigStep,
+  WORKFLOW_ENV_VAR_KEYS,
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { requiredEnvVars } from '@/types/templates';
@@ -66,6 +67,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Prolonging a running service: same selection, pay only for the extra runtime. Skips the earlier
   // steps (arrived straight from the manage page) — jobDurationSeconds holds the extra time to add.
   const isProlongMode = router.query.prolong === '1';
+  // Quick start goes from the package page straight here, so this is where its user sees the password.
+  const asksPassword = flowType === InferenceFlowType.DefaultModel && !isProlongMode;
   const {
     selectedEnv,
     selectedToken,
@@ -407,7 +410,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           router.replace({ pathname: '/inference/custom-models', query: router.query });
         } else if (!selectedEnv && !isEditMode && !isProlongMode) {
           router.replace({ pathname: '/inference/custom-models/resources', query: router.query });
-        } else if (!isProlongMode && selectedModels.some((model) => !modelParamsByModel[model.id])) {
+        } else if (
+          !isProlongMode &&
+          (selectedModels.some((model) => !modelParamsByModel[model.id]) || !servicePassword)
+        ) {
+          // No password = a reload: config fills in a new one and shows it.
           router.replace({ pathname: '/inference/custom-models/config', query: router.query });
         }
         break;
@@ -429,7 +436,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/resources`,
             query: router.query,
           });
-        } else if (!isProlongMode && requiredEnvVars(selectedTemplate).some((spec) => !templateEnvValues[spec.key])) {
+        } else if (
+          !isProlongMode &&
+          requiredEnvVars(selectedTemplate).some(
+            (spec) => !WORKFLOW_ENV_VAR_KEYS.includes(spec.key) && !templateEnvValues[spec.key]
+          )
+        ) {
           // Env values live in memory only: a reload lands here without the password, and a service without it exits at once.
           router.replace({
             pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/config`,
@@ -450,10 +462,20 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     isEditMode,
     isProlongMode,
     templateEnvValues,
+    servicePassword,
     params.templateId,
     packagePath,
     router,
   ]);
+
+  // Quick start has no config step: fill in the password here, once per visit. It shows below.
+  const passwordFilledRef = useRef(false);
+  useEffect(() => {
+    if (asksPassword && !servicePassword && !passwordFilledRef.current) {
+      passwordFilledRef.current = true;
+      setServicePassword(generateServicePassword());
+    }
+  }, [asksPassword, servicePassword, setServicePassword]);
 
   const goToPrevStep = () => {
     // Prolong arrived straight from the manage page — go back there instead of into the flow steps.
@@ -1023,9 +1045,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     buildManageQuery,
     branch,
   ]);
-
-  // Quick start goes from the package page straight here, so this is where its user sees the password.
-  const asksPassword = flowType === InferenceFlowType.DefaultModel && !isProlongMode;
 
   const goToNextStep = useCallback(async () => {
     // Bail synchronously if a launch is already running — the disabled button only guards the NEXT

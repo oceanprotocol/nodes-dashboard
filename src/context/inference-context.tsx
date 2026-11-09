@@ -4,7 +4,6 @@ import { isInferenceNode } from '@/constants/nodes';
 import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
-import { generateServicePassword } from '@/lib/service-password';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import {
   decodeModelIds,
@@ -88,7 +87,8 @@ type InferenceContextType = {
   /** Hugging Face access token, shared across all selected models (for gated/private repos). */
   hfToken: string;
   setHfToken: (token: string) => void;
-  /** Raw-engine flow only; templates keep theirs in `templateEnvValues`. Memory only. */
+  /** Raw-engine flow only; templates keep theirs in `templateEnvValues`. Memory only. Empty until a page that
+   * shows it fills one in, so a reload can tell that the user has not seen it. */
   servicePassword: string;
   setServicePassword: (password: string) => void;
   jobDurationSeconds: number;
@@ -223,7 +223,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
   const [selectedEnv, setSelectedEnv] = useState<SelectedInferenceEnv | null>(null);
   const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
   const [hfToken, setHfTokenState] = useState<string>('');
-  const [servicePassword, setServicePassword] = useState<string>(generateServicePassword);
+  const [servicePassword, setServicePassword] = useState<string>('');
   const [jobDurationSeconds, setJobDurationSeconds] = useState<number>(0);
   const [engine, setEngineState] = useState<InferenceEngine>(DEFAULT_INFERENCE_ENGINE);
   const [modelParamsByModel, setModelParamsByModel] = useState<Record<string, ModelParameters>>({});
@@ -785,7 +785,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
         setSelectedEnv(null);
         setSelectedToken(null);
         setHfToken('');
-        setServicePassword(generateServicePassword());
+        setServicePassword('');
         setJobDurationSeconds(0);
         // Raw setter: the selection is being emptied, so the lock no longer applies.
         setEngineState(DEFAULT_INFERENCE_ENGINE);

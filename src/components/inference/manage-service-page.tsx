@@ -205,6 +205,7 @@ const ManageServicePage: React.FC = () => {
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
+    setServicePassword,
   } = useInferenceContext();
   const { account, ocean } = useOceanAccount();
   const { getServiceStatus, serviceRestart } = useP2P();
@@ -909,6 +910,8 @@ const ManageServicePage: React.FC = () => {
       });
       return;
     }
+    // The dashboard does not keep the password: Edit starts from a new one (config fills it in).
+    setServicePassword('');
     posthog.capture('inference_service_edit_clicked', {
       serviceId: id,
       templateId: undefined,

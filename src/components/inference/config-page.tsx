@@ -80,14 +80,14 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
   // Edit: the node doesn't echo a service's env, so the non-secret values this browser launched it
   // with (see template-env-memory) prefill the fields; anything already typed this session wins.
   const editServiceId = isEditMode ? firstQueryValue(router.query.serviceId) : undefined;
-  // The dashboard does not keep the password, so Edit starts from a new random one.
-  // Once the user types a password, it is theirs.
+  // Fill in a random password when there is none (a new launch, Edit, or a reload). Back from payment
+  // keeps the one already shown. Once the user types a password, it is theirs.
   const passwordTouchedRef = useRef(false);
   useEffect(() => {
-    if (editServiceId && isCustomModelFlow && !passwordTouchedRef.current) {
+    if (isCustomModelFlow && !servicePassword && !passwordTouchedRef.current) {
       setServicePassword(generateServicePassword());
     }
-  }, [editServiceId, isCustomModelFlow, setServicePassword]);
+  }, [isCustomModelFlow, servicePassword, setServicePassword]);
   useEffect(() => {
     if (!isTemplateFlow) {
       return;
