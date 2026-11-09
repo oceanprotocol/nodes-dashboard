@@ -86,6 +86,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfToken,
     servicePassword,
     setServicePassword,
+    forgetServicePassword,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -520,6 +521,18 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     return query;
   }, [buildSelectionQuery]);
 
+  // Open the manage page first: this page's guards send a missing password back to config.
+  const openLaunchedService = useCallback(
+    async (serviceId: string) => {
+      await router.push({
+        pathname: `/inference/instances/${encodeURIComponent(serviceId)}`,
+        query: buildManageQuery(),
+      });
+      forgetServicePassword();
+    },
+    [router, buildManageQuery, forgetServicePassword]
+  );
+
   // Prolong: extend the running service's lifetime by jobDurationSeconds (the extra time picked in
   // the modal). No new container — serviceExtend charges the extra runtime against the same escrow
   // flow as the initial start.
@@ -695,10 +708,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         engine: params.engine,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to relaunch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
@@ -717,8 +727,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     hfToken,
     servicePassword,
     serviceRestart,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
     appType,
   ]);
@@ -831,10 +840,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         tokenSymbol: selectedToken.symbol,
         escrowDeposited,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to launch inference service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
@@ -860,8 +866,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     servicePassword,
     serviceStart,
     totalCost,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
     appType,
   ]);
@@ -956,10 +961,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         escrowDeposited,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to launch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to launch service.');
@@ -984,8 +986,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     selectedBucketId,
     serviceStart,
     totalCost,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
   ]);
 
@@ -1026,10 +1027,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         templateId: selectedTemplate.id,
         branch,
       });
-      router.push({
-        pathname: `/inference/instances/${encodeURIComponent(job.serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await openLaunchedService(job.serviceId);
     } catch (error) {
       console.error('Failed to relaunch template service:', error);
       setLaunchError(error instanceof Error ? error.message : 'Failed to relaunch service.');
@@ -1046,8 +1044,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     withNodeAuth,
     templateEnvValues,
     serviceRestart,
-    router,
-    buildManageQuery,
+    openLaunchedService,
     branch,
   ]);
 

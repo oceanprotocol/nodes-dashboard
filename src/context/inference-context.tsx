@@ -4,6 +4,7 @@ import { isInferenceNode } from '@/constants/nodes';
 import { SelectedToken } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
+import { SERVICE_PASSWORD_ENV } from '@/lib/service-password';
 import { getTokenSymbol } from '@/lib/token-symbol';
 import {
   decodeModelIds,
@@ -91,6 +92,8 @@ type InferenceContextType = {
    * shows it fills one in, so a reload can tell that the user has not seen it. */
   servicePassword: string;
   setServicePassword: (password: string) => void;
+  /** After a launch or relaunch: the next launch or Edit starts with a new password. */
+  forgetServicePassword: () => void;
   jobDurationSeconds: number;
   setJobDurationSeconds: (seconds: number) => void;
   /**
@@ -242,6 +245,15 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
     (values: Record<string, string>) => setTemplateEnv({ scope: templateEnvScope, values }),
     [templateEnvScope]
   );
+  // Every scope, not only the current one: it runs after the manage page opened.
+  const forgetServicePassword = useCallback(() => {
+    setServicePassword('');
+    setTemplateEnv((prev) => {
+      const values = { ...prev.values };
+      delete values[SERVICE_PASSWORD_ENV];
+      return { ...prev, values };
+    });
+  }, []);
   /**
    * The URL signature the context state currently DESCRIBES — not a "did hydration run" boolean.
    *
@@ -767,6 +779,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       setHfToken,
       servicePassword,
       setServicePassword,
+      forgetServicePassword,
       jobDurationSeconds,
       setJobDurationSeconds,
       engine,
@@ -809,6 +822,7 @@ export const InferenceProvider = ({ children }: { children: React.ReactNode }) =
       hfToken,
       setHfToken,
       servicePassword,
+      forgetServicePassword,
       jobDurationSeconds,
       engine,
       setEngine,
