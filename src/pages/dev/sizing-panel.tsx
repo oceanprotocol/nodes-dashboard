@@ -74,7 +74,7 @@ const SizingPanelPreview: React.FC = () => {
             onContextChange={setValue}
             widths={WIDTHS}
           />
-          <SizingListHeader context={label} count={2} />
+          <SizingListHeader context={label} />
           <FitSummary gpuCounts={[1, 2, 4]} />
         </State>
 

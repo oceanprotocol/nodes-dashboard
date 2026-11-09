@@ -10,12 +10,13 @@ import CustomModelSizingPanel, {
   formatTokensShort,
   NoFitCard,
   SizingLayout,
-  SizingListHeader,
 } from '@/components/inference/custom-model-sizing-panel';
 import DeclaredResources from '@/components/inference/declared-resources';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
+import SettingsSection from '@/components/inference/settings-section';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
+import TabBar from '@/components/tab-bar/tab-bar';
 import { isInferenceNode } from '@/constants/nodes';
 import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
@@ -29,7 +30,7 @@ import {
 } from '@/services/vram-estimate';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
-import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { DURATION_UNIT_OPTIONS, formatSessionEnd } from '@/utils/duration';
 import {
   demandOf,
   GpuDemand,
@@ -43,8 +44,10 @@ import {
 import { acceptsUsdc, getEnvUsdcFees } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { grantableAmount, type TemplateResourceRequirement } from '@oceanprotocol/lib';
-import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -146,6 +149,14 @@ const sortOptions = [
   { label: 'Best score', value: JSON.stringify({ benchmarkTotalScore: 'desc' }) },
   { label: 'Cheapest', value: JSON.stringify({ price: 'asc' }) },
   { label: 'Most expensive', value: JSON.stringify({ price: 'desc' }) },
+];
+
+const DURATION_PRESETS = [
+  { label: '30 min', seconds: 1800 },
+  { label: '1 hour', seconds: 3600 },
+  { label: '2 hours', seconds: 7200 },
+  { label: '4 hours', seconds: 14400 },
+  { label: '8 hours', seconds: 28800 },
 ];
 
 type FilterFormValues = {
@@ -279,10 +290,12 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       { shallow: true, scroll: false }
     );
   };
-  const sessionSettingsRef = useRef<HTMLDivElement>(null);
   const [durationDraft, setDurationDraft] = useState(jobDurationSeconds);
-  const durationError =
-    !Number.isFinite(durationDraft) || durationDraft < 1 ? 'Enter a session length greater than zero.' : undefined;
+  const [durationTouched, setDurationTouched] = useState(false);
+  const [durationSource, setDurationSource] = useState<'preset' | 'custom'>(() =>
+    DURATION_PRESETS.some((preset) => preset.seconds === jobDurationSeconds) ? 'preset' : 'custom'
+  );
+  const durationError = !Number.isFinite(durationDraft) || durationDraft < 1 ? 'Enter a length above zero.' : undefined;
   const gpuDemand = useMemo<GpuDemand | undefined>(() => {
     if (!isCustomModelFlow || !customSizing) {
       return undefined;
@@ -307,20 +320,21 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   const gpuOptions = process.env.NEXT_PUBLIC_GPU_LIST?.split(',').map((gpu) => ({ value: gpu, label: gpu })) ?? [];
 
-  const formik = useFormik<FilterFormValues>({
-    initialValues: {
-      gpuName: filters.gpuName ?? [],
-      sortBy: sort ?? '',
-    },
-    onSubmit: (values) => {
-      const next: RawFilters = { ...DEFAULT_FILTERS };
-      if (values.gpuName.length > 0) {
-        next.gpuName = values.gpuName;
-      }
-      setFilters(next);
-      setSort(values.sortBy);
-    },
+  const [filterValues, setFilterValues] = useState<FilterFormValues>({
+    gpuName: filters.gpuName ?? [],
+    sortBy: sort ?? '',
   });
+
+  const onFilterChange = (e: { target: { name: string; value: unknown } }) => {
+    const values = { ...filterValues, [e.target.name]: e.target.value };
+    setFilterValues(values);
+    const next: RawFilters = { ...DEFAULT_FILTERS };
+    if (values.gpuName.length > 0) {
+      next.gpuName = values.gpuName;
+    }
+    setFilters(next);
+    setSort(values.sortBy);
+  };
 
   const isListedEnv = useMemo(
     () => (env: ComputeEnvironment, node: NodeEnvironments) => isBookableEnv(env, node) && fitsDemand(env),
@@ -440,6 +454,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   const onDurationChange = (seconds: number) => {
     setDurationDraft(seconds);
+    setDurationTouched(true);
     // Keep the last valid quote while the user clears or replaces the field.
     if (!Number.isFinite(seconds) || seconds < 1) return;
     setJobDurationSeconds(seconds);
@@ -451,145 +466,130 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     }
   };
 
+  const showDurationError = durationTouched && !!durationError;
+
+  const onPresetSelect = (seconds: number) => {
+    setDurationSource('preset');
+    onDurationChange(seconds);
+  };
+
+  const onCustomDurationChange = (seconds: number) => {
+    setDurationSource('custom');
+    onDurationChange(seconds);
+  };
+
   return (
     <>
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-        <h3>Environments</h3>
-
         {declaredResources && <DeclaredResources recommended={declaredResources} />}
 
-        {isCustomModelFlow && (sizingLoading || customSizing) && (
-          <CustomModelSizingPanel
-            contextChoices={contextChoices}
-            contextUnknown={contextUnknown}
-            contextValue={sizingContext === null ? DEFAULT_CONTEXT_OPTION : String(sizingContext)}
-            gaps={customSizing?.gaps}
-            highlightContext={noEnvFitsEstimate}
-            layouts={sizingLayouts}
-            loading={sizingLoading}
-            onContextChange={onSizingContextChange}
-            ref={sizingPanelRef}
-            widths={customSizing?.widths ?? null}
-          />
-        )}
+        <div className={styles.settings}>
+          {isCustomModelFlow && (sizingLoading || customSizing) && (
+            <CustomModelSizingPanel
+              contextChoices={contextChoices}
+              contextUnknown={contextUnknown}
+              contextValue={sizingContext === null ? DEFAULT_CONTEXT_OPTION : String(sizingContext)}
+              gaps={customSizing?.gaps}
+              highlightContext={noEnvFitsEstimate}
+              layouts={sizingLayouts}
+              loading={sizingLoading}
+              onContextChange={onSizingContextChange}
+              ref={sizingPanelRef}
+              widths={customSizing?.widths ?? null}
+            />
+          )}
 
-        {/* No <form> wrapper: the Selects drive Formik via onChange and the button submits explicitly,
-            so nothing here needs an implicit submit — and keeping it formless means Enter never re-runs
-            the search by accident. */}
-        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
-          <div className={styles.filters}>
-            <Select
-              className={styles.gpuSelect}
-              label="GPUs"
-              multiple
-              name="gpuName"
-              onChange={formik.handleChange}
-              options={gpuOptions}
-              placeholder="Any GPU"
-              renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
-              renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
-              size="sm"
-              value={formik.values.gpuName}
-            />
-            <Select
-              label="Sorting"
-              name="sortBy"
-              onChange={formik.handleChange}
-              options={sortOptions}
-              placeholder="No sorting"
-              size="sm"
-              value={formik.values.sortBy}
-            />
-          </div>
-          <div className={styles.actionsRow}>
-            <Button
-              className="alignSelfStart"
-              color="accent2"
-              loading={loading}
-              onClick={() => formik.handleSubmit()}
-              type="button"
-              variant="filled"
+          <Card direction="column" padding="sm" radius="md" shadow="black" spacing="sm" variant="glass">
+            <SettingsSection
+              description={
+                durationError ? (
+                  'Pick a length or enter your own. Prices below update to match.'
+                ) : (
+                  <>
+                    Runs until <strong>{formatSessionEnd(jobDurationSeconds)}</strong>. Prices below cover the whole
+                    session.
+                  </>
+                )
+              }
+              icon={<ScheduleIcon />}
+              title="Session length"
             >
-              Find environments
-            </Button>
-          </div>
-          <div className={styles.sessionSettings} ref={sessionSettingsRef}>
-            <div className={styles.sessionCopy}>
-              <strong>Session length</strong>
-              <span>Choose how long to run. Total prices update automatically.</span>
-            </div>
-            <div className={styles.durationControls}>
-              <div>
-                <span className={styles.presetLabel}>Quick choices</span>
-                <div className={styles.durationPresets} role="group" aria-label="Session length presets">
-                  {[
-                    { label: '30 min', seconds: 1800 },
-                    { label: '1 hour', seconds: 3600 },
-                    { label: '2 hours', seconds: 7200 },
-                    { label: '4 hours', seconds: 14400 },
-                    { label: '8 hours', seconds: 28800 },
-                  ].map(({ label, seconds }) => (
-                    <button
-                      key={seconds}
-                      type="button"
-                      className={styles.durationPreset}
-                      aria-pressed={durationDraft === seconds}
-                      onClick={() => onDurationChange(seconds)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+              <div className={styles.durationPresets} role="group" aria-label="Session length">
+                <TabBar
+                  activeKey={durationSource === 'preset' ? String(durationDraft) : ''}
+                  ariaLabel="Session length presets"
+                  cardVariant="glass"
+                  size="sm"
+                  tabs={DURATION_PRESETS.map(({ label, seconds }) => ({
+                    key: String(seconds),
+                    label,
+                    onClick: () => onPresetSelect(seconds),
+                  }))}
+                />
+                <span aria-hidden className={styles.durationOr}>
+                  or
+                </span>
+                <DurationInput
+                  ariaLabel="Custom session length"
+                  availableUnits={DURATION_UNIT_OPTIONS}
+                  className={styles.sessionDuration}
+                  defaultUnit="hours"
+                  emptyWhenZero
+                  invalid={showDurationError}
+                  min={1}
+                  onChange={onCustomDurationChange}
+                  placeholder="Custom"
+                  size="sm"
+                  unitControl="auto"
+                  value={durationSource === 'preset' ? 0 : durationDraft}
+                />
               </div>
-              <DurationInput
-                availableUnits={DURATION_UNIT_OPTIONS}
-                className={styles.sessionDuration}
-                defaultUnit="hours"
-                label="Custom duration"
-                errorText={durationError}
-                min={1}
-                onChange={onDurationChange}
-                size="md"
-                radius={24}
-                unitControl="segmented"
-                value={durationDraft}
-              />
-            </div>
-          </div>
-        </Card>
-
-        <div className={styles.resultsHeader}>
-          <strong>Available environments</strong>
-          <div className={styles.resultsDuration}>
-            <span role="status">
-              {durationError ? (
-                'Enter a valid session length to continue'
-              ) : (
-                <>
-                  Total prices for <strong>{formatDuration(jobDurationSeconds)}</strong>
-                </>
-              )}
-            </span>
-            <Button
-              color="accent1"
-              onClick={() => {
-                sessionSettingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                sessionSettingsRef.current?.querySelector('input')?.focus({ preventScroll: true });
-              }}
-              size="sm"
-              type="button"
-              variant="transparent"
-            >
-              Edit duration
-            </Button>
-          </div>
+            </SettingsSection>
+          </Card>
         </div>
+
+        <div className={styles.filters}>
+          <Select
+            ariaLabel="Filter envs by GPU model"
+            className={styles.gpuSelect}
+            multiple
+            name="gpuName"
+            onChange={onFilterChange}
+            options={gpuOptions}
+            placeholder="Filter envs by GPU model"
+            renderOption={(option) => <HardwareLabel type="gpu" value={option.label} />}
+            renderSelectedValue={(option) => <HardwareLabel type="gpu" value={option} />}
+            size="sm"
+            startAdornment={<FilterListIcon />}
+            value={filterValues.gpuName}
+          />
+          <Select
+            ariaLabel="Sorting"
+            name="sortBy"
+            onChange={onFilterChange}
+            options={sortOptions}
+            placeholder="No sorting"
+            size="sm"
+            startAdornment={<SwapVertIcon />}
+            value={filterValues.sortBy}
+          />
+        </div>
+
         <div className={styles.list}>
           {isCustomModelFlow && sizingLoading ? null : filteredNodeEnvs.length > 0 ? (
             <>
-              {isCustomModelFlow && sizingRequirement && (
-                <SizingListHeader context={sizedContextLabel} count={listedEnvCount} />
-              )}
+              <div className={styles.listHint} role="status">
+                {durationError ? (
+                  <>
+                    <strong>Choose a session length above</strong> to see total prices and continue.
+                  </>
+                ) : (
+                  'Adjust the GPU count on an environment if needed, then start it.'
+                )}
+                {isCustomModelFlow && sizingRequirement && (
+                  <div>Environments listed can hold this model at {sizedContextLabel} context.</div>
+                )}
+              </div>
               {filteredNodeEnvs.map((node) =>
                 node.computeEnvironments.environments.map((env) => {
                   const isPriorSelection =

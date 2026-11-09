@@ -402,9 +402,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                 <span key={n}>{button}</span>
               );
             })}
-            {!active && !zeroAllowed && (
-              <span className={classNames('chip', 'chipGlass', styles.countStatic)}>none</span>
-            )}
+            {unavailable && <span className={styles.inUse}>All in use</span>}
           </div>
         </div>
       );

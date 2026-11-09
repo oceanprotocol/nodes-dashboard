@@ -3,7 +3,7 @@ import { CSSProperties, KeyboardEvent, MouseEvent, MouseEventHandler, ReactNode 
 import styles from './card.module.css';
 
 type Size = 'xs' | 'sm' | 'md' | 'lg';
-type Variant =
+export type CardVariant =
   | 'glass'
   | 'glass-shaded'
   | 'success'
@@ -36,7 +36,7 @@ type CardProps = {
   shadow?: Shadow;
   spacing?: Size;
   style?: CSSProperties;
-  variant?: Variant;
+  variant?: CardVariant;
 };
 
 const Card: React.FC<CardProps> = ({

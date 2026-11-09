@@ -1,9 +1,17 @@
+import GpuIcon from '@/assets/icons/gpu.svg';
+import Button from '@/components/button/button';
+import Card from '@/components/card/card';
+import Divider from '@/components/divider/divider.module';
+import SettingsSection from '@/components/inference/settings-section';
+import TabBar from '@/components/tab-bar/tab-bar';
 import { CustomModelSizingGaps, FALLBACK_CONTEXT_TOKENS } from '@/services/vram-estimate';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import SearchOffIcon from '@mui/icons-material/SearchOff';
+import SubjectIcon from '@mui/icons-material/Subject';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
-import { forwardRef, KeyboardEvent, useId, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import styles from './custom-model-sizing-panel.module.css';
 
 /** One context-length option: its value (as the picker's onChange expects it) and how it reads. */
@@ -75,48 +83,19 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
     },
     ref
   ) {
-    const id = useId();
     const panelRef = useRef<HTMLDivElement>(null);
-    const groupRef = useRef<HTMLDivElement>(null);
     const choices = contextUnknown ? contextChoices.slice(0, 1) : contextChoices;
     const checkedIndex = Math.max(
       0,
       choices.findIndex((choice) => choice.value === contextValue)
     );
 
-    const radios = () => Array.from(groupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? []);
-
     useImperativeHandle(ref, () => ({
       focusContext: () => {
         panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        radios()[checkedIndex]?.focus({ preventScroll: true });
+        panelRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
       },
     }));
-
-    // Radio-group keys: arrows move and select (wrapping), Home/End jump to the ends.
-    const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-      const last = choices.length - 1;
-      const next =
-        event.key === 'ArrowRight' || event.key === 'ArrowDown'
-          ? index === last
-            ? 0
-            : index + 1
-          : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-            ? index === 0
-              ? last
-              : index - 1
-            : event.key === 'Home'
-              ? 0
-              : event.key === 'End'
-                ? last
-                : null;
-      if (next === null || contextUnknown) {
-        return;
-      }
-      event.preventDefault();
-      radios()[next]?.focus();
-      onContextChange(choices[next].value);
-    };
 
     const showWidths = !!widths?.length && !gaps.llamaCpp;
     const notes = [
@@ -175,116 +154,107 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
         );
       }
       return (
-        <>
-          <ul aria-label="GPU memory needed, per layout" aria-live="polite" className={styles.layouts}>
-            {layouts.map((layout, index) => (
-              <li className={styles.layoutItem} key={layout.gpus}>
-                {index > 0 && (
-                  <span aria-hidden className={styles.or}>
-                    or
+        <ul aria-label="GPU memory needed, per layout" aria-live="polite" className={styles.layouts}>
+          {layouts.map((layout) => (
+            <li key={layout.gpus}>
+              <Card className={styles.chip} direction="column" radius="sm" variant="glass">
+                <span className={styles.chipLabel}>
+                  <span
+                    aria-hidden
+                    className={styles.squares}
+                    style={{ gridTemplateColumns: `repeat(${Math.min(layout.gpus, 4)}, 6px)` }}
+                  >
+                    {Array.from({ length: layout.gpus }, (_, i) => (
+                      <span key={i} />
+                    ))}
                   </span>
-                )}
-                <div className={styles.chip}>
-                  <div className={styles.chipTop}>
-                    <span
-                      aria-hidden
-                      className={styles.squares}
-                      style={{ gridTemplateColumns: `repeat(${Math.min(layout.gpus, 4)}, 6px)` }}
-                    >
-                      {Array.from({ length: layout.gpus }, (_, i) => (
-                        <span key={i} />
-                      ))}
-                    </span>
-                    {layout.gpus === 1 ? '1 GPU' : `${layout.gpus} GPUs`}
-                  </div>
-                  <div className={styles.chipValue}>{layout.gbPerGpu} GB</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className={styles.help}>
-            <span className={styles.wide}>
-              Per GPU, for the weights plus the context cache. Only environments that can hold one of these layouts are
-              listed.
-            </span>
-            <span className={styles.narrow}>
-              Any one layout works. Per GPU, for the weights plus the context cache.
-            </span>
-          </p>
-        </>
+                  {layout.gpus === 1 ? '1 GPU' : `${layout.gpus} GPUs`}
+                </span>
+                <strong className={styles.chipValue}>{layout.gbPerGpu} GB</strong>
+              </Card>
+            </li>
+          ))}
+        </ul>
       );
     };
 
     return (
-      <div className={styles.panel} ref={panelRef}>
-        <div className={styles.columns}>
-          <div className={styles.column}>
-            <div className={styles.labelRow}>
-              <span className={styles.label} id={`${id}-context`}>
-                Context length
-              </span>
-            </div>
-            <p className={styles.help} id={`${id}-context-help`}>
-              Max tokens per request, input + output.
-            </p>
-            <div
-              aria-describedby={`${id}-context-help`}
-              aria-labelledby={`${id}-context`}
-              className={cx(styles.choices, highlightContext && styles.highlight)}
-              ref={groupRef}
-              role="radiogroup"
+      <div ref={panelRef}>
+        <Card direction="column" padding="sm" radius="md" shadow="black" spacing="md" variant="glass">
+          <div className={styles.sections}>
+            <SettingsSection
+              description={
+                <span>
+                  Max tokens per request, input + output.
+                  <br />
+                  Carries over to Max context in Config.
+                </span>
+              }
+              icon={<SubjectIcon />}
+              title="Context length"
             >
-              {choices.map((choice, index) => {
-                const checked = index === checkedIndex;
-                return (
-                  <button
-                    aria-checked={checked}
-                    className={cx(styles.choice, checked && styles.checked)}
-                    disabled={contextUnknown}
-                    key={choice.value}
-                    onClick={() => onContextChange(choice.value)}
-                    onKeyDown={(event) => onKeyDown(event, index)}
-                    role="radio"
-                    tabIndex={checked ? 0 : -1}
-                    type="button"
-                  >
-                    <span className={styles.choiceText}>
+              <TabBar
+                activeKey={choices[checkedIndex]?.value ?? ''}
+                ariaLabel="Context length"
+                cardVariant="glass"
+                className={cx(styles.choices, highlightContext && styles.highlight)}
+                disabled={contextUnknown}
+                size="sm"
+                tabs={choices.map((choice) => ({
+                  key: choice.value,
+                  label: (
+                    <>
                       {choice.label}
                       {choice.suffix && <span className={styles.suffix}>{choice.suffix}</span>}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className={styles.hint}>Carries over to Max context in Config.</p>
-          </div>
+                    </>
+                  ),
+                  onClick: () => onContextChange(choice.value),
+                }))}
+              />
+            </SettingsSection>
 
-          <div className={styles.column}>
-            <div className={styles.labelRow}>
-              <span className={styles.label}>GPU memory needed</span>
-              <span className={styles.tag}>Estimate</span>
-            </div>
-            {renderEstimate()}
-          </div>
-        </div>
+            <Divider className={styles.sectionDivider} />
 
-        {notes.length > 0 && (
-          <ul className={styles.notes}>
-            {notes.map((note) => (
-              <li key={note.key} role="note">
-                <InfoOutlinedIcon aria-hidden className={styles.noteIcon} />
-                {note.narrow ? (
+            <SettingsSection
+              className={styles.gpuSection}
+              description={
+                layouts && !loading ? (
                   <>
-                    <span className={styles.wide}>{note.wide}</span>
-                    <span className={styles.narrow}>{note.narrow}</span>
+                    <span className={styles.wide}>
+                      Per GPU, for the weights plus the context cache.
+                      <br />
+                      Environments that can hold any one of these layouts are listed.
+                    </span>
+                    <span className={styles.narrow}>
+                      Any one layout works. Per GPU, for the weights plus the context cache.
+                    </span>
                   </>
-                ) : (
-                  note.wide
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+                ) : undefined
+              }
+              icon={<GpuIcon />}
+              title="Estimated GPU memory"
+            >
+              {renderEstimate()}
+              {notes.length > 0 && (
+                <ul className={styles.notes}>
+                  {notes.map((note) => (
+                    <li key={note.key} role="note">
+                      <InfoOutlinedIcon aria-hidden className={styles.noteIcon} />
+                      {note.narrow ? (
+                        <>
+                          <span className={styles.wide}>{note.wide}</span>
+                          <span className={styles.narrow}>{note.narrow}</span>
+                        </>
+                      ) : (
+                        note.wide
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </SettingsSection>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -293,29 +263,25 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
 export default CustomModelSizingPanel;
 
 /** Above the environment list: how many environments hold the estimate, at which context. */
-export function SizingListHeader({ count, context }: { count: number; context: string }) {
-  return (
-    <div className={styles.listHeader}>
-      <strong>
-        {count} environment{count === 1 ? '' : 's'} can hold this model
-      </strong>
-      <span>at {context} context</span>
-    </div>
-  );
+export function SizingListHeader({ context }: { context: string }) {
+  return <p className={styles.listHeader}>The following environments can hold this model at {context} context.</p>;
 }
 
 /** In place of the environment list when no environment holds the estimate. */
 export function NoFitCard({ context, onChooseShorter }: { context: string; onChooseShorter: () => void }) {
   return (
     <div className={styles.noFit}>
+      <span aria-hidden className={styles.noFitIcon}>
+        <SearchOffIcon />
+      </span>
       <strong>No environment can hold this model at {context} context</strong>
       <p>
         The free GPUs are smaller than every layout above. Choose a shorter context, or pick a quantized variant of the
         model.
       </p>
-      <button className={styles.shorter} onClick={onChooseShorter} type="button">
-        Choose a shorter context ↑
-      </button>
+      <Button className={styles.shorter} color="accent1" onClick={onChooseShorter} size="sm" variant="outlined">
+        Choose a shorter context
+      </Button>
     </div>
   );
 }

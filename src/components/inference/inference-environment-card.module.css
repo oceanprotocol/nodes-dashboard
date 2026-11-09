@@ -78,6 +78,14 @@
       white-space: nowrap;
     }
 
+    .blockedReason {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin: 0;
+      max-width: 280px;
+      text-align: right;
+    }
+
     .envResources {
       display: flex;
       flex-direction: column;
@@ -125,6 +133,12 @@
             display: flex;
             flex-wrap: wrap;
             gap: 4px;
+
+            .inUse {
+              color: var(--text-secondary);
+              font-size: 12px;
+              margin-left: 4px;
+            }
           }
 
           .countStatic {
