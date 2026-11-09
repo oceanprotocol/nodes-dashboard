@@ -8,6 +8,7 @@ import InferenceHydrationError from '@/components/inference/inference-hydration-
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
 import InferenceNavigation from '@/components/inference/inference-navigation';
 import InferenceStepper from '@/components/inference/inference-stepper';
+import ServicePasswordInput from '@/components/inference/service-password-input';
 import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
@@ -18,6 +19,7 @@ import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
+import { isValidServicePassword, SERVICE_PASSWORD_ENV } from '@/lib/service-password';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
@@ -75,6 +77,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     templateEnvValues,
     hfToken,
     servicePassword,
+    setServicePassword,
     hydrateFromUrlFinished,
     hydrationFailed,
     buildSelectionQuery,
@@ -427,7 +430,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             query: router.query,
           });
         } else if (!isProlongMode && requiredEnvVars(selectedTemplate).some((spec) => !templateEnvValues[spec.key])) {
-          // Env values live in memory only: a reload lands here without the password, and a service without it exits at once.
+          // Env values live in memory only: a reload lands here without the password, and the dashboard never launches without one.
           router.replace({
             pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/config`,
             query: router.query,
@@ -1021,6 +1024,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     branch,
   ]);
 
+  // Quick start goes from the package page straight here, so this is where its user sees the password.
+  const asksPassword = flowType === InferenceFlowType.DefaultModel && !isProlongMode;
+
   const goToNextStep = useCallback(async () => {
     // Bail synchronously if a launch is already running — the disabled button only guards the NEXT
     // render, so a double-click before that commit would otherwise fire two escrow txs / launches.
@@ -1044,6 +1050,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // the running service already holds the GPU.
       if (isProlongMode) {
         await prolongService();
+        return;
+      }
+      if (asksPassword && !isValidServicePassword(servicePassword)) {
+        setLaunchError(`${SERVICE_PASSWORD_ENV} must be 1-256 characters with no spaces.`);
         return;
       }
       // Template flow: edit re-entry reconfigures the running service in place (serviceRestart, same
@@ -1074,6 +1084,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     isEditMode,
     relaunchService,
     runFreshLaunch,
+    asksPassword,
+    servicePassword,
     launchMode,
     totalCost,
     selectedToken,
@@ -1194,6 +1206,19 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     gpuSelection={gpuSelection}
                     sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}
+                  />
+                </>
+              )}
+              {asksPassword && (
+                <>
+                  <div className={styles.sectionHead}>
+                    <h3>Password</h3>
+                  </div>
+                  <ServicePasswordInput
+                    label={SERVICE_PASSWORD_ENV}
+                    name={SERVICE_PASSWORD_ENV}
+                    onChange={setServicePassword}
+                    value={servicePassword}
                   />
                 </>
               )}
