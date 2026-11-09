@@ -29,8 +29,7 @@ const ServicePasswordInput: React.FC<ServicePasswordInputProps> = ({ errorText, 
         <WarningAmberOutlinedIcon fontSize="small" />
         <div>
           <strong>Copy this password now and keep it safe.</strong>
-          You need it to open the app and to call its API. The dashboard does not keep it and cannot show it again. If
-          you lose it, set a new one with Edit.
+          You need it to open the app and to call its API. The dashboard does not keep it and cannot show it again.
         </div>
       </div>
     </div>
