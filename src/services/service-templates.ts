@@ -135,7 +135,8 @@ export async function fetchTemplates(
       // every other node call in this flow there is no auth token or per-address nonce to burn, so a
       // failed rung costs only its own round trip.
       const httpTemplates = await tryCatalogueTransport('http', (attemptSignal) =>
-        getServiceTemplates(DEFAULT_NODE_HTTP_URL, CHAIN_ID, attemptSignal)
+        // TEMP local test: catalogue from cp2. Revert before commit.
+        getServiceTemplates('https://cp2.oncompute.ai', CHAIN_ID, attemptSignal)
       );
       // A libp2p round trip has no timeout of its own: an unreachable node/relay leaves the promise
       // pending forever. That used to cost nothing, but the manage page now holds Edit/Prolong until
