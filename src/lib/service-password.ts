@@ -31,7 +31,7 @@ const BEARER = 'API: `Authorization: Bearer <password>`';
 const SIGN_IN_HELP: Record<string, string> = {
   vllm: `API key (\`api_key\` in OpenAI clients). ${BEARER}`,
   llamacpp: `Web UI: enter it as the API key in Settings. ${BEARER}`,
-  comfyui: `Browser: leave the username empty. ${BEARER}`,
+  comfyui: 'Browser: leave the username empty. API and MCP: `Authorization: Bearer <password>`',
   opencode: 'Username: `opencode`. API: `curl -u opencode:<password>`',
   'coding-agent-deepseek-v4-flash': 'Username: `dsh`',
   openclaw: 'Paste it as the token in the Control UI on your first visit',
