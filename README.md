@@ -10,11 +10,11 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 
 - **Node Explorer** – Browse and search all registered Ocean compute nodes with detailed stats, hardware specs, location, uptime, and benchmark history.
 - **Run a Job** – Step-by-step wizard to select a compute environment, configure resources (CPU, RAM, disk, GPU, duration) and pay for the job. This flow ends by opening the user's editor of choice, and running the job with the help of Ocean Orchestrator extension.
+- **Inference** – Launch model inference services from default models, custom Hugging Face models, or service templates, and manage running instances.
 - **Run a Node** – Guided setup flow for starting up a new Ocean compute node.
 - **Global Stats** – Network-wide analytics: total nodes, jobs, rewards, GPU popularity, and country distribution.
-- **Profile** – Per-wallet view of owned nodes, rewards history, and associated jobs.
-- **Subsidy Flow** – Token subsidy mechanism backed by a Google Sheets ledger and Gemini AI integration.
-- **Withdraw** – Utility page for token withdrawal.
+- **Account** – Per-wallet hub: compute consumer and node owner activity, escrow funds (deposit/withdraw), subsidy, access lists, remote storage, and node auth tokens.
+- **Subsidy Flow** – Token subsidy mechanism backed by a Google Sheets ledger, Gemini AI verification, and an on-chain access list.
 - **Web3 Wallet Support** – Two independent paths: native wallets connect via EIP-6963 discovery + Ethers.js, and email magic link / passkey / Google OAuth go through Privy + Alchemy Account Kit to a smart contract account.
 - **ENS Resolution** – Display human-readable ENS names for wallet addresses.
 - **Analytics** – Dedicated analytics layer (summaries, rewards history, GPU stats) from the `analytics` backend.
@@ -45,7 +45,7 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 
 ### Prerequisites
 
-- Node.js `20.16.0` (see `.nvmrc`)
+- Node.js version pinned in `.nvmrc`
 - Yarn 4 – enabled via Corepack: `corepack enable`
 
 ### Install dependencies
@@ -56,10 +56,10 @@ yarn install
 
 ### Configure environment variables
 
-Copy `.env` and fill in the required values (see [Environment Variables](#environment-variables) below):
+Copy `.env.example` and fill in the required values (see [Environment Variables](#environment-variables) below):
 
 ```bash
-cp .env .env.local
+cp .env.example .env.local
 ```
 
 ### Run the development server
@@ -94,48 +94,62 @@ yarn start
 
 ## Environment Variables
 
-Create a `.env.local` file (or configure your deployment environment) with the following variables.
+Create a `.env.local` file from [`.env.example`](.env.example) (or configure your deployment environment) with the following variables. Unless marked optional, a variable is required.
 
 ### App
 
-| Variable                            | Description                                                                                                                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_APP_ENV`               | `"development"` or `"production"`. Controls which backend URLs are used and which chain tokens are on (ETH Sepolia or BASE).                                                          |
-| `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS` | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia. |
-| `NEXT_PUBLIC_OUTAGE_BANNER_ENABLED` | Optional. Set to `"true"` to show the outage banner on every page.                                                                                                                    |
-| `NEXT_PUBLIC_OUTAGE_BANNER_MESSAGE` | Banner text. Supports headings (`#`, `##`, `###` at line start), `**bold**`, `*italic*`, `` `code` ``, `[link](https://...)` and line breaks (`\n`). Raw HTML is shown as plain text. |
+| Variable                            | Description                                                                                                                                                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_APP_ENV`               | `"production"` selects Base mainnet and production backends. Any other value (e.g. `"development"`) selects Ethereum Sepolia and dev backends.                                                  |
+| `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS` | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia.           |
+| `NEXT_PUBLIC_OUTAGE_BANNER_ENABLED` | Optional. Set to `"true"` to show the outage banner on every page.                                                                                                                              |
+| `NEXT_PUBLIC_OUTAGE_BANNER_MESSAGE` | Optional. Banner text. Supports headings (`#`, `##`, `###` at line start), `**bold**`, `*italic*`, `` `code` ``, `[link](https://...)` and line breaks (`\n`). Raw HTML is shown as plain text. |
 
-### Alchemy
+### Auth & Wallets
 
-| Variable                        | Description                                                            |
-| ------------------------------- | ---------------------------------------------------------------------- |
-| `ALCHEMY_RPC_URL`               | Alchemy RPC endpoint (Ethereum mainnet for dev, Base mainnet for prod) |
-| `NEXT_PUBLIC_ALCHEMY_API_KEY`   | Alchemy API key                                                        |
-| `NEXT_PUBLIC_ALCHEMY_POLICY_ID` | Alchemy gas policy ID                                                  |
+| Variable                        | Description                                                                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_PRIVY_APP_ID`      | Privy app ID used for login                                                                                                                        |
+| `NEXT_PUBLIC_ALCHEMY_API_KEY`   | Alchemy API key for smart contract accounts                                                                                                        |
+| `NEXT_PUBLIC_ALCHEMY_POLICY_ID` | Alchemy gas sponsorship policy ID                                                                                                                  |
+| `NEXT_PUBLIC_APP_URL`           | Public app URL used as the Google login redirect (e.g. `http://localhost:3000`)                                                                    |
+| `ALCHEMY_RPC_URL`               | Production only. Base mainnet Alchemy RPC URL, used server-side and behind the `/api/rpc` proxy. In development the app uses a public Sepolia RPC. |
+
+### Fiat On-Ramp
+
+| Variable                                | Description                                                         |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| `NEXT_PUBLIC_RAMP_API_KEY`              | Ramp host API key for card top-ups                                  |
+| `NEXT_PUBLIC_RAMP_GET_STATUS_INTERVAL`  | Optional. Top-up status polling interval in ms. Defaults to `5000`. |
+| `NEXT_PUBLIC_RAMP_GET_STATUS_MAX_TRIES` | Optional. Max top-up status polls. Defaults to `20`.                |
 
 ### Subsidy Flow
 
-| Variable                                      | Description                                                                                 |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY`                              | Google Gemini API key used in the subsidy AI flow                                           |
-| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                                              |
-| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account                                                  |
-| `SUBSIDY_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for the subsidy ledger                                         |
-| `SUBSIDY_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                                                       |
-| `SUBSIDY_GMAIL_ADDRESS`                       | Gmail address used to send subsidy confirmation emails                                      |
-| `SUBSIDY_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                                       |
-| `SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                                   |
-| `SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                                   |
-| `SUBSIDY_ACCESS_LIST_ADDRESS`                 | Subsidy AccessList contract that claimed wallets are added to                               |
-| `SUBSIDY_ACCESS_LIST_PRIVATE_KEY`             | Private key of a wallet allowed to mint on that access list (server-side only, keep secret) |
-| `NEXT_PUBLIC_SUBSIDY_PROVIDERS`               | Comma-separated subsidy provider addresses for the active chain                             |
+| Variable                                      | Description                                                                       |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                              | Google Gemini API key used in the subsidy AI flow                                 |
+| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_EMAIL`       | Google service account email for Sheets access                                    |
+| `SUBSIDY_GSHEETS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key for the Google service account, with line breaks escaped as `\n`      |
+| `SUBSIDY_GSHEETS_SPREADSHEET_ID`              | Google Sheets spreadsheet ID for the subsidy ledger                               |
+| `SUBSIDY_GSHEETS_SHEET_NAME`                  | Sheet/tab name within the spreadsheet                                             |
+| `SUBSIDY_GMAIL_ADDRESS`                       | Gmail address used to send subsidy confirmation emails                            |
+| `SUBSIDY_GMAIL_OAUTH_CLIENT_ID`               | Gmail OAuth client ID                                                             |
+| `SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET`           | Gmail OAuth client secret                                                         |
+| `SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN`           | Gmail OAuth refresh token                                                         |
+| `SUBSIDY_ACCESS_LIST_ADDRESS`                 | Subsidy AccessList contract on the active chain that claimed wallets are added to |
+| `SUBSIDY_ACCESS_LIST_PRIVATE_KEY`             | Private key of a wallet allowed to mint on that access list                       |
+| `NEXT_PUBLIC_SUBSIDY_PROVIDERS`               | Comma-separated subsidy provider addresses for the active chain                   |
 
-### Compute
+### Compute & Inference
 
-| Variable               | Description                                                                                                                                                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_GPU_LIST` | Comma-separated list of supported GPU models shown in the job wizard                                                                                                                           |
-| `NEXT_PUBLIC_VLLM_TAG` | Optional. Fallback Docker tag for `vllm/vllm-openai`. Defaults to pinned stable `v0.28.0`; models that require a newer architecture use their official model-specific image tag automatically. |
+| Variable                             | Description                                                                                                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_GPU_LIST`               | Comma-separated list of supported GPU models shown in the job and inference wizards                                                                                                            |
+| `NEXT_PUBLIC_DEFAULT_MODEL_PEER_IDS` | Optional. Comma-separated node peer IDs whose service templates populate the default-model quick-start packages. When unset, the quick-start list is empty.                                    |
+| `NEXT_PUBLIC_VLLM_TAG`               | Optional. Fallback Docker tag for `vllm/vllm-openai`. Defaults to pinned stable `v0.28.0`; models that require a newer architecture use their official model-specific image tag automatically. |
+| `NEXT_PUBLIC_LLAMACPP_IMAGE`         | Optional. llama.cpp Docker image. Defaults to `ghcr.io/ggml-org/llama.cpp`.                                                                                                                    |
+| `NEXT_PUBLIC_LLAMACPP_TAG`           | Optional. llama.cpp CPU image tag. Defaults to `server`.                                                                                                                                       |
+| `NEXT_PUBLIC_LLAMACPP_TAG_CUDA`      | Optional. llama.cpp CUDA image tag. Defaults to `server-cuda`.                                                                                                                                 |
 
 The Custom Models configuration keeps the fallback per deployment but also exposes a per-model
 vLLM runtime selector. Its automatic setting selects `qwen38-flash-next` for
@@ -150,10 +164,10 @@ for other models.
 
 The app connects to two backend environments, selected automatically via `NEXT_PUBLIC_APP_ENV`:
 
-| Environment   | (Incentive) API                              | Analytics API                              |
-| ------------- | -------------------------------------------- | ------------------------------------------ |
-| `development` | `https://incentive-backend.oceanprotocol.io` | `https://analytics.nodes.oceanprotocol.io` |
-| `production`  | `https://api.oncompute.ai`                   | `https://analytics.oncompute.ai`           |
+| Environment   | (Incentive) API                | Analytics API                        |
+| ------------- | ------------------------------ | ------------------------------------ |
+| `development` | `https://api-dev.oncompute.ai` | `https://analytics-dev.oncompute.ai` |
+| `production`  | `https://api.oncompute.ai`     | `https://analytics.oncompute.ai`     |
 
 ENS resolution always uses: `https://ens-proxy.oceanprotocol.com/api`
 
@@ -181,20 +195,23 @@ Token contracts:
 ```
 src/
 ├── pages/          # Next.js pages (routes)
-│   ├── index.tsx           # Home / node map
-│   ├── nodes/              # Node explorer & detail
+│   ├── index.tsx           # Home
+│   ├── nodes/              # Node detail
+│   ├── nodes/[nodeId]/storage/ # Node persistent storage (buckets & files)
+│   ├── compute/            # Compute landing
 │   ├── run-job/            # Compute job wizard
+│   ├── inference/          # Inference models, templates, services & instances
 │   ├── run-node/           # Node setup wizard
 │   ├── stats.tsx           # Global network stats
 │   ├── leaderboard.tsx     # Leaderboard
-│   ├── profile/            # Per-wallet profile
+│   ├── account/            # Per-wallet account hub (activity, escrow, subsidy, access)
 │   ├── subsidy/            # Subsidy flow
-│   ├── nodes/[nodeId]/storage/ # Node persistent storage (buckets & files)
-│   ├── withdraw.tsx        # Token withdrawal
-│   └── api/                # Next.js API routes (server-side)
+│   └── api/                # Next.js API routes (RPC proxy, Docker tags, subsidy)
 ├── components/     # Reusable UI components
 ├── context/        # React context providers
+├── contexts/       # React context providers
 ├── hooks/          # Custom React hooks
+├── data/           # Static data (e.g. inference quick-start packages)
 ├── services/       # Custom service functions
 ├── api-services/   # BFF API service functions
 ├── utils/          # Utility functions
