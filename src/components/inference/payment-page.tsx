@@ -430,7 +430,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
             query: router.query,
           });
         } else if (!isProlongMode && requiredEnvVars(selectedTemplate).some((spec) => !templateEnvValues[spec.key])) {
-          // Env values live in memory only: a reload lands here without the password, and the dashboard never launches without one.
+          // Env values live in memory only: a reload lands here without the password, and a service without it exits at once.
           router.replace({
             pathname: `${detailsPath(INFERENCE_PATHS.services, params.templateId ?? '')}/config`,
             query: router.query,
