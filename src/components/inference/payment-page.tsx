@@ -522,12 +522,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   }, [buildSelectionQuery]);
 
   // Open the manage page first: this page's guards send a missing password back to config.
+  // The service is already running, so a failed or cancelled navigation is not a launch error.
   const openLaunchedService = useCallback(
     async (serviceId: string) => {
-      await router.push({
-        pathname: `/inference/instances/${encodeURIComponent(serviceId)}`,
-        query: buildManageQuery(),
-      });
+      await router
+        .push({
+          pathname: `/inference/instances/${encodeURIComponent(serviceId)}`,
+          query: buildManageQuery(),
+        })
+        .catch(() => false);
       forgetServicePassword();
     },
     [router, buildManageQuery, forgetServicePassword]
