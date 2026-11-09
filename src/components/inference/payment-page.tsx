@@ -19,7 +19,12 @@ import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
-import { generateServicePassword, isValidServicePassword, SERVICE_PASSWORD_ENV } from '@/lib/service-password';
+import {
+  generateServicePassword,
+  isValidServicePassword,
+  SERVICE_PASSWORD_ENV,
+  SERVICE_PASSWORD_RULE,
+} from '@/lib/service-password';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
@@ -1072,7 +1077,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         return;
       }
       if (asksPassword && !isValidServicePassword(servicePassword)) {
-        setLaunchError(`${SERVICE_PASSWORD_ENV} must be 1-256 characters with no spaces.`);
+        setLaunchError(SERVICE_PASSWORD_RULE);
         return;
       }
       // Template flow: edit re-entry reconfigures the running service in place (serviceRestart, same

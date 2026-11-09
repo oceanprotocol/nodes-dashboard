@@ -1,6 +1,12 @@
 export const SERVICE_PASSWORD_ENV = 'SERVICE_PASSWORD';
 
-export const isValidServicePassword = (value: string) => /^\S{1,256}$/.test(value);
+// Caddy basic auth hashes with bcrypt, which refuses more than 72 bytes.
+const MAX_PASSWORD_BYTES = 72;
+
+export const isValidServicePassword = (value: string) =>
+  /^\S+$/.test(value) && new TextEncoder().encode(value).length <= MAX_PASSWORD_BYTES;
+
+export const SERVICE_PASSWORD_RULE = `${SERVICE_PASSWORD_ENV} must be 1-${MAX_PASSWORD_BYTES} characters with no spaces.`;
 
 const PASSWORD_LENGTH = 24;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

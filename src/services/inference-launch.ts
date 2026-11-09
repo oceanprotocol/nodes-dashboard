@@ -1,7 +1,7 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { SelectedInferenceEnv } from '@/context/inference-context';
-import { SERVICE_PASSWORD_ENV } from '@/lib/service-password';
+import { isValidServicePassword, SERVICE_PASSWORD_ENV, SERVICE_PASSWORD_RULE } from '@/lib/service-password';
 import { buildModelDefaults } from '@/services/huggingface-service';
 import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
 import { VLLM_GATE_ENTRYPOINT } from '@/services/vllm-gate';
@@ -435,6 +435,10 @@ export function buildUserData(
   engine: InferenceEngine,
   servicePassword: string
 ): Record<string, string> {
+  // An empty LLAMA_API_KEY turns llama.cpp auth off. Never launch an open endpoint.
+  if (!isValidServicePassword(servicePassword)) {
+    throw new Error(SERVICE_PASSWORD_RULE);
+  }
   return {
     NCCL_NVLS_ENABLE: '0',
     ...(hfToken ? { HF_TOKEN: hfToken } : {}),

@@ -12,7 +12,12 @@ import SectionTitle from '@/components/section-title/section-title';
 import { useInferenceContext } from '@/context/inference-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
-import { generateServicePassword, isValidServicePassword, SERVICE_PASSWORD_ENV } from '@/lib/service-password';
+import {
+  generateServicePassword,
+  isValidServicePassword,
+  SERVICE_PASSWORD_ENV,
+  SERVICE_PASSWORD_RULE,
+} from '@/lib/service-password';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
 import { recallTemplateEnv } from '@/services/template-env-memory';
 import { templateNeedsBucketPicker, WORKFLOW_ENV_VAR_KEYS } from '@/services/template-launch';
@@ -244,7 +249,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
     setSubmitError(null);
     if (isCustomModelFlow) {
       if (!isValidServicePassword(servicePassword)) {
-        setSubmitError(`${SERVICE_PASSWORD_ENV} must be 1-256 characters with no spaces.`);
+        setSubmitError(SERVICE_PASSWORD_RULE);
         return;
       }
       // A card still mounting (loading its HF config) has no imperative handle yet — treat that as
@@ -288,7 +293,7 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
         } else if (
           spec.key === SERVICE_PASSWORD_ENV ? !isValidServicePassword(value) : !validateEnvValue(spec, value)
         ) {
-          errors[spec.key] = `Invalid ${spec.key} format.`;
+          errors[spec.key] = spec.key === SERVICE_PASSWORD_ENV ? SERVICE_PASSWORD_RULE : `Invalid ${spec.key} format.`;
         }
       }
       if (Object.keys(errors).length > 0) {
