@@ -19,6 +19,24 @@ export function fromSeconds(seconds: number, unit: DurationUnit): number {
   return dayjs.duration(seconds, 'seconds').as(unit);
 }
 
+/** When a session of `seconds` started now would end: "22:38" today, else "Tue 09:40". */
+export function formatSessionEnd(seconds: number): string {
+  const now = dayjs();
+  const end = now.add(seconds, 'second');
+  return end.isSame(now, 'day') ? end.format('HH:mm') : end.format('ddd HH:mm');
+}
+
+/** A session length in its largest readable unit: "2 h", "1.5 h", "45 min". */
+export function formatSessionLength(seconds: number): string {
+  if (seconds >= 3600) {
+    return `${Number((seconds / 3600).toFixed(2))} h`;
+  }
+  if (seconds >= 60) {
+    return `${Number((seconds / 60).toFixed(1))} min`;
+  }
+  return `${seconds} s`;
+}
+
 /**
  * Billable minutes for a paid compute/service window, mirroring ocean-node's
  * `calculateResourcesCost`: the requested duration is floored at the environment's

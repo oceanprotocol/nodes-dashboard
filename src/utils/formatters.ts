@@ -151,6 +151,10 @@ export const formatHMS = (totalSeconds: number): string => {
  * @param short if true, the units will be shorter (h instead of hours, m instead of minutes, s instead of seconds)
  * @returns formatted duration string
  */
+/** An hourly rate from a per-minute price, e.g. "0.3 USDC/hr". */
+export const formatHourlyRate = (pricePerMinute: number, tokenAddress: string, symbol: string): string =>
+  `${formatTokenAmount(pricePerMinute * 60, tokenAddress)} ${symbol}/hr`;
+
 export const formatDuration = (totalSeconds: number | null | undefined, short?: boolean): string => {
   const sec = Math.round(totalSeconds ?? 0);
   // if the duration can be divided in hours, show it in hours
