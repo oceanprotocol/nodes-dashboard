@@ -194,7 +194,7 @@ const SubsidySection = () => {
               </Button>
             }
             chip={<span className="chip chipWarning">Email not verified</span>}
-            subtitle={[appliedOn ? `Applied ${appliedOn}` : null, subsidyInfo.maskedEmail].filter(Boolean).join(' · ')}
+            subtitle={appliedOn ? `Applied ${appliedOn}` : null}
           />
           <FlowSteps steps={getProgressSteps(SubsidyStatus.PENDING)} title="Subsidy progress" />
           <SubsidyTiles muted />

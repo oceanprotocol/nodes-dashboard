@@ -33,8 +33,6 @@ export type SubmitSubsidyDetailsResponse = {
 export type SubsidyStatusResponse = {
   applicationDate?: string;
   claimDate?: string;
-  /** Masked: the endpoint is unauthenticated. */
-  maskedEmail?: string;
   otpExpires?: number;
   otpLastResent?: number;
   otpLocked?: boolean;
