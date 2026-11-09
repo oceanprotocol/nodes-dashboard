@@ -17,13 +17,14 @@ import {
   MODEL_PARAM_BOUNDS,
 } from '@/services/huggingface-service';
 import { VLLM_TAG } from '@/services/inference-launch';
+import { firstQueryValue } from '@/services/inference-url';
 import { getArchitectureIncompatibility } from '@/services/model-compatibility';
 import {
   bookedVramGb,
   customModelSizing,
-  estimateModelVramGb,
-  vramFitMessage,
-  vramShortfallMessage,
+  maxFittingContext,
+  SIZING_CONTEXT_QUERY_KEY,
+  sizingContextFromQuery,
 } from '@/services/vram-estimate';
 import {
   HuggingFaceModelConfig,
@@ -37,7 +38,7 @@ import {
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
-import { planGpuCount, validatePlanFor } from '@/utils/env-resources';
+import { formatGpuLayouts, planGpuCount, validatePlanFor } from '@/utils/env-resources';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -46,6 +47,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
 import cx from 'classnames';
 import { useFormik } from 'formik';
+import { useRouter } from 'next/router';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import styles from './model-parameters.module.css';
 
@@ -389,6 +391,15 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // Derive the model-specific tag from the HF model name and verify that exact tag on Docker Hub.
   const { modelTag: discoveredVllmTag, loading: modelTagLoading } = useVllmModelTag(modelId, engine === 'vllm');
 
+  // The context the env step sized the booking for (`ctx`, see SIZING_CONTEXT_QUERY_KEY) pre-fills Max
+  // context on a first visit, so the defaults match the GPUs the picker listed. A package — handed off
+  // (`pkg`) or being edited as a quick-start service (`appType=default-model`) — was sized from its own
+  // declared requirement, so the estimate's fit check is skipped for it.
+  const router = useRouter();
+  const sizingContext = sizingContextFromQuery(router.query[SIZING_CONTEXT_QUERY_KEY]);
+  const isPackageHandoff =
+    !!firstQueryValue(router.query.pkg) || firstQueryValue(router.query.appType) === 'default-model';
+
   // Prefill from committed/restored context params (else HF-derived defaults). Keyed on this model's
   // params so an unrelated model's commit doesn't reinitialize this card. Defaults spread underneath
   // so a params object from an older URL lacking newer fields is completed, not left partial. The
@@ -397,17 +408,78 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const committedParams = modelParamsByModel[modelId];
   const initialValues = useMemo(() => {
     const defaults = buildModelDefaults(defaultsConfig, modelId, engine);
-    return committedParams && committedParams.engine === engine
-      ? ({ ...defaults, ...committedParams } as ModelParametersType)
-      : defaults;
-  }, [committedParams, defaultsConfig, modelId, engine]);
+    if (committedParams && committedParams.engine === engine) {
+      return { ...defaults, ...committedParams } as ModelParametersType;
+    }
+    if (defaults.engine === 'vllm' && sizingContext !== null) {
+      const ceiling = defaultsConfig?.maxContext ?? null;
+      return { ...defaults, maxContext: ceiling !== null ? Math.min(sizingContext, ceiling) : sizingContext };
+    }
+    return defaults;
+  }, [committedParams, defaultsConfig, modelId, engine, sizingContext]);
+
+  // Whether the launch settings still fit the booked GPUs, by the same per-width estimate the env picker
+  // listed environments with (customModelSizing) — blocking, like that filter. Context, precision,
+  // quantization and the memory share all move the estimate, so this re-runs on every edit. A misfit
+  // names the largest context that would fit, or says none does with these settings. Also blocks a booked
+  // width the model's heads can't split across (vLLM refuses to start).
+  const selectedModel = selectedModels.find((m) => m.id === modelId);
+  const fitError = useCallback(
+    (values: ModelParametersType): string | null => {
+      if (values.engine !== 'vllm' || isPackageHandoff || !selectedModel || !selectedEnv || bookedGpus < 1) {
+        return null;
+      }
+      const sizingFor = (params: ModelParametersType) =>
+        customModelSizing({ model: selectedModel, config, params, engine: 'vllm' });
+      const sizing = sizingFor(values);
+      if (sizing.widths && !sizing.widths.includes(bookedGpus)) {
+        return `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM would refuse to start. Go back and book one of those counts.`;
+      }
+      const plan = selectedEnv.gpuPlan;
+      if (!sizing.requirement || !plan) {
+        return null;
+      }
+      const fits = (params: ModelParametersType) => {
+        const requirement = sizingFor(params).requirement;
+        return (
+          !requirement ||
+          validatePlanFor({ environment: selectedEnv.environment, demand: { kind: 'vram', requirement }, plan }).ok
+        );
+      };
+      if (fits(values)) {
+        return null;
+      }
+      const booked = bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection);
+      const gpus = `the ${bookedGpus} booked GPU${bookedGpus === 1 ? '' : 's'}${booked === null ? '' : ` (${Math.floor(booked)} GB)`}`;
+      const need = formatGpuLayouts(sizing.requirement);
+      const ceiling = contextCeiling ?? Math.max(values.maxContext ?? 0, contextFloor);
+      const fittingContext = maxFittingContext(
+        (tokens) => fits({ ...values, maxContext: tokens }),
+        contextFloor,
+        ceiling
+      );
+      return fittingContext !== null
+        ? `Doesn't fit ${gpus} at this context: estimated to need ${need}. Lower Max context to ${fittingContext} or less, or go back and book more GPUs.`
+        : `Doesn't fit ${gpus} with these settings at any context: estimated to need ${need}. Use a quantized variant or FP8 quantization, or go back and book more GPUs.`;
+    },
+    [isPackageHandoff, selectedModel, selectedEnv, bookedGpus, config, contextCeiling, contextFloor]
+  );
 
   const formik = useFormik<ModelParametersType>({
     enableReinitialize: true,
     initialValues,
-    validate: (v) => validateParams(v, contextCeiling, contextFloor, bookedGpus),
+    validate: (v) => {
+      const errors = validateParams(v, contextCeiling, contextFloor, bookedGpus);
+      const fit = fitError(v);
+      if (fit) {
+        errors.vramFit = fit;
+      }
+      return errors;
+    },
     onSubmit: () => {},
   });
+  // Shown as soon as it applies, not only after a submit: it explains why Continue is blocked.
+  const vramFitError = useMemo(() => fitError(formik.values), [fitError, formik.values]);
 
   // Show a field error only once the user has touched it. Typed loosely (string) because the field
   // set differs per engine branch — the form values are a discriminated union.
@@ -531,54 +603,6 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       formik.setFieldValue('tensorParallelSize', bookedGpus);
     }
   }, [bookedGpus, formik]);
-
-  // Advisory fit check, recomputed as the context / precision / quantization / memory share change: the
-  // same per-width estimate the env picker filtered with (customModelSizing), checked against the
-  // booked GPUs of the active group. Also flags a booked width the model's heads can't split across.
-  // A warning, never a block — the picker's "show all GPUs" path is allowed to book anything.
-  const selectedModel = selectedModels.find((m) => m.id === modelId);
-  const paramCount = selectedModel?.paramCount;
-  const vramWarning = useMemo(() => {
-    const values = formik.values;
-    if (values.engine !== 'vllm' || !selectedEnv) {
-      return null;
-    }
-    const booked = bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection);
-    const sizing =
-      selectedModel && config
-        ? customModelSizing({ model: selectedModel, config, params: values, engine: 'vllm' })
-        : null;
-    const warnings: string[] = [];
-    if (sizing?.widths && bookedGpus > 0 && !sizing.widths.includes(bookedGpus)) {
-      warnings.push(
-        `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM will refuse to start. Go back and book one of those counts.`
-      );
-    }
-    if (sizing?.requirement && selectedEnv.gpuPlan && bookedGpus > 0) {
-      const check = validatePlanFor({
-        environment: selectedEnv.environment,
-        demand: { kind: 'vram', requirement: sizing.requirement },
-        plan: selectedEnv.gpuPlan,
-      });
-      if (!check.ok) {
-        warnings.push(vramFitMessage(sizing.requirement, bookedGpus, booked));
-      }
-    } else if (!sizing?.requirement) {
-      const estimate = estimateModelVramGb({
-        paramCount,
-        quantization: values.quantization,
-        dtype: values.dtype,
-        checkpointQuantization: config?.quantizationMethod,
-        torchDtype: config?.torchDtype,
-        gpuMemoryUtilization: values.gpuMemoryUtilization,
-      });
-      const shortfall = vramShortfallMessage(estimate, booked);
-      if (shortfall) {
-        warnings.push(shortfall);
-      }
-    }
-    return warnings.length > 0 ? warnings.join(' ') : null;
-  }, [formik.values, selectedModel, paramCount, config, selectedEnv, bookedGpus]);
 
   // vLLM cold launch flags — how the server loads and runs the raw HF weights. `v` is the narrowed
   // vLLM branch of the form values (writes still go through formik by field name).
@@ -772,9 +796,9 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               valueLabelFormat={(value) => String(value)}
             />
           )}
-          {vramWarning && (
-            <div className="textSecondary" role="status">
-              {vramWarning}
+          {vramFitError && (
+            <div className="textError" role="alert">
+              {vramFitError}
             </div>
           )}
           <Select<KvCacheDtype>

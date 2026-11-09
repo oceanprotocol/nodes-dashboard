@@ -3,11 +3,19 @@ import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useCustomModelSizing from '@/components/hooks/use-custom-model-sizing';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
+import CustomModelSizingPanel, {
+  ContextChoice,
+  CustomModelSizingPanelHandle,
+  FitSummary,
+  formatTokensShort,
+  NoFitCard,
+  SizingLayout,
+  SizingListHeader,
+} from '@/components/inference/custom-model-sizing-panel';
 import DeclaredResources from '@/components/inference/declared-resources';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import DurationInput from '@/components/input/duration-input';
 import Select from '@/components/input/select';
-import Switch from '@/components/switch/switch';
 import { CHAIN_ID } from '@/constants/chains';
 import { isInferenceNode } from '@/constants/nodes';
 import { getSupportedTokens } from '@/constants/tokens';
@@ -15,18 +23,23 @@ import { useInferenceContext } from '@/context/inference-context';
 import { DEFAULT_FILTERS, RawFilters, useRunJobEnvsContext } from '@/context/run-job-envs-context';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
-import { estimateModelsVramGb } from '@/services/vram-estimate';
+import {
+  FALLBACK_CONTEXT_TOKENS,
+  SIZING_CONTEXT_OPTIONS,
+  SIZING_CONTEXT_QUERY_KEY,
+  sizingContextFromQuery,
+} from '@/services/vram-estimate';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import {
   demandOf,
-  formatGpuLayouts,
   GpuDemand,
   gpuGroupKey,
   GpuPlan,
   isBenchmarkEnv,
   isGpuResource,
+  layoutCardGb,
   planGpuDemand,
 } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
@@ -34,10 +47,13 @@ import { formatDuration } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { grantableAmount, type TemplateResourceRequirement } from '@oceanprotocol/lib';
 import { useFormik } from 'formik';
+import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
+
+const DEFAULT_CONTEXT_OPTION = 'default';
 
 /** Paid service-on-demand duration bounds for an env. Inference always uses a paid token, so the
  *  top-level bounds apply (not the `free.*` ones). */
@@ -185,37 +201,101 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
    * A hand-picked custom model declares nothing, so its constraints are derived here (the flow is capped
    * at one model): the tensor-parallel widths its attention heads allow — a HARD filter, an illegal count
    * (e.g. 3 on a 32-head model) is never offered — and an estimated VRAM requirement for its launch
-   * settings, a SOFT filter: environments and layouts that don't fit are hidden until the user asks to
-   * see every GPU (unverified). Unused once a template or package declares a recommendation.
+   * settings, also HARD, as a template's recommendation is: environments and layouts that can't hold it
+   * are not listed. The estimate is sized for the context the user picks here (the `ctx` query param,
+   * default the model's own maximum), since the KV cache at full context is often most of it; the
+   * config step pre-fills Max context with that choice. Unused once a template or package declares a
+   * recommendation.
    */
   const isCustomModelFlow = flowType === InferenceFlowType.CustomModel && !declaredResources;
   const customModel = isCustomModelFlow ? selectedModels[0] : undefined;
-  const { loading: sizingLoading, sizing: customSizing } = useCustomModelSizing({
+  const customModelParams = customModel ? modelParamsByModel[customModel.id] : undefined;
+  const router = useRouter();
+  const sizingContext = sizingContextFromQuery(router.query[SIZING_CONTEXT_QUERY_KEY]);
+  const {
+    loading: sizingLoading,
+    sizing: customSizing,
+    modelMaxContext,
+  } = useCustomModelSizing({
     enabled: isCustomModelFlow,
     model: customModel,
     engine,
-    params: customModel ? modelParamsByModel[customModel.id] : undefined,
+    params: customModelParams,
+    contextTokens: sizingContext,
     hfToken,
   });
+  const savedContext =
+    customModelParams?.engine === 'vllm' && customModelParams.maxContext && customModelParams.maxContext > 0
+      ? customModelParams.maxContext
+      : null;
+  // The default choice (no `ctx`) sizes for the committed Max context when there is one, else the model's own.
+  const defaultChoice: ContextChoice = savedContext
+    ? { value: DEFAULT_CONTEXT_OPTION, label: formatTokensShort(savedContext), suffix: 'saved' }
+    : modelMaxContext
+      ? { value: DEFAULT_CONTEXT_OPTION, label: formatTokensShort(modelMaxContext), suffix: 'max' }
+      : { value: DEFAULT_CONTEXT_OPTION, label: 'Max' };
+  // Keep a context restored from the URL visible even when it isn't one of the presets.
+  const contextOptions = useMemo(() => {
+    const below = SIZING_CONTEXT_OPTIONS.filter((tokens) => modelMaxContext === null || tokens < modelMaxContext);
+    return sizingContext !== null && !below.includes(sizingContext) ? [...below, sizingContext] : below;
+  }, [modelMaxContext, sizingContext]);
+  // No context to choose from: neither the model nor the committed params name one, so the estimate sizes
+  // the fallback (or a context the URL already carries) and the control only says which.
+  const contextUnknown = !sizingLoading && !!customSizing && modelMaxContext === null && savedContext === null;
+  const contextChoices = useMemo<ContextChoice[]>(
+    () =>
+      contextUnknown
+        ? [
+            sizingContext !== null
+              ? { value: String(sizingContext), label: formatTokensShort(sizingContext) }
+              : { value: DEFAULT_CONTEXT_OPTION, label: formatTokensShort(FALLBACK_CONTEXT_TOKENS), suffix: 'assumed' },
+          ]
+        : [
+            defaultChoice,
+            ...contextOptions.map((tokens) => ({ value: String(tokens), label: formatTokensShort(tokens) })),
+          ],
+    // defaultChoice is derived from the values listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contextUnknown, sizingContext, contextOptions, savedContext, modelMaxContext]
+  );
+  /** The context the estimate is sized for, as the list header and empty state name it. */
+  const sizedContextLabel = formatTokensShort(
+    sizingContext ?? savedContext ?? modelMaxContext ?? FALLBACK_CONTEXT_TOKENS
+  );
+  const sizingRequirement = customSizing?.requirement;
+  const sizingLayouts = useMemo<SizingLayout[] | null>(
+    () =>
+      sizingRequirement
+        ? (sizingRequirement.layouts ?? []).flatMap((layout) => {
+            const gb = layoutCardGb(sizingRequirement, layout);
+            return gb === undefined ? [] : [{ gpus: layout.gpuCount, gbPerGpu: Math.round(gb) }];
+          })
+        : null,
+    [sizingRequirement]
+  );
+  const sizingPanelRef = useRef<CustomModelSizingPanelHandle>(null);
+  const onSizingContextChange = (value: string) => {
+    const { [SIZING_CONTEXT_QUERY_KEY]: _dropped, ...rest } = router.query;
+    // Shallow: the URL carries the choice to the config step (and across a refresh); `ctx` is not part
+    // of the hydration signature, so this doesn't re-resolve the selection.
+    router.replace(
+      { query: value === DEFAULT_CONTEXT_OPTION ? rest : { ...rest, [SIZING_CONTEXT_QUERY_KEY]: value } },
+      undefined,
+      { shallow: true, scroll: false }
+    );
+  };
   const sessionSettingsRef = useRef<HTMLDivElement>(null);
   const [durationDraft, setDurationDraft] = useState(jobDurationSeconds);
   const durationError =
     !Number.isFinite(durationDraft) || durationDraft < 1 ? 'Enter a session length greater than zero.' : undefined;
-  const [showAllGpus, setShowAllGpus] = useState(false);
   const gpuDemand = useMemo<GpuDemand | undefined>(() => {
     if (!isCustomModelFlow || !customSizing) {
       return undefined;
     }
-    return customSizing.requirement && !showAllGpus
+    return customSizing.requirement
       ? { kind: 'vram', requirement: customSizing.requirement }
       : { kind: 'units', widths: customSizing.widths };
-  }, [isCustomModelFlow, customSizing, showAllGpus]);
-  // Coarse fallback for the advisory warning when there is no layout estimate: total VRAM from the
-  // parameter count. Never a filter.
-  const modelVramGb = useMemo(
-    () => (isCustomModelFlow && !customSizing?.requirement ? estimateModelsVramGb(selectedModels) : null),
-    [isCustomModelFlow, customSizing, selectedModels]
-  );
+  }, [isCustomModelFlow, customSizing]);
   // What the listed envs must satisfy: the custom-model estimate (`gpuDemand`) when the flow has one,
   // otherwise the template/package declared VRAM requirement. A `none` demand fits every env.
   const listDemand = useMemo<GpuDemand>(() => gpuDemand ?? demandOf(declaredResources), [gpuDemand, declaredResources]);
@@ -279,6 +359,18 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     });
     return result;
   }, [nodeEnvs, isListedEnv]);
+
+  const listedEnvCount = filteredNodeEnvs.reduce((sum, node) => sum + node.computeEnvironments.environments.length, 0);
+  /** The custom-model estimate is in and nothing listed holds it: the empty state points at the context. */
+  const noEnvFitsEstimate =
+    isCustomModelFlow && !!sizingRequirement && !sizingLoading && !loading && listedEnvCount === 0;
+  /** GPU counts an environment's free cards can book the estimate as, for its card's "Fits as …" line. */
+  const fitGpuCounts = (env: ComputeEnvironment): number[] =>
+    gpuDemand?.kind === 'vram'
+      ? [...new Set(planGpuDemand({ environment: env, demand: gpuDemand }).map((c) => c.layout?.gpuCount ?? 0))]
+          .filter((count) => count > 0)
+          .sort((x, y) => x - y)
+      : [];
 
   // Keep paging while the visible list is empty. loadMoreEnvs itself skips over pages that contribute
   // nothing bookable, so this fires once per stall rather than once per server page.
@@ -389,33 +481,19 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
         {declaredResources && <DeclaredResources recommended={declaredResources} />}
 
-        {isCustomModelFlow && customSizing && (
-          <div className="flexColumn gapSm" role="note">
-            {customSizing.widths && (
-              <div className="textSecondary">
-                This model&apos;s attention heads split across {customSizing.widths.join(', ')} GPU
-                {customSizing.widths.length === 1 && customSizing.widths[0] === 1 ? '' : 's'}, so only those counts are
-                offered.
-              </div>
-            )}
-            {customSizing.notes.map((note) => (
-              <div className="textSecondary" key={note}>
-                {note}
-              </div>
-            ))}
-            {customSizing.requirement && (
-              <Switch
-                checked={showAllGpus}
-                label={
-                  showAllGpus
-                    ? "Show all GPUs (unverified): GPUs below this model's estimated VRAM are offered too."
-                    : `Show all GPUs (unverified). Only GPUs that hold the estimated ${formatGpuLayouts(customSizing.requirement)} are shown now.`
-                }
-                name="showAllGpus"
-                onChange={(_, checked) => setShowAllGpus(checked)}
-              />
-            )}
-          </div>
+        {isCustomModelFlow && (sizingLoading || customSizing) && (
+          <CustomModelSizingPanel
+            contextChoices={contextChoices}
+            contextUnknown={contextUnknown}
+            contextValue={sizingContext === null ? DEFAULT_CONTEXT_OPTION : String(sizingContext)}
+            gaps={customSizing?.gaps}
+            highlightContext={noEnvFitsEstimate}
+            layouts={sizingLayouts}
+            loading={sizingLoading}
+            onContextChange={onSizingContextChange}
+            ref={sizingPanelRef}
+            widths={customSizing?.widths ?? null}
+          />
         )}
 
         {/* No <form> wrapper: the Selects drive Formik via onChange and the button submits explicitly,
@@ -539,51 +617,60 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           </div>
         </div>
         <div className={styles.list}>
-          {isCustomModelFlow && sizingLoading ? (
-            <p className="alignSelfCenter">Checking the model&apos;s GPU needs…</p>
-          ) : filteredNodeEnvs.length > 0 ? (
-            filteredNodeEnvs.map((node) =>
-              node.computeEnvironments.environments.map((env) => {
-                const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
-                const { min, max } = durationBounds(env);
-                const durationBlockedReason =
-                  durationError ??
-                  (jobDurationSeconds < min
-                    ? `Choose at least ${formatDuration(min)} for this environment.`
-                    : jobDurationSeconds > max
-                      ? `Choose ${formatDuration(max)} or less for this environment.`
-                      : undefined);
-                return (
-                  <div key={`${node.id}-${env.id}`} className={styles.environmentOption}>
-                    {!durationError && durationBlockedReason && (
-                      <p className={styles.durationNotice}>{durationBlockedReason}</p>
-                    )}
-                    <InferenceEnvironmentCard
-                      disabledReason={durationBlockedReason}
-                      // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
-                      // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
-                      // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
-                      allowZeroGpu={flowType === InferenceFlowType.Template}
-                      declaredRequirements={declaredResources}
-                      gpuDemand={gpuDemand}
-                      forcedGpuCount={forcedGpuCount}
-                      modelVramGb={modelVramGb ?? undefined}
-                      advisoryRequirement={isCustomModelFlow ? (customSizing?.requirement ?? undefined) : undefined}
-                      defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
-                      durationSeconds={jobDurationSeconds}
-                      environment={env}
-                      initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
-                      sizing={selectedEnv?.sizing}
-                      selected={isPriorSelection}
-                      nodeInfo={node}
-                      onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv, gpuPlan) =>
-                        handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection, gpuPlan)
-                      }
-                    />
-                  </div>
-                );
-              })
-            )
+          {isCustomModelFlow && sizingLoading ? null : filteredNodeEnvs.length > 0 ? (
+            <>
+              {isCustomModelFlow && sizingRequirement && (
+                <SizingListHeader context={sizedContextLabel} count={listedEnvCount} />
+              )}
+              {filteredNodeEnvs.map((node) =>
+                node.computeEnvironments.environments.map((env) => {
+                  const isPriorSelection =
+                    selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
+                  const { min, max } = durationBounds(env);
+                  const durationBlockedReason =
+                    durationError ??
+                    (jobDurationSeconds < min
+                      ? `Choose at least ${formatDuration(min)} for this environment.`
+                      : jobDurationSeconds > max
+                        ? `Choose ${formatDuration(max)} or less for this environment.`
+                        : undefined);
+                  return (
+                    <div key={`${node.id}-${env.id}`} className={styles.environmentOption}>
+                      {!durationError && durationBlockedReason && (
+                        <p className={styles.durationNotice}>{durationBlockedReason}</p>
+                      )}
+                      <InferenceEnvironmentCard
+                        disabledReason={durationBlockedReason}
+                        // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
+                        // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
+                        // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
+                        allowZeroGpu={flowType === InferenceFlowType.Template}
+                        declaredRequirements={declaredResources}
+                        gpuDemand={gpuDemand}
+                        forcedGpuCount={forcedGpuCount}
+                        defaultToken={Array.isArray(filters.feeToken) ? undefined : filters.feeToken}
+                        durationSeconds={jobDurationSeconds}
+                        environment={env}
+                        initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
+                        sizing={selectedEnv?.sizing}
+                        selected={isPriorSelection}
+                        nodeInfo={node}
+                        onSelect={(tokenAddress, tokenSymbol, gpuSelection, pickedEnv, gpuPlan) =>
+                          handleSelect(node, pickedEnv, tokenAddress, tokenSymbol, gpuSelection, gpuPlan)
+                        }
+                        fitSummary={
+                          isCustomModelFlow && sizingRequirement ? (
+                            <FitSummary gpuCounts={fitGpuCounts(env)} />
+                          ) : undefined
+                        }
+                      />
+                    </div>
+                  );
+                })
+              )}
+            </>
+          ) : noEnvFitsEstimate ? (
+            <NoFitCard context={sizedContextLabel} onChooseShorter={() => sizingPanelRef.current?.focusContext()} />
           ) : (
             <p className="alignSelfCenter">{loading ? 'Loading environments…' : 'No environments found'}</p>
           )}

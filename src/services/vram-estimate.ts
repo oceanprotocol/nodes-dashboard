@@ -2,6 +2,7 @@ import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import { mapQuantization } from '@/services/huggingface-service';
 import { ComputeEnvironment } from '@/types/environments';
 import {
+  HfModelShape,
   HuggingFaceModel,
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -9,7 +10,7 @@ import {
   ModelParameters,
   ModelQuantization,
 } from '@/types/huggingface';
-import { formatGpuLayouts, gpuTypesOf } from '@/utils/env-resources';
+import { gpuTypesOf } from '@/utils/env-resources';
 import {
   deriveGpuLayouts,
   estimateHfSizingProfile,
@@ -18,18 +19,16 @@ import {
 } from '@oceanprotocol/lib';
 
 /**
- * A rough VRAM estimate for a custom Hugging Face model, which — unlike a template or a curated package —
- * declares no recommendation. It is ADVISORY ONLY: the env picker and the config step use it to warn that
- * a pick is likely too small, never to hide or block one, because the inputs are coarse (a parameter
- * count, not a measured profile) and a model can legitimately run tighter (short context, eager mode).
+ * A VRAM estimate for a custom Hugging Face model, which — unlike a template or a curated package —
+ * declares no recommendation. The env picker filters on it (only environments that hold the estimated
+ * layouts are listed) and the config step blocks launch settings that no longer fit the booked GPUs.
+ * The inputs are coarse (a parameter count and the config's KV shape, not a measured profile), so the
+ * picker lets the user choose the context to size for: the KV cache at the model's full context is
+ * often most of the estimate.
  *
  * weights = paramCount × bytes per parameter, from the launch quantization if one is set, else the
- * checkpoint's own quantization, else its dtype (bf16/fp16 = 2, fp32 = 4). The total adds 20% for the
- * KV cache, activations and CUDA graphs, and divides by `gpuMemoryUtilization` — the share of each card
- * vLLM is allowed to claim.
+ * checkpoint's own quantization, else its dtype (bf16/fp16 = 2, fp32 = 4).
  */
-const RUNTIME_HEADROOM = 1.2;
-
 function bytesPerParam({
   quantization,
   dtype,
@@ -53,40 +52,21 @@ function bytesPerParam({
   return effectiveDtype.includes('32') ? 4 : 2;
 }
 
-export type VramEstimateInput = {
-  paramCount?: number;
-  quantization?: ModelQuantization;
-  dtype?: ModelDtype;
-  checkpointQuantization?: string | null;
-  torchDtype?: string | null;
-  gpuMemoryUtilization?: number;
-};
-
 /**
- * COARSE fallback estimate of total VRAM (decimal GB, across all cards) to serve the model:
- * weights × a flat runtime margin (RUNTIME_HEADROOM) / util, with NO per-width KV-cache term and
- * no context awareness. The env picker (select-inference-environment) and model-parameters both
- * prefer `customModelSizing`'s per-width, KV-aware estimate and fall back to this only when a
- * profile can't be built (no readable config). Because the two are alternatives, never shown for
- * the same model at once, the coarse number here and the per-width layouts of `vramFitMessage`
- * cannot contradict each other on screen. Returns null when the weights can't be told.
+ * The context the env picker sizes a custom model for, carried between steps in the `ctx` query param
+ * (a token count). Absent = the model's own maximum, which is also what vLLM serves when
+ * `--max-model-len` is omitted. The config step pre-fills Max context with it.
  */
-export function estimateModelVramGb(input: VramEstimateInput): number | null {
-  if (!input.paramCount || input.paramCount <= 0) {
-    return null;
-  }
-  const util = input.gpuMemoryUtilization && input.gpuMemoryUtilization > 0 ? input.gpuMemoryUtilization : 0.9;
-  const weightsGb = (input.paramCount * bytesPerParam(input)) / 1e9;
-  return (weightsGb * RUNTIME_HEADROOM) / util;
-}
+export const SIZING_CONTEXT_QUERY_KEY = 'ctx';
 
-/** The custom flow's models, summed: each runs its own server on the same booked GPUs. */
-export function estimateModelsVramGb(models: Pick<HuggingFaceModel, 'paramCount'>[]): number | null {
-  const estimates = models.map((m) => estimateModelVramGb({ paramCount: m.paramCount }));
-  if (estimates.length === 0 || estimates.some((e) => e === null)) {
-    return null;
-  }
-  return estimates.reduce<number>((sum, e) => sum + (e ?? 0), 0);
+/** Context sizes the env picker offers below the model's own maximum. */
+export const SIZING_CONTEXT_OPTIONS = [8192, 32768, 131072];
+
+/** The sizing context named in the query, or null (model maximum) when absent or not a positive integer. */
+export function sizingContextFromQuery(value: string | string[] | undefined): number | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 /**
@@ -103,78 +83,114 @@ export function bookedVramGb(environment: ComputeEnvironment, gpuSelection: GpuS
 }
 
 /**
- * A short warning when the picked cards don't hold a custom model's estimated layouts (see
- * customModelSizing) — advisory, the "show all GPUs" path is allowed to book them anyway.
- */
-export function vramFitMessage(requirement: GpuResourceRequirement, gpuCount: number, bookedGb: number | null): string {
-  const picked =
-    bookedGb === null
-      ? `the ${gpuCount} GPU${gpuCount === 1 ? '' : 's'} picked`
-      : `the ${gpuCount} GPU${gpuCount === 1 ? '' : 's'} picked ${gpuCount === 1 ? 'has' : 'have'} ${Math.floor(bookedGb)} GB`;
-  return `This model is estimated to need ${formatGpuLayouts(requirement)} (weights plus its context cache); ${picked}. It may fail to load — pick GPUs that fit, lower the context, or use a quantized variant.`;
-}
-
-/**
  * Widths sized when a model's attention heads are unknown: only the tensor-parallel counts vLLM
  * actually runs (1, 2, 4, 8). 3/5/6/7 are not valid TP widths, so offering them as "fits" would
- * mislead even in the soft/advisory display.
+ * mislead.
  */
 const UNKNOWN_HEAD_WIDTHS = [1, 2, 4, 8];
 /** Context sized when neither the launch params nor the model config name one. */
-const FALLBACK_CONTEXT_TOKENS = 4096;
+export const FALLBACK_CONTEXT_TOKENS = 4096;
+
+/**
+ * The KV cache shape to hand ocean.js's per-layer KV term for `contextTokens`: one per-layer shape
+ * (kv heads x head dim) and the number of layers of that shape. Only layers whose cache grows with the
+ * context count. Linear-attention / state-space layers keep a small fixed-size state instead: on
+ * Qwen3.8-27B that leaves 16 of 64 layers, a 4x smaller cache than counting every layer. The shape is the
+ * full-attention layers' (Gemma 4 gives those their own: 4 x 512 against 16 x 256 on the sliding ones),
+ * and sliding-window layers are folded in as an equivalent layer count, scaled by the share of the context
+ * they keep and by their per-layer size relative to that shape. `numLayers` is undefined when the layer
+ * count is unknown or no layer caches the context.
+ */
+function kvCacheShape(
+  shape: HfModelShape | undefined,
+  contextTokens: number
+): { numLayers?: number; numKvHeads?: number; headDim?: number } {
+  const kvHeads = shape?.numKeyValueHeads ?? shape?.numAttentionHeads ?? undefined;
+  const headDim = shape?.headDim ?? undefined;
+  const fullKvHeads = shape?.fullAttentionKvHeads ?? kvHeads;
+  const fullHeadDim = shape?.fullAttentionHeadDim ?? headDim;
+  if (!shape?.numHiddenLayers) {
+    return { numKvHeads: fullKvHeads, headDim: fullHeadDim };
+  }
+  const sliding = shape.slidingLayers ?? 0;
+  const full = shape.fullAttentionLayers ?? shape.numHiddenLayers - sliding;
+  const contextShare = shape.slidingWindow ? Math.min(1, shape.slidingWindow / contextTokens) : 1;
+  const sizeRatio =
+    kvHeads && headDim && fullKvHeads && fullHeadDim ? (kvHeads * headDim) / (fullKvHeads * fullHeadDim) : 1;
+  const layers = full + (sliding > 0 ? Math.ceil(sliding * contextShare * sizeRatio) : 0);
+  return { numLayers: layers > 0 ? layers : undefined, numKvHeads: fullKvHeads, headDim: fullHeadDim };
+}
 
 /** What the custom-model env picker may book, and why (see customModelSizing). */
 export type CustomModelSizing = {
   /**
    * Tensor-parallel widths the model's attention heads allow (ocean.js legalTpWidths over 1/2/4/8) —
    * a HARD filter. Null when they can't be told (heads unknown, or an engine without TP): no width
-   * filter, and a note says so.
+   * filter, and `gaps` says why.
    */
   widths: number[] | null;
   /**
    * Estimated GPU requirement over those widths (ocean.js estimateHfSizingProfile → deriveGpuLayouts)
-   * — a SOFT filter the picker can drop ("show all GPUs"). Null without an estimate.
+   * — also a HARD filter: environments that can't hold any layout are not listed. Null without an
+   * estimate (no memory filter, and `gaps.noEstimate`).
    */
   requirement: GpuResourceRequirement | null;
-  /** What could not be checked, for the user. */
-  notes: string[];
+  /** What could not be checked, for the picker to explain. */
+  gaps: CustomModelSizingGaps;
+};
+
+/** Checks customModelSizing could not make, each shown to the user as a note. */
+export type CustomModelSizingGaps = {
+  /** llama.cpp splits a model by layer: neither the GPU count nor VRAM is checked. */
+  llamaCpp: boolean;
+  /** config.json couldn't be read: no GPU-count check. */
+  configUnreadable: boolean;
+  /** config.json names no attention heads: no GPU-count check. */
+  headsUnknown: boolean;
+  /** No estimate (no safetensors parameter count): no memory filter. */
+  noEstimate: boolean;
+  /** Neither the launch params nor the config name a context, so FALLBACK_CONTEXT_TOKENS was sized. */
+  contextAssumed: boolean;
+};
+
+const NO_GAPS: CustomModelSizingGaps = {
+  llamaCpp: false,
+  configUnreadable: false,
+  headsUnknown: false,
+  noEstimate: false,
+  contextAssumed: false,
 };
 
 /**
  * Size a custom Hugging Face model for the env picker: legal widths from its heads (hard), an estimated
- * per-width VRAM requirement (soft) for the launch settings in `params` — context (`maxContext`, else
- * the model's own), one sequence, `gpuMemoryUtilization`, quantization/dtype and the KV-cache dtype.
- * Recomputed whenever those change. Advisory throughout: nothing here is a measured profile.
+ * per-width VRAM requirement (hard) for the launch settings in `params` — context (`contextTokens`, else
+ * `maxContext`, else the model's own), one sequence, `gpuMemoryUtilization`, quantization/dtype and the
+ * KV-cache dtype. Recomputed whenever those change. An estimate, not a measured profile.
  */
 export function customModelSizing({
   model,
   config,
   params,
   engine,
+  contextTokens: contextOverride,
 }: {
   model: Pick<HuggingFaceModel, 'paramCount' | 'paramsByDtype'>;
   config: HuggingFaceModelConfig | null;
   /** The launch settings when already chosen (back-navigation, a package handoff, the config step). */
   params?: ModelParameters | null;
   engine: InferenceEngine;
+  /** Context to size for, over `params.maxContext` — the env picker's choice (see SIZING_CONTEXT_QUERY_KEY). */
+  contextTokens?: number | null;
 }): CustomModelSizing {
   if (engine !== 'vllm' || (params && params.engine !== 'vllm')) {
     return {
       widths: null,
       requirement: null,
-      notes: ["llama.cpp splits a model across GPUs by layer, so the GPU count and VRAM aren't checked for it."],
+      gaps: { ...NO_GAPS, llamaCpp: true },
     };
   }
   const vllm = params?.engine === 'vllm' ? params : null;
-  const notes: string[] = [];
   const widths = config ? legalTpWidths(config.attention) : null;
-  if (!widths) {
-    notes.push(
-      config
-        ? "GPU count not checked for this model: its config doesn't state its attention heads."
-        : "GPU count not checked for this model: its config couldn't be read."
-    );
-  }
 
   const quantization = vllm?.quantization ?? 'none';
   const dtype = vllm?.dtype ?? 'auto';
@@ -185,7 +201,11 @@ export function customModelSizing({
     (quantization === 'none' || quantization === checkpointQuant) && (dtype === 'auto' || !!checkpointQuant);
   const byDtype = asStored ? model.paramsByDtype : undefined;
   const contextFromParams = vllm?.maxContext && vllm.maxContext > 0 ? vllm.maxContext : null;
-  const contextTokens = contextFromParams ?? config?.maxContext ?? null;
+  const contextTokens =
+    (contextOverride && contextOverride > 0 ? contextOverride : null) ??
+    contextFromParams ??
+    config?.maxContext ??
+    null;
   const util = vllm?.gpuMemoryUtilization;
   const effectiveDtype = dtype !== 'auto' ? dtype : (config?.torchDtype ?? '').toLowerCase();
   let requirement: GpuResourceRequirement | null = null;
@@ -201,9 +221,7 @@ export function customModelSizing({
             checkpointQuantization: config?.quantizationMethod,
             torchDtype: config?.torchDtype,
           }),
-      numLayers: config?.shape.numHiddenLayers ?? undefined,
-      numKvHeads: config?.shape.numKeyValueHeads ?? config?.shape.numAttentionHeads ?? undefined,
-      headDim: config?.shape.headDim ?? undefined,
+      ...kvCacheShape(config?.shape, contextTokens ?? FALLBACK_CONTEXT_TOKENS),
       kvLoraRank: config?.shape.kvLoraRank ?? undefined,
       qkRopeHeadDim: config?.shape.qkRopeHeadDim ?? undefined,
       kvBytes: vllm?.kvCacheDtype === 'fp8' ? 1 : effectiveDtype.includes('32') ? 4 : 2,
@@ -217,22 +235,44 @@ export function customModelSizing({
     console.error('Custom model VRAM estimate failed:', error);
     requirement = null;
   }
-  if (!requirement) {
-    notes.push("No VRAM estimate for this model (no safetensors parameter count), so GPUs aren't filtered by memory.");
-  } else if (contextTokens === null) {
-    notes.push(`Context length unknown, so the VRAM estimate assumes ${FALLBACK_CONTEXT_TOKENS} tokens.`);
-  }
-  return { widths, requirement, notes };
+  return {
+    widths,
+    requirement,
+    gaps: {
+      ...NO_GAPS,
+      configUnreadable: !config,
+      headsUnknown: !!config && !widths,
+      noEstimate: !requirement,
+      contextAssumed: !!requirement && contextTokens === null,
+    },
+  };
 }
 
 /**
- * A short warning when the coarse estimate (estimateModelVramGb) exceeds the booked VRAM, else null.
- * This is the fallback shown only when no per-width profile is available, so the wording reflects a
- * rough weights-plus-margin figure, not the per-width "weights plus context cache" of vramFitMessage.
+ * The largest context (a multiple of `step` tokens, between `floor` and `ceiling`) at which `fits` holds,
+ * or null when it fails even at `floor`. `fits` must be monotonic: true up to some context, false past it.
  */
-export function vramShortfallMessage(estimateGb: number | null, bookedGb: number | null): string | null {
-  if (estimateGb === null || bookedGb === null || bookedGb >= estimateGb) {
+export function maxFittingContext(
+  fits: (contextTokens: number) => boolean,
+  floor: number,
+  ceiling: number,
+  step = 1024
+): number | null {
+  if (ceiling < floor || !fits(floor)) {
     return null;
   }
-  return `This model likely needs about ${Math.ceil(estimateGb)} GB of GPU VRAM (weights plus a rough runtime margin; its context cache isn't modelled here); the GPUs picked have ${Math.floor(bookedGb)} GB. It may fail to load — pick more or larger GPUs, or use a quantized variant.`;
+  if (fits(ceiling)) {
+    return ceiling;
+  }
+  let lo = floor;
+  let hi = ceiling;
+  while (hi - lo > step) {
+    const mid = lo + Math.floor((hi - lo) / 2 / step) * step || lo + step;
+    if (fits(mid)) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
 }

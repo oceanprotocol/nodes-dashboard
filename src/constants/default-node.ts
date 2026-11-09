@@ -19,7 +19,7 @@ export const DEFAULT_NODE_URI = [
  * the gateway used for /directCommand relaying and access lists, which is a role that could legitimately
  * move to a different host. This one is pinned to the default node itself.
  */
-export const DEFAULT_NODE_HTTP_URL = 'https://test1.oncompute.ai';
+export const DEFAULT_NODE_HTTP_URL = 'http://localhost:8001'; // LOCAL VRAM TEST — revert to 'https://test1.oncompute.ai'
 
 // Nodes reached over HTTPS, not browser libp2p (AutoTLS libp2p.direct outage, ipshipyard/p2p-forge#97).
 export const HTTP_NODE_URLS: Record<string, string> = {

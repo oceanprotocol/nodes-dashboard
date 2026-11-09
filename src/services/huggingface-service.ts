@@ -66,6 +66,11 @@ type RawHfTextConfig = {
   kv_lora_rank?: number;
   qk_rope_head_dim?: number;
   torch_dtype?: string;
+  layer_types?: string[];
+  full_attention_interval?: number;
+  sliding_window?: number | null;
+  num_global_key_value_heads?: number;
+  global_head_dim?: number;
 };
 
 type RawHfConfig = RawHfTextConfig & {
@@ -90,13 +95,27 @@ export function readModelShape(config: RawHfConfig | null | undefined): HfModelS
   const heads = positiveInt(source?.num_attention_heads);
   const hidden = positiveInt(source?.hidden_size);
   const derivedHeadDim = heads && hidden && hidden % heads === 0 ? hidden / heads : null;
+  const layers = positiveInt(source?.num_hidden_layers);
+  const layerTypes = Array.isArray(source?.layer_types) ? source.layer_types : null;
+  const countOf = (...types: string[]) => layerTypes?.filter((type) => types.includes(type)).length ?? 0;
+  const interval = positiveInt(source?.full_attention_interval);
+  const fullAttentionLayers = layerTypes
+    ? countOf('full_attention', 'attention')
+    : layers && interval
+      ? Math.floor(layers / interval)
+      : null;
   return {
     numAttentionHeads: heads,
     numKeyValueHeads: positiveInt(source?.num_key_value_heads),
-    numHiddenLayers: positiveInt(source?.num_hidden_layers),
+    numHiddenLayers: layers,
     headDim: positiveInt(source?.head_dim) ?? derivedHeadDim,
     kvLoraRank: positiveInt(source?.kv_lora_rank),
     qkRopeHeadDim: positiveInt(source?.qk_rope_head_dim),
+    fullAttentionLayers,
+    slidingLayers: layerTypes ? countOf('sliding_attention') : null,
+    slidingWindow: positiveInt(source?.sliding_window),
+    fullAttentionKvHeads: positiveInt(source?.num_global_key_value_heads),
+    fullAttentionHeadDim: positiveInt(source?.global_head_dim),
   };
 }
 

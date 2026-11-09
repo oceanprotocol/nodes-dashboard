@@ -13,6 +13,22 @@ export type HfModelShape = {
   /** MLA latent rank (DeepSeek-style); present means the KV cache is MLA (replicated per rank). */
   kvLoraRank: number | null;
   qkRopeHeadDim: number | null;
+  /**
+   * Layers whose KV cache holds the whole context. Hybrid models cache it on only some layers: the
+   * `full_attention` (or `attention`) entries of `layer_types`, else num_hidden_layers /
+   * `full_attention_interval` (Qwen3-Next / Qwen3.5-style linear attention, whose other layers keep a
+   * small fixed-size state). Null when the config names neither — every layer then caches the context.
+   */
+  fullAttentionLayers: number | null;
+  /** `sliding_attention` entries of `layer_types`: layers caching only the last `slidingWindow` tokens. */
+  slidingLayers: number | null;
+  slidingWindow: number | null;
+  /**
+   * KV shape of the full-attention layers when it differs from the others (Gemma 4:
+   * `num_global_key_value_heads` x `global_head_dim`); null = the same as `numKeyValueHeads` x `headDim`.
+   */
+  fullAttentionKvHeads: number | null;
+  fullAttentionHeadDim: number | null;
 };
 
 /** Model-derived engine defaults pulled from HF config.json + tokenizer_config.json. */

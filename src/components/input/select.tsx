@@ -102,6 +102,7 @@ export type SelectOption<T> = {
 };
 
 type SelectProps<T> = {
+  ariaLabel?: string;
   className?: string;
   disabled?: boolean;
   endAdornment?: React.ReactNode;
@@ -133,6 +134,7 @@ type SelectProps<T> = {
 );
 
 const Select = <T extends string | number = string>({
+  ariaLabel,
   className,
   disabled,
   endAdornment,
@@ -205,7 +207,7 @@ const Select = <T extends string | number = string>({
         displayEmpty
         endAdornment={endAdornment}
         has_error={!!errorText}
-        inputProps={{}}
+        inputProps={{ 'aria-label': ariaLabel }}
         MenuProps={{ slots: { paper: StyledPaper, ...MenuProps?.slots }, ...MenuProps }}
         multiple={multiple}
         name={name}

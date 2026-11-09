@@ -13,7 +13,6 @@ import { getSupportedTokens } from '@/constants/tokens';
 import { useTokensSymbols, useTokenSymbol } from '@/lib/token-symbol';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { assertAllocationAvailable, gpuSelectionMessage } from '@/services/inference-launch';
-import { bookedVramGb, vramFitMessage, vramShortfallMessage } from '@/services/vram-estimate';
 import { ComputeEnvironment, EnvNodeInfo } from '@/types/environments';
 import { checkEnvAccess } from '@/utils/check-env-access';
 import {
@@ -36,7 +35,7 @@ import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { Tooltip } from '@mui/material';
-import type { GpuResourceRequirement, TemplateResourceRequirement } from '@oceanprotocol/lib';
+import type { TemplateResourceRequirement } from '@oceanprotocol/lib';
 import classNames from 'classnames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -96,15 +95,16 @@ type InferenceEnvironmentCardProps = {
   declaredRequirements?: TemplateResourceRequirement[];
   /**
    * What the GPUs must satisfy, when it isn't a declared requirement — the custom-model flow passes its
-   * memory estimate (`vram`) or, without one / with "show all", its legal tensor-parallel widths (`units`).
+   * memory estimate (`vram`) or, without one, its legal tensor-parallel widths (`units`).
    */
   gpuDemand?: GpuDemand;
   /** Offer only the layout of this many cards — a package's pinned tensor-parallel width. */
   forcedGpuCount?: number;
-  /** Estimated VRAM (GB) a custom model needs; the card warns when the picked group's cards carry less. */
-  modelVramGb?: number;
-  /** A custom model's estimated layouts: the card warns (never blocks) when the active pick doesn't fit them. */
-  advisoryRequirement?: GpuResourceRequirement;
+  /**
+   * A line under the resources saying which layouts this env holds (the custom-model picker's
+   * "Fits as 1, 2 or 4 GPUs"). Optional and self-contained: omit it to drop the line.
+   */
+  fitSummary?: React.ReactNode;
   /**
    * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
    * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually
@@ -138,9 +138,8 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   sizing,
   declaredRequirements,
   gpuDemand,
+  fitSummary,
   forcedGpuCount,
-  modelVramGb,
-  advisoryRequirement,
   allowZeroGpu = false,
 }) => {
   const { account, provider } = useOceanAccount();
@@ -252,7 +251,6 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     maxByKey,
     maxUnitsByResources,
     selectedByKey,
-    selectedTotal,
     allocation,
     price,
     hasGpus,
@@ -345,45 +343,6 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     // and coalesced inside the hook, so a 1x → 2x → 4x burst costs one read.
     void refreshLiveEnv();
   };
-
-  // Advisory only (custom models): does the active group's pick hold the model's estimated need? Uses
-  // the estimate's own layouts when there is one, else the coarse total — never VRAM of other groups.
-  const vramWarning = useMemo(() => {
-    const count = isControlled ? selectedTotal : (pick?.count ?? 0);
-    if (advisoryRequirement && count > 0) {
-      const requests = isControlled ? (controlledRequests ?? []) : (gpuPlan?.requests ?? []);
-      if (requests.length === 0) {
-        return null;
-      }
-      // Only a VRAM shortfall earns this warning: a plan that fails on ids, group or grantability
-      // (checked memory-blind first) is reported by the card's own plan reason instead.
-      const structural = validatePlanFor({
-        environment,
-        demand: { kind: 'units', widths: null },
-        plan: { requests, gpuPrice: 0 },
-      });
-      if (!structural.ok) {
-        return null;
-      }
-      const check = validatePlanFor({
-        environment,
-        demand: { kind: 'vram', requirement: advisoryRequirement },
-        plan: { requests, gpuPrice: 0 },
-      });
-      return check.ok ? null : vramFitMessage(advisoryRequirement, count, bookedVramGb(environment, selectedByKey));
-    }
-    return modelVramGb ? vramShortfallMessage(modelVramGb, bookedVramGb(environment, selectedByKey)) : null;
-  }, [
-    advisoryRequirement,
-    modelVramGb,
-    environment,
-    selectedByKey,
-    isControlled,
-    selectedTotal,
-    pick,
-    gpuPlan,
-    controlledRequests,
-  ]);
 
   const computeText = [
     allocation.cpu > 0 && `${allocation.cpu} CPU`,
@@ -639,11 +598,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         <div className={styles.envResources}>
           {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
           {computeText && <div className={styles.compute}>{computeText}</div>}
-          {vramWarning && (
-            <div className={styles.compute} role="status">
-              {vramWarning}
-            </div>
-          )}
+          {fitSummary}
           {onSelect && durationRangeText && (
             <div className={styles.duration}>Service duration: {durationRangeText}</div>
           )}
