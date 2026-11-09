@@ -41,7 +41,7 @@ const Verify: React.FC = () => {
   const expiryCountdown = useCountdown(0);
   const resendCountdown = useCountdown(SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS);
 
-  const email = subsidyDetails?.email ?? subsidyInfo?.maskedEmail ?? '';
+  const email = subsidyDetails?.email;
 
   const { initiateCountdown: initiateExpiry } = expiryCountdown;
   const { initiateCountdown: initiateResend } = resendCountdown;
@@ -124,7 +124,7 @@ const Verify: React.FC = () => {
         }
         setCode('');
         setState({});
-        toast.success(`A new code was sent to ${email}`);
+        toast.success(`A new code was sent to ${email ?? 'your email'}`);
       } else if (response.data.retryAfter) {
         initiateResend(response.data.retryAfter);
         toast.info(`Please wait ${response.data.retryAfter}s before requesting a new code`);
@@ -225,7 +225,7 @@ const Verify: React.FC = () => {
             <MailOutlineIcon />
           </span>
           <span className={styles.muted}>
-            Code sent to <strong className={styles.email}>{email}</strong>
+            Code sent to {email ? <strong className={styles.email}>{email}</strong> : 'your email'}
             <Link className={styles.link} href="/subsidy/details">
               Change
             </Link>

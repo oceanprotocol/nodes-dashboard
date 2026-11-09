@@ -3,20 +3,11 @@ import { allowMethod, isWalletAddress } from '@/api-services/request';
 import { SUBSIDY_MAX_OTP_ATTEMPTS, SubsidyStatus, SubsidyStatusResponse, SubsidyWithStatus } from '@/types/subsidy';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!local || !domain) {
-    return '';
-  }
-  return `${local.slice(0, 2)}***@${domain}`;
-}
-
 function toStatusResponse(subsidy: SubsidyWithStatus): SubsidyStatusResponse {
   const isPending = subsidy.status === SubsidyStatus.PENDING;
   return {
     applicationDate: subsidy.applicationDate.toISOString(),
     claimDate: subsidy.claimDate?.toISOString(),
-    maskedEmail: maskEmail(subsidy.email),
     otpExpires: isPending ? subsidy.otpExpires : undefined,
     otpLastResent: isPending ? subsidy.otpLastResent : undefined,
     otpLocked: isPending ? (subsidy.otpAttempts ?? 0) >= SUBSIDY_MAX_OTP_ATTEMPTS : undefined,

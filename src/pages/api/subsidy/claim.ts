@@ -1,6 +1,7 @@
 import { findSubsidyByWallet, loadSubsidies, updateSubsidyInSheet } from '@/api-services/gsheets';
-import { allowMethod, isWalletAddress } from '@/api-services/request';
+import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
 import { addToSubsidyAccessList, isOnSubsidyAccessList } from '@/api-services/subsidy-access-list';
+import { walletAddressBodySchema } from '@/api-services/subsidy-schemas';
 import { SubsidyStatus } from '@/types/subsidy';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -12,7 +13,12 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return;
   }
 
-  const { walletAddress } = request.body;
+  const body = await parseBody(request, response, walletAddressBodySchema);
+  if (!body) {
+    return;
+  }
+
+  const { walletAddress } = body;
 
   if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Wallet address is missing or invalid' });
