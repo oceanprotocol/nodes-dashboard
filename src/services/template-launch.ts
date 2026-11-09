@@ -121,10 +121,11 @@ export function buildTemplateUserData(
  * only so the wire type comes from the one shared classifier rather than a second copy of the
  * bundle-vs-service rule.
  */
-function templateMetadata(template: AppTemplate) {
+function templateMetadata(template: AppTemplate, envValues: Record<string, string>) {
   return buildServiceMetadata({
     appType: resolveServiceAppType(InferenceFlowType.Template, template),
     appId: template.id,
+    mcpEnabled: templateMcpPort(template) === undefined ? undefined : templateMcpEnabled(template, envValues),
   });
 }
 
@@ -172,7 +173,7 @@ export async function buildTemplateStartParams({
   ];
 
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
-  const metadata = templateMetadata(template);
+  const metadata = templateMetadata(template, envValues);
 
   return {
     environment: selectedEnv.environment.id,
@@ -208,7 +209,7 @@ export async function buildTemplateRestartParams(
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
   // Re-stamped, not reused: an Edit can relaunch onto a DIFFERENT template, and an omitted `metadata`
   // would leave the service labelled with the app it used to run.
-  const metadata = templateMetadata(template);
+  const metadata = templateMetadata(template, envValues);
   return {
     image: template.image,
     ...imageRef,
@@ -247,6 +248,32 @@ export function templateFloorSizing(template: AppTemplate): ResourceSizing | und
 /** The port serving the template's primary web UI (first exposed port) — for the "Open" link. */
 export function templatePrimaryPort(template: AppTemplate): number | undefined {
   return template.exposedPorts?.[0];
+}
+
+/** The per-launch switch for a ComfyUI template's MCP endpoint (see templateMcpEnabled). */
+export const MCP_ENABLE_ENV_KEY = 'OCEAN_MCP_ENABLE';
+
+/**
+ * The port serving the template's MCP endpoint: a ComfyUI bundle's second exposed port, where the
+ * shared comfy-mcp include listens (the include requires that slot). Undefined for everything else —
+ * other apps' second port is something else entirely (landing-studio's preview server).
+ */
+export function templateMcpPort(template: AppTemplate): number | undefined {
+  return template.service === 'comfyui' ? template.exposedPorts?.[1] : undefined;
+}
+
+/**
+ * Whether a launch with these env values turns MCP on. A template that offers OCEAN_MCP_ENABLE ships
+ * it off, so only an explicit "1" enables it; a template without the switch always runs the endpoint.
+ */
+export function templateMcpEnabled(template: AppTemplate, envValues: Record<string, string>): boolean {
+  const offersSwitch = template.userConfigurableEnvVars?.some((spec) => spec.key === MCP_ENABLE_ENV_KEY);
+  return offersSwitch ? envValues[MCP_ENABLE_ENV_KEY] === '1' : true;
+}
+
+/** The MCP endpoint on the service's MCP port — streamable HTTP at /mcp (no trailing slash). */
+export function templateMcpUrl(baseUrl: string): string {
+  return `${baseUrl}/mcp`;
 }
 
 /**

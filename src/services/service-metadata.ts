@@ -17,6 +17,11 @@ import type { ComputeJobMetadata } from '@oceanprotocol/lib';
  */
 export const APP_TYPE_KEY = 'appType';
 export const APP_ID_KEY = 'appId';
+/**
+ * Whether a ComfyUI template was launched with its MCP endpoint on. The switch rides in the encrypted
+ * userData, which the node never returns, so the launch stamps it here for the manage page to read.
+ */
+export const MCP_ENABLED_KEY = 'mcp';
 
 /**
  * Which of the four inference flows launched a service — the wire vocabulary, and the thing that says
@@ -101,12 +106,27 @@ export type ServiceAppIdentity = {
 export function buildServiceMetadata(identity: {
   appType: ServiceAppType;
   appId?: string | null;
+  /** Only for templates that serve MCP (see templateMcpPort); omitted otherwise. */
+  mcpEnabled?: boolean;
 }): ComputeJobMetadata | undefined {
   const appId = identity.appId?.trim();
   if (!appId) {
     return undefined;
   }
-  return { [APP_TYPE_KEY]: identity.appType, [APP_ID_KEY]: appId };
+  return {
+    [APP_TYPE_KEY]: identity.appType,
+    [APP_ID_KEY]: appId,
+    ...(identity.mcpEnabled === undefined ? {} : { [MCP_ENABLED_KEY]: identity.mcpEnabled }),
+  };
+}
+
+/**
+ * The MCP switch stamped at launch. `null` when the service doesn't say — launched before the stamp
+ * existed or by another client — so the caller falls back to the template's own default.
+ */
+export function readServiceMcpEnabled(source: { metadata?: ComputeJobMetadata } | null | undefined): boolean | null {
+  const value = source?.metadata?.[MCP_ENABLED_KEY];
+  return typeof value === 'boolean' ? value : null;
 }
 
 /**

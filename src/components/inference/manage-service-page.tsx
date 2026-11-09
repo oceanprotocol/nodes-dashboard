@@ -33,10 +33,22 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
-import { branchForAppType, isModelAppType, readServiceMetadata } from '@/services/service-metadata';
+import {
+  branchForAppType,
+  isModelAppType,
+  readServiceMcpEnabled,
+  readServiceMetadata,
+} from '@/services/service-metadata';
 import { getServiceStatusView, isPaymentInFlight, isProlongBlocked, isRestartBlocked } from '@/services/service-status';
 import { rememberSession } from '@/services/session-expiry';
-import { deepLinkWorkflow, templateOpenUrl, templatePrimaryPort } from '@/services/template-launch';
+import {
+  deepLinkWorkflow,
+  MCP_ENABLE_ENV_KEY,
+  templateMcpPort,
+  templateMcpUrl,
+  templateOpenUrl,
+  templatePrimaryPort,
+} from '@/services/template-launch';
 import { EscrowLock } from '@/types/payment';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { getModelDownload, getServiceReadiness, isServiceReady } from '@/types/service-readiness';
@@ -638,6 +650,24 @@ const ManageServicePage: React.FC = () => {
     // endpoint to copy, so a non-workflow app must get it unadorned.
     const workflow = deepLinkWorkflow(template.workflows);
     return workflow ? templateOpenUrl(url, workflow.id) : url;
+  }, [template, job]);
+  // ComfyUI templates also serve an MCP endpoint on their second port, for an MCP client (Claude Code,
+  // Cursor) to run the workflows by URL. Matched by container port only: endpoints[0] fallback would
+  // hand out the web UI as the MCP URL.
+  const templateMcpEndpointUrl = useMemo(() => {
+    if (!template || !job) {
+      return null;
+    }
+    const port = templateMcpPort(template);
+    const url = port === undefined ? undefined : job.endpoints.find((ep) => ep.containerPort === port)?.url;
+    if (!url) {
+      return null;
+    }
+    // Stamped at launch (the switch itself rides in userData, which the node never returns). Unstamped
+    // services fall back to the template default: on, unless the template offers the switch.
+    const enabled =
+      readServiceMcpEnabled(job) ?? !template.userConfigurableEnvVars?.some((spec) => spec.key === MCP_ENABLE_ENV_KEY);
+    return enabled ? templateMcpUrl(url) : null;
   }, [template, job]);
 
   /**
@@ -1319,6 +1349,34 @@ const ManageServicePage: React.FC = () => {
                       </Button>
                     )}
                   </Card>
+                  {templateMcpEndpointUrl ? (
+                    <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
+                      <div className={`chip chipGlass ${styles.endpointChip}`}>MCP URL</div>
+                      <span className={styles.endpointPath}>{templateMcpEndpointUrl}</span>
+                      <span className={styles.endpointDescription}>
+                        {isReady
+                          ? 'Add this to an MCP client (Claude Code, Cursor) to run the workflows'
+                          : 'Not serving requests yet — the app is still starting up'}
+                      </span>
+                      <span
+                        onClick={() =>
+                          posthog.capture('inference_service_consumed', {
+                            serviceId: id,
+                            kind: 'copy_mcp_url',
+                            templateId: template?.id,
+                            branch,
+                          })
+                        }
+                      >
+                        <CopyButton
+                          className={styles.endpointAction}
+                          color="accent2"
+                          contentToCopy={templateMcpEndpointUrl}
+                          variant="filled"
+                        />
+                      </span>
+                    </Card>
+                  ) : null}
                 </div>
               ) : (
                 <div className="textSecondary">
