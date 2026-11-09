@@ -7,7 +7,7 @@ import { envKey, planQuickStart, QuickStartEntry, QuickStartOption, toCandidates
 import { ComputeEnvironment } from '@/types/environments';
 import { checkEnvAccess, hasAccessRestriction } from '@/utils/check-env-access';
 import { GpuPlan } from '@/utils/env-resources';
-import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatHourlyRate, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
 import type { GpuResourceRequirement } from '@oceanprotocol/lib';
 import { ethers } from 'ethers';
 import { useRouter } from 'next/router';
@@ -38,7 +38,7 @@ export type QuickStart<T extends QuickStartEntry> = {
   status: QuickStartStatus;
   /** What Start would launch on right now, when `status` is `ready`. */
   option: QuickStartOption<T> | null;
-  /** The option's price in its fee token, e.g. "12.4 USDC". */
+  /** The option's price in its fee token, e.g. "12.4 USDC", or its hourly rate while no session length is set. */
   priceLabel: string | null;
   /** Why Start can't be pressed (its tooltip), or null when it can. */
   blockedReason: string | null;
@@ -71,6 +71,11 @@ async function accessFor(
 function priceLabelOf<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
   const { address, symbol } = option.candidate.token;
   return `${formatTokenAmount(option.price, address)} ${symbol}`.trim();
+}
+
+function rateLabelOf<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
+  const { address, symbol } = option.candidate.token;
+  return formatHourlyRate(option.pricePerMinute, address, symbol).trim();
 }
 
 function describePick<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
@@ -204,7 +209,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
   ]);
 
   const start = useCallback(async () => {
-    if (plan.status !== 'ready' || startingRef.current) {
+    if (plan.status !== 'ready' || startingRef.current || durationSeconds <= 0) {
       return;
     }
     if (!account.address) {
@@ -400,7 +405,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
   const blockedReasons: Record<QuickStartStatus, string | null> = {
     loading: 'Finding a free environment…',
     error: "Environments couldn't be loaded. Retry above.",
-    ready: null,
+    ready: durationSeconds > 0 ? null : 'Enter a session length to start.',
     duration:
       suggestedDurationSeconds !== null
         ? `No environment that fits takes ${formatDuration(durationSeconds)}. Try ${formatDuration(suggestedDurationSeconds)}.`
@@ -412,7 +417,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
   return {
     status,
     option,
-    priceLabel: option ? priceLabelOf(option) : null,
+    priceLabel: option ? (durationSeconds > 0 ? priceLabelOf(option) : rateLabelOf(option)) : null,
     blockedReason: blockedReasons[status],
     suggestedDurationSeconds,
     belowRecommendedResources: !!option && !option.fullSizing,

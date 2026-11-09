@@ -30,7 +30,7 @@ import {
   validatePlanFor,
 } from '@/utils/env-resources';
 import { getEnvSupportedTokens } from '@/utils/env-tokens';
-import { formatDuration, formatGb, formatTokenAmount } from '@/utils/formatters';
+import { formatDuration, formatGb, formatHourlyRate, formatTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -253,6 +253,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     selectedByKey,
     allocation,
     price,
+    pricePerMinute,
     hasGpus,
     gpuExhausted,
     constraintViolation,
@@ -500,6 +501,10 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
     constraintViolation ??
     null;
   const selectDisabled = !tokenSymbol || !!selectBlockedReason;
+  const priceLabel =
+    durationSeconds > 0
+      ? `${formatTokenAmount(price, tokenAddress)} ${tokenSymbol ?? ''}`
+      : formatHourlyRate(pricePerMinute, tokenAddress, tokenSymbol ?? '');
 
   /**
    * Commit the pick against a freshly-read environment. The node is the only authority on which units
@@ -512,6 +517,10 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   const [committing, setCommitting] = useState(false);
   const handleContinue = async () => {
     if (selectDisabled || committing || !tokenSymbol || !onSelect || !gpuPlan) {
+      return;
+    }
+    if (durationSeconds <= 0) {
+      toast.error('Set a session length to continue.');
       return;
     }
     setCommitting(true);
@@ -634,14 +643,13 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
                   type="button"
                   variant="filled"
                 >
-                  Start · {formatTokenAmount(price, tokenAddress)} {tokenSymbol} / {formatDuration(durationSeconds)}
+                  Start · {priceLabel}
+                  {durationSeconds > 0 ? ` / ${formatDuration(durationSeconds)}` : ''}
                 </Button>
               </span>
             </Tooltip>
           ) : hidePrice ? null : (
-            <span className={styles.price}>
-              {formatTokenAmount(price, tokenAddress)} {tokenSymbol}
-            </span>
+            <span className={styles.price}>{priceLabel}</span>
           )}
         </div>
       </div>

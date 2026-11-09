@@ -10,45 +10,47 @@ const StyledTextField = styled(TextField, {
     border: `1px solid var(${has_error ? '--error' : '--border'})`,
     boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
     borderRadius: custom_radius ?? 24,
-  lineHeight: '18px',
-  minHeight: custom_size === 'sm' ? 34 : 50,
-  transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-
-  '&:focus-within': {
-    boxShadow: has_error ? 'var(--input-shadow-error), var(--input-shadow-focus)' : 'var(--input-shadow-focus)',
-  },
-
-  fieldset: {
-    border: 'none',
-  },
-
-  '& .Mui-disabled': {
-    WebkitTextFillColor: 'var(--text-primary)',
-  },
-
-  '& .MuiInputBase-root': {
-    color: 'var(--text-secondary)',
-    fontFamily: 'var(--font-inter), sans-serif',
-  },
-
-  '& .MuiInputBase-input': {
-    color: 'var(--text-primary)',
-    fontSize: 16,
     lineHeight: '18px',
-    minHeight: 0,
-    padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
+    minHeight: custom_size === 'sm' ? 34 : 50,
+    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
 
-    '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
-      '-webkit-appearance': 'none',
-      margin: 0,
+    '&:focus-within': {
+      boxShadow: has_error ? 'var(--input-shadow-error), var(--input-shadow-focus)' : 'var(--input-shadow-focus)',
     },
-    '&[type=number]': {
-      '-moz-appearance': 'textfield',
+
+    fieldset: {
+      border: 'none',
     },
-  },
-}));
+
+    '& .Mui-disabled': {
+      WebkitTextFillColor: 'var(--text-primary)',
+    },
+
+    '& .MuiInputBase-root': {
+      color: 'var(--text-secondary)',
+      fontFamily: 'var(--font-inter), sans-serif',
+    },
+
+    '& .MuiInputBase-input': {
+      color: 'var(--text-primary)',
+      fontSize: 16,
+      lineHeight: '18px',
+      minHeight: 0,
+      padding: custom_size === 'sm' ? '4px 16px' : '12px 16px',
+
+      '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+        '-webkit-appearance': 'none',
+        margin: 0,
+      },
+      '&[type=number]': {
+        '-moz-appearance': 'textfield',
+      },
+    },
+  })
+);
 
 type InputProps = {
+  ariaLabel?: string;
   className?: string;
   disabled?: boolean;
   endAdornment?: React.ReactNode;
@@ -74,6 +76,7 @@ type InputProps = {
 };
 
 const Input: React.FC<InputProps> = ({
+  ariaLabel,
   className,
   disabled,
   endAdornment,
@@ -111,14 +114,22 @@ const Input: React.FC<InputProps> = ({
       disabled={disabled}
       has_error={!!errorText}
       error={!!errorText}
-      inputProps={{ max, maxLength, min, step, 'aria-label': typeof label === 'string' ? label : undefined }}
       name={name}
       onBlur={onBlur}
       onChange={onChange}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
       placeholder={placeholder}
-      slotProps={{ input: { startAdornment, endAdornment } }}
+      slotProps={{
+        htmlInput: {
+          'aria-label': ariaLabel ?? (typeof label === 'string' ? label : undefined),
+          max,
+          maxLength,
+          min,
+          step,
+        },
+        input: { startAdornment, endAdornment },
+      }}
       type={type}
       value={value}
       variant="outlined"

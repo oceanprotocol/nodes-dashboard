@@ -702,15 +702,14 @@ function constraintViolationOf({
   ]);
 }
 
-function priceOf({
+/** What the allocation costs per minute it runs, before the environment's billing floor. */
+function pricePerMinuteOf({
   cpuFee,
   ramFee,
   diskFee,
   allocation,
   gpuIdRequests,
   gpuFees,
-  environment,
-  durationSeconds,
 }: {
   cpuFee?: number;
   ramFee?: number;
@@ -718,8 +717,6 @@ function priceOf({
   allocation: ResourceAmounts;
   gpuIdRequests: ResourceRequest[];
   gpuFees: Record<string, number>;
-  environment: ComputeEnvironment;
-  durationSeconds: number;
 }): number {
   const cpuTotal = (cpuFee ?? 0) * allocation.cpu;
   const ramTotal = (ramFee ?? 0) * allocation.ram;
@@ -728,12 +725,24 @@ function priceOf({
   // buildGpuRequests does), each at its OWN fee — ids sharing a description may be priced differently,
   // and one type-wide fee would quote a different total than the node charges.
   const gpuTotal = gpuIdRequests.reduce((sum, r) => sum + (gpuFees[r.id] ?? 0) * r.amount, 0);
+  return cpuTotal + ramTotal + diskTotal + gpuTotal;
+}
+
+function priceOf({
+  pricePerMinute,
+  environment,
+  durationSeconds,
+}: {
+  pricePerMinute: number;
+  environment: ComputeEnvironment;
+  durationSeconds: number;
+}): number {
   // Whole billable minutes, floored at the env's SERVICE minimum — the node's own formula. This is
   // the floor calculateResourcesCost applies to a service (minJobDuration governs compute jobs), so
   // quoting against the wrong one under-quotes and the escrow deposit sized from that quote is too
   // small for the node's createLock ("does not have enough funds"). See billableMinutes.
   const { min: serviceMinSeconds } = serviceDurationBounds(environment);
-  return (cpuTotal + ramTotal + diskTotal + gpuTotal) * billableMinutes(durationSeconds, serviceMinSeconds);
+  return pricePerMinute * billableMinutes(durationSeconds, serviceMinSeconds);
 }
 
 /** GPU env but nothing can be booked right now (all units busy, or no shared capacity to back any). */
@@ -784,6 +793,8 @@ export type InferenceAllocation = {
   gpuIdRequests: ResourceRequest[];
   allocation: ResourceAmounts;
   price: number;
+  /** The price of one running minute, for quoting a rate while no session length is chosen yet. */
+  pricePerMinute: number;
   /** Constraint violation message for the current selection, or null when the node would accept it. */
   constraintViolation: string | null;
   hasGpus: boolean;
@@ -875,6 +886,7 @@ export function computeInferenceAllocation({
     baseBounds,
     ids,
   });
+  const pricePerMinute = pricePerMinuteOf({ cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees });
   return {
     mergedGpus,
     totalGpus,
@@ -884,7 +896,8 @@ export function computeInferenceAllocation({
     selectedTotal,
     gpuIdRequests,
     allocation,
-    price: priceOf({ cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees, environment, durationSeconds }),
+    price: priceOf({ pricePerMinute, environment, durationSeconds }),
+    pricePerMinute,
     constraintViolation: constraintViolationOf({ sizing, availResources, ids, allocation, gpuIdRequests }),
     hasGpus: totalGpus > 0,
     gpuExhausted: isGpuExhausted({ totalGpus, unitBudget, maxByKey }),
@@ -1037,9 +1050,14 @@ const useInferenceAllocation = ({
     [sizing, availResources, ids, allocation, gpuIdRequests]
   );
 
+  const pricePerMinute = useMemo(
+    () => pricePerMinuteOf({ cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees }),
+    [cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees]
+  );
+
   const price = useMemo(
-    () => priceOf({ cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees, environment, durationSeconds }),
-    [cpuFee, ramFee, diskFee, allocation, gpuIdRequests, gpuFees, environment, durationSeconds]
+    () => priceOf({ pricePerMinute, environment, durationSeconds }),
+    [pricePerMinute, environment, durationSeconds]
   );
 
   return {
@@ -1052,6 +1070,7 @@ const useInferenceAllocation = ({
     gpuIdRequests,
     allocation,
     price,
+    pricePerMinute,
     constraintViolation,
     hasGpus: totalGpus > 0,
     gpuExhausted: isGpuExhausted({ totalGpus, unitBudget, maxByKey }),

@@ -10,10 +10,12 @@ type DurationUnitOption = {
 };
 
 type DurationInputProps = {
+  ariaLabel?: string;
   availableUnits: DurationUnitOption[];
   className?: string;
   defaultUnit?: DurationUnit;
   disabled?: boolean;
+  emptyWhenZero?: boolean;
   errorText?: string;
   hint?: React.ReactNode;
   label?: React.ReactNode;
@@ -23,6 +25,7 @@ type DurationInputProps = {
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onChange: (seconds: number) => void;
   onSetMax?: () => void;
+  placeholder?: string;
   radius?: number;
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
@@ -52,10 +55,12 @@ function unitShowing(seconds: number, preferred: DurationUnit, units: DurationUn
 }
 
 const DurationInput: React.FC<DurationInputProps> = ({
+  ariaLabel,
   availableUnits,
   className,
   defaultUnit = 'seconds',
   disabled,
+  emptyWhenZero,
   errorText,
   hint,
   label,
@@ -65,6 +70,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   onBlur,
   onChange,
   onSetMax,
+  placeholder,
   radius,
   size,
   topRight,
@@ -73,7 +79,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
 }) => {
   const [unit, setUnit] = useState<DurationUnit>(() => unitShowing(value, defaultUnit, availableUnits));
   const [displayValue, setDisplayValue] = useState<number | ''>(() =>
-    displayIn(value, unitShowing(value, defaultUnit, availableUnits))
+    emptyWhenZero && value === 0 ? '' : displayIn(value, unitShowing(value, defaultUnit, availableUnits))
   );
   const sentSecondsRef = useRef<number>(value);
 
@@ -82,9 +88,9 @@ const DurationInput: React.FC<DurationInputProps> = ({
       sentSecondsRef.current = value;
       const nextUnit = unitShowing(value, unit, availableUnits);
       setUnit(nextUnit);
-      setDisplayValue(displayIn(value, nextUnit));
+      setDisplayValue(emptyWhenZero && value === 0 ? '' : displayIn(value, nextUnit));
     }
-  }, [value, unit, availableUnits]);
+  }, [value, unit, availableUnits, emptyWhenZero]);
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.target.value === '') {
@@ -100,15 +106,29 @@ const DurationInput: React.FC<DurationInputProps> = ({
     onChange(seconds);
   };
 
-  // Switching the unit only changes how the duration reads, never the duration itself: convert the
-  // seconds last sent, not the (4-decimal) number on screen.
+  // Convert the seconds last sent, not the (4-decimal) number on screen. Switching to a bigger unit the
+  // duration doesn't read cleanly in rounds it to a whole number of that unit (at least 1).
   const handleUnitChange = (newUnit: DurationUnit) => {
     setUnit(newUnit);
-    setDisplayValue(displayValue === '' ? '' : displayIn(sentSecondsRef.current, newUnit));
+    if (displayValue === '') {
+      return;
+    }
+    const seconds = sentSecondsRef.current;
+    const isBiggerUnit = toSeconds(1, newUnit) > toSeconds(1, unit);
+    if (isBiggerUnit && seconds > 0 && !readsCleanly(seconds, newUnit)) {
+      const rounded = Math.max(1, Math.round(fromSeconds(seconds, newUnit)));
+      const roundedSeconds = toSeconds(rounded, newUnit);
+      setDisplayValue(rounded);
+      sentSecondsRef.current = roundedSeconds;
+      onChange(roundedSeconds);
+      return;
+    }
+    setDisplayValue(displayIn(seconds, newUnit));
   };
 
   return (
     <Input
+      ariaLabel={ariaLabel}
       className={className}
       disabled={disabled}
       endAdornment={
@@ -154,11 +174,13 @@ const DurationInput: React.FC<DurationInputProps> = ({
       errorText={errorText}
       hint={hint}
       label={label}
-      max={max !== undefined ? fromSeconds(max, unit) : undefined}
-      min={min !== undefined ? fromSeconds(min, unit) : undefined}
+      // Whole units: the native min is the arrow keys' step base, so a fractional one makes them step off-integer.
+      max={max !== undefined ? Math.floor(fromSeconds(max, unit)) : undefined}
+      min={min !== undefined ? Math.ceil(fromSeconds(min, unit)) : undefined}
       name={name}
       onBlur={onBlur}
       onChange={handleValueChange}
+      placeholder={placeholder}
       radius={radius}
       size={size}
       step="any"

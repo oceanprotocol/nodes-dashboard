@@ -76,6 +76,7 @@ export type QuickStartOption<T extends QuickStartEntry> = {
   /** Whether the allocation reaches the sizing's recommended amounts, not just what the env could grant. */
   fullSizing: boolean;
   price: number;
+  pricePerMinute: number;
 };
 
 export type QuickStartPlan<T extends QuickStartEntry> =
@@ -241,6 +242,7 @@ function evaluate<T extends QuickStartEntry>({
     allocation: result.allocation,
     fullSizing,
     price: result.price,
+    pricePerMinute: result.pricePerMinute,
   };
 }
 
@@ -364,6 +366,7 @@ export function planQuickStart<T extends QuickStartEntry>({
   forcedGpuCount?: number;
   /** Whether the flow permits a zero-GPU pick at all: templates yes, packages no. */
   allowZeroGpu: boolean;
+  /** Zero while the user hasn't chosen one: every environment that fits is then a candidate. */
   durationSeconds: number;
 }): QuickStartPlan<T> {
   const fitting: QuickStartOption<T>[] = [];
@@ -376,7 +379,7 @@ export function planQuickStart<T extends QuickStartEntry>({
       continue;
     }
     const { min, max } = serviceDurationBounds(candidate.environment);
-    if (durationSeconds >= min && durationSeconds <= max) {
+    if (durationSeconds <= 0 || (durationSeconds >= min && durationSeconds <= max)) {
       fitting.push(option);
       continue;
     }

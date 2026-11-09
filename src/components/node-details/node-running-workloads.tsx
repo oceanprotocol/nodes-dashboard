@@ -4,6 +4,7 @@ import { Table } from '@/components/table/table';
 import { TableTypeEnum } from '@/components/table/table-type';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
+import { resolveNodeUri } from '@/lib/resolve-node-uri';
 import { useNodeAdmins } from '@/lib/use-node-admins';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { isComputeJobInFlight, isServiceInFlight } from '@/services/service-status';
@@ -41,11 +42,12 @@ const NodeRunningWorkloads = ({ node, show = 'both' }: NodeRunningWorkloadsProps
   const { isAdmin } = useNodeAdmins(node);
   const isOwner = isAdmin || isAddressInAdmins(node.address ? [node.address] : [], account.address);
 
-  // Reach the node by its full multiaddrs when known (avoids a peer lookup), else by peer id.
-  const nodeUri: NodeUri = useMemo(
-    () => (node.currentAddrs?.length ? node.currentAddrs : [nodeId]),
-    [node.currentAddrs, nodeId]
-  );
+  // Reach the node by its full multiaddrs when known (avoids a peer lookup), else by peer id. The
+  // /p2p/<id> suffix lets normalizeNodeUri send nodes in HTTP_NODE_URLS over HTTPS.
+  const nodeUri: NodeUri = useMemo(() => {
+    const peerId = nodeId ?? '';
+    return resolveNodeUri(peerId, node.currentAddrs) ?? peerId;
+  }, [node.currentAddrs, nodeId]);
 
   // --- Services ---
   const [services, setServices] = useState<ServiceJobListed[]>([]);

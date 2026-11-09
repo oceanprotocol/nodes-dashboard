@@ -102,6 +102,8 @@ Create a `.env.local` file (or configure your deployment environment) with the f
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_APP_ENV`                | `"development"` or `"production"`. Controls which backend URLs are used and which chain tokens are on (ETH Sepolia or BASE).                                         |
 | `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS`  | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia. |
+| `NEXT_PUBLIC_OUTAGE_BANNER_ENABLED`  | Optional. Set to `"true"` to show the outage banner on every page.                                                                                                   |
+| `NEXT_PUBLIC_OUTAGE_BANNER_MESSAGE`  | Banner text. Supports headings (`#`, `##`, `###` at line start), `**bold**`, `*italic*`, `` `code` ``, `[link](https://...)` and line breaks (`\n`). Raw HTML is shown as plain text.                           |
 
 ### Alchemy
 

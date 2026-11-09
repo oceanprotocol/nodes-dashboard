@@ -2,6 +2,7 @@ import InputWrapper from '@/components/input/input-wrapper';
 import {
   Checkbox,
   Collapse,
+  InputAdornment,
   ListItemText,
   Select as MaterialSelect,
   MenuItem,
@@ -67,6 +68,23 @@ const StyledSelect = styled(MaterialSelect, {
       '& > .MuiListItemText-primary': {
         lineHeight: custom_size === 'sm' ? '22px' : '24px',
       },
+    },
+  },
+
+  '&.MuiInputBase-adornedStart': {
+    paddingLeft: custom_size === 'sm' ? 12 : 16,
+  },
+
+  [`&.MuiInputBase-adornedStart .${selectClasses.select}`]: {
+    paddingLeft: 8,
+  },
+
+  '& .MuiInputAdornment-positionStart': {
+    color: 'var(--text-secondary)',
+    marginRight: 0,
+
+    svg: {
+      fontSize: custom_size === 'sm' ? 18 : 20,
     },
   },
 
@@ -214,7 +232,7 @@ const Select = <T extends string | number = string>({
         onBlur={onBlur}
         onChange={onChange}
         renderValue={memoizedRenderValue}
-        startAdornment={startAdornment}
+        startAdornment={startAdornment ? <InputAdornment position="start">{startAdornment}</InputAdornment> : undefined}
         value={multiple ? (value ?? []) : value}
       >
         {options?.map((option) => (
