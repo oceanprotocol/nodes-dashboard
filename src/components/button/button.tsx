@@ -6,10 +6,12 @@ import styles from './button.module.css';
 
 export type ButtonProps = {
   'aria-controls'?: string;
+  'aria-current'?: 'page';
   'aria-expanded'?: boolean;
   'aria-haspopup'?: boolean | 'dialog' | 'menu';
   /** Accessible name. Required for an icon-only button/link, which has no text to name it. */
   'aria-label'?: string;
+  'aria-pressed'?: boolean;
   autoLoading?: boolean;
   children?: ReactNode;
   className?: string;
@@ -36,9 +38,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       'aria-controls': ariaControls,
+      'aria-current': ariaCurrent,
       'aria-expanded': ariaExpanded,
       'aria-haspopup': ariaHasPopup,
       'aria-label': ariaLabel,
+      'aria-pressed': ariaPressed,
       autoLoading,
       children,
       className,
@@ -93,6 +97,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     if (href) {
       return (
         <Link
+          aria-current={ariaCurrent}
           aria-label={ariaLabel}
           className={classes}
           href={isDisabled ? '' : href}
@@ -111,9 +116,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         aria-controls={ariaControls}
+        aria-current={ariaCurrent}
         aria-expanded={ariaExpanded}
         aria-haspopup={ariaHasPopup}
         aria-label={ariaLabel}
+        aria-pressed={ariaPressed}
         className={classes}
         disabled={isDisabled}
         id={id}

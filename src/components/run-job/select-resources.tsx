@@ -20,9 +20,10 @@ import {
 } from '@/utils/constraints';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
-import { capacityOf, getAvailableAmount } from '@/utils/resources';
+import { capacityOf } from '@/utils/resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
+import { grantableAmount } from '@oceanprotocol/lib';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -180,7 +181,7 @@ const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => 
   // constraint check runs against per-job `max`; the dashboard runs against availability so a raised
   // floor can never exceed what a job could actually be granted right now.
   const availResources = useMemo<ComputeResource[]>(
-    () => constraintResources.map((r) => ({ ...r, max: getAvailableAmount(r) })),
+    () => constraintResources.map((r) => ({ ...r, max: grantableAmount(r) })),
     [constraintResources]
   );
 

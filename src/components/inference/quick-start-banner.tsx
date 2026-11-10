@@ -75,8 +75,7 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
   onDurationChange,
   onAdvanced,
 }: QuickStartBannerProps<T>) {
-  const { status, option, recommendedGpus, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } =
-    quickStart;
+  const { status, option, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } = quickStart;
   const hasDuration = durationSeconds > 0;
   // Keeps the end time readable while its line fades out after the field is cleared.
   const lastSetDurationRef = useRef(durationSeconds);
@@ -165,15 +164,10 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
           )}
           <SubsidizedNodeChip nodeAddress={candidate.entry.env.environment.consumerAddress} peerId={node.id} />
         </div>
-        {recommendedGpus !== null && (
-          <div className={styles.note}>
-            The recommended {recommendedGpus}× GPU isn&apos;t free right now, so this starts on {gpuCount}×.
-          </div>
-        )}
         {belowRecommendedResources && (
           <div className={styles.note}>
-            No environment has the recommended CPU, RAM and disk free right now, so this starts with less (still above
-            the minimum).
+            No environment has the recommended CPU and RAM free right now, so this starts with what is free and may run
+            slowly or fail to load.
           </div>
         )}
       </div>

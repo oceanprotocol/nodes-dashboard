@@ -185,7 +185,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     }
     const max = cpu.max ?? 0;
     // From the hook, so the card and the resource picker it leads into report the same number —
-    // min(max, total - inUse), not max - inUse (see getAvailableAmount).
+    // min(max, total - inUse), not max - inUse (see grantableAmount, @oceanprotocol/lib).
     const available = cpuAvailable;
     const fee = cpuFee ?? 0;
     if (compact) {
@@ -379,7 +379,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     }
     const max = ram.max ?? 0;
     // From the hook, so the card and the resource picker it leads into report the same number —
-    // min(max, total - inUse), not max - inUse (see getAvailableAmount).
+    // min(max, total - inUse), not max - inUse (see grantableAmount, @oceanprotocol/lib).
     const available = ramAvailable;
     const fee = ramFee ?? 0;
     if (compact) {
@@ -467,7 +467,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
     }
     const max = disk.max ?? 0;
     // From the hook, so the card and the resource picker it leads into report the same number —
-    // min(max, total - inUse), not max - inUse (see getAvailableAmount).
+    // min(max, total - inUse), not max - inUse (see grantableAmount, @oceanprotocol/lib).
     const available = diskAvailable;
     const fee = diskFee ?? 0;
     if (compact) {

@@ -1,6 +1,6 @@
-import Card from '@/components/card/card';
+import Button, { ButtonProps } from '@/components/button/button';
+import Card, { CardVariant } from '@/components/card/card';
 import classNames from 'classnames';
-import { useRouter } from 'next/router';
 import styles from './tab-bar.module.css';
 
 type Tab = {
@@ -12,41 +12,52 @@ type Tab = {
 
 type TabBarProps = {
   activeKey: string;
+  ariaLabel?: string;
+  cardVariant?: CardVariant;
   className?: string;
+  disabled?: boolean;
+  selectedButtonColor?: ButtonProps['color'];
   size?: 'sm' | 'md';
   tabs: Tab[];
 };
 
-const TabBar = ({ activeKey, className, size = 'md', tabs }: TabBarProps) => {
-  const router = useRouter();
-
-  const handleTabClick = (tab: Tab) => {
-    if (tab.onClick) {
-      tab.onClick();
-    }
-    if (tab.href) {
-      router.push(tab.href);
-    }
-  };
-
-  return (
-    <Card
-      className={classNames(styles.root, { [styles.rootSm]: size === 'sm' }, className)}
-      radius="lg"
-      shadow="black"
-      variant="glass-shaded"
-    >
-      {tabs.map((tab) => (
-        <div
-          className={classNames(styles.tab, { [styles.tabActive]: tab.key === activeKey })}
+const TabBar = ({
+  activeKey,
+  ariaLabel,
+  cardVariant = 'glass-shaded',
+  className,
+  disabled,
+  selectedButtonColor = 'accent2',
+  size = 'md',
+  tabs,
+}: TabBarProps) => (
+  <Card
+    ariaLabel={ariaLabel}
+    className={classNames(styles.root, { [styles.rootSm]: size === 'sm' }, className)}
+    radius={size === 'sm' ? 'sm' : 'lg'}
+    role="group"
+    shadow={cardVariant === 'glass-shaded' ? 'black' : undefined}
+    variant={cardVariant}
+  >
+    {tabs.map((tab) => {
+      const active = tab.key === activeKey;
+      return (
+        <Button
+          aria-current={tab.href && active ? 'page' : undefined}
+          aria-pressed={tab.href ? undefined : active}
+          color={active ? selectedButtonColor : 'primary'}
+          disabled={disabled}
+          href={tab.href}
           key={tab.key}
-          onClick={() => handleTabClick(tab)}
+          onClick={tab.onClick}
+          size={size}
+          variant={active ? 'filled' : 'transparent'}
         >
           {tab.label}
-        </div>
-      ))}
-    </Card>
-  );
-};
+        </Button>
+      );
+    })}
+  </Card>
+);
 
 export default TabBar;

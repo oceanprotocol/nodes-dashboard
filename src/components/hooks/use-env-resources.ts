@@ -1,6 +1,6 @@
 import { ComputeEnvFees, ComputeEnvironment, ComputeResource } from '@/types/environments';
 import { getEnvUsdcFees } from '@/utils/env-tokens';
-import { getAvailableAmount } from '@/utils/resources';
+import { grantableAmount } from '@oceanprotocol/lib';
 import { useMemo } from 'react';
 
 export type EnvResources = {
@@ -174,13 +174,13 @@ function availabilityOf({
 }): Pick<EnvResources, 'cpuAvailable' | 'diskAvailable' | 'gpusAvailable' | 'ramAvailable'> {
   const gpusAvailable: Record<string, number> = {};
   gpus.forEach((gpu) => {
-    gpusAvailable[gpu.id] = getAvailableAmount(gpu);
+    gpusAvailable[gpu.id] = grantableAmount(gpu);
   });
   return {
-    cpuAvailable: getAvailableAmount(cpu),
-    diskAvailable: getAvailableAmount(disk),
+    cpuAvailable: cpu ? grantableAmount(cpu) : 0,
+    diskAvailable: disk ? grantableAmount(disk) : 0,
     gpusAvailable,
-    ramAvailable: getAvailableAmount(ram),
+    ramAvailable: ram ? grantableAmount(ram) : 0,
   };
 }
 

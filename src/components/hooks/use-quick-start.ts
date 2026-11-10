@@ -3,17 +3,12 @@ import { fetchNodeEnvironment } from '@/components/hooks/use-live-env';
 import { USDC } from '@/constants/tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import {
-  envKey,
-  GpuRange,
-  planQuickStart,
-  QuickStartEntry,
-  QuickStartOption,
-  toCandidates,
-} from '@/services/quick-start';
+import { envKey, planQuickStart, QuickStartEntry, QuickStartOption, toCandidates } from '@/services/quick-start';
 import { ComputeEnvironment } from '@/types/environments';
 import { checkEnvAccess, hasAccessRestriction } from '@/utils/check-env-access';
+import { GpuPlan } from '@/utils/env-resources';
 import { formatDuration, formatHourlyRate, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
+import type { GpuResourceRequirement } from '@oceanprotocol/lib';
 import { ethers } from 'ethers';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +27,8 @@ export type QuickStartStatus = 'loading' | 'error' | 'ready' | 'duration' | 'non
 export type QuickStartPick<T extends QuickStartEntry> = {
   entry: T;
   gpuSelection: GpuSelection;
+  /** The exact GPU ids the pick books and their quoted per-minute price (re-checked at payment). */
+  gpuPlan: GpuPlan;
   environment: ComputeEnvironment;
   sizing: ResourceSizing | undefined;
 };
@@ -46,8 +43,6 @@ export type QuickStart<T extends QuickStartEntry> = {
   blockedReason: string | null;
   /** A session length some fitting environment accepts, when the current one is what blocks Start. */
   suggestedDurationSeconds: number | null;
-  /** The target's recommended GPU count when the option books fewer (the rest aren't free). */
-  recommendedGpus: number | null;
   /** The option books less CPU/RAM/disk than recommended: no fitting environment has that much free. */
   belowRecommendedResources: boolean;
   loadError: string | null;
@@ -101,7 +96,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
   loading,
   loadError,
   retry,
-  gpuRange,
+  gpuRequirement,
+  forcedGpuCount,
   allowZeroGpu,
   durationSeconds,
   onStart,
@@ -110,8 +106,10 @@ export default function useQuickStart<T extends QuickStartEntry>({
   loading: boolean;
   loadError: string | null;
   retry: () => void;
-  /** Memoize it: a new object per render re-plans every render. */
-  gpuRange: GpuRange | null;
+  /** The target's GPU recommendation (total VRAM + layouts), or null when it declares no GPU. */
+  gpuRequirement: GpuResourceRequirement | null;
+  /** Keep only the layout of this many cards: a package's pinned tensor-parallel width. */
+  forcedGpuCount?: number;
   allowZeroGpu: boolean;
   durationSeconds: number;
   /**
@@ -182,7 +180,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
     const planOn = (list: T[]) =>
       planQuickStart({
         candidates: toCandidates({ entries: list, fresh, excluded, access }),
-        gpuRange,
+        gpuRequirement,
+        forcedGpuCount,
         allowZeroGpu,
         durationSeconds,
       });
@@ -193,7 +192,17 @@ export default function useQuickStart<T extends QuickStartEntry>({
       }
     }
     return planOn(entries);
-  }, [entries, fresh, excluded, access, gpuRange, allowZeroGpu, durationSeconds, account.address]);
+  }, [
+    entries,
+    fresh,
+    excluded,
+    access,
+    gpuRequirement,
+    forcedGpuCount,
+    allowZeroGpu,
+    durationSeconds,
+    account.address,
+  ]);
 
   const start = useCallback(async () => {
     if (plan.status !== 'ready' || startingRef.current || durationSeconds <= 0) {
@@ -235,7 +244,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
           excluded: withSkipped ? { ...nextExcluded, ...skipped } : nextExcluded,
           access: nextAccess,
         }),
-        gpuRange,
+        gpuRequirement,
+        forcedGpuCount,
         allowZeroGpu,
         durationSeconds,
       });
@@ -272,6 +282,7 @@ export default function useQuickStart<T extends QuickStartEntry>({
           onStart({
             entry,
             gpuSelection: option.gpuSelection,
+            gpuPlan: option.gpuPlan,
             environment: option.candidate.environment,
             sizing: option.sizing,
           });
@@ -352,7 +363,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
     excluded,
     entries,
     access,
-    gpuRange,
+    gpuRequirement,
+    forcedGpuCount,
     allowZeroGpu,
     durationSeconds,
     provider,
@@ -400,7 +412,6 @@ export default function useQuickStart<T extends QuickStartEntry>({
     priceLabel: option ? (durationSeconds > 0 ? priceLabelOf(option) : rateLabelOf(option)) : null,
     blockedReason: blockedReasons[status],
     suggestedDurationSeconds,
-    recommendedGpus: option && gpuRange && option.gpuCount < gpuRange.recommended ? gpuRange.recommended : null,
     belowRecommendedResources: !!option && !option.fullSizing,
     loadError,
     retry,

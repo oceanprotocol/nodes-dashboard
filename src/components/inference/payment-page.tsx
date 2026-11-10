@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
 import useInferenceAllocation from '@/components/hooks/use-inference-allocation';
 import useLiveEnv from '@/components/hooks/use-live-env';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
@@ -36,9 +37,11 @@ import {
   buildInferenceStartParams,
   gpuSelectionErrorCode,
   gpuSelectionMessage,
+  launchPlanError,
   toNodeUri,
 } from '@/services/inference-launch';
 import {
+  decodeGpuPlan,
   decodeGpuSelection,
   decodeResourceSizing,
   detailsPath,
@@ -55,6 +58,7 @@ import {
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { requiredEnvVars } from '@/types/templates';
+import { demandOf, GpuDemand, planGpuCount } from '@/utils/env-resources';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { CircularProgress } from '@mui/material';
@@ -165,6 +169,41 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     () => decodeResourceSizing(router.query.res) ?? selectedEnv?.sizing,
     [router.query.res, selectedEnv?.sizing]
   );
+  /**
+   * The exact GPU ids picked and the per-minute price they were quoted at — what a fresh launch prices,
+   * re-validates at the click and sends. URL first, like the selection; a URL whose `gpus` names a
+   * selection without a plan carries none (never borrow another pick's ids). Edit / prolong reuse what
+   * the running service holds, so they never use one.
+   */
+  const gpuPlan = useMemo(() => {
+    if (isEditMode || isProlongMode) {
+      return undefined;
+    }
+    return decodeGpuPlan(router.query.plan) ?? (router.query.gpus ? undefined : selectedEnv?.gpuPlan);
+  }, [isEditMode, isProlongMode, router.query.plan, router.query.gpus, selectedEnv?.gpuPlan]);
+
+  /**
+   * What the planned GPUs must still satisfy at the click: the template's or package's own requirement
+   * (the package from the route, or from the `pkg` handoff in the custom flow); for a custom model the
+   * planned width only — its memory estimate was a soft filter the user may have overridden.
+   * `pending` while a node-advertised package is still loading, `missing` once loading ended without it:
+   * either way its VRAM can't be re-checked, so the launch waits instead of checking units only.
+   */
+  const { packages, loading: packagesLoading } = useDefaultModelPackages();
+  const paymentDemand = useMemo<GpuDemand | 'pending' | 'missing'>(() => {
+    if (flowType === InferenceFlowType.Template) {
+      return demandOf(selectedTemplate?.recommendedResources);
+    }
+    const pkgId = flowType === InferenceFlowType.DefaultModel ? params.modelId : firstQueryValue(router.query.pkg);
+    if (!pkgId) {
+      return { kind: 'units', widths: null };
+    }
+    const pkg = packages.find((p) => p.id === pkgId);
+    if (pkg) {
+      return demandOf(pkg.recommendedResources);
+    }
+    return packagesLoading ? 'pending' : 'missing';
+  }, [flowType, selectedTemplate, params.modelId, router.query.pkg, packages, packagesLoading]);
 
   // The env carried into this step was read (at best) one step ago, and the GPU ids the launch names
   // are resolved from its free list — a booking made in between makes the node reject the start after
@@ -186,6 +225,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const { allocation, price, selectedByKey } = useInferenceAllocation({
     environment: environment ?? ({ resources: [] } as any),
     gpuSelection,
+    // A fresh launch prices exactly the planned ids — the ones it will send.
+    gpuRequests: gpuPlan?.requests,
     // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
     // slice at the package min; an edit/prolong re-entry carries the running service's `exact` booked
     // amounts (see parseServiceResources); undefined for a plain custom-flow slice. Keeps the
@@ -193,6 +234,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     sizing,
     durationSeconds: jobDurationSeconds,
   });
+
+  // A pinned recommendation books CPU/RAM best effort (disk is floored): say so when this launch gets
+  // less than the model recommends, before the user pays for it.
+  const belowRecommendedNote = useMemo(() => {
+    if (isEditMode || isProlongMode || sizing?.mode !== 'pinned') {
+      return null;
+    }
+    const short = [
+      allocation.cpu < sizing.cpu ? `${allocation.cpu} of ${sizing.cpu} recommended CPU cores` : null,
+      allocation.ram < sizing.ram ? `${allocation.ram} of ${sizing.ram} GB recommended RAM` : null,
+    ].filter(Boolean);
+    return short.length > 0
+      ? `Only ${short.join(' and ')} are free here, so this starts with that. The model may run slowly or fail to load.`
+      : null;
+  }, [isEditMode, isProlongMode, sizing, allocation.cpu, allocation.ram]);
 
   // The node locks funds for `duration + claimDurationTimeout` and rejects the lock (→ service
   // never starts, "maxLockSeconds too low") if the escrow authorization's window is shorter. The
@@ -315,6 +371,52 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       return { ...env, environment: read.env ?? env.environment };
     },
     [refreshLiveEnv]
+  );
+
+  /**
+   * The env a FRESH launch goes out on, read from the node now, with the planned GPU ids re-checked on
+   * it. Unlike resolveLaunchEnv this never falls back: a failed read (or one only served from an
+   * earlier cached answer) can't confirm the ids, so the user is asked to retry; ids that no longer
+   * validate, or whose price moved, stop the launch with a message to pick again — before any escrow tx.
+   * Returns the env to launch on, or the message to show.
+   */
+  const confirmFreshLaunch = useCallback(
+    async (env: SelectedInferenceEnv): Promise<SelectedInferenceEnv | { error: string }> => {
+      if (paymentDemand === 'pending') {
+        return {
+          error: "Still loading this package's GPU requirements, so nothing was charged. Press again in a moment.",
+        };
+      }
+      if (paymentDemand === 'missing') {
+        return {
+          error:
+            "This package is no longer offered by its node, so its GPU needs can't be confirmed. Go back and pick again.",
+        };
+      }
+      // The recommended disk is a floor (the weights must fit); the allocation clamps to what is free,
+      // so a disk filled since the env was picked shows up here as an amount under it.
+      if (sizing?.mode === 'pinned' && sizing.floor && allocation.disk < sizing.floor.disk) {
+        return {
+          error: `This environment has ${allocation.disk} GB of disk free, but the model needs ${sizing.floor.disk} GB. Go back and pick another environment.`,
+        };
+      }
+      const read = await refreshLiveEnv(true);
+      if (!read.fresh || !read.env) {
+        return {
+          error:
+            read.reason === 'unidentified'
+              ? 'This node is no longer offering the environment you picked. Go back and choose one again.'
+              : "Couldn't reach the node to confirm your GPUs are still free, so nothing was charged. Check your connection and press again.",
+        };
+      }
+      const planError = launchPlanError({
+        environment: read.env,
+        plan: gpuPlan,
+        demand: paymentDemand,
+      });
+      return planError ? { error: planError } : { ...env, environment: read.env };
+    },
+    [refreshLiveEnv, gpuPlan, paymentDemand, sizing, allocation.disk]
   );
 
   /**
@@ -786,10 +888,29 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      // Build the payload BEFORE touching escrow, and off a freshly-read env: resolving the GPU ids
-      // is where a selection that other tenants have since booked is caught, and finding that out
-      // after the deposit tx costs the user gas for nothing.
-      const launchEnv = await resolveLaunchEnv(selectedEnv);
+      // vLLM shards across exactly tensor-parallel-size cards: the launch must use the planned width.
+      const plannedWidth = planGpuCount(gpuPlan);
+      if (params.engine === 'vllm' && plannedWidth > 0 && (params.tensorParallelSize ?? 1) !== plannedWidth) {
+        setLaunchError(
+          `The model is set to shard across ${params.tensorParallelSize ?? 1} GPU(s), but ${plannedWidth} are booked. Go back to the configuration step.`
+        );
+        captureError('inference_service_start_failed', new Error('tp_width_mismatch'), { stage: 'gpu_plan', branch });
+        return;
+      }
+      // Build the payload BEFORE touching escrow, and off a freshly-read env: re-checking the planned
+      // GPU ids is where a selection that other tenants have since booked (or repriced) is caught, and
+      // finding that out after the deposit tx costs the user gas for nothing.
+      const confirmed = await confirmFreshLaunch(selectedEnv);
+      if ('error' in confirmed) {
+        setLaunchError(confirmed.error);
+        toast.error(confirmed.error);
+        captureError('inference_service_start_failed', new Error('gpu_plan_unconfirmed'), {
+          stage: 'gpu_plan',
+          branch,
+        });
+        return;
+      }
+      const launchEnv = confirmed;
       // The node sets expiresAt = now + duration and rejects a window past the env's max. Checked
       // against the freshly-read env (like the prolong guard) so a cap the operator lowered since
       // this page priced the launch is caught here, before the escrow deposit tx is paid for nothing.
@@ -817,6 +938,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           // passing selectedEnv.gpuSelection ({} on a whole-env hydrate) straight through would make
           // buildGpuRequests request every free GPU instead, over-provisioning past the escrow.
           gpuSelection: selectedByKey,
+          // The exact ids just re-validated — the launch books what was quoted, nothing re-resolved.
+          gpuPlan,
           allocation,
           durationSeconds: jobDurationSeconds,
           hfToken,
@@ -878,7 +1001,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
-    resolveLaunchEnv,
+    confirmFreshLaunch,
+    gpuPlan,
     reportGpuSelectionFailure,
     allocation,
     selectedByKey,
@@ -920,8 +1044,18 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // and can throw (e.g. CompressionStream unavailable on older Safari/Firefox) — independent of
       // escrow, so build first and let a failure here cost nothing.
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      // Re-read the env first — same reason as runFreshLaunch: the GPU ids are resolved from it.
-      const launchEnv = await resolveLaunchEnv(selectedEnv);
+      // Re-read the env and re-check the planned GPU ids on it first — same reason as runFreshLaunch.
+      const confirmed = await confirmFreshLaunch(selectedEnv);
+      if ('error' in confirmed) {
+        setLaunchError(confirmed.error);
+        toast.error(confirmed.error);
+        captureError('inference_service_start_failed', new Error('gpu_plan_unconfirmed'), {
+          stage: 'gpu_plan',
+          branch,
+        });
+        return;
+      }
+      const launchEnv = confirmed;
       // Max-duration guard against the freshly-read env — see runFreshLaunch.
       const envMax = serviceDurationBounds(launchEnv.environment).max;
       if (envMax && jobDurationSeconds > envMax) {
@@ -943,6 +1077,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           selectedEnv: launchEnv,
           // Launch the exact per-type unit count that was priced/escrowed (see runFreshLaunch note).
           gpuSelection: selectedByKey,
+          gpuPlan,
           allocation,
           durationSeconds: jobDurationSeconds,
           envValues: templateEnvValues,
@@ -1001,7 +1136,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
-    resolveLaunchEnv,
+    confirmFreshLaunch,
+    gpuPlan,
     reportGpuSelectionFailure,
     allocation,
     selectedByKey,
@@ -1247,11 +1383,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     hidePrice={isEditMode}
                     environment={environment ?? selectedEnv.environment}
                     gpuSelection={gpuSelection}
+                    gpuRequests={gpuPlan?.requests}
                     sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}
                   />
                 </>
               )}
+              {belowRecommendedNote && <div className="textSecondary">{belowRecommendedNote}</div>}
               {asksPassword && (
                 <>
                   <div className={styles.sectionHead}>

@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import { type DurationUnit, fromSeconds, toSeconds } from '@/utils/duration';
+import cx from 'classnames';
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './duration-input.module.css';
 
@@ -18,6 +19,7 @@ type DurationInputProps = {
   emptyWhenZero?: boolean;
   errorText?: string;
   hint?: React.ReactNode;
+  invalid?: boolean;
   label?: React.ReactNode;
   max?: number; // seconds
   min?: number; // seconds
@@ -29,6 +31,8 @@ type DurationInputProps = {
   radius?: number;
   size?: 'sm' | 'md';
   topRight?: React.ReactNode;
+  /** `auto`: segmented on wide screens, a select on narrow ones where the segments would crowd out the value. */
+  unitControl?: 'auto' | 'select' | 'segmented';
   value: number; // seconds
 };
 
@@ -62,6 +66,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   emptyWhenZero,
   errorText,
   hint,
+  invalid,
   label,
   max,
   min,
@@ -73,6 +78,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   radius,
   size,
   topRight,
+  unitControl = 'select',
   value,
 }) => {
   const [unit, setUnit] = useState<DurationUnit>(() => unitShowing(value, defaultUnit, availableUnits));
@@ -84,11 +90,11 @@ const DurationInput: React.FC<DurationInputProps> = ({
   useEffect(() => {
     if (value !== sentSecondsRef.current) {
       sentSecondsRef.current = value;
-      const nextUnit = unitShowing(value, unit, availableUnits);
+      const nextUnit = emptyWhenZero && value === 0 ? defaultUnit : unitShowing(value, unit, availableUnits);
       setUnit(nextUnit);
       setDisplayValue(emptyWhenZero && value === 0 ? '' : displayIn(value, nextUnit));
     }
-  }, [value, unit, availableUnits, emptyWhenZero]);
+  }, [value, unit, availableUnits, emptyWhenZero, defaultUnit]);
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.target.value === '') {
@@ -131,19 +137,43 @@ const DurationInput: React.FC<DurationInputProps> = ({
       disabled={disabled}
       endAdornment={
         <div className={styles.controls}>
-          <select
-            aria-label="Duration unit"
-            className={styles.unitSelect}
-            disabled={disabled}
-            onChange={(e) => handleUnitChange(e.target.value as DurationUnit)}
-            value={unit}
-          >
-            {availableUnits.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          {unitControl !== 'select' && (
+            <div
+              aria-label="Duration unit"
+              className={cx(styles.unitSegments, unitControl === 'auto' && styles.wideOnly)}
+              role="group"
+            >
+              {availableUnits.map((opt) => (
+                <Button
+                  aria-label={opt.value}
+                  aria-pressed={unit === opt.value}
+                  color={unit === opt.value ? 'primary' : 'primary'}
+                  disabled={disabled}
+                  key={opt.value}
+                  onClick={() => handleUnitChange(opt.value)}
+                  size="sm"
+                  variant={unit === opt.value ? 'filled' : 'transparent'}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+          )}
+          {unitControl !== 'segmented' && (
+            <select
+              aria-label="Duration unit"
+              className={cx(styles.unitSelect, unitControl === 'auto' && styles.narrowOnly)}
+              disabled={disabled}
+              onChange={(e) => handleUnitChange(e.target.value as DurationUnit)}
+              value={unit}
+            >
+              {availableUnits.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
           {onSetMax ? (
             <Button color="accent2" onClick={onSetMax} size="sm" type="button" variant="filled">
               Set max
@@ -153,6 +183,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
       }
       errorText={errorText}
       hint={hint}
+      invalid={invalid}
       label={label}
       // Whole units: the native min is the arrow keys' step base, so a fractional one makes them step off-integer.
       max={max !== undefined ? Math.floor(fromSeconds(max, unit)) : undefined}
@@ -163,6 +194,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
       placeholder={placeholder}
       radius={radius}
       size={size}
+      step="any"
       topRight={topRight}
       type="number"
       value={displayValue}

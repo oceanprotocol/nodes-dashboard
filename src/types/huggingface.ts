@@ -1,3 +1,36 @@
+import type { HfTpConfig } from '@oceanprotocol/lib';
+
+/**
+ * The model shape that sizes its KV cache, read from config.json — from `text_config` when that is where
+ * the language model's heads live (multimodal repos), else the top level. Every field null when absent.
+ */
+export type HfModelShape = {
+  numAttentionHeads: number | null;
+  numKeyValueHeads: number | null;
+  numHiddenLayers: number | null;
+  /** `head_dim`, else hidden_size / num_attention_heads when both are known. */
+  headDim: number | null;
+  /** MLA latent rank (DeepSeek-style); present means the KV cache is MLA (replicated per rank). */
+  kvLoraRank: number | null;
+  qkRopeHeadDim: number | null;
+  /**
+   * Layers whose KV cache holds the whole context. Hybrid models cache it on only some layers: the
+   * `full_attention` (or `attention`) entries of `layer_types`, else num_hidden_layers /
+   * `full_attention_interval` (Qwen3-Next / Qwen3.5-style linear attention, whose other layers keep a
+   * small fixed-size state). Null when the config names neither — every layer then caches the context.
+   */
+  fullAttentionLayers: number | null;
+  /** `sliding_attention` entries of `layer_types`: layers caching only the last `slidingWindow` tokens. */
+  slidingLayers: number | null;
+  slidingWindow: number | null;
+  /**
+   * KV shape of the full-attention layers when it differs from the others (Gemma 4:
+   * `num_global_key_value_heads` x `global_head_dim`); null = the same as `numKeyValueHeads` x `headDim`.
+   */
+  fullAttentionKvHeads: number | null;
+  fullAttentionHeadDim: number | null;
+};
+
 /** Model-derived engine defaults pulled from HF config.json + tokenizer_config.json. */
 export type HuggingFaceModelConfig = {
   architecture: string | null;
@@ -7,6 +40,13 @@ export type HuggingFaceModelConfig = {
   quantizationMethod: string | null;
   /** True when the model's chat template references tools — a prerequisite for vLLM tool calling. */
   supportsTools: boolean;
+  /**
+   * Raw attention head counts (top level + `text_config`) for legalTpWidths, which picks between them
+   * itself; null when config.json is missing.
+   */
+  attention: HfTpConfig | null;
+  /** KV-cache sizing fields (see HfModelShape). */
+  shape: HfModelShape;
 };
 
 export type ModelQuantization = 'none' | 'fp8' | 'awq' | 'gptq';
@@ -172,4 +212,9 @@ export type HuggingFaceModel = {
    * weights — GGUF-only repos never have it — so it means "unknown", not "zero".
    */
   paramCount?: number;
+  /**
+   * The same safetensors index split by dtype (`{ BF16: 7.2e9, F8_E4M3: … }`) — element counts, so a
+   * packed int4 checkpoint shows its I32 containers. Sizes weights far better than one total × a guess.
+   */
+  paramsByDtype?: Record<string, number>;
 };

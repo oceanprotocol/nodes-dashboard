@@ -16,7 +16,7 @@ const ServicePasswordInput: React.FC<ServicePasswordInputProps> = ({ errorText, 
   return (
     <div className="ph-no-capture">
       <Input
-        endAdornment={<CopyButton contentToCopy={value} size="sm" variant="outlined" />}
+        endAdornment={<CopyButton color="accent1" contentToCopy={value} size="sm" variant="outlined" />}
         errorText={errorText}
         label={label}
         name={name}
