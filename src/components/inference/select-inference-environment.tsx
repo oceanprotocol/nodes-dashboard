@@ -481,9 +481,8 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   return (
     <>
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
-        {declaredResources && <DeclaredResources recommended={declaredResources} />}
-
         <div className={styles.settings}>
+          {declaredResources && <DeclaredResources recommended={declaredResources} />}
           {isCustomModelFlow && (sizingLoading || customSizing) && (
             <CustomModelSizingPanel
               contextChoices={contextChoices}
