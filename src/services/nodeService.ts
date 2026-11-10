@@ -936,6 +936,10 @@ export async function pushNodeConfig({
   });
 }
 
+/**
+ * Withdraw collected fees from a node to `destinationAddress`. `amount` is in whole token units,
+ * which only ocean-node >= 5.0.0 parses with the token's own decimals.
+ */
 export async function collectNodeFees({
   amount,
   chainId,
