@@ -66,10 +66,26 @@
   justify-content: center;
   width: var(--marker-size);
 
+  svg {
+    font-size: 16px;
+  }
+
   .step:first-child & {
     background: var(--accent1);
     color: var(--accent1-contrast);
   }
+}
+
+.step.complete .marker {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--success-contrast);
+}
+
+.step.attention .marker {
+  background: var(--warning);
+  border-color: var(--warning);
+  color: var(--warning-contrast);
 }
 
 .stepBody {

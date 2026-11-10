@@ -1,0 +1,113 @@
+.root {
+  align-self: center;
+  gap: 24px;
+  max-width: 100%;
+  width: 720px;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  h3 {
+    font-size: 24px;
+  }
+}
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.codeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px;
+
+  @media (min-width: 576px) {
+    padding: 24px;
+  }
+}
+
+.emailRow {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.emailIcon {
+  align-items: center;
+  background: var(--background-glass-secondary);
+  border-radius: 50%;
+  display: flex;
+  flex-shrink: 0;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.email {
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.link {
+  color: var(--accent1);
+  font-weight: 600;
+  margin-left: 8px;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.spread {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.errorText {
+  color: var(--error-darker);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  gap: 6px;
+  padding: 14px 18px;
+}
+
+.noticeRow {
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.linkButton {
+  background: transparent;
+  border: none;
+  color: var(--accent1);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+}

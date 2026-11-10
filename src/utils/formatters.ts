@@ -1,24 +1,12 @@
 import { CHAIN_LABELS } from '@/constants/chains';
-import { getSupportedTokens } from '@/constants/tokens';
+import { isUsdc, USDC } from '@/constants/tokens';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 
 dayjs.extend(duration);
 
-/**
- * Get the number of decimals for a known token from tokenAddressesByChainId, by its address.
- * Falls back to 6 if the token is not in tokenAddressesByChainId.
- */
-const getTokenDecimals = (tokenAddress: string): number => {
-  const tokens = getSupportedTokens();
-  if (!tokens) return 6;
-  for (const token of Object.values(tokens)) {
-    if (token.address.toLowerCase() === tokenAddress.toLowerCase()) {
-      return token.decimals;
-    }
-  }
-  return 6;
-};
+/** USDC's decimals for USDC, else 6. */
+const getTokenDecimals = (tokenAddress: string): number => (isUsdc(tokenAddress) ? USDC.decimals : 6);
 
 /**
  * Round a token amount to the token's decimal precision.

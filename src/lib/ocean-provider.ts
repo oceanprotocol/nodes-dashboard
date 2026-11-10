@@ -1,5 +1,10 @@
 import { directNodeCommand } from '@/lib/direct-node-command';
-import { buildEscrowBundleArgs, type EscrowDepositPermit, toBaseUnits } from '@/lib/escrow-bundle';
+import {
+  buildEscrowBundleArgs,
+  ESCROW_AUTH_NO_EXPIRY,
+  type EscrowDepositPermit,
+  toBaseUnits,
+} from '@/lib/escrow-bundle';
 import { getTokenDecimals, getTokenSymbol } from '@/lib/token-symbol';
 import { ComputeEnvironment } from '@/types/environments';
 import { Authorizations, EscrowLock } from '@/types/payment';
@@ -257,7 +262,8 @@ export class OceanProvider {
       spender,
       normalizedMaxLockedAmount,
       maxLockSeconds,
-      maxLockCount
+      maxLockCount,
+      ESCROW_AUTH_NO_EXPIRY
     );
     return authorize;
   }

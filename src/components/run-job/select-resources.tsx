@@ -5,7 +5,8 @@ import DurationInput from '@/components/input/duration-input';
 import Input from '@/components/input/input';
 import Slider from '@/components/slider/slider';
 import config from '@/config';
-import { SelectedToken, useRunJobContext } from '@/context/run-job-context';
+import { USDC } from '@/constants/tokens';
+import { useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment, ComputeResource } from '@/types/environments';
@@ -19,9 +20,10 @@ import {
 } from '@/utils/constraints';
 import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
-import { capacityOf, getAvailableAmount } from '@/utils/resources';
+import { capacityOf } from '@/utils/resources';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress, Collapse, Tooltip } from '@mui/material';
+import { grantableAmount } from '@oceanprotocol/lib';
 import { useFormik } from 'formik';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
@@ -33,7 +35,6 @@ import styles from './select-resources.module.css';
 type SelectResourcesProps = {
   environment: ComputeEnvironment;
   freeCompute: boolean;
-  token: SelectedToken | null;
 };
 
 // 'package': pick a GPU count, CPU/RAM/disk are auto-derived as a proportional slice (read-only).
@@ -56,7 +57,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 const unitsThatFit = (available: number, per: number) =>
   per > 0 ? Math.floor(Math.max(0, available) / per) : Number.POSITIVE_INFINITY;
 
-const SelectResources = ({ environment, freeCompute, token }: SelectResourcesProps) => {
+const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => {
   const router = useRouter();
 
   const { getEnvs, isReady: p2pReady } = useP2P();
@@ -120,11 +121,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
     ram,
     ramAvailable,
     ramFee,
-  } = useEnvResources({
-    environment: env,
-    freeCompute,
-    tokenAddress: token?.address ?? '',
-  });
+  } = useEnvResources({ environment: env, freeCompute });
 
   // The environment is split into equal GPU-sized parts: each selected GPU grants one proportional
   // share of CPU/RAM/disk. Nodes expose one resource entry per physical GPU (each total: 1), so the
@@ -184,7 +181,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   // constraint check runs against per-job `max`; the dashboard runs against availability so a raised
   // floor can never exceed what a job could actually be granted right now.
   const availResources = useMemo<ComputeResource[]>(
-    () => constraintResources.map((r) => ({ ...r, max: getAvailableAmount(r) })),
+    () => constraintResources.map((r) => ({ ...r, max: grantableAmount(r) })),
     [constraintResources]
   );
 
@@ -286,9 +283,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       if (!freeCompute && !estimatedTotalCost) {
         return;
       }
-      setEstimatedTotalCost(
-        estimatedTotalCost && token?.address ? roundTokenAmount(estimatedTotalCost, token.address, 'up') : 0
-      );
+      setEstimatedTotalCost(estimatedTotalCost ? roundTokenAmount(estimatedTotalCost, USDC.address, 'up') : 0);
       setSelectedResources({
         cpuCores: effectiveCpu,
         cpuId: cpu?.id ?? 'cpu',
@@ -608,10 +603,9 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       multiaddrsOrPeerId: multiaddrsOrPeerId!,
       onError: (error) => setInitComputeError(error),
       resources,
-      tokenAddress: token?.address,
     });
     setIsLoadingCost(false);
-  }, [fetchEstimatedCost, env, freeCompute, formik.values.maxJobDurationSeconds, multiaddrsOrPeerId, resources, token]);
+  }, [fetchEstimatedCost, env, freeCompute, formik.values.maxJobDurationSeconds, multiaddrsOrPeerId, resources]);
 
   useEffect(() => {
     if (costEstimateTimeoutRef.current) {
@@ -699,7 +693,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
   // right. The overline is shown only when there is a single model (multi-model lists get one header).
   const renderGpuRow = (group: (typeof gpuGroups)[number], withOverline: boolean) => {
     const available = group.availableIds.length;
-    const pricing = freeCompute ? 'Free' : `${group.fee ?? ''} ${token?.symbol}/unit`;
+    const pricing = freeCompute ? 'Free' : `${group.fee ?? ''} ${USDC.symbol}/unit`;
     return (
       <div className={styles.gpuRow} key={group.description}>
         <div className={styles.gpuHeader}>
@@ -740,8 +734,10 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
       }
       return (
         <div className={styles.costAmount}>
-          <span className={styles.token}>{token?.symbol}</span>
-          <span className={styles.amount}>{token ? formatTokenAmount(estimatedTotalCost, token.address) : null}</span>
+          <span className={styles.token}>{freeCompute ? null : USDC.symbol}</span>
+          <span className={styles.amount}>
+            {freeCompute ? null : formatTokenAmount(estimatedTotalCost, USDC.address)}
+          </span>
         </div>
       );
     };
@@ -851,7 +847,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                 <Slider
                   disabled={cpuExhausted}
                   errorText={formik.touched.cpuCores && formik.errors.cpuCores ? formik.errors.cpuCores : undefined}
-                  hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}
+                  hint={freeCompute ? 'Free' : `${cpuFee ?? 0} ${USDC.symbol}/core`}
                   label={`CPU - ${formik.values.cpuCores} ${formik.values.cpuCores === 1 ? 'core' : 'cores'}`}
                   marks
                   max={cpuMax}
@@ -867,7 +863,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                 <Slider
                   disabled={ramExhausted}
                   errorText={formik.touched.ram && formik.errors.ram ? formik.errors.ram : undefined}
-                  hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}
+                  hint={freeCompute ? 'Free' : `${ramFee ?? 0} ${USDC.symbol}/GB`}
                   label={`RAM - ${formik.values.ram} GB`}
                   marks
                   max={ramMax}
@@ -887,7 +883,7 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                     </Button>
                   }
                   errorText={formik.touched.diskSpace && formik.errors.diskSpace ? formik.errors.diskSpace : undefined}
-                  hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`}
+                  hint={freeCompute ? 'Free' : `${diskFee ?? 0} ${USDC.symbol}/GB`}
                   label={<div>Disk space {diskTooltip}</div>}
                   max={diskMax}
                   min={diskMin}
@@ -911,16 +907,16 @@ const SelectResources = ({ environment, freeCompute, token }: SelectResourcesPro
                 <div className={styles.allocGrid}>
                   {renderAllocItem(
                     `${derivedCpu} ${derivedCpu === 1 ? 'core' : 'cores'}`,
-                    `CPU · ${freeCompute ? 'Free' : `${cpuFee ?? 0} ${token?.symbol}/core`}`
+                    `CPU · ${freeCompute ? 'Free' : `${cpuFee ?? 0} ${USDC.symbol}/core`}`
                   )}
                   {renderAllocItem(
                     `${derivedRam} GB`,
-                    `RAM · ${freeCompute ? 'Free' : `${ramFee ?? 0} ${token?.symbol}/GB`}`
+                    `RAM · ${freeCompute ? 'Free' : `${ramFee ?? 0} ${USDC.symbol}/GB`}`
                   )}
                   {renderAllocItem(
                     `${derivedDisk} GB`,
                     <>
-                      Disk · {freeCompute ? 'Free' : `${diskFee ?? 0} ${token?.symbol}/GB`} {diskTooltip}
+                      Disk · {freeCompute ? 'Free' : `${diskFee ?? 0} ${USDC.symbol}/GB`} {diskTooltip}
                     </>
                   )}
                 </div>

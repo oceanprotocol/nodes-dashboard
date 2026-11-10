@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Container from '@/components/container/container';
+import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
 import useInferenceAllocation from '@/components/hooks/use-inference-allocation';
 import useLiveEnv from '@/components/hooks/use-live-env';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
@@ -13,6 +14,7 @@ import TemplateSummary from '@/components/inference/template-summary';
 import PaymentSummary from '@/components/run-job/payment-summary';
 import SectionTitle from '@/components/section-title/section-title';
 import { CHAIN_ID } from '@/constants/chains';
+import { USDC } from '@/constants/tokens';
 import { editSessionDurationFromQuery, SelectedInferenceEnv, useInferenceContext } from '@/context/inference-context';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
@@ -25,17 +27,21 @@ import {
   SERVICE_PASSWORD_ENV,
   SERVICE_PASSWORD_RULE,
 } from '@/lib/service-password';
+import { getJobSubsidyProviders, SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
+import { usePayerCost, useStartWithSubsidy } from '@/lib/use-subsidy';
 import {
   buildInferenceRestartSpec,
   buildInferenceStartParams,
   gpuSelectionErrorCode,
   gpuSelectionMessage,
+  launchPlanError,
   toNodeUri,
 } from '@/services/inference-launch';
 import {
+  decodeGpuPlan,
   decodeGpuSelection,
   decodeResourceSizing,
   detailsPath,
@@ -52,6 +58,7 @@ import {
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { requiredEnvVars } from '@/types/templates';
+import { demandOf, GpuDemand, planGpuCount } from '@/utils/env-resources';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { CircularProgress } from '@mui/material';
@@ -76,7 +83,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const asksPassword = flowType === InferenceFlowType.DefaultModel && !isProlongMode;
   const {
     selectedEnv,
-    selectedToken,
     jobDurationSeconds,
     selectedModels,
     modelParamsByModel,
@@ -163,6 +169,41 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     () => decodeResourceSizing(router.query.res) ?? selectedEnv?.sizing,
     [router.query.res, selectedEnv?.sizing]
   );
+  /**
+   * The exact GPU ids picked and the per-minute price they were quoted at — what a fresh launch prices,
+   * re-validates at the click and sends. URL first, like the selection; a URL whose `gpus` names a
+   * selection without a plan carries none (never borrow another pick's ids). Edit / prolong reuse what
+   * the running service holds, so they never use one.
+   */
+  const gpuPlan = useMemo(() => {
+    if (isEditMode || isProlongMode) {
+      return undefined;
+    }
+    return decodeGpuPlan(router.query.plan) ?? (router.query.gpus ? undefined : selectedEnv?.gpuPlan);
+  }, [isEditMode, isProlongMode, router.query.plan, router.query.gpus, selectedEnv?.gpuPlan]);
+
+  /**
+   * What the planned GPUs must still satisfy at the click: the template's or package's own requirement
+   * (the package from the route, or from the `pkg` handoff in the custom flow); for a custom model the
+   * planned width only — its memory estimate was a soft filter the user may have overridden.
+   * `pending` while a node-advertised package is still loading, `missing` once loading ended without it:
+   * either way its VRAM can't be re-checked, so the launch waits instead of checking units only.
+   */
+  const { packages, loading: packagesLoading } = useDefaultModelPackages();
+  const paymentDemand = useMemo<GpuDemand | 'pending' | 'missing'>(() => {
+    if (flowType === InferenceFlowType.Template) {
+      return demandOf(selectedTemplate?.recommendedResources);
+    }
+    const pkgId = flowType === InferenceFlowType.DefaultModel ? params.modelId : firstQueryValue(router.query.pkg);
+    if (!pkgId) {
+      return { kind: 'units', widths: null };
+    }
+    const pkg = packages.find((p) => p.id === pkgId);
+    if (pkg) {
+      return demandOf(pkg.recommendedResources);
+    }
+    return packagesLoading ? 'pending' : 'missing';
+  }, [flowType, selectedTemplate, params.modelId, router.query.pkg, packages, packagesLoading]);
 
   // The env carried into this step was read (at best) one step ago, and the GPU ids the launch names
   // are resolved from its free list — a booking made in between makes the node reject the start after
@@ -180,11 +221,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
 
   // Same CPU/RAM/disk allocation shown in the payment summary — reused to size the launch request,
   // and the same price — reused to size the escrow deposit/authorization before launching.
-  // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv/token exist.
+  // Safe fallbacks keep the hook unconditional; real values only matter once selectedEnv exists.
   const { allocation, price, selectedByKey } = useInferenceAllocation({
     environment: environment ?? ({ resources: [] } as any),
-    tokenAddress: selectedToken?.address ?? '',
     gpuSelection,
+    // A fresh launch prices exactly the planned ids — the ones it will send.
+    gpuRequests: gpuPlan?.requests,
     // Quick start pins the package's recommended CPU/RAM/disk; the advanced handoff floors the fraction
     // slice at the package min; an edit/prolong re-entry carries the running service's `exact` booked
     // amounts (see parseServiceResources); undefined for a plain custom-flow slice. Keeps the
@@ -192,6 +234,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     sizing,
     durationSeconds: jobDurationSeconds,
   });
+
+  // A pinned recommendation books CPU/RAM best effort (disk is floored): say so when this launch gets
+  // less than the model recommends, before the user pays for it.
+  const belowRecommendedNote = useMemo(() => {
+    if (isEditMode || isProlongMode || sizing?.mode !== 'pinned') {
+      return null;
+    }
+    const short = [
+      allocation.cpu < sizing.cpu ? `${allocation.cpu} of ${sizing.cpu} recommended CPU cores` : null,
+      allocation.ram < sizing.ram ? `${allocation.ram} of ${sizing.ram} GB recommended RAM` : null,
+    ].filter(Boolean);
+    return short.length > 0
+      ? `Only ${short.join(' and ')} are free here, so this starts with that. The model may run slowly or fail to load.`
+      : null;
+  }, [isEditMode, isProlongMode, sizing, allocation.cpu, allocation.ram]);
 
   // The node locks funds for `duration + claimDurationTimeout` and rejects the lock (→ service
   // never starts, "maxLockSeconds too low") if the escrow authorization's window is shorter. The
@@ -211,13 +268,31 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     loading: loadingPaymentInfo,
     loadError: paymentInfoError,
     loadPaymentInfo,
-  } = usePaymentInfo(selectedToken?.address ?? '', selectedEnv?.environment.consumerAddress ?? '');
+  } = usePaymentInfo(selectedEnv?.environment.consumerAddress ?? '');
 
   // Round up so float noise never under-quotes the required balance/allowance.
-  const totalCost = useMemo(
-    () => (selectedToken ? roundTokenAmount(price, selectedToken.address, 'up') : 0),
-    [price, selectedToken]
+  const totalCost = useMemo(() => roundTokenAmount(price, USDC.address, 'up'), [price]);
+
+  const startWithSubsidy = useStartWithSubsidy();
+
+  const resolveSubsidyProviders = useCallback(
+    () =>
+      selectedEnv && account.address
+        ? getJobSubsidyProviders({
+            cost: totalCost,
+            jobType: SubsidyJobType.SERVICE,
+            nodeAddress: selectedEnv.environment.consumerAddress,
+            payer: account.address,
+          })
+        : Promise.resolve(undefined),
+    [account.address, selectedEnv, totalCost]
   );
+
+  const { isQuoting: isSubsidyQuoting, payerCost } = usePayerCost({
+    cost: totalCost,
+    jobType: SubsidyJobType.SERVICE,
+    nodeAddress: selectedEnv?.environment.consumerAddress,
+  });
 
   /**
    * Whether the pay button can run at all. The button tops escrow up from the wallet itself, so an
@@ -228,22 +303,20 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const paymentInfoReady = escrowBalance !== null && walletBalance !== null;
   // How much more the wallet needs to cover the deposit; 0 when it already does (or isn't read yet).
   const walletShortfall = useMemo(() => {
-    if (!selectedToken || escrowBalance === null || walletBalance === null) {
+    if (escrowBalance === null || walletBalance === null) {
       return 0;
     }
     const requirement = computeEscrowRequirement({
       snapshot: { authorizations, escrowBalance, walletBalance },
-      totalCost,
-      tokenAddress: selectedToken.address,
+      totalCost: payerCost,
       requiredLockSeconds: escrowLockSeconds,
     });
     if (!requirement.insufficientWalletFunds) {
       return 0;
     }
-    return roundTokenAmount(requirement.depositAmount - walletBalance, selectedToken.address, 'up');
-  }, [authorizations, escrowBalance, walletBalance, totalCost, selectedToken, escrowLockSeconds]);
-  const paymentBlocked =
-    !isEditMode && !!selectedEnv && !!selectedToken && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
+    return roundTokenAmount(requirement.depositAmount - walletBalance, USDC.address, 'up');
+  }, [authorizations, escrowBalance, walletBalance, payerCost, escrowLockSeconds]);
+  const paymentBlocked = !isEditMode && !!selectedEnv && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
 
   // Launch mode in the `inference_launch_clicked` vocabulary, shared with inference_payment_blocked.
   const launchMode = isProlongMode
@@ -279,11 +352,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       mode: launchMode,
       branch,
       totalCost,
-      tokenSymbol: selectedToken?.symbol,
       shortfall: blockReason === 'wallet_shortfall' ? walletShortfall : undefined,
       durationSeconds: jobDurationSeconds,
     });
-  }, [blockReason, launchMode, branch, totalCost, selectedToken?.symbol, walletShortfall, jobDurationSeconds]);
+  }, [blockReason, launchMode, branch, totalCost, walletShortfall, jobDurationSeconds]);
 
   /**
    * The env to launch from, re-read from the node. Both fresh-launch paths resolve GPU ids out of it,
@@ -299,6 +371,52 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       return { ...env, environment: read.env ?? env.environment };
     },
     [refreshLiveEnv]
+  );
+
+  /**
+   * The env a FRESH launch goes out on, read from the node now, with the planned GPU ids re-checked on
+   * it. Unlike resolveLaunchEnv this never falls back: a failed read (or one only served from an
+   * earlier cached answer) can't confirm the ids, so the user is asked to retry; ids that no longer
+   * validate, or whose price moved, stop the launch with a message to pick again — before any escrow tx.
+   * Returns the env to launch on, or the message to show.
+   */
+  const confirmFreshLaunch = useCallback(
+    async (env: SelectedInferenceEnv): Promise<SelectedInferenceEnv | { error: string }> => {
+      if (paymentDemand === 'pending') {
+        return {
+          error: "Still loading this package's GPU requirements, so nothing was charged. Press again in a moment.",
+        };
+      }
+      if (paymentDemand === 'missing') {
+        return {
+          error:
+            "This package is no longer offered by its node, so its GPU needs can't be confirmed. Go back and pick again.",
+        };
+      }
+      // The recommended disk is a floor (the weights must fit); the allocation clamps to what is free,
+      // so a disk filled since the env was picked shows up here as an amount under it.
+      if (sizing?.mode === 'pinned' && sizing.floor && allocation.disk < sizing.floor.disk) {
+        return {
+          error: `This environment has ${allocation.disk} GB of disk free, but the model needs ${sizing.floor.disk} GB. Go back and pick another environment.`,
+        };
+      }
+      const read = await refreshLiveEnv(true);
+      if (!read.fresh || !read.env) {
+        return {
+          error:
+            read.reason === 'unidentified'
+              ? 'This node is no longer offering the environment you picked. Go back and choose one again.'
+              : "Couldn't reach the node to confirm your GPUs are still free, so nothing was charged. Check your connection and press again.",
+        };
+      }
+      const planError = launchPlanError({
+        environment: read.env,
+        plan: gpuPlan,
+        demand: paymentDemand,
+      });
+      return planError ? { error: planError } : { ...env, environment: read.env };
+    },
+    [refreshLiveEnv, gpuPlan, paymentDemand, sizing, allocation.disk]
   );
 
   /**
@@ -331,7 +449,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Returns whether a deposit tx actually happened (false when escrow already covered the cost) —
   // callers thread this into the launch success event as `escrowDeposited`.
   const ensureEscrowForSelection = useCallback(async (): Promise<boolean> => {
-    if (!selectedEnv || !selectedToken || totalCost <= 0) {
+    if (!selectedEnv || totalCost <= 0) {
       return false;
     }
     const info = await loadPaymentInfo();
@@ -340,11 +458,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       err.stage = 'escrow';
       throw err;
     }
-    const tokenAddress = selectedToken.address;
     const requirement = computeEscrowRequirement({
       snapshot: info,
-      totalCost,
-      tokenAddress,
+      totalCost: payerCost,
       requiredLockSeconds: escrowLockSeconds,
     });
     if (requirement.depositAmount <= 0 && requirement.sufficient) {
@@ -359,8 +475,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     const paid = await handlePay({
       flow: 'inference',
-      tokenAddress,
-      tokenSymbol: selectedToken.symbol,
       totalCost,
       durationSeconds: jobDurationSeconds,
       peerId: selectedEnv.nodeInfo.id,
@@ -384,8 +498,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     return true;
   }, [
     selectedEnv,
-    selectedToken,
     totalCost,
+    payerCost,
     jobDurationSeconds,
     escrowLockSeconds,
     loadPaymentInfo,
@@ -540,8 +654,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // the modal). No new container — serviceExtend charges the extra runtime against the same escrow
   // flow as the initial start.
   const prolongService = useCallback(async () => {
-    if (!targetServiceId || !selectedEnv || !selectedToken || !account.address) {
-      setLaunchError('Selection incomplete: missing service, environment, token or wallet.');
+    if (!targetServiceId || !selectedEnv || !account.address) {
+      setLaunchError('Selection incomplete: missing service, environment or wallet.');
       captureError('inference_service_prolong_failed', new Error('missing_selection'), { stage: 'guard', branch });
       return;
     }
@@ -607,17 +721,25 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // The node locks the extension cost in escrow — top up funds/authorization first if needed.
       await ensureEscrowForSelection();
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceExtend(nodeUri, token, targetServiceId, jobDurationSeconds, {
-          chainId: CHAIN_ID,
-          token: selectedToken.address,
-        })
+      const subsidyProviders = await resolveSubsidyProviders();
+      await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceExtend(
+              nodeUri,
+              token,
+              targetServiceId,
+              jobDurationSeconds,
+              { chainId: CHAIN_ID, token: USDC.address },
+              subsidyProviders
+            )
+          ),
+        { action: 'prolong', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       posthog.capture('inference_service_prolonged', {
         serviceId: targetServiceId,
         additionalSeconds: jobDurationSeconds,
         totalCost,
-        tokenSymbol: selectedToken.symbol,
         nodeId: selectedEnv.nodeInfo.id,
         branch,
       });
@@ -631,13 +753,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         // The manage page disables Prolong while the node holds a lock under this service's escrow id
         // (see service-escrow-lock); this catches the lock appearing after that check, or a deep link
         // that skipped it. Its own stage so it isn't counted with generic node failures.
-        setLaunchError(
-          serviceEscrowLockMessage({
-            lock: null,
-            tokenAddress: selectedToken.address,
-            tokenSymbol: selectedToken.symbol,
-          })
-        );
+        setLaunchError(serviceEscrowLockMessage(null));
         captureError('inference_service_prolong_failed', error, { stage: 'escrow_lock_conflict', branch });
         return;
       }
@@ -648,9 +764,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
+    resolveSubsidyProviders,
+    startWithSubsidy,
     targetServiceId,
     selectedEnv,
-    selectedToken,
     account.address,
     withNodeAuth,
     jobDurationSeconds,
@@ -746,14 +863,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     // A single model is selected (the flow is capped at one); its committed params come from context.
     const model = selectedModels[0];
     const params = model ? modelParamsByModel[model.id] : undefined;
-    if (!model || !params || !selectedEnv || !selectedToken || !account.address) {
-      // Name the missing piece so an edit-mode relaunch (which inherits env/token from the running
+    if (!model || !params || !selectedEnv || !account.address) {
+      // Name the missing piece so an edit-mode relaunch (which inherits env from the running
       // service via URL hydration) surfaces which part didn't restore, instead of a generic message.
       const missing = [
         !model && 'model',
         model && !params && 'model parameters',
         !selectedEnv && 'environment',
-        !selectedToken && 'payment token',
         !account.address && 'wallet',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
@@ -772,10 +888,29 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      // Build the payload BEFORE touching escrow, and off a freshly-read env: resolving the GPU ids
-      // is where a selection that other tenants have since booked is caught, and finding that out
-      // after the deposit tx costs the user gas for nothing.
-      const launchEnv = await resolveLaunchEnv(selectedEnv);
+      // vLLM shards across exactly tensor-parallel-size cards: the launch must use the planned width.
+      const plannedWidth = planGpuCount(gpuPlan);
+      if (params.engine === 'vllm' && plannedWidth > 0 && (params.tensorParallelSize ?? 1) !== plannedWidth) {
+        setLaunchError(
+          `The model is set to shard across ${params.tensorParallelSize ?? 1} GPU(s), but ${plannedWidth} are booked. Go back to the configuration step.`
+        );
+        captureError('inference_service_start_failed', new Error('tp_width_mismatch'), { stage: 'gpu_plan', branch });
+        return;
+      }
+      // Build the payload BEFORE touching escrow, and off a freshly-read env: re-checking the planned
+      // GPU ids is where a selection that other tenants have since booked (or repriced) is caught, and
+      // finding that out after the deposit tx costs the user gas for nothing.
+      const confirmed = await confirmFreshLaunch(selectedEnv);
+      if ('error' in confirmed) {
+        setLaunchError(confirmed.error);
+        toast.error(confirmed.error);
+        captureError('inference_service_start_failed', new Error('gpu_plan_unconfirmed'), {
+          stage: 'gpu_plan',
+          branch,
+        });
+        return;
+      }
+      const launchEnv = confirmed;
       // The node sets expiresAt = now + duration and rejects a window past the env's max. Checked
       // against the freshly-read env (like the prolong guard) so a cap the operator lowered since
       // this page priced the launch is caught here, before the escrow deposit tx is paid for nothing.
@@ -803,9 +938,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           // passing selectedEnv.gpuSelection ({} on a whole-env hydrate) straight through would make
           // buildGpuRequests request every free GPU instead, over-provisioning past the escrow.
           gpuSelection: selectedByKey,
+          // The exact ids just re-validated — the launch books what was quoted, nothing re-resolved.
+          gpuPlan,
           allocation,
           durationSeconds: jobDurationSeconds,
-          tokenAddress: selectedToken.address,
           hfToken,
           servicePassword,
           appType,
@@ -819,8 +955,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // The node locks the service cost in escrow right after start — deposit/authorize first if
       // the current escrow state can't cover it (one bundled tx on smart accounts).
       const escrowDeposited = await ensureEscrowForSelection();
-      const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceStart(nodeUri, token, startParams)
+      const subsidyProviders = await resolveSubsidyProviders();
+      const [job] = await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
+          ),
+        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -840,7 +981,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         disk: allocation.disk,
         durationSeconds: jobDurationSeconds,
         totalCost,
-        tokenSymbol: selectedToken.symbol,
         escrowDeposited,
       });
       await openLaunchedService(job.serviceId);
@@ -853,14 +993,16 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
+    resolveSubsidyProviders,
+    startWithSubsidy,
     selectedModels,
     modelParamsByModel,
     selectedEnv,
-    selectedToken,
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
-    resolveLaunchEnv,
+    confirmFreshLaunch,
+    gpuPlan,
     reportGpuSelectionFailure,
     allocation,
     selectedByKey,
@@ -877,11 +1019,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   // Fresh launch of a template app (ComfyUI, …). Mirrors runFreshLaunch but sources the container spec
   // from the selected template (image/ports/command/env) instead of an HF model + engine params.
   const runTemplateLaunch = useCallback(async () => {
-    if (!selectedTemplate || !selectedEnv || !selectedToken || !account.address) {
+    if (!selectedTemplate || !selectedEnv || !account.address) {
       const missing = [
         !selectedTemplate && 'template',
         !selectedEnv && 'environment',
-        !selectedToken && 'payment token',
         !account.address && 'wallet',
       ].filter(Boolean);
       setLaunchError(`Selection incomplete. Missing: ${missing.join(', ')}.`);
@@ -903,8 +1044,18 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // and can throw (e.g. CompressionStream unavailable on older Safari/Firefox) — independent of
       // escrow, so build first and let a failure here cost nothing.
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      // Re-read the env first — same reason as runFreshLaunch: the GPU ids are resolved from it.
-      const launchEnv = await resolveLaunchEnv(selectedEnv);
+      // Re-read the env and re-check the planned GPU ids on it first — same reason as runFreshLaunch.
+      const confirmed = await confirmFreshLaunch(selectedEnv);
+      if ('error' in confirmed) {
+        setLaunchError(confirmed.error);
+        toast.error(confirmed.error);
+        captureError('inference_service_start_failed', new Error('gpu_plan_unconfirmed'), {
+          stage: 'gpu_plan',
+          branch,
+        });
+        return;
+      }
+      const launchEnv = confirmed;
       // Max-duration guard against the freshly-read env — see runFreshLaunch.
       const envMax = serviceDurationBounds(launchEnv.environment).max;
       if (envMax && jobDurationSeconds > envMax) {
@@ -926,9 +1077,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           selectedEnv: launchEnv,
           // Launch the exact per-type unit count that was priced/escrowed (see runFreshLaunch note).
           gpuSelection: selectedByKey,
+          gpuPlan,
           allocation,
           durationSeconds: jobDurationSeconds,
-          tokenAddress: selectedToken.address,
           envValues: templateEnvValues,
           bucketId: selectedBucketId ?? undefined,
         });
@@ -940,8 +1091,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw buildError;
       }
       const escrowDeposited = await ensureEscrowForSelection();
-      const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
-        serviceStart(nodeUri, token, startParams)
+      const subsidyProviders = await resolveSubsidyProviders();
+      const [job] = await startWithSubsidy(
+        () =>
+          withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
+            serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
+          ),
+        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -960,7 +1116,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         disk: allocation.disk,
         durationSeconds: jobDurationSeconds,
         totalCost,
-        tokenSymbol: selectedToken.symbol,
         escrowDeposited,
         branch,
       });
@@ -974,13 +1129,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
+    resolveSubsidyProviders,
+    startWithSubsidy,
     selectedTemplate,
     selectedEnv,
-    selectedToken,
     account.address,
     withNodeAuth,
     ensureEscrowForSelection,
-    resolveLaunchEnv,
+    confirmFreshLaunch,
+    gpuPlan,
     reportGpuSelectionFailure,
     allocation,
     selectedByKey,
@@ -1062,7 +1219,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       mode: launchMode,
       flowType,
       totalCost,
-      tokenSymbol: selectedToken?.symbol,
       durationSeconds: jobDurationSeconds,
       branch,
     });
@@ -1112,7 +1268,6 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     servicePassword,
     launchMode,
     totalCost,
-    selectedToken,
     jobDurationSeconds,
     branch,
   ]);
@@ -1156,7 +1311,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               {!isEditMode &&
                 (!account.address ? (
                   <div className="textSecondary">Connect your wallet to see payment details.</div>
-                ) : selectedEnv && selectedToken ? (
+                ) : selectedEnv ? (
                   loadingPaymentInfo && escrowBalance === null && walletBalance === null ? (
                     <CircularProgress className="alignSelfCenter" />
                   ) : paymentInfoError ? (
@@ -1178,7 +1333,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                       authorizations={authorizations}
                       escrowBalance={escrowBalance ?? 0}
                       loadPaymentInfo={loadPaymentInfo}
-                      selectedToken={selectedToken}
+                      nodeAddress={selectedEnv?.environment.consumerAddress}
+                      subsidyJobType={SubsidyJobType.SERVICE}
                       topupSource="inference"
                       totalCost={totalCost}
                       walletBalance={walletBalance ?? 0}
@@ -1222,17 +1378,18 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     </span>
                   </div>
                   <InferenceEnvironmentCard
-                    defaultToken={selectedToken?.address}
                     durationSeconds={displayDurationSeconds}
                     // An Edit relaunch reuses the paid window: nothing is charged, so no price.
                     hidePrice={isEditMode}
                     environment={environment ?? selectedEnv.environment}
                     gpuSelection={gpuSelection}
+                    gpuRequests={gpuPlan?.requests}
                     sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}
                   />
                 </>
               )}
+              {belowRecommendedNote && <div className="textSecondary">{belowRecommendedNote}</div>}
               {asksPassword && (
                 <>
                   <div className={styles.sectionHead}>
@@ -1253,7 +1410,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               // Launch/extend/restart all need the wallet (auth token signature + escrow tx). When it
               // isn't connected, prompt the login modal instead of stranding the user on a dead button;
               // once connected, gate only on the P2P layer being ready.
-              nextDisabled={account.address ? !isReady || paymentBlocked : false}
+              nextDisabled={account.address ? !isReady || paymentBlocked || isSubsidyQuoting : false}
               nextLabel={
                 !account.address
                   ? 'Connect wallet'

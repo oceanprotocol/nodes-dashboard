@@ -49,12 +49,11 @@ export function decorate(tpl: AppTemplate): DecoratedTemplate {
   // Icons match the environment cards: generic GPU glyph for GPU, chip/memory glyph for CPU,
   // SD-storage for RAM, DNS for disk.
   const cores = hw.cpu != null ? `${hw.cpu} ${hw.cpu === 1 ? 'core' : 'cores'}` : null;
-  // The card's hardware line is the GPU ask ALONE — the declared range ("2-4 GPUs", or "1 GPU" when
-  // min and recommended agree), or "CPU only" when the template declares no GPU. The CPU/RAM/disk
-  // figures that used to sit beside it are deliberately gone: the shared slice is now derived from
-  // whichever GPU count the user picks (templateFloorSizing — proportional above the declared floor),
-  // so printing one fixed cores/RAM/disk triple here stated a number the launch would rarely book.
-  // The environment cards show the real amounts per pick, which is where the decision is actually made.
+  // The card's hardware line is the GPU ask ALONE — the recommended VRAM ("141 GB VRAM"), or "CPU
+  // only" when the template declares no GPU. The CPU/RAM/disk figures that used to sit beside it are
+  // deliberately gone: they are booked only as far as each environment can grant them, so one fixed
+  // cores/RAM/disk triple here stated a number the launch would often not book. The environment cards
+  // show the real amounts per pick, which is where the decision is actually made.
   const gpuChipLabel = templateGpuLabel(hw);
   const meta: DecoratedTemplate['meta'] = [{ key: 'hw', Icon: hw.gpu ? GpuIcon : MemoryIcon, label: gpuChipLabel }];
   // Kept for the aria label / spoken summary below, and so a template that declares nothing still says
@@ -166,8 +165,8 @@ const TemplateCard: React.FC<TemplateCardProps> = ({ item, onOpen }) => {
       )}
 
       {/* Resource meta row (cores / RAM / disk) — commented out in favour of the GPU chip above. The
-          numbers were the template's fixed `recommended` figures, which stopped matching what a launch
-          books once the shared slice became proportional to the GPU pick (templateFloorSizing). Kept
+          numbers were the template's fixed `recommended` figures, which don't match what a launch books
+          on an environment that can't grant them all. Kept
           rather than deleted: `item.meta`/`metaFallback` still feed the card's aria-label, and this is
           the markup to restore if per-card resource figures are wanted again.
       <div className={styles.metaRow}>

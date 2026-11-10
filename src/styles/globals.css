@@ -324,8 +324,10 @@ a {
 }
 
 .actionsGroupLgBetween,
+.actionsGroupLgCenter,
 .actionsGroupLgEnd,
 .actionsGroupMdBetween,
+.actionsGroupMdCenter,
 .actionsGroupMdEnd {
   align-items: stretch;
   display: flex;
@@ -337,6 +339,15 @@ a {
       flex-wrap: wrap;
       flex-direction: row;
       justify-content: space-between;
+    }
+  }
+  &.actionsGroupLgCenter {
+    gap: 16px;
+    @media (min-width: 768px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: center;
     }
   }
   &.actionsGroupLgEnd {
@@ -355,6 +366,15 @@ a {
       flex-wrap: wrap;
       flex-direction: row;
       justify-content: space-between;
+    }
+  }
+  &.actionsGroupMdCenter {
+    gap: 8px;
+    @media (min-width: 576px) {
+      align-items: center;
+      flex-wrap: wrap;
+      flex-direction: row;
+      justify-content: center;
     }
   }
   &.actionsGroupMdEnd {
@@ -545,6 +565,9 @@ a {
 /* Overrides */
 
 .Toastify__toast-theme--colored {
+  a {
+    text-decoration: underline;
+  }
   &.Toastify__toast {
     backdrop-filter: var(--backdrop-filter-glass);
     border-radius: 16px;

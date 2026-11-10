@@ -1,32 +1,32 @@
-import { getGrantOtpEmailTemplate } from '@/templates/grant-otp-email';
+import { getSubsidyOtpEmailTemplate } from '@/templates/subsidy-otp-email';
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     type: 'OAuth2',
-    user: process.env.GRANT_GMAIL_ADDRESS,
-    clientId: process.env.GRANT_GMAIL_OAUTH_CLIENT_ID,
-    clientSecret: process.env.GRANT_GMAIL_OAUTH_CLIENT_SECRET,
-    refreshToken: process.env.GRANT_GMAIL_OAUTH_REFRESH_TOKEN,
+    user: process.env.SUBSIDY_GMAIL_ADDRESS,
+    clientId: process.env.SUBSIDY_GMAIL_OAUTH_CLIENT_ID,
+    clientSecret: process.env.SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET,
+    refreshToken: process.env.SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN,
   },
 });
 
 const REQUIRED_GMAIL_ENV_VARS = [
-  'GRANT_GMAIL_ADDRESS',
-  'GRANT_GMAIL_OAUTH_CLIENT_ID',
-  'GRANT_GMAIL_OAUTH_CLIENT_SECRET',
-  'GRANT_GMAIL_OAUTH_REFRESH_TOKEN',
+  'SUBSIDY_GMAIL_ADDRESS',
+  'SUBSIDY_GMAIL_OAUTH_CLIENT_ID',
+  'SUBSIDY_GMAIL_OAUTH_CLIENT_SECRET',
+  'SUBSIDY_GMAIL_OAUTH_REFRESH_TOKEN',
 ];
 
 export async function sendOTP(email: string, code: string) {
   const splitCode = `${code.slice(0, 3)} ${code.slice(3, 6)}`;
   const mailOptions = {
-    from: process.env.GRANT_GMAIL_ADDRESS,
+    from: process.env.SUBSIDY_GMAIL_ADDRESS,
     to: email,
-    subject: 'Verification Code for Ocean Network Grant',
+    subject: 'Verification Code for Ocean Network Subsidy',
     // text: `Your verification code is: ${splitCode}`,
-    html: getGrantOtpEmailTemplate({ otp: splitCode }),
+    html: getSubsidyOtpEmailTemplate({ otp: splitCode }),
   };
   try {
     const missingEnvVars = REQUIRED_GMAIL_ENV_VARS.filter((name) => !process.env[name]);

@@ -39,6 +39,8 @@ export type ComputeResource = {
   inUse?: number;
   kind?: string;
   max: number;
+  /** GPU VRAM per card ("143771 MiB", "141 GB"). The node requires it on every `type: 'gpu'` resource. */
+  memoryTotal?: string;
   min: number;
   total: number;
   type?: ComputeResourceType;

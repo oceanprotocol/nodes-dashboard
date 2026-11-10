@@ -1,0 +1,48 @@
+.muted {
+  color: var(--text-secondary);
+}
+
+.mono {
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+}
+
+.link {
+  color: var(--accent1);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  line-height: 1.3;
+}
+
+.stackEnd {
+  align-items: flex-end;
+}
+
+.secondary {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.amountPositive {
+    color: var(--success-darker);
+  }
+
+  &.amountNegative {
+    color: var(--error-darker);
+  }
+}

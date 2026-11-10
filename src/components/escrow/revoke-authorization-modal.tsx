@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import Modal from '@/components/modal/modal';
+import { USDC } from '@/constants/tokens';
 import { useAuthorizeTokens } from '@/lib/use-authorize-tokens';
 import { EscrowSpenderInfo } from '@/lib/use-escrow-data';
 import { formatWalletAddress } from '@/utils/formatters';
@@ -21,7 +22,7 @@ const RevokeAuthorizationModal = ({ isOpen, onClose, onSuccess, spender }: Revok
 
   const handleRevoke = () =>
     handleAuthorize({
-      tokenAddress: spender.tokenAddress,
+      tokenAddress: USDC.address,
       spender: spender.spender,
       maxLockedAmount: '0',
       maxLockSeconds: '0',
@@ -40,7 +41,7 @@ const RevokeAuthorizationModal = ({ isOpen, onClose, onSuccess, spender }: Revok
         <p>
           Remove the spending authorization for consumer <strong>{formatWalletAddress(spender.spender)}</strong>?
           <br />
-          This sets all limits to zero, so it can no longer pay for compute jobs with {spender.tokenSymbol}.
+          This sets all limits to zero, so it can no longer pay for compute jobs with {USDC.symbol}.
         </p>
       )}
       <div className="actionsGroupMdEnd">

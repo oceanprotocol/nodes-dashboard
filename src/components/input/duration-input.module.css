@@ -18,3 +18,22 @@
 .unitSelect:focus {
   outline: none;
 }
+
+.unitSegments {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  margin-right: -10px;
+}
+
+.wideOnly {
+  @media (max-width: 575px) {
+    display: none;
+  }
+}
+
+.narrowOnly {
+  @media (min-width: 576px) {
+    display: none;
+  }
+}

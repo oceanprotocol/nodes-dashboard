@@ -1,19 +1,14 @@
 import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { fetchNodeEnvironment } from '@/components/hooks/use-live-env';
-import { SelectedToken } from '@/context/run-job-context';
+import { USDC } from '@/constants/tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import {
-  envKey,
-  GpuRange,
-  planQuickStart,
-  QuickStartEntry,
-  QuickStartOption,
-  toCandidates,
-} from '@/services/quick-start';
+import { envKey, planQuickStart, QuickStartEntry, QuickStartOption, toCandidates } from '@/services/quick-start';
 import { ComputeEnvironment } from '@/types/environments';
 import { checkEnvAccess, hasAccessRestriction } from '@/utils/check-env-access';
+import { GpuPlan } from '@/utils/env-resources';
 import { formatDuration, formatHourlyRate, formatTokenAmount, roundTokenAmount } from '@/utils/formatters';
+import type { GpuResourceRequirement } from '@oceanprotocol/lib';
 import { ethers } from 'ethers';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -31,8 +26,9 @@ export type QuickStartStatus = 'loading' | 'error' | 'ready' | 'duration' | 'non
 /** A confirmed quick-start pick, as handed to the page that commits it. */
 export type QuickStartPick<T extends QuickStartEntry> = {
   entry: T;
-  token: SelectedToken;
   gpuSelection: GpuSelection;
+  /** The exact GPU ids the pick books and their quoted per-minute price (re-checked at payment). */
+  gpuPlan: GpuPlan;
   environment: ComputeEnvironment;
   sizing: ResourceSizing | undefined;
 };
@@ -41,14 +37,12 @@ export type QuickStart<T extends QuickStartEntry> = {
   status: QuickStartStatus;
   /** What Start would launch on right now, when `status` is `ready`. */
   option: QuickStartOption<T> | null;
-  /** The option's price in its fee token, e.g. "12.4 USDC", or its hourly rate while no session length is set. */
+  /** The option's price, e.g. "12.4 USDC", or its hourly rate while no session length is set. */
   priceLabel: string | null;
   /** Why Start can't be pressed (its tooltip), or null when it can. */
   blockedReason: string | null;
   /** A session length some fitting environment accepts, when the current one is what blocks Start. */
   suggestedDurationSeconds: number | null;
-  /** The target's recommended GPU count when the option books fewer (the rest aren't free). */
-  recommendedGpus: number | null;
   /** The option books less CPU/RAM/disk than recommended: no fitting environment has that much free. */
   belowRecommendedResources: boolean;
   loadError: string | null;
@@ -74,13 +68,11 @@ async function accessFor(
 }
 
 function priceLabelOf<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
-  const { address, symbol } = option.candidate.token;
-  return `${formatTokenAmount(option.price, address)} ${symbol}`.trim();
+  return `${formatTokenAmount(option.price, USDC.address)} ${USDC.symbol}`;
 }
 
 function rateLabelOf<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
-  const { address, symbol } = option.candidate.token;
-  return formatHourlyRate(option.pricePerMinute, address, symbol).trim();
+  return formatHourlyRate(option.pricePerMinute, USDC.address, USDC.symbol);
 }
 
 function describePick<T extends QuickStartEntry>(option: QuickStartOption<T>): string {
@@ -96,16 +88,16 @@ function describePick<T extends QuickStartEntry>(option: QuickStartOption<T>): s
  * numbers, until the plan settles on an environment whose copy was just read (confirmed free), or runs
  * out of candidates or reads. A candidate the node no longer lists is dropped for this modal; one that
  * is busy stays, planned against its fresh copy (it may still host fewer GPUs); an unreachable one is
- * only skipped for this click. When the confirmed pick books fewer GPUs, costs more or charges another
- * token than the button showed, Start stops and shows it rather than carrying the user on to a payment
- * they didn't see.
+ * only skipped for this click. When the confirmed pick books fewer GPUs or costs more than the button
+ * showed, Start stops and shows it rather than carrying the user on to a payment they didn't see.
  */
 export default function useQuickStart<T extends QuickStartEntry>({
   entries,
   loading,
   loadError,
   retry,
-  gpuRange,
+  gpuRequirement,
+  forcedGpuCount,
   allowZeroGpu,
   durationSeconds,
   onStart,
@@ -114,8 +106,10 @@ export default function useQuickStart<T extends QuickStartEntry>({
   loading: boolean;
   loadError: string | null;
   retry: () => void;
-  /** Memoize it: a new object per render re-plans every render. */
-  gpuRange: GpuRange | null;
+  /** The target's GPU recommendation (total VRAM + layouts), or null when it declares no GPU. */
+  gpuRequirement: GpuResourceRequirement | null;
+  /** Keep only the layout of this many cards: a package's pinned tensor-parallel width. */
+  forcedGpuCount?: number;
   allowZeroGpu: boolean;
   durationSeconds: number;
   /**
@@ -186,7 +180,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
     const planOn = (list: T[]) =>
       planQuickStart({
         candidates: toCandidates({ entries: list, fresh, excluded, access }),
-        gpuRange,
+        gpuRequirement,
+        forcedGpuCount,
         allowZeroGpu,
         durationSeconds,
       });
@@ -197,7 +192,17 @@ export default function useQuickStart<T extends QuickStartEntry>({
       }
     }
     return planOn(entries);
-  }, [entries, fresh, excluded, access, gpuRange, allowZeroGpu, durationSeconds, account.address]);
+  }, [
+    entries,
+    fresh,
+    excluded,
+    access,
+    gpuRequirement,
+    forcedGpuCount,
+    allowZeroGpu,
+    durationSeconds,
+    account.address,
+  ]);
 
   const start = useCallback(async () => {
     if (plan.status !== 'ready' || startingRef.current || durationSeconds <= 0) {
@@ -239,7 +244,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
           excluded: withSkipped ? { ...nextExcluded, ...skipped } : nextExcluded,
           access: nextAccess,
         }),
-        gpuRange,
+        gpuRequirement,
+        forcedGpuCount,
         allowZeroGpu,
         durationSeconds,
       });
@@ -257,11 +263,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
           setFresh(nextFresh);
           setExcluded(nextExcluded);
           setAccess(nextAccess);
-          const sameToken = option.candidate.token.address === shown.candidate.token.address;
           const pricier =
-            !sameToken ||
-            roundTokenAmount(option.price, option.candidate.token.address, 'up') >
-              roundTokenAmount(shown.price, shown.candidate.token.address, 'up');
+            roundTokenAmount(option.price, USDC.address, 'up') > roundTokenAmount(shown.price, USDC.address, 'up');
           if (option.gpuCount !== shown.gpuCount || pricier) {
             // Now shown on the button, so the user decides with the real numbers in front of them.
             toast.info(
@@ -278,8 +281,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
           }
           onStart({
             entry,
-            token: option.candidate.token,
             gpuSelection: option.gpuSelection,
+            gpuPlan: option.gpuPlan,
             environment: option.candidate.environment,
             sizing: option.sizing,
           });
@@ -360,7 +363,8 @@ export default function useQuickStart<T extends QuickStartEntry>({
     excluded,
     entries,
     access,
-    gpuRange,
+    gpuRequirement,
+    forcedGpuCount,
     allowZeroGpu,
     durationSeconds,
     provider,
@@ -408,7 +412,6 @@ export default function useQuickStart<T extends QuickStartEntry>({
     priceLabel: option ? (durationSeconds > 0 ? priceLabelOf(option) : rateLabelOf(option)) : null,
     blockedReason: blockedReasons[status],
     suggestedDurationSeconds,
-    recommendedGpus: option && gpuRange && option.gpuCount < gpuRange.recommended ? gpuRange.recommended : null,
     belowRecommendedResources: !!option && !option.fullSizing,
     loadError,
     retry,

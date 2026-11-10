@@ -10,6 +10,7 @@ const StyledTextField = styled(TextField, {
     border: `1px solid var(${has_error ? '--error' : '--border'})`,
     boxShadow: has_error ? 'var(--input-shadow-error)' : undefined,
     borderRadius: custom_radius ?? 24,
+    justifyContent: 'center',
     lineHeight: '18px',
     minHeight: custom_size === 'sm' ? 34 : 50,
     transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
@@ -56,6 +57,8 @@ type InputProps = {
   endAdornment?: React.ReactNode;
   errorText?: string;
   hint?: React.ReactNode;
+  /** Error styling without the inline message, for callers that show the message elsewhere. */
+  invalid?: boolean;
   label?: React.ReactNode;
   max?: number;
   maxLength?: number;
@@ -82,6 +85,7 @@ const Input: React.FC<InputProps> = ({
   endAdornment,
   errorText,
   hint,
+  invalid,
   label,
   max,
   maxLength,
@@ -112,7 +116,8 @@ const Input: React.FC<InputProps> = ({
       custom_radius={radius}
       custom_size={size}
       disabled={disabled}
-      has_error={!!errorText}
+      has_error={invalid || !!errorText}
+      error={invalid || !!errorText}
       name={name}
       onBlur={onBlur}
       onChange={onChange}
@@ -120,7 +125,13 @@ const Input: React.FC<InputProps> = ({
       onKeyUp={onKeyUp}
       placeholder={placeholder}
       slotProps={{
-        htmlInput: { 'aria-label': ariaLabel, max, maxLength, min, step },
+        htmlInput: {
+          'aria-label': ariaLabel ?? (typeof label === 'string' ? label : undefined),
+          max,
+          maxLength,
+          min,
+          step,
+        },
         input: { startAdornment, endAdornment },
       }}
       type={type}

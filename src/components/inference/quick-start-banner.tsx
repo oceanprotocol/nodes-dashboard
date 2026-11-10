@@ -4,6 +4,7 @@ import Card from '@/components/card/card';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import { QuickStart } from '@/components/hooks/use-quick-start';
 import DurationInput from '@/components/input/duration-input';
+import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
 import { QuickStartEntry } from '@/services/quick-start';
 import { DURATION_UNIT_OPTIONS, formatSessionEnd } from '@/utils/duration';
 import { formatDuration, formatGb } from '@/utils/formatters';
@@ -74,8 +75,7 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
   onDurationChange,
   onAdvanced,
 }: QuickStartBannerProps<T>) {
-  const { status, option, recommendedGpus, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } =
-    quickStart;
+  const { status, option, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } = quickStart;
   const hasDuration = durationSeconds > 0;
   // Keeps the end time readable while its line fades out after the field is cleared.
   const lastSetDurationRef = useRef(durationSeconds);
@@ -162,16 +162,12 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
               <VerifiedIcon aria-label="Verified node" className={styles.verified} />
             </Tooltip>
           )}
+          <SubsidizedNodeChip nodeAddress={candidate.entry.env.environment.consumerAddress} peerId={node.id} />
         </div>
-        {recommendedGpus !== null && (
-          <div className={styles.note}>
-            The recommended {recommendedGpus}× GPU isn&apos;t free right now, so this starts on {gpuCount}×.
-          </div>
-        )}
         {belowRecommendedResources && (
           <div className={styles.note}>
-            No environment has the recommended CPU, RAM and disk free right now, so this starts with less (still above
-            the minimum).
+            No environment has the recommended CPU and RAM free right now, so this starts with what is free and may run
+            slowly or fail to load.
           </div>
         )}
       </div>

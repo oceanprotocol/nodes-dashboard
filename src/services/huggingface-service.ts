@@ -1,5 +1,7 @@
+import { isGgufRepoId } from '@/services/model-compatibility';
 import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import {
+  HfModelShape,
   HuggingFaceModel,
   HuggingFaceModelConfig,
   InferenceEngine,
@@ -9,7 +11,7 @@ import {
   ToolCallParser,
   VllmParameters,
 } from '@/types/huggingface';
-import { isGgufRepoId } from '@/services/model-compatibility';
+import { HfTpConfig } from '@oceanprotocol/lib';
 import axios from 'axios';
 
 // Hugging Face Hub API reference: https://huggingface.co/spaces/huggingface/openapi
@@ -53,13 +55,88 @@ function encodeRevision(revision: string): string {
     .join('/');
 }
 
-type RawHfConfig = {
+/** The attention / KV-shape fields of a config.json, at the top level or nested under `text_config`. */
+type RawHfTextConfig = {
+  max_position_embeddings?: number;
+  num_attention_heads?: number;
+  num_key_value_heads?: number;
+  num_hidden_layers?: number;
+  head_dim?: number;
+  hidden_size?: number;
+  kv_lora_rank?: number;
+  qk_rope_head_dim?: number;
+  torch_dtype?: string;
+  layer_types?: string[];
+  full_attention_interval?: number;
+  sliding_window?: number | null;
+  num_global_key_value_heads?: number;
+  global_head_dim?: number;
+};
+
+type RawHfConfig = RawHfTextConfig & {
   architectures?: string[];
   model_type?: string;
-  max_position_embeddings?: number;
-  torch_dtype?: string;
   quantization_config?: { quant_method?: string };
+  text_config?: RawHfTextConfig;
 };
+
+const positiveInt = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+
+/**
+ * The KV-sizing shape of a config.json. A multimodal repo nests its language model under `text_config`;
+ * that block is preferred whenever it carries the attention heads (the same rule legalTpWidths applies),
+ * and the top level is used otherwise. `head_dim` falls back to hidden_size / num_attention_heads.
+ */
+export function readModelShape(config: RawHfConfig | null | undefined): HfModelShape {
+  const source: RawHfTextConfig | undefined = positiveInt(config?.text_config?.num_attention_heads)
+    ? config?.text_config
+    : (config ?? undefined);
+  const heads = positiveInt(source?.num_attention_heads);
+  const hidden = positiveInt(source?.hidden_size);
+  const derivedHeadDim = heads && hidden && hidden % heads === 0 ? hidden / heads : null;
+  const layers = positiveInt(source?.num_hidden_layers);
+  const layerTypes = Array.isArray(source?.layer_types) ? source.layer_types : null;
+  const countOf = (...types: string[]) => layerTypes?.filter((type) => types.includes(type)).length ?? 0;
+  const interval = positiveInt(source?.full_attention_interval);
+  const fullAttentionLayers = layerTypes
+    ? countOf('full_attention', 'attention')
+    : layers && interval
+      ? Math.floor(layers / interval)
+      : null;
+  return {
+    numAttentionHeads: heads,
+    numKeyValueHeads: positiveInt(source?.num_key_value_heads),
+    numHiddenLayers: layers,
+    headDim: positiveInt(source?.head_dim) ?? derivedHeadDim,
+    kvLoraRank: positiveInt(source?.kv_lora_rank),
+    qkRopeHeadDim: positiveInt(source?.qk_rope_head_dim),
+    fullAttentionLayers,
+    slidingLayers: layerTypes ? countOf('sliding_attention') : null,
+    slidingWindow: positiveInt(source?.sliding_window),
+    fullAttentionKvHeads: positiveInt(source?.num_global_key_value_heads),
+    fullAttentionHeadDim: positiveInt(source?.global_head_dim),
+  };
+}
+
+/** The raw attention head counts (top level + text_config) the tensor-parallel width check reads. */
+function readAttentionShape(config: RawHfConfig | null | undefined): HfTpConfig | null {
+  if (!config) {
+    return null;
+  }
+  return {
+    num_attention_heads: config.num_attention_heads,
+    num_key_value_heads: config.num_key_value_heads,
+    ...(config.text_config
+      ? {
+          text_config: {
+            num_attention_heads: config.text_config.num_attention_heads,
+            num_key_value_heads: config.text_config.num_key_value_heads,
+          },
+        }
+      : {}),
+  };
+}
 
 type RawHfTokenizerConfig = {
   // Either a single template string or a list of named templates.
@@ -190,6 +267,10 @@ function mapModel(raw: RawHfModel): HuggingFaceModel {
     // Absent for ~1 in 3 repos (GGUF-only ones, and anything HF hasn't indexed) — treat as unknown,
     // never as zero.
     paramCount: raw.safetensors?.total,
+    paramsByDtype:
+      raw.safetensors?.parameters && Object.keys(raw.safetensors.parameters).length > 0
+        ? raw.safetensors.parameters
+        : undefined,
   };
 }
 
@@ -380,10 +461,13 @@ export async function fetchHuggingFaceModelConfig(
   return {
     architecture: config?.architectures?.[0] ?? null,
     modelType: config?.model_type ?? null,
-    maxContext: config?.max_position_embeddings ?? null,
-    torchDtype: config?.torch_dtype ?? null,
+    // Multimodal repos may keep the context window only on the language model's own block.
+    maxContext: config?.max_position_embeddings ?? config?.text_config?.max_position_embeddings ?? null,
+    torchDtype: config?.torch_dtype ?? config?.text_config?.torch_dtype ?? null,
     quantizationMethod: config?.quantization_config?.quant_method ?? null,
     supportsTools,
+    attention: readAttentionShape(config),
+    shape: readModelShape(config),
   };
 }
 
