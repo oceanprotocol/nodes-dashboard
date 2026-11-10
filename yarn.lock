@@ -4768,10 +4768,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/contracts@npm:3.2.0-rc.1":
-  version: 3.2.0-rc.1
-  resolution: "@oceanprotocol/contracts@npm:3.2.0-rc.1"
-  checksum: 10c0/d7189e9594486cc33483b61015133e8f5c36e4af59fc5009f40e05bd9b428fa1fc0fb9ffe11e6db9d220e249b1e9d1544c096b4f6fd388eddbf7236822764faa
+"@oceanprotocol/contracts@npm:3.2.0":
+  version: 3.2.0
+  resolution: "@oceanprotocol/contracts@npm:3.2.0"
+  checksum: 10c0/6c1ab939bebaeb05fef527e4a5db717117f774e4db945ee06584a7faaed7b4929d12c69adfa3cdb9dd5350f83f845e62343553c63b92886fdc0f8504ecb3ab3b
   languageName: node
   linkType: hard
 
@@ -18471,7 +18471,7 @@ __metadata:
     "@mui/material": "npm:^7.3.6"
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
-    "@oceanprotocol/contracts": "npm:3.2.0-rc.1"
+    "@oceanprotocol/contracts": "npm:3.2.0"
     "@oceanprotocol/lib": "npm:10.0.0-next.1"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.51.0"
