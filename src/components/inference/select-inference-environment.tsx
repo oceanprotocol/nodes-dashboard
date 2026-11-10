@@ -519,6 +519,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                   activeKey={durationSource === 'preset' ? String(durationDraft) : ''}
                   ariaLabel="Session length presets"
                   cardVariant="glass"
+                  selectedButtonColor="accent1"
                   size="sm"
                   tabs={DURATION_PRESETS.map(({ label, seconds }) => ({
                     key: String(seconds),

@@ -1,4 +1,4 @@
-import Button from '@/components/button/button';
+import Button, { ButtonProps } from '@/components/button/button';
 import Card, { CardVariant } from '@/components/card/card';
 import classNames from 'classnames';
 import styles from './tab-bar.module.css';
@@ -16,6 +16,7 @@ type TabBarProps = {
   cardVariant?: CardVariant;
   className?: string;
   disabled?: boolean;
+  selectedButtonColor?: ButtonProps['color'];
   size?: 'sm' | 'md';
   tabs: Tab[];
 };
@@ -26,6 +27,7 @@ const TabBar = ({
   cardVariant = 'glass-shaded',
   className,
   disabled,
+  selectedButtonColor = 'accent2',
   size = 'md',
   tabs,
 }: TabBarProps) => (
@@ -43,7 +45,7 @@ const TabBar = ({
         <Button
           aria-current={tab.href && active ? 'page' : undefined}
           aria-pressed={tab.href ? undefined : active}
-          color={active ? 'accent2' : 'primary'}
+          color={active ? selectedButtonColor : 'primary'}
           disabled={disabled}
           href={tab.href}
           key={tab.key}

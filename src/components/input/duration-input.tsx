@@ -147,7 +147,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
                 <Button
                   aria-label={opt.value}
                   aria-pressed={unit === opt.value}
-                  color={unit === opt.value ? 'accent2' : 'primary'}
+                  color={unit === opt.value ? 'primary' : 'primary'}
                   disabled={disabled}
                   key={opt.value}
                   onClick={() => handleUnitChange(opt.value)}

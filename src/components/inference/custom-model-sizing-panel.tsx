@@ -199,6 +199,7 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
                 cardVariant="glass"
                 className={cx(styles.choices, highlightContext && styles.highlight)}
                 disabled={contextUnknown}
+                selectedButtonColor="accent1"
                 size="sm"
                 tabs={choices.map((choice) => ({
                   key: choice.value,
