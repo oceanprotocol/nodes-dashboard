@@ -63,7 +63,7 @@ export type SubsidyQuote = {
   custom: { address: string; amount: number; payment: SubsidyPayment }[];
   discount: number;
   oneTime: number;
-  /** How the OPF providers that cover part of the job pay. */
+  /** How the ON providers that cover part of the job pay. */
   opfPayments: SubsidyPayment[];
   /** Part of `total` refunded after the job, so the payer locks it up front. */
   postpaid: number;
@@ -308,7 +308,7 @@ export const isNodeSubsidized = async (program: SubsidyProgram, nodeAddress: str
 /**
  * Mirrors the escrow: prepaid providers cover the job at lock, then postpaid ones refund part of what the payer locked
  * at claim. Each provider sees what the previous ones left uncovered.
- * Custom providers go first, in the order added, then OPF ones; a custom provider that fails to quote is skipped.
+ * Custom providers go first, in the order added, then ON ones; a custom provider that fails to quote is skipped.
  */
 export const quoteSubsidy = async ({
   cost,

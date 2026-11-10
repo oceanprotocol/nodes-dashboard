@@ -209,7 +209,7 @@ export const useSubsidyQuote = ({
   });
 };
 
-/** Whether the wallet can use the OPF subsidy or any custom one. */
+/** Whether the wallet can use the ON subsidy or any custom one. */
 export const useHasSubsidy = () => {
   const { data: program } = useSubsidyProgram();
   const { data: usage } = useSubsidyUsage();

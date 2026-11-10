@@ -43,7 +43,7 @@ const getStatusNote = ({ data }: CustomSubsidy) => {
     return "Your wallet isn't on this subsidy's access list. Jobs are charged without it until it is.";
   }
   if (data.program && getProgramPayments(data.program).includes('postpaid')) {
-    return "You pay this subsidy's part up front. The refund after each job comes from this contract, not from OPF.";
+    return "You pay this subsidy's part up front. The refund after each job comes from this contract, not from ON.";
   }
   return null;
 };
@@ -150,7 +150,7 @@ const CustomSubsidies = () => {
     const address = ethers.getAddress(query);
     const isSame = (other: string) => other.toLowerCase() === address.toLowerCase();
     if (getSubsidyProviderAddresses().some(isSame)) {
-      return "This is the OPF subsidy. It's already shown above.";
+      return "This is the ON subsidy. It's already shown above.";
     }
     if (subsidies.some((subsidy) => isSame(subsidy.address))) {
       return 'You already added this subsidy';
@@ -178,7 +178,7 @@ const CustomSubsidies = () => {
       <div className={styles.header}>
         <div className={styles.headerText}>
           <h4>Other subsidies</h4>
-          <span className={styles.muted}>Used before the OPF subsidy, on the nodes each one supports</span>
+          <span className={styles.muted}>Used before the ON subsidy, on the nodes each one supports</span>
         </div>
         <Button color="accent1" contentBefore={<AddIcon />} onClick={() => setAddOpen(true)} size="md">
           Add subsidy

@@ -32,7 +32,7 @@ const SubsidyHeader = ({ action, chip, subtitle }: SubsidyHeaderProps) => (
   <div className={styles.header}>
     <div className={styles.headerText}>
       <div className={styles.titleRow}>
-        <h4>OPF subsidy</h4>
+        <h4>ON subsidy</h4>
         {chip}
         <SubsidyInfoButton />
       </div>

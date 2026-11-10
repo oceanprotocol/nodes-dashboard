@@ -98,7 +98,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
         icon={<ErrorOutlineIcon fontSize="small" />}
         jobType={jobType}
         state="load_error"
-        title="Couldn't check your OPF subsidy"
+        title="Couldn't check your ON subsidy"
         tone="error"
       />
     );
@@ -114,7 +114,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
   const customCovered = quote?.custom ?? [];
   const costAfter = Math.max(0, totalCost - (quote?.total ?? 0));
   const chargedInFull =
-    customCovered.length > 0 ? "The OPF subsidy doesn't apply to this job" : 'This job is charged in full';
+    customCovered.length > 0 ? "The ON subsidy doesn't apply to this job" : 'This job is charged in full';
 
   const renderOpfRow = () => {
     if (!program || !usage) {
@@ -132,7 +132,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
       if (subsidyInfo.status === null) {
         return (
           <SubsidyRow
-            description={`Verify your email to claim the OPF subsidy.${limits ? ` The discount is capped ${limits}.` : ''}`}
+            description={`Verify your email to claim the ON subsidy.${limits ? ` The discount is capped ${limits}.` : ''}`}
             end={
               <Button
                 color="accent1"
@@ -196,7 +196,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
           icon={<PauseIcon fontSize="small" />}
           jobType={jobType}
           state="paused"
-          title="OPF subsidy is unavailable right now"
+          title="ON subsidy is unavailable right now"
           tone="error"
         />
       );
@@ -213,7 +213,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
           icon={<InfoOutlinedIcon fontSize="small" />}
           jobType={jobType}
           state="node_not_subsidized"
-          title="This node doesn't accept the OPF subsidy"
+          title="This node doesn't accept the ON subsidy"
           tone="neutral"
         />
       );
@@ -255,7 +255,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
           jobType={jobType}
           payments={quote.opfPayments}
           state="capped"
-          title={`OPF subsidy: ${formatText(opfTotal)} ${USDC.symbol} instead of ${formatText(quote.oneTime + quote.uncappedDiscount)}`}
+          title={`ON subsidy: ${formatText(opfTotal)} ${USDC.symbol} instead of ${formatText(quote.oneTime + quote.uncappedDiscount)}`}
           tone="warning"
         />
       );
@@ -270,20 +270,20 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
       if (costAfter <= 0) {
         title =
           customCovered.length > 0
-            ? `OPF subsidy: the remaining ${formatText(quote.oneTime)} ${USDC.symbol} on us`
-            : 'OPF subsidy: this job is on us';
+            ? `ON subsidy: the remaining ${formatText(quote.oneTime)} ${USDC.symbol} on us`
+            : 'ON subsidy: this job is on us';
         description = quote.opfPayments.includes('postpaid')
           ? `${paymentNote}\n${creditLeft}`
           : `Paid up front from your one-time credit, so it doesn't need to be in your escrow.\n${creditLeft}`;
       } else {
-        title = `OPF subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us`;
+        title = `ON subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us`;
         description = `${paymentNote}\n${creditLeft}`;
       }
     } else if (quote.oneTime > 0) {
-      title = `OPF subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us, then ${discountPercent}% off the rest`;
+      title = `ON subsidy: ${formatText(quote.oneTime)} ${USDC.symbol} on us, then ${discountPercent}% off the rest`;
       description = `${paymentNote} This uses the rest of your free credit.`;
     } else {
-      title = `OPF subsidy: ${discountPercent}% off this job`;
+      title = `ON subsidy: ${discountPercent}% off this job`;
       description = `${paymentNote}${
         discountWindow
           ? ` After this job (estimate): ${formatText(discountWindow.used + quote.discount)} of ${formatText(discountWindow.limit)} ${USDC.symbol} discount used this ${windowLabel}.`
