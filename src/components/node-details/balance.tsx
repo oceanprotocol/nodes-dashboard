@@ -9,19 +9,22 @@ import { useOceanAccount } from '@/lib/use-ocean-account';
 import { ComputeEnvironment } from '@/types/environments';
 import { NodeBalance } from '@/types/nodes';
 import { formatNumber } from '@/utils/formatters';
-import { CircularProgress } from '@mui/material';
+import { CircularProgress, Tooltip } from '@mui/material';
 import { toast } from 'react-toastify';
 import styles from './balance.module.css';
 
 const BALANCE_REFRESH_ATTEMPTS = 10;
 const BALANCE_REFRESH_INTERVAL_MS = 2000;
 
+const WITHDRAW_MIN_NODE_MAJOR = 5;
+
 interface BalanceProps {
   envs: ComputeEnvironment[];
   nodeUri: NodeUri;
+  nodeVersion?: string;
 }
 
-export const Balance: React.FC<BalanceProps> = ({ envs, nodeUri }) => {
+export const Balance: React.FC<BalanceProps> = ({ envs, nodeUri, nodeVersion }) => {
   const { ocean } = useOceanAccount();
   const { isReady } = useP2P();
 
@@ -75,6 +78,10 @@ export const Balance: React.FC<BalanceProps> = ({ envs, nodeUri }) => {
   }, [ocean, envs, nodeBalances]);
 
   const withdrawableBalances = nodeBalances.filter((balance) => balance.amount > 0);
+  const withdrawBlockedReason =
+    Number.parseInt(nodeVersion ?? '', 10) < WITHDRAW_MIN_NODE_MAJOR
+      ? `Withdrawals require Ocean Node v${WITHDRAW_MIN_NODE_MAJOR}.0.0 or newer. Upgrade your node to withdraw.`
+      : null;
 
   return (
     <Card className={styles.root} padding="sm" radius="md" innerShadow="black" variant="glass">
@@ -111,15 +118,23 @@ export const Balance: React.FC<BalanceProps> = ({ envs, nodeUri }) => {
           onClose={() => setIsGasFeeModalOpen(false)}
           onSuccess={reloadUntilChanged}
         />
-        <Button
-          color="accent1"
-          disabled={!isReady || withdrawableBalances.length === 0}
-          onClick={() => setIsWithdrawModalOpen(true)}
-          size="lg"
-          variant="filled"
-        >
-          Withdraw
-        </Button>
+        <Tooltip title={withdrawBlockedReason ?? ''}>
+          <span
+            className="flexColumn"
+            tabIndex={withdrawBlockedReason ? 0 : undefined}
+            aria-label={withdrawBlockedReason ?? undefined}
+          >
+            <Button
+              color="accent1"
+              disabled={!isReady || withdrawableBalances.length === 0 || !!withdrawBlockedReason}
+              onClick={() => setIsWithdrawModalOpen(true)}
+              size="lg"
+              variant="filled"
+            >
+              Withdraw
+            </Button>
+          </span>
+        </Tooltip>
         <WithdrawModal
           balances={withdrawableBalances}
           isOpen={isWithdrawModalOpen}

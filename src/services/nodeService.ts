@@ -1,10 +1,8 @@
 import { HTTP_NODE_URLS } from '@/constants/default-node';
-import { NATIVE_TOKEN_ADDRESS } from '@/constants/tokens';
 import { NodeUri } from '@/contexts/P2PContext';
 import { NODE_URL } from '@/lib/constants';
 import { directNodeCommandJson, NodeCommandError } from '@/lib/direct-node-command';
 import { signNodeCommandMessage } from '@/lib/sign-message';
-import { getTokenDecimals } from '@/lib/token-symbol';
 import { SignMessageFn } from '@/lib/use-ocean-account';
 import { withTimeout } from '@/lib/with-timeout';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
@@ -35,7 +33,6 @@ import {
   type ServiceTemplatePublic,
   type SignerOrAuthTokenOrSignature,
 } from '@oceanprotocol/lib';
-import { formatUnits, parseUnits } from 'ethers';
 
 /** Pull the peer id from the `/p2p/<id>` suffix of a multiaddr string, or null when absent. */
 function peerIdFromMultiaddr(addr: string): string | null {
@@ -939,6 +936,10 @@ export async function pushNodeConfig({
   });
 }
 
+/**
+ * Withdraw collected fees from a node to `destinationAddress`. `amount` is in whole token units,
+ * which only ocean-node >= 5.0.0 parses with the token's own decimals.
+ */
 export async function collectNodeFees({
   amount,
   chainId,
@@ -956,9 +957,6 @@ export async function collectNodeFees({
   signMessage: SignMessageFn;
   tokenAddress: string;
 }): Promise<{ tx: string; message: string }> {
-  const decimals = tokenAddress === NATIVE_TOKEN_ADDRESS ? 18 : await getTokenDecimals(tokenAddress);
-  // TODO: remove scaling once ocean-node parses tokenAmount with the token's decimals
-  const tokenAmount = formatUnits(parseUnits(amount, decimals), 18);
   const incrementedNonce = (await getNonce(nodeUri, consumerAddress)) + 1;
   const signature = await signNodeCommandMessage({
     command: PROTOCOL_COMMANDS.COLLECT_FEES,
@@ -974,7 +972,7 @@ export async function collectNodeFees({
     nonce: incrementedNonce.toString(),
     signature,
     tokenAddress,
-    tokenAmount,
+    tokenAmount: amount,
   });
   if (!response?.tx) {
     throw new Error(response?.error ?? 'Withdraw failed');
