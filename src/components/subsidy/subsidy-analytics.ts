@@ -16,7 +16,7 @@ export type SubsidyPaymentState =
   | 'paused'
   | 'signup_incomplete';
 
-export const captureSubsidyBotBlocked = (error: unknown, endpoint: 'claim' | 'details' | 'resend_otp') => {
+export const captureSubsidyBotBlocked = (error: unknown, endpoint: 'claim' | 'details' | 'resend_otp' | 'verify') => {
   if (axios.isAxiosError(error) && error.response?.data?.error === SUBSIDY_BOT_BLOCKED_ERROR) {
     posthog.capture('subsidy_bot_blocked', { endpoint });
   }

@@ -1,3 +1,4 @@
+import { blockBots } from '@/api-services/bot-check';
 import { findSubsidyByWallet, loadSubsidies, updateSubsidyInSheet } from '@/api-services/gsheets';
 import { verifyOTP } from '@/api-services/otp';
 import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
@@ -26,6 +27,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
+  }
+
+  if (await blockBots(request, response, walletAddress)) {
+    return;
   }
 
   if (!(await requireWalletSignature(response, walletAddress, body))) {

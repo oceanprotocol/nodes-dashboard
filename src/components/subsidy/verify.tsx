@@ -85,6 +85,7 @@ const Verify: React.FC = () => {
           httpStatus: getHttpStatus(error),
           verifyError: body?.error,
         });
+        captureSubsidyBotBlocked(error, 'verify');
         if (body?.error && Object.values(SubsidyVerifyError).includes(body.error)) {
           setState({ attemptsLeft: body.attemptsLeft, error: body.error });
         } else {
