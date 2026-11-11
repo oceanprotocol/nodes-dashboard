@@ -1,3 +1,4 @@
+import { blockBots } from '@/api-services/bot-check';
 import { sendOTP } from '@/api-services/email';
 import {
   findSubsidyByWallet,
@@ -27,6 +28,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
+  }
+
+  if (await blockBots(request, response, walletAddress)) {
+    return;
   }
 
   try {

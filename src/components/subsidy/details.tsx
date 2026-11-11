@@ -2,6 +2,7 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import InputWrapper from '@/components/input/input-wrapper';
+import { captureSubsidyBotBlocked } from '@/components/subsidy/subsidy-analytics';
 import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import SubsidySummary from '@/components/subsidy/subsidy-summary';
 import { useProfileContext } from '@/context/profile-context';
@@ -88,6 +89,7 @@ const Details: React.FC = () => {
           ? error.response?.data?.message
           : undefined;
         captureError('subsidy_details_failed', error, { httpStatus: getHttpStatus(error), message: responseMessage });
+        captureSubsidyBotBlocked(error, 'details');
         toast.error(responseMessage ?? 'Failed to submit form. Please try again.');
         console.error('Failed to submit form', error);
       }

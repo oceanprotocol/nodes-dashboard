@@ -1,6 +1,7 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import TwoFactorInput, { CODE_LENGTH } from '@/components/input/two-factor-input';
+import { captureSubsidyBotBlocked } from '@/components/subsidy/subsidy-analytics';
 import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
@@ -131,6 +132,7 @@ const Verify: React.FC = () => {
       }
     } catch (error) {
       captureError('subsidy_otp_resend_failed', error, { httpStatus: getHttpStatus(error) });
+      captureSubsidyBotBlocked(error, 'resend_otp');
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else {

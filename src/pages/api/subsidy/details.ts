@@ -1,3 +1,4 @@
+import { blockBots } from '@/api-services/bot-check';
 import { sendOTP } from '@/api-services/email';
 import { validateSubsidyDataWithAI } from '@/api-services/gemini';
 import {
@@ -42,6 +43,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!isWalletAddress(data.walletAddress)) {
     return response.status(400).json({ message: 'Invalid wallet address' });
+  }
+
+  if (await blockBots(request, response, data.walletAddress)) {
+    return;
   }
 
   if (!nameRegex.test(data.name)) {

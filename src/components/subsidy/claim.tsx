@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import { captureSubsidyBotBlocked } from '@/components/subsidy/subsidy-analytics';
 import { getSubsidyPaymentNote, SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { useProfileContext } from '@/context/profile-context';
@@ -51,6 +52,7 @@ const Claim: React.FC = () => {
       }
     } catch (error) {
       captureError('subsidy_claim_failed', error, { httpStatus: getHttpStatus(error) });
+      captureSubsidyBotBlocked(error, 'claim');
       if (axios.isAxiosError(error) && error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else {

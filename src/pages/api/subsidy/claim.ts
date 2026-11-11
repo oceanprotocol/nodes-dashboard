@@ -1,3 +1,4 @@
+import { blockBots } from '@/api-services/bot-check';
 import { findSubsidyByWallet, loadSubsidies, updateSubsidyInSheet } from '@/api-services/gsheets';
 import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
 import { addToSubsidyAccessList, isOnSubsidyAccessList } from '@/api-services/subsidy-access-list';
@@ -22,6 +23,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Wallet address is missing or invalid' });
+  }
+
+  if (await blockBots(request, response, walletAddress)) {
+    return;
   }
 
   try {

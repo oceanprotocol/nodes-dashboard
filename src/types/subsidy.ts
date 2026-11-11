@@ -52,6 +52,7 @@ export type SubsidyVerifyErrorResponse = {
   message: string;
 };
 
+export const SUBSIDY_BOT_BLOCKED_ERROR = 'bot-blocked';
 export const SUBSIDY_MAX_OTP_ATTEMPTS = 5;
 export const SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS = 60;
 export const SUBSIDY_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;

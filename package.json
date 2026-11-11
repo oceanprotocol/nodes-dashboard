@@ -39,6 +39,7 @@
     "alchemy-sdk": "3.6.5",
     "axios": "1.20.0",
     "bignumber.js": "^9.3.1",
+    "botid": "1.5.12",
     "classnames": "^2.5.0",
     "date-fns": "^2.30.0",
     "dayjs": "^1.11.10",
