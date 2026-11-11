@@ -81,11 +81,11 @@ export const CreditBlock = ({
       action={action}
       caption={caption}
       payments={payments}
-      subtitle={percent < 100 ? `${formatSubsidyAmount(percent)}% of each job` : undefined}
+      subtitle={percent < 100 ? `${formatSubsidyAmount(percent)}% of each eligible service` : undefined}
       title="Free credit"
       tone={tone}
     />
-    <span className={styles.limitsHead}>Use across jobs until it runs out</span>
+    <span className={styles.limitsHead}>Use across eligible services until it runs out</span>
     <div className={styles.creditRow}>
       <Meter limit={allowance.limit} remaining={allowance.remaining} tone={tone} />
       <span className={styles.amount}>

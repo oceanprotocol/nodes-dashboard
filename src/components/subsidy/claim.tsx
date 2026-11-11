@@ -7,6 +7,7 @@ import { captureError, getHttpStatus } from '@/lib/analytics';
 import { getProgramPayments } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useInvalidateSubsidyData, useSubsidyProgram } from '@/lib/use-subsidy';
+import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import axios from 'axios';
@@ -68,18 +69,15 @@ const Claim: React.FC = () => {
           <span className="chip chipSuccess">{isClaimed ? 'Claimed' : 'Email verified'}</span>
         </div>
         <span className={styles.muted}>
-          {isClaimed ? 'Use it on jobs and models running on supported nodes.' : 'Activate it for wallet '}
+          {isClaimed ? 'Use it on eligible services running on supported nodes.' : 'Activate it for wallet '}
           {isClaimed ? null : <span className={styles.wallet}>{formatWalletAddress(account.address ?? '')}</span>}
         </span>
       </div>
       <SubsidyTiles />
       {isClaimed ? (
         <div className="actionsGroupLgEnd">
-          <Button color="accent1" href="/run-job/environments" size="lg" variant="outlined">
-            Run a job
-          </Button>
-          <Button color="accent1" href="/inference" size="lg" variant="filled">
-            Use a model
+          <Button color="accent1" href={INFERENCE_PATHS.templates} size="lg" variant="filled">
+            Run a service
           </Button>
         </div>
       ) : (

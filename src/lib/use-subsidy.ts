@@ -2,6 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { groupLockCycles } from '@/lib/escrow-events';
 import {
   buildSubsidyHistory,
+  getCustomSubsidyAddresses,
   getSubsidyJobTypeName,
   getUpfrontCost,
   isNodeSubsidized,
@@ -15,7 +16,7 @@ import {
 } from '@/lib/subsidy';
 import { usePayerEscrowEvents } from '@/lib/use-escrow-events';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { forgetCustomSubsidy, recallCustomSubsidies, rememberCustomSubsidy } from '@/services/custom-subsidies-memory';
+import { forgetCustomSubsidy, rememberCustomSubsidy } from '@/services/custom-subsidies-memory';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import posthog from 'posthog-js';
 import { useCallback, useMemo } from 'react';
@@ -60,7 +61,7 @@ const useCustomSubsidyAddresses = () => {
     queryKey: customAddressesKey(account.address),
     enabled: !!account.address,
     staleTime: Infinity,
-    queryFn: () => recallCustomSubsidies(account.address!),
+    queryFn: () => getCustomSubsidyAddresses(account.address!),
   });
 };
 
@@ -171,10 +172,13 @@ export const useIsNodeSubsidized = (nodeAddress: string | undefined) => {
 
 export const useSubsidyQuote = ({
   cost,
+  isOpfEligible,
   jobType,
   nodeAddress,
 }: {
   cost: number;
+  /** Whether the ON subsidy covers this kind of job. Custom subsidies are quoted either way. */
+  isOpfEligible: boolean;
   jobType: SubsidyJobType;
   nodeAddress: string | undefined;
 }) => {
@@ -182,7 +186,7 @@ export const useSubsidyQuote = ({
   const { data: program } = useSubsidyProgram();
   const { data: usage } = useSubsidyUsage();
   const { addresses: customProviders } = useActiveCustomSubsidies();
-  const quotedProgram = program && usage?.userAllowed ? program : null;
+  const quotedProgram = isOpfEligible && program && usage?.userAllowed ? program : null;
 
   return useQuery({
     queryKey: [
@@ -236,8 +240,9 @@ export const usePayerCost = (params: Parameters<typeof useSubsidyQuote>[0]) => {
   const { isLoading: isUsageLoading } = useSubsidyUsage();
   const { isLoading: isCustomLoading } = useActiveCustomSubsidies();
   const { data: quote, isFetching } = useSubsidyQuote(params);
+  const isOpfLoading = params.isOpfEligible && (isProgramLoading || isUsageLoading);
   return {
-    isQuoting: isProgramLoading || isUsageLoading || isCustomLoading || isFetching,
+    isQuoting: isOpfLoading || isCustomLoading || isFetching,
     payerCost: getUpfrontCost(params.cost, quote),
   };
 };

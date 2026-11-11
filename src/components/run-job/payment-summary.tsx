@@ -17,6 +17,7 @@ import styles from './payment-summary.module.css';
 type PaymentSummaryProps = {
   authorizations: Authorizations | null;
   escrowBalance: number | null;
+  isOpfEligible: boolean;
   loadPaymentInfo: () => void;
   subsidyJobType: SubsidyJobType;
   nodeAddress?: string;
@@ -61,6 +62,7 @@ const SummaryRow = ({
 const PaymentSummary = ({
   authorizations,
   escrowBalance,
+  isOpfEligible,
   loadPaymentInfo,
   nodeAddress,
   subsidyJobType,
@@ -76,6 +78,7 @@ const PaymentSummary = ({
 
   const { data: subsidyQuote } = useSubsidyQuote({
     cost: totalCost,
+    isOpfEligible,
     jobType: subsidyJobType,
     nodeAddress,
   });
@@ -172,7 +175,13 @@ const PaymentSummary = ({
           escrow and wallet rows show by default; the limits sit behind the details toggle, which
           closes the card. */}
       <div className={styles.rows}>
-        <PaymentSubsidy format={format} jobType={subsidyJobType} nodeAddress={nodeAddress} totalCost={totalCost} />
+        <PaymentSubsidy
+          format={format}
+          isOpfEligible={isOpfEligible}
+          jobType={subsidyJobType}
+          nodeAddress={nodeAddress}
+          totalCost={totalCost}
+        />
 
         <SummaryRow
           chip={

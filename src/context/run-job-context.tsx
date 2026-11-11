@@ -326,6 +326,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
         : await (async () => {
             const subsidyProviders = await getJobSubsidyProviders({
               cost: estimatedTotalCost ?? 0,
+              isOpfEligible: false,
               jobType: SubsidyJobType.COMPUTE,
               nodeAddress: selectedEnv.consumerAddress,
               payer: consumerAddress,

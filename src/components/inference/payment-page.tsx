@@ -274,22 +274,25 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const totalCost = useMemo(() => roundTokenAmount(price, USDC.address, 'up'), [price]);
 
   const startWithSubsidy = useStartWithSubsidy();
+  const isOpfEligible = branch === 'template';
 
   const resolveSubsidyProviders = useCallback(
     () =>
       selectedEnv && account.address
         ? getJobSubsidyProviders({
             cost: totalCost,
+            isOpfEligible,
             jobType: SubsidyJobType.SERVICE,
             nodeAddress: selectedEnv.environment.consumerAddress,
             payer: account.address,
           })
         : Promise.resolve(undefined),
-    [account.address, selectedEnv, totalCost]
+    [account.address, isOpfEligible, selectedEnv, totalCost]
   );
 
   const { isQuoting: isSubsidyQuoting, payerCost } = usePayerCost({
     cost: totalCost,
+    isOpfEligible,
     jobType: SubsidyJobType.SERVICE,
     nodeAddress: selectedEnv?.environment.consumerAddress,
   });
@@ -1332,6 +1335,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     <PaymentSummary
                       authorizations={authorizations}
                       escrowBalance={escrowBalance ?? 0}
+                      isOpfEligible={isOpfEligible}
                       loadPaymentInfo={loadPaymentInfo}
                       nodeAddress={selectedEnv?.environment.consumerAddress}
                       subsidyJobType={SubsidyJobType.SERVICE}
