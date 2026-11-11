@@ -31,7 +31,7 @@ export const getOneTimeLabel = (program: SubsidyProgram) =>
   program.oneTime ? `${formatSubsidyTokenAmount(program.oneTime.credit)} on us` : null;
 
 export const getDiscountLabel = (program: SubsidyProgram) =>
-  program.discount ? `${formatSubsidyAmount(program.discount.percent)}% off each job` : null;
+  program.discount ? `${formatSubsidyAmount(program.discount.percent)}% off each eligible service` : null;
 
 export const getDiscountLimitsLabel = (program: SubsidyProgram) => {
   const windows = program.discount ? cappedWindows(program.discount.windows) : [];

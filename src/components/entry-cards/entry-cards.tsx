@@ -156,6 +156,8 @@ type FeaturedEntryCardProps = {
   actions: ReactNode;
   backgroundMedia?: BackdropMedia[];
   badge?: string;
+  /** Replaces the badge's dot. */
+  badgeIcon?: ReactNode;
   description: string;
   icon: ReactNode;
   title: string;
@@ -165,6 +167,7 @@ export const FeaturedEntryCard: React.FC<FeaturedEntryCardProps> = ({
   actions,
   backgroundMedia,
   badge,
+  badgeIcon,
   description,
   icon,
   title,
@@ -181,7 +184,14 @@ export const FeaturedEntryCard: React.FC<FeaturedEntryCardProps> = ({
       <p className={styles.featuredDescription}>{description}</p>
     </div>
     <div className={styles.featuredFooter}>
-      {badge ? <span className={styles.badge}>{badge}</span> : <span />}
+      {badge ? (
+        <span className={classNames(styles.badge, { [styles.badgeWithIcon]: badgeIcon })}>
+          {badgeIcon}
+          {badge}
+        </span>
+      ) : (
+        <span />
+      )}
       <div className={styles.featuredActions}>{actions}</div>
     </div>
   </Card>

@@ -62,6 +62,7 @@ const Summary = ({ estimatedTotalCost, freeCompute, nodeInfo, selectedEnv, selec
 
   const { isQuoting, payerCost } = usePayerCost({
     cost: estimatedTotalCost,
+    isOpfEligible: false,
     jobType: SubsidyJobType.COMPUTE,
     nodeAddress: selectedEnv.consumerAddress,
   });

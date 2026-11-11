@@ -34,8 +34,8 @@ const SubsidyTiles = ({ muted }: SubsidyTilesProps) => {
             <span className={styles.bigUnit}>{USDC.symbol}</span>
           </span>
           <span className={styles.tileNote}>
-            Use across jobs until it runs out
-            {program.oneTime.percent < 100 ? `, ${formatSubsidyAmount(program.oneTime.percent)}% of each job` : ''}
+            Use across eligible services until it runs out
+            {program.oneTime.percent < 100 ? `, ${formatSubsidyAmount(program.oneTime.percent)}% of each service` : ''}
           </span>
         </Card>
       ) : null}
@@ -43,7 +43,7 @@ const SubsidyTiles = ({ muted }: SubsidyTilesProps) => {
         <Card className={styles.tile} innerShadow="black" radius="sm" variant="glass">
           <span className={styles.tileTitle}>
             <span className={classNames(toneStyles.dot, toneStyles.discount)} />
-            Discount on each job
+            Discount on each eligible service
           </span>
           <span className={styles.bigValue}>{formatSubsidyAmount(program.discount.percent)}% off</span>
           {limits.length > 0 ? (

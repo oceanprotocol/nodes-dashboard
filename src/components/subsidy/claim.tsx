@@ -68,7 +68,7 @@ const Claim: React.FC = () => {
           <span className="chip chipSuccess">{isClaimed ? 'Claimed' : 'Email verified'}</span>
         </div>
         <span className={styles.muted}>
-          {isClaimed ? 'Use it on jobs and models running on supported nodes.' : 'Activate it for wallet '}
+          {isClaimed ? 'Use it on eligible services running on supported nodes.' : 'Activate it for wallet '}
           {isClaimed ? null : <span className={styles.wallet}>{formatWalletAddress(account.address ?? '')}</span>}
         </span>
       </div>

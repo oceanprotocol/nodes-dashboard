@@ -96,7 +96,7 @@ const ActiveSubsidy = () => {
         <>
           {!usage.userAllowed ? (
             <span className={styles.small}>
-              Your wallet isn&apos;t on the subsidy list yet. Jobs and models are charged in full until it is.
+              Your wallet isn&apos;t on the subsidy list yet. Services are charged in full until it is.
             </span>
           ) : null}
           <div className={styles.summary}>
@@ -199,7 +199,7 @@ const SubsidySection = () => {
           <FlowSteps steps={getProgressSteps(SubsidyStatus.PENDING)} title="Subsidy progress" />
           <SubsidyTiles muted />
           <span className={styles.small}>
-            Enter the code we emailed you to claim your subsidy. Until then, jobs and models are charged in full.
+            Enter the code we emailed you to claim your subsidy. Until then, services are charged in full.
           </span>
         </>
       );
@@ -242,7 +242,7 @@ const SubsidySection = () => {
       <>
         <SubsidyHeader
           chip={<span className="chip chipGlass">Not applied</span>}
-          subtitle="Apply to get discounts on compute jobs and inference services on supported nodes"
+          subtitle="Apply to get discounts on eligible services on supported nodes"
         />
         <div className={styles.offer}>
           <span className={styles.offerLabel}>What you get once you apply and claim:</span>

@@ -417,14 +417,19 @@ export const getProgramPayments = (program: SubsidyProgram): SubsidyPayment[] =>
 export const getUpfrontCost = (cost: number, quote: SubsidyQuote | undefined) =>
   Math.max(0, cost - (quote ? quote.total - quote.postpaid : 0));
 
-/** `undefined` leaves the choice to the node. */
+/**
+ * `undefined` leaves the choice to the node; an empty list tells it to apply no subsidy.
+ * A job the ON subsidy doesn't cover only gets custom providers, and never falls back to the node's choice.
+ */
 export const getJobSubsidyProviders = async ({
   cost,
+  isOpfEligible,
   jobType,
   nodeAddress,
   payer,
 }: {
   cost: number;
+  isOpfEligible: boolean;
   jobType: SubsidyJobType;
   nodeAddress: string;
   payer: string;
@@ -432,16 +437,20 @@ export const getJobSubsidyProviders = async ({
   if (cost <= 0) {
     return undefined;
   }
+  const fallback = isOpfEligible ? undefined : [];
   try {
-    const [program, customProviders] = await Promise.all([loadSubsidyProgram(), loadCustomSubsidyProviders(payer)]);
+    const [program, customProviders] = await Promise.all([
+      isOpfEligible ? loadSubsidyProgram() : null,
+      loadCustomSubsidyProviders(payer),
+    ]);
     if (!program && customProviders.length === 0) {
-      return undefined;
+      return fallback;
     }
     const quote = await quoteSubsidy({ cost, customProviders, jobType, nodeAddress, payer, program });
-    return quote.providers.length > 0 ? quote.providers : undefined;
+    return quote.providers.length > 0 ? quote.providers : fallback;
   } catch (error) {
     console.error('Failed to resolve subsidy providers for job', error);
-    return undefined;
+    return fallback;
   }
 };
 
