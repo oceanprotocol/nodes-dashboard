@@ -9,7 +9,7 @@ import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
 import { captureError, getHttpStatus } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSubsidyRequest } from '@/lib/use-subsidy-request';
+import { getSubsidyErrorMessage, useSubsidyRequest } from '@/lib/use-subsidy-request';
 import {
   isValidHandle,
   normalizeHandle,
@@ -92,7 +92,7 @@ const Details: React.FC = () => {
           : undefined;
         captureError('subsidy_details_failed', error, { httpStatus: getHttpStatus(error), message: responseMessage });
         captureSubsidyBotBlocked(error, 'details');
-        toast.error(responseMessage ?? 'Failed to submit form. Please try again.');
+        toast.error(getSubsidyErrorMessage(error, 'Failed to submit form. Please try again.'));
         console.error('Failed to submit form', error);
       }
     },

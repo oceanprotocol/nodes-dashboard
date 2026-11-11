@@ -8,7 +8,7 @@ import { useSubsidyContext } from '@/context/subsidy-context';
 import useCountdown from '@/hooks/use-countdown';
 import { captureError, getHttpStatus } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { useSubsidyRequest } from '@/lib/use-subsidy-request';
+import { getSubsidyErrorMessage, useSubsidyRequest } from '@/lib/use-subsidy-request';
 import { SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyVerifyError, SubsidyVerifyErrorResponse } from '@/types/subsidy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import axios from 'axios';
@@ -89,7 +89,7 @@ const Verify: React.FC = () => {
         if (body?.error && Object.values(SubsidyVerifyError).includes(body.error)) {
           setState({ attemptsLeft: body.attemptsLeft, error: body.error });
         } else {
-          toast.error(body?.message ?? 'Failed to verify code. Please try again.');
+          toast.error(getSubsidyErrorMessage(error, 'Failed to verify code. Please try again.'));
         }
       } finally {
         setIsSubmitting(false);
@@ -131,11 +131,7 @@ const Verify: React.FC = () => {
     } catch (error) {
       captureError('subsidy_otp_resend_failed', error, { httpStatus: getHttpStatus(error) });
       captureSubsidyBotBlocked(error, 'resend_otp');
-      if (axios.isAxiosError(error) && error.response?.data?.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error('Failed to resend code. Please try again.');
-      }
+      toast.error(getSubsidyErrorMessage(error, 'Failed to resend code. Please try again.'));
     } finally {
       setIsResending(false);
     }

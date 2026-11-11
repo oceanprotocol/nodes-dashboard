@@ -8,15 +8,17 @@ import { captureError, getHttpStatus } from '@/lib/analytics';
 import { getProgramPayments } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useInvalidateSubsidyData, useSubsidyProgram } from '@/lib/use-subsidy';
-import { useSubsidyRequest } from '@/lib/use-subsidy-request';
+import { getSubsidyErrorMessage, useSubsidyRequest } from '@/lib/use-subsidy-request';
 import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
-import axios from 'axios';
 import posthog from 'posthog-js';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './claim.module.css';
+
+// The access list mint can take a few blocks.
+const CLAIM_TIMEOUT_MS = 90 * 1000;
 
 const Claim: React.FC = () => {
   const { account, login } = useOceanAccount();
@@ -37,7 +39,7 @@ const Claim: React.FC = () => {
     }
     try {
       setIsLoading(true);
-      await postSubsidy('/api/subsidy/claim');
+      await postSubsidy('/api/subsidy/claim', {}, CLAIM_TIMEOUT_MS);
       posthog.capture('subsidy_claimed');
       if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
         (window as any).gtag('event', 'conversion', {
@@ -55,11 +57,7 @@ const Claim: React.FC = () => {
     } catch (error) {
       captureError('subsidy_claim_failed', error, { httpStatus: getHttpStatus(error) });
       captureSubsidyBotBlocked(error, 'claim');
-      if (axios.isAxiosError(error) && error.response?.data?.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error('Failed to claim subsidy. Please try again.');
-      }
+      toast.error(getSubsidyErrorMessage(error, 'Failed to claim subsidy. Please try again.'));
     } finally {
       setIsLoading(false);
     }
