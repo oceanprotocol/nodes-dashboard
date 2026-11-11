@@ -55,7 +55,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
   data.email = normalizeEmail(data.email);
 
   if (isBlacklistedEmail(data.email)) {
-    return response.status(400).json({ message: 'Invalid email address' });
+    return response.status(400).json({
+      message:
+        'We can’t offer the subsidy to this email address. Try another email, or contact support at help@oncompute.ai and we’ll take a look.',
+    });
   }
 
   data.handles = normalizeHandles(data.handles);
