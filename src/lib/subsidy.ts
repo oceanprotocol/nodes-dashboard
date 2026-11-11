@@ -260,8 +260,15 @@ export const loadCustomSubsidyProgram = async (address: string): Promise<Subsidy
   return program;
 };
 
+export const isOpfSubsidyProvider = (address: string) =>
+  getSubsidyProviderAddresses().some((provider) => provider.toLowerCase() === address.toLowerCase());
+
+/** Stored addresses minus ON providers, which never count as custom. */
+export const getCustomSubsidyAddresses = (payer: string): string[] =>
+  recallCustomSubsidies(payer).filter((address) => !isOpfSubsidyProvider(address));
+
 const loadCustomSubsidyProviders = async (payer: string): Promise<string[]> => {
-  const addresses = recallCustomSubsidies(payer);
+  const addresses = getCustomSubsidyAddresses(payer);
   const entries = await Promise.allSettled(addresses.map(loadProgramEntry));
   return addresses.filter((_, index) => {
     const entry = entries[index];

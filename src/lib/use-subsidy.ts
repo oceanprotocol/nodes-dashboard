@@ -2,6 +2,7 @@ import { CHAIN_ID } from '@/constants/chains';
 import { groupLockCycles } from '@/lib/escrow-events';
 import {
   buildSubsidyHistory,
+  getCustomSubsidyAddresses,
   getSubsidyJobTypeName,
   getUpfrontCost,
   isNodeSubsidized,
@@ -15,7 +16,7 @@ import {
 } from '@/lib/subsidy';
 import { usePayerEscrowEvents } from '@/lib/use-escrow-events';
 import { useOceanAccount } from '@/lib/use-ocean-account';
-import { forgetCustomSubsidy, recallCustomSubsidies, rememberCustomSubsidy } from '@/services/custom-subsidies-memory';
+import { forgetCustomSubsidy, rememberCustomSubsidy } from '@/services/custom-subsidies-memory';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import posthog from 'posthog-js';
 import { useCallback, useMemo } from 'react';
@@ -60,7 +61,7 @@ const useCustomSubsidyAddresses = () => {
     queryKey: customAddressesKey(account.address),
     enabled: !!account.address,
     staleTime: Infinity,
-    queryFn: () => recallCustomSubsidies(account.address!),
+    queryFn: () => getCustomSubsidyAddresses(account.address!),
   });
 };
 
