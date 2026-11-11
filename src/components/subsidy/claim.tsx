@@ -7,6 +7,7 @@ import { captureError, getHttpStatus } from '@/lib/analytics';
 import { getProgramPayments } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useInvalidateSubsidyData, useSubsidyProgram } from '@/lib/use-subsidy';
+import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
 import axios from 'axios';
@@ -75,11 +76,8 @@ const Claim: React.FC = () => {
       <SubsidyTiles />
       {isClaimed ? (
         <div className="actionsGroupLgEnd">
-          <Button color="accent1" href="/run-job/environments" size="lg" variant="outlined">
-            Run a job
-          </Button>
-          <Button color="accent1" href="/inference" size="lg" variant="filled">
-            Use a model
+          <Button color="accent1" href={INFERENCE_PATHS.templates} size="lg" variant="filled">
+            Run a service
           </Button>
         </div>
       ) : (

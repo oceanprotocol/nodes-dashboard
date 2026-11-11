@@ -441,10 +441,10 @@ export const getJobSubsidyProviders = async ({
   nodeAddress: string;
   payer: string;
 }): Promise<string[] | undefined> => {
-  if (cost <= 0) {
-    return undefined;
-  }
   const fallback = isOpfEligible ? undefined : [];
+  if (cost <= 0) {
+    return fallback;
+  }
   try {
     const [program, customProviders] = await Promise.all([
       isOpfEligible ? loadSubsidyProgram() : null,
