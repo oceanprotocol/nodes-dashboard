@@ -6,7 +6,7 @@ import { ethers } from 'ethers';
 let _provider: ethers.JsonRpcProvider | null = null;
 let _signer: ethers.NonceManager | null = null;
 
-function getProvider(): ethers.JsonRpcProvider {
+export function getProvider(): ethers.JsonRpcProvider {
   if (!_provider) {
     _provider = new ethers.JsonRpcProvider(getRpc());
   }

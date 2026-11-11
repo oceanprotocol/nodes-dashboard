@@ -8,6 +8,7 @@ import { captureError, getHttpStatus } from '@/lib/analytics';
 import { getProgramPayments } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useInvalidateSubsidyData, useSubsidyProgram } from '@/lib/use-subsidy';
+import { useSubsidyRequest } from '@/lib/use-subsidy-request';
 import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
@@ -19,6 +20,7 @@ import styles from './claim.module.css';
 
 const Claim: React.FC = () => {
   const { account, login } = useOceanAccount();
+  const postSubsidy = useSubsidyRequest();
   const { fetchSubsidyStatus, subsidyInfo } = useProfileContext();
   const invalidateSubsidyData = useInvalidateSubsidyData();
   const { data: program } = useSubsidyProgram();
@@ -35,7 +37,7 @@ const Claim: React.FC = () => {
     }
     try {
       setIsLoading(true);
-      await axios.post('/api/subsidy/claim', { walletAddress: account.address });
+      await postSubsidy('/api/subsidy/claim');
       posthog.capture('subsidy_claimed');
       if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
         (window as any).gtag('event', 'conversion', {

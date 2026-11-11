@@ -9,6 +9,7 @@ import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
 import { captureError, getHttpStatus } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { useSubsidyRequest } from '@/lib/use-subsidy-request';
 import {
   isValidHandle,
   normalizeHandle,
@@ -40,6 +41,7 @@ const handleSchema = (service: SubsidyHandleService) =>
 
 const Details: React.FC = () => {
   const { account, login } = useOceanAccount();
+  const postSubsidy = useSubsidyRequest();
   const router = useRouter();
 
   const { subsidyDetails, setSubsidyDetails } = useSubsidyContext();
@@ -68,7 +70,7 @@ const Details: React.FC = () => {
           name: values.name,
           walletAddress: account.address,
         };
-        const response = await axios.post<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
+        const response = await postSubsidy<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
         setSubsidyDetails(details);
         posthog.capture('subsidy_details_submitted', {
           handleServices: Object.keys(handles),
