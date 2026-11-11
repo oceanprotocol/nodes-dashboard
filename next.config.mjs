@@ -1,3 +1,4 @@
+import { withBotId } from 'botid/next/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -94,4 +95,4 @@ const nextConfig = {
   ],
 };
 
-export default nextConfig;
+export default withBotId(nextConfig);
