@@ -1,6 +1,8 @@
+import { blockBots } from '@/api-services/bot-check';
 import { findSubsidyByWallet, loadSubsidies, updateSubsidyInSheet } from '@/api-services/gsheets';
 import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
 import { addToSubsidyAccessList, isOnSubsidyAccessList } from '@/api-services/subsidy-access-list';
+import { requireWalletSignature } from '@/api-services/subsidy-auth';
 import { walletAddressBodySchema } from '@/api-services/subsidy-schemas';
 import { SubsidyStatus } from '@/types/subsidy';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -22,6 +24,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
 
   if (!isWalletAddress(walletAddress)) {
     return response.status(400).json({ message: 'Wallet address is missing or invalid' });
+  }
+
+  if (await blockBots(request, response, walletAddress)) {
+    return;
+  }
+
+  if (!(await requireWalletSignature(response, walletAddress, body))) {
+    return;
   }
 
   try {

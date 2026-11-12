@@ -24,7 +24,7 @@ export async function sendOTP(email: string, code: string) {
   const mailOptions = {
     from: process.env.SUBSIDY_GMAIL_ADDRESS,
     to: email,
-    subject: 'Verification Code for Ocean Network Subsidy',
+    subject: 'Confirm your Ocean Network subsidy application',
     // text: `Your verification code is: ${splitCode}`,
     html: getSubsidyOtpEmailTemplate({ otp: splitCode }),
   };

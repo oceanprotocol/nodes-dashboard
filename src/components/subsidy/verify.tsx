@@ -1,12 +1,14 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import TwoFactorInput, { CODE_LENGTH } from '@/components/input/two-factor-input';
+import { captureSubsidyBotBlocked } from '@/components/subsidy/subsidy-analytics';
 import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
 import useCountdown from '@/hooks/use-countdown';
 import { captureError, getHttpStatus } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { getSubsidyErrorMessage, useSubsidyRequest } from '@/lib/use-subsidy-request';
 import { SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyVerifyError, SubsidyVerifyErrorResponse } from '@/types/subsidy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import axios from 'axios';
@@ -29,6 +31,7 @@ const formatMinutesSeconds = (totalSeconds: number) =>
 
 const Verify: React.FC = () => {
   const { account } = useOceanAccount();
+  const postSubsidy = useSubsidyRequest();
   const { subsidyDetails } = useSubsidyContext();
   const { fetchSubsidyStatus, subsidyInfo } = useProfileContext();
 
@@ -69,11 +72,7 @@ const Verify: React.FC = () => {
     async (value: string) => {
       setIsSubmitting(true);
       try {
-        await axios.post('/api/subsidy/verify', {
-          code: value,
-          email: subsidyDetails?.email,
-          walletAddress: account.address,
-        });
+        await postSubsidy('/api/subsidy/verify', { code: value, email: subsidyDetails?.email });
         posthog.capture('subsidy_email_verified');
         // The step guard moves on to Claim.
         if (!(await fetchSubsidyStatus(account.address!))) {
@@ -86,16 +85,17 @@ const Verify: React.FC = () => {
           httpStatus: getHttpStatus(error),
           verifyError: body?.error,
         });
-        if (body?.error) {
+        captureSubsidyBotBlocked(error, 'verify');
+        if (body?.error && Object.values(SubsidyVerifyError).includes(body.error)) {
           setState({ attemptsLeft: body.attemptsLeft, error: body.error });
         } else {
-          toast.error(body?.message ?? 'Failed to verify code. Please try again.');
+          toast.error(getSubsidyErrorMessage(error, 'Failed to verify code. Please try again.'));
         }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [account.address, fetchSubsidyStatus, subsidyDetails?.email]
+    [account.address, fetchSubsidyStatus, postSubsidy, subsidyDetails?.email]
   );
 
   const handleCodeChange = (value: string) => {
@@ -111,9 +111,8 @@ const Verify: React.FC = () => {
   const handleResend = async () => {
     setIsResending(true);
     try {
-      const response = await axios.post<{ otpExpires?: number; retryAfter?: number; sent: boolean }>(
-        '/api/subsidy/resend-otp',
-        { walletAddress: account.address }
+      const response = await postSubsidy<{ otpExpires?: number; retryAfter?: number; sent: boolean }>(
+        '/api/subsidy/resend-otp'
       );
       posthog.capture('subsidy_otp_resent', { sent: response.data.sent });
       if (response.data.sent) {
@@ -131,11 +130,8 @@ const Verify: React.FC = () => {
       }
     } catch (error) {
       captureError('subsidy_otp_resend_failed', error, { httpStatus: getHttpStatus(error) });
-      if (axios.isAxiosError(error) && error.response?.data?.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error('Failed to resend code. Please try again.');
-      }
+      captureSubsidyBotBlocked(error, 'resend_otp');
+      toast.error(getSubsidyErrorMessage(error, 'Failed to resend code. Please try again.'));
     } finally {
       setIsResending(false);
     }

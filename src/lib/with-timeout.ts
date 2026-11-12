@@ -1,3 +1,10 @@
+export class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
 /**
  * Reject after `ms` so a hung P2P call can't freeze a poll/tail loop forever, and ABORT the
  * underlying dial when the timeout fires — `run` receives an AbortSignal it must forward to the
@@ -12,7 +19,7 @@ export function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: num
   const timeout = new Promise<T>((_, reject) => {
     timer = setTimeout(() => {
       controller.abort();
-      reject(new Error(`${label} timed out`));
+      reject(new TimeoutError(`${label} timed out`));
     }, ms);
   });
   return Promise.race([run(controller.signal), timeout]).finally(() => clearTimeout(timer));
