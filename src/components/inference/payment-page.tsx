@@ -20,6 +20,12 @@ import { useNodeTokensContext } from '@/context/node-tokens';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { resolveInferenceBranch } from '@/lib/inference-analytics';
+import {
+  PaidStartContext,
+  parseServiceExtendReply,
+  parseServiceStartReply,
+  PaymentAction,
+} from '@/lib/payment-analytics';
 import { isEscrowJobIdConflict, serviceEscrowLockMessage } from '@/lib/service-escrow-lock';
 import {
   generateServicePassword,
@@ -27,7 +33,7 @@ import {
   SERVICE_PASSWORD_ENV,
   SERVICE_PASSWORD_RULE,
 } from '@/lib/service-password';
-import { getJobSubsidyProviders, SubsidyJobType } from '@/lib/subsidy';
+import { SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
@@ -275,17 +281,21 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
 
   const startWithSubsidy = useStartWithSubsidy();
 
-  const resolveSubsidyProviders = useCallback(
-    () =>
-      selectedEnv && account.address
-        ? getJobSubsidyProviders({
-            cost: totalCost,
-            jobType: SubsidyJobType.SERVICE,
-            nodeAddress: selectedEnv.environment.consumerAddress,
-            payer: account.address,
-          })
-        : Promise.resolve(undefined),
-    [account.address, selectedEnv, totalCost]
+  /** What the payment events record about a paid start or prolong. Quoted with the same `totalCost` the page shows. */
+  const buildServicePaymentContext = useCallback(
+    (env: SelectedInferenceEnv, payer: string, action: PaymentAction, serviceId?: string): PaidStartContext => ({
+      action,
+      branch,
+      cost: totalCost,
+      durationSeconds: jobDurationSeconds,
+      environmentId: env.environment.id,
+      jobType: SubsidyJobType.SERVICE,
+      nodeAddress: env.environment.consumerAddress,
+      nodeId: env.nodeInfo.id,
+      payer,
+      serviceId,
+    }),
+    [branch, jobDurationSeconds, totalCost]
   );
 
   const { isQuoting: isSubsidyQuoting, payerCost } = usePayerCost({
@@ -721,9 +731,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // The node locks the extension cost in escrow — top up funds/authorization first if needed.
       await ensureEscrowForSelection();
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      const subsidyProviders = await resolveSubsidyProviders();
       await startWithSubsidy(
-        () =>
+        buildServicePaymentContext(selectedEnv, account.address, 'prolong', targetServiceId),
+        (subsidyProviders) =>
           withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
             serviceExtend(
               nodeUri,
@@ -734,7 +744,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               subsidyProviders
             )
           ),
-        { action: 'prolong', jobType: SubsidyJobType.SERVICE, subsidyProviders }
+        parseServiceExtendReply(targetServiceId)
       );
       posthog.capture('inference_service_prolonged', {
         serviceId: targetServiceId,
@@ -764,7 +774,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
-    resolveSubsidyProviders,
+    buildServicePaymentContext,
     startWithSubsidy,
     targetServiceId,
     selectedEnv,
@@ -955,13 +965,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // The node locks the service cost in escrow right after start — deposit/authorize first if
       // the current escrow state can't cover it (one bundled tx on smart accounts).
       const escrowDeposited = await ensureEscrowForSelection();
-      const subsidyProviders = await resolveSubsidyProviders();
       const [job] = await startWithSubsidy(
-        () =>
+        buildServicePaymentContext(selectedEnv, account.address, 'start'),
+        (subsidyProviders) =>
           withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
             serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
           ),
-        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
+        parseServiceStartReply
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -993,7 +1003,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
-    resolveSubsidyProviders,
+    buildServicePaymentContext,
     startWithSubsidy,
     selectedModels,
     modelParamsByModel,
@@ -1091,13 +1101,13 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
         throw buildError;
       }
       const escrowDeposited = await ensureEscrowForSelection();
-      const subsidyProviders = await resolveSubsidyProviders();
       const [job] = await startWithSubsidy(
-        () =>
+        buildServicePaymentContext(selectedEnv, account.address, 'start'),
+        (subsidyProviders) =>
           withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
             serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
           ),
-        { action: 'start', jobType: SubsidyJobType.SERVICE, subsidyProviders }
+        parseServiceStartReply
       );
       if (!job?.serviceId) {
         throw new Error('Node did not return a service id.');
@@ -1129,7 +1139,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       setLaunching(false);
     }
   }, [
-    resolveSubsidyProviders,
+    buildServicePaymentContext,
     startWithSubsidy,
     selectedTemplate,
     selectedEnv,
