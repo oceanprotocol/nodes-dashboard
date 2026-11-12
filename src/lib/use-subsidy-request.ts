@@ -1,6 +1,6 @@
 import { classifyError } from '@/lib/analytics';
 import { SignMessageFn, useOceanAccount } from '@/lib/use-ocean-account';
-import { withTimeout } from '@/lib/with-timeout';
+import { TimeoutError, withTimeout } from '@/lib/with-timeout';
 import { getSubsidyAuthMessage, SUBSIDY_AUTH_ERROR, SUBSIDY_AUTH_TTL_MS, SubsidyAuth } from '@/types/subsidy';
 import axios from 'axios';
 import { useCallback } from 'react';
@@ -106,8 +106,11 @@ export function useSubsidyRequest() {
             'Subsidy request'
           );
         } catch (error) {
-          if (!axios.isAxiosError(error) || axios.isCancel(error)) {
+          if (error instanceof TimeoutError || axios.isCancel(error)) {
             throw new SubsidyRequestError('The request timed out. Refresh the page and try again.');
+          }
+          if (!axios.isAxiosError(error)) {
+            throw error;
           }
           const data = error.response?.data;
           if (data?.error !== SUBSIDY_AUTH_ERROR) {
