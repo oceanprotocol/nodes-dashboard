@@ -313,9 +313,10 @@ export const isNodeSubsidized = async (program: SubsidyProgram, nodeAddress: str
 };
 
 /**
- * Mirrors the escrow: prepaid providers cover the job at lock, then postpaid ones refund part of what the payer locked
- * at claim. Each provider sees what the previous ones left uncovered.
- * Custom providers go first, in the order added, then ON ones; a custom provider that fails to quote is skipped.
+ * Prepaid providers cover the job at lock, postpaid ones refund part of what the payer locked at claim.
+ * Each provider sees what the previous ones left uncovered.
+ * Order: custom prepaid, custom postpaid, ON prepaid, ON postpaid; custom ones keep the order added.
+ * A custom provider that fails to quote is skipped.
  */
 export const quoteSubsidy = async ({
   cost,
@@ -362,9 +363,11 @@ export const quoteSubsidy = async ({
       payments[address] = payment;
     }
   }
-  const order = (['prepaid', 'postpaid'] as const).flatMap((payment) =>
-    paymentList.filter((entry) => entry.payment === payment).map((entry) => entry.address)
-  );
+  const byPayment = (addresses: string[]) =>
+    (['prepaid', 'postpaid'] as const).flatMap((payment) =>
+      addresses.filter((address) => payments[address] === payment)
+    );
+  const order = [...byPayment(custom), ...byPayment(programProviders)];
 
   const quoteProvider = async (address: string, subsidyNeeded: number) => {
     const view = getView(address);
