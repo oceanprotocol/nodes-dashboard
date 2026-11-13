@@ -22,11 +22,14 @@ export type TemplateWorkflow = ServiceTemplateWorkflow & {
 /**
  * How an entry presents itself. Absent means `service` — every entry published before this field.
  *
- * Identifiers in this codebase follow the WIRE (`template` = any entry, `service` / `bundle` = the two
- * kinds); the product words the user reads ("Service" / "Template") live only in the catalogue copy,
- * see components/inference/catalogue-config.tsx.
+ * Identifiers in this codebase follow the WIRE (`template` = any entry, `service` / `bundle` /
+ * `curated` = the kinds); the product words the user reads ("Service" / "Template") live only in the
+ * catalogue copy, see components/inference/catalogue-config.tsx.
+ *
+ * `curated` is a hand-picked model on a parent service (a fixed model + fixed serve args, e.g. a
+ * vLLM-served model). The dashboard treats it exactly like a bundle — see {@link isBundle}.
  */
-export type AppTemplateKind = 'service' | 'bundle';
+export type AppTemplateKind = 'service' | 'bundle' | 'curated';
 
 /** Filter axis of the catalogue. Closed set, so buckets stay consistent across nodes. */
 export type AppTemplateCategory =
@@ -94,11 +97,14 @@ export type AppTemplate = Omit<ServiceTemplatePublic, 'userConfigurableEnvVars' 
     workflows?: TemplateWorkflow[];
   };
 
-/** A bundle — narrowed so `service` is known present (the node's schema requires it on bundles). */
-export type AppBundle = AppTemplate & { kind: 'bundle'; service: string };
+/**
+ * A bundle or a curated template — both are variants of a parent service, narrowed so `service` is
+ * known present (the node's schema requires it on both kinds).
+ */
+export type AppBundle = AppTemplate & { kind: 'bundle' | 'curated'; service: string };
 
 export function isBundle(tpl: AppTemplate): tpl is AppBundle {
-  return tpl.kind === 'bundle' && typeof tpl.service === 'string' && tpl.service.length > 0;
+  return (tpl.kind === 'bundle' || tpl.kind === 'curated') && typeof tpl.service === 'string' && tpl.service.length > 0;
 }
 
 /** Everything that isn't a bundle, including every template published before `kind` existed. */
