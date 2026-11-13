@@ -1,4 +1,12 @@
-import { Head, Html, Main, NextScript } from 'next/document';
+import NextDocument, {
+  type DocumentContext,
+  type DocumentInitialProps,
+  type DocumentProps,
+  Head,
+  Html,
+  Main,
+  NextScript,
+} from 'next/document';
 import Script from 'next/script';
 
 /* Stamps `data-theme` on <html> before first paint so a stored preference doesn't flash the wrong
@@ -22,11 +30,13 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
-export default function Document() {
+/* `nonce` is minted per request in src/proxy.ts. Next's own <Head> and <NextScript> only stamp the
+   scripts they render with the `nonce` prop they are given, so it is passed down explicitly. */
+export default function Document({ nonce }: DocumentProps) {
   return (
     <Html lang="en">
-      <Head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      <Head nonce={nonce}>
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {/* Cookiebot must load first so auto-blocking can gate downstream tags */}
         <Script
           strategy="beforeInteractive"
@@ -35,6 +45,7 @@ export default function Document() {
           data-cbid="6be0fc4f-9e9c-4dee-a06f-e5bb0584cfe6"
           data-blockingmode="auto"
           type="text/javascript"
+          nonce={nonce}
         />
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico" />
@@ -67,8 +78,14 @@ export default function Document() {
       </Head>
       <body>
         <Main />
-        <NextScript />
+        <NextScript nonce={nonce} />
       </body>
     </Html>
   );
 }
+
+Document.getInitialProps = async (ctx: DocumentContext): Promise<DocumentInitialProps & { nonce?: string }> => {
+  const initialProps = await NextDocument.getInitialProps(ctx);
+  const nonce = ctx.req?.headers['x-nonce'];
+  return { ...initialProps, nonce: typeof nonce === 'string' ? nonce : undefined };
+};

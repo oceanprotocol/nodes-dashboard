@@ -56,6 +56,7 @@ import { getModelDownload, getServiceReadiness, isServiceReady } from '@/types/s
 import { isBundle } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
+import { safeHttpUrl } from '@/utils/safe-url';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -104,7 +105,9 @@ function serviceBaseUrl(job: ServiceJob | null): string | null {
   }
   const port = enginePort(job.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm');
   const match = job.endpoints.find((ep) => ep.containerPort === port);
-  return (match ?? job.endpoints[0]).url;
+  // Endpoint urls are node-supplied. Only plain http(s) may feed the docs link, the copy buttons and
+  // the code snippets built from this; anything else reads as "no endpoint" downstream.
+  return safeHttpUrl((match ?? job.endpoints[0]).url) ?? null;
 }
 
 // How long a service may report not-ready before its app can be opened anyway: a node that cannot
@@ -616,7 +619,8 @@ const ManageServicePage: React.FC = () => {
     }
     const port = templatePrimaryPort(template);
     const match = job.endpoints.find((ep) => ep.containerPort === port);
-    const url = (match ?? job.endpoints[0])?.url;
+    // Node-supplied; only plain http(s) may become the Open link or the copy value (see serviceBaseUrl).
+    const url = safeHttpUrl((match ?? job.endpoints[0])?.url);
     if (!url) {
       return null;
     }
@@ -633,7 +637,8 @@ const ManageServicePage: React.FC = () => {
       return null;
     }
     const port = templateMcpPort(template);
-    const url = port === undefined ? undefined : job.endpoints.find((ep) => ep.containerPort === port)?.url;
+    const url =
+      port === undefined ? undefined : safeHttpUrl(job.endpoints.find((ep) => ep.containerPort === port)?.url);
     if (!url) {
       return null;
     }

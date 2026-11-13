@@ -22,7 +22,7 @@ import '@/styles/privy-migration.css';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import cx from 'classnames';
-import App, { type AppContext, type AppProps } from 'next/app';
+import App, { type AppContext, type AppInitialProps, type AppProps } from 'next/app';
 import dynamic from 'next/dynamic';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import Script from 'next/script';
@@ -85,7 +85,11 @@ const muiTheme = createTheme({
   },
 });
 
-export default function DashboardApp({ Component, pageProps }: AppProps) {
+/* The CSP nonce minted in src/proxy.ts. The two tags below load client-side, after hydration, so
+   they get no nonce from the server render and must carry it themselves. */
+type DashboardAppProps = AppProps & { nonce?: string };
+
+export default function DashboardApp({ Component, pageProps, nonce }: DashboardAppProps) {
   const queryClientRef = useRef<QueryClient>();
   if (!queryClientRef.current) {
     queryClientRef.current = new QueryClient();
@@ -104,8 +108,15 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
         strategy="afterInteractive"
         data-cookieconsent="marketing"
         type="text/plain"
+        nonce={nonce}
       />
-      <Script id="google-analytics" strategy="afterInteractive" data-cookieconsent="marketing" type="text/plain">
+      <Script
+        id="google-analytics"
+        strategy="afterInteractive"
+        data-cookieconsent="marketing"
+        type="text/plain"
+        nonce={nonce}
+      >
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
@@ -162,7 +173,10 @@ export default function DashboardApp({ Component, pageProps }: AppProps) {
   );
 }
 
-DashboardApp.getInitialProps = async (context: AppContext) => {
+DashboardApp.getInitialProps = async (context: AppContext): Promise<AppInitialProps & { nonce?: string }> => {
   const appProps = await App.getInitialProps(context);
-  return appProps;
+  // Only set on the server render; a client-side navigation has no request, and the tags above are
+  // already in the document by then.
+  const nonce = context.ctx.req?.headers['x-nonce'];
+  return { ...appProps, nonce: typeof nonce === 'string' ? nonce : undefined };
 };
